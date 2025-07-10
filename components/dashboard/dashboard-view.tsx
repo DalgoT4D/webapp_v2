@@ -1,10 +1,10 @@
-"use client"
+'use client';
 
-import { ErrorBoundary } from "react-error-boundary"
-import { DashboardList } from "@/components/dashboard/dashboard-list"
+import { ErrorBoundary } from 'react-error-boundary';
+import { DashboardList } from '@/components/dashboard/dashboard-list';
 
 // Export the DashboardType that other components are importing
-export type DashboardType = "implementation" | "impact" | "funder" | "usage"
+export type DashboardType = 'implementation' | 'impact' | 'funder' | 'usage';
 
 function ErrorFallback({ error }: { error: Error }) {
   return (
@@ -12,7 +12,7 @@ function ErrorFallback({ error }: { error: Error }) {
       <h2 className="text-base font-bold text-red-800">Component Error:</h2>
       <p className="text-sm text-red-600">{error.message}</p>
     </div>
-  )
+  );
 }
 
 export function DashboardView() {
@@ -23,5 +23,5 @@ export function DashboardView() {
         <DashboardList />
       </ErrorBoundary>
     </div>
-  )
+  );
 }

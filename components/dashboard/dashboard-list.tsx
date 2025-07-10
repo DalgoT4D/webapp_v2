@@ -1,12 +1,18 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import type React from 'react';
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   Search,
   Grid,
@@ -27,21 +33,21 @@ import {
   Settings,
   ArrowRight,
   Plus,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import Link from "next/link"
-import { apiGet } from "@/lib/api"
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { apiGet } from '@/lib/api';
 
 interface Dashboard {
-  id: string
-  dashboard_title: string
-  description: string
-  category: string
-  tags: string[]
-  icon: React.ElementType
-  changed_on_utc: string
-  status: "active" | "draft" | "archived"
-  type: string
+  id: string;
+  dashboard_title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  icon: React.ElementType;
+  changed_on_utc: string;
+  status: 'active' | 'draft' | 'archived';
+  type: string;
 }
 
 // Icon mapping from string to Lucide React component
@@ -60,65 +66,65 @@ const iconMap: Record<string, React.ElementType> = {
   Calendar,
   FileText,
   Settings,
-}
+};
 
 export function DashboardList() {
-  const [dashboards, setDashboards] = useState<Dashboard[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [dashboards, setDashboards] = useState<Dashboard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     async function fetchDashboards() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
-        const data = await apiGet("/api/superset/dashboards/")
+        const data = await apiGet('/api/superset/dashboards/');
         // Map API data to Dashboard type
         const mapped = data.map((d: any) => ({
           ...d,
           icon: iconMap[d.icon] || BarChart3, // fallback icon
-        }))
-        setDashboards(mapped)
+        }));
+        setDashboards(mapped);
       } catch (err: any) {
-        setError(err.message || "Unknown error")
+        setError(err.message || 'Unknown error');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    fetchDashboards()
-  }, [])
+    fetchDashboards();
+  }, []);
 
   // Get unique categories
-  const categories = Array.from(new Set(dashboards.map((d) => d.category))).sort()
+  const categories = Array.from(new Set(dashboards.map((d) => d.category))).sort();
 
   // Filter dashboards
   const filteredDashboards = dashboards.filter((dashboard) => {
     const matchesSearch =
-      searchQuery === "" ||
+      searchQuery === '' ||
       dashboard.dashboard_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dashboard.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dashboard.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      dashboard.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesCategory = categoryFilter === "all" || dashboard.category === categoryFilter
-    const matchesStatus = statusFilter === "all" || dashboard.status === statusFilter
+    const matchesCategory = categoryFilter === 'all' || dashboard.category === categoryFilter;
+    const matchesStatus = statusFilter === 'all' || dashboard.status === statusFilter;
 
-    return matchesSearch && matchesCategory && matchesStatus
-  })
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
   const renderDashboardCard = (dashboard: Dashboard) => {
-    const Icon = dashboard.icon
+    const Icon = dashboard.icon;
 
     return (
       <Link key={dashboard.id} href={`/dashboards/${dashboard.id}`}>
         <Card
           className={cn(
-            "cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02]",
-            dashboard.status === "draft" && "opacity-75",
-            dashboard.status === "archived" && "opacity-50",
+            'cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02]',
+            dashboard.status === 'draft' && 'opacity-75',
+            dashboard.status === 'archived' && 'opacity-50'
           )}
         >
           <CardHeader className="pb-3">
@@ -133,8 +139,11 @@ export function DashboardList() {
                     <Badge variant="outline" className="text-xs">
                       {dashboard.category}
                     </Badge>
-                    {dashboard.status !== "active" && (
-                      <Badge variant={dashboard.status === "draft" ? "secondary" : "outline"} className="text-xs">
+                    {dashboard.status !== 'active' && (
+                      <Badge
+                        variant={dashboard.status === 'draft' ? 'secondary' : 'outline'}
+                        className="text-xs"
+                      >
                         {dashboard.status}
                       </Badge>
                     )}
@@ -164,19 +173,19 @@ export function DashboardList() {
           </CardContent>
         </Card>
       </Link>
-    )
-  }
+    );
+  };
 
   const renderDashboardListItem = (dashboard: Dashboard) => {
-    const Icon = dashboard.icon
+    const Icon = dashboard.icon;
 
     return (
       <Link key={dashboard.id} href={`/dashboards/${dashboard.id}`}>
         <div
           className={cn(
-            "flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent/50 hover:shadow-sm",
-            dashboard.status === "draft" && "opacity-75",
-            dashboard.status === "archived" && "opacity-50",
+            'flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent/50 hover:shadow-sm',
+            dashboard.status === 'draft' && 'opacity-75',
+            dashboard.status === 'archived' && 'opacity-50'
           )}
         >
           <div className="p-2 rounded-lg flex-shrink-0 bg-muted">
@@ -188,9 +197,9 @@ export function DashboardList() {
               <Badge variant="outline" className="text-xs flex-shrink-0">
                 {dashboard.category}
               </Badge>
-              {dashboard.status !== "active" && (
+              {dashboard.status !== 'active' && (
                 <Badge
-                  variant={dashboard.status === "draft" ? "secondary" : "outline"}
+                  variant={dashboard.status === 'draft' ? 'secondary' : 'outline'}
                   className="text-xs flex-shrink-0"
                 >
                   {dashboard.status}
@@ -199,7 +208,9 @@ export function DashboardList() {
             </div>
             <p className="text-sm text-muted-foreground truncate mb-2">{dashboard.description}</p>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Updated {dashboard.changed_on_utc}</span>
+              <span className="text-xs text-muted-foreground">
+                Updated {dashboard.changed_on_utc}
+              </span>
               <div className="flex gap-1">
                 {dashboard.tags.slice(0, 3).map((tag) => (
                   <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">
@@ -212,8 +223,8 @@ export function DashboardList() {
           <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         </div>
       </Link>
-    )
-  }
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -223,7 +234,9 @@ export function DashboardList() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboards</h1>
-            <p className="text-muted-foreground">Monitor and analyze your maternal health program performance</p>
+            <p className="text-muted-foreground">
+              Monitor and analyze your maternal health program performance
+            </p>
           </div>
           <Link href="/dashboards/create">
             <Button>
@@ -274,17 +287,17 @@ export function DashboardList() {
 
             <div className="flex border rounded-md ml-auto">
               <Button
-                variant={viewMode === "grid" ? "default" : "ghost"}
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode("grid")}
+                onClick={() => setViewMode('grid')}
                 className="rounded-r-none"
               >
                 <Grid className="h-4 w-4" />
               </Button>
               <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode("list")}
+                onClick={() => setViewMode('list')}
                 className="rounded-l-none"
               >
                 <List className="h-4 w-4" />
@@ -293,7 +306,11 @@ export function DashboardList() {
           </div>
 
           <div className="text-sm text-muted-foreground">
-            {loading ? "Loading..." : error ? `Error: ${error}` : `${filteredDashboards.length} of ${dashboards.length} dashboards`}
+            {loading
+              ? 'Loading...'
+              : error
+                ? `Error: ${error}`
+                : `${filteredDashboards.length} of ${dashboards.length} dashboards`}
           </div>
         </div>
       </div>
@@ -307,18 +324,26 @@ export function DashboardList() {
         ) : filteredDashboards.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-muted-foreground mb-2">No dashboards found</div>
-            <div className="text-sm text-muted-foreground">Try adjusting your search or filter criteria</div>
+            <div className="text-sm text-muted-foreground">
+              Try adjusting your search or filter criteria
+            </div>
           </div>
         ) : (
           <div
-            className={cn(viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-3")}
+            className={cn(
+              viewMode === 'grid'
+                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                : 'space-y-3'
+            )}
           >
             {filteredDashboards.map((dashboard) =>
-              viewMode === "grid" ? renderDashboardCard(dashboard) : renderDashboardListItem(dashboard),
+              viewMode === 'grid'
+                ? renderDashboardCard(dashboard)
+                : renderDashboardListItem(dashboard)
             )}
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

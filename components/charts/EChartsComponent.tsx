@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useRef, useEffect } from 'react';
 import type { EChartsOption } from 'echarts';
@@ -10,14 +10,11 @@ interface EChartsComponentProps {
   customOptions?: EChartsOption;
 }
 
-export default function EChartsComponent({ 
-  data,
-  customOptions = {}
-}: EChartsComponentProps) {
+export default function EChartsComponent({ data, customOptions = {} }: EChartsComponentProps) {
   // Merge backend config with any custom options
   const options = (() => ({
     ...data.chart_config,
-    ...customOptions
+    ...customOptions,
   }))();
 
   return (
@@ -32,4 +29,4 @@ export default function EChartsComponent({
       />
     </div>
   );
-} 
+}

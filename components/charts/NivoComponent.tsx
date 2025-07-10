@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
@@ -23,9 +23,8 @@ export default function NivoComponent({
   chartDescription,
   xAxisLabel = 'X Axis',
   yAxisLabel = 'Y Axis',
-  chartType = 'bar'
+  chartType = 'bar',
 }: NivoComponentProps) {
-  
   // Transform data for Nivo charts
   const transformedData = React.useMemo(() => {
     if (!data || !data['x-axis'] || !data['y-axis']) {
@@ -33,34 +32,36 @@ export default function NivoComponent({
     }
 
     const { 'x-axis': xData, 'y-axis': yData } = data;
-    
+
     switch (chartType) {
       case 'bar':
         return xData.map((x, index) => ({
           x: String(x),
-          y: Number(yData[index]) || 0
+          y: Number(yData[index]) || 0,
         }));
-      
+
       case 'line':
-        return [{
-          id: yAxisLabel,
-          data: xData.map((x, index) => ({
-            x: String(x),
-            y: Number(yData[index]) || 0
-          }))
-        }];
-      
+        return [
+          {
+            id: yAxisLabel,
+            data: xData.map((x, index) => ({
+              x: String(x),
+              y: Number(yData[index]) || 0,
+            })),
+          },
+        ];
+
       case 'pie':
         return xData.map((x, index) => ({
           id: String(x),
           label: String(x),
-          value: Number(yData[index]) || 0
+          value: Number(yData[index]) || 0,
         }));
-      
+
       default:
         return xData.map((x, index) => ({
           x: String(x),
-          y: Number(yData[index]) || 0
+          y: Number(yData[index]) || 0,
         }));
     }
   }, [data, chartType, yAxisLabel]);
@@ -73,39 +74,48 @@ export default function NivoComponent({
       domain: {
         line: {
           stroke: '#d1d5db',
-          strokeWidth: 1
-        }
+          strokeWidth: 1,
+        },
       },
       ticks: {
         line: {
           stroke: '#d1d5db',
-          strokeWidth: 1
-        }
-      }
+          strokeWidth: 1,
+        },
+      },
     },
     grid: {
       line: {
         stroke: '#e5e7eb',
-        strokeWidth: 1
-      }
+        strokeWidth: 1,
+      },
     },
     legends: {
       text: {
-        fontSize: 12
-      }
+        fontSize: 12,
+      },
     },
     tooltip: {
       container: {
         background: 'white',
         fontSize: 12,
         borderRadius: 4,
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.25)'
-      }
-    }
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.25)',
+      },
+    },
   };
 
   // Common colors
-  const colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+  const colors = [
+    '#6366f1',
+    '#10b981',
+    '#f59e0b',
+    '#ef4444',
+    '#8b5cf6',
+    '#06b6d4',
+    '#84cc16',
+    '#f97316',
+  ];
 
   // Render appropriate chart based on type
   const renderChart = () => {
@@ -127,7 +137,7 @@ export default function NivoComponent({
               tickRotation: transformedData.length > 10 ? 45 : 0,
               legend: xAxisLabel,
               legendPosition: 'middle',
-              legendOffset: 50
+              legendOffset: 50,
             }}
             axisLeft={{
               tickSize: 5,
@@ -135,7 +145,7 @@ export default function NivoComponent({
               tickRotation: 0,
               legend: yAxisLabel,
               legendPosition: 'middle',
-              legendOffset: -50
+              legendOffset: -50,
             }}
             labelSkipWidth={12}
             labelSkipHeight={12}
@@ -145,7 +155,7 @@ export default function NivoComponent({
             theme={theme}
           />
         );
-      
+
       case 'line':
         return (
           <ResponsiveLine
@@ -161,7 +171,7 @@ export default function NivoComponent({
               tickRotation: transformedData[0]?.data.length > 10 ? 45 : 0,
               legend: xAxisLabel,
               legendOffset: 50,
-              legendPosition: 'middle'
+              legendPosition: 'middle',
             }}
             axisLeft={{
               tickSize: 5,
@@ -169,7 +179,7 @@ export default function NivoComponent({
               tickRotation: 0,
               legend: yAxisLabel,
               legendOffset: -50,
-              legendPosition: 'middle'
+              legendPosition: 'middle',
             }}
             colors={[colors[1]]}
             pointSize={10}
@@ -200,15 +210,15 @@ export default function NivoComponent({
                     on: 'hover',
                     style: {
                       itemBackground: 'rgba(0, 0, 0, .03)',
-                      itemOpacity: 1
-                    }
-                  }
-                ]
-              }
+                      itemOpacity: 1,
+                    },
+                  },
+                ],
+              },
             ]}
           />
         );
-      
+
       case 'pie':
         return (
           <ResponsivePie
@@ -241,12 +251,12 @@ export default function NivoComponent({
                 itemDirection: 'left-to-right',
                 itemOpacity: 1,
                 symbolSize: 18,
-                symbolShape: 'circle'
-              }
+                symbolShape: 'circle',
+              },
             ]}
           />
         );
-      
+
       default:
         return <div>Unsupported chart type</div>;
     }
@@ -261,4 +271,4 @@ export default function NivoComponent({
       {renderChart()}
     </div>
   );
-} 
+}

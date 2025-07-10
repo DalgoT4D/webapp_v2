@@ -1,16 +1,24 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 const data = [
-  { year: "2023", funding: 100, costs: 95, sustainability: 105 },
-  { year: "2024", funding: 110, costs: 100, sustainability: 110 },
-  { year: "2025", funding: 105, costs: 105, sustainability: 100 },
-  { year: "2026", funding: 115, costs: 110, sustainability: 105 },
-  { year: "2027", funding: 120, costs: 115, sustainability: 104 },
-]
+  { year: '2023', funding: 100, costs: 95, sustainability: 105 },
+  { year: '2024', funding: 110, costs: 100, sustainability: 110 },
+  { year: '2025', funding: 105, costs: 105, sustainability: 100 },
+  { year: '2026', funding: 115, costs: 110, sustainability: 105 },
+  { year: '2027', funding: 120, costs: 115, sustainability: 104 },
+];
 
 export function ProgramSustainabilityChart() {
   return (
@@ -23,16 +31,16 @@ export function ProgramSustainabilityChart() {
         <ChartContainer
           config={{
             funding: {
-              label: "Funding",
-              color: "hsl(var(--chart-1))",
+              label: 'Funding',
+              color: 'hsl(var(--chart-1))',
             },
             costs: {
-              label: "Costs",
-              color: "hsl(var(--chart-2))",
+              label: 'Costs',
+              color: 'hsl(var(--chart-2))',
             },
             sustainability: {
-              label: "Sustainability Index",
-              color: "hsl(var(--chart-3))",
+              label: 'Sustainability Index',
+              color: 'hsl(var(--chart-3))',
             },
           }}
           className="h-[250px]"
@@ -57,5 +65,5 @@ export function ProgramSustainabilityChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

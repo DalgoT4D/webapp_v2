@@ -1,10 +1,10 @@
-import { KpiCards } from "@/components/kpi-cards"
-import { TextualInsights } from "@/components/textual-insights"
-import { Recommendations } from "@/components/recommendations"
-import { RecentlyViewed } from "@/components/recently-viewed"
-import { RiskDistributionChart } from "@/components/risk-distribution-chart"
-import { AlertNotification } from "@/components/alert-notification"
-import { ErrorBoundary } from "react-error-boundary"
+import { KpiCards } from '@/components/kpi-cards';
+import { TextualInsights } from '@/components/textual-insights';
+import { Recommendations } from '@/components/recommendations';
+import { RecentlyViewed } from '@/components/recently-viewed';
+import { RiskDistributionChart } from '@/components/risk-distribution-chart';
+import { AlertNotification } from '@/components/alert-notification';
+import { ErrorBoundary } from 'react-error-boundary';
 
 function ErrorFallback({ error }: { error: Error }) {
   return (
@@ -12,7 +12,7 @@ function ErrorFallback({ error }: { error: Error }) {
       <h2 className="text-lg font-bold text-red-800">Something went wrong:</h2>
       <p className="text-red-600">{error.message}</p>
     </div>
-  )
+  );
 }
 
 export function Insights() {
@@ -57,5 +57,5 @@ export function Insights() {
         <RecentlyViewed />
       </ErrorBoundary>
     </div>
-  )
+  );
 }

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { apiPost } from "@/lib/api";
-import MiniChart, { MiniChartProps } from "./MiniChart";
+import { apiPost } from '@/lib/api';
+import MiniChart, { MiniChartProps } from './MiniChart';
 
 interface SavedChartThumbnailProps {
   chart: {
@@ -21,9 +21,9 @@ interface SavedChartThumbnailProps {
   className?: string;
 }
 
-export default function SavedChartThumbnail({ 
+export default function SavedChartThumbnail({
   chart,
-  className = "w-full h-full"
+  className = 'w-full h-full',
 }: SavedChartThumbnailProps) {
   const [chartData, setChartData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,11 +31,11 @@ export default function SavedChartThumbnail({
 
   useEffect(() => {
     let isActive = true; // Prevent state updates if component unmounts
-    
+
     const fetchChartData = async () => {
       try {
         if (!isActive) return;
-        
+
         setLoading(true);
         setError(null);
 
@@ -47,17 +47,17 @@ export default function SavedChartThumbnail({
           xaxis_col: chart.config.xAxis,
           yaxis_col: chart.config.yAxis,
           offset: 0,
-          limit: 8 // Limit data for thumbnails
+          limit: 8, // Limit data for thumbnails
         };
 
         const responseData = await apiPost('/api/visualization/generate_chart/', payload);
-        
+
         if (!isActive) return; // Component was unmounted
-        
+
         if (!responseData.chart_config) {
           throw new Error('No chart configuration received');
         }
-        
+
         if (isActive) {
           setChartData(responseData.chart_config);
         }
@@ -74,12 +74,19 @@ export default function SavedChartThumbnail({
 
     // Add a small delay to avoid immediate API calls on render
     const timeoutId = setTimeout(fetchChartData, 100);
-    
+
     return () => {
       isActive = false;
       clearTimeout(timeoutId);
     };
-  }, [chart.id, chart.config.chartType, chart.schema_name, chart.table, chart.config.xAxis, chart.config.yAxis]);
+  }, [
+    chart.id,
+    chart.config.chartType,
+    chart.schema_name,
+    chart.table,
+    chart.config.xAxis,
+    chart.config.yAxis,
+  ]);
 
   if (loading) {
     return (
@@ -105,11 +112,7 @@ export default function SavedChartThumbnail({
 
   return (
     <div className={`bg-background rounded border shadow-sm overflow-hidden ${className}`}>
-      <MiniChart
-        config={chartData}
-        chartType={chart.config.chartType}
-        className="w-full h-full"
-      />
+      <MiniChart config={chartData} chartType={chart.config.chartType} className="w-full h-full" />
     </div>
   );
-} 
+}

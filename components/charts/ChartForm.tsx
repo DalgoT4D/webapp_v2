@@ -1,19 +1,25 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import React, { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import debounce from 'lodash/debounce';
 
 // SWR Hooks
-import { 
-  useSchemas, 
-  useTables, 
-  useColumns, 
+import {
+  useSchemas,
+  useTables,
+  useColumns,
   useChartSave,
   useChartUpdate,
   useChartDelete,
@@ -21,8 +27,8 @@ import {
   type Column,
   type GenerateChartPayload,
   type SaveChartPayload,
-  type ChartData
-} from '@/hooks/api/useChart'
+  type ChartData,
+} from '@/hooks/api/useChart';
 
 // Extend GenerateChartPayload type locally
 interface ExtendedGenerateChartPayload extends Omit<GenerateChartPayload, 'computation_type'> {
@@ -32,19 +38,18 @@ interface ExtendedGenerateChartPayload extends Omit<GenerateChartPayload, 'compu
 }
 
 // Chart Components
-import EChartsComponent from "./EChartsComponent";
+import EChartsComponent from './EChartsComponent';
 // Temporarily remove Nivo until it's updated
 // import NivoComponent from "./NivoComponent";
 
-
 // Chart Utilities
-import { 
-  getSupportedChartTypes, 
-  validateChartData, 
+import {
+  getSupportedChartTypes,
+  validateChartData,
   getRecommendedChartType,
   generateChartTitleSuggestions,
-  CHART_TYPE_CONFIGS
-} from "./chartUtils";
+  CHART_TYPE_CONFIGS,
+} from './chartUtils';
 
 // Form data interface
 interface ChartFormData {
@@ -93,15 +98,18 @@ interface ChartFormProps {
     chartDescription: string;
     chartType: string;
   }) => void;
-  onUpdate?: (chartId: number, chartData: {
-    schema: string;
-    table: string;
-    xAxis: string;
-    yAxis: string;
-    chartName: string;
-    chartDescription: string;
-    chartType: string;
-  }) => void;
+  onUpdate?: (
+    chartId: number,
+    chartData: {
+      schema: string;
+      table: string;
+      xAxis: string;
+      yAxis: string;
+      chartName: string;
+      chartDescription: string;
+      chartType: string;
+    }
+  ) => void;
   onDelete?: (chartId: number) => void;
   title: string;
   chartLibraryType: 'echarts' | 'nivo' | 'recharts';
@@ -125,26 +133,25 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-export default function ChartForm({ 
-  open, 
-  onOpenChange, 
-  onSave, 
+export default function ChartForm({
+  open,
+  onOpenChange,
+  onSave,
   onUpdate,
   onDelete,
-  title, 
+  title,
   chartLibraryType,
-  editChart 
+  editChart,
 }: ChartFormProps) {
-  
   // React Hook Form setup
-  const { 
-    register, 
-    handleSubmit, 
-    watch, 
+  const {
+    register,
+    handleSubmit,
+    watch,
     setValue,
-    resetField, 
+    resetField,
     reset: resetForm,
-    formState: { errors, isValid } 
+    formState: { errors, isValid },
   } = useForm<ChartFormData>({
     defaultValues: {
       schema: '',
@@ -158,35 +165,38 @@ export default function ChartForm({
       computation_type: 'raw',
       aggregateFunc: 'count',
       aggregate_col_alias: '',
-      dimension_col: ''
+      dimension_col: '',
     },
-    mode: 'onChange'
-  })
-  
+    mode: 'onChange',
+  });
+
   // Watch form fields for reactive updates
-  const watchedSchema = watch('schema')
-  const watchedTable = watch('table')
-  const watchedXAxis = watch('xAxis')
-  const watchedYAxis = watch('yAxis')
-  const watchedChartType = watch('chartType')
-  const watchedDataLimit = watch('dataLimit')
-  const watchedChartName = watch('chartName')
-  const watchedMode = watch('computation_type')
-  const watchedAggregateFunc = watch('aggregateFunc')
-  const watchedAggregateColAlias = watch('aggregate_col_alias')
-  const watchedDimension = watch('dimension_col')
-  
+  const watchedSchema = watch('schema');
+  const watchedTable = watch('table');
+  const watchedXAxis = watch('xAxis');
+  const watchedYAxis = watch('yAxis');
+  const watchedChartType = watch('chartType');
+  const watchedDataLimit = watch('dataLimit');
+  const watchedChartName = watch('chartName');
+  const watchedMode = watch('computation_type');
+  const watchedAggregateFunc = watch('aggregateFunc');
+  const watchedAggregateColAlias = watch('aggregate_col_alias');
+  const watchedDimension = watch('dimension_col');
+
   // SWR hooks for data fetching
-  const { data: schemas, isLoading: schemasLoading, error: schemasError } = useSchemas()
-  const { data: tables, isLoading: tablesLoading, error: tablesError } = useTables(watchedSchema)
-  const { data: columns, isLoading: columnsLoading, error: columnsError } = useColumns(watchedSchema, watchedTable)
-  
+  const { data: schemas, isLoading: schemasLoading, error: schemasError } = useSchemas();
+  const { data: tables, isLoading: tablesLoading, error: tablesError } = useTables(watchedSchema);
+  const {
+    data: columns,
+    isLoading: columnsLoading,
+    error: columnsError,
+  } = useColumns(watchedSchema, watchedTable);
+
   // SWR mutations
   // const { trigger: generateChart, isMutating: isGenerating, error: generateError } = useChartGeneration()
-  const { trigger: saveChart, isMutating: isSaving } = useChartSave()
-  const { trigger: updateChart, isMutating: isUpdating } = useChartUpdate()
-  const { trigger: deleteChart, isMutating: isDeleting } = useChartDelete()
-  
+  const { trigger: saveChart, isMutating: isSaving } = useChartSave();
+  const { trigger: updateChart, isMutating: isUpdating } = useChartUpdate();
+  const { trigger: deleteChart, isMutating: isDeleting } = useChartDelete();
 
   // Chart data generation payload
   const chartPayload = useMemo((): ExtendedGenerateChartPayload | null => {
@@ -201,13 +211,13 @@ export default function ChartForm({
         xaxis: watchedXAxis,
         yaxis: watchedYAxis,
         offset: 0,
-        limit: parseInt(watchedDataLimit) || 10
+        limit: parseInt(watchedDataLimit) || 10,
       };
     }
-    
+
     // For aggregated mode
     // if (!watchedAggregateFunc) return null;
-    
+
     // For count, we don't need aggregate_col
 
     return {
@@ -221,28 +231,29 @@ export default function ChartForm({
       aggregate_col: watchedAggregateFunc === 'count' ? '*' : watchedYAxis,
       aggregate_col_alias: watchedAggregateColAlias,
       offset: 0,
-      limit: parseInt(watchedDataLimit) || 10
+      limit: parseInt(watchedDataLimit) || 10,
     };
   }, [
-    watchedSchema, 
-    watchedTable, 
-    watchedMode, 
-    watchedXAxis, 
-    watchedYAxis, 
+    watchedSchema,
+    watchedTable,
+    watchedMode,
+    watchedXAxis,
+    watchedYAxis,
     watchedAggregateFunc,
     watchedAggregateColAlias,
     watchedDimension,
-    watchedDataLimit, 
+    watchedDataLimit,
     watchedChartType,
-    watchedMode
+    watchedMode,
   ]);
-  
+
   // Chart data with SWR caching
-  const { data: chartData, error: chartDataError, isLoading: isChartDataLoading } = useChartData(
-    chartPayload,
-    { enabled: Boolean(chartPayload) }
-  )
-  
+  const {
+    data: chartData,
+    error: chartDataError,
+    isLoading: isChartDataLoading,
+  } = useChartData(chartPayload, { enabled: Boolean(chartPayload) });
+
   // Initialize form with edit data
   useEffect(() => {
     if (open && editChart) {
@@ -255,49 +266,56 @@ export default function ChartForm({
         chartDescription: editChart.description,
         chartType: editChart.config.chartType,
         dataLimit: '10',
-        aggregate_col_alias: editChart.config.aggregate_col_alias || `total_${editChart.config.dimension_col?.toLowerCase() || ''}`,
-        dimension_col: editChart.config.dimension_col || ''
-      })
+        aggregate_col_alias:
+          editChart.config.aggregate_col_alias ||
+          `total_${editChart.config.dimension_col?.toLowerCase() || ''}`,
+        dimension_col: editChart.config.dimension_col || '',
+      });
     } else if (open && !editChart) {
-      resetForm()
+      resetForm();
     }
-  }, [open, editChart, resetForm])
-  
+  }, [open, editChart, resetForm]);
+
   // Auto-suggest chart titles
   useEffect(() => {
     if (watchedXAxis && watchedYAxis && watchedChartType && !watchedChartName && !editChart) {
-      const suggestions = generateChartTitleSuggestions(watchedXAxis, watchedYAxis, watchedChartType)
+      const suggestions = generateChartTitleSuggestions(
+        watchedXAxis,
+        watchedYAxis,
+        watchedChartType
+      );
       if (suggestions.length > 0) {
-        setValue('chartName', suggestions[0])
+        setValue('chartName', suggestions[0]);
       }
     }
-  }, [watchedXAxis, watchedYAxis, watchedChartType, watchedChartName, editChart, setValue])
-  
+  }, [watchedXAxis, watchedYAxis, watchedChartType, watchedChartName, editChart, setValue]);
+
   // Chart validation
   const chartValidation = useMemo(() => {
-    if (!chartData || !watchedChartType) return null
-    
-    const validation = validateChartData(chartData, watchedChartType)
-    const recommendedType = getRecommendedChartType(chartData, chartLibraryType)
-    const suggestions = generateChartTitleSuggestions(watchedXAxis, watchedYAxis, watchedChartType)
-    
+    if (!chartData || !watchedChartType) return null;
+
+    const validation = validateChartData(chartData, watchedChartType);
+    const recommendedType = getRecommendedChartType(chartData, chartLibraryType);
+    const suggestions = generateChartTitleSuggestions(watchedXAxis, watchedYAxis, watchedChartType);
+
     return {
       isValid: validation.isValid,
       errors: validation.errors,
-      recommendations: validation.isValid ? [] : [
-        `Recommended chart type: ${CHART_TYPE_CONFIGS[recommendedType]?.name || recommendedType}`,
-        ...suggestions.slice(0, 2).map(s => `Suggested title: "${s}"`)
-      ]
-    }
-  }, [chartData, watchedChartType, chartLibraryType, watchedXAxis, watchedYAxis])
-  
+      recommendations: validation.isValid
+        ? []
+        : [
+            `Recommended chart type: ${CHART_TYPE_CONFIGS[recommendedType]?.name || recommendedType}`,
+            ...suggestions.slice(0, 2).map((s) => `Suggested title: "${s}"`),
+          ],
+    };
+  }, [chartData, watchedChartType, chartLibraryType, watchedXAxis, watchedYAxis]);
 
   // Save chart function
   const handleSaveChart = async () => {
-    if (!chartPayload || !chartData) return
-    
+    if (!chartPayload || !chartData) return;
+
     try {
-      const formData = watch()
+      const formData = watch();
       const savePayload: SaveChartPayload = {
         title: formData.chartName,
         description: formData.chartDescription,
@@ -313,13 +331,13 @@ export default function ChartForm({
             aggregate_func: formData.aggregateFunc,
             aggregate_col: formData.aggregateFunc === 'count' ? '*' : formData.yAxis,
             aggregate_col_alias: formData.aggregate_col_alias,
-            dimension_col: formData.dimension_col
-          })
-        }
-      }
-      
+            dimension_col: formData.dimension_col,
+          }),
+        },
+      };
+
       if (editChart && onUpdate) {
-        await updateChart({ id: editChart.id, ...savePayload })
+        await updateChart({ id: editChart.id, ...savePayload });
         onUpdate(editChart.id, {
           schema: formData.schema,
           table: formData.table,
@@ -327,10 +345,10 @@ export default function ChartForm({
           yAxis: formData.yAxis,
           chartName: formData.chartName,
           chartDescription: formData.chartDescription,
-          chartType: formData.chartType
-        })
+          chartType: formData.chartType,
+        });
       } else {
-        await saveChart(savePayload)
+        await saveChart(savePayload);
         onSave({
           schema: formData.schema,
           table: formData.table,
@@ -338,51 +356,50 @@ export default function ChartForm({
           yAxis: formData.yAxis,
           chartName: formData.chartName,
           chartDescription: formData.chartDescription,
-          chartType: formData.chartType
-        })
+          chartType: formData.chartType,
+        });
       }
-      
-      onOpenChange(false)
+
+      onOpenChange(false);
     } catch (error) {
-      console.error('Failed to save chart:', error)
+      console.error('Failed to save chart:', error);
     }
-  }
-  
+  };
+
   // Delete chart function
   const handleDeleteChart = async () => {
-    if (!editChart || !onDelete) return
-    
+    if (!editChart || !onDelete) return;
+
     try {
-      await deleteChart({ id: editChart.id })
-      onDelete(editChart.id)
-      onOpenChange(false)
+      await deleteChart({ id: editChart.id });
+      onDelete(editChart.id);
+      onOpenChange(false);
     } catch (error) {
-      console.error('Failed to delete chart:', error)
+      console.error('Failed to delete chart:', error);
     }
-  }
-  
+  };
 
-  const dynmaicXaxisLables =()=>{
-    const chartType = ["pie"];
-    if(chartType.includes(watchedChartType)){
-      return "Category"
+  const dynmaicXaxisLables = () => {
+    const chartType = ['pie'];
+    if (chartType.includes(watchedChartType)) {
+      return 'Category';
     }
-    return "X-Axis"
-  }
+    return 'X-Axis';
+  };
 
-  const dynamicYaxisLables =()=>{
-    const chartType = ["pie"];
-    if(watchedMode === "raw" && chartType.includes(watchedChartType)){
-      return "Value"
-    }else if(watchedMode == "raw"){
-      return "Y-Axis"
-    }else if(watchedMode == "aggregated"){
-      return "Aggregate Column"
+  const dynamicYaxisLables = () => {
+    const chartType = ['pie'];
+    if (watchedMode === 'raw' && chartType.includes(watchedChartType)) {
+      return 'Value';
+    } else if (watchedMode == 'raw') {
+      return 'Y-Axis';
+    } else if (watchedMode == 'aggregated') {
+      return 'Aggregate Column';
     }
-  }
-  
-  const isLoading = isSaving || isUpdating || isDeleting
-  
+  };
+
+  const isLoading = isSaving || isUpdating || isDeleting;
+
   // Local state for smooth typing
   const [localAliasValue, setLocalAliasValue] = useState('');
 
@@ -397,7 +414,12 @@ export default function ChartForm({
 
   // Set default alias when aggregate function or column changes
   useEffect(() => {
-    if (watchedMode === 'aggregated' && watchedAggregateFunc && watchedAggregateFunc !== 'count' && watchedYAxis) {
+    if (
+      watchedMode === 'aggregated' &&
+      watchedAggregateFunc &&
+      watchedAggregateFunc !== 'count' &&
+      watchedYAxis
+    ) {
       const defaultAlias = `total_${watchedYAxis.toLowerCase()}`;
       setValue('aggregate_col_alias', defaultAlias);
       setLocalAliasValue(defaultAlias);
@@ -442,23 +464,23 @@ export default function ChartForm({
         <DialogHeader className="flex-shrink-0 pb-4">
           <DialogTitle>{editChart ? `Edit ${title}` : title}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-7 gap-6 min-h-full lg:h-[calc(95vh-8rem)]">
-            
             {/* Form Section - Chart Configuration */}
             <div className="lg:col-span-1 xl:col-span-2 space-y-6 lg:overflow-y-auto lg:pr-2">
               <form className="space-y-6">
-                
                 {/* Chart Configuration Section */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide border-b pb-2">Chart Configuration</h3>
-                  
-                      {/* Chart Type */}
-                      <div>
+                  <h3 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide border-b pb-2">
+                    Chart Configuration
+                  </h3>
+
+                  {/* Chart Type */}
+                  <div>
                     <label className="block text-sm font-medium mb-2">Chart Type</label>
-                    <Select 
-                      value={watchedChartType} 
+                    <Select
+                      value={watchedChartType}
                       onValueChange={(value) => setValue('chartType', value)}
                     >
                       <SelectTrigger className="w-full">
@@ -466,37 +488,44 @@ export default function ChartForm({
                       </SelectTrigger>
                       <SelectContent>
                         {getSupportedChartTypes(chartLibraryType).map((type) => {
-                          const config = CHART_TYPE_CONFIGS[type]
+                          const config = CHART_TYPE_CONFIGS[type];
                           return (
                             <SelectItem key={type} value={type}>
                               <div className="flex items-center gap-3 py-1">
                                 <span className="text-lg">{config.icon}</span>
                                 <div className="flex flex-col">
                                   <div className="font-medium text-foreground">{config.name}</div>
-                                  <div className="text-xs text-muted-foreground/80">{config.description}</div>
+                                  <div className="text-xs text-muted-foreground/80">
+                                    {config.description}
+                                  </div>
                                 </div>
                               </div>
                             </SelectItem>
-                          )
+                          );
                         })}
                       </SelectContent>
                     </Select>
                   </div>
-                  
 
                   {/* Schema */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Schema</label>
-                    <Select 
-                      value={watchedSchema} 
+                    <Select
+                      value={watchedSchema}
                       onValueChange={(value) => setValue('schema', value)}
                       disabled={schemasLoading}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={schemasLoading ? "Loading..." : "Select schema"} />
+                        <SelectValue
+                          placeholder={schemasLoading ? 'Loading...' : 'Select schema'}
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        {schemasError && <div className="px-3 py-2 text-red-500 text-sm">{schemasError.message}</div>}
+                        {schemasError && (
+                          <div className="px-3 py-2 text-red-500 text-sm">
+                            {schemasError.message}
+                          </div>
+                        )}
                         {schemas?.map((schema) => (
                           <SelectItem key={schema} value={schema}>
                             {schema}
@@ -505,23 +534,31 @@ export default function ChartForm({
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   {/* Table */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Table</label>
                     <div className="space-y-2">
-                      <Select 
-                        value={watchedTable} 
+                      <Select
+                        value={watchedTable}
                         onValueChange={(value) => setValue('table', value)}
                         disabled={!watchedSchema || tablesLoading}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={tablesLoading ? "Loading..." : "Select table"} />
+                          <SelectValue
+                            placeholder={tablesLoading ? 'Loading...' : 'Select table'}
+                          />
                         </SelectTrigger>
                         <SelectContent>
-                          {tablesError && <div className="px-3 py-2 text-red-500 text-sm">{tablesError.message}</div>}
+                          {tablesError && (
+                            <div className="px-3 py-2 text-red-500 text-sm">
+                              {tablesError.message}
+                            </div>
+                          )}
                           {tables?.length === 0 && !tablesLoading && (
-                            <div className="px-3 py-2 text-muted-foreground text-sm">No tables found</div>
+                            <div className="px-3 py-2 text-muted-foreground text-sm">
+                              No tables found
+                            </div>
                           )}
                           {tables?.map((table) => (
                             <SelectItem key={table} value={table}>
@@ -532,7 +569,7 @@ export default function ChartForm({
                       </Select>
                     </div>
                   </div>
-                  
+
                   {/* Data Mode */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Data Mode</label>
@@ -577,15 +614,23 @@ export default function ChartForm({
                           disabled={!watchedTable || columnsLoading}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={columnsLoading ? "Loading..." : "Choose X-Axis"} />
+                            <SelectValue
+                              placeholder={columnsLoading ? 'Loading...' : 'Choose X-Axis'}
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            {columnsError && <div className="px-3 py-2 text-red-500 text-sm">{columnsError.message}</div>}
+                            {columnsError && (
+                              <div className="px-3 py-2 text-red-500 text-sm">
+                                {columnsError.message}
+                              </div>
+                            )}
                             {columns?.map((column) => (
                               <SelectItem key={column.name} value={column.name}>
                                 <div className="flex flex-col">
                                   <span className="font-medium">{column.name}</span>
-                                  <span className="text-xs text-muted-foreground">{column.data_type}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {column.data_type}
+                                  </span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -602,15 +647,23 @@ export default function ChartForm({
                           disabled={!watchedTable || columnsLoading}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={columnsLoading ? "Loading..." : "Choose Y-Axis"} />
+                            <SelectValue
+                              placeholder={columnsLoading ? 'Loading...' : 'Choose Y-Axis'}
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            {columnsError && <div className="px-3 py-2 text-red-500 text-sm">{columnsError.message}</div>}
+                            {columnsError && (
+                              <div className="px-3 py-2 text-red-500 text-sm">
+                                {columnsError.message}
+                              </div>
+                            )}
                             {columns?.map((column) => (
                               <SelectItem key={column.name} value={column.name}>
                                 <div className="flex flex-col">
                                   <span className="font-medium">{column.name}</span>
-                                  <span className="text-xs text-muted-foreground">{column.data_type}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {column.data_type}
+                                  </span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -632,15 +685,23 @@ export default function ChartForm({
                           disabled={!watchedTable || columnsLoading}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={columnsLoading ? "Loading..." : "Choose X-Axis"} />
+                            <SelectValue
+                              placeholder={columnsLoading ? 'Loading...' : 'Choose X-Axis'}
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            {columnsError && <div className="px-3 py-2 text-red-500 text-sm">{columnsError.message}</div>}
+                            {columnsError && (
+                              <div className="px-3 py-2 text-red-500 text-sm">
+                                {columnsError.message}
+                              </div>
+                            )}
                             {columns?.map((column) => (
                               <SelectItem key={column.name} value={column.name}>
                                 <div className="flex flex-col">
                                   <span className="font-medium">{column.name}</span>
-                                  <span className="text-xs text-muted-foreground">{column.data_type}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {column.data_type}
+                                  </span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -678,15 +739,23 @@ export default function ChartForm({
                             disabled={!watchedTable || columnsLoading}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder={columnsLoading ? "Loading..." : "Choose column"} />
+                              <SelectValue
+                                placeholder={columnsLoading ? 'Loading...' : 'Choose column'}
+                              />
                             </SelectTrigger>
                             <SelectContent>
-                              {columnsError && <div className="px-3 py-2 text-red-500 text-sm">{columnsError.message}</div>}
+                              {columnsError && (
+                                <div className="px-3 py-2 text-red-500 text-sm">
+                                  {columnsError.message}
+                                </div>
+                              )}
                               {columns?.map((column) => (
                                 <SelectItem key={column.name} value={column.name}>
                                   <div className="flex flex-col">
                                     <span className="font-medium">{column.name}</span>
-                                    <span className="text-xs text-muted-foreground">{column.data_type}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {column.data_type}
+                                    </span>
                                   </div>
                                 </SelectItem>
                               ))}
@@ -697,7 +766,9 @@ export default function ChartForm({
 
                       {/* Aggregate Column Alias */}
                       <div>
-                        <label className="block text-sm font-medium mb-2">Aggregate Column Alias</label>
+                        <label className="block text-sm font-medium mb-2">
+                          Aggregate Column Alias
+                        </label>
                         <Input
                           placeholder="Enter alias for aggregate column"
                           value={localAliasValue}
@@ -711,7 +782,7 @@ export default function ChartForm({
                         <div className="flex justify-between items-center mb-2">
                           <label className="text-sm font-medium">Dimension</label>
                           {watchedDimension && (
-                            <span 
+                            <span
                               className="text-sm text-muted-foreground cursor-pointer hover:text-foreground text-red-500"
                               onClick={() => setValue('dimension_col', '')}
                             >
@@ -725,18 +796,28 @@ export default function ChartForm({
                           disabled={!watchedTable || columnsLoading}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={columnsLoading ? "Loading..." : "Choose dimension"} />
+                            <SelectValue
+                              placeholder={columnsLoading ? 'Loading...' : 'Choose dimension'}
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            {columnsError && <div className="px-3 py-2 text-red-500 text-sm">{columnsError.message}</div>}
-                            {columns?.filter(column => column.name !== watchedXAxis).map((column) => (
-                              <SelectItem key={column.name} value={column.name}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{column.name}</span>
-                                  <span className="text-xs text-muted-foreground">{column.data_type}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
+                            {columnsError && (
+                              <div className="px-3 py-2 text-red-500 text-sm">
+                                {columnsError.message}
+                              </div>
+                            )}
+                            {columns
+                              ?.filter((column) => column.name !== watchedXAxis)
+                              .map((column) => (
+                                <SelectItem key={column.name} value={column.name}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{column.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {column.data_type}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -747,8 +828,8 @@ export default function ChartForm({
                   {chartLibraryType === 'echarts' && (
                     <div>
                       <label className="block text-sm font-medium mb-2">Data Limit</label>
-                      <Select 
-                        value={watchedDataLimit} 
+                      <Select
+                        value={watchedDataLimit}
                         onValueChange={(value) => setValue('dataLimit', value)}
                       >
                         <SelectTrigger className="w-full">
@@ -765,7 +846,7 @@ export default function ChartForm({
                     </div>
                   )}
                 </div>
-                
+
                 {/* Validation Messages */}
                 {chartValidation && !chartValidation.isValid && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -790,7 +871,7 @@ export default function ChartForm({
                     )}
                   </div>
                 )}
-                
+
                 {chartValidation && chartValidation.isValid && (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-emerald-800 font-medium text-sm">
@@ -800,47 +881,54 @@ export default function ChartForm({
                   </div>
                 )}
 
-                
-                {( chartDataError) && (
+                {chartDataError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <div className="text-red-800 text-sm font-medium">Error</div>
-                    <div className="text-red-700 text-sm">{ chartDataError?.message}</div>
+                    <div className="text-red-700 text-sm">{chartDataError?.message}</div>
                   </div>
                 )}
               </form>
             </div>
-            
+
             {/* Chart Preview Section */}
             <div className="lg:col-span-1 xl:col-span-5 lg:overflow-y-auto lg:pl-2">
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold">Chart Preview</h3>
-                  <p className="text-sm text-muted-foreground">Live preview updates as you configure</p>
+                  <p className="text-sm text-muted-foreground">
+                    Live preview updates as you configure
+                  </p>
                 </div>
-                
+
                 {/* Chart Rendering Area */}
                 <div className="w-full">
                   {isChartDataLoading && (
                     <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-lg border border-dashed">
                       <div className="text-center">
                         <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <div className="text-muted-foreground font-medium text-lg">Generating chart...</div>
-                        <div className="text-sm text-muted-foreground mt-2">This may take a few moments</div>
+                        <div className="text-muted-foreground font-medium text-lg">
+                          Generating chart...
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-2">
+                          This may take a few moments
+                        </div>
                       </div>
                     </div>
                   )}
-                  
-                  {(chartDataError ) && (
+
+                  {chartDataError && (
                     <div className="flex items-center justify-center min-h-[400px] bg-red-50 rounded-lg border border-red-200">
                       <div className="text-center text-red-600">
                         <div className="text-4xl mb-4">⚠️</div>
                         <div className="font-medium text-lg">Unable to generate chart</div>
-                        <div className="text-sm text-red-500 mt-2">Check your configuration and try again</div>
+                        <div className="text-sm text-red-500 mt-2">
+                          Check your configuration and try again
+                        </div>
                       </div>
                     </div>
                   )}
-                  
-                  {!chartData && !isChartDataLoading && !chartDataError  && (
+
+                  {!chartData && !isChartDataLoading && !chartDataError && (
                     <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-lg border-2 border-dashed">
                       <div className="text-center text-muted-foreground">
                         <div className="text-5xl mb-4">📊</div>
@@ -849,32 +937,33 @@ export default function ChartForm({
                       </div>
                     </div>
                   )}
-                  
+
                   {chartData && !isChartDataLoading && (
                     <div className="space-y-6">
                       {/* Chart Rendering Area - Responsive Height */}
                       <div className="w-full min-h-[400px] overflow-auto">
                         {chartLibraryType === 'echarts' && (
-                          <EChartsComponent
-                            data={chartData}
-                            customOptions={{}}
-                          />
+                          <EChartsComponent data={chartData} customOptions={{}} />
                         )}
-                        
+
                         {chartLibraryType === 'nivo' && (
                           <div className="flex items-center justify-center h-[400px] bg-muted/30 rounded-lg border-2 border-dashed">
                             <div className="text-center text-muted-foreground">
-                              <p className="font-medium mb-2 text-lg">Nivo charts are being updated</p>
+                              <p className="font-medium mb-2 text-lg">
+                                Nivo charts are being updated
+                              </p>
                               <p className="text-sm">Please use ECharts for now</p>
                             </div>
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Chart Details for Saving */}
                       <div className="pt-6 border-t bg-background space-y-4">
-                        <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide border-b pb-2">Save Chart</h4>
-                        
+                        <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide border-b pb-2">
+                          Save Chart
+                        </h4>
+
                         <div className="grid grid-cols-1 gap-4">
                           <div>
                             <label className="block text-sm font-medium mb-2">Chart Name</label>
@@ -884,12 +973,16 @@ export default function ChartForm({
                               className="w-full"
                             />
                             {errors.chartName && (
-                              <span className="text-red-500 text-sm mt-1 block">{errors.chartName.message}</span>
+                              <span className="text-red-500 text-sm mt-1 block">
+                                {errors.chartName.message}
+                              </span>
                             )}
                           </div>
-                          
+
                           <div>
-                            <label className="block text-sm font-medium mb-2">Description (Optional)</label>
+                            <label className="block text-sm font-medium mb-2">
+                              Description (Optional)
+                            </label>
                             <Textarea
                               {...register('chartDescription')}
                               placeholder="Add context about what this chart shows..."
@@ -898,19 +991,21 @@ export default function ChartForm({
                             />
                           </div>
                         </div>
-                        
+
                         {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                          <Button 
-                            onClick={handleSaveChart}
-                            disabled={isLoading}
-                            className="flex-1"
-                          >
-                            {isLoading ? (editChart ? 'Updating...' : 'Saving...') : (editChart ? 'Update Chart' : 'Save Chart')}
+                          <Button onClick={handleSaveChart} disabled={isLoading} className="flex-1">
+                            {isLoading
+                              ? editChart
+                                ? 'Updating...'
+                                : 'Saving...'
+                              : editChart
+                                ? 'Update Chart'
+                                : 'Save Chart'}
                           </Button>
                           {editChart && onDelete && (
-                            <Button 
-                              variant="destructive" 
+                            <Button
+                              variant="destructive"
                               onClick={handleDeleteChart}
                               disabled={isLoading}
                               className="sm:w-auto"
@@ -918,11 +1013,11 @@ export default function ChartForm({
                               {isLoading ? 'Deleting...' : 'Delete'}
                             </Button>
                           )}
-                          <Button 
+                          <Button
                             variant="outline"
                             onClick={() => {
-                              resetForm()
-                              onOpenChange(false)
+                              resetForm();
+                              onOpenChange(false);
                             }}
                             disabled={isLoading}
                             className="sm:w-auto"
@@ -940,5 +1035,5 @@ export default function ChartForm({
         </div>
       </DialogContent>
     </Dialog>
-  )
-} 
+  );
+}

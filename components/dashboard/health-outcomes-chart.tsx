@@ -1,17 +1,25 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 const data = [
-  { month: "Jan", maternalMortality: 12, infantMortality: 18, malnutrition: 24 },
-  { month: "Feb", maternalMortality: 11, infantMortality: 17, malnutrition: 22 },
-  { month: "Mar", maternalMortality: 10, infantMortality: 15, malnutrition: 20 },
-  { month: "Apr", maternalMortality: 9, infantMortality: 14, malnutrition: 18 },
-  { month: "May", maternalMortality: 8, infantMortality: 13, malnutrition: 15 },
-  { month: "Jun", maternalMortality: 7, infantMortality: 11, malnutrition: 14 },
-]
+  { month: 'Jan', maternalMortality: 12, infantMortality: 18, malnutrition: 24 },
+  { month: 'Feb', maternalMortality: 11, infantMortality: 17, malnutrition: 22 },
+  { month: 'Mar', maternalMortality: 10, infantMortality: 15, malnutrition: 20 },
+  { month: 'Apr', maternalMortality: 9, infantMortality: 14, malnutrition: 18 },
+  { month: 'May', maternalMortality: 8, infantMortality: 13, malnutrition: 15 },
+  { month: 'Jun', maternalMortality: 7, infantMortality: 11, malnutrition: 14 },
+];
 
 export function HealthOutcomesChart() {
   return (
@@ -24,16 +32,16 @@ export function HealthOutcomesChart() {
         <ChartContainer
           config={{
             maternalMortality: {
-              label: "Maternal Mortality",
-              color: "hsl(var(--chart-1))",
+              label: 'Maternal Mortality',
+              color: 'hsl(var(--chart-1))',
             },
             infantMortality: {
-              label: "Infant Mortality",
-              color: "hsl(var(--chart-2))",
+              label: 'Infant Mortality',
+              color: 'hsl(var(--chart-2))',
             },
             malnutrition: {
-              label: "Malnutrition",
-              color: "hsl(var(--chart-3))",
+              label: 'Malnutrition',
+              color: 'hsl(var(--chart-3))',
             },
           }}
           className="h-[200px]"
@@ -50,7 +58,11 @@ export function HealthOutcomesChart() {
                 stroke="var(--color-maternalMortality)"
                 activeDot={{ r: 8 }}
               />
-              <Line type="monotone" dataKey="infantMortality" stroke="var(--color-infantMortality)" />
+              <Line
+                type="monotone"
+                dataKey="infantMortality"
+                stroke="var(--color-infantMortality)"
+              />
               <Line type="monotone" dataKey="malnutrition" stroke="var(--color-malnutrition)" />
               <Legend />
             </LineChart>
@@ -58,5 +70,5 @@ export function HealthOutcomesChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

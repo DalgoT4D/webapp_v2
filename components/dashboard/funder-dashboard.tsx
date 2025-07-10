@@ -1,13 +1,13 @@
-import { ErrorBoundary } from "react-error-boundary"
-import { DashboardChartWrapper } from "./dashboard-chart-wrapper"
-import { BudgetUtilizationChart } from "./budget-utilization-chart"
-import { CostPerBeneficiaryChart } from "./cost-per-beneficiary-chart"
-import { OutcomesByInvestmentChart } from "./outcomes-by-investment-chart"
-import { FundingAllocationTable } from "./funding-allocation-table"
-import { ProgramSustainabilityChart } from "./program-sustainability-chart"
+import { ErrorBoundary } from 'react-error-boundary';
+import { DashboardChartWrapper } from './dashboard-chart-wrapper';
+import { BudgetUtilizationChart } from './budget-utilization-chart';
+import { CostPerBeneficiaryChart } from './cost-per-beneficiary-chart';
+import { OutcomesByInvestmentChart } from './outcomes-by-investment-chart';
+import { FundingAllocationTable } from './funding-allocation-table';
+import { ProgramSustainabilityChart } from './program-sustainability-chart';
 
 interface FunderDashboardProps {
-  onElementSelect: (elementId: string) => void
+  onElementSelect: (elementId: string) => void;
 }
 
 function ErrorFallback({ error }: { error: Error }) {
@@ -16,16 +16,16 @@ function ErrorFallback({ error }: { error: Error }) {
       <h2 className="text-base font-bold text-red-800">Chart Error:</h2>
       <p className="text-sm text-red-600">{error.message}</p>
     </div>
-  )
+  );
 }
 
 export function FunderDashboard({ onElementSelect }: FunderDashboardProps) {
   // Ensure we have a valid onElementSelect function
   const handleElementSelect = (elementId: string) => {
-    if (onElementSelect && typeof onElementSelect === "function" && elementId) {
-      onElementSelect(elementId)
+    if (onElementSelect && typeof onElementSelect === 'function' && elementId) {
+      onElementSelect(elementId);
     }
-  }
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -86,5 +86,5 @@ export function FunderDashboard({ onElementSelect }: FunderDashboardProps) {
         </DashboardChartWrapper>
       </ErrorBoundary>
     </div>
-  )
+  );
 }

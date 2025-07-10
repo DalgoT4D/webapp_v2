@@ -1,18 +1,26 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 const data = [
-  { day: "Mon", fieldWorkers: 42, managers: 8, admins: 3 },
-  { day: "Tue", fieldWorkers: 45, managers: 9, admins: 2 },
-  { day: "Wed", fieldWorkers: 48, managers: 10, admins: 4 },
-  { day: "Thu", fieldWorkers: 47, managers: 9, admins: 3 },
-  { day: "Fri", fieldWorkers: 46, managers: 8, admins: 2 },
-  { day: "Sat", fieldWorkers: 28, managers: 4, admins: 1 },
-  { day: "Sun", fieldWorkers: 15, managers: 2, admins: 1 },
-]
+  { day: 'Mon', fieldWorkers: 42, managers: 8, admins: 3 },
+  { day: 'Tue', fieldWorkers: 45, managers: 9, admins: 2 },
+  { day: 'Wed', fieldWorkers: 48, managers: 10, admins: 4 },
+  { day: 'Thu', fieldWorkers: 47, managers: 9, admins: 3 },
+  { day: 'Fri', fieldWorkers: 46, managers: 8, admins: 2 },
+  { day: 'Sat', fieldWorkers: 28, managers: 4, admins: 1 },
+  { day: 'Sun', fieldWorkers: 15, managers: 2, admins: 1 },
+];
 
 export function UserActivityChart() {
   return (
@@ -25,16 +33,16 @@ export function UserActivityChart() {
         <ChartContainer
           config={{
             fieldWorkers: {
-              label: "Field Workers",
-              color: "hsl(var(--chart-1))",
+              label: 'Field Workers',
+              color: 'hsl(var(--chart-1))',
             },
             managers: {
-              label: "Managers",
-              color: "hsl(var(--chart-2))",
+              label: 'Managers',
+              color: 'hsl(var(--chart-2))',
             },
             admins: {
-              label: "Admins",
-              color: "hsl(var(--chart-3))",
+              label: 'Admins',
+              color: 'hsl(var(--chart-3))',
             },
           }}
           className="h-[200px]"
@@ -72,5 +80,5 @@ export function UserActivityChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

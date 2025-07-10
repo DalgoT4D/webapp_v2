@@ -1,57 +1,63 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { CalendarIcon, Filter, X } from "lucide-react"
-import { format } from "date-fns"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { CalendarIcon, Filter, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export interface FilterValues {
   dateRange: {
-    from: Date | undefined
-    to: Date | undefined
-  }
-  region: string
-  team: string
-  riskLevel: string
+    from: Date | undefined;
+    to: Date | undefined;
+  };
+  region: string;
+  team: string;
+  riskLevel: string;
 }
 
 interface DashboardFiltersProps {
-  onFilterChange: (filters: FilterValues) => void
+  onFilterChange: (filters: FilterValues) => void;
 }
 
 export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
   const [filters, setFilters] = useState<FilterValues>({
     dateRange: {
       from: new Date(2023, 4, 1), // May 1, 2023
       to: new Date(2023, 4, 31), // May 31, 2023
     },
-    region: "all",
-    team: "all",
-    riskLevel: "all",
-  })
+    region: 'all',
+    team: 'all',
+    riskLevel: 'all',
+  });
 
-  const [activeFilterCount, setActiveFilterCount] = useState(1) // Date range is active by default
+  const [activeFilterCount, setActiveFilterCount] = useState(1); // Date range is active by default
 
   const handleFilterChange = (newFilters: Partial<FilterValues>) => {
-    const updatedFilters = { ...filters, ...newFilters }
-    setFilters(updatedFilters)
-    onFilterChange(updatedFilters)
+    const updatedFilters = { ...filters, ...newFilters };
+    setFilters(updatedFilters);
+    onFilterChange(updatedFilters);
 
     // Count active filters
-    let count = 0
-    if (updatedFilters.dateRange.from && updatedFilters.dateRange.to) count++
-    if (updatedFilters.region !== "all") count++
-    if (updatedFilters.team !== "all") count++
-    if (updatedFilters.riskLevel !== "all") count++
-    setActiveFilterCount(count)
-  }
+    let count = 0;
+    if (updatedFilters.dateRange.from && updatedFilters.dateRange.to) count++;
+    if (updatedFilters.region !== 'all') count++;
+    if (updatedFilters.team !== 'all') count++;
+    if (updatedFilters.riskLevel !== 'all') count++;
+    setActiveFilterCount(count);
+  };
 
   const resetFilters = () => {
     const defaultFilters = {
@@ -59,14 +65,14 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         from: new Date(2023, 4, 1),
         to: new Date(2023, 4, 31),
       },
-      region: "all",
-      team: "all",
-      riskLevel: "all",
-    }
-    setFilters(defaultFilters)
-    onFilterChange(defaultFilters)
-    setActiveFilterCount(1)
-  }
+      region: 'all',
+      team: 'all',
+      riskLevel: 'all',
+    };
+    setFilters(defaultFilters);
+    onFilterChange(defaultFilters);
+    setActiveFilterCount(1);
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -93,25 +99,26 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
 
             <div className="space-y-2">
               <h5 className="text-sm font-medium">Date Range</h5>
-              <div className={cn("grid gap-2")}>
+              <div className={cn('grid gap-2')}>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       id="date"
-                      variant={"outline"}
+                      variant={'outline'}
                       className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !filters.dateRange.from && "text-muted-foreground",
+                        'w-full justify-start text-left font-normal',
+                        !filters.dateRange.from && 'text-muted-foreground'
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {filters.dateRange.from ? (
                         filters.dateRange.to ? (
                           <>
-                            {format(filters.dateRange.from, "LLL dd, y")} - {format(filters.dateRange.to, "LLL dd, y")}
+                            {format(filters.dateRange.from, 'LLL dd, y')} -{' '}
+                            {format(filters.dateRange.to, 'LLL dd, y')}
                           </>
                         ) : (
-                          format(filters.dateRange.from, "LLL dd, y")
+                          format(filters.dateRange.from, 'LLL dd, y')
                         )
                       ) : (
                         <span>Pick a date</span>
@@ -125,7 +132,9 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
                       defaultMonth={filters.dateRange.from}
                       selected={filters.dateRange}
                       onSelect={(range) =>
-                        handleFilterChange({ dateRange: range || { from: undefined, to: undefined } })
+                        handleFilterChange({
+                          dateRange: range || { from: undefined, to: undefined },
+                        })
                       }
                       numberOfMonths={2}
                     />
@@ -138,7 +147,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
 
             <div className="space-y-2">
               <h5 className="text-sm font-medium">Region</h5>
-              <Select value={filters.region} onValueChange={(value) => handleFilterChange({ region: value })}>
+              <Select
+                value={filters.region}
+                onValueChange={(value) => handleFilterChange({ region: value })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All Regions" />
                 </SelectTrigger>
@@ -154,7 +166,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
 
             <div className="space-y-2">
               <h5 className="text-sm font-medium">Team</h5>
-              <Select value={filters.team} onValueChange={(value) => handleFilterChange({ team: value })}>
+              <Select
+                value={filters.team}
+                onValueChange={(value) => handleFilterChange({ team: value })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All Teams" />
                 </SelectTrigger>
@@ -170,7 +185,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
 
             <div className="space-y-2">
               <h5 className="text-sm font-medium">Risk Level</h5>
-              <Select value={filters.riskLevel} onValueChange={(value) => handleFilterChange({ riskLevel: value })}>
+              <Select
+                value={filters.riskLevel}
+                onValueChange={(value) => handleFilterChange({ riskLevel: value })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All Risk Levels" />
                 </SelectTrigger>
@@ -199,5 +217,5 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         </Button>
       )}
     </div>
-  )
+  );
 }

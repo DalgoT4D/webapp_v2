@@ -1,13 +1,13 @@
-'use client'
+'use client';
 
-import { SWRConfig } from 'swr'
-import { ReactNode } from 'react'
-import { apiGet } from './api'
+import { SWRConfig } from 'swr';
+import { ReactNode } from 'react';
+import { apiGet } from './api';
 
 // Use existing API infrastructure for SWR fetcher
 const defaultFetcher = (url: string) => {
-  return apiGet(url)
-}
+  return apiGet(url);
+};
 
 // Production-ready SWR configuration
 const swrConfig = {
@@ -20,15 +20,15 @@ const swrConfig = {
   loadingTimeout: 10000,
   onError: (error: any) => {
     if (process.env.NODE_ENV === 'development') {
-      console.error('SWR Error:', error)
+      console.error('SWR Error:', error);
     }
   },
-}
+};
 
 interface SWRProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function SWRProvider({ children }: SWRProviderProps) {
-  return <SWRConfig value={swrConfig}>{children}</SWRConfig>
-} 
+  return <SWRConfig value={swrConfig}>{children}</SWRConfig>;
+}

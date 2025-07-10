@@ -1,37 +1,37 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { ReportsList } from "./reports-list"
-import { CreateReportDialog } from "./create-report-dialog"
-import { ReportInstancesView } from "./report-instances-view"
-import { ReportInstanceView } from "./report-instance-view"
-import { ErrorBoundary } from "react-error-boundary"
+import { useState } from 'react';
+import { ReportsList } from './reports-list';
+import { CreateReportDialog } from './create-report-dialog';
+import { ReportInstancesView } from './report-instances-view';
+import { ReportInstanceView } from './report-instance-view';
+import { ErrorBoundary } from 'react-error-boundary';
 
 export interface Report {
-  id: string
-  name: string
-  description: string
-  dashboardId: string
-  dashboardName: string
-  frequency: "daily" | "weekly" | "monthly"
-  time: string
-  owners: string[]
-  recipients: string[]
-  createdAt: string
-  lastRun?: string
-  status: "active" | "paused" | "error"
+  id: string;
+  name: string;
+  description: string;
+  dashboardId: string;
+  dashboardName: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  time: string;
+  owners: string[];
+  recipients: string[];
+  createdAt: string;
+  lastRun?: string;
+  status: 'active' | 'paused' | 'error';
 }
 
 export interface ReportInstance {
-  id: string
-  reportId: string
-  reportName: string
-  reportDescription: string
-  dashboardName: string
-  generatedAt: string
-  status: "completed" | "failed" | "generating"
-  fileSize?: string
-  downloadUrl?: string
+  id: string;
+  reportId: string;
+  reportName: string;
+  reportDescription: string;
+  dashboardName: string;
+  generatedAt: string;
+  status: 'completed' | 'failed' | 'generating';
+  fileSize?: string;
+  downloadUrl?: string;
 }
 
 function ErrorFallback({ error }: { error: Error }) {
@@ -40,52 +40,52 @@ function ErrorFallback({ error }: { error: Error }) {
       <h2 className="text-base font-bold text-red-800">Component Error:</h2>
       <p className="text-sm text-red-600">{error.message}</p>
     </div>
-  )
+  );
 }
 
 export function ReportsView() {
-  const [view, setView] = useState<"list" | "instances" | "instance">("list")
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null)
-  const [selectedInstance, setSelectedInstance] = useState<ReportInstance | null>(null)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [reports, setReports] = useState<Report[]>([])
+  const [view, setView] = useState<'list' | 'instances' | 'instance'>('list');
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [selectedInstance, setSelectedInstance] = useState<ReportInstance | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [reports, setReports] = useState<Report[]>([]);
 
   const handleReportSelect = (report: Report) => {
-    setSelectedReport(report)
-    setView("instances")
-  }
+    setSelectedReport(report);
+    setView('instances');
+  };
 
   const handleInstanceSelect = (instance: ReportInstance) => {
-    setSelectedInstance(instance)
-    setView("instance")
-  }
+    setSelectedInstance(instance);
+    setView('instance');
+  };
 
   const handleBackToList = () => {
-    setSelectedReport(null)
-    setSelectedInstance(null)
-    setView("list")
-  }
+    setSelectedReport(null);
+    setSelectedInstance(null);
+    setView('list');
+  };
 
   const handleBackToInstances = () => {
-    setSelectedInstance(null)
-    setView("instances")
-  }
+    setSelectedInstance(null);
+    setView('instances');
+  };
 
   const handleCreateReport = () => {
-    setCreateDialogOpen(true)
-  }
+    setCreateDialogOpen(true);
+  };
 
   const handleReportCreated = (report: Report) => {
-    setCreateDialogOpen(false)
+    setCreateDialogOpen(false);
     // Add the new report to our list
-    setReports((prev) => [report, ...prev])
-    console.log("Report created:", report)
-  }
+    setReports((prev) => [report, ...prev]);
+    console.log('Report created:', report);
+  };
 
   return (
     <div className="flex flex-col h-full">
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        {view === "list" && (
+        {view === 'list' && (
           <ReportsList
             onReportSelect={handleReportSelect}
             onCreateReport={handleCreateReport}
@@ -93,7 +93,7 @@ export function ReportsView() {
           />
         )}
 
-        {view === "instances" && selectedReport && (
+        {view === 'instances' && selectedReport && (
           <ReportInstancesView
             report={selectedReport}
             onInstanceSelect={handleInstanceSelect}
@@ -101,7 +101,7 @@ export function ReportsView() {
           />
         )}
 
-        {view === "instance" && selectedInstance && (
+        {view === 'instance' && selectedInstance && (
           <ReportInstanceView instance={selectedInstance} onBack={handleBackToInstances} />
         )}
       </ErrorBoundary>
@@ -112,5 +112,5 @@ export function ReportsView() {
         onReportCreated={handleReportCreated}
       />
     </div>
-  )
+  );
 }

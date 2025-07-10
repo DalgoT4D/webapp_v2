@@ -1,29 +1,29 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/authStore";
-import useSWR from "swr";
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/authStore';
+import useSWR from 'swr';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { 
-    isAuthenticated, 
-    currentOrg, 
-    orgUsers, 
-    isOrgSwitching, 
+  const {
+    isAuthenticated,
+    currentOrg,
+    orgUsers,
+    isOrgSwitching,
     setOrgSwitching,
     setOrgUsers,
-    setSelectedOrg, 
+    setSelectedOrg,
     initialize,
-    token 
+    token,
   } = useAuthStore();
-  
+
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
 
   // Fetch organizations when we have a token but no orgUsers
   const { data: orgUsersData, error: orgError } = useSWR(
-    token && isAuthenticated && orgUsers.length === 0 ? "/api/currentuserv2" : null
+    token && isAuthenticated && orgUsers.length === 0 ? '/api/currentuserv2' : null
   );
 
   useEffect(() => {
@@ -36,14 +36,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (orgUsersData && orgUsersData.length > 0) {
       setOrgUsers(orgUsersData);
-      
+
       // Auto-select organization if none selected
       if (!currentOrg) {
         const storedOrgSlug = localStorage.getItem('selectedOrg');
-        
+
         if (storedOrgSlug) {
           // Verify stored org exists
-          const orgExists = orgUsersData.some(ou => ou.org.slug === storedOrgSlug);
+          const orgExists = orgUsersData.some((ou) => ou.org.slug === storedOrgSlug);
           if (orgExists) {
             setSelectedOrg(storedOrgSlug);
           } else {
@@ -62,7 +62,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isInitialized && !isAuthenticated && !hasRedirected) {
       setHasRedirected(true);
-      router.push("/login");
+      router.push('/login');
     }
   }, [isInitialized, isAuthenticated, router, hasRedirected]);
 
@@ -109,9 +109,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">
           <p className="text-lg font-medium text-red-600">Failed to load workspace data</p>
-          <p className="text-sm text-muted-foreground mt-2">Please refresh the page or contact support</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <p className="text-sm text-muted-foreground mt-2">
+            Please refresh the page or contact support
+          </p>
+          <button
+            onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
           >
             Refresh Page
@@ -127,4 +129,4 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
-} 
+}

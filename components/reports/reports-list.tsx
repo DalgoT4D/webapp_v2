@@ -1,11 +1,17 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Plus,
   Search,
@@ -19,230 +25,234 @@ import {
   Play,
   Pause,
   Settings,
-} from "lucide-react"
-import { format } from "date-fns"
-import type { Report, ReportInstance } from "./reports-view"
+} from 'lucide-react';
+import { format } from 'date-fns';
+import type { Report, ReportInstance } from './reports-view';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 
 // Mock data
 const mockReports: Report[] = [
   {
-    id: "rpt-001",
-    name: "Monthly Implementation Summary",
+    id: 'rpt-001',
+    name: 'Monthly Implementation Summary',
     description:
-      "Comprehensive monthly report covering all implementation metrics including visit completion, protocol adherence, and team performance",
-    dashboardId: "implementation",
-    dashboardName: "Implementation Dashboard",
-    frequency: "monthly",
-    time: "09:00",
-    owners: ["current-user"],
-    recipients: ["manager@dalgo.org", "director@dalgo.org", "field-coordinator@dalgo.org"],
-    createdAt: "2023-05-01T10:00:00Z",
-    lastRun: "2023-05-15T09:00:00Z",
-    status: "active",
+      'Comprehensive monthly report covering all implementation metrics including visit completion, protocol adherence, and team performance',
+    dashboardId: 'implementation',
+    dashboardName: 'Implementation Dashboard',
+    frequency: 'monthly',
+    time: '09:00',
+    owners: ['current-user'],
+    recipients: ['manager@dalgo.org', 'director@dalgo.org', 'field-coordinator@dalgo.org'],
+    createdAt: '2023-05-01T10:00:00Z',
+    lastRun: '2023-05-15T09:00:00Z',
+    status: 'active',
   },
   {
-    id: "rpt-002",
-    name: "Weekly Impact Metrics",
-    description: "Weekly health outcomes and beneficiary impact analysis for program stakeholders",
-    dashboardId: "impact",
-    dashboardName: "Impact Dashboard",
-    frequency: "weekly",
-    time: "08:00",
-    owners: ["current-user", "health-manager@dalgo.org"],
-    recipients: ["stakeholders@dalgo.org", "health-team@dalgo.org"],
-    createdAt: "2023-04-15T14:30:00Z",
-    lastRun: "2023-05-22T08:00:00Z",
-    status: "active",
+    id: 'rpt-002',
+    name: 'Weekly Impact Metrics',
+    description: 'Weekly health outcomes and beneficiary impact analysis for program stakeholders',
+    dashboardId: 'impact',
+    dashboardName: 'Impact Dashboard',
+    frequency: 'weekly',
+    time: '08:00',
+    owners: ['current-user', 'health-manager@dalgo.org'],
+    recipients: ['stakeholders@dalgo.org', 'health-team@dalgo.org'],
+    createdAt: '2023-04-15T14:30:00Z',
+    lastRun: '2023-05-22T08:00:00Z',
+    status: 'active',
   },
   {
-    id: "rpt-003",
-    name: "Funder Quarterly Report",
-    description: "Quarterly financial and impact metrics for program funders and donors",
-    dashboardId: "funder",
-    dashboardName: "Funder Dashboard",
-    frequency: "monthly",
-    time: "10:00",
-    owners: ["current-user"],
-    recipients: ["funders@dalgo.org", "finance@dalgo.org"],
-    createdAt: "2023-03-01T16:00:00Z",
-    lastRun: "2023-05-01T10:00:00Z",
-    status: "active",
+    id: 'rpt-003',
+    name: 'Funder Quarterly Report',
+    description: 'Quarterly financial and impact metrics for program funders and donors',
+    dashboardId: 'funder',
+    dashboardName: 'Funder Dashboard',
+    frequency: 'monthly',
+    time: '10:00',
+    owners: ['current-user'],
+    recipients: ['funders@dalgo.org', 'finance@dalgo.org'],
+    createdAt: '2023-03-01T16:00:00Z',
+    lastRun: '2023-05-01T10:00:00Z',
+    status: 'active',
   },
   {
-    id: "rpt-004",
-    name: "Daily Usage Analytics",
-    description: "Daily platform usage statistics and user engagement metrics",
-    dashboardId: "usage",
-    dashboardName: "Usage Dashboard",
-    frequency: "daily",
-    time: "07:00",
-    owners: ["current-user", "tech-lead@dalgo.org"],
-    recipients: ["tech-team@dalgo.org"],
-    createdAt: "2023-05-10T11:00:00Z",
-    lastRun: "2023-05-23T07:00:00Z",
-    status: "active",
+    id: 'rpt-004',
+    name: 'Daily Usage Analytics',
+    description: 'Daily platform usage statistics and user engagement metrics',
+    dashboardId: 'usage',
+    dashboardName: 'Usage Dashboard',
+    frequency: 'daily',
+    time: '07:00',
+    owners: ['current-user', 'tech-lead@dalgo.org'],
+    recipients: ['tech-team@dalgo.org'],
+    createdAt: '2023-05-10T11:00:00Z',
+    lastRun: '2023-05-23T07:00:00Z',
+    status: 'active',
   },
   {
-    id: "rpt-005",
-    name: "Emergency Response Summary",
-    description: "Weekly emergency cases and response time analysis",
-    dashboardId: "implementation",
-    dashboardName: "Implementation Dashboard",
-    frequency: "weekly",
-    time: "16:00",
-    owners: ["current-user"],
-    recipients: ["emergency-team@dalgo.org", "field-managers@dalgo.org"],
-    createdAt: "2023-04-20T13:00:00Z",
-    status: "paused",
+    id: 'rpt-005',
+    name: 'Emergency Response Summary',
+    description: 'Weekly emergency cases and response time analysis',
+    dashboardId: 'implementation',
+    dashboardName: 'Implementation Dashboard',
+    frequency: 'weekly',
+    time: '16:00',
+    owners: ['current-user'],
+    recipients: ['emergency-team@dalgo.org', 'field-managers@dalgo.org'],
+    createdAt: '2023-04-20T13:00:00Z',
+    status: 'paused',
   },
-]
+];
 
 const mockRecentInstances: Record<string, ReportInstance[]> = {
-  "rpt-001": [
+  'rpt-001': [
     {
-      id: "inst-001-1",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-05-15T09:00:00Z",
-      status: "completed",
-      fileSize: "2.4 MB",
-      downloadUrl: "/reports/monthly-impl-may-2023.pdf",
+      id: 'inst-001-1',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-05-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '2.4 MB',
+      downloadUrl: '/reports/monthly-impl-may-2023.pdf',
     },
     {
-      id: "inst-001-2",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-04-15T09:00:00Z",
-      status: "completed",
-      fileSize: "2.1 MB",
-      downloadUrl: "/reports/monthly-impl-apr-2023.pdf",
+      id: 'inst-001-2',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-04-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '2.1 MB',
+      downloadUrl: '/reports/monthly-impl-apr-2023.pdf',
     },
     {
-      id: "inst-001-3",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-03-15T09:00:00Z",
-      status: "completed",
-      fileSize: "1.9 MB",
-      downloadUrl: "/reports/monthly-impl-mar-2023.pdf",
-    },
-  ],
-  "rpt-002": [
-    {
-      id: "inst-002-1",
-      reportId: "rpt-002",
-      reportName: "Weekly Impact Metrics",
-      reportDescription: "Weekly health outcomes and beneficiary impact analysis",
-      dashboardName: "Impact Dashboard",
-      generatedAt: "2023-05-22T08:00:00Z",
-      status: "completed",
-      fileSize: "1.8 MB",
-      downloadUrl: "/reports/weekly-impact-may-22-2023.pdf",
-    },
-    {
-      id: "inst-002-2",
-      reportId: "rpt-002",
-      reportName: "Weekly Impact Metrics",
-      reportDescription: "Weekly health outcomes and beneficiary impact analysis",
-      dashboardName: "Impact Dashboard",
-      generatedAt: "2023-05-15T08:00:00Z",
-      status: "completed",
-      fileSize: "1.7 MB",
-      downloadUrl: "/reports/weekly-impact-may-15-2023.pdf",
-    },
-    {
-      id: "inst-002-3",
-      reportId: "rpt-002",
-      reportName: "Weekly Impact Metrics",
-      reportDescription: "Weekly health outcomes and beneficiary impact analysis",
-      dashboardName: "Impact Dashboard",
-      generatedAt: "2023-05-08T08:00:00Z",
-      status: "completed",
-      fileSize: "1.6 MB",
-      downloadUrl: "/reports/weekly-impact-may-08-2023.pdf",
+      id: 'inst-001-3',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-03-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '1.9 MB',
+      downloadUrl: '/reports/monthly-impl-mar-2023.pdf',
     },
   ],
-}
+  'rpt-002': [
+    {
+      id: 'inst-002-1',
+      reportId: 'rpt-002',
+      reportName: 'Weekly Impact Metrics',
+      reportDescription: 'Weekly health outcomes and beneficiary impact analysis',
+      dashboardName: 'Impact Dashboard',
+      generatedAt: '2023-05-22T08:00:00Z',
+      status: 'completed',
+      fileSize: '1.8 MB',
+      downloadUrl: '/reports/weekly-impact-may-22-2023.pdf',
+    },
+    {
+      id: 'inst-002-2',
+      reportId: 'rpt-002',
+      reportName: 'Weekly Impact Metrics',
+      reportDescription: 'Weekly health outcomes and beneficiary impact analysis',
+      dashboardName: 'Impact Dashboard',
+      generatedAt: '2023-05-15T08:00:00Z',
+      status: 'completed',
+      fileSize: '1.7 MB',
+      downloadUrl: '/reports/weekly-impact-may-15-2023.pdf',
+    },
+    {
+      id: 'inst-002-3',
+      reportId: 'rpt-002',
+      reportName: 'Weekly Impact Metrics',
+      reportDescription: 'Weekly health outcomes and beneficiary impact analysis',
+      dashboardName: 'Impact Dashboard',
+      generatedAt: '2023-05-08T08:00:00Z',
+      status: 'completed',
+      fileSize: '1.6 MB',
+      downloadUrl: '/reports/weekly-impact-may-08-2023.pdf',
+    },
+  ],
+};
 
 const getScheduleDisplay = (frequency: string, time: string) => {
   switch (frequency) {
-    case "daily":
-      return `Daily at ${time}`
-    case "weekly":
-      return `Mondays at ${time}`
-    case "monthly":
-      return `1st of month at ${time}`
+    case 'daily':
+      return `Daily at ${time}`;
+    case 'weekly':
+      return `Mondays at ${time}`;
+    case 'monthly':
+      return `1st of month at ${time}`;
     default:
-      return `${frequency} at ${time}`
+      return `${frequency} at ${time}`;
   }
-}
+};
 
 interface ReportsListProps {
-  onReportSelect: (report: Report) => void
-  onCreateReport: () => void
-  customReports?: Report[]
+  onReportSelect: (report: Report) => void;
+  onCreateReport: () => void;
+  customReports?: Report[];
 }
 
-export function ReportsList({ onReportSelect, onCreateReport, customReports = [] }: ReportsListProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [frequencyFilter, setFrequencyFilter] = useState("all")
+export function ReportsList({
+  onReportSelect,
+  onCreateReport,
+  customReports = [],
+}: ReportsListProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [frequencyFilter, setFrequencyFilter] = useState('all');
 
   // Combine mock reports with any custom reports
-  const allReports = [...customReports, ...mockReports]
+  const allReports = [...customReports, ...mockReports];
 
   // Filter reports
   const filteredReports = allReports.filter((report) => {
     const matchesSearch =
-      searchQuery === "" ||
+      searchQuery === '' ||
       report.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.dashboardName.toLowerCase().includes(searchQuery.toLowerCase())
+      report.dashboardName.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === "all" || report.status === statusFilter
-    const matchesFrequency = frequencyFilter === "all" || report.frequency === frequencyFilter
+    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
+    const matchesFrequency = frequencyFilter === 'all' || report.frequency === frequencyFilter;
 
-    return matchesSearch && matchesStatus && matchesFrequency
-  })
+    return matchesSearch && matchesStatus && matchesFrequency;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "paused":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "error":
-        return "bg-red-100 text-red-800 border-red-200"
+      case 'active':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'paused':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'error':
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
-  }
+  };
 
   const getFrequencyIcon = (frequency: string) => {
     switch (frequency) {
-      case "daily":
-        return <Clock className="h-4 w-4" />
-      case "weekly":
-        return <Calendar className="h-4 w-4" />
-      case "monthly":
-        return <Calendar className="h-4 w-4" />
+      case 'daily':
+        return <Clock className="h-4 w-4" />;
+      case 'weekly':
+        return <Calendar className="h-4 w-4" />;
+      case 'monthly':
+        return <Calendar className="h-4 w-4" />;
       default:
-        return <Clock className="h-4 w-4" />
+        return <Clock className="h-4 w-4" />;
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -251,7 +261,9 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground">Scheduled dashboard snapshots delivered to subscribers</p>
+            <p className="text-muted-foreground">
+              Scheduled dashboard snapshots delivered to subscribers
+            </p>
           </div>
           <Button onClick={onCreateReport}>
             <Plus className="h-4 w-4 mr-2" />
@@ -304,15 +316,15 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No reports found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchQuery || statusFilter !== "all" || frequencyFilter !== "all"
-                ? "Try adjusting your search or filter criteria"
-                : "Use the Create Report button above to get started"}
+              {searchQuery || statusFilter !== 'all' || frequencyFilter !== 'all'
+                ? 'Try adjusting your search or filter criteria'
+                : 'Use the Create Report button above to get started'}
             </p>
           </div>
         ) : (
           <div className="grid gap-6">
             {filteredReports.map((report) => {
-              const recentInstances = mockRecentInstances[report.id] || []
+              const recentInstances = mockRecentInstances[report.id] || [];
 
               return (
                 <Card key={report.id} className="hover:shadow-md transition-shadow">
@@ -325,7 +337,9 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
                             {report.status}
                           </Badge>
                         </div>
-                        <CardDescription className="text-base">{report.description}</CardDescription>
+                        <CardDescription className="text-base">
+                          {report.description}
+                        </CardDescription>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -343,7 +357,7 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
                             Edit Report
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {report.status === "active" ? (
+                          {report.status === 'active' ? (
                             <DropdownMenuItem>
                               <Pause className="h-4 w-4 mr-2" />
                               Pause Report
@@ -378,7 +392,9 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
                         {report.lastRun && (
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Calendar className="h-4 w-4" />
-                            <span>Last run {format(new Date(report.lastRun), "MMM d 'at' h:mm a")}</span>
+                            <span>
+                              Last run {format(new Date(report.lastRun), "MMM d 'at' h:mm a")}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -386,8 +402,15 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
                       {/* Most Recent Instance */}
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium text-muted-foreground">Most Recent Instance</h4>
-                          <Button variant="ghost" size="sm" onClick={() => onReportSelect(report)} className="text-xs">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Most Recent Instance
+                          </h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onReportSelect(report)}
+                            className="text-xs"
+                          >
                             View All
                           </Button>
                         </div>
@@ -404,19 +427,22 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
                             <div className="flex items-center gap-3">
                               <div
                                 className={`w-2 h-2 rounded-full ${
-                                  recentInstances[0].status === "completed"
-                                    ? "bg-green-500"
-                                    : recentInstances[0].status === "failed"
-                                      ? "bg-red-500"
-                                      : "bg-yellow-500"
+                                  recentInstances[0].status === 'completed'
+                                    ? 'bg-green-500'
+                                    : recentInstances[0].status === 'failed'
+                                      ? 'bg-red-500'
+                                      : 'bg-yellow-500'
                                 }`}
                               />
                               <div>
                                 <div className="text-sm font-medium">
-                                  {format(new Date(recentInstances[0].generatedAt), "EEE, MMM d, yyyy")}
+                                  {format(
+                                    new Date(recentInstances[0].generatedAt),
+                                    'EEE, MMM d, yyyy'
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  {format(new Date(recentInstances[0].generatedAt), "h:mm a")}
+                                  {format(new Date(recentInstances[0].generatedAt), 'h:mm a')}
                                 </div>
                               </div>
                               {recentInstances[0].fileSize && (
@@ -434,11 +460,11 @@ export function ReportsList({ onReportSelect, onCreateReport, customReports = []
                     </div>
                   </CardContent>
                 </Card>
-              )
+              );
             })}
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

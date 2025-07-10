@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
@@ -7,7 +7,7 @@ import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
-  LegendComponent
+  LegendComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -20,7 +20,7 @@ echarts.use([
   TooltipComponent,
   GridComponent,
   LegendComponent,
-  CanvasRenderer
+  CanvasRenderer,
 ]);
 
 export interface MiniChartProps {
@@ -29,7 +29,11 @@ export interface MiniChartProps {
   className?: string;
 }
 
-export default function MiniChart({ config, chartType, className = "w-full h-full" }: MiniChartProps) {
+export default function MiniChart({
+  config,
+  chartType,
+  className = 'w-full h-full',
+}: MiniChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -39,7 +43,7 @@ export default function MiniChart({ config, chartType, className = "w-full h-ful
       if (!chartInstance.current) {
         chartInstance.current = echarts.init(chartRef.current);
       }
-      
+
       // Set chart option
       const option = generateMiniOption();
       chartInstance.current.setOption(option, true); // Use true to clear previous options
@@ -61,9 +65,9 @@ export default function MiniChart({ config, chartType, className = "w-full h-ful
         chartInstance.current.resize();
       }
     };
-    
+
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
     };
@@ -80,11 +84,11 @@ export default function MiniChart({ config, chartType, className = "w-full h-ful
         right: 15,
         top: 15,
         bottom: 15,
-        containLabel: false
+        containLabel: false,
       },
       tooltip: { show: false },
       legend: { show: false },
-      title: { show: false }
+      title: { show: false },
     };
 
     // Merge baseOption with the provided config
@@ -94,22 +98,20 @@ export default function MiniChart({ config, chartType, className = "w-full h-ful
       // Override specific options for thumbnail view
       xAxis: {
         ...config.xAxis,
-        show: false
+        show: false,
       },
       yAxis: {
         ...config.yAxis,
-        show: false
+        show: false,
       },
       series: config.series.map((series: any) => ({
         ...series,
         // Customize series options for thumbnail
         label: { show: false },
-        emphasis: { scale: false }
-      }))
+        emphasis: { scale: false },
+      })),
     };
   };
 
-  return (
-    <div ref={chartRef} className={className} />
-  );
-} 
+  return <div ref={chartRef} className={className} />;
+}

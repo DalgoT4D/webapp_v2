@@ -26,8 +26,8 @@ export const CHART_TYPE_CONFIGS: Record<string, ChartTypeConfig> = {
       minDataPoints: 1,
       maxDataPoints: 50,
       xAxisType: 'category',
-      yAxisType: 'value'
-    }
+      yAxisType: 'value',
+    },
   },
   line: {
     name: 'Line Chart',
@@ -37,8 +37,8 @@ export const CHART_TYPE_CONFIGS: Record<string, ChartTypeConfig> = {
     dataRequirements: {
       minDataPoints: 2,
       xAxisType: 'any',
-      yAxisType: 'value'
-    }
+      yAxisType: 'value',
+    },
   },
   pie: {
     name: 'Pie Chart',
@@ -49,9 +49,9 @@ export const CHART_TYPE_CONFIGS: Record<string, ChartTypeConfig> = {
       minDataPoints: 2,
       maxDataPoints: 12,
       xAxisType: 'category',
-      yAxisType: 'value'
-    }
-  }
+      yAxisType: 'value',
+    },
+  },
 };
 
 // Color palettes for different chart types
@@ -59,9 +59,18 @@ export const COLOR_PALETTES = {
   default: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'],
   pastel: ['#a7c9f1', '#a7e6d7', '#f7d794', '#f2a6a6', '#c9a9dd', '#a7e0f0', '#c9d93a', '#f5b342'],
   vibrant: ['#4f46e5', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#ea580c'],
-  monochrome: ['#374151', '#6b7280', '#9ca3af', '#d1d5db', '#e5e7eb', '#f3f4f6', '#f9fafb', '#ffffff'],
+  monochrome: [
+    '#374151',
+    '#6b7280',
+    '#9ca3af',
+    '#d1d5db',
+    '#e5e7eb',
+    '#f3f4f6',
+    '#f9fafb',
+    '#ffffff',
+  ],
   cool: ['#3b82f6', '#06b6d4', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444'],
-  warm: ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#10b981', '#06b6d4', '#3b82f6']
+  warm: ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#10b981', '#06b6d4', '#3b82f6'],
 };
 
 // Utility functions for chart data validation and transformation
@@ -70,7 +79,7 @@ export function validateChartData(data: ChartData, chartType: string) {
   return {
     isValid: true,
     errors: [],
-    recommendations: []
+    recommendations: [],
   };
 }
 
@@ -97,7 +106,7 @@ export const generateChartTitleSuggestions = (
   if (!config) return [`${yAxisLabel} by ${xAxisLabel}`];
 
   const suggestions: string[] = [];
-  
+
   switch (chartType) {
     case 'bar':
       suggestions.push(
@@ -123,7 +132,7 @@ export const generateChartTitleSuggestions = (
     default:
       suggestions.push(`${yAxisLabel} by ${xAxisLabel}`);
   }
-  
+
   return suggestions;
 };
 
@@ -133,7 +142,10 @@ export const getChartTypeInfo = (chartType: string) => {
 };
 
 // Check if chart type is supported by library
-export const isChartTypeSupported = (chartType: string, library: 'echarts' | 'nivo' | 'recharts'): boolean => {
+export const isChartTypeSupported = (
+  chartType: string,
+  library: 'echarts' | 'nivo' | 'recharts'
+): boolean => {
   const config = CHART_TYPE_CONFIGS[chartType];
   return config ? config.supportedLibraries.includes(library) : false;
-}; 
+};

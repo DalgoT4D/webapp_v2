@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function RegionalImpactMap() {
   return (
@@ -13,5 +13,5 @@ export function RegionalImpactMap() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

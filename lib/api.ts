@@ -1,18 +1,18 @@
 // Centralized API config and fetch utility
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8002";
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
 
 // Placeholder for getting auth token (to be implemented)
 function getAuthToken() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("authToken") || undefined;
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken') || undefined;
   }
   return undefined;
 }
 
 function getSelectOrg() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("selectedOrg") || undefined;
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('selectedOrg') || undefined;
   }
   return undefined;
 }
@@ -23,12 +23,12 @@ function getHeaders() {
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(selectedOrgSlug ? { "x-dalgo-org": selectedOrgSlug } : {}),
+    ...(selectedOrgSlug ? { 'x-dalgo-org': selectedOrgSlug } : {}),
   };
 }
 
 async function apiFetch(path: string, options: RequestInit = {}) {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
   const headers: HeadersInit = {
     ...(options.headers || {}),
     ...getHeaders(),
@@ -66,4 +66,4 @@ export function apiPut(path: string, body: any, options: RequestInit = {}) {
 // Helper for DELETE requests
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
-} 
+}

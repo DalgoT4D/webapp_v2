@@ -1,55 +1,62 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { StarIcon } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { StarIcon } from 'lucide-react';
 
 const feedbackData = [
   {
-    id: "FB-1234",
-    user: "John Smith",
-    role: "Field Worker",
-    feature: "Visit Logging",
+    id: 'FB-1234',
+    user: 'John Smith',
+    role: 'Field Worker',
+    feature: 'Visit Logging',
     rating: 4,
-    feedback: "Very intuitive and easy to use in the field.",
-    date: "2023-05-15",
+    feedback: 'Very intuitive and easy to use in the field.',
+    date: '2023-05-15',
   },
   {
-    id: "FB-1235",
-    user: "Maria Garcia",
-    role: "Manager",
-    feature: "Dashboards",
+    id: 'FB-1235',
+    user: 'Maria Garcia',
+    role: 'Manager',
+    feature: 'Dashboards',
     rating: 5,
-    feedback: "The visualizations make it easy to track progress.",
-    date: "2023-05-16",
+    feedback: 'The visualizations make it easy to track progress.',
+    date: '2023-05-16',
   },
   {
-    id: "FB-1236",
-    user: "David Johnson",
-    role: "Field Worker",
-    feature: "Risk Assessment",
+    id: 'FB-1236',
+    user: 'David Johnson',
+    role: 'Field Worker',
+    feature: 'Risk Assessment',
     rating: 3,
-    feedback: "Works well but could use more offline capabilities.",
-    date: "2023-05-17",
+    feedback: 'Works well but could use more offline capabilities.',
+    date: '2023-05-17',
   },
   {
-    id: "FB-1237",
-    user: "Sarah Williams",
-    role: "Admin",
-    feature: "Reporting",
+    id: 'FB-1237',
+    user: 'Sarah Williams',
+    role: 'Admin',
+    feature: 'Reporting',
     rating: 4,
-    feedback: "Great for generating reports for funders.",
-    date: "2023-05-18",
+    feedback: 'Great for generating reports for funders.',
+    date: '2023-05-18',
   },
   {
-    id: "FB-1238",
-    user: "Michael Brown",
-    role: "Field Worker",
-    feature: "Chat Assistant",
+    id: 'FB-1238',
+    user: 'Michael Brown',
+    role: 'Field Worker',
+    feature: 'Chat Assistant',
     rating: 2,
-    feedback: "Needs improvement in understanding local terminology.",
-    date: "2023-05-19",
+    feedback: 'Needs improvement in understanding local terminology.',
+    date: '2023-05-19',
   },
-]
+];
 
 export function UserFeedbackTable() {
   return (
@@ -85,7 +92,7 @@ export function UserFeedbackTable() {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <StarIcon
                         key={i}
-                        className={`h-4 w-4 ${i < item.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+                        className={`h-4 w-4 ${i < item.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
                       />
                     ))}
                   </div>
@@ -98,5 +105,5 @@ export function UserFeedbackTable() {
         </Table>
       </CardContent>
     </Card>
-  )
+  );
 }

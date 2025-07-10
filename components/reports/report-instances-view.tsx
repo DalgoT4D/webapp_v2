@@ -1,11 +1,17 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   ArrowLeft,
   Search,
@@ -17,154 +23,160 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
-} from "lucide-react"
-import { format } from "date-fns"
-import type { Report, ReportInstance } from "./reports-view"
+} from 'lucide-react';
+import { format } from 'date-fns';
+import type { Report, ReportInstance } from './reports-view';
 
 // Mock data for all instances
 const mockAllInstances: Record<string, ReportInstance[]> = {
-  "rpt-001": [
+  'rpt-001': [
     {
-      id: "inst-001-1",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-05-15T09:00:00Z",
-      status: "completed",
-      fileSize: "2.4 MB",
-      downloadUrl: "/reports/monthly-impl-may-2023.pdf",
+      id: 'inst-001-1',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-05-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '2.4 MB',
+      downloadUrl: '/reports/monthly-impl-may-2023.pdf',
     },
     {
-      id: "inst-001-2",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-04-15T09:00:00Z",
-      status: "completed",
-      fileSize: "2.1 MB",
-      downloadUrl: "/reports/monthly-impl-apr-2023.pdf",
+      id: 'inst-001-2',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-04-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '2.1 MB',
+      downloadUrl: '/reports/monthly-impl-apr-2023.pdf',
     },
     {
-      id: "inst-001-3",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-03-15T09:00:00Z",
-      status: "completed",
-      fileSize: "1.9 MB",
-      downloadUrl: "/reports/monthly-impl-mar-2023.pdf",
+      id: 'inst-001-3',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-03-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '1.9 MB',
+      downloadUrl: '/reports/monthly-impl-mar-2023.pdf',
     },
     {
-      id: "inst-001-4",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-02-15T09:00:00Z",
-      status: "completed",
-      fileSize: "2.0 MB",
-      downloadUrl: "/reports/monthly-impl-feb-2023.pdf",
+      id: 'inst-001-4',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-02-15T09:00:00Z',
+      status: 'completed',
+      fileSize: '2.0 MB',
+      downloadUrl: '/reports/monthly-impl-feb-2023.pdf',
     },
     {
-      id: "inst-001-5",
-      reportId: "rpt-001",
-      reportName: "Monthly Implementation Summary",
-      reportDescription: "Comprehensive monthly report covering all implementation metrics",
-      dashboardName: "Implementation Dashboard",
-      generatedAt: "2023-01-15T09:00:00Z",
-      status: "failed",
+      id: 'inst-001-5',
+      reportId: 'rpt-001',
+      reportName: 'Monthly Implementation Summary',
+      reportDescription: 'Comprehensive monthly report covering all implementation metrics',
+      dashboardName: 'Implementation Dashboard',
+      generatedAt: '2023-01-15T09:00:00Z',
+      status: 'failed',
       fileSize: undefined,
       downloadUrl: undefined,
     },
   ],
-  "rpt-002": [
+  'rpt-002': [
     {
-      id: "inst-002-1",
-      reportId: "rpt-002",
-      reportName: "Weekly Impact Metrics",
-      reportDescription: "Weekly health outcomes and beneficiary impact analysis",
-      dashboardName: "Impact Dashboard",
-      generatedAt: "2023-05-22T08:00:00Z",
-      status: "completed",
-      fileSize: "1.8 MB",
-      downloadUrl: "/reports/weekly-impact-may-22-2023.pdf",
+      id: 'inst-002-1',
+      reportId: 'rpt-002',
+      reportName: 'Weekly Impact Metrics',
+      reportDescription: 'Weekly health outcomes and beneficiary impact analysis',
+      dashboardName: 'Impact Dashboard',
+      generatedAt: '2023-05-22T08:00:00Z',
+      status: 'completed',
+      fileSize: '1.8 MB',
+      downloadUrl: '/reports/weekly-impact-may-22-2023.pdf',
     },
     {
-      id: "inst-002-2",
-      reportId: "rpt-002",
-      reportName: "Weekly Impact Metrics",
-      reportDescription: "Weekly health outcomes and beneficiary impact analysis",
-      dashboardName: "Impact Dashboard",
-      generatedAt: "2023-05-15T08:00:00Z",
-      status: "completed",
-      fileSize: "1.7 MB",
-      downloadUrl: "/reports/weekly-impact-may-15-2023.pdf",
+      id: 'inst-002-2',
+      reportId: 'rpt-002',
+      reportName: 'Weekly Impact Metrics',
+      reportDescription: 'Weekly health outcomes and beneficiary impact analysis',
+      dashboardName: 'Impact Dashboard',
+      generatedAt: '2023-05-15T08:00:00Z',
+      status: 'completed',
+      fileSize: '1.7 MB',
+      downloadUrl: '/reports/weekly-impact-may-15-2023.pdf',
     },
     {
-      id: "inst-002-3",
-      reportId: "rpt-002",
-      reportName: "Weekly Impact Metrics",
-      reportDescription: "Weekly health outcomes and beneficiary impact analysis",
-      dashboardName: "Impact Dashboard",
-      generatedAt: "2023-05-08T08:00:00Z",
-      status: "generating",
+      id: 'inst-002-3',
+      reportId: 'rpt-002',
+      reportName: 'Weekly Impact Metrics',
+      reportDescription: 'Weekly health outcomes and beneficiary impact analysis',
+      dashboardName: 'Impact Dashboard',
+      generatedAt: '2023-05-08T08:00:00Z',
+      status: 'generating',
       fileSize: undefined,
       downloadUrl: undefined,
     },
   ],
-}
+};
 
 interface ReportInstancesViewProps {
-  report: Report
-  onInstanceSelect: (instance: ReportInstance) => void
-  onBack: () => void
+  report: Report;
+  onInstanceSelect: (instance: ReportInstance) => void;
+  onBack: () => void;
 }
 
-export function ReportInstancesView({ report, onInstanceSelect, onBack }: ReportInstancesViewProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+export function ReportInstancesView({
+  report,
+  onInstanceSelect,
+  onBack,
+}: ReportInstancesViewProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const instances = mockAllInstances[report.id] || []
+  const instances = mockAllInstances[report.id] || [];
 
   // Filter instances
   const filteredInstances = instances.filter((instance) => {
     const matchesSearch =
-      searchQuery === "" ||
-      format(new Date(instance.generatedAt), "PPP").toLowerCase().includes(searchQuery.toLowerCase())
+      searchQuery === '' ||
+      format(new Date(instance.generatedAt), 'PPP')
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === "all" || instance.status === statusFilter
+    const matchesStatus = statusFilter === 'all' || instance.status === statusFilter;
 
-    return matchesSearch && matchesStatus
-  })
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case "failed":
-        return <AlertCircle className="h-4 w-4 text-red-500" />
-      case "generating":
-        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'generating':
+        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "failed":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "generating":
-        return "bg-blue-100 text-blue-800 border-blue-200"
+      case 'completed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'failed':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'generating':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -196,8 +208,12 @@ export function ReportInstancesView({ report, onInstanceSelect, onBack }: Report
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Schedule:</span>
               <span className="font-medium">
-                {report.frequency === "daily" ? "Daily" : report.frequency === "weekly" ? "Mondays" : "1st of month"} at{" "}
-                {report.time}
+                {report.frequency === 'daily'
+                  ? 'Daily'
+                  : report.frequency === 'weekly'
+                    ? 'Mondays'
+                    : '1st of month'}{' '}
+                at {report.time}
               </span>
             </div>
             <Badge variant="outline" className={getStatusColor(report.status)}>
@@ -239,9 +255,9 @@ export function ReportInstancesView({ report, onInstanceSelect, onBack }: Report
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No instances found</h3>
             <p className="text-muted-foreground">
-              {searchQuery || statusFilter !== "all"
-                ? "Try adjusting your search or filter criteria"
-                : "No report instances have been generated yet"}
+              {searchQuery || statusFilter !== 'all'
+                ? 'Try adjusting your search or filter criteria'
+                : 'No report instances have been generated yet'}
             </p>
           </div>
         ) : (
@@ -267,11 +283,15 @@ export function ReportInstancesView({ report, onInstanceSelect, onBack }: Report
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => onInstanceSelect(instance)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onInstanceSelect(instance)}
+                      >
                         <Eye className="h-4 w-4 mr-2" />
                         View
                       </Button>
-                      {instance.status === "completed" && instance.downloadUrl && (
+                      {instance.status === 'completed' && instance.downloadUrl && (
                         <Button variant="outline" size="sm">
                           <Download className="h-4 w-4 mr-2" />
                           Download
@@ -286,5 +306,5 @@ export function ReportInstancesView({ report, onInstanceSelect, onBack }: Report
         )}
       </div>
     </div>
-  )
+  );
 }

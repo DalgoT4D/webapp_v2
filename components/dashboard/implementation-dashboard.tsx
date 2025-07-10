@@ -1,26 +1,26 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { ErrorBoundary } from "react-error-boundary"
-import { VisitCompletionChart } from "@/components/visit-completion-chart"
-import { ProtocolAdherenceChart } from "@/components/protocol-adherence-chart"
-import { RiskDistributionChart } from "@/components/risk-distribution-chart"
-import { DashboardChartWrapper } from "./dashboard-chart-wrapper"
-import { FieldVisitTable } from "./field-visit-table"
-import { SupplyLevelsChart } from "./supply-levels-chart"
-import { TeamPerformanceChart } from "./team-performance-chart"
-import { IndiaMapChart } from "./india-map-chart"
-import { DashboardFilters, type FilterValues } from "./dashboard-filters"
-import { DashboardInsight } from "./dashboard-insight"
-import { KeyIndicators } from "./key-indicators"
-import { DrillDownDialog } from "./drill-down-dialog"
-import { Card } from "@/components/ui/card"
-import { MessageSquare } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+import { VisitCompletionChart } from '@/components/visit-completion-chart';
+import { ProtocolAdherenceChart } from '@/components/protocol-adherence-chart';
+import { RiskDistributionChart } from '@/components/risk-distribution-chart';
+import { DashboardChartWrapper } from './dashboard-chart-wrapper';
+import { FieldVisitTable } from './field-visit-table';
+import { SupplyLevelsChart } from './supply-levels-chart';
+import { TeamPerformanceChart } from './team-performance-chart';
+import { IndiaMapChart } from './india-map-chart';
+import { DashboardFilters, type FilterValues } from './dashboard-filters';
+import { DashboardInsight } from './dashboard-insight';
+import { KeyIndicators } from './key-indicators';
+import { DrillDownDialog } from './drill-down-dialog';
+import { Card } from '@/components/ui/card';
+import { MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ImplementationDashboardProps {
-  onElementSelect: (elementId: string) => void
-  isChatOpen?: boolean
+  onElementSelect: (elementId: string) => void;
+  isChatOpen?: boolean;
 }
 
 function ErrorFallback({ error }: { error: Error }) {
@@ -29,64 +29,67 @@ function ErrorFallback({ error }: { error: Error }) {
       <h2 className="text-base font-bold text-red-800">Chart Error:</h2>
       <p className="text-sm text-red-600">{error.message}</p>
     </div>
-  )
+  );
 }
 
-export function ImplementationDashboard({ onElementSelect, isChatOpen = false }: ImplementationDashboardProps) {
+export function ImplementationDashboard({
+  onElementSelect,
+  isChatOpen = false,
+}: ImplementationDashboardProps) {
   const [filters, setFilters] = useState<FilterValues>({
     dateRange: {
       from: new Date(2023, 4, 1),
       to: new Date(2023, 4, 31),
     },
-    region: "all",
-    team: "all",
-    riskLevel: "all",
-  })
+    region: 'all',
+    team: 'all',
+    riskLevel: 'all',
+  });
 
   // Drill-down state
-  const [drillDownOpen, setDrillDownOpen] = useState(false)
-  const [drillDownMetric, setDrillDownMetric] = useState("")
-  const [drillDownValue, setDrillDownValue] = useState("")
-  const [drillDownRegionId, setDrillDownRegionId] = useState<string | undefined>(undefined)
+  const [drillDownOpen, setDrillDownOpen] = useState(false);
+  const [drillDownMetric, setDrillDownMetric] = useState('');
+  const [drillDownValue, setDrillDownValue] = useState('');
+  const [drillDownRegionId, setDrillDownRegionId] = useState<string | undefined>(undefined);
 
   // Trigger resize when chat state changes
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.dispatchEvent(new Event("resize"))
-    }, 350) // Slightly longer delay for chart components
+      window.dispatchEvent(new Event('resize'));
+    }, 350); // Slightly longer delay for chart components
 
-    return () => clearTimeout(timer)
-  }, [isChatOpen])
+    return () => clearTimeout(timer);
+  }, [isChatOpen]);
 
   // Ensure we have a valid onElementSelect function
   const handleElementSelect = (elementId: string) => {
-    if (onElementSelect && typeof onElementSelect === "function" && elementId) {
-      onElementSelect(elementId)
+    if (onElementSelect && typeof onElementSelect === 'function' && elementId) {
+      onElementSelect(elementId);
     }
-  }
+  };
 
   // Handle filter changes
   const handleFilterChange = (newFilters: FilterValues) => {
-    setFilters(newFilters)
+    setFilters(newFilters);
     // In a real app, you would fetch new data based on these filters
-    console.log("Filters updated:", newFilters)
-  }
+    console.log('Filters updated:', newFilters);
+  };
 
   // Handle drill-down
   const handleDrillDown = (metric: string, value: string) => {
-    setDrillDownMetric(metric)
-    setDrillDownValue(value)
-    setDrillDownRegionId(undefined)
-    setDrillDownOpen(true)
-  }
+    setDrillDownMetric(metric);
+    setDrillDownValue(value);
+    setDrillDownRegionId(undefined);
+    setDrillDownOpen(true);
+  };
 
   // Handle region click
   const handleRegionClick = (regionId: string) => {
-    setDrillDownMetric("region")
-    setDrillDownValue(regionId)
-    setDrillDownRegionId(regionId)
-    setDrillDownOpen(true)
-  }
+    setDrillDownMetric('region');
+    setDrillDownValue(regionId);
+    setDrillDownRegionId(regionId);
+    setDrillDownOpen(true);
+  };
 
   return (
     <div className="space-y-4">
@@ -105,7 +108,11 @@ export function ImplementationDashboard({ onElementSelect, isChatOpen = false }:
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <div className="lg:col-span-2">
-            <IndiaMapChart filters={filters} onRegionClick={handleRegionClick} isChatOpen={isChatOpen} />
+            <IndiaMapChart
+              filters={filters}
+              onRegionClick={handleRegionClick}
+              isChatOpen={isChatOpen}
+            />
           </div>
         </ErrorBoundary>
 
@@ -117,7 +124,7 @@ export function ImplementationDashboard({ onElementSelect, isChatOpen = false }:
                 variant="outline"
                 size="sm"
                 className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5"
-                onClick={() => handleElementSelect("key-insights")}
+                onClick={() => handleElementSelect('key-insights')}
                 title="Ask about Key Insights"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
@@ -190,7 +197,11 @@ export function ImplementationDashboard({ onElementSelect, isChatOpen = false }:
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Supply Levels */}
         <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <DashboardChartWrapper elementId="supply-levels" title="Supply Levels" onElementSelect={handleElementSelect}>
+          <DashboardChartWrapper
+            elementId="supply-levels"
+            title="Supply Levels"
+            onElementSelect={handleElementSelect}
+          >
             <SupplyLevelsChart filters={filters} isChatOpen={isChatOpen} />
           </DashboardChartWrapper>
         </ErrorBoundary>
@@ -227,5 +238,5 @@ export function ImplementationDashboard({ onElementSelect, isChatOpen = false }:
         regionId={drillDownRegionId}
       />
     </div>
-  )
+  );
 }

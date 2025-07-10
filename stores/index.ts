@@ -1,2 +1,2 @@
-export { useAuthStore } from './authStore'
-export type { Org } from './authStore' 
+export { useAuthStore } from './authStore';
+export type { Org } from './authStore';

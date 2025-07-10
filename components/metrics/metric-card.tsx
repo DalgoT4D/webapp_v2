@@ -1,44 +1,44 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { ArrowDown, ArrowUp, BarChart3, Edit } from "lucide-react"
-import { MetricChart } from "./metric-chart"
+import { useState } from 'react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { ArrowDown, ArrowUp, BarChart3, Edit } from 'lucide-react';
+import { MetricChart } from './metric-chart';
 
 interface MetricCardProps {
   metric: {
-    id: string
-    name: string
-    description: string
-    category: string
-    currentValue: number
-    unit: string
-    target: number
-    trend: number
-    icon: any
-    color: string
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    currentValue: number;
+    unit: string;
+    target: number;
+    trend: number;
+    icon: any;
+    color: string;
     timeSeriesData: {
-      week: number[]
-      month: number[]
-      quarter: number[]
-      year: number[]
-    }
-  }
-  timeHorizon: "week" | "month" | "quarter" | "year"
-  onEdit?: () => void
+      week: number[];
+      month: number[];
+      quarter: number[];
+      year: number[];
+    };
+  };
+  timeHorizon: 'week' | 'month' | 'quarter' | 'year';
+  onEdit?: () => void;
 }
 
 export function MetricCard({ metric, timeHorizon, onEdit }: MetricCardProps) {
-  const [showChart, setShowChart] = useState(false)
-  const Icon = metric.icon
+  const [showChart, setShowChart] = useState(false);
+  const Icon = metric.icon;
 
   // Calculate progress percentage (capped at 100%)
-  const progressPercentage = Math.min(100, (metric.currentValue / metric.target) * 100)
+  const progressPercentage = Math.min(100, (metric.currentValue / metric.target) * 100);
 
   // Determine if trend is positive or negative
-  const isTrendPositive = metric.trend > 0
+  const isTrendPositive = metric.trend > 0;
 
   return (
     <Card className="overflow-hidden">
@@ -70,7 +70,11 @@ export function MetricCard({ metric, timeHorizon, onEdit }: MetricCardProps) {
       <CardContent className="pb-2">
         {showChart ? (
           <div className="h-[120px]">
-            <MetricChart data={metric.timeSeriesData[timeHorizon]} timeHorizon={timeHorizon} color={metric.color} />
+            <MetricChart
+              data={metric.timeSeriesData[timeHorizon]}
+              timeHorizon={timeHorizon}
+              color={metric.color}
+            />
           </div>
         ) : (
           <div className="space-y-2">
@@ -79,8 +83,14 @@ export function MetricCard({ metric, timeHorizon, onEdit }: MetricCardProps) {
                 <span className="text-3xl font-bold">{metric.currentValue}</span>
                 <span className="text-sm text-muted-foreground">{metric.unit}</span>
               </div>
-              <div className={`flex items-center gap-1 text-sm ${isTrendPositive ? "text-green-600" : "text-red-600"}`}>
-                {isTrendPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+              <div
+                className={`flex items-center gap-1 text-sm ${isTrendPositive ? 'text-green-600' : 'text-red-600'}`}
+              >
+                {isTrendPositive ? (
+                  <ArrowUp className="h-4 w-4" />
+                ) : (
+                  <ArrowDown className="h-4 w-4" />
+                )}
                 {Math.abs(metric.trend)}%
               </div>
             </div>
@@ -104,9 +114,9 @@ export function MetricCard({ metric, timeHorizon, onEdit }: MetricCardProps) {
           onClick={() => setShowChart(!showChart)}
         >
           <BarChart3 className="h-3 w-3" />
-          {showChart ? "Show Current Value" : "Show Trend"}
+          {showChart ? 'Show Current Value' : 'Show Trend'}
         </Button>
       </CardFooter>
     </Card>
-  )
+  );
 }

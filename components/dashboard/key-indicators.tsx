@@ -1,23 +1,30 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { MessageSquare } from "lucide-react"
-import { useState } from "react"
+import type React from 'react';
+import { MessageSquare } from 'lucide-react';
+import { useState } from 'react';
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { ArrowUpIcon, ArrowDownIcon, Users, UserCheck, AlertTriangle, CheckCircle2 } from "lucide-react"
-import type { FilterValues } from "./dashboard-filters"
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import {
+  ArrowUpIcon,
+  ArrowDownIcon,
+  Users,
+  UserCheck,
+  AlertTriangle,
+  CheckCircle2,
+} from 'lucide-react';
+import type { FilterValues } from './dashboard-filters';
 
 interface KeyIndicatorProps {
-  title: string
-  value: string | number
-  change: number
-  icon: React.ElementType
-  trend?: "up" | "down"
-  trendDirection?: "positive" | "negative"
-  onClick?: () => void
+  title: string;
+  value: string | number;
+  change: number;
+  icon: React.ElementType;
+  trend?: 'up' | 'down';
+  trendDirection?: 'positive' | 'negative';
+  onClick?: () => void;
 }
 
 function KeyIndicator({
@@ -25,13 +32,13 @@ function KeyIndicator({
   value,
   change,
   icon: Icon,
-  trend = "up",
-  trendDirection = "positive",
+  trend = 'up',
+  trendDirection = 'positive',
   onClick,
 }: KeyIndicatorProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const isPositive = trendDirection === "positive"
-  const showPositiveColor = (trend === "up" && isPositive) || (trend === "down" && !isPositive)
+  const [isHovered, setIsHovered] = useState(false);
+  const isPositive = trendDirection === 'positive';
+  const showPositiveColor = (trend === 'up' && isPositive) || (trend === 'down' && !isPositive);
 
   return (
     <Card
@@ -47,8 +54,14 @@ function KeyIndicator({
         </div>
         <div className="text-2xl font-bold mt-2">{value}</div>
         <p className="text-xs text-muted-foreground mt-1">
-          <span className={`flex items-center ${showPositiveColor ? "text-emerald-500" : "text-rose-500"}`}>
-            {trend === "up" ? <ArrowUpIcon className="mr-1 h-3 w-3" /> : <ArrowDownIcon className="mr-1 h-3 w-3" />}
+          <span
+            className={`flex items-center ${showPositiveColor ? 'text-emerald-500' : 'text-rose-500'}`}
+          >
+            {trend === 'up' ? (
+              <ArrowUpIcon className="mr-1 h-3 w-3" />
+            ) : (
+              <ArrowDownIcon className="mr-1 h-3 w-3" />
+            )}
             {Math.abs(change)}% from last month
           </span>
         </p>
@@ -57,12 +70,12 @@ function KeyIndicator({
         variant="outline"
         size="sm"
         className={cn(
-          "absolute top-2 right-2 transition-opacity duration-200 flex items-center gap-1.5",
-          isHovered ? "opacity-100" : "opacity-0",
+          'absolute top-2 right-2 transition-opacity duration-200 flex items-center gap-1.5',
+          isHovered ? 'opacity-100' : 'opacity-0'
         )}
         onClick={(e) => {
-          e.stopPropagation()
-          onClick?.()
+          e.stopPropagation();
+          onClick?.();
         }}
         title={`Ask about ${title}`}
       >
@@ -70,12 +83,12 @@ function KeyIndicator({
         <span className="text-xs">Ask</span>
       </Button>
     </Card>
-  )
+  );
 }
 
 interface KeyIndicatorsProps {
-  filters: FilterValues
-  onDrillDown: (metric: string, value: string) => void
+  filters: FilterValues;
+  onDrillDown: (metric: string, value: string) => void;
 }
 
 export function KeyIndicators({ filters, onDrillDown }: KeyIndicatorsProps) {
@@ -89,7 +102,7 @@ export function KeyIndicators({ filters, onDrillDown }: KeyIndicatorsProps) {
         icon={Users}
         trend="up"
         trendDirection="positive"
-        onClick={() => onDrillDown("mothers", "total")}
+        onClick={() => onDrillDown('mothers', 'total')}
       />
       <KeyIndicator
         title="Visit Completion"
@@ -98,7 +111,7 @@ export function KeyIndicators({ filters, onDrillDown }: KeyIndicatorsProps) {
         icon={UserCheck}
         trend="up"
         trendDirection="positive"
-        onClick={() => onDrillDown("visits", "completion")}
+        onClick={() => onDrillDown('visits', 'completion')}
       />
       <KeyIndicator
         title="Protocol Adherence"
@@ -107,7 +120,7 @@ export function KeyIndicators({ filters, onDrillDown }: KeyIndicatorsProps) {
         icon={CheckCircle2}
         trend="down"
         trendDirection="positive"
-        onClick={() => onDrillDown("protocols", "adherence")}
+        onClick={() => onDrillDown('protocols', 'adherence')}
       />
       <KeyIndicator
         title="High Risk Cases"
@@ -116,8 +129,8 @@ export function KeyIndicators({ filters, onDrillDown }: KeyIndicatorsProps) {
         icon={AlertTriangle}
         trend="up"
         trendDirection="negative"
-        onClick={() => onDrillDown("risk", "high")}
+        onClick={() => onDrillDown('risk', 'high')}
       />
     </div>
-  )
+  );
 }

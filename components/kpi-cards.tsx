@@ -1,5 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowUpIcon, ArrowDownIcon, Users, UserCheck, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ArrowUpIcon,
+  ArrowDownIcon,
+  Users,
+  UserCheck,
+  AlertTriangle,
+  CheckCircle2,
+} from 'lucide-react';
 
 export function KpiCards() {
   return (
@@ -68,5 +75,5 @@ export function KpiCards() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

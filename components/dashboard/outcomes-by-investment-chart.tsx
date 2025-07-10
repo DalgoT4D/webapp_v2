@@ -1,16 +1,24 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 const data = [
-  { name: "Antenatal Care", investment: 25000, outcome: 87 },
-  { name: "Nutritional Support", investment: 35000, outcome: 92 },
-  { name: "Health Education", investment: 15000, outcome: 78 },
-  { name: "Field Visits", investment: 45000, outcome: 95 },
-  { name: "Medical Supplies", investment: 30000, outcome: 85 },
-]
+  { name: 'Antenatal Care', investment: 25000, outcome: 87 },
+  { name: 'Nutritional Support', investment: 35000, outcome: 92 },
+  { name: 'Health Education', investment: 15000, outcome: 78 },
+  { name: 'Field Visits', investment: 45000, outcome: 95 },
+  { name: 'Medical Supplies', investment: 30000, outcome: 85 },
+];
 
 export function OutcomesByInvestmentChart() {
   return (
@@ -23,8 +31,8 @@ export function OutcomesByInvestmentChart() {
         <ChartContainer
           config={{
             outcome: {
-              label: "Outcome Score",
-              color: "hsl(var(--chart-1))",
+              label: 'Outcome Score',
+              color: 'hsl(var(--chart-1))',
             },
           }}
           className="h-[200px]"
@@ -42,11 +50,11 @@ export function OutcomesByInvestmentChart() {
               />
               <YAxis type="number" dataKey="outcome" name="Outcome" unit="%" domain={[70, 100]} />
               <ChartTooltip
-                cursor={{ strokeDasharray: "3 3" }}
+                cursor={{ strokeDasharray: '3 3' }}
                 content={<ChartTooltipContent />}
                 formatter={(value: any, name: string) => {
-                  if (name === "investment") return [`$${value}`, "Investment"]
-                  return [value, name]
+                  if (name === 'investment') return [`$${value}`, 'Investment'];
+                  return [value, name];
                 }}
               />
               <Scatter name="Programs" data={data || []} fill="var(--color-outcome)" />
@@ -56,5 +64,5 @@ export function OutcomesByInvestmentChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

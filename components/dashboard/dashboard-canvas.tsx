@@ -1,49 +1,50 @@
-"use client"
+'use client';
 
-import { useSortable } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
-import { BarChart3 } from "lucide-react"
-import { DashboardElementData } from "./dashboard-builder"
-import { ChartElement } from "./chart-element"
-import { TextElement } from "./text-element"
-import { HeadingElement } from "./heading-element"
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { BarChart3 } from 'lucide-react';
+import { DashboardElementData } from './dashboard-builder';
+import { ChartElement } from './chart-element';
+import { TextElement } from './text-element';
+import { HeadingElement } from './heading-element';
 
 interface DashboardCanvasProps {
-  elements: DashboardElementData[]
-  selectedElement: string | null
-  onElementSelect: (id: string) => void
-  onElementUpdate: (id: string, updates: Partial<DashboardElementData>) => void
-  onElementDelete: (id: string) => void
+  elements: DashboardElementData[];
+  selectedElement: string | null;
+  onElementSelect: (id: string) => void;
+  onElementUpdate: (id: string, updates: Partial<DashboardElementData>) => void;
+  onElementDelete: (id: string) => void;
 }
 
 interface SortableElementProps {
-  element: DashboardElementData
-  isSelected: boolean
-  onSelect: () => void
-  onUpdate: (updates: Partial<DashboardElementData>) => void
-  onDelete: () => void
+  element: DashboardElementData;
+  isSelected: boolean;
+  onSelect: () => void;
+  onUpdate: (updates: Partial<DashboardElementData>) => void;
+  onDelete: () => void;
 }
 
-function SortableElement({ element, isSelected, onSelect, onUpdate, onDelete }: SortableElementProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: element.id })
+function SortableElement({
+  element,
+  isSelected,
+  onSelect,
+  onUpdate,
+  onDelete,
+}: SortableElementProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: element.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     gridColumn: `span ${element.gridSize.cols}`,
     gridRow: `span ${element.gridSize.rows}`,
-  }
+  };
 
   const renderElement = () => {
     switch (element.type) {
-      case "chart":
+      case 'chart':
         return (
           <ChartElement
             element={element}
@@ -52,8 +53,8 @@ function SortableElement({ element, isSelected, onSelect, onUpdate, onDelete }: 
             onUpdate={onUpdate}
             onDelete={onDelete}
           />
-        )
-      case "text":
+        );
+      case 'text':
         return (
           <TextElement
             element={element}
@@ -62,8 +63,8 @@ function SortableElement({ element, isSelected, onSelect, onUpdate, onDelete }: 
             onUpdate={onUpdate}
             onDelete={onDelete}
           />
-        )
-      case "heading":
+        );
+      case 'heading':
         return (
           <HeadingElement
             element={element}
@@ -72,11 +73,11 @@ function SortableElement({ element, isSelected, onSelect, onUpdate, onDelete }: 
             onUpdate={onUpdate}
             onDelete={onDelete}
           />
-        )
+        );
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <div
@@ -88,7 +89,7 @@ function SortableElement({ element, isSelected, onSelect, onUpdate, onDelete }: 
     >
       {renderElement()}
     </div>
-  )
+  );
 }
 
 export function DashboardCanvas({
@@ -111,20 +112,20 @@ export function DashboardCanvas({
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Calculate grid template columns based on the maximum columns needed
-  const maxCols = Math.max(...elements.map(el => el.gridSize.cols), 1)
-  const gridTemplateColumns = `repeat(${Math.max(maxCols, 3)}, 1fr)`
+  const maxCols = Math.max(...elements.map((el) => el.gridSize.cols), 1);
+  const gridTemplateColumns = `repeat(${Math.max(maxCols, 3)}, 1fr)`;
 
   return (
     <div className="min-h-full">
-      <div 
+      <div
         className="grid gap-6 auto-rows-min"
-        style={{ 
+        style={{
           gridTemplateColumns,
-          gridAutoRows: 'minmax(200px, auto)'
+          gridAutoRows: 'minmax(200px, auto)',
         }}
       >
         {elements.map((element) => (
@@ -139,5 +140,5 @@ export function DashboardCanvas({
         ))}
       </div>
     </div>
-  )
-} 
+  );
+}

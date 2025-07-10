@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import useSWR from "swr";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { apiPost } from "@/lib/api";
-import { useAuthStore, type OrgUser } from "@/stores/authStore";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import useSWR from 'swr';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { apiPost } from '@/lib/api';
+import { useAuthStore, type OrgUser } from '@/stores/authStore';
 
 interface LoginForm {
   username: string;
@@ -17,16 +17,16 @@ interface LoginForm {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { 
-    isAuthenticated, 
-    token, 
-    setToken, 
-    setOrgUsers, 
-    setSelectedOrg, 
-    logout, 
+  const {
+    isAuthenticated,
+    token,
+    setToken,
+    setOrgUsers,
+    setSelectedOrg,
+    logout,
     initialize,
     selectedOrgSlug,
-    currentOrg
+    currentOrg,
   } = useAuthStore();
 
   // Initialize auth state from localStorage
@@ -44,14 +44,14 @@ export default function LoginPage() {
 
   // Fetch organizations when we have a token
   const { data: orgUsers, error: orgError } = useSWR<OrgUser[]>(
-    token ? "/api/currentuserv2" : null
+    token ? '/api/currentuserv2' : null
   );
 
   // Handle org data loading and auto-selection
   useEffect(() => {
     if (orgUsers && orgUsers.length > 0) {
       setOrgUsers(orgUsers);
-      
+
       // Auto-select organization
       if (!selectedOrgSlug) {
         // If no org is selected, select the first one
@@ -59,7 +59,7 @@ export default function LoginPage() {
         setSelectedOrg(firstOrg.slug);
       } else {
         // Verify the selected org still exists
-        const orgExists = orgUsers.some(ou => ou.org.slug === selectedOrgSlug);
+        const orgExists = orgUsers.some((ou) => ou.org.slug === selectedOrgSlug);
         if (!orgExists) {
           const firstOrg = orgUsers[0].org;
           setSelectedOrg(firstOrg.slug);
@@ -71,14 +71,14 @@ export default function LoginPage() {
   // Redirect to main app when authenticated and org is selected
   useEffect(() => {
     if (isAuthenticated && token && currentOrg) {
-      router.push("/");
+      router.push('/');
     }
   }, [isAuthenticated, token, currentOrg, router]);
 
   // Handle login
   const onLogin = async (data: LoginForm) => {
     try {
-      const response = await apiPost("/api/login/", {
+      const response = await apiPost('/api/login/', {
         username: data.username,
         password: data.password,
       });
@@ -86,10 +86,10 @@ export default function LoginPage() {
       if (response?.token) {
         setToken(response.token);
       } else {
-        setError("root", { message: "Invalid response from server" });
+        setError('root', { message: 'Invalid response from server' });
       }
     } catch (error: any) {
-      setError("root", { message: error.message || "Login failed" });
+      setError('root', { message: error.message || 'Login failed' });
     }
   };
 
@@ -109,11 +109,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black relative">
       {isAuthenticated && (
-        <Button
-          onClick={logout}
-          variant="destructive"
-          className="absolute top-4 right-4"
-        >
+        <Button onClick={logout} variant="destructive" className="absolute top-4 right-4">
           Logout
         </Button>
       )}
@@ -134,7 +130,7 @@ export default function LoginPage() {
             type="text"
             autoComplete="username"
             placeholder="eg. user@domain.com"
-            {...register("username", { required: "Username is required" })}
+            {...register('username', { required: 'Username is required' })}
             className="mt-1"
           />
           {errors.username && (
@@ -149,7 +145,7 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             placeholder="Enter your password"
-            {...register("password", { required: "Password is required" })}
+            {...register('password', { required: 'Password is required' })}
             className="mt-1"
           />
           {errors.password && (
@@ -168,7 +164,7 @@ export default function LoginPage() {
         )}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Sign In"}
+          {isSubmitting ? 'Signing in...' : 'Sign In'}
         </Button>
 
         <div className="text-center text-sm text-gray-600 dark:text-gray-400">
@@ -178,7 +174,7 @@ export default function LoginPage() {
         </div>
 
         <div className="text-center text-sm">
-          Not a member?{" "}
+          Not a member?{' '}
           <a href="/signup" className="text-primary hover:underline font-medium">
             Sign Up
           </a>
@@ -186,4 +182,4 @@ export default function LoginPage() {
       </form>
     </div>
   );
-} 
+}

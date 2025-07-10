@@ -1,40 +1,52 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Trash2, GripVertical, Heading } from "lucide-react"
-import { DashboardElementData, HeadingConfig } from "./dashboard-builder"
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Settings, Trash2, GripVertical, Heading } from 'lucide-react';
+import { DashboardElementData, HeadingConfig } from './dashboard-builder';
 
 interface HeadingElementProps {
-  element: DashboardElementData
-  isSelected: boolean
-  onSelect: () => void
-  onUpdate: (updates: Partial<DashboardElementData>) => void
-  onDelete: () => void
+  element: DashboardElementData;
+  isSelected: boolean;
+  onSelect: () => void;
+  onUpdate: (updates: Partial<DashboardElementData>) => void;
+  onDelete: () => void;
 }
 
 const sizeOptions = [
-  { label: "Small (1x1)", value: "1x1", cols: 1, rows: 1 },
-  { label: "Medium (2x1)", value: "2x1", cols: 2, rows: 1 },
-  { label: "Large (2x2)", value: "2x2", cols: 2, rows: 2 },
-  { label: "Wide (3x1)", value: "3x1", cols: 3, rows: 1 },
-  { label: "Extra Large (3x2)", value: "3x2", cols: 3, rows: 2 },
-]
+  { label: 'Small (1x1)', value: '1x1', cols: 1, rows: 1 },
+  { label: 'Medium (2x1)', value: '2x1', cols: 2, rows: 1 },
+  { label: 'Large (2x2)', value: '2x2', cols: 2, rows: 2 },
+  { label: 'Wide (3x1)', value: '3x1', cols: 3, rows: 1 },
+  { label: 'Extra Large (3x2)', value: '3x2', cols: 3, rows: 2 },
+];
 
-export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDelete }: HeadingElementProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editText, setEditText] = useState("")
-  const [editLevel, setEditLevel] = useState<1 | 2 | 3>(2)
-  const config = element.config as HeadingConfig
+export function HeadingElement({
+  element,
+  isSelected,
+  onSelect,
+  onUpdate,
+  onDelete,
+}: HeadingElementProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [editLevel, setEditLevel] = useState<1 | 2 | 3>(2);
+  const config = element.config as HeadingConfig;
 
   const handleEdit = () => {
-    setEditText(config.text)
-    setEditLevel(config.level)
-    setIsEditing(true)
-  }
+    setEditText(config.text);
+    setEditLevel(config.level);
+    setIsEditing(true);
+  };
 
   const handleSave = () => {
     onUpdate({
@@ -43,45 +55,45 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
         text: editText,
         level: editLevel,
       },
-    })
-    setIsEditing(false)
-  }
+    });
+    setIsEditing(false);
+  };
 
   const handleCancel = () => {
-    setEditText(config.text)
-    setEditLevel(config.level)
-    setIsEditing(false)
-  }
+    setEditText(config.text);
+    setEditLevel(config.level);
+    setIsEditing(false);
+  };
 
   const handleSizeChange = (sizeValue: string) => {
-    const sizeOption = sizeOptions.find(option => option.value === sizeValue)
+    const sizeOption = sizeOptions.find((option) => option.value === sizeValue);
     if (sizeOption) {
       onUpdate({
         gridSize: {
           cols: sizeOption.cols,
           rows: sizeOption.rows,
-        }
-      })
+        },
+      });
     }
-  }
+  };
 
   const getCurrentSizeValue = () => {
-    const currentSize = `${element.gridSize.cols}x${element.gridSize.rows}`
-    return sizeOptions.find(option => option.value === currentSize)?.value || "1x1"
-  }
+    const currentSize = `${element.gridSize.cols}x${element.gridSize.rows}`;
+    return sizeOptions.find((option) => option.value === currentSize)?.value || '1x1';
+  };
 
   const getHeadingSize = (level: 1 | 2 | 3) => {
     switch (level) {
       case 1:
-        return "text-3xl font-bold"
+        return 'text-3xl font-bold';
       case 2:
-        return "text-2xl font-semibold"
+        return 'text-2xl font-semibold';
       case 3:
-        return "text-xl font-medium"
+        return 'text-xl font-medium';
       default:
-        return "text-2xl font-semibold"
+        return 'text-2xl font-semibold';
     }
-  }
+  };
 
   return (
     <Card
@@ -101,7 +113,7 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
               <CardTitle className="text-base">Heading</CardTitle>
             </div>
           </div>
-          
+
           {isSelected && (
             <div className="flex items-center gap-1">
               <Select value={getCurrentSizeValue()} onValueChange={handleSizeChange}>
@@ -120,8 +132,8 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
                 variant="outline"
                 size="sm"
                 onClick={(e) => {
-                  e.stopPropagation()
-                  handleEdit()
+                  e.stopPropagation();
+                  handleEdit();
                 }}
               >
                 <Settings className="h-4 w-4" />
@@ -130,8 +142,8 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
                 variant="outline"
                 size="sm"
                 onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
+                  e.stopPropagation();
+                  onDelete();
                 }}
                 className="text-red-600 hover:text-red-700"
               >
@@ -141,7 +153,7 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
         {isEditing ? (
           <div className="space-y-3">
@@ -151,7 +163,10 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
               placeholder="Enter heading text..."
               className="text-lg font-semibold"
             />
-            <Select value={editLevel.toString()} onValueChange={(value) => setEditLevel(parseInt(value) as 1 | 2 | 3)}>
+            <Select
+              value={editLevel.toString()}
+              onValueChange={(value) => setEditLevel(parseInt(value) as 1 | 2 | 3)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select heading level" />
               </SelectTrigger>
@@ -175,10 +190,10 @@ export function HeadingElement({ element, isSelected, onSelect, onUpdate, onDele
             className={`p-4 border rounded-md bg-muted/30 text-center ${getHeadingSize(config.level)}`}
             style={{ color: config.color }}
           >
-            {config.text || "Enter heading text..."}
+            {config.text || 'Enter heading text...'}
           </div>
         )}
       </CardContent>
     </Card>
-  )
-} 
+  );
+}

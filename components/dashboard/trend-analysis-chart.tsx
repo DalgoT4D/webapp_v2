@@ -1,17 +1,25 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 const data = [
-  { quarter: "Q1 2022", healthOutcomes: 65, visitCompletion: 72, protocolAdherence: 68 },
-  { quarter: "Q2 2022", healthOutcomes: 68, visitCompletion: 75, protocolAdherence: 70 },
-  { quarter: "Q3 2022", healthOutcomes: 72, visitCompletion: 78, protocolAdherence: 73 },
-  { quarter: "Q4 2022", healthOutcomes: 75, visitCompletion: 80, protocolAdherence: 76 },
-  { quarter: "Q1 2023", healthOutcomes: 78, visitCompletion: 83, protocolAdherence: 79 },
-  { quarter: "Q2 2023", healthOutcomes: 82, visitCompletion: 87, protocolAdherence: 76 },
-]
+  { quarter: 'Q1 2022', healthOutcomes: 65, visitCompletion: 72, protocolAdherence: 68 },
+  { quarter: 'Q2 2022', healthOutcomes: 68, visitCompletion: 75, protocolAdherence: 70 },
+  { quarter: 'Q3 2022', healthOutcomes: 72, visitCompletion: 78, protocolAdherence: 73 },
+  { quarter: 'Q4 2022', healthOutcomes: 75, visitCompletion: 80, protocolAdherence: 76 },
+  { quarter: 'Q1 2023', healthOutcomes: 78, visitCompletion: 83, protocolAdherence: 79 },
+  { quarter: 'Q2 2023', healthOutcomes: 82, visitCompletion: 87, protocolAdherence: 76 },
+];
 
 export function TrendAnalysisChart() {
   return (
@@ -24,16 +32,16 @@ export function TrendAnalysisChart() {
         <ChartContainer
           config={{
             healthOutcomes: {
-              label: "Health Outcomes",
-              color: "hsl(var(--chart-1))",
+              label: 'Health Outcomes',
+              color: 'hsl(var(--chart-1))',
             },
             visitCompletion: {
-              label: "Visit Completion",
-              color: "hsl(var(--chart-2))",
+              label: 'Visit Completion',
+              color: 'hsl(var(--chart-2))',
             },
             protocolAdherence: {
-              label: "Protocol Adherence",
-              color: "hsl(var(--chart-3))",
+              label: 'Protocol Adherence',
+              color: 'hsl(var(--chart-3))',
             },
           }}
           className="h-[250px]"
@@ -50,13 +58,21 @@ export function TrendAnalysisChart() {
                 stroke="var(--color-healthOutcomes)"
                 activeDot={{ r: 8 }}
               />
-              <Line type="monotone" dataKey="visitCompletion" stroke="var(--color-visitCompletion)" />
-              <Line type="monotone" dataKey="protocolAdherence" stroke="var(--color-protocolAdherence)" />
+              <Line
+                type="monotone"
+                dataKey="visitCompletion"
+                stroke="var(--color-visitCompletion)"
+              />
+              <Line
+                type="monotone"
+                dataKey="protocolAdherence"
+                stroke="var(--color-protocolAdherence)"
+              />
               <Legend />
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

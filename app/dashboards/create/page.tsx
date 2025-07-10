@@ -1,7 +1,7 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { DashboardBuilder } from "@/components/dashboard/dashboard-builder"
+import { useState } from 'react';
+import { DashboardBuilder } from '@/components/dashboard/dashboard-builder';
 
 export default function CreateDashboardPage() {
   return (
@@ -14,5 +14,5 @@ export default function CreateDashboardPage() {
         <DashboardBuilder />
       </div>
     </div>
-  )
-} 
+  );
+}

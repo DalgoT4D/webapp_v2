@@ -1,94 +1,94 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Database, Upload, ArrowRight, Download, Settings, Cpu, Activity } from "lucide-react"
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Database, Upload, ArrowRight, Download, Settings, Cpu, Activity } from 'lucide-react';
 
 interface DataSource {
-  id: string
-  name: string
-  type: string
-  status: "active" | "pending" | "error"
-  lastSync: string
-  records: number
+  id: string;
+  name: string;
+  type: string;
+  status: 'active' | 'pending' | 'error';
+  lastSync: string;
+  records: number;
 }
 
 const mockDataSources: DataSource[] = [
   {
-    id: "1",
-    name: "Patient Registration System",
-    type: "PostgreSQL",
-    status: "active",
-    lastSync: "2 hours ago",
-    records: 45678
+    id: '1',
+    name: 'Patient Registration System',
+    type: 'PostgreSQL',
+    status: 'active',
+    lastSync: '2 hours ago',
+    records: 45678,
   },
   {
-    id: "2", 
-    name: "Health Facility Data",
-    type: "MySQL",
-    status: "active",
-    lastSync: "1 hour ago",
-    records: 12456
+    id: '2',
+    name: 'Health Facility Data',
+    type: 'MySQL',
+    status: 'active',
+    lastSync: '1 hour ago',
+    records: 12456,
   },
   {
-    id: "3",
-    name: "Supply Chain Management",
-    type: "API",
-    status: "pending",
-    lastSync: "Syncing...",
-    records: 8934
+    id: '3',
+    name: 'Supply Chain Management',
+    type: 'API',
+    status: 'pending',
+    lastSync: 'Syncing...',
+    records: 8934,
   },
   {
-    id: "4",
-    name: "Financial Records",
-    type: "CSV Upload",
-    status: "error",
-    lastSync: "Failed",
-    records: 0
-  }
-]
+    id: '4',
+    name: 'Financial Records',
+    type: 'CSV Upload',
+    status: 'error',
+    lastSync: 'Failed',
+    records: 0,
+  },
+];
 
 const quickActions = [
   {
-    title: "Ingest Data",
-    description: "Connect and import data from various sources",
+    title: 'Ingest Data',
+    description: 'Connect and import data from various sources',
     icon: Upload,
-    href: "/ingest",
-    color: "bg-blue-500"
+    href: '/ingest',
+    color: 'bg-blue-500',
   },
   {
-    title: "Transform Data", 
-    description: "Clean, process and transform your datasets",
+    title: 'Transform Data',
+    description: 'Clean, process and transform your datasets',
     icon: Settings,
-    href: "/transform",
-    color: "bg-green-500"
+    href: '/transform',
+    color: 'bg-green-500',
   },
   {
-    title: "Orchestrate Workflows",
-    description: "Automate and schedule data processing pipelines",
+    title: 'Orchestrate Workflows',
+    description: 'Automate and schedule data processing pipelines',
     icon: Cpu,
-    href: "/orchestrate", 
-    color: "bg-purple-500"
-  }
-]
+    href: '/orchestrate',
+    color: 'bg-purple-500',
+  },
+];
 
 export default function DataPage() {
-  const [selectedSource, setSelectedSource] = useState<string | null>(null)
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800"
-      case "pending": 
-        return "bg-yellow-100 text-yellow-800"
-      case "error":
-        return "bg-red-100 text-red-800"
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'error':
+        return 'bg-red-100 text-red-800';
       default:
-        return "bg-gray-100 text-gray-800"
+        return 'bg-gray-100 text-gray-800';
     }
-  }
+  };
 
   return (
     <div className="space-y-8">
@@ -110,9 +110,7 @@ export default function DataPage() {
                 </div>
                 <div>
                   <CardTitle className="text-lg">{action.title}</CardTitle>
-                  <CardDescription className="text-sm">
-                    {action.description}
-                  </CardDescription>
+                  <CardDescription className="text-sm">{action.description}</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -138,10 +136,10 @@ export default function DataPage() {
 
         <div className="grid gap-4">
           {mockDataSources.map((source) => (
-            <Card 
-              key={source.id} 
+            <Card
+              key={source.id}
               className={`cursor-pointer transition-all ${
-                selectedSource === source.id ? "ring-2 ring-primary" : "hover:shadow-md"
+                selectedSource === source.id ? 'ring-2 ring-primary' : 'hover:shadow-md'
               }`}
               onClick={() => setSelectedSource(source.id)}
             >
@@ -156,15 +154,15 @@ export default function DataPage() {
                       <p className="text-sm text-muted-foreground">{source.type}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <p className="text-sm font-medium">{source.records.toLocaleString()} records</p>
+                      <p className="text-sm font-medium">
+                        {source.records.toLocaleString()} records
+                      </p>
                       <p className="text-xs text-muted-foreground">Last sync: {source.lastSync}</p>
                     </div>
-                    <Badge className={getStatusColor(source.status)}>
-                      {source.status}
-                    </Badge>
+                    <Badge className={getStatusColor(source.status)}>{source.status}</Badge>
                   </div>
                 </div>
               </CardContent>
@@ -176,7 +174,7 @@ export default function DataPage() {
       {/* Data Pipeline Status */}
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold">Pipeline Activity</h2>
-        
+
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -230,5 +228,5 @@ export default function DataPage() {
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}

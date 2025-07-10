@@ -1,8 +1,8 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { User, Bell, Shield, Database } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { User, Bell, Shield, Database } from 'lucide-react';
 
 export default function SettingsPage() {
   return (
@@ -21,9 +21,7 @@ export default function SettingsPage() {
               <User className="h-5 w-5" />
               <CardTitle>Profile Settings</CardTitle>
             </div>
-            <CardDescription>
-              Update your profile information and preferences
-            </CardDescription>
+            <CardDescription>Update your profile information and preferences</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" className="w-full">
@@ -38,9 +36,7 @@ export default function SettingsPage() {
               <Bell className="h-5 w-5" />
               <CardTitle>Notifications</CardTitle>
             </div>
-            <CardDescription>
-              Configure how you receive alerts and notifications
-            </CardDescription>
+            <CardDescription>Configure how you receive alerts and notifications</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" className="w-full">
@@ -55,9 +51,7 @@ export default function SettingsPage() {
               <Shield className="h-5 w-5" />
               <CardTitle>Security</CardTitle>
             </div>
-            <CardDescription>
-              Manage your account security and access permissions
-            </CardDescription>
+            <CardDescription>Manage your account security and access permissions</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" className="w-full">
@@ -72,9 +66,7 @@ export default function SettingsPage() {
               <Database className="h-5 w-5" />
               <CardTitle>Data Management</CardTitle>
             </div>
-            <CardDescription>
-              Configure data sources and integration settings
-            </CardDescription>
+            <CardDescription>Configure data sources and integration settings</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" className="w-full">
@@ -84,5 +76,5 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
-  )
-} 
+  );
+}

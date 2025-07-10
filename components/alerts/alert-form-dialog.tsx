@@ -1,95 +1,110 @@
-"use client"
+'use client';
 
-import type React from "react"
+import type React from 'react';
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, X, Mail, MessageCircle, User } from "lucide-react"
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, X, Mail, MessageCircle, User } from 'lucide-react';
 
 interface Alert {
-  id: string
-  name: string
-  description: string
-  severity: "low" | "medium" | "high" | "critical"
-  status: "active" | "paused" | "triggered"
-  metrics: string[]
+  id: string;
+  name: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'paused' | 'triggered';
+  metrics: string[];
   conditions: Array<{
-    metric: string
-    operator: string
-    threshold: number
-    timePeriod: string
-  }>
+    metric: string;
+    operator: string;
+    threshold: number;
+    timePeriod: string;
+  }>;
   recipients: Array<{
-    email: string
-    name?: string
-    channels: string[]
-    phone?: string
-  }>
-  lastTriggered?: string
-  createdAt: string
+    email: string;
+    name?: string;
+    channels: string[];
+    phone?: string;
+  }>;
+  lastTriggered?: string;
+  createdAt: string;
 }
 
 interface AlertFormDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  alert?: Alert | null
-  onSave: (alert: Partial<Alert>) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  alert?: Alert | null;
+  onSave: (alert: Partial<Alert>) => void;
 }
 
 const availableMetrics = [
-  "Maternal Mortality Rate",
-  "Antenatal Care Coverage",
-  "Skilled Birth Attendance",
-  "Postnatal Care Coverage",
-  "Emergency Obstetric Care",
-  "Family Planning Coverage",
-  "Institutional Delivery Rate",
-  "Contraceptive Prevalence Rate",
-]
+  'Maternal Mortality Rate',
+  'Antenatal Care Coverage',
+  'Skilled Birth Attendance',
+  'Postnatal Care Coverage',
+  'Emergency Obstetric Care',
+  'Family Planning Coverage',
+  'Institutional Delivery Rate',
+  'Contraceptive Prevalence Rate',
+];
 
 const operators = [
-  { value: ">", label: "Greater than (>)" },
-  { value: "<", label: "Less than (<)" },
-  { value: ">=", label: "Greater than or equal (≥)" },
-  { value: "<=", label: "Less than or equal (≤)" },
-  { value: "=", label: "Equal to (=)" },
-  { value: "!=", label: "Not equal to (≠)" },
-]
+  { value: '>', label: 'Greater than (>)' },
+  { value: '<', label: 'Less than (<)' },
+  { value: '>=', label: 'Greater than or equal (≥)' },
+  { value: '<=', label: 'Less than or equal (≤)' },
+  { value: '=', label: 'Equal to (=)' },
+  { value: '!=', label: 'Not equal to (≠)' },
+];
 
-const timePeriods = ["1 hour", "6 hours", "12 hours", "1 day", "3 days", "7 days", "14 days", "30 days"]
+const timePeriods = [
+  '1 hour',
+  '6 hours',
+  '12 hours',
+  '1 day',
+  '3 days',
+  '7 days',
+  '14 days',
+  '30 days',
+];
 
 const notificationChannels = [
-  { value: "email", label: "Email", icon: Mail },
-  { value: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-]
+  { value: 'email', label: 'Email', icon: Mail },
+  { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+];
 
 export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertFormDialogProps) {
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    severity: "medium" as const,
-    conditions: [{ metric: "", operator: ">", threshold: 0, timePeriod: "1 day" }],
+    name: '',
+    description: '',
+    severity: 'medium' as const,
+    conditions: [{ metric: '', operator: '>', threshold: 0, timePeriod: '1 day' }],
     recipients: [] as Array<{
-      email: string
-      name?: string
-      channels: string[]
-      phone?: string
+      email: string;
+      name?: string;
+      channels: string[];
+      phone?: string;
     }>,
-  })
+  });
   const [newRecipient, setNewRecipient] = useState({
-    email: "",
-    name: "",
-    phone: "",
-    channels: ["email"] as string[],
-  })
+    email: '',
+    name: '',
+    phone: '',
+    channels: ['email'] as string[],
+  });
 
   useEffect(() => {
     if (alert) {
@@ -99,95 +114,100 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
         severity: alert.severity,
         conditions: alert.conditions,
         recipients: alert.recipients || [],
-      })
+      });
     } else {
       setFormData({
-        name: "",
-        description: "",
-        severity: "medium",
-        conditions: [{ metric: "", operator: ">", threshold: 0, timePeriod: "1 day" }],
+        name: '',
+        description: '',
+        severity: 'medium',
+        conditions: [{ metric: '', operator: '>', threshold: 0, timePeriod: '1 day' }],
         recipients: [],
-      })
+      });
     }
-  }, [alert, open])
+  }, [alert, open]);
 
   const handleSave = () => {
-    const metrics = formData.conditions.map((c) => c.metric).filter(Boolean)
+    const metrics = formData.conditions.map((c) => c.metric).filter(Boolean);
     onSave({
       ...formData,
       metrics,
-    })
-  }
+    });
+  };
 
   const addCondition = () => {
     setFormData((prev) => ({
       ...prev,
-      conditions: [...prev.conditions, { metric: "", operator: ">", threshold: 0, timePeriod: "1 day" }],
-    }))
-  }
+      conditions: [
+        ...prev.conditions,
+        { metric: '', operator: '>', threshold: 0, timePeriod: '1 day' },
+      ],
+    }));
+  };
 
   const removeCondition = (index: number) => {
     setFormData((prev) => ({
       ...prev,
       conditions: prev.conditions.filter((_, i) => i !== index),
-    }))
-  }
+    }));
+  };
 
   const updateCondition = (index: number, field: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
-      conditions: prev.conditions.map((condition, i) => (i === index ? { ...condition, [field]: value } : condition)),
-    }))
-  }
+      conditions: prev.conditions.map((condition, i) =>
+        i === index ? { ...condition, [field]: value } : condition
+      ),
+    }));
+  };
 
   const addRecipient = () => {
     if (newRecipient.email && !formData.recipients.find((r) => r.email === newRecipient.email)) {
       setFormData((prev) => ({
         ...prev,
         recipients: [...prev.recipients, { ...newRecipient }],
-      }))
+      }));
       setNewRecipient({
-        email: "",
-        name: "",
-        phone: "",
-        channels: ["email"],
-      })
+        email: '',
+        name: '',
+        phone: '',
+        channels: ['email'],
+      });
     }
-  }
+  };
 
   const removeRecipient = (email: string) => {
     setFormData((prev) => ({
       ...prev,
       recipients: prev.recipients.filter((r) => r.email !== email),
-    }))
-  }
+    }));
+  };
 
   const updateRecipientChannels = (email: string, channels: string[]) => {
     setFormData((prev) => ({
       ...prev,
       recipients: prev.recipients.map((r) => (r.email === email ? { ...r, channels } : r)),
-    }))
-  }
+    }));
+  };
 
   const handleChannelChange = (channel: string, checked: boolean) => {
     setNewRecipient((prev) => ({
       ...prev,
       channels: checked ? [...prev.channels, channel] : prev.channels.filter((c) => c !== channel),
-    }))
-  }
+    }));
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      addRecipient()
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addRecipient();
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{alert ? "Edit Alert" : "Create New Alert"}</DialogTitle>
+          <DialogTitle>{alert ? 'Edit Alert' : 'Create New Alert'}</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
@@ -212,7 +232,9 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                 <Label htmlFor="severity">Severity</Label>
                 <Select
                   value={formData.severity}
-                  onValueChange={(value: any) => setFormData((prev) => ({ ...prev, severity: value }))}
+                  onValueChange={(value: any) =>
+                    setFormData((prev) => ({ ...prev, severity: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -266,7 +288,7 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                         <Label>Metric</Label>
                         <Select
                           value={condition.metric}
-                          onValueChange={(value) => updateCondition(index, "metric", value)}
+                          onValueChange={(value) => updateCondition(index, 'metric', value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select metric" />
@@ -284,7 +306,7 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                         <Label>Operator</Label>
                         <Select
                           value={condition.operator}
-                          onValueChange={(value) => updateCondition(index, "operator", value)}
+                          onValueChange={(value) => updateCondition(index, 'operator', value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -305,7 +327,13 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                         <Input
                           type="number"
                           value={condition.threshold}
-                          onChange={(e) => updateCondition(index, "threshold", Number.parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateCondition(
+                              index,
+                              'threshold',
+                              Number.parseFloat(e.target.value) || 0
+                            )
+                          }
                           placeholder="Enter threshold"
                         />
                       </div>
@@ -313,7 +341,7 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                         <Label>Time Period</Label>
                         <Select
                           value={condition.timePeriod}
-                          onValueChange={(value) => updateCondition(index, "timePeriod", value)}
+                          onValueChange={(value) => updateCondition(index, 'timePeriod', value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -350,7 +378,9 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                       <Input
                         type="email"
                         value={newRecipient.email}
-                        onChange={(e) => setNewRecipient((prev) => ({ ...prev, email: e.target.value }))}
+                        onChange={(e) =>
+                          setNewRecipient((prev) => ({ ...prev, email: e.target.value }))
+                        }
                         onKeyPress={handleKeyPress}
                         placeholder="Enter email address"
                       />
@@ -359,7 +389,9 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                       <Label>Name (Optional)</Label>
                       <Input
                         value={newRecipient.name}
-                        onChange={(e) => setNewRecipient((prev) => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) =>
+                          setNewRecipient((prev) => ({ ...prev, name: e.target.value }))
+                        }
                         placeholder="Enter name"
                       />
                     </div>
@@ -368,7 +400,9 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                     <Label>Phone Number (for WhatsApp)</Label>
                     <Input
                       value={newRecipient.phone}
-                      onChange={(e) => setNewRecipient((prev) => ({ ...prev, phone: e.target.value }))}
+                      onChange={(e) =>
+                        setNewRecipient((prev) => ({ ...prev, phone: e.target.value }))
+                      }
                       placeholder="Enter phone number with country code"
                     />
                   </div>
@@ -380,10 +414,15 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                           <Checkbox
                             id={`new-${channel.value}`}
                             checked={newRecipient.channels.includes(channel.value)}
-                            onCheckedChange={(checked) => handleChannelChange(channel.value, checked as boolean)}
-                            disabled={channel.value === "whatsapp" && !newRecipient.phone}
+                            onCheckedChange={(checked) =>
+                              handleChannelChange(channel.value, checked as boolean)
+                            }
+                            disabled={channel.value === 'whatsapp' && !newRecipient.phone}
                           />
-                          <Label htmlFor={`new-${channel.value}`} className="flex items-center gap-2">
+                          <Label
+                            htmlFor={`new-${channel.value}`}
+                            className="flex items-center gap-2"
+                          >
                             <channel.icon className="h-4 w-4" />
                             {channel.label}
                           </Label>
@@ -410,13 +449,19 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                             <div className="space-y-2 flex-1">
                               <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{recipient.name || recipient.email}</span>
+                                <span className="font-medium">
+                                  {recipient.name || recipient.email}
+                                </span>
                                 {recipient.name && (
-                                  <span className="text-sm text-muted-foreground">({recipient.email})</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    ({recipient.email})
+                                  </span>
                                 )}
                               </div>
                               {recipient.phone && (
-                                <div className="text-sm text-muted-foreground">Phone: {recipient.phone}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  Phone: {recipient.phone}
+                                </div>
                               )}
                               <div className="flex gap-2">
                                 {notificationChannels.map((channel) => (
@@ -427,10 +472,10 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
                                       onCheckedChange={(checked) => {
                                         const newChannels = checked
                                           ? [...recipient.channels, channel.value]
-                                          : recipient.channels.filter((c) => c !== channel.value)
-                                        updateRecipientChannels(recipient.email, newChannels)
+                                          : recipient.channels.filter((c) => c !== channel.value);
+                                        updateRecipientChannels(recipient.email, newChannels);
                                       }}
-                                      disabled={channel.value === "whatsapp" && !recipient.phone}
+                                      disabled={channel.value === 'whatsapp' && !recipient.phone}
                                     />
                                     <Label
                                       htmlFor={`${recipient.email}-${channel.value}`}
@@ -466,9 +511,9 @@ export function AlertFormDialog({ open, onOpenChange, alert, onSave }: AlertForm
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>{alert ? "Update Alert" : "Create Alert"}</Button>
+          <Button onClick={handleSave}>{alert ? 'Update Alert' : 'Create Alert'}</Button>
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

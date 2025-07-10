@@ -1,5 +1,5 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Sparkles } from 'lucide-react';
 
 export function Recommendations() {
   return (
@@ -29,7 +29,8 @@ export function Recommendations() {
         <div className="rounded-lg border p-2">
           <h3 className="font-medium text-sm">Bi-weekly Visits</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Switch high/medium-risk mothers to bi-weekly visits. Could reduce high-risk cases by 28%.
+            Switch high/medium-risk mothers to bi-weekly visits. Could reduce high-risk cases by
+            28%.
           </p>
         </div>
 
@@ -48,5 +49,5 @@ export function Recommendations() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

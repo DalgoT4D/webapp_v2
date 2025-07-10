@@ -1,6 +1,6 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,16 +8,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   BarChart3,
   Heart,
@@ -33,205 +39,211 @@ import {
   Building,
   DollarSign,
   ArrowUp,
-} from "lucide-react"
+} from 'lucide-react';
 
 // Mock data for tables and fields
 const mockTables = [
-  { id: "patients", name: "Patients", description: "Patient demographic information" },
-  { id: "visits", name: "Visits", description: "Patient visit records" },
-  { id: "maternal_deaths", name: "Maternal Deaths", description: "Records of maternal mortality" },
-  { id: "antenatal_visits", name: "Antenatal Visits", description: "Antenatal care visit records" },
-  { id: "deliveries", name: "Deliveries", description: "Birth and delivery records" },
-  { id: "postnatal_visits", name: "Postnatal Visits", description: "Postnatal care visit records" },
-  { id: "facilities", name: "Facilities", description: "Healthcare facility information" },
-  { id: "family_planning", name: "Family Planning", description: "Family planning service records" },
-  { id: "pregnancies", name: "Pregnancies", description: "Pregnancy tracking records" },
-]
+  { id: 'patients', name: 'Patients', description: 'Patient demographic information' },
+  { id: 'visits', name: 'Visits', description: 'Patient visit records' },
+  { id: 'maternal_deaths', name: 'Maternal Deaths', description: 'Records of maternal mortality' },
+  { id: 'antenatal_visits', name: 'Antenatal Visits', description: 'Antenatal care visit records' },
+  { id: 'deliveries', name: 'Deliveries', description: 'Birth and delivery records' },
+  { id: 'postnatal_visits', name: 'Postnatal Visits', description: 'Postnatal care visit records' },
+  { id: 'facilities', name: 'Facilities', description: 'Healthcare facility information' },
+  {
+    id: 'family_planning',
+    name: 'Family Planning',
+    description: 'Family planning service records',
+  },
+  { id: 'pregnancies', name: 'Pregnancies', description: 'Pregnancy tracking records' },
+];
 
 const mockFields = {
   patients: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "name", name: "Name", type: "string" },
-    { id: "age", name: "Age", type: "number" },
-    { id: "gender", name: "Gender", type: "string" },
-    { id: "location", name: "Location", type: "string" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'name', name: 'Name', type: 'string' },
+    { id: 'age', name: 'Age', type: 'number' },
+    { id: 'gender', name: 'Gender', type: 'string' },
+    { id: 'location', name: 'Location', type: 'string' },
   ],
   visits: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "date", name: "Date", type: "date" },
-    { id: "reason", name: "Reason", type: "string" },
-    { id: "diagnosis", name: "Diagnosis", type: "string" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'date', name: 'Date', type: 'date' },
+    { id: 'reason', name: 'Reason', type: 'string' },
+    { id: 'diagnosis', name: 'Diagnosis', type: 'string' },
   ],
   maternal_deaths: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "date", name: "Date", type: "date" },
-    { id: "cause", name: "Cause", type: "string" },
-    { id: "death_count", name: "Death Count", type: "number" },
-    { id: "outcome", name: "Outcome", type: "string" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'date', name: 'Date', type: 'date' },
+    { id: 'cause', name: 'Cause', type: 'string' },
+    { id: 'death_count', name: 'Death Count', type: 'number' },
+    { id: 'outcome', name: 'Outcome', type: 'string' },
   ],
   antenatal_visits: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "date", name: "Date", type: "date" },
-    { id: "visit_count", name: "Visit Count", type: "number" },
-    { id: "visit_type", name: "Visit Type", type: "string" },
-    { id: "trimester", name: "Trimester", type: "number" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'date', name: 'Date', type: 'date' },
+    { id: 'visit_count', name: 'Visit Count', type: 'number' },
+    { id: 'visit_type', name: 'Visit Type', type: 'string' },
+    { id: 'trimester', name: 'Trimester', type: 'number' },
   ],
   deliveries: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "date", name: "Date", type: "date" },
-    { id: "outcome", name: "Outcome", type: "string" },
-    { id: "attended_by", name: "Attended By", type: "string" },
-    { id: "complications", name: "Complications", type: "string" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'date', name: 'Date', type: 'date' },
+    { id: 'outcome', name: 'Outcome', type: 'string' },
+    { id: 'attended_by', name: 'Attended By', type: 'string' },
+    { id: 'complications', name: 'Complications', type: 'string' },
   ],
   postnatal_visits: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "date", name: "Date", type: "date" },
-    { id: "hours_since_delivery", name: "Hours Since Delivery", type: "number" },
-    { id: "complications", name: "Complications", type: "string" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'date', name: 'Date', type: 'date' },
+    { id: 'hours_since_delivery', name: 'Hours Since Delivery', type: 'number' },
+    { id: 'complications', name: 'Complications', type: 'string' },
   ],
   facilities: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "name", name: "Name", type: "string" },
-    { id: "location", name: "Location", type: "string" },
-    { id: "facility_type", name: "Facility Type", type: "string" },
-    { id: "emoc_level", name: "EmOC Level", type: "string" },
-    { id: "beds", name: "Beds", type: "number" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'name', name: 'Name', type: 'string' },
+    { id: 'location', name: 'Location', type: 'string' },
+    { id: 'facility_type', name: 'Facility Type', type: 'string' },
+    { id: 'emoc_level', name: 'EmOC Level', type: 'string' },
+    { id: 'beds', name: 'Beds', type: 'number' },
   ],
   family_planning: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "date", name: "Date", type: "date" },
-    { id: "method", name: "Method", type: "string" },
-    { id: "method_type", name: "Method Type", type: "string" },
-    { id: "duration", name: "Duration", type: "number" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'date', name: 'Date', type: 'date' },
+    { id: 'method', name: 'Method', type: 'string' },
+    { id: 'method_type', name: 'Method Type', type: 'string' },
+    { id: 'duration', name: 'Duration', type: 'number' },
   ],
   pregnancies: [
-    { id: "id", name: "ID", type: "string" },
-    { id: "patient_id", name: "Patient ID", type: "string" },
-    { id: "start_date", name: "Start Date", type: "date" },
-    { id: "expected_delivery", name: "Expected Delivery", type: "date" },
-    { id: "status", name: "Status", type: "string" },
-    { id: "risk_level", name: "Risk Level", type: "string" },
+    { id: 'id', name: 'ID', type: 'string' },
+    { id: 'patient_id', name: 'Patient ID', type: 'string' },
+    { id: 'start_date', name: 'Start Date', type: 'date' },
+    { id: 'expected_delivery', name: 'Expected Delivery', type: 'date' },
+    { id: 'status', name: 'Status', type: 'string' },
+    { id: 'risk_level', name: 'Risk Level', type: 'string' },
   ],
-}
+};
 
-const categories = ["Health Outcomes", "Service Delivery", "Infrastructure", "Reproductive Health"]
+const categories = ['Health Outcomes', 'Service Delivery', 'Infrastructure', 'Reproductive Health'];
 
 const calculationTypes = [
-  { id: "count", name: "Count", description: "Count of records" },
-  { id: "sum", name: "Sum", description: "Sum of values" },
-  { id: "average", name: "Average", description: "Average of values" },
-  { id: "percentage", name: "Percentage", description: "Percentage calculation" },
-  { id: "custom", name: "Custom", description: "Custom SQL formula" },
-]
+  { id: 'count', name: 'Count', description: 'Count of records' },
+  { id: 'sum', name: 'Sum', description: 'Sum of values' },
+  { id: 'average', name: 'Average', description: 'Average of values' },
+  { id: 'percentage', name: 'Percentage', description: 'Percentage calculation' },
+  { id: 'custom', name: 'Custom', description: 'Custom SQL formula' },
+];
 
 const aggregationPeriods = [
-  { id: "daily", name: "Daily" },
-  { id: "weekly", name: "Weekly" },
-  { id: "monthly", name: "Monthly" },
-  { id: "quarterly", name: "Quarterly" },
-  { id: "yearly", name: "Yearly" },
-]
+  { id: 'daily', name: 'Daily' },
+  { id: 'weekly', name: 'Weekly' },
+  { id: 'monthly', name: 'Monthly' },
+  { id: 'quarterly', name: 'Quarterly' },
+  { id: 'yearly', name: 'Yearly' },
+];
 
 const iconOptions = [
-  { id: "heart", name: "Heart", icon: Heart },
-  { id: "baby", name: "Baby", icon: Baby },
-  { id: "shield", name: "Shield", icon: Shield },
-  { id: "clock", name: "Clock", icon: Clock },
-  { id: "target", name: "Target", icon: Target },
-  { id: "users", name: "Users", icon: Users },
-  { id: "activity", name: "Activity", icon: Activity },
-  { id: "thermometer", name: "Thermometer", icon: Thermometer },
-  { id: "stethoscope", name: "Stethoscope", icon: Stethoscope },
-  { id: "pill", name: "Pill", icon: Pill },
-  { id: "building", name: "Building", icon: Building },
-  { id: "dollar", name: "Dollar", icon: DollarSign },
-]
+  { id: 'heart', name: 'Heart', icon: Heart },
+  { id: 'baby', name: 'Baby', icon: Baby },
+  { id: 'shield', name: 'Shield', icon: Shield },
+  { id: 'clock', name: 'Clock', icon: Clock },
+  { id: 'target', name: 'Target', icon: Target },
+  { id: 'users', name: 'Users', icon: Users },
+  { id: 'activity', name: 'Activity', icon: Activity },
+  { id: 'thermometer', name: 'Thermometer', icon: Thermometer },
+  { id: 'stethoscope', name: 'Stethoscope', icon: Stethoscope },
+  { id: 'pill', name: 'Pill', icon: Pill },
+  { id: 'building', name: 'Building', icon: Building },
+  { id: 'dollar', name: 'Dollar', icon: DollarSign },
+];
 
 const colorOptions = [
-  { id: "red", name: "Red" },
-  { id: "blue", name: "Blue" },
-  { id: "green", name: "Green" },
-  { id: "purple", name: "Purple" },
-  { id: "orange", name: "Orange" },
-  { id: "teal", name: "Teal" },
-  { id: "pink", name: "Pink" },
-  { id: "indigo", name: "Indigo" },
-]
+  { id: 'red', name: 'Red' },
+  { id: 'blue', name: 'Blue' },
+  { id: 'green', name: 'Green' },
+  { id: 'purple', name: 'Purple' },
+  { id: 'orange', name: 'Orange' },
+  { id: 'teal', name: 'Teal' },
+  { id: 'pink', name: 'Pink' },
+  { id: 'indigo', name: 'Indigo' },
+];
 
 interface MetricFormDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  metric?: any
-  onSave: (metricData: any) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  metric?: any;
+  onSave: (metricData: any) => void;
 }
 
 export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricFormDialogProps) {
-  const [activeTab, setActiveTab] = useState("basic")
+  const [activeTab, setActiveTab] = useState('basic');
   const [formData, setFormData] = useState({
-    id: "",
-    name: "",
-    description: "",
-    category: "",
-    unit: "",
+    id: '',
+    name: '',
+    description: '',
+    category: '',
+    unit: '',
     target: 0,
-    icon: "heart",
-    color: "blue",
+    icon: 'heart',
+    color: 'blue',
     dataSource: {
-      table: "",
-      field: "",
-      calculation: "count",
-      filter: "",
-      aggregation: "monthly",
+      table: '',
+      field: '',
+      calculation: 'count',
+      filter: '',
+      aggregation: 'monthly',
     },
     higherIsBetter: true,
-    customFormula: "",
-  })
+    customFormula: '',
+  });
 
-  const [selectedTable, setSelectedTable] = useState("")
-  const [fields, setFields] = useState<any[]>([])
+  const [selectedTable, setSelectedTable] = useState('');
+  const [fields, setFields] = useState<any[]>([]);
 
   // Initialize form data when editing an existing metric
   useEffect(() => {
     if (metric) {
       setFormData({
-        id: metric.id || "",
-        name: metric.name || "",
-        description: metric.description || "",
-        category: metric.category || "",
-        unit: metric.unit || "",
+        id: metric.id || '',
+        name: metric.name || '',
+        description: metric.description || '',
+        category: metric.category || '',
+        unit: metric.unit || '',
         target: metric.target || 0,
-        icon: metric.icon?.name?.toLowerCase() || "heart",
-        color: metric.color || "blue",
+        icon: metric.icon?.name?.toLowerCase() || 'heart',
+        color: metric.color || 'blue',
         dataSource: {
-          table: metric.dataSource?.table || "",
-          field: metric.dataSource?.field || "",
-          calculation: metric.dataSource?.calculation || "count",
-          filter: metric.dataSource?.filter || "",
-          aggregation: metric.dataSource?.aggregation || "monthly",
+          table: metric.dataSource?.table || '',
+          field: metric.dataSource?.field || '',
+          calculation: metric.dataSource?.calculation || 'count',
+          filter: metric.dataSource?.filter || '',
+          aggregation: metric.dataSource?.aggregation || 'monthly',
         },
         higherIsBetter: metric.trend > 0,
-        customFormula: metric.dataSource?.calculation.includes("(") ? metric.dataSource?.calculation : "",
-      })
+        customFormula: metric.dataSource?.calculation.includes('(')
+          ? metric.dataSource?.calculation
+          : '',
+      });
 
       if (metric.dataSource?.table) {
-        setSelectedTable(metric.dataSource.table)
-        setFields(mockFields[metric.dataSource.table as keyof typeof mockFields] || [])
+        setSelectedTable(metric.dataSource.table);
+        setFields(mockFields[metric.dataSource.table as keyof typeof mockFields] || []);
       }
     }
-  }, [metric])
+  }, [metric]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-    }))
-  }
+    }));
+  };
 
   const handleDataSourceChange = (field: string, value: any) => {
     setFormData((prev) => ({
@@ -240,15 +252,15 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
         ...prev.dataSource,
         [field]: value,
       },
-    }))
-  }
+    }));
+  };
 
   const handleTableChange = (tableId: string) => {
-    setSelectedTable(tableId)
-    setFields(mockFields[tableId as keyof typeof mockFields] || [])
-    handleDataSourceChange("table", tableId)
-    handleDataSourceChange("field", "")
-  }
+    setSelectedTable(tableId);
+    setFields(mockFields[tableId as keyof typeof mockFields] || []);
+    handleDataSourceChange('table', tableId);
+    handleDataSourceChange('field', '');
+  };
 
   const handleSave = () => {
     // Create a new ID if creating a new metric
@@ -275,23 +287,23 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
           .fill(0)
           .map(() => Math.floor(Math.random() * 100)),
       },
-    }
+    };
 
-    onSave(metricData)
-  }
+    onSave(metricData);
+  };
 
   const getSelectedIcon = () => {
-    const iconOption = iconOptions.find((i) => i.id === formData.icon)
-    return iconOption ? iconOption.icon : Heart
-  }
+    const iconOption = iconOptions.find((i) => i.id === formData.icon);
+    return iconOption ? iconOption.icon : Heart;
+  };
 
-  const SelectedIcon = getSelectedIcon()
+  const SelectedIcon = getSelectedIcon();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{metric ? "Edit Metric" : "Create New Metric"}</DialogTitle>
+          <DialogTitle>{metric ? 'Edit Metric' : 'Create New Metric'}</DialogTitle>
           <DialogDescription>
             Configure a metric to track key performance indicators for your organization.
           </DialogDescription>
@@ -312,7 +324,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                   id="name"
                   placeholder="e.g., Maternal Mortality Rate"
                   value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
                 />
               </div>
 
@@ -322,14 +334,17 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                   id="description"
                   placeholder="Brief description of what this metric measures"
                   value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => handleInputChange('category', value)}
+                  >
                     <SelectTrigger id="category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -349,7 +364,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                     id="unit"
                     placeholder="e.g., %, per 100k"
                     value={formData.unit}
-                    onChange={(e) => handleInputChange("unit", e.target.value)}
+                    onChange={(e) => handleInputChange('unit', e.target.value)}
                   />
                 </div>
               </div>
@@ -361,7 +376,9 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                   type="number"
                   placeholder="Target value for this metric"
                   value={formData.target.toString()}
-                  onChange={(e) => handleInputChange("target", Number.parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange('target', Number.parseFloat(e.target.value) || 0)
+                  }
                 />
               </div>
 
@@ -369,7 +386,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                 <Switch
                   id="higher-better"
                   checked={formData.higherIsBetter}
-                  onCheckedChange={(checked) => handleInputChange("higherIsBetter", checked)}
+                  onCheckedChange={(checked) => handleInputChange('higherIsBetter', checked)}
                 />
                 <Label htmlFor="higher-better">Higher values are better</Label>
               </div>
@@ -404,7 +421,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                   <Label htmlFor="field">Field</Label>
                   <Select
                     value={formData.dataSource.field}
-                    onValueChange={(value) => handleDataSourceChange("field", value)}
+                    onValueChange={(value) => handleDataSourceChange('field', value)}
                   >
                     <SelectTrigger id="field">
                       <SelectValue placeholder="Select field" />
@@ -424,7 +441,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                 <Label htmlFor="calculation">Calculation Type</Label>
                 <Select
                   value={formData.dataSource.calculation}
-                  onValueChange={(value) => handleDataSourceChange("calculation", value)}
+                  onValueChange={(value) => handleDataSourceChange('calculation', value)}
                 >
                   <SelectTrigger id="calculation">
                     <SelectValue placeholder="Select calculation type" />
@@ -439,14 +456,14 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                 </Select>
               </div>
 
-              {formData.dataSource.calculation === "custom" && (
+              {formData.dataSource.calculation === 'custom' && (
                 <div className="grid gap-2">
                   <Label htmlFor="formula">Custom Formula</Label>
                   <Textarea
                     id="formula"
                     placeholder="e.g., COUNT(CASE WHEN status = 'completed' THEN 1 END) / COUNT(*) * 100"
                     value={formData.customFormula}
-                    onChange={(e) => handleInputChange("customFormula", e.target.value)}
+                    onChange={(e) => handleInputChange('customFormula', e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
                     Use SQL syntax to define your custom calculation formula.
@@ -460,7 +477,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                   id="filter"
                   placeholder="e.g., WHERE status = 'active' AND date > '2023-01-01'"
                   value={formData.dataSource.filter}
-                  onChange={(e) => handleDataSourceChange("filter", e.target.value)}
+                  onChange={(e) => handleDataSourceChange('filter', e.target.value)}
                 />
               </div>
 
@@ -468,7 +485,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                 <Label htmlFor="aggregation">Aggregation Period</Label>
                 <Select
                   value={formData.dataSource.aggregation}
-                  onValueChange={(value) => handleDataSourceChange("aggregation", value)}
+                  onValueChange={(value) => handleDataSourceChange('aggregation', value)}
                 >
                   <SelectTrigger id="aggregation">
                     <SelectValue placeholder="Select aggregation period" />
@@ -491,19 +508,19 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                 <Label>Icon</Label>
                 <div className="grid grid-cols-6 gap-2">
                   {iconOptions.map((iconOption) => {
-                    const IconComponent = iconOption.icon
+                    const IconComponent = iconOption.icon;
                     return (
                       <Button
                         key={iconOption.id}
                         type="button"
-                        variant={formData.icon === iconOption.id ? "default" : "outline"}
+                        variant={formData.icon === iconOption.id ? 'default' : 'outline'}
                         className="h-10 w-10 p-0"
-                        onClick={() => handleInputChange("icon", iconOption.id)}
+                        onClick={() => handleInputChange('icon', iconOption.id)}
                       >
                         <IconComponent className="h-5 w-5" />
                         <span className="sr-only">{iconOption.name}</span>
                       </Button>
-                    )
+                    );
                   })}
                 </div>
               </div>
@@ -517,13 +534,13 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                       type="button"
                       variant="outline"
                       className={`h-8 w-8 rounded-full p-0 ${
-                        formData.color === colorOption.id ? "ring-2 ring-offset-2" : ""
+                        formData.color === colorOption.id ? 'ring-2 ring-offset-2' : ''
                       }`}
                       style={{
                         backgroundColor: `var(--${colorOption.id}-500)`,
                         borderColor: `var(--${colorOption.id}-500)`,
                       }}
-                      onClick={() => handleInputChange("color", colorOption.id)}
+                      onClick={() => handleInputChange('color', colorOption.id)}
                     >
                       <span className="sr-only">{colorOption.name}</span>
                     </Button>
@@ -548,8 +565,12 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                         <SelectedIcon className="h-4 w-4" />
                       </div>
                       <div>
-                        <CardTitle className="text-base">{formData.name || "Metric Name"}</CardTitle>
-                        <p className="text-xs text-muted-foreground">{formData.description || "Metric description"}</p>
+                        <CardTitle className="text-base">
+                          {formData.name || 'Metric Name'}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {formData.description || 'Metric description'}
+                        </p>
                       </div>
                     </div>
                   </CardHeader>
@@ -558,7 +579,9 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                       <div className="flex items-end justify-between">
                         <div className="flex items-baseline gap-1">
                           <span className="text-3xl font-bold">75</span>
-                          <span className="text-sm text-muted-foreground">{formData.unit || "unit"}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {formData.unit || 'unit'}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1 text-sm text-green-600">
                           <ArrowUp className="h-4 w-4" />
@@ -569,7 +592,7 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                         <div className="flex justify-between text-xs">
                           <span>Progress</span>
                           <span>
-                            75 / {formData.target || 100} {formData.unit || "unit"}
+                            75 / {formData.target || 100} {formData.unit || 'unit'}
                           </span>
                         </div>
                         {/* Placeholder for Progress component */}
@@ -578,7 +601,11 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
                     </div>
                   </CardContent>
                   <CardFooter className="pt-2">
-                    <Button variant="ghost" size="sm" className="w-full flex items-center justify-center gap-1 text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full flex items-center justify-center gap-1 text-xs"
+                    >
                       <BarChart3 className="h-3 w-3" />
                       Show Trend
                     </Button>
@@ -593,9 +620,9 @@ export function MetricFormDialog({ open, onOpenChange, metric, onSave }: MetricF
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>{metric ? "Update Metric" : "Create Metric"}</Button>
+          <Button onClick={handleSave}>{metric ? 'Update Metric' : 'Create Metric'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -1,213 +1,224 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertTriangle, Plus, Search, Filter } from "lucide-react"
-import { AlertCard } from "./alert-card"
-import { AlertFormDialog } from "./alert-form-dialog"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle, Plus, Search, Filter } from 'lucide-react';
+import { AlertCard } from './alert-card';
+import { AlertFormDialog } from './alert-form-dialog';
 
 interface Alert {
-  id: string
-  name: string
-  description: string
-  severity: "low" | "medium" | "high" | "critical"
-  status: "active" | "paused" | "triggered"
-  metrics: string[]
+  id: string;
+  name: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'paused' | 'triggered';
+  metrics: string[];
   conditions: Array<{
-    metric: string
-    operator: string
-    threshold: number
-    timePeriod: string
-  }>
-  recipients: string[]
-  lastTriggered?: string
-  createdAt: string
+    metric: string;
+    operator: string;
+    threshold: number;
+    timePeriod: string;
+  }>;
+  recipients: string[];
+  lastTriggered?: string;
+  createdAt: string;
 }
 
 const mockAlerts: Alert[] = [
   {
-    id: "1",
-    name: "High Maternal Mortality Rate",
-    description: "Alert when maternal mortality rate exceeds acceptable threshold for extended periods",
-    severity: "critical",
-    status: "active",
-    metrics: ["Maternal Mortality Rate"],
+    id: '1',
+    name: 'High Maternal Mortality Rate',
+    description:
+      'Alert when maternal mortality rate exceeds acceptable threshold for extended periods',
+    severity: 'critical',
+    status: 'active',
+    metrics: ['Maternal Mortality Rate'],
     conditions: [
       {
-        metric: "Maternal Mortality Rate",
-        operator: ">",
+        metric: 'Maternal Mortality Rate',
+        operator: '>',
         threshold: 100,
-        timePeriod: "7 days",
+        timePeriod: '7 days',
       },
     ],
-    recipients: ["health.director@example.com", "emergency.team@example.com"],
-    lastTriggered: "2024-01-15T10:30:00Z",
-    createdAt: "2024-01-01T00:00:00Z",
+    recipients: ['health.director@example.com', 'emergency.team@example.com'],
+    lastTriggered: '2024-01-15T10:30:00Z',
+    createdAt: '2024-01-01T00:00:00Z',
   },
   {
-    id: "2",
-    name: "Low Antenatal Care Coverage",
-    description: "Monitor declining antenatal care coverage rates across regions",
-    severity: "high",
-    status: "active",
-    metrics: ["Antenatal Care Coverage"],
+    id: '2',
+    name: 'Low Antenatal Care Coverage',
+    description: 'Monitor declining antenatal care coverage rates across regions',
+    severity: 'high',
+    status: 'active',
+    metrics: ['Antenatal Care Coverage'],
     conditions: [
       {
-        metric: "Antenatal Care Coverage",
-        operator: "<",
+        metric: 'Antenatal Care Coverage',
+        operator: '<',
         threshold: 80,
-        timePeriod: "14 days",
+        timePeriod: '14 days',
       },
     ],
-    recipients: ["program.manager@example.com"],
-    createdAt: "2024-01-05T00:00:00Z",
+    recipients: ['program.manager@example.com'],
+    createdAt: '2024-01-05T00:00:00Z',
   },
   {
-    id: "3",
-    name: "Emergency Care Availability",
-    description: "Alert when emergency obstetric care availability drops below critical levels",
-    severity: "high",
-    status: "triggered",
-    metrics: ["Emergency Obstetric Care"],
+    id: '3',
+    name: 'Emergency Care Availability',
+    description: 'Alert when emergency obstetric care availability drops below critical levels',
+    severity: 'high',
+    status: 'triggered',
+    metrics: ['Emergency Obstetric Care'],
     conditions: [
       {
-        metric: "Emergency Obstetric Care",
-        operator: "<",
+        metric: 'Emergency Obstetric Care',
+        operator: '<',
         threshold: 90,
-        timePeriod: "3 days",
+        timePeriod: '3 days',
       },
     ],
-    recipients: ["emergency.coordinator@example.com"],
-    lastTriggered: "2024-01-20T14:15:00Z",
-    createdAt: "2024-01-10T00:00:00Z",
+    recipients: ['emergency.coordinator@example.com'],
+    lastTriggered: '2024-01-20T14:15:00Z',
+    createdAt: '2024-01-10T00:00:00Z',
   },
   {
-    id: "4",
-    name: "Family Planning Coverage Drop",
-    description: "Monitor significant drops in family planning coverage and access",
-    severity: "medium",
-    status: "paused",
-    metrics: ["Family Planning Coverage"],
+    id: '4',
+    name: 'Family Planning Coverage Drop',
+    description: 'Monitor significant drops in family planning coverage and access',
+    severity: 'medium',
+    status: 'paused',
+    metrics: ['Family Planning Coverage'],
     conditions: [
       {
-        metric: "Family Planning Coverage",
-        operator: "<",
+        metric: 'Family Planning Coverage',
+        operator: '<',
         threshold: 70,
-        timePeriod: "30 days",
+        timePeriod: '30 days',
       },
     ],
-    recipients: ["family.planning@example.com"],
-    createdAt: "2024-01-12T00:00:00Z",
+    recipients: ['family.planning@example.com'],
+    createdAt: '2024-01-12T00:00:00Z',
   },
   {
-    id: "5",
-    name: "Skilled Birth Attendance",
-    description: "Track skilled birth attendance rates in rural areas",
-    severity: "medium",
-    status: "active",
-    metrics: ["Skilled Birth Attendance"],
+    id: '5',
+    name: 'Skilled Birth Attendance',
+    description: 'Track skilled birth attendance rates in rural areas',
+    severity: 'medium',
+    status: 'active',
+    metrics: ['Skilled Birth Attendance'],
     conditions: [
       {
-        metric: "Skilled Birth Attendance",
-        operator: "<",
+        metric: 'Skilled Birth Attendance',
+        operator: '<',
         threshold: 85,
-        timePeriod: "21 days",
+        timePeriod: '21 days',
       },
     ],
-    recipients: ["rural.health@example.com"],
-    createdAt: "2024-01-08T00:00:00Z",
+    recipients: ['rural.health@example.com'],
+    createdAt: '2024-01-08T00:00:00Z',
   },
   {
-    id: "6",
-    name: "Postnatal Care Follow-up",
-    description: "Monitor postnatal care follow-up completion rates",
-    severity: "low",
-    status: "active",
-    metrics: ["Postnatal Care Coverage"],
+    id: '6',
+    name: 'Postnatal Care Follow-up',
+    description: 'Monitor postnatal care follow-up completion rates',
+    severity: 'low',
+    status: 'active',
+    metrics: ['Postnatal Care Coverage'],
     conditions: [
       {
-        metric: "Postnatal Care Coverage",
-        operator: "<",
+        metric: 'Postnatal Care Coverage',
+        operator: '<',
         threshold: 75,
-        timePeriod: "28 days",
+        timePeriod: '28 days',
       },
     ],
-    recipients: ["postnatal.team@example.com"],
-    createdAt: "2024-01-14T00:00:00Z",
+    recipients: ['postnatal.team@example.com'],
+    createdAt: '2024-01-14T00:00:00Z',
   },
-]
+];
 
 export function AlertsView() {
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [severityFilter, setSeverityFilter] = useState<string>("all")
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [editingAlert, setEditingAlert] = useState<Alert | null>(null)
+  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
 
   const filteredAlerts = alerts.filter((alert) => {
     const matchesSearch =
       alert.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alert.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || alert.status === statusFilter
-    const matchesSeverity = severityFilter === "all" || alert.severity === severityFilter
+      alert.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || alert.status === statusFilter;
+    const matchesSeverity = severityFilter === 'all' || alert.severity === severityFilter;
 
-    return matchesSearch && matchesStatus && matchesSeverity
-  })
+    return matchesSearch && matchesStatus && matchesSeverity;
+  });
 
   const alertCounts = {
     total: alerts.length,
-    active: alerts.filter((a) => a.status === "active").length,
-    triggered: alerts.filter((a) => a.status === "triggered").length,
-    paused: alerts.filter((a) => a.status === "paused").length,
-  }
+    active: alerts.filter((a) => a.status === 'active').length,
+    triggered: alerts.filter((a) => a.status === 'triggered').length,
+    paused: alerts.filter((a) => a.status === 'paused').length,
+  };
 
   const handleCreateAlert = () => {
-    setEditingAlert(null)
-    setCreateDialogOpen(true)
-  }
+    setEditingAlert(null);
+    setCreateDialogOpen(true);
+  };
 
   const handleEditAlert = (alert: Alert) => {
-    setEditingAlert(alert)
-    setCreateDialogOpen(true)
-  }
+    setEditingAlert(alert);
+    setCreateDialogOpen(true);
+  };
 
   const handleSaveAlert = (alertData: Partial<Alert>) => {
     if (editingAlert) {
       // Update existing alert
-      setAlerts((prev) => prev.map((alert) => (alert.id === editingAlert.id ? { ...alert, ...alertData } : alert)))
+      setAlerts((prev) =>
+        prev.map((alert) => (alert.id === editingAlert.id ? { ...alert, ...alertData } : alert))
+      );
     } else {
       // Create new alert
       const newAlert: Alert = {
         id: Date.now().toString(),
-        name: alertData.name || "",
-        description: alertData.description || "",
-        severity: alertData.severity || "medium",
-        status: "active",
+        name: alertData.name || '',
+        description: alertData.description || '',
+        severity: alertData.severity || 'medium',
+        status: 'active',
         metrics: alertData.metrics || [],
         conditions: alertData.conditions || [],
         recipients: alertData.recipients || [],
         createdAt: new Date().toISOString(),
-      }
-      setAlerts((prev) => [newAlert, ...prev])
+      };
+      setAlerts((prev) => [newAlert, ...prev]);
     }
-    setCreateDialogOpen(false)
-  }
+    setCreateDialogOpen(false);
+  };
 
   const handleDeleteAlert = (alertId: string) => {
-    setAlerts((prev) => prev.filter((alert) => alert.id !== alertId))
-  }
+    setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
+  };
 
   const handleToggleStatus = (alertId: string) => {
     setAlerts((prev) =>
       prev.map((alert) =>
-        alert.id === alertId ? { ...alert, status: alert.status === "active" ? "paused" : "active" } : alert,
-      ),
-    )
-  }
+        alert.id === alertId
+          ? { ...alert, status: alert.status === 'active' ? 'paused' : 'active' }
+          : alert
+      )
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -217,7 +228,9 @@ export function AlertsView() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">Alerts</h1>
-            <p className="text-muted-foreground">Monitor and manage alert conditions for your metrics</p>
+            <p className="text-muted-foreground">
+              Monitor and manage alert conditions for your metrics
+            </p>
           </div>
           <Button onClick={handleCreateAlert}>
             <Plus className="h-4 w-4 mr-2" />
@@ -314,11 +327,11 @@ export function AlertsView() {
                   <AlertTriangle className="h-8 w-8 text-muted-foreground mb-3" />
                   <h3 className="text-sm font-semibold mb-1">No alerts found</h3>
                   <p className="text-muted-foreground text-center text-xs mb-3">
-                    {searchTerm || statusFilter !== "all" || severityFilter !== "all"
-                      ? "Try adjusting your search or filters"
-                      : "Create your first alert to start monitoring your metrics"}
+                    {searchTerm || statusFilter !== 'all' || severityFilter !== 'all'
+                      ? 'Try adjusting your search or filters'
+                      : 'Create your first alert to start monitoring your metrics'}
                   </p>
-                  {!searchTerm && statusFilter === "all" && severityFilter === "all" && (
+                  {!searchTerm && statusFilter === 'all' && severityFilter === 'all' && (
                     <Button onClick={handleCreateAlert} size="sm">
                       <Plus className="h-4 w-4 mr-2" />
                       Create Alert
@@ -349,5 +362,5 @@ export function AlertsView() {
         onSave={handleSaveAlert}
       />
     </div>
-  )
+  );
 }

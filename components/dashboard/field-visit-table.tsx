@@ -1,64 +1,71 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import type { FilterValues } from "@/components/dashboard/dashboard-filters"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import type { FilterValues } from '@/components/dashboard/dashboard-filters';
 
 interface FieldVisitTableProps {
-  filters?: FilterValues
+  filters?: FilterValues;
 }
 
 const fieldVisits = [
   {
-    id: "FV-1234",
-    date: "2023-05-20",
-    location: "Eastern District",
-    team: "Team A",
-    beneficiary: "Maria Johnson",
-    status: "completed",
-    riskLevel: "high",
+    id: 'FV-1234',
+    date: '2023-05-20',
+    location: 'Eastern District',
+    team: 'Team A',
+    beneficiary: 'Maria Johnson',
+    status: 'completed',
+    riskLevel: 'high',
   },
   {
-    id: "FV-1235",
-    date: "2023-05-20",
-    location: "Western District",
-    team: "Team B",
-    beneficiary: "Sarah Williams",
-    status: "completed",
-    riskLevel: "medium",
+    id: 'FV-1235',
+    date: '2023-05-20',
+    location: 'Western District',
+    team: 'Team B',
+    beneficiary: 'Sarah Williams',
+    status: 'completed',
+    riskLevel: 'medium',
   },
   {
-    id: "FV-1236",
-    date: "2023-05-21",
-    location: "Northern District",
-    team: "Team D",
-    beneficiary: "Emily Davis",
-    status: "completed",
-    riskLevel: "low",
+    id: 'FV-1236',
+    date: '2023-05-21',
+    location: 'Northern District',
+    team: 'Team D',
+    beneficiary: 'Emily Davis',
+    status: 'completed',
+    riskLevel: 'low',
   },
   {
-    id: "FV-1237",
-    date: "2023-05-21",
-    location: "Eastern District",
-    team: "Team C",
-    beneficiary: "Jessica Brown",
-    status: "missed",
-    riskLevel: "high",
+    id: 'FV-1237',
+    date: '2023-05-21',
+    location: 'Eastern District',
+    team: 'Team C',
+    beneficiary: 'Jessica Brown',
+    status: 'missed',
+    riskLevel: 'high',
   },
   {
-    id: "FV-1238",
-    date: "2023-05-22",
-    location: "Southern District",
-    team: "Team A",
-    beneficiary: "Amanda Wilson",
-    status: "completed",
-    riskLevel: "medium",
+    id: 'FV-1238',
+    date: '2023-05-22',
+    location: 'Southern District',
+    team: 'Team A',
+    beneficiary: 'Amanda Wilson',
+    status: 'completed',
+    riskLevel: 'medium',
   },
-]
+];
 
 export function FieldVisitTable({ filters }: FieldVisitTableProps) {
   // In a real app, you would filter the data based on the filters
   // For now, we'll just use the static data
-  const tableData = fieldVisits || []
+  const tableData = fieldVisits || [];
 
   return (
     <Card>
@@ -89,17 +96,19 @@ export function FieldVisitTable({ filters }: FieldVisitTableProps) {
                   <TableCell>{visit.team}</TableCell>
                   <TableCell>{visit.beneficiary}</TableCell>
                   <TableCell>
-                    <Badge variant={visit.status === "completed" ? "default" : "destructive"}>{visit.status}</Badge>
+                    <Badge variant={visit.status === 'completed' ? 'default' : 'destructive'}>
+                      {visit.status}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
                       className={
-                        visit.riskLevel === "high"
-                          ? "border-red-500 text-red-500"
-                          : visit.riskLevel === "medium"
-                            ? "border-orange-500 text-orange-500"
-                            : "border-green-500 text-green-500"
+                        visit.riskLevel === 'high'
+                          ? 'border-red-500 text-red-500'
+                          : visit.riskLevel === 'medium'
+                            ? 'border-orange-500 text-orange-500'
+                            : 'border-green-500 text-green-500'
                       }
                     >
                       {visit.riskLevel}
@@ -112,5 +121,5 @@ export function FieldVisitTable({ filters }: FieldVisitTableProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

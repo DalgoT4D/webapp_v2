@@ -1,20 +1,25 @@
-"use client"
+'use client';
 
-import { useState, useEffect, useRef } from "react"
-import { MainLayout } from "@/components/main-layout"
-import { DashboardContent } from "@/components/dashboard/dashboard-content"
-import { DashboardChat } from "@/components/dashboard/dashboard-chat"
-import { ErrorBoundary } from "react-error-boundary"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, MessageSquare, Share2, Download, MoreVertical } from "lucide-react"
-import Link from "next/link"
-import type { DashboardType } from "./dashboard-view"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { apiGet } from "@/lib/api"
-import { embedDashboard, EmbedDashboardParams } from "@superset-ui/embedded-sdk"
+import { useState, useEffect, useRef } from 'react';
+import { MainLayout } from '@/components/main-layout';
+import { DashboardContent } from '@/components/dashboard/dashboard-content';
+import { DashboardChat } from '@/components/dashboard/dashboard-chat';
+import { ErrorBoundary } from 'react-error-boundary';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, MessageSquare, Share2, Download, MoreVertical } from 'lucide-react';
+import Link from 'next/link';
+import type { DashboardType } from './dashboard-view';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { apiGet } from '@/lib/api';
+import { embedDashboard, EmbedDashboardParams } from '@superset-ui/embedded-sdk';
 
 interface IndividualDashboardViewProps {
-  dashboardId: string
+  dashboardId: string;
 }
 
 function ErrorFallback({ error }: { error: Error }) {
@@ -23,7 +28,7 @@ function ErrorFallback({ error }: { error: Error }) {
       <h2 className="text-base font-bold text-red-800">Component Error:</h2>
       <p className="text-sm text-red-600">{error.message}</p>
     </div>
-  )
+  );
 }
 
 // Fetch dashboard info from backend
@@ -35,66 +40,70 @@ type DashboardInfo = {
 };
 
 export function IndividualDashboardView({ dashboardId }: IndividualDashboardViewProps) {
-  const [selectedElement, setSelectedElement] = useState<string | null>(null)
-  const [isChatOpen, setIsChatOpen] = useState(false)
-  const [embedInfo, setEmbedInfo] = useState<null | { uuid: string; host: string; guest_token: string }>(null)
-  const [embedLoading, setEmbedLoading] = useState(false)
-  const [embedError, setEmbedError] = useState<string | null>(null)
-  const supersetContainerRef = useRef<HTMLDivElement>(null)
-  const [dashboard, setDashboard] = useState<DashboardInfo | null>(null)
-  const [dashboardLoading, setDashboardLoading] = useState(false)
-  const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [embedInfo, setEmbedInfo] = useState<null | {
+    uuid: string;
+    host: string;
+    guest_token: string;
+  }>(null);
+  const [embedLoading, setEmbedLoading] = useState(false);
+  const [embedError, setEmbedError] = useState<string | null>(null);
+  const supersetContainerRef = useRef<HTMLDivElement>(null);
+  const [dashboard, setDashboard] = useState<DashboardInfo | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   // Fetch Superset embed info when dashboardId changes
   useEffect(() => {
-    let isMounted = true
-    setEmbedLoading(true)
-    setEmbedError(null)
-    setEmbedInfo(null)
+    let isMounted = true;
+    setEmbedLoading(true);
+    setEmbedError(null);
+    setEmbedInfo(null);
     apiGet(`/api/superset/dashboards/${dashboardId}/embed_info/`)
       .then((data) => {
-        if (isMounted) setEmbedInfo(data)
+        if (isMounted) setEmbedInfo(data);
       })
       .catch((err) => {
-        if (isMounted) setEmbedError(err.message || "Failed to load embed info")
+        if (isMounted) setEmbedError(err.message || 'Failed to load embed info');
       })
       .finally(() => {
-        if (isMounted) setEmbedLoading(false)
-      })
+        if (isMounted) setEmbedLoading(false);
+      });
     return () => {
-      isMounted = false
-    }
-  }, [dashboardId])
+      isMounted = false;
+    };
+  }, [dashboardId]);
 
   // Embed the Superset dashboard when embedInfo is available
   useEffect(() => {
     if (embedInfo && supersetContainerRef.current) {
       // Clear previous embed if any
-      supersetContainerRef.current.innerHTML = ""
+      supersetContainerRef.current.innerHTML = '';
       embedDashboard({
         id: embedInfo.uuid,
         supersetDomain: embedInfo.host,
         mountPoint: supersetContainerRef.current,
         fetchGuestToken: () => Promise.resolve(embedInfo.guest_token),
         dashboardUiConfig: {
-              // dashboard UI config: hideTitle, hideTab, hideChartControls, filters.visible, filters.expanded (optional)
-              hideTitle: true,
-              filters: {
-                expanded: true,
-              },
-            },
-      } as EmbedDashboardParams)
+          // dashboard UI config: hideTitle, hideTab, hideChartControls, filters.visible, filters.expanded (optional)
+          hideTitle: true,
+          filters: {
+            expanded: true,
+          },
+        },
+      } as EmbedDashboardParams);
     }
-  }, [embedInfo])
+  }, [embedInfo]);
 
   // Trigger resize event when chat opens/closes to help charts adapt
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.dispatchEvent(new Event("resize"))
-    }, 300) // Small delay to allow transition to complete
+      window.dispatchEvent(new Event('resize'));
+    }, 300); // Small delay to allow transition to complete
 
-    return () => clearTimeout(timer)
-  }, [isChatOpen])
+    return () => clearTimeout(timer);
+  }, [isChatOpen]);
 
   // Fetch dashboard info when dashboardId changes
   useEffect(() => {
@@ -107,7 +116,7 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
         if (isMounted) setDashboard(data);
       })
       .catch((err) => {
-        if (isMounted) setDashboardError(err.message || "Failed to load dashboard info");
+        if (isMounted) setDashboardError(err.message || 'Failed to load dashboard info');
       })
       .finally(() => {
         if (isMounted) setDashboardLoading(false);
@@ -118,9 +127,7 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
   }, [dashboardId]);
 
   if (dashboardLoading) {
-    return (
-      <div className="p-6 text-center">Loading dashboard info...</div>
-    );
+    return <div className="p-6 text-center">Loading dashboard info...</div>;
   }
 
   if (dashboardError || !dashboard) {
@@ -136,7 +143,9 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
         </div>
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold text-muted-foreground mb-2">Dashboard Not Found</h1>
-          <p className="text-muted-foreground">{dashboardError || "The requested dashboard could not be found."}</p>
+          <p className="text-muted-foreground">
+            {dashboardError || 'The requested dashboard could not be found.'}
+          </p>
         </div>
       </div>
     );
@@ -145,10 +154,10 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
   // Handle element selection for targeted questions
   const handleElementSelect = (elementId: string) => {
     if (elementId) {
-      setSelectedElement(elementId)
-      setIsChatOpen(true)
+      setSelectedElement(elementId);
+      setIsChatOpen(true);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -162,13 +171,13 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
         </Button>
         <div className="flex items-center gap-2">
           <Button
-            variant={isChatOpen ? "default" : "outline"}
+            variant={isChatOpen ? 'default' : 'outline'}
             size="sm"
             onClick={() => setIsChatOpen(!isChatOpen)}
             className="relative"
           >
             <MessageSquare className="h-4 w-4 mr-2" />
-            {isChatOpen ? "Close Assistant" : "Ask Assistant"}
+            {isChatOpen ? 'Close Assistant' : 'Ask Assistant'}
             {!isChatOpen && (
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -209,15 +218,14 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
         <div className="w-full flex flex-col items-center justify-center p-4 mt-50">
           {embedLoading && <div className="text-muted-foreground">Loading dashboard...</div>}
           {embedError && <div className="text-red-600">{embedError}</div>}
-          <div className="embeddedsuperset w-full" style={{ maxWidth: "1600px" }} key={dashboardId}>
-            <div
-              ref={supersetContainerRef}
-              className="bg-white rounded-lg shadow border"
-            />
+          <div className="embeddedsuperset w-full" style={{ maxWidth: '1600px' }} key={dashboardId}>
+            <div ref={supersetContainerRef} className="bg-white rounded-lg shadow border" />
           </div>
         </div>
         {/* Dashboard Content */}
-        <div className={`flex-1 overflow-auto transition-all duration-300 ${isChatOpen ? "md:w-2/3" : "w-full"}`}>
+        <div
+          className={`flex-1 overflow-auto transition-all duration-300 ${isChatOpen ? 'md:w-2/3' : 'w-full'}`}
+        >
           <ErrorBoundary FallbackComponent={ErrorFallback}>
             <DashboardContent
               dashboardType={dashboard.type}
@@ -241,5 +249,5 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
         )}
       </div>
     </div>
-  )
+  );
 }

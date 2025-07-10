@@ -1,15 +1,15 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 
 const data = [
-  { district: "Eastern", mothers: 850, children: 1200 },
-  { district: "Western", mothers: 720, children: 980 },
-  { district: "Northern", mothers: 650, children: 890 },
-  { district: "Southern", mothers: 630, children: 850 },
-]
+  { district: 'Eastern', mothers: 850, children: 1200 },
+  { district: 'Western', mothers: 720, children: 980 },
+  { district: 'Northern', mothers: 650, children: 890 },
+  { district: 'Southern', mothers: 630, children: 850 },
+];
 
 export function BeneficiaryReachChart() {
   return (
@@ -22,12 +22,12 @@ export function BeneficiaryReachChart() {
         <ChartContainer
           config={{
             mothers: {
-              label: "Mothers",
-              color: "hsl(var(--chart-1))",
+              label: 'Mothers',
+              color: 'hsl(var(--chart-1))',
             },
             children: {
-              label: "Children",
-              color: "hsl(var(--chart-2))",
+              label: 'Children',
+              color: 'hsl(var(--chart-2))',
             },
           }}
           className="h-[200px]"
@@ -46,5 +46,5 @@ export function BeneficiaryReachChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

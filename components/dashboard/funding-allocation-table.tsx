@@ -1,54 +1,61 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 
 const fundingData = [
   {
-    category: "Personnel",
+    category: 'Personnel',
     allocated: 450000,
     spent: 382500,
     remaining: 67500,
     percentSpent: 85,
   },
   {
-    category: "Medical Supplies",
+    category: 'Medical Supplies',
     allocated: 250000,
     spent: 187500,
     remaining: 62500,
     percentSpent: 75,
   },
   {
-    category: "Training",
+    category: 'Training',
     allocated: 150000,
     spent: 120000,
     remaining: 30000,
     percentSpent: 80,
   },
   {
-    category: "Travel & Transportation",
+    category: 'Travel & Transportation',
     allocated: 100000,
     spent: 92000,
     remaining: 8000,
     percentSpent: 92,
   },
   {
-    category: "Infrastructure",
+    category: 'Infrastructure',
     allocated: 50000,
     spent: 35000,
     remaining: 15000,
     percentSpent: 70,
   },
-]
+];
 
 export function FundingAllocationTable() {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   return (
     <Card>
@@ -85,5 +92,5 @@ export function FundingAllocationTable() {
         </Table>
       </CardContent>
     </Card>
-  )
+  );
 }

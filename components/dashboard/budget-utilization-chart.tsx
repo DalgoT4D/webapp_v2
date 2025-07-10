@@ -1,18 +1,18 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 
 const data = [
-  { name: "Personnel", value: 45 },
-  { name: "Supplies", value: 25 },
-  { name: "Training", value: 15 },
-  { name: "Travel", value: 10 },
-  { name: "Other", value: 5 },
-]
+  { name: 'Personnel', value: 45 },
+  { name: 'Supplies', value: 25 },
+  { name: 'Training', value: 15 },
+  { name: 'Travel', value: 10 },
+  { name: 'Other', value: 5 },
+];
 
-const COLORS = ["#3b82f6", "#22c55e", "#f97316", "#8b5cf6", "#64748b"]
+const COLORS = ['#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#64748b'];
 
 export function BudgetUtilizationChart() {
   return (
@@ -46,5 +46,5 @@ export function BudgetUtilizationChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,17 +1,25 @@
-"use client"
+'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 const data = [
-  { time: "00:00", responseTime: 120, errorRate: 0.5, userLoad: 10 },
-  { time: "04:00", responseTime: 110, errorRate: 0.3, userLoad: 5 },
-  { time: "08:00", responseTime: 180, errorRate: 1.2, userLoad: 45 },
-  { time: "12:00", responseTime: 220, errorRate: 1.8, userLoad: 65 },
-  { time: "16:00", responseTime: 250, errorRate: 2.0, userLoad: 70 },
-  { time: "20:00", responseTime: 190, errorRate: 1.5, userLoad: 40 },
-]
+  { time: '00:00', responseTime: 120, errorRate: 0.5, userLoad: 10 },
+  { time: '04:00', responseTime: 110, errorRate: 0.3, userLoad: 5 },
+  { time: '08:00', responseTime: 180, errorRate: 1.2, userLoad: 45 },
+  { time: '12:00', responseTime: 220, errorRate: 1.8, userLoad: 65 },
+  { time: '16:00', responseTime: 250, errorRate: 2.0, userLoad: 70 },
+  { time: '20:00', responseTime: 190, errorRate: 1.5, userLoad: 40 },
+];
 
 export function SystemPerformanceChart() {
   return (
@@ -24,16 +32,16 @@ export function SystemPerformanceChart() {
         <ChartContainer
           config={{
             responseTime: {
-              label: "Response Time (ms)",
-              color: "hsl(var(--chart-1))",
+              label: 'Response Time (ms)',
+              color: 'hsl(var(--chart-1))',
             },
             errorRate: {
-              label: "Error Rate (%)",
-              color: "hsl(var(--chart-2))",
+              label: 'Error Rate (%)',
+              color: 'hsl(var(--chart-2))',
             },
             userLoad: {
-              label: "User Load",
-              color: "hsl(var(--chart-3))",
+              label: 'User Load',
+              color: 'hsl(var(--chart-3))',
             },
           }}
           className="h-[250px]"
@@ -75,5 +83,5 @@ export function SystemPerformanceChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

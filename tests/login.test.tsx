@@ -40,10 +40,7 @@ mockUseAuthStore.mockReturnValue({
 jest.mock('swr', () => ({
   __esModule: true,
   default: jest.fn(() => ({
-    data: [
-      { org: { slug: 'org1' } },
-      { org: { slug: 'org2' } },
-    ],
+    data: [{ org: { slug: 'org1' } }, { org: { slug: 'org2' } }],
     error: null,
   })),
 }));
@@ -108,4 +105,4 @@ describe('LoginPage', () => {
 
     expect(mockSetSelectedOrg).toHaveBeenCalledWith('org1');
   });
-}); 
+});

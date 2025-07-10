@@ -1,37 +1,37 @@
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, LayoutDashboard, Database, Clock } from "lucide-react"
+import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FileText, LayoutDashboard, Database, Clock } from 'lucide-react';
 
 const recentItems = [
   {
-    title: "Maternal Health Overview",
-    type: "Dashboard",
+    title: 'Maternal Health Overview',
+    type: 'Dashboard',
     icon: LayoutDashboard,
-    time: "2 hours ago",
-    href: "/dashboards/maternal-health",
+    time: '2 hours ago',
+    href: '/dashboards/maternal-health',
   },
   {
-    title: "Q2 Program Impact",
-    type: "Report",
+    title: 'Q2 Program Impact',
+    type: 'Report',
     icon: FileText,
-    time: "Yesterday",
-    href: "/reports/q2-impact",
+    time: 'Yesterday',
+    href: '/reports/q2-impact',
   },
   {
-    title: "Field Visit Records",
-    type: "Data",
+    title: 'Field Visit Records',
+    type: 'Data',
     icon: Database,
-    time: "2 days ago",
-    href: "/data/field-visits",
+    time: '2 days ago',
+    href: '/data/field-visits',
   },
   {
-    title: "Nutritional Protocol Compliance",
-    type: "Dashboard",
+    title: 'Nutritional Protocol Compliance',
+    type: 'Dashboard',
     icon: LayoutDashboard,
-    time: "3 days ago",
-    href: "/dashboards/nutrition",
+    time: '3 days ago',
+    href: '/dashboards/nutrition',
   },
-]
+];
 
 export function RecentlyViewed() {
   return (
@@ -48,7 +48,7 @@ export function RecentlyViewed() {
           {(recentItems || []).map((item) => (
             <Link
               key={item.title}
-              href={item.href || "#"}
+              href={item.href || '#'}
               className="rounded-lg border p-4 hover:bg-accent transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -69,5 +69,5 @@ export function RecentlyViewed() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

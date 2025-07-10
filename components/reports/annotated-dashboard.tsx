@@ -1,165 +1,174 @@
-"use client"
+'use client';
 
-import type React from "react"
+import type React from 'react';
 
-import { useState, useRef, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MapPin, StickyNote, Highlighter, X, Save, Edit, Trash2 } from "lucide-react"
+import { useState, useRef, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { MapPin, StickyNote, Highlighter, X, Save, Edit, Trash2 } from 'lucide-react';
 
 interface Annotation {
-  id: string
-  type: "pin" | "note" | "highlight"
-  x: number
-  y: number
-  content: string
-  author: string
-  createdAt: string
-  color?: string
+  id: string;
+  type: 'pin' | 'note' | 'highlight';
+  x: number;
+  y: number;
+  content: string;
+  author: string;
+  createdAt: string;
+  color?: string;
 }
 
 interface AnnotatedDashboardProps {
-  reportInstanceId: string
-  children: React.ReactNode
+  reportInstanceId: string;
+  children: React.ReactNode;
 }
 
 // Mock annotations data
 const mockAnnotations: Record<string, Annotation[]> = {
-  "inst-001-1": [
+  'inst-001-1': [
     {
-      id: "ann-1",
-      type: "pin",
+      id: 'ann-1',
+      type: 'pin',
       x: 25,
       y: 15,
       content:
-        "Field visit completion has improved significantly in this region. The 15% increase is attributed to better training and resource allocation.",
-      author: "Sarah Johnson",
-      createdAt: "2023-05-15T10:30:00Z",
+        'Field visit completion has improved significantly in this region. The 15% increase is attributed to better training and resource allocation.',
+      author: 'Sarah Johnson',
+      createdAt: '2023-05-15T10:30:00Z',
     },
     {
-      id: "ann-2",
-      type: "note",
+      id: 'ann-2',
+      type: 'note',
       x: 60,
       y: 40,
-      content: "Supply chain efficiency target exceeded",
-      author: "Mike Chen",
-      createdAt: "2023-05-15T11:15:00Z",
-      color: "yellow",
+      content: 'Supply chain efficiency target exceeded',
+      author: 'Mike Chen',
+      createdAt: '2023-05-15T11:15:00Z',
+      color: 'yellow',
     },
     {
-      id: "ann-3",
-      type: "highlight",
+      id: 'ann-3',
+      type: 'highlight',
       x: 40,
       y: 70,
-      content: "Risk distribution shows concerning trend in urban areas - requires immediate attention",
-      author: "Dr. Priya Sharma",
-      createdAt: "2023-05-15T14:20:00Z",
-      color: "red",
+      content:
+        'Risk distribution shows concerning trend in urban areas - requires immediate attention',
+      author: 'Dr. Priya Sharma',
+      createdAt: '2023-05-15T14:20:00Z',
+      color: 'red',
     },
   ],
-}
+};
 
 export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDashboardProps) {
-  const [annotations, setAnnotations] = useState<Annotation[]>(mockAnnotations[reportInstanceId] || [])
-  const [isCreating, setIsCreating] = useState(false)
-  const [newAnnotation, setNewAnnotation] = useState<Partial<Annotation>>({})
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [annotations, setAnnotations] = useState<Annotation[]>(
+    mockAnnotations[reportInstanceId] || []
+  );
+  const [isCreating, setIsCreating] = useState(false);
+  const [newAnnotation, setNewAnnotation] = useState<Partial<Annotation>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleContainerClick = useCallback(
     (e: React.MouseEvent) => {
-      if (!containerRef.current || isCreating || editingId) return
+      if (!containerRef.current || isCreating || editingId) return;
 
-      const rect = containerRef.current.getBoundingClientRect()
-      const x = ((e.clientX - rect.left) / rect.width) * 100
-      const y = ((e.clientY - rect.top) / rect.height) * 100
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
 
       setNewAnnotation({
         x,
         y,
-        type: "pin",
-        content: "",
-        author: "Current User",
+        type: 'pin',
+        content: '',
+        author: 'Current User',
         createdAt: new Date().toISOString(),
-      })
-      setIsCreating(true)
+      });
+      setIsCreating(true);
     },
-    [isCreating, editingId],
-  )
+    [isCreating, editingId]
+  );
 
   const handleSaveAnnotation = () => {
-    if (!newAnnotation.content?.trim()) return
+    if (!newAnnotation.content?.trim()) return;
 
     const annotation: Annotation = {
       id: `ann-${Date.now()}`,
-      type: newAnnotation.type as "pin" | "note" | "highlight",
+      type: newAnnotation.type as 'pin' | 'note' | 'highlight',
       x: newAnnotation.x!,
       y: newAnnotation.y!,
       content: newAnnotation.content,
       author: newAnnotation.author!,
       createdAt: newAnnotation.createdAt!,
       color: newAnnotation.color,
-    }
+    };
 
-    setAnnotations((prev) => [...prev, annotation])
-    setIsCreating(false)
-    setNewAnnotation({})
-  }
+    setAnnotations((prev) => [...prev, annotation]);
+    setIsCreating(false);
+    setNewAnnotation({});
+  };
 
   const handleUpdateAnnotation = (id: string, content: string) => {
-    setAnnotations((prev) => prev.map((ann) => (ann.id === id ? { ...ann, content } : ann)))
-    setEditingId(null)
-  }
+    setAnnotations((prev) => prev.map((ann) => (ann.id === id ? { ...ann, content } : ann)));
+    setEditingId(null);
+  };
 
   const handleDeleteAnnotation = (id: string) => {
-    setAnnotations((prev) => prev.filter((ann) => ann.id !== id))
-    setSelectedAnnotation(null)
-  }
+    setAnnotations((prev) => prev.filter((ann) => ann.id !== id));
+    setSelectedAnnotation(null);
+  };
 
   const getAnnotationIcon = (type: string) => {
     switch (type) {
-      case "pin":
-        return <MapPin className="h-4 w-4" />
-      case "note":
-        return <StickyNote className="h-4 w-4" />
-      case "highlight":
-        return <Highlighter className="h-4 w-4" />
+      case 'pin':
+        return <MapPin className="h-4 w-4" />;
+      case 'note':
+        return <StickyNote className="h-4 w-4" />;
+      case 'highlight':
+        return <Highlighter className="h-4 w-4" />;
       default:
-        return <MapPin className="h-4 w-4" />
+        return <MapPin className="h-4 w-4" />;
     }
-  }
+  };
 
   const getAnnotationColor = (type: string, color?: string) => {
     if (color) {
       switch (color) {
-        case "red":
-          return "bg-red-500 hover:bg-red-600"
-        case "yellow":
-          return "bg-yellow-500 hover:bg-yellow-600"
-        case "green":
-          return "bg-green-500 hover:bg-green-600"
-        case "blue":
-          return "bg-blue-500 hover:bg-blue-600"
+        case 'red':
+          return 'bg-red-500 hover:bg-red-600';
+        case 'yellow':
+          return 'bg-yellow-500 hover:bg-yellow-600';
+        case 'green':
+          return 'bg-green-500 hover:bg-green-600';
+        case 'blue':
+          return 'bg-blue-500 hover:bg-blue-600';
         default:
-          return "bg-primary hover:bg-primary/90"
+          return 'bg-primary hover:bg-primary/90';
       }
     }
 
     switch (type) {
-      case "pin":
-        return "bg-blue-500 hover:bg-blue-600"
-      case "note":
-        return "bg-yellow-500 hover:bg-yellow-600"
-      case "highlight":
-        return "bg-red-500 hover:bg-red-600"
+      case 'pin':
+        return 'bg-blue-500 hover:bg-blue-600';
+      case 'note':
+        return 'bg-yellow-500 hover:bg-yellow-600';
+      case 'highlight':
+        return 'bg-red-500 hover:bg-red-600';
       default:
-        return "bg-primary hover:bg-primary/90"
+        return 'bg-primary hover:bg-primary/90';
     }
-  }
+  };
 
   return (
     <div className="relative">
@@ -174,18 +183,18 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
             style={{
               left: `${annotation.x}%`,
               top: `${annotation.y}%`,
-              transform: "translate(-50%, -50%)",
+              transform: 'translate(-50%, -50%)',
             }}
           >
             <Button
               size="sm"
               className={`h-8 w-8 rounded-full p-0 text-white shadow-lg ${getAnnotationColor(
                 annotation.type,
-                annotation.color,
+                annotation.color
               )}`}
               onClick={(e) => {
-                e.stopPropagation()
-                setSelectedAnnotation(selectedAnnotation === annotation.id ? null : annotation.id)
+                e.stopPropagation();
+                setSelectedAnnotation(selectedAnnotation === annotation.id ? null : annotation.id);
               }}
             >
               {getAnnotationIcon(annotation.type)}
@@ -203,7 +212,11 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(annotation.id)}>
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDeleteAnnotation(annotation.id)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteAnnotation(annotation.id)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setSelectedAnnotation(null)}>
@@ -226,8 +239,10 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
                         <Button
                           size="sm"
                           onClick={() => {
-                            const textarea = document.getElementById(`edit-${annotation.id}`) as HTMLTextAreaElement
-                            handleUpdateAnnotation(annotation.id, textarea.value)
+                            const textarea = document.getElementById(
+                              `edit-${annotation.id}`
+                            ) as HTMLTextAreaElement;
+                            handleUpdateAnnotation(annotation.id, textarea.value);
                           }}
                         >
                           Save
@@ -256,7 +271,7 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
             style={{
               left: `${newAnnotation.x}%`,
               top: `${newAnnotation.y}%`,
-              transform: "translate(-50%, -50%)",
+              transform: 'translate(-50%, -50%)',
             }}
           >
             <Card className="w-80 shadow-xl">
@@ -268,8 +283,8 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        setIsCreating(false)
-                        setNewAnnotation({})
+                        setIsCreating(false);
+                        setNewAnnotation({});
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -278,7 +293,9 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
 
                   <Select
                     value={newAnnotation.type}
-                    onValueChange={(value) => setNewAnnotation((prev) => ({ ...prev, type: value as any }))}
+                    onValueChange={(value) =>
+                      setNewAnnotation((prev) => ({ ...prev, type: value as any }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
@@ -292,8 +309,10 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
 
                   <Textarea
                     placeholder="Add your annotation..."
-                    value={newAnnotation.content || ""}
-                    onChange={(e) => setNewAnnotation((prev) => ({ ...prev, content: e.target.value }))}
+                    value={newAnnotation.content || ''}
+                    onChange={(e) =>
+                      setNewAnnotation((prev) => ({ ...prev, content: e.target.value }))
+                    }
                     className="min-h-[80px] resize-none"
                   />
 
@@ -302,8 +321,8 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setIsCreating(false)
-                        setNewAnnotation({})
+                        setIsCreating(false);
+                        setNewAnnotation({});
                       }}
                     >
                       Cancel
@@ -323,10 +342,10 @@ export function AnnotatedDashboard({ reportInstanceId, children }: AnnotatedDash
       {/* Instructions */}
       <div className="mt-4 p-3 bg-muted/50 rounded-lg">
         <p className="text-sm text-muted-foreground">
-          Click anywhere on the dashboard to add annotations. Use pins for specific points, notes for general comments,
-          and highlights for important metrics.
+          Click anywhere on the dashboard to add annotations. Use pins for specific points, notes
+          for general comments, and highlights for important metrics.
         </p>
       </div>
     </div>
-  )
+  );
 }
