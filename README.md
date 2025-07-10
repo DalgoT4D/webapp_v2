@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dalgo Web Application
+
+A modern web application built with Next.js 15 and React 19, featuring a comprehensive dashboard system with data visualization, analytics, and reporting capabilities.
+
+## Tech Stack
+
+### Core Technologies
+- **Next.js 15** - React framework with App Router
+- **React 19** - UI library
+- **TypeScript** - Type safety and developer experience
+- **Tailwind CSS** - Utility-first styling
+
+### State Management & Data Fetching
+- **Zustand** - Lightweight state management
+- **SWR** - Data fetching and caching
+- **React Hook Form** - Form handling and validation
+
+### UI Components & Styling
+- **Radix UI** - Headless UI components
+- **Class Variance Authority** - Component styling variants
+- **Tailwind Merge** - Utility class merging
+- **Lucide React** - Icon system
+
+### Data Visualization
+- **ECharts** - Interactive charting library
+- **Nivo** - Data visualization components
+- **Recharts** - Composable chart library
+
+### Development & Testing
+- **Jest** - Testing framework
+- **React Testing Library** - Component testing
+- **Husky** - Git hooks
+- **Prettier** - Code formatting
+- **ESLint** - Code linting
+
+## Project Structure
+
+```
+webapp_v2/
+├── app/                    # Next.js app router pages
+├── components/            
+│   ├── ui/                # Reusable UI components
+│   ├── charts/            # Chart components
+│   ├── dashboard/         # Dashboard-specific components
+│   └── alerts/            # Alert system components
+├── hooks/                 # Custom React hooks
+├── stores/                # Zustand store definitions
+├── lib/                   # Utility functions and API
+├── constants/             # Application constants
+└── tests/                 # Test files
+```
+
+## Key Features
+
+- **Dashboard System** - Customizable dashboards with drag-and-drop capabilities
+- **Data Visualization** - Multiple charting libraries for different visualization needs
+- **Alert System** - Real-time notification and alert management
+- **Authentication** - Protected routes and auth management
+- **Responsive Design** - Mobile-first approach with responsive layouts
 
 ## Getting Started
 
-First, run the development server:
-
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Run development server:
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Open [http://localhost:3001](http://localhost:3001)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Available Scripts
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` - Start development server
+- `npm run build` - Build production bundle
+- `npm run test` - Run tests
+- `npm run lint` - Run linting
+- `npm run format:write` - Format code with Prettier
