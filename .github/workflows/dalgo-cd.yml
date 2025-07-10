@@ -28,4 +28,4 @@ jobs:
             git pull
             npm install
             npm run build
-            /home/ddp/.yarn/bin/pm2 restart ddp-webapp-v2
+            /home/ddp/.yarn/bin/pm2 restart ddp-webapp_v2
