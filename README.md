@@ -2,6 +2,10 @@
 
 A modern web application built with Next.js 15 and React 19, featuring a comprehensive dashboard system with data visualization, analytics, and reporting capabilities.
 
+## Prerequisites
+
+- Node.js >= 18.17.0 (as required by Next.js 15)
+
 ## Tech Stack
 
 ### Core Technologies
@@ -59,6 +63,13 @@ webapp_v2/
 - **Responsive Design** - Mobile-first approach with responsive layouts
 
 ## Getting Started
+
+### Prerequisites
+
+- Node.js >= 18.17.0 (as required by Next.js 15)
+- npm >= 10.0.0
+
+### Installation
 
 1. Install dependencies:
 ```bash
