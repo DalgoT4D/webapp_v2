@@ -5,8 +5,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { BarChart3 } from 'lucide-react';
 import { DashboardElementData } from './dashboard-builder';
 import { ChartElement } from './chart-element';
-import { TextElement } from './text-element';
-import { HeadingElement } from './heading-element';
 
 interface DashboardCanvasProps {
   elements: DashboardElementData[];
