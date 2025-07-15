@@ -19,7 +19,6 @@ export default function EChartsComponent({ data, customOptions = {} }: EChartsCo
 
   return (
     <div style={{ width: '100%', height: '400px' }}>
-      {/* @ts-expect-error - Known type issue with echarts-for-react */}
       <EChartsReact
         option={options}
         style={{ height: '100%', width: '100%' }}

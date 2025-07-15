@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import debounce from 'lodash/debounce';
 
 // SWR Hooks
 import {
@@ -396,6 +395,7 @@ export default function ChartForm({
     } else if (watchedMode == 'aggregated') {
       return 'Aggregate Column';
     }
+    return 'Y-Axis';
   };
 
   const isLoading = isSaving || isUpdating || isDeleting;

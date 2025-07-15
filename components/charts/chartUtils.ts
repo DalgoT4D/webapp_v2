@@ -78,8 +78,8 @@ export function validateChartData(data: ChartData, chartType: string) {
   // For now, assume all chart_config data is valid
   return {
     isValid: true,
-    errors: [],
-    recommendations: [],
+    errors: [] as string[],
+    recommendations: [] as string[],
   };
 }
 
