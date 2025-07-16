@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -147,6 +147,7 @@ export function DashboardList() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(0);
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<number>>(new Set());
   const pageSize = 12;
 
   // Debounce search input
@@ -180,6 +181,11 @@ export function DashboardList() {
   // Fetch dashboards using custom hook
   const { data, error, isLoading } = useSupersetDashboards(params);
 
+  // Reset failed thumbnails when data changes (new search/filter/page)
+  useEffect(() => {
+    setFailedThumbnails(new Set());
+  }, [debouncedSearchQuery, statusFilter, currentPage]);
+
   // Calculate pagination
   const totalPages = data ? Math.ceil(data.count / pageSize) : 0;
   const dashboards = data?.result || [];
@@ -197,6 +203,11 @@ export function DashboardList() {
     }
   };
 
+  // Handle thumbnail error with state tracking
+  const handleThumbnailError = useCallback((dashboardId: number) => {
+    setFailedThumbnails((prev) => new Set(prev).add(dashboardId));
+  }, []);
+
   const renderDashboardCard = (dashboard: Dashboard) => {
     return (
       <Link key={dashboard.id} href={`/dashboards/${dashboard.id}`}>
@@ -208,17 +219,14 @@ export function DashboardList() {
         >
           {/* Thumbnail */}
           <div className="relative h-48 bg-muted overflow-hidden">
-            {dashboard.thumbnail_url ? (
+            {dashboard.thumbnail_url && !failedThumbnails.has(dashboard.id) ? (
               <Image
                 src={dashboard.thumbnail_url}
                 alt={dashboard.dashboard_title}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                onError={(e) => {
-                  // Fallback to placeholder on error
-                  e.currentTarget.src = '/api/superset/dashboards/placeholder/thumbnail/';
-                }}
+                onError={() => handleThumbnailError(dashboard.id)}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -287,16 +295,14 @@ export function DashboardList() {
         >
           {/* Thumbnail */}
           <div className="relative w-24 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-            {dashboard.thumbnail_url ? (
+            {dashboard.thumbnail_url && !failedThumbnails.has(dashboard.id) ? (
               <Image
                 src={dashboard.thumbnail_url}
                 alt={dashboard.dashboard_title}
                 fill
                 className="object-cover"
                 sizes="96px"
-                onError={(e) => {
-                  e.currentTarget.src = '/api/superset/dashboards/placeholder/thumbnail/';
-                }}
+                onError={() => handleThumbnailError(dashboard.id)}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

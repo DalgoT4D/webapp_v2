@@ -27,9 +27,7 @@ export function SupersetEmbed({ dashboardId, dashboardUuid, className = '' }: Su
       try {
         // This function is called automatically by the SDK
         // whenever it needs a fresh token
-        const response = await apiPost(`/api/superset/dashboards/${dashboardId}/guest_token/`, {
-          dashboard_uuid: dashboardUuid,
-        });
+        const response = await apiPost(`/api/superset/dashboards/${dashboardId}/guest_token/`, {});
 
         if (unmounted) {
           throw new Error('Component unmounted');
@@ -53,7 +51,7 @@ export function SupersetEmbed({ dashboardId, dashboardUuid, className = '' }: Su
         // Get the Superset domain from the guest token response
         const tokenResponse = await apiPost(
           `/api/superset/dashboards/${dashboardId}/guest_token/`,
-          { dashboard_uuid: dashboardUuid }
+          {}
         );
 
         if (unmounted) return;
@@ -65,7 +63,7 @@ export function SupersetEmbed({ dashboardId, dashboardUuid, className = '' }: Su
 
         // Embed the dashboard
         const instance = await embedDashboard({
-          id: dashboardUuid,
+          id: tokenResponse.dashboard_uuid,
           supersetDomain: tokenResponse.superset_domain,
           mountPoint: mountRef.current!,
           fetchGuestToken, // SDK will call this automatically when needed
@@ -113,7 +111,7 @@ export function SupersetEmbed({ dashboardId, dashboardUuid, className = '' }: Su
         embedInstance.unmount();
       }
     };
-  }, [dashboardId, dashboardUuid, embedInstance]);
+  }, [dashboardId]);
 
   const handleRefresh = () => {
     // Re-trigger the embedding process
@@ -153,7 +151,7 @@ export function SupersetEmbed({ dashboardId, dashboardUuid, className = '' }: Su
       {/* The dashboard will be embedded here */}
       <div
         ref={mountRef}
-        className="w-full h-full min-h-[600px]"
+        className="embeddedsuperset w-full h-full min-h-[600px]"
         style={{
           // Ensure the iframe fills the container
           position: 'relative',
