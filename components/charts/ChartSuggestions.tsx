@@ -145,7 +145,7 @@ export default function ChartSuggestions({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {suggestions.map((suggestion, index) => {
+        {suggestions.map((suggestion: ChartSuggestion, index: number) => {
           const IconComponent =
             chartTypeIcons[suggestion.chart_type as keyof typeof chartTypeIcons] || BarChart3;
 

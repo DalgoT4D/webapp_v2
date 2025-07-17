@@ -24,7 +24,7 @@ export default function ChartTemplates({
 
   // Filter templates based on category and search term
   const filteredTemplates =
-    templates?.filter((template) => {
+    templates?.filter((template: ChartTemplate) => {
       const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory;
       const matchesSearch =
         template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -33,7 +33,14 @@ export default function ChartTemplates({
     }) || [];
 
   // Get unique categories from templates
-  const categories = templates ? ['all', ...new Set(templates.map((t) => t.category))] : ['all'];
+  const categories: string[] = templates
+    ? [
+        'all',
+        ...Array.from(
+          new Set((templates as ChartTemplate[]).map((t: ChartTemplate) => t.category))
+        ),
+      ]
+    : ['all'];
 
   if (isLoading) {
     return (
@@ -96,7 +103,7 @@ export default function ChartTemplates({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.map((template) => (
+          {filteredTemplates.map((template: ChartTemplate) => (
             <Card key={template.id} className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">

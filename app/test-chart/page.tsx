@@ -110,7 +110,7 @@ export default function TestChartPage() {
                 {schemasError && (
                   <div className="text-red-500 p-2">Error: {schemasError.message}</div>
                 )}
-                {schemas?.map((schema) => (
+                {schemas?.map((schema: string) => (
                   <SelectItem key={schema} value={schema}>
                     {schema}
                   </SelectItem>
@@ -148,7 +148,7 @@ export default function TestChartPage() {
                 {tablesError && (
                   <div className="text-red-500 p-2">Error: {tablesError.message}</div>
                 )}
-                {tables?.map((table) => (
+                {tables?.map((table: string) => (
                   <SelectItem key={table} value={table}>
                     {table}
                   </SelectItem>
@@ -189,7 +189,7 @@ export default function TestChartPage() {
                     {columnsError && (
                       <div className="text-red-500 p-2">Error: {columnsError.message}</div>
                     )}
-                    {columns?.map((column) => (
+                    {columns?.map((column: { name: string; data_type: string }) => (
                       <SelectItem key={column.name} value={column.name}>
                         {column.name} ({column.data_type})
                       </SelectItem>
@@ -211,7 +211,7 @@ export default function TestChartPage() {
                     {columnsError && (
                       <div className="text-red-500 p-2">Error: {columnsError.message}</div>
                     )}
-                    {columns?.map((column) => (
+                    {columns?.map((column: { name: string; data_type: string }) => (
                       <SelectItem key={column.name} value={column.name}>
                         {column.name} ({column.data_type})
                       </SelectItem>

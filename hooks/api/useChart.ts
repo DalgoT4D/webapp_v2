@@ -1,4 +1,5 @@
 import useSWR from 'swr';
+import useSWRMutation from 'swr/mutation';
 import { useMemo } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 
@@ -65,6 +66,34 @@ export interface ChartDataResponse {
   success: boolean;
   data: any;
   message: string;
+}
+
+export interface ChartSuggestion {
+  chart_type: string;
+  confidence: number;
+  reasoning: string;
+  suggested_config: {
+    xAxis?: string;
+    yAxis?: string;
+    aggregate_func?: string;
+    dimensions?: string[];
+  };
+}
+
+export interface ChartTemplate {
+  id: string;
+  name: string;
+  description: string;
+  chart_type: string;
+  category: string;
+  preview_image?: string;
+  config_template: {
+    data_requirements: {
+      dimensions: number;
+      metrics: number;
+    };
+    default_config: Record<string, any>;
+  };
 }
 
 // Fetcher functions
@@ -175,13 +204,17 @@ export function useChartFavorite() {
 
 // Chart export
 export function useChartExport() {
-  return {
-    export: async (chartId: number, format: 'png' | 'jpeg' | 'svg' | 'pdf') => {
-      // This would typically call an export endpoint
-      // For now, return a placeholder
-      return { success: true, url: `/api/charts/${chartId}/export?format=${format}` };
-    },
-  };
+  return useSWRMutation(
+    '/api/charts/export',
+    async (url: string, { arg }: { arg: { chart_id: number; format: string } }) => {
+      const { chart_id, format } = arg;
+      // Return blob data for download
+      const response = await apiGet(
+        `/api/visualization/charts/export/${chart_id}?format=${format}`
+      );
+      return { data: response };
+    }
+  );
 }
 
 // Chart templates (if implemented)
@@ -190,12 +223,13 @@ export function useChartTemplates() {
 }
 
 // Chart suggestions (if implemented)
-export function useChartSuggestions(schemaName: string, tableName: string) {
-  return useSWR(
-    schemaName && tableName
-      ? `/api/charts/suggestions/?schema=${schemaName}&table=${tableName}`
-      : null,
-    chartFetcher
+export function useChartSuggestions() {
+  return useSWRMutation(
+    '/api/charts/suggestions/',
+    async (url: string, { arg }: { arg: { schema_name: string; table_name: string } }) => {
+      const { schema_name, table_name } = arg;
+      return apiPost('/api/visualization/charts/suggest', { schema_name, table_name });
+    }
   );
 }
 

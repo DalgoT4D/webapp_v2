@@ -325,7 +325,7 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
                       {schemasError && (
                         <div className="text-red-500 p-2 text-sm">Error loading schemas</div>
                       )}
-                      {schemas?.map((schema) => (
+                      {schemas?.map((schema: string) => (
                         <SelectItem key={schema} value={schema}>
                           {schema}
                         </SelectItem>
@@ -350,7 +350,7 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
                       {tablesError && (
                         <div className="text-red-500 p-2 text-sm">Error loading tables</div>
                       )}
-                      {tables?.map((table) => (
+                      {tables?.map((table: string) => (
                         <SelectItem key={table} value={table}>
                           {table}
                         </SelectItem>
@@ -383,7 +383,7 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
                           {columnsError && (
                             <div className="text-red-500 p-2 text-sm">Error loading columns</div>
                           )}
-                          {columns?.map((column) => (
+                          {columns?.map((column: { name: string; data_type: string }) => (
                             <SelectItem key={column.name} value={column.name}>
                               {column.name} ({column.data_type})
                             </SelectItem>
@@ -404,7 +404,7 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
                           {columnsError && (
                             <div className="text-red-500 p-2 text-sm">Error loading columns</div>
                           )}
-                          {columns?.map((column) => (
+                          {columns?.map((column: { name: string; data_type: string }) => (
                             <SelectItem key={column.name} value={column.name}>
                               {column.name} ({column.data_type})
                             </SelectItem>
@@ -427,7 +427,7 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
                           {columnsError && (
                             <div className="text-red-500 p-2 text-sm">Error loading columns</div>
                           )}
-                          {columns?.map((column) => (
+                          {columns?.map((column: { name: string; data_type: string }) => (
                             <SelectItem key={column.name} value={column.name}>
                               {column.name} ({column.data_type})
                             </SelectItem>
@@ -450,7 +450,7 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
                           {columnsError && (
                             <div className="text-red-500 p-2 text-sm">Error loading columns</div>
                           )}
-                          {columns?.map((column) => (
+                          {columns?.map((column: { name: string; data_type: string }) => (
                             <SelectItem key={column.name} value={column.name}>
                               {column.name} ({column.data_type})
                             </SelectItem>

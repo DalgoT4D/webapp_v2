@@ -51,7 +51,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
       },
       legend: {
         bottom: 10,
-        data: [],
+        data: [] as string[],
       },
       grid: {
         left: '3%',
