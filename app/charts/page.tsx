@@ -34,7 +34,7 @@ import {
   PieChart,
   TrendingUp,
 } from 'lucide-react';
-import { useCharts, useChartDelete, useChartFavorite } from '@/hooks/api/useChart';
+import { useCharts, useChartDelete, useChartFavorite, type Chart } from '@/hooks/api/useChart';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ChartsPage() {
@@ -74,7 +74,7 @@ export default function ChartsPage() {
   const filteredCharts = React.useMemo(() => {
     if (!charts) return [];
 
-    return charts.filter((chart: any) => {
+    return charts.filter((chart: Chart) => {
       const matchesSearch =
         chart.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         chart.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -92,7 +92,7 @@ export default function ChartsPage() {
   }, [charts, searchTerm, filterType, filterStatus]);
 
   // Chart type icons
-  const getChartIcon = (config: any) => {
+  const getChartIcon = (config: Chart['config']) => {
     const chartType = config?.chartType || 'bar';
     switch (chartType) {
       case 'line':
@@ -105,7 +105,7 @@ export default function ChartsPage() {
   };
 
   // Chart type label
-  const getChartTypeLabel = (config: any) => {
+  const getChartTypeLabel = (config: Chart['config']) => {
     const chartType = config?.chartType || 'bar';
     return chartType.charAt(0).toUpperCase() + chartType.slice(1);
   };
@@ -207,7 +207,7 @@ export default function ChartsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCharts.map((chart: any) => (
+          {filteredCharts.map((chart: Chart) => (
             <Card key={chart.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
