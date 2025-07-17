@@ -42,7 +42,6 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
-import Image from 'next/image';
 import { format } from 'date-fns';
 
 // Simple debounce implementation
@@ -220,12 +219,10 @@ export function DashboardList() {
           {/* Thumbnail */}
           <div className="relative h-48 bg-muted overflow-hidden">
             {dashboard.thumbnail_url && !failedThumbnails.has(dashboard.id) ? (
-              <Image
+              <img
                 src={dashboard.thumbnail_url}
                 alt={dashboard.dashboard_title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover w-full h-full"
                 onError={() => handleThumbnailError(dashboard.id)}
               />
             ) : (
@@ -296,12 +293,10 @@ export function DashboardList() {
           {/* Thumbnail */}
           <div className="relative w-24 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
             {dashboard.thumbnail_url && !failedThumbnails.has(dashboard.id) ? (
-              <Image
+              <img
                 src={dashboard.thumbnail_url}
                 alt={dashboard.dashboard_title}
-                fill
-                className="object-cover"
-                sizes="96px"
+                className="object-cover w-full h-full"
                 onError={() => handleThumbnailError(dashboard.id)}
               />
             ) : (
