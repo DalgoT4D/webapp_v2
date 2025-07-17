@@ -67,3 +67,25 @@ export function apiPut(path: string, body: any, options: RequestInit = {}) {
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
 }
+
+// Helper for POST requests that return binary data
+export async function apiPostBinary(path: string, body: any, options: RequestInit = {}) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const headers: HeadersInit = {
+    ...getHeaders(),
+    ...(options.headers || {}),
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+
+  return response.blob();
+}
