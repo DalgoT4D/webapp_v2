@@ -133,7 +133,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
                       selected={filters.dateRange}
                       onSelect={(range) =>
                         handleFilterChange({
-                          dateRange: range || { from: undefined, to: undefined },
+                          dateRange: (range as any) || { from: undefined, to: undefined },
                         })
                       }
                       numberOfMonths={2}

@@ -13,20 +13,35 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
-      // Disable TypeScript-specific rules
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-empty-function": "off",
-      "@typescript-eslint/ban-ts-comment": "off",
+      // TypeScript-specific rules (more strict)
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-empty-function": "warn",
+      "@typescript-eslint/ban-ts-comment": "warn",
+      "@typescript-eslint/consistent-type-imports": "warn",
       
-      // Disable React-specific rules
+      // React-specific rules
       "react/prop-types": "off",
-      "react/no-unescaped-entities": "off",
+      "react/no-unescaped-entities": "warn",
       "react-hooks/exhaustive-deps": "warn",
       "jsx-a11y/alt-text": "warn",
+      "react/jsx-key": "error",
+      "react/no-array-index-key": "warn",
       
-      // Disable general rules
-      "no-unused-vars": "off"
+      // General rules (more strict)
+      "no-unused-vars": "off", // Handled by TypeScript
+      "no-console": "warn",
+      "no-debugger": "error",
+      "prefer-const": "warn",
+      "no-var": "error",
+      "eqeqeq": "warn",
+      "no-duplicate-imports": "warn",
+      
+      // Code quality
+      "complexity": ["warn", 10],
+      "max-depth": ["warn", 4],
+      "max-lines-per-function": ["warn", 150],
+      "max-params": ["warn", 5]
     }
   }
 ];

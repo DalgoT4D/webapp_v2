@@ -43,7 +43,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
         if (storedOrgSlug) {
           // Verify stored org exists
-          const orgExists = orgUsersData.some((ou) => ou.org.slug === storedOrgSlug);
+          const orgExists = orgUsersData.some((ou: any) => ou.org.slug === storedOrgSlug);
           if (orgExists) {
             setSelectedOrg(storedOrgSlug);
           } else {
