@@ -20,6 +20,7 @@ interface ChartExportProps {
   chartId: number;
   chartTitle: string;
   trigger?: React.ReactNode;
+  echartsRef?: React.RefObject<any>;
 }
 
 const exportFormats = [
@@ -55,32 +56,52 @@ const exportFormats = [
 
 type ExportFormat = (typeof exportFormats)[number]['value'];
 
-export default function ChartExport({ chartId, chartTitle, trigger }: ChartExportProps) {
+export default function ChartExport({
+  chartId,
+  chartTitle,
+  trigger,
+  echartsRef,
+}: ChartExportProps) {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('png');
   const [isOpen, setIsOpen] = useState(false);
   const { trigger: exportChart, isMutating } = useChartExport();
 
   const handleExport = async () => {
     try {
+      if (selectedFormat === 'png' && echartsRef?.current) {
+        // Use ECharts instance to export as PNG
+        const echartsInstance = echartsRef.current.getEchartsInstance();
+        if (echartsInstance) {
+          const url = echartsInstance.getDataURL({
+            type: 'png',
+            pixelRatio: 2,
+            backgroundColor: '#fff',
+          });
+
+          // Create download link
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${chartTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+
+          // Trigger download
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          setIsOpen(false);
+          return;
+        }
+      }
+
+      // Fallback to API export for other formats or if no echarts ref
       const response = await exportChart({ chart_id: chartId, format: selectedFormat });
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
+      // For now, just log the response
+      console.log('Export response:', response);
 
-      // Set filename
-      const format = exportFormats.find((f) => f.value === selectedFormat);
-      const filename = `${chartTitle.replace(/[^a-zA-Z0-9]/g, '_')}${format?.extension || '.png'}`;
-      link.download = filename;
+      // TODO: Implement server-side export for other formats
+      alert(`Export to ${selectedFormat.toUpperCase()} will be implemented soon!`);
 
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up
-      window.URL.revokeObjectURL(url);
       setIsOpen(false);
     } catch (error) {
       console.error('Export failed:', error);

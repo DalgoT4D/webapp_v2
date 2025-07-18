@@ -37,8 +37,18 @@ export interface ChartCreatePayload {
   description?: string;
   chart_type: string;
   schema_name: string;
-  table: string;
-  config: any;
+  table: string; // Changed from table_name
+  config: {
+    chartType: string;
+    computation_type: 'raw' | 'aggregated';
+    xAxis?: string; // Changed from xaxis
+    yAxis?: string; // Changed from yaxis
+    dimensions?: string[];
+    aggregate_col?: string;
+    aggregate_func?: string;
+    aggregate_col_alias?: string;
+    dimension_col?: string;
+  };
   is_public?: boolean;
 }
 
@@ -50,9 +60,9 @@ export interface ChartDataPayload {
   chart_type: string;
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
-  table_name: string;
-  xaxis?: string;
-  yaxis?: string;
+  table: string; // Changed from table_name
+  xAxis?: string; // Changed from xaxis
+  yAxis?: string; // Changed from yaxis
   dimensions?: string[];
   aggregate_col?: string;
   aggregate_func?: string;
@@ -97,26 +107,54 @@ export interface ChartTemplate {
 }
 
 // Fetcher functions
-const chartFetcher = (url: string) => apiGet(url);
+const chartFetcher = async (url: string) => {
+  try {
+    const response = await apiGet(url);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
 
 // Schema hooks
 export function useSchemas() {
-  return useSWR('/api/warehouse/schemas/', chartFetcher);
+  const { data, error, isLoading } = useSWR('/api/warehouse/schemas/', chartFetcher);
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 // Table hooks
 export function useTables(schemaName: string) {
-  return useSWR(schemaName ? `/api/warehouse/tables/?schema=${schemaName}` : null, chartFetcher);
+  const { data, error, isLoading } = useSWR(
+    schemaName ? `/api/warehouse/tables/?schema=${schemaName}` : null,
+    chartFetcher
+  );
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 // Column hooks
 export function useColumns(schemaName: string, tableName: string) {
-  return useSWR(
+  const { data, error, isLoading } = useSWR(
     schemaName && tableName
       ? `/api/warehouse/columns/?schema=${schemaName}&table=${tableName}`
       : null,
     chartFetcher
   );
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 // Chart CRUD hooks
@@ -138,11 +176,27 @@ export function useCharts(filters?: {
     return params.toString() ? `?${params.toString()}` : '';
   }, [filters]);
 
-  return useSWR(`/api/charts/${queryParams}`, chartFetcher);
+  const { data, error, isLoading, mutate } = useSWR(`/api/charts/${queryParams}`, chartFetcher);
+
+  return {
+    data,
+    error,
+    isLoading,
+    mutate,
+  };
 }
 
 export function useChart(chartId: number) {
-  return useSWR(chartId ? `/api/charts/${chartId}` : null, chartFetcher);
+  const { data, error, isLoading } = useSWR(
+    chartId ? `/api/charts/${chartId}` : null,
+    chartFetcher
+  );
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 // Chart data generation
@@ -150,8 +204,12 @@ export function useChartData(payload: ChartDataPayload | null) {
   const { data, error, isLoading, mutate } = useSWR(
     payload ? ['/api/charts/generate', payload] : null,
     async ([url, payload]) => {
-      const response = await apiPost(url, payload);
-      return response;
+      try {
+        const response = await apiPost(url, payload);
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
     }
   );
 
@@ -165,14 +223,27 @@ export function useChartData(payload: ChartDataPayload | null) {
 
 // Chart data by ID
 export function useChartDataById(chartId: number) {
-  return useSWR(chartId ? `/api/charts/${chartId}/data` : null, chartFetcher);
+  const { data, error, isLoading } = useSWR(
+    chartId ? `/api/charts/${chartId}/data` : null,
+    chartFetcher
+  );
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 // Chart actions (mutations)
 export function useChartSave() {
   return {
     save: async (payload: ChartCreatePayload) => {
-      return apiPost('/api/charts/', payload);
+      try {
+        return await apiPost('/api/charts/', payload);
+      } catch (error) {
+        throw error;
+      }
     },
   };
 }
@@ -180,7 +251,11 @@ export function useChartSave() {
 export function useChartUpdate() {
   return {
     update: async (chartId: number, payload: ChartUpdatePayload) => {
-      return apiPut(`/api/charts/${chartId}`, payload);
+      try {
+        return await apiPut(`/api/charts/${chartId}`, payload);
+      } catch (error) {
+        throw error;
+      }
     },
   };
 }
@@ -188,7 +263,11 @@ export function useChartUpdate() {
 export function useChartDelete() {
   return {
     delete: async (chartId: number) => {
-      return apiDelete(`/api/charts/${chartId}`);
+      try {
+        return await apiDelete(`/api/charts/${chartId}`);
+      } catch (error) {
+        throw error;
+      }
     },
   };
 }
@@ -197,7 +276,11 @@ export function useChartDelete() {
 export function useChartFavorite() {
   return {
     toggleFavorite: async (chartId: number) => {
-      return apiPost(`/api/charts/${chartId}/favorite`, {});
+      try {
+        return await apiPost(`/api/charts/${chartId}/favorite`, {});
+      } catch (error) {
+        throw error;
+      }
     },
   };
 }
@@ -208,10 +291,12 @@ export function useChartExport() {
     '/api/charts/export',
     async (url: string, { arg }: { arg: { chart_id: number; format: string } }) => {
       const { chart_id, format } = arg;
-      // Return blob data for download
-      const response = await apiGet(
-        `/api/visualization/charts/export/${chart_id}?format=${format}`
-      );
+      // For now, we'll use the chart data endpoint to get data
+      // In a future update, we can implement server-side export
+      const response = await apiGet(`/api/charts/${chart_id}/data`);
+
+      // Client-side export - for now, just return the data
+      // The ChartExport component will handle the actual export
       return { data: response };
     }
   );
@@ -219,7 +304,13 @@ export function useChartExport() {
 
 // Chart templates (if implemented)
 export function useChartTemplates() {
-  return useSWR('/api/charts/templates/', chartFetcher);
+  const { data, error, isLoading } = useSWR('/api/charts/templates/', chartFetcher);
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 // Chart suggestions (if implemented)
@@ -235,13 +326,23 @@ export function useChartSuggestions() {
 
 // Cache management
 export function useCacheStats() {
-  return useSWR('/api/charts/cache-stats', chartFetcher);
+  const { data, error, isLoading } = useSWR('/api/charts/cache-stats', chartFetcher);
+
+  return {
+    data,
+    error,
+    isLoading,
+  };
 }
 
 export function useCacheCleanup() {
   return {
     cleanup: async () => {
-      return apiPost('/api/charts/cleanup-cache', {});
+      try {
+        return await apiPost('/api/charts/cleanup-cache', {});
+      } catch (error) {
+        throw error;
+      }
     },
   };
 }

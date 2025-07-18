@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,29 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, BarChart, LineChart, PieChart, Save, Download, Eye, EyeOff } from 'lucide-react';
+import {
+  Loader2,
+  BarChart,
+  LineChart,
+  PieChart,
+  Save,
+  Download,
+  Eye,
+  EyeOff,
+  ScatterChart,
+  TrendingUp,
+  Funnel,
+  Radar,
+  Grid,
+  Table,
+  Gauge,
+  BoxSelect,
+  CandlestickChart,
+  Network,
+  Grid3x3,
+  CircleDot,
+  Hash,
+} from 'lucide-react';
 import {
   useSchemas,
   useTables,
@@ -25,94 +47,232 @@ import {
   useChartData,
   useChartSave,
   ChartDataPayload,
+  ChartCreatePayload,
 } from '@/hooks/api/useChart';
 import { ChartPreview } from './ChartPreview';
+import ChartExport from './ChartExport';
+import { useToast } from '@/components/ui/use-toast';
+import { getSampleDataForChartType } from '@/lib/chartTemplates';
 
-export interface ChartBuilderProps {
-  chartId?: number;
-  onSave?: (chart: any) => void;
+type ChartType =
+  | 'bar'
+  | 'line'
+  | 'pie'
+  | 'scatter'
+  | 'area'
+  | 'funnel'
+  | 'radar'
+  | 'heatmap'
+  | 'table'
+  | 'gauge'
+  | 'boxplot'
+  | 'candlestick'
+  | 'sankey'
+  | 'treemap'
+  | 'sunburst'
+  | 'number';
+
+interface ChartBuilderProps {
+  onSave: (data: ChartCreatePayload) => Promise<void>;
   onCancel?: () => void;
+  chartId?: number;
 }
 
-export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
-  // Form state
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
-  const [computationType, setComputationType] = useState<'raw' | 'aggregated'>('raw');
-  const [selectedSchema, setSelectedSchema] = useState<string>('');
-  const [selectedTable, setSelectedTable] = useState<string>('');
-  const [selectedXAxis, setSelectedXAxis] = useState<string>('');
-  const [selectedYAxis, setSelectedYAxis] = useState<string>('');
-  const [dimensions, setDimensions] = useState<string[]>([]);
-  const [aggregateCol, setAggregateCol] = useState<string>('');
-  const [aggregateFunc, setAggregateFunc] = useState<string>('sum');
-  const [aggregateColAlias, setAggregateColAlias] = useState<string>('');
-  const [dimensionCol, setDimensionCol] = useState<string>('');
+interface ChartFormData extends ChartDataPayload {
+  title?: string;
+  description?: string;
+  chart_type: ChartType;
+  dimension_col?: string;
+  aggregate_col?: string;
+  aggregate_func?: string;
+  aggregate_col_alias?: string;
+}
 
-  // Chart metadata
-  const [chartTitle, setChartTitle] = useState<string>('');
-  const [chartDescription, setChartDescription] = useState<string>('');
-  const [isPublic, setIsPublic] = useState<boolean>(false);
+const chartTypeOptions: Array<{ value: ChartType; label: string; icon: any }> = [
+  { value: 'bar', label: 'Bar Chart', icon: BarChart },
+  { value: 'line', label: 'Line Chart', icon: LineChart },
+  { value: 'pie', label: 'Pie Chart', icon: PieChart },
+  { value: 'scatter', label: 'Scatter Plot', icon: ScatterChart },
+  { value: 'area', label: 'Area Chart', icon: TrendingUp },
+  { value: 'funnel', label: 'Funnel Chart', icon: Funnel },
+  { value: 'radar', label: 'Radar Chart', icon: Radar },
+  { value: 'heatmap', label: 'Heat Map', icon: Grid },
+  { value: 'table', label: 'Table', icon: Table },
+  { value: 'gauge', label: 'Gauge', icon: Gauge },
+  { value: 'boxplot', label: 'Box Plot', icon: BoxSelect },
+  { value: 'candlestick', label: 'Candlestick', icon: CandlestickChart },
+  { value: 'sankey', label: 'Sankey Diagram', icon: Network },
+  { value: 'treemap', label: 'Tree Map', icon: Grid3x3 },
+  { value: 'sunburst', label: 'Sunburst', icon: CircleDot },
+  { value: 'number', label: 'Number', icon: Hash },
+];
 
-  // UI state
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+export default function ChartBuilder({ onSave, onCancel, chartId }: ChartBuilderProps) {
+  const { toast } = useToast();
+  const chartPreviewRef = useRef<any>(null);
 
-  // API hooks
+  const [formData, setFormData] = useState<ChartFormData>({
+    title: '',
+    description: '',
+    chart_type: 'bar',
+    computation_type: 'raw',
+    schema_name: '',
+    table: '',
+    xAxis: '',
+    yAxis: '',
+    dimensions: [],
+    offset: 0,
+    limit: 100,
+  });
+
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedChartId, setSavedChartId] = useState<number | null>(chartId || null);
+  const [useSampleData, setUseSampleData] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Form submitted - handleSubmit called');
+    setIsSaving(true);
+
+    try {
+      // Prepare the payload based on whether using sample data or not
+      let payload: ChartCreatePayload;
+
+      if (useSampleData) {
+        // For sample data, create a minimal payload that matches backend schema
+        payload = {
+          title: formData.title || 'Untitled Chart',
+          description: formData.description,
+          chart_type: formData.chart_type,
+          schema_name: 'sample',
+          table: 'sample_data',
+          config: {
+            chartType: formData.chart_type,
+            computation_type: 'raw',
+            xAxis: 'x',
+            yAxis: 'y',
+            dimensions: [],
+          },
+          is_public: false,
+        };
+      } else {
+        // For real data, use the full configuration
+        payload = {
+          title: formData.title || 'Untitled Chart',
+          description: formData.description,
+          chart_type: formData.chart_type,
+          schema_name: formData.schema_name,
+          table: formData.table,
+          config: {
+            chartType: formData.chart_type,
+            computation_type: formData.computation_type,
+            xAxis: formData.xAxis,
+            yAxis: formData.yAxis,
+            dimensions: formData.dimensions,
+            aggregate_col: formData.aggregate_col,
+            aggregate_func: formData.aggregate_func,
+            aggregate_col_alias: formData.aggregate_col_alias,
+            dimension_col: formData.dimension_col,
+          },
+          is_public: false,
+        };
+      }
+
+      console.log('Sending payload to onSave:', payload);
+      const result = await onSave(payload);
+      console.log('Save result:', result);
+      toast({
+        title: 'Success',
+        description: 'Chart saved successfully',
+      });
+    } catch (error: any) {
+      console.error('Failed to save chart - Full error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save chart',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChartTypeChange = (type: ChartType) => {
+    setFormData((prev) => ({
+      ...prev,
+      chart_type: type,
+      computation_type: isAggregatedChartType(type) ? 'aggregated' : 'raw',
+    }));
+  };
+
+  const isAggregatedChartType = (type: string) => {
+    return ['pie', 'funnel', 'gauge', 'treemap', 'sunburst', 'number'].includes(type);
+  };
+
+  // Refs
   const { data: schemas, isLoading: schemasLoading, error: schemasError } = useSchemas();
-  const { data: tables, isLoading: tablesLoading, error: tablesError } = useTables(selectedSchema);
+  const {
+    data: tables,
+    isLoading: tablesLoading,
+    error: tablesError,
+  } = useTables(formData.schema_name);
   const {
     data: columns,
     isLoading: columnsLoading,
     error: columnsError,
-  } = useColumns(selectedSchema, selectedTable);
+  } = useColumns(formData.schema_name, formData.table);
   const { save } = useChartSave();
 
   // Chart data payload
   const chartDataPayload: ChartDataPayload | null = React.useMemo(() => {
-    if (!selectedSchema || !selectedTable) return null;
+    if (!formData.schema_name || !formData.table) return null;
 
     const basePayload: ChartDataPayload = {
-      chart_type: chartType,
-      computation_type: computationType,
-      schema_name: selectedSchema,
-      table_name: selectedTable,
+      chart_type: formData.chart_type,
+      computation_type: formData.computation_type,
+      schema_name: formData.schema_name,
+      table: formData.table,
       offset: 0,
       limit: 100,
     };
 
-    if (computationType === 'raw') {
-      if (selectedXAxis && selectedYAxis) {
+    if (formData.computation_type === 'raw') {
+      if (formData.xAxis && formData.yAxis) {
         return {
           ...basePayload,
-          xaxis: selectedXAxis,
-          yaxis: selectedYAxis,
+          xAxis: formData.xAxis,
+          yAxis: formData.yAxis,
         };
       }
     } else {
-      if (dimensionCol && aggregateCol && aggregateFunc) {
+      if (formData.dimension_col && formData.aggregate_col && formData.aggregate_func) {
         return {
           ...basePayload,
-          dimension_col: dimensionCol,
-          aggregate_col: aggregateCol,
-          aggregate_func: aggregateFunc,
-          aggregate_col_alias: aggregateColAlias || `${aggregateFunc}_${aggregateCol}`,
+          xaxis: formData.dimension_col, // Backend expects xaxis for aggregated charts
+          aggregate_col: formData.aggregate_col,
+          aggregate_func: formData.aggregate_func,
+          aggregate_col_alias:
+            formData.aggregate_col_alias || `${formData.aggregate_func}_${formData.aggregate_col}`,
         };
       }
     }
 
     return null;
   }, [
-    chartType,
-    computationType,
-    selectedSchema,
-    selectedTable,
-    selectedXAxis,
-    selectedYAxis,
-    dimensionCol,
-    aggregateCol,
-    aggregateFunc,
-    aggregateColAlias,
+    formData.chart_type,
+    formData.computation_type,
+    formData.schema_name,
+    formData.table,
+    formData.xAxis,
+    formData.yAxis,
+    formData.dimension_col,
+    formData.aggregate_col,
+    formData.aggregate_func,
+    formData.aggregate_col_alias,
   ]);
 
   const {
@@ -122,11 +282,11 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
   } = useChartData(chartDataPayload);
 
   // Chart type options
-  const chartTypeOptions = [
-    { value: 'bar', label: 'Bar Chart', icon: BarChart },
-    { value: 'line', label: 'Line Chart', icon: LineChart },
-    { value: 'pie', label: 'Pie Chart', icon: PieChart },
-  ];
+  // const chartTypeOptions = [
+  //   { value: 'bar', label: 'Bar Chart', icon: BarChart },
+  //   { value: 'line', label: 'Line Chart', icon: LineChart },
+  //   { value: 'pie', label: 'Pie Chart', icon: PieChart },
+  // ];
 
   // Aggregate functions
   const aggregateFunctions = [
@@ -140,435 +300,554 @@ export function ChartBuilder({ chartId, onSave, onCancel }: ChartBuilderProps) {
   // Progress tracking
   const getProgress = () => {
     let progress = 0;
-    if (chartType) progress += 20;
-    if (selectedSchema) progress += 20;
-    if (selectedTable) progress += 20;
-    if (computationType === 'raw' && selectedXAxis && selectedYAxis) progress += 40;
-    if (computationType === 'aggregated' && dimensionCol && aggregateCol) progress += 40;
+    if (formData.chart_type) progress += 20;
+    if (formData.computation_type) progress += 20;
+    if (formData.schema_name) progress += 20;
+    if (formData.table) progress += 20;
+    if (formData.computation_type === 'raw' && formData.xAxis && formData.yAxis) progress += 20;
+    if (
+      formData.computation_type === 'aggregated' &&
+      formData.dimension_col &&
+      formData.aggregate_col &&
+      formData.aggregate_func
+    )
+      progress += 20;
     return progress;
   };
 
   // Auto-advance steps
   useEffect(() => {
-    if (chartType && selectedSchema && selectedTable) {
-      setCurrentStep(4);
-    } else if (chartType && selectedSchema) {
-      setCurrentStep(3);
-    } else if (chartType) {
-      setCurrentStep(2);
+    if (formData.chart_type && formData.schema_name && formData.table) {
+      // setCurrentStep(4); // This line was removed from the new_code, so it's removed here.
+    } else if (formData.chart_type && formData.schema_name) {
+      // setCurrentStep(3); // This line was removed from the new_code, so it's removed here.
+    } else if (formData.chart_type) {
+      // setCurrentStep(2); // This line was removed from the new_code, so it's removed here.
     }
-  }, [chartType, selectedSchema, selectedTable]);
+  }, [formData.chart_type, formData.schema_name, formData.table]);
 
   // Reset dependent selections
   useEffect(() => {
-    setSelectedTable('');
-    setSelectedXAxis('');
-    setSelectedYAxis('');
-    setDimensionCol('');
-    setAggregateCol('');
-  }, [selectedSchema]);
+    // setSelectedTable(''); // This line was removed from the new_code, so it's removed here.
+    // setSelectedXAxis(''); // This line was removed from the new_code, so it's removed here.
+    // setSelectedYAxis(''); // This line was removed from the new_code, so it's removed here.
+    // setDimensionCol(''); // This line was removed from the new_code, so it's removed here.
+    // setAggregateCol(''); // This line was removed from the new_code, so it's removed here.
+  }, [formData.schema_name]);
 
   useEffect(() => {
-    setSelectedXAxis('');
-    setSelectedYAxis('');
-    setDimensionCol('');
-    setAggregateCol('');
-  }, [selectedTable]);
+    // setSelectedXAxis(''); // This line was removed from the new_code, so it's removed here.
+    // setSelectedYAxis(''); // This line was removed from the new_code, so it's removed here.
+    // setDimensionCol(''); // This line was removed from the new_code, so it's removed here.
+    // setAggregateCol(''); // This line was removed from the new_code, so it's removed here.
+  }, [formData.table]);
 
   // Handle save
   const handleSave = async () => {
-    if (!chartTitle || !chartDataPayload) return;
+    if (!formData.title || !chartDataPayload) return;
 
     setIsSaving(true);
     try {
       const chartConfig = {
-        chartType,
-        computation_type: computationType,
-        ...(computationType === 'raw'
-          ? { xAxis: selectedXAxis, yAxis: selectedYAxis }
+        chartType: formData.chart_type,
+        computation_type: formData.computation_type,
+        ...(formData.computation_type === 'raw'
+          ? { xAxis: formData.xAxis, yAxis: formData.yAxis }
           : {
-              dimension_col: dimensionCol,
-              aggregate_col: aggregateCol,
-              aggregate_func: aggregateFunc,
-              aggregate_col_alias: aggregateColAlias,
+              dimension_col: formData.dimension_col,
+              aggregate_col: formData.aggregate_col,
+              aggregate_func: formData.aggregate_func,
+              aggregate_col_alias: formData.aggregate_col_alias,
             }),
-        dimensions,
+        dimensions: formData.dimensions,
       };
 
       const payload = {
-        title: chartTitle,
-        description: chartDescription,
-        chart_type: 'echarts', // Chart library type
-        schema_name: selectedSchema,
-        table: selectedTable,
+        title: formData.title,
+        description: formData.description,
+        chart_type: formData.chart_type, // Use the actual chart type, not 'echarts'
+        schema_name: formData.schema_name,
+        table: formData.table,
         config: chartConfig,
-        is_public: isPublic,
+        is_public: false,
       };
 
       const result = await save(payload);
+
+      // Store the saved chart ID
+      if (result && result.data && result.data.id) {
+        setSavedChartId(result.data.id);
+        toast({
+          title: 'Success',
+          description: 'Chart saved successfully',
+          variant: 'default',
+        });
+      }
 
       if (onSave) {
         onSave(result);
       }
     } catch (error) {
       console.error('Error saving chart:', error);
+      // Show error message
+      toast({
+        title: 'Error saving chart',
+        description: error.message || 'Failed to save chart. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="flex h-full max-h-screen">
-      {/* Left Panel - Configuration */}
-      <div className="w-1/2 border-r border-gray-200 overflow-y-auto">
-        <div className="p-6 space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Chart Builder</h2>
-              <p className="text-gray-600 mt-1">Create interactive charts from your data</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Badge variant="outline">Progress: {getProgress()}%</Badge>
-              <Button variant="outline" size="sm" onClick={() => setIsPreviewMode(!isPreviewMode)}>
-                {isPreviewMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                Preview
-              </Button>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${getProgress()}%` }}
-            />
-          </div>
-
-          {/* Step 1: Chart Type Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Step 1: Select Chart Type</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RadioGroup value={chartType} onValueChange={(value) => setChartType(value as any)}>
-                <div className="grid grid-cols-3 gap-4">
-                  {chartTypeOptions.map((option) => (
-                    <div key={option.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option.value} id={option.value} />
-                      <Label
-                        htmlFor={option.value}
-                        className="flex items-center space-x-2 cursor-pointer"
-                      >
-                        <option.icon className="h-4 w-4" />
-                        <span>{option.label}</span>
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </CardContent>
-          </Card>
-
-          {/* Step 2: Data Processing Type */}
-          {chartType && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Step 2: Data Processing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup
-                  value={computationType}
-                  onValueChange={(value) => setComputationType(value as any)}
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Chart Builder</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Chart Type Selection */}
+          <div className="space-y-4">
+            <Label>Chart Type</Label>
+            <div className="grid grid-cols-3 gap-4">
+              {chartTypeOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`flex items-center p-2 rounded-lg cursor-pointer border ${
+                    formData.chart_type === option.value
+                      ? 'border-primary bg-primary/10'
+                      : 'border-gray-200'
+                  }`}
+                  onClick={() => handleChartTypeChange(option.value)}
                 >
-                  <div className="space-y-2">
+                  <option.icon className="w-4 h-4 mr-2" />
+                  <span>{option.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Data Source Selection */}
+          {formData.chart_type && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium mb-2">Choose Data Source</h3>
+                <RadioGroup
+                  value={useSampleData ? 'sample' : 'warehouse'}
+                  onValueChange={(value) => {
+                    setUseSampleData(value === 'sample');
+                    if (value === 'sample') {
+                      // Load sample data for the selected chart type
+                      const sampleTemplate = getSampleDataForChartType(formData.chart_type);
+                      setFormData((prev) => ({
+                        ...prev,
+                        title: sampleTemplate.title,
+                        description: sampleTemplate.description,
+                      }));
+                    }
+                  }}
+                >
+                  <div className="flex items-center space-x-2 mb-2">
+                    <RadioGroupItem value="sample" id="sample" />
+                    <Label htmlFor="sample" className="font-normal cursor-pointer">
+                      Use Sample Data (Quick Preview)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="warehouse" id="warehouse" />
+                    <Label htmlFor="warehouse" className="font-normal cursor-pointer">
+                      Connect to Data Warehouse
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Computation Type Selection - Only show for warehouse data */}
+              {!useSampleData && (
+                <div className="space-y-2">
+                  <Label>Data Type</Label>
+                  <RadioGroup
+                    value={formData.computation_type}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        computation_type: value as 'raw' | 'aggregated',
+                      }))
+                    }
+                  >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="raw" id="raw" />
-                      <Label htmlFor="raw">
-                        <div>
-                          <div className="font-medium">Raw Data</div>
-                          <div className="text-sm text-gray-600">Direct column mapping</div>
-                        </div>
-                      </Label>
+                      <Label htmlFor="raw">Raw Data</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="aggregated" id="aggregated" />
-                      <Label htmlFor="aggregated">
-                        <div>
-                          <div className="font-medium">Aggregated Data</div>
-                          <div className="text-sm text-gray-600">Group and aggregate data</div>
-                        </div>
-                      </Label>
+                      <Label htmlFor="aggregated">Aggregated Data</Label>
                     </div>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
+                  </RadioGroup>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Step 3: Schema and Table Selection */}
-          {chartType && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Step 3: Data Source</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Schema</Label>
-                  <Select value={selectedSchema} onValueChange={setSelectedSchema}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={schemasLoading ? 'Loading schemas...' : 'Select schema'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schemasError && (
-                        <div className="text-red-500 p-2 text-sm">Error loading schemas</div>
-                      )}
-                      {schemas?.map((schema: string) => (
-                        <SelectItem key={schema} value={schema}>
-                          {schema}
+          {/* Schema Selection - Only show for warehouse data */}
+          {!useSampleData && formData.chart_type && formData.computation_type && (
+            <div className="space-y-2">
+              <Label htmlFor="schema">Schema</Label>
+              <Select
+                value={formData.schema_name}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    schema_name: value,
+                    table: '',
+                    xAxis: '',
+                    yAxis: '',
+                    dimension_col: '',
+                    aggregate_col: '',
+                  }))
+                }
+              >
+                <SelectTrigger id="schema">
+                  <SelectValue placeholder="Select a schema" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schemasLoading && (
+                    <SelectItem value="loading" disabled>
+                      Loading...
+                    </SelectItem>
+                  )}
+                  {schemasError && (
+                    <SelectItem value="error" disabled>
+                      Error loading schemas
+                    </SelectItem>
+                  )}
+                  {schemas?.map((schema: any) => (
+                    <SelectItem key={schema.name} value={schema.name}>
+                      {schema.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Table Selection - Only show for warehouse data */}
+          {!useSampleData && formData.schema_name && (
+            <div className="space-y-2">
+              <Label htmlFor="table">Table</Label>
+              <Select
+                value={formData.table}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    table: value,
+                    xAxis: '',
+                    yAxis: '',
+                    dimension_col: '',
+                    aggregate_col: '',
+                  }))
+                }
+              >
+                <SelectTrigger id="table">
+                  <SelectValue placeholder="Select a table" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tablesLoading && (
+                    <SelectItem value="loading" disabled>
+                      Loading...
+                    </SelectItem>
+                  )}
+                  {tablesError && (
+                    <SelectItem value="error" disabled>
+                      Error loading tables
+                    </SelectItem>
+                  )}
+                  {tables?.map((table: any) => (
+                    <SelectItem key={table.name} value={table.name}>
+                      {table.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Column Selection for Raw Data - Only show for warehouse data */}
+          {!useSampleData && formData.computation_type === 'raw' && formData.table && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="xAxis">X-Axis Column</Label>
+                <Select
+                  value={formData.xAxis}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, xAxis: value }))}
+                >
+                  <SelectTrigger id="xAxis">
+                    <SelectValue placeholder="Select X-axis column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columnsLoading && (
+                      <SelectItem value="loading" disabled>
+                        Loading...
+                      </SelectItem>
+                    )}
+                    {columnsError && (
+                      <SelectItem value="error" disabled>
+                        Error loading columns
+                      </SelectItem>
+                    )}
+                    {columns?.map((col: any) => (
+                      <SelectItem key={col.name} value={col.name}>
+                        {col.name} ({col.data_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="yAxis">Y-Axis Column</Label>
+                <Select
+                  value={formData.yAxis}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, yAxis: value }))}
+                >
+                  <SelectTrigger id="yAxis">
+                    <SelectValue placeholder="Select Y-axis column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columnsLoading && (
+                      <SelectItem value="loading" disabled>
+                        Loading...
+                      </SelectItem>
+                    )}
+                    {columnsError && (
+                      <SelectItem value="error" disabled>
+                        Error loading columns
+                      </SelectItem>
+                    )}
+                    {columns
+                      ?.filter((col: any) =>
+                        ['integer', 'numeric', 'double precision', 'real', 'bigint'].includes(
+                          col.data_type.toLowerCase()
+                        )
+                      )
+                      ?.map((col: any) => (
+                        <SelectItem key={col.name} value={col.name}>
+                          {col.name} ({col.data_type})
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
-                <div>
-                  <Label>Table</Label>
-                  <Select
-                    value={selectedTable}
-                    onValueChange={setSelectedTable}
-                    disabled={!selectedSchema}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={tablesLoading ? 'Loading tables...' : 'Select table'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tablesError && (
-                        <div className="text-red-500 p-2 text-sm">Error loading tables</div>
-                      )}
-                      {tables?.map((table: string) => (
-                        <SelectItem key={table} value={table}>
-                          {table}
+          {/* Column Selection for Aggregated Data - Only show for warehouse data */}
+          {!useSampleData && formData.computation_type === 'aggregated' && formData.table && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="dimension">Dimension Column</Label>
+                <Select
+                  value={formData.dimension_col || ''}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, dimension_col: value }))
+                  }
+                >
+                  <SelectTrigger id="dimension">
+                    <SelectValue placeholder="Select dimension column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columnsLoading && (
+                      <SelectItem value="loading" disabled>
+                        Loading...
+                      </SelectItem>
+                    )}
+                    {columnsError && (
+                      <SelectItem value="error" disabled>
+                        Error loading columns
+                      </SelectItem>
+                    )}
+                    {columns?.map((col: any) => (
+                      <SelectItem key={col.name} value={col.name}>
+                        {col.name} ({col.data_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="aggregate">Aggregate Column</Label>
+                <Select
+                  value={formData.aggregate_col || ''}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, aggregate_col: value }))
+                  }
+                >
+                  <SelectTrigger id="aggregate">
+                    <SelectValue placeholder="Select aggregate column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columnsLoading && (
+                      <SelectItem value="loading" disabled>
+                        Loading...
+                      </SelectItem>
+                    )}
+                    {columnsError && (
+                      <SelectItem value="error" disabled>
+                        Error loading columns
+                      </SelectItem>
+                    )}
+                    {columns
+                      ?.filter((col: any) =>
+                        ['integer', 'numeric', 'double precision', 'real', 'bigint'].includes(
+                          col.data_type.toLowerCase()
+                        )
+                      )
+                      ?.map((col: any) => (
+                        <SelectItem key={col.name} value={col.name}>
+                          {col.name} ({col.data_type})
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="function">Aggregate Function</Label>
+                <Select
+                  value={formData.aggregate_func || ''}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, aggregate_func: value }))
+                  }
+                >
+                  <SelectTrigger id="function">
+                    <SelectValue placeholder="Select function" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {aggregateFunctions.map((func) => (
+                      <SelectItem key={func.value} value={func.value}>
+                        {func.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
 
-          {/* Step 4: Column Configuration */}
-          {selectedSchema && selectedTable && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Step 4: Configure Data Mapping</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {computationType === 'raw' ? (
-                  <>
-                    <div>
-                      <Label>X-Axis Column</Label>
-                      <Select value={selectedXAxis} onValueChange={setSelectedXAxis}>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={columnsLoading ? 'Loading...' : 'Select X-axis'}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {columnsError && (
-                            <div className="text-red-500 p-2 text-sm">Error loading columns</div>
-                          )}
-                          {columns?.map((column: { name: string; data_type: string }) => (
-                            <SelectItem key={column.name} value={column.name}>
-                              {column.name} ({column.data_type})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+          {/* Chart Title and Description */}
+          {(formData.table || useSampleData) && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="title">Chart Title</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter chart title"
+                  required
+                />
+              </div>
 
-                    <div>
-                      <Label>Y-Axis Column</Label>
-                      <Select value={selectedYAxis} onValueChange={setSelectedYAxis}>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={columnsLoading ? 'Loading...' : 'Select Y-axis'}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {columnsError && (
-                            <div className="text-red-500 p-2 text-sm">Error loading columns</div>
-                          )}
-                          {columns?.map((column: { name: string; data_type: string }) => (
-                            <SelectItem key={column.name} value={column.name}>
-                              {column.name} ({column.data_type})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <Label>Dimension Column</Label>
-                      <Select value={dimensionCol} onValueChange={setDimensionCol}>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={columnsLoading ? 'Loading...' : 'Select dimension'}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {columnsError && (
-                            <div className="text-red-500 p-2 text-sm">Error loading columns</div>
-                          )}
-                          {columns?.map((column: { name: string; data_type: string }) => (
-                            <SelectItem key={column.name} value={column.name}>
-                              {column.name} ({column.data_type})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Aggregate Column</Label>
-                      <Select value={aggregateCol} onValueChange={setAggregateCol}>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              columnsLoading ? 'Loading...' : 'Select column to aggregate'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {columnsError && (
-                            <div className="text-red-500 p-2 text-sm">Error loading columns</div>
-                          )}
-                          {columns?.map((column: { name: string; data_type: string }) => (
-                            <SelectItem key={column.name} value={column.name}>
-                              {column.name} ({column.data_type})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Aggregate Function</Label>
-                      <Select value={aggregateFunc} onValueChange={setAggregateFunc}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select function" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {aggregateFunctions.map((func) => (
-                            <SelectItem key={func.value} value={func.value}>
-                              {func.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Alias (Optional)</Label>
-                      <Input
-                        value={aggregateColAlias}
-                        onChange={(e) => setAggregateColAlias(e.target.value)}
-                        placeholder="Enter custom alias"
-                      />
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description (optional)</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, description: e.target.value }))
+                  }
+                  placeholder="Enter chart description"
+                  rows={3}
+                />
+              </div>
+            </>
           )}
 
-          {/* Step 5: Chart Details */}
-          {chartDataPayload && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Step 5: Chart Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Chart Title *</Label>
-                  <Input
-                    value={chartTitle}
-                    onChange={(e) => setChartTitle(e.target.value)}
-                    placeholder="Enter chart title"
-                  />
-                </div>
-
-                <div>
-                  <Label>Description</Label>
-                  <Textarea
-                    value={chartDescription}
-                    onChange={(e) => setChartDescription(e.target.value)}
-                    placeholder="Enter chart description"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isPublic"
-                    checked={isPublic}
-                    onChange={(e) => setIsPublic(e.target.checked)}
-                  />
-                  <Label htmlFor="isPublic">Make chart public</Label>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Progress Indicator */}
+          {!useSampleData && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress</span>
+                <span>{getProgress()}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${getProgress()}%` }}
+                />
+              </div>
+            </div>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={onCancel}>
+          {/* Preview Section */}
+          {(chartData || useSampleData) && (
+            <div className="space-y-4">
+              <Separator />
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Chart Preview</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPreviewMode(!isPreviewMode)}
+                >
+                  {isPreviewMode ? (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-2" /> Hide Preview
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4 mr-2" /> Show Preview
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {isPreviewMode && (
+                <div className="border rounded-lg p-4">
+                  <ChartPreview
+                    ref={chartPreviewRef}
+                    chartData={
+                      useSampleData
+                        ? getSampleDataForChartType(formData.chart_type).echarts
+                        : chartData
+                    }
+                    config={{
+                      title: formData.title || 'Chart Preview',
+                      chartType: formData.chart_type as 'bar' | 'line' | 'pie',
+                      isLoading: !useSampleData && chartLoading,
+                      error: !useSampleData ? chartError : null,
+                      useSampleData: useSampleData,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>
               Cancel
             </Button>
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                disabled={!chartDataPayload}
-                onClick={() => {
-                  /* Handle export */
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Button disabled={!chartTitle || !chartDataPayload || isSaving} onClick={handleSave}>
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Save Chart
-              </Button>
-            </div>
+            <Button type="submit" disabled={isSaving || (!formData.title && !useSampleData)}>
+              {isSaving ? 'Saving...' : 'Save Chart'}
+            </Button>
           </div>
-        </div>
-      </div>
+        </form>
 
-      {/* Right Panel - Preview */}
-      <div className="w-1/2 bg-gray-50">
-        <div className="p-6 h-full">
-          <ChartPreview
-            chartType={chartType}
-            chartData={chartData}
-            isLoading={chartLoading}
-            error={chartError}
-            title={chartTitle || 'Preview'}
-          />
-        </div>
-      </div>
-    </div>
+        {savedChartId && (
+          <div className="mt-4">
+            <ChartExport
+              chartId={savedChartId}
+              chartTitle={formData.title || 'Untitled Chart'}
+              echartsRef={chartPreviewRef}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

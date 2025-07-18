@@ -72,14 +72,17 @@ export default function ChartsPage() {
 
   // Filter charts based on search and filters
   const filteredCharts = React.useMemo(() => {
-    if (!charts) return [];
+    // Handle both paginated response and array response
+    const chartsList = charts?.items || charts || [];
 
-    return charts.filter((chart: Chart) => {
+    if (!Array.isArray(chartsList)) return [];
+
+    return chartsList.filter((chart: Chart) => {
       const matchesSearch =
         chart.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         chart.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesType = filterType === 'all' || chart.chart_type === filterType;
+      const matchesType = filterType === 'all' || chart.config?.chartType === filterType;
 
       const matchesStatus =
         filterStatus === 'all' ||

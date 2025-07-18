@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,16 +17,71 @@ const ReactECharts = dynamic(() => import('echarts-for-react'), {
 });
 
 export interface ChartPreviewProps {
-  chartType: 'bar' | 'line' | 'pie';
   chartData: any;
-  isLoading: boolean;
-  error: any;
-  title: string;
+  config: {
+    title?: string;
+    chartType?:
+      | 'bar'
+      | 'line'
+      | 'pie'
+      | 'scatter'
+      | 'area'
+      | 'funnel'
+      | 'radar'
+      | 'heatmap'
+      | 'table'
+      | 'gauge'
+      | 'boxplot'
+      | 'candlestick'
+      | 'sankey'
+      | 'treemap'
+      | 'sunburst'
+      | 'number';
+    isLoading?: boolean;
+    error?: any;
+    useSampleData?: boolean;
+  };
 }
 
-export function ChartPreview({ chartType, chartData, isLoading, error, title }: ChartPreviewProps) {
+export const ChartPreview = forwardRef<any, ChartPreviewProps>(({ chartData, config }, ref) => {
+  const chartRef = useRef<any>(null);
+
+  useImperativeHandle(ref, () => ({
+    getEchartsInstance: () => chartRef.current?.getEchartsInstance(),
+  }));
+
   // Generate ECharts configuration
   const echartsOptions = useMemo(() => {
+    // If using sample data and chartData has ECharts format
+    if (config?.useSampleData && chartData && (chartData.series || chartData.xAxis)) {
+      return {
+        ...chartData,
+        title: {
+          text: config?.title || chartData.title?.text || 'Chart Preview',
+          left: 'center',
+          textStyle: {
+            fontSize: 16,
+            fontWeight: 'bold',
+          },
+        },
+        tooltip: chartData.tooltip || {
+          trigger: 'axis',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          borderColor: 'rgba(0, 0, 0, 0.8)',
+          textStyle: {
+            color: '#fff',
+          },
+        },
+        toolbox: {
+          feature: {
+            saveAsImage: { show: true },
+            dataZoom: { show: true },
+            restore: { show: true },
+          },
+        },
+      };
+    }
+
     if (!chartData?.data) return null;
 
     const data = chartData.data;
@@ -34,7 +89,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
     // Base configuration
     const baseConfig = {
       title: {
-        text: title,
+        text: config?.title || 'Chart Preview',
         left: 'center',
         textStyle: {
           fontSize: 16,
@@ -69,7 +124,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
     };
 
     // Process data based on chart type
-    if (chartType === 'bar') {
+    if (config?.chartType === 'bar') {
       const xAxisData = data.map((item: any) => item.x || item.dimension || item.name);
       const yAxisData = data.map((item: any) => item.y || item.value || item.count);
 
@@ -111,7 +166,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
       };
     }
 
-    if (chartType === 'line') {
+    if (config?.chartType === 'line') {
       const xAxisData = data.map((item: any) => item.x || item.dimension || item.name);
       const yAxisData = data.map((item: any) => item.y || item.value || item.count);
 
@@ -153,7 +208,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
       };
     }
 
-    if (chartType === 'pie') {
+    if (config?.chartType === 'pie') {
       const pieData = data.map((item: any) => ({
         name: item.x || item.dimension || item.name,
         value: item.y || item.value || item.count,
@@ -192,7 +247,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
     }
 
     return null;
-  }, [chartData, chartType, title]);
+  }, [chartData, config?.chartType, config?.title]);
 
   // Empty state component
   const EmptyState = () => (
@@ -206,19 +261,15 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
   );
 
   // Loading state
-  if (isLoading) {
+  if (config?.isLoading) {
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <TrendingUp className="h-5 w-5 mr-2" />
-            Chart Preview
-          </CardTitle>
+          <CardTitle>Loading Chart...</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
-            <p className="text-sm text-gray-600">Generating chart data...</p>
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         </CardContent>
       </Card>
@@ -226,7 +277,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
   }
 
   // Error state
-  if (error) {
+  if (config?.error) {
     return (
       <Card className="h-full">
         <CardHeader>
@@ -238,7 +289,9 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
         <CardContent>
           <Alert className="mb-4">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error.message || 'Failed to load chart data'}</AlertDescription>
+            <AlertDescription>
+              {config.error.message || 'Failed to load chart data'}
+            </AlertDescription>
           </Alert>
           <EmptyState />
         </CardContent>
@@ -247,7 +300,7 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
   }
 
   // No data state
-  if (!chartData?.data || chartData.data.length === 0) {
+  if (!config?.useSampleData && (!chartData?.data || chartData.data.length === 0)) {
     return (
       <Card className="h-full">
         <CardHeader>
@@ -272,11 +325,25 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
             Chart Preview
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">{chartData.data.length} data points</span>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-gray-500">Live</span>
-            </div>
+            {config?.useSampleData ? (
+              <>
+                <span className="text-sm text-gray-600">Sample Data</span>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <span className="text-xs text-gray-500">Demo</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-gray-600">
+                  {chartData?.data?.length || 0} data points
+                </span>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-xs text-gray-500">Live</span>
+                </div>
+              </>
+            )}
           </div>
         </CardTitle>
       </CardHeader>
@@ -287,6 +354,13 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
               option={echartsOptions}
               style={{ height: '100%', width: '100%' }}
               opts={{ renderer: 'canvas' }}
+              notMerge={true}
+              lazyUpdate={true}
+              onChartReady={(instance) => {
+                if (chartRef.current) {
+                  chartRef.current.getEchartsInstance = () => instance;
+                }
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -300,15 +374,19 @@ export function ChartPreview({ chartType, chartData, isLoading, error, title }: 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium">Chart Type:</span>
-              <span className="ml-2 capitalize">{chartType}</span>
+              <span className="ml-2 capitalize">{config?.chartType}</span>
             </div>
             <div>
               <span className="font-medium">Data Points:</span>
-              <span className="ml-2">{chartData.data.length}</span>
+              <span className="ml-2">
+                {config?.useSampleData ? 'Sample' : chartData?.data?.length || 0}
+              </span>
             </div>
           </div>
         </div>
       </CardContent>
     </Card>
   );
-}
+});
+
+ChartPreview.displayName = 'ChartPreview';

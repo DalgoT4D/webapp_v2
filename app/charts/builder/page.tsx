@@ -2,16 +2,50 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { ChartBuilder } from '@/components/charts/ChartBuilder';
+import ChartBuilder from '@/components/charts/ChartBuilder';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useChartSave } from '@/hooks/api/useChart';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
+  const { save } = useChartSave();
+  const { toast } = useToast();
 
-  const handleSave = (chart: any) => {
-    // Navigate back to charts list with success message
-    router.push('/charts?success=Chart created successfully');
+  const handleSave = async (chart: any) => {
+    try {
+      console.log('ChartBuilderPage - Saving chart with payload:', chart);
+      const response = await save(chart);
+      console.log('ChartBuilderPage - Save response:', response);
+
+      toast({
+        title: 'Success',
+        description: 'Chart created successfully',
+      });
+
+      // Navigate back to charts list
+      router.push('/charts');
+    } catch (error: any) {
+      console.error('ChartBuilderPage - Failed to save chart:', error);
+
+      // Check if it's an authentication error
+      if (error.message === 'unauthorized' || error.message.includes('unauthorized')) {
+        toast({
+          title: 'Authentication Error',
+          description: 'Please login again to continue',
+          variant: 'destructive',
+        });
+        // Redirect to login
+        router.push('/login');
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to save chart',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const handleCancel = () => {
