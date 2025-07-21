@@ -93,12 +93,6 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       isActive: currentPath.startsWith('/metrics'),
     },
     {
-      title: 'Charts',
-      href: '/charts',
-      icon: BarChart3,
-      isActive: currentPath.startsWith('/charts'),
-    },
-    {
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
