@@ -92,19 +92,6 @@ const chartTypeOptions: Array<{ value: ChartType; label: string; icon: any }> = 
   { value: 'bar', label: 'Bar Chart', icon: BarChart },
   { value: 'line', label: 'Line Chart', icon: LineChart },
   { value: 'pie', label: 'Pie Chart', icon: PieChart },
-  { value: 'scatter', label: 'Scatter Plot', icon: ScatterChart },
-  { value: 'area', label: 'Area Chart', icon: TrendingUp },
-  { value: 'funnel', label: 'Funnel Chart', icon: Funnel },
-  { value: 'radar', label: 'Radar Chart', icon: Radar },
-  { value: 'heatmap', label: 'Heat Map', icon: Grid },
-  { value: 'table', label: 'Table', icon: Table },
-  { value: 'gauge', label: 'Gauge', icon: Gauge },
-  { value: 'boxplot', label: 'Box Plot', icon: BoxSelect },
-  { value: 'candlestick', label: 'Candlestick', icon: CandlestickChart },
-  { value: 'sankey', label: 'Sankey Diagram', icon: Network },
-  { value: 'treemap', label: 'Tree Map', icon: Grid3x3 },
-  { value: 'sunburst', label: 'Sunburst', icon: CircleDot },
-  { value: 'number', label: 'Number', icon: Hash },
 ];
 
 export default function ChartBuilder({ onSave, onCancel, chartId }: ChartBuilderProps) {
@@ -400,6 +387,8 @@ export default function ChartBuilder({ onSave, onCancel, chartId }: ChartBuilder
     }
   };
 
+  console.log(schemas);
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -522,9 +511,9 @@ export default function ChartBuilder({ onSave, onCancel, chartId }: ChartBuilder
                       Error loading schemas
                     </SelectItem>
                   )}
-                  {schemas?.map((schema: any) => (
-                    <SelectItem key={schema.name} value={schema.name}>
-                      {schema.name}
+                  {schemas?.map((schema: string) => (
+                    <SelectItem key={schema} value={schema}>
+                      {schema}
                     </SelectItem>
                   ))}
                 </SelectContent>

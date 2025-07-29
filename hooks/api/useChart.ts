@@ -118,7 +118,7 @@ const chartFetcher = async (url: string) => {
 
 // Schema hooks
 export function useSchemas() {
-  const { data, error, isLoading } = useSWR('/api/warehouse/schemas/', chartFetcher);
+  const { data, error, isLoading } = useSWR('/api/warehouse/schemas', chartFetcher);
 
   return {
     data,
