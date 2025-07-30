@@ -34,20 +34,20 @@ const chartTypes = [
 export function ChartTypeSelector({ value, onChange }: ChartTypeSelectorProps) {
   return (
     <RadioGroup value={value} onValueChange={onChange}>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-6">
         {chartTypes.map((type) => {
           const Icon = type.icon;
           return (
             <Label key={type.id} htmlFor={type.id} className="cursor-pointer">
               <Card
-                className={`p-4 hover:border-primary transition-colors ${value === type.id ? 'border-primary bg-primary/5' : ''}`}
+                className={`p-6 hover:border-primary transition-colors ${value === type.id ? 'border-primary bg-primary/5' : ''}`}
               >
                 <RadioGroupItem value={type.id} id={type.id} className="sr-only" />
-                <div className="flex flex-col items-center text-center space-y-2">
-                  <Icon className="h-8 w-8" />
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <Icon className="h-10 w-10" />
                   <div>
                     <p className="font-medium">{type.name}</p>
-                    <p className="text-xs text-muted-foreground">{type.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
                   </div>
                 </div>
               </Card>

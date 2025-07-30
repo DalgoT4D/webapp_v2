@@ -157,15 +157,15 @@ export function ChartBuilder({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-12rem)]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-12rem)]">
       {/* Left Panel - Configuration */}
-      <Card className="p-6 overflow-y-auto">
-        <div className="space-y-6">
+      <Card className="p-8 overflow-y-auto">
+        <div className="space-y-8">
           {/* Step 1: Chart Type */}
           <div
             className={`transition-opacity ${getStepStatus(1) === 'pending' ? 'opacity-50' : ''}`}
           >
-            <h3 className="text-lg font-semibold mb-4">1. Select Chart Type</h3>
+            <h3 className="text-lg font-semibold mb-6">1. Select Chart Type</h3>
             <ChartTypeSelector
               value={formData.chart_type}
               onChange={(chart_type) =>
@@ -178,7 +178,7 @@ export function ChartBuilder({
           <div
             className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
           >
-            <h3 className="text-lg font-semibold mb-4">2. Configure Data Source</h3>
+            <h3 className="text-lg font-semibold mb-6">2. Configure Data Source</h3>
             <ChartDataConfiguration
               formData={formData}
               onChange={handleFormChange}
@@ -190,7 +190,7 @@ export function ChartBuilder({
           <div
             className={`transition-opacity ${getStepStatus(3) === 'pending' ? 'opacity-50' : ''}`}
           >
-            <h3 className="text-lg font-semibold mb-4">3. Customize Chart</h3>
+            <h3 className="text-lg font-semibold mb-6">3. Customize Chart</h3>
             <ChartCustomizations
               chartType={formData.chart_type!}
               formData={formData}
@@ -203,7 +203,7 @@ export function ChartBuilder({
           <div
             className={`transition-opacity ${getStepStatus(4) === 'pending' ? 'opacity-50' : ''}`}
           >
-            <h3 className="text-lg font-semibold mb-4">4. Add Details</h3>
+            <h3 className="text-lg font-semibold mb-6">4. Add Details</h3>
             <ChartMetadata
               formData={formData}
               onChange={handleFormChange}
@@ -212,7 +212,7 @@ export function ChartBuilder({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-4 pt-4 border-t">
+          <div className="flex justify-end space-x-4 pt-6 mt-8 border-t">
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
@@ -224,7 +224,7 @@ export function ChartBuilder({
       </Card>
 
       {/* Right Panel - Preview */}
-      <Card className="p-6 overflow-hidden">
+      <Card className="p-8 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chart">Chart Preview</TabsTrigger>

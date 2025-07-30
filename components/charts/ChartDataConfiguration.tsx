@@ -90,9 +90,9 @@ export function ChartDataConfiguration({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Schema Selection */}
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="schema">Schema</Label>
         <Select value={formData.schema_name} onValueChange={handleSchemaChange} disabled={disabled}>
           <SelectTrigger id="schema">
@@ -109,7 +109,7 @@ export function ChartDataConfiguration({
       </div>
 
       {/* Table Selection */}
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="table">Table</Label>
         <Select
           value={formData.table_name}
@@ -134,17 +134,17 @@ export function ChartDataConfiguration({
 
       {/* Computation Type */}
       {formData.table_name && (
-        <div>
+        <div className="space-y-2">
           <Label>Data Type</Label>
           <RadioGroup
             value={formData.computation_type}
             onValueChange={(value) => handleComputationTypeChange(value as 'raw' | 'aggregated')}
           >
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 mt-2">
               <RadioGroupItem value="raw" id="raw" />
               <Label htmlFor="raw">Raw Data</Label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 mt-2">
               <RadioGroupItem value="aggregated" id="aggregated" />
               <Label htmlFor="aggregated">Aggregated Data</Label>
             </div>
@@ -155,7 +155,7 @@ export function ChartDataConfiguration({
       {/* Column Configuration based on computation type */}
       {formData.computation_type === 'raw' && columns && (
         <>
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="x-axis">X-Axis Column</Label>
             <Select
               value={formData.x_axis_column}
@@ -174,7 +174,7 @@ export function ChartDataConfiguration({
             </Select>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="y-axis">Y-Axis Column</Label>
             <Select
               value={formData.y_axis_column}
@@ -197,7 +197,7 @@ export function ChartDataConfiguration({
 
       {formData.computation_type === 'aggregated' && columns && (
         <>
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="dimension">Dimension Column</Label>
             <Select
               value={formData.dimension_column}
@@ -216,7 +216,7 @@ export function ChartDataConfiguration({
             </Select>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="aggregate-col">Aggregate Column</Label>
             <Select
               value={formData.aggregate_column}
@@ -235,7 +235,7 @@ export function ChartDataConfiguration({
             </Select>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="aggregate-func">Aggregate Function</Label>
             <Select
               value={formData.aggregate_function}
@@ -260,7 +260,7 @@ export function ChartDataConfiguration({
       {formData.chart_type !== 'pie' &&
         ((formData.computation_type === 'raw' && formData.y_axis_column) ||
           (formData.computation_type === 'aggregated' && formData.aggregate_column)) && (
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="extra-dimension">
               Extra Dimension (Optional) - For grouped/stacked charts
             </Label>

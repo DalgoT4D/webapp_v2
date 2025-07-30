@@ -13,8 +13,8 @@ interface ChartMetadataProps {
 
 export function ChartMetadata({ formData, onChange, disabled }: ChartMetadataProps) {
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-2">
         <Label htmlFor="title">Chart Title *</Label>
         <Input
           id="title"
@@ -26,7 +26,7 @@ export function ChartMetadata({ formData, onChange, disabled }: ChartMetadataPro
         />
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="description">Description (Optional)</Label>
         <Textarea
           id="description"

@@ -85,19 +85,19 @@ function BarChartCustomizations({
   hasExtraDimension,
 }: CustomizationProps) {
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-2">
         <Label>Orientation</Label>
         <RadioGroup
           value={customizations.orientation || 'vertical'}
           onValueChange={(value) => updateCustomization('orientation', value)}
           disabled={disabled}
         >
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-2">
             <RadioGroupItem value="vertical" id="vertical" />
             <Label htmlFor="vertical">Vertical</Label>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-2">
             <RadioGroupItem value="horizontal" id="horizontal" />
             <Label htmlFor="horizontal">Horizontal</Label>
           </div>
@@ -126,7 +126,7 @@ function BarChartCustomizations({
         <Label htmlFor="showDataLabels">Show Data Labels</Label>
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="xAxisTitle">X-Axis Title</Label>
         <Input
           id="xAxisTitle"
@@ -137,7 +137,7 @@ function BarChartCustomizations({
         />
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="yAxisTitle">Y-Axis Title</Label>
         <Input
           id="yAxisTitle"
@@ -157,19 +157,19 @@ function PieChartCustomizations({
   disabled,
 }: CustomizationProps) {
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-2">
         <Label>Chart Style</Label>
         <RadioGroup
           value={customizations.chartStyle || 'pie'}
           onValueChange={(value) => updateCustomization('chartStyle', value)}
           disabled={disabled}
         >
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-2">
             <RadioGroupItem value="pie" id="pie" />
             <Label htmlFor="pie">Full Pie</Label>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-2">
             <RadioGroupItem value="donut" id="donut" />
             <Label htmlFor="donut">Donut Chart</Label>
           </div>
@@ -187,7 +187,7 @@ function PieChartCustomizations({
       </div>
 
       {customizations.showDataLabels !== false && (
-        <div>
+        <div className="space-y-2">
           <Label htmlFor="labelFormat">Label Format</Label>
           <Select
             value={customizations.labelFormat || 'percentage'}
@@ -218,7 +218,7 @@ function PieChartCustomizations({
       </div>
 
       {customizations.showLegend !== false && (
-        <div>
+        <div className="space-y-2">
           <Label htmlFor="legendPosition">Legend Position</Label>
           <Select
             value={customizations.legendPosition || 'right'}
@@ -247,19 +247,19 @@ function LineChartCustomizations({
   disabled,
 }: CustomizationProps) {
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-2">
         <Label>Line Style</Label>
         <RadioGroup
           value={customizations.lineStyle || 'straight'}
           onValueChange={(value) => updateCustomization('lineStyle', value)}
           disabled={disabled}
         >
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-2">
             <RadioGroupItem value="straight" id="straight" />
             <Label htmlFor="straight">Straight Lines</Label>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-2">
             <RadioGroupItem value="smooth" id="smooth" />
             <Label htmlFor="smooth">Smooth Curves</Label>
           </div>
@@ -286,7 +286,7 @@ function LineChartCustomizations({
         <Label htmlFor="showDataPoints">Show Data Points</Label>
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="xAxisTitle">X-Axis Title</Label>
         <Input
           id="xAxisTitle"
@@ -297,7 +297,7 @@ function LineChartCustomizations({
         />
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="yAxisTitle">Y-Axis Title</Label>
         <Input
           id="yAxisTitle"
