@@ -66,7 +66,7 @@ export function ChartDataConfiguration({
   };
 
   const handleTableChange = (table_name: string) => {
-    onChange({
+    const updates: any = {
       table_name,
       x_axis_column: undefined,
       y_axis_column: undefined,
@@ -74,7 +74,14 @@ export function ChartDataConfiguration({
       aggregate_column: undefined,
       aggregate_function: undefined,
       extra_dimension_column: undefined,
-    });
+    };
+
+    // For number charts, always set computation_type to aggregated
+    if (formData.chart_type === 'number') {
+      updates.computation_type = 'aggregated';
+    }
+
+    onChange(updates);
   };
 
   const handleComputationTypeChange = (computation_type: 'raw' | 'aggregated') => {
@@ -132,8 +139,8 @@ export function ChartDataConfiguration({
         </Select>
       </div>
 
-      {/* Computation Type */}
-      {formData.table_name && (
+      {/* Computation Type - Hide for number charts as they're always aggregated */}
+      {formData.table_name && formData.chart_type !== 'number' && (
         <div className="space-y-2">
           <Label>Data Type</Label>
           <RadioGroup
@@ -152,8 +159,51 @@ export function ChartDataConfiguration({
         </div>
       )}
 
+      {/* Special handling for number charts - always aggregated */}
+      {formData.chart_type === 'number' && formData.table_name && columns && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="aggregate-col">Metric Column</Label>
+            <Select
+              value={formData.aggregate_column}
+              onValueChange={(value) => onChange({ aggregate_column: value })}
+            >
+              <SelectTrigger id="aggregate-col">
+                <SelectValue placeholder="Select column to aggregate" />
+              </SelectTrigger>
+              <SelectContent>
+                {numericColumns?.map((col) => (
+                  <SelectItem key={col.column_name} value={col.column_name}>
+                    {col.column_name} ({col.data_type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="aggregate-func">Aggregate Function</Label>
+            <Select
+              value={formData.aggregate_function}
+              onValueChange={(value) => onChange({ aggregate_function: value })}
+            >
+              <SelectTrigger id="aggregate-func">
+                <SelectValue placeholder="Select function" />
+              </SelectTrigger>
+              <SelectContent>
+                {AGGREGATE_FUNCTIONS.map((func) => (
+                  <SelectItem key={func.value} value={func.value}>
+                    {func.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
       {/* Column Configuration based on computation type */}
-      {formData.computation_type === 'raw' && columns && (
+      {formData.chart_type !== 'number' && formData.computation_type === 'raw' && columns && (
         <>
           <div className="space-y-2">
             <Label htmlFor="x-axis">X-Axis Column</Label>
@@ -195,66 +245,71 @@ export function ChartDataConfiguration({
         </>
       )}
 
-      {formData.computation_type === 'aggregated' && columns && (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="dimension">Dimension Column</Label>
-            <Select
-              value={formData.dimension_column}
-              onValueChange={(value) => onChange({ dimension_column: value })}
-            >
-              <SelectTrigger id="dimension">
-                <SelectValue placeholder="Select grouping column" />
-              </SelectTrigger>
-              <SelectContent>
-                {allColumns.map((col) => (
-                  <SelectItem key={col.column_name} value={col.column_name}>
-                    {col.column_name} ({col.data_type})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {formData.chart_type !== 'number' &&
+        formData.computation_type === 'aggregated' &&
+        columns && (
+          <>
+            {/* Only show dimension column for non-number charts */}
+            {formData.chart_type !== 'number' && (
+              <div className="space-y-2">
+                <Label htmlFor="dimension">Dimension Column</Label>
+                <Select
+                  value={formData.dimension_column}
+                  onValueChange={(value) => onChange({ dimension_column: value })}
+                >
+                  <SelectTrigger id="dimension">
+                    <SelectValue placeholder="Select grouping column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allColumns.map((col) => (
+                      <SelectItem key={col.column_name} value={col.column_name}>
+                        {col.column_name} ({col.data_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="aggregate-col">Aggregate Column</Label>
-            <Select
-              value={formData.aggregate_column}
-              onValueChange={(value) => onChange({ aggregate_column: value })}
-            >
-              <SelectTrigger id="aggregate-col">
-                <SelectValue placeholder="Select column to aggregate" />
-              </SelectTrigger>
-              <SelectContent>
-                {numericColumns?.map((col) => (
-                  <SelectItem key={col.column_name} value={col.column_name}>
-                    {col.column_name} ({col.data_type})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="aggregate-col">Aggregate Column</Label>
+              <Select
+                value={formData.aggregate_column}
+                onValueChange={(value) => onChange({ aggregate_column: value })}
+              >
+                <SelectTrigger id="aggregate-col">
+                  <SelectValue placeholder="Select column to aggregate" />
+                </SelectTrigger>
+                <SelectContent>
+                  {numericColumns?.map((col) => (
+                    <SelectItem key={col.column_name} value={col.column_name}>
+                      {col.column_name} ({col.data_type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="aggregate-func">Aggregate Function</Label>
-            <Select
-              value={formData.aggregate_function}
-              onValueChange={(value) => onChange({ aggregate_function: value })}
-            >
-              <SelectTrigger id="aggregate-func">
-                <SelectValue placeholder="Select function" />
-              </SelectTrigger>
-              <SelectContent>
-                {AGGREGATE_FUNCTIONS.map((func) => (
-                  <SelectItem key={func.value} value={func.value}>
-                    {func.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
-      )}
+            <div className="space-y-2">
+              <Label htmlFor="aggregate-func">Aggregate Function</Label>
+              <Select
+                value={formData.aggregate_function}
+                onValueChange={(value) => onChange({ aggregate_function: value })}
+              >
+                <SelectTrigger id="aggregate-func">
+                  <SelectValue placeholder="Select function" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AGGREGATE_FUNCTIONS.map((func) => (
+                    <SelectItem key={func.value} value={func.value}>
+                      {func.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
 
       {/* Extra Dimension (optional) */}
       {formData.chart_type !== 'pie' &&

@@ -68,10 +68,20 @@ export function ChartCustomizations({
     );
   }
 
-  if (chartType === 'number' || chartType === 'map') {
+  if (chartType === 'number') {
+    return (
+      <NumberChartCustomizations
+        customizations={customizations}
+        updateCustomization={updateCustomization}
+        disabled={disabled}
+      />
+    );
+  }
+
+  if (chartType === 'map') {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        <p>Configuration for {chartType} charts coming soon</p>
+        <p>Configuration for map charts coming soon</p>
       </div>
     );
   }
@@ -312,6 +322,62 @@ function LineChartCustomizations({
           value={customizations.yAxisTitle || ''}
           onChange={(e) => updateCustomization('yAxisTitle', e.target.value)}
           placeholder="Enter Y-axis title"
+          disabled={disabled}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NumberChartCustomizations({
+  customizations,
+  updateCustomization,
+  disabled,
+}: CustomizationProps) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="subtitle">Subtitle</Label>
+        <Input
+          id="subtitle"
+          value={customizations.subtitle || ''}
+          onChange={(e) => updateCustomization('subtitle', e.target.value)}
+          placeholder="Enter subtitle text (appears below the number)"
+          disabled={disabled}
+        />
+        <p className="text-xs text-muted-foreground">
+          This text will appear below the main metric value
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="numberFormat">Number Format</Label>
+        <Select
+          value={customizations.numberFormat || 'default'}
+          onValueChange={(value) => updateCustomization('numberFormat', value)}
+          disabled={disabled}
+        >
+          <SelectTrigger id="numberFormat">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default</SelectItem>
+            <SelectItem value="comma">Comma Separated (1,234)</SelectItem>
+            <SelectItem value="percentage">Percentage (%)</SelectItem>
+            <SelectItem value="currency">Currency ($)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="decimalPlaces">Decimal Places</Label>
+        <Input
+          id="decimalPlaces"
+          type="number"
+          min="0"
+          max="10"
+          value={customizations.decimalPlaces || 0}
+          onChange={(e) => updateCustomization('decimalPlaces', parseInt(e.target.value) || 0)}
           disabled={disabled}
         />
       </div>

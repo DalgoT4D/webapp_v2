@@ -83,6 +83,11 @@ export function ChartBuilder({
       return false;
     }
 
+    // Special validation for number charts
+    if (formData.chart_type === 'number') {
+      return !!(formData.aggregate_column && formData.aggregate_function);
+    }
+
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
@@ -132,6 +137,15 @@ export function ChartBuilder({
             ? 'current'
             : 'pending';
       case 3:
+        // Special handling for number charts
+        if (formData.chart_type === 'number') {
+          return formData.aggregate_column && formData.aggregate_function
+            ? 'complete'
+            : formData.table_name
+              ? 'current'
+              : 'pending';
+        }
+
         if (formData.computation_type === 'raw') {
           return formData.x_axis_column && formData.y_axis_column
             ? 'complete'
@@ -148,7 +162,7 @@ export function ChartBuilder({
       case 4:
         return formData.title
           ? 'complete'
-          : formData.x_axis_column || formData.dimension_column
+          : formData.x_axis_column || formData.dimension_column || formData.aggregate_column
             ? 'current'
             : 'pending';
       default:
@@ -168,11 +182,18 @@ export function ChartBuilder({
             <h3 className="text-lg font-semibold mb-6">1. Select Chart Type</h3>
             <ChartTypeSelector
               value={formData.chart_type}
-              onChange={(chart_type) =>
-                handleFormChange({
+              onChange={(chart_type) => {
+                const updates: any = {
                   chart_type: chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
-                })
-              }
+                };
+
+                // For number charts, always set computation_type to aggregated
+                if (chart_type === 'number') {
+                  updates.computation_type = 'aggregated';
+                }
+
+                handleFormChange(updates);
+              }}
             />
           </div>
 
