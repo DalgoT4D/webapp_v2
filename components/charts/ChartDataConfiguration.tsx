@@ -258,6 +258,8 @@ export function ChartDataConfiguration({
 
       {/* Extra Dimension (optional) */}
       {formData.chart_type !== 'pie' &&
+        formData.chart_type !== 'number' &&
+        formData.chart_type !== 'map' &&
         ((formData.computation_type === 'raw' && formData.y_axis_column) ||
           (formData.computation_type === 'aggregated' && formData.aggregate_column)) && (
           <div className="space-y-2">

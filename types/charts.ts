@@ -2,7 +2,7 @@ export interface Chart {
   id: number;
   title: string;
   description?: string;
-  chart_type: 'bar' | 'pie' | 'line';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -15,7 +15,7 @@ export interface Chart {
 export interface ChartCreate {
   title: string;
   description?: string;
-  chart_type: 'bar' | 'pie' | 'line';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;

@@ -169,7 +169,9 @@ export function ChartBuilder({
             <ChartTypeSelector
               value={formData.chart_type}
               onChange={(chart_type) =>
-                handleFormChange({ chart_type: chart_type as 'bar' | 'pie' | 'line' })
+                handleFormChange({
+                  chart_type: chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+                })
               }
             />
           </div>

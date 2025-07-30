@@ -68,6 +68,14 @@ export function ChartCustomizations({
     );
   }
 
+  if (chartType === 'number' || chartType === 'map') {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        <p>Configuration for {chartType} charts coming soon</p>
+      </div>
+    );
+  }
+
   return null;
 }
 

@@ -1,8 +1,7 @@
 'use client';
 
-import { BarChart2, PieChart, LineChart } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { BarChart2, PieChart, LineChart, Hash, Map } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 
 interface ChartTypeSelectorProps {
@@ -13,48 +12,57 @@ interface ChartTypeSelectorProps {
 const chartTypes = [
   {
     id: 'bar',
-    name: 'Bar Chart',
+    name: 'Bar',
     description: 'Compare values across categories',
     icon: BarChart2,
   },
   {
     id: 'pie',
-    name: 'Pie Chart',
+    name: 'Pie',
     description: 'Show proportions of a whole',
     icon: PieChart,
   },
   {
     id: 'line',
-    name: 'Line Chart',
+    name: 'Line',
     description: 'Display trends over time',
     icon: LineChart,
+  },
+  {
+    id: 'number',
+    name: 'Number',
+    description: 'Display a single metric or KPI',
+    icon: Hash,
+  },
+  {
+    id: 'map',
+    name: 'Map',
+    description: 'Visualize geographic data',
+    icon: Map,
   },
 ];
 
 export function ChartTypeSelector({ value, onChange }: ChartTypeSelectorProps) {
   return (
-    <RadioGroup value={value} onValueChange={onChange}>
-      <div className="grid grid-cols-3 gap-6">
-        {chartTypes.map((type) => {
-          const Icon = type.icon;
-          return (
-            <Label key={type.id} htmlFor={type.id} className="cursor-pointer">
-              <Card
-                className={`p-6 hover:border-primary transition-colors ${value === type.id ? 'border-primary bg-primary/5' : ''}`}
-              >
-                <RadioGroupItem value={type.id} id={type.id} className="sr-only" />
-                <div className="flex flex-col items-center text-center space-y-3">
-                  <Icon className="h-10 w-10" />
-                  <div>
-                    <p className="font-medium">{type.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
-                  </div>
-                </div>
-              </Card>
-            </Label>
-          );
-        })}
-      </div>
-    </RadioGroup>
+    <div className="space-y-3">
+      <Tabs value={value || 'bar'} onValueChange={onChange}>
+        <TabsList className="grid w-full grid-cols-5">
+          {chartTypes.map((type) => {
+            const Icon = type.icon;
+            return (
+              <TabsTrigger key={type.id} value={type.id} className="flex items-center gap-2">
+                <Icon className="h-4 w-4" />
+                <span>{type.name}</span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
+
+      {/* Show description for selected chart type */}
+      <p className="text-sm text-muted-foreground">
+        {chartTypes.find((t) => t.id === (value || 'bar'))?.description}
+      </p>
+    </div>
   );
 }
