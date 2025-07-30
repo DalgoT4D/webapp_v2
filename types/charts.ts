@@ -33,7 +33,19 @@ export interface ChartCreate {
 export interface ChartUpdate {
   title?: string;
   description?: string;
-  extra_config?: Record<string, any>;
+  chart_type?: 'bar' | 'pie' | 'line';
+  computation_type?: 'raw' | 'aggregated';
+  schema_name?: string;
+  table_name?: string;
+  extra_config?: {
+    x_axis_column?: string;
+    y_axis_column?: string;
+    dimension_column?: string;
+    aggregate_column?: string;
+    aggregate_function?: string;
+    extra_dimension_column?: string;
+    customizations?: Record<string, any>;
+  };
 }
 
 export interface ChartDataPayload {

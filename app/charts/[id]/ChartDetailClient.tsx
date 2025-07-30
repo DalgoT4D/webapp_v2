@@ -1,17 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useChart, useUpdateChart, useChartData } from '@/hooks/api/useChart';
+import { useChart, useChartData } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
-import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Download } from 'lucide-react';
+import { ArrowLeft, Download, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import type { ChartDataPayload } from '@/types/charts';
@@ -23,23 +17,6 @@ interface ChartDetailClientProps {
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const router = useRouter();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
-  const { trigger: updateChart, isMutating } = useUpdateChart();
-
-  const [editedData, setEditedData] = useState({
-    title: '',
-    description: '',
-    customizations: {},
-  });
-
-  useEffect(() => {
-    if (chart) {
-      setEditedData({
-        title: chart.title,
-        description: chart.description || '',
-        customizations: chart.extra_config?.customizations || {},
-      });
-    }
-  }, [chart]);
 
   // Build payload for chart data
   const chartDataPayload: ChartDataPayload | null = chart
@@ -54,10 +31,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         aggregate_col: chart.extra_config?.aggregate_column,
         aggregate_func: chart.extra_config?.aggregate_function,
         extra_dimension: chart.extra_config?.extra_dimension_column,
-        customizations: {
-          ...editedData.customizations,
-          title: editedData.title || '',
-        },
+        customizations: chart.extra_config?.customizations || {},
       }
     : null;
 
@@ -66,25 +40,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     error: dataError,
     isLoading: dataLoading,
   } = useChartData(chartDataPayload);
-
-  const handleSave = async () => {
-    try {
-      await updateChart({
-        id: chartId,
-        data: {
-          title: editedData.title,
-          description: editedData.description,
-          extra_config: {
-            ...chart?.extra_config,
-            customizations: editedData.customizations,
-          },
-        },
-      });
-      toast.success('Chart updated successfully');
-    } catch (error) {
-      toast.error('Failed to update chart');
-    }
-  };
 
   const handleExport = () => {
     // TODO: Implement chart export functionality
@@ -129,13 +84,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Link href={`/charts/${chartId}/edit`}>
+            <Button variant="outline">
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Chart
+            </Button>
+          </Link>
           <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             Export
-          </Button>
-          <Button onClick={handleSave} disabled={isMutating}>
-            <Save className="mr-2 h-4 w-4" />
-            {isMutating ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </div>
@@ -164,69 +121,48 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               <CardTitle>Settings</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="details">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="style">Style</TabsTrigger>
-                </TabsList>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-1">Title</h3>
+                  <p className="text-sm">{chart.title}</p>
+                </div>
 
-                <TabsContent value="details" className="space-y-4">
+                {chart.description && (
                   <div>
-                    <Label htmlFor="title">Title</Label>
-                    <Input
-                      id="title"
-                      value={editedData.title}
-                      onChange={(e) => setEditedData({ ...editedData, title: e.target.value })}
-                    />
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-1">
+                      Description
+                    </h3>
+                    <p className="text-sm">{chart.description}</p>
                   </div>
+                )}
 
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={editedData.description}
-                      onChange={(e) =>
-                        setEditedData({ ...editedData, description: e.target.value })
-                      }
-                      rows={3}
-                    />
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Type:</span>
+                    <span className="capitalize">{chart.chart_type}</span>
                   </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="capitalize">{chart.chart_type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Data:</span>
-                      <span className="capitalize">{chart.computation_type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Created:</span>
-                      <span>{new Date(chart.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Updated:</span>
-                      <span>{new Date(chart.updated_at).toLocaleDateString()}</span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Data:</span>
+                    <span className="capitalize">{chart.computation_type}</span>
                   </div>
-                </TabsContent>
-
-                <TabsContent value="style">
-                  <ChartCustomizations
-                    chartType={chart.chart_type}
-                    formData={{
-                      ...chart,
-                      customizations: editedData.customizations,
-                    }}
-                    onChange={(updates) => {
-                      if (updates.customizations) {
-                        setEditedData({ ...editedData, customizations: updates.customizations });
-                      }
-                    }}
-                  />
-                </TabsContent>
-              </Tabs>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Created:</span>
+                    <span>{new Date(chart.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Updated:</span>
+                    <span>{new Date(chart.updated_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Schema:</span>
+                    <span>{chart.schema_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Table:</span>
+                    <span>{chart.table_name}</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
