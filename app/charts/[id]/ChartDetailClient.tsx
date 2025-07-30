@@ -54,7 +54,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         aggregate_col: chart.aggregate_column,
         aggregate_func: chart.aggregate_function,
         extra_dimension: chart.extra_dimension_column,
-        customizations: editedData.customizations,
+        customizations: {
+          ...editedData.customizations,
+          title: editedData.title || '',
+        },
       }
     : null;
 

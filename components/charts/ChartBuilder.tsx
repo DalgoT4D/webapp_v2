@@ -51,7 +51,10 @@ export function ChartBuilder({
           aggregate_col: formData.aggregate_column,
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
-          customizations: formData.customizations,
+          customizations: {
+            ...formData.customizations,
+            title: formData.title || '',
+          },
         }
       : null;
 
