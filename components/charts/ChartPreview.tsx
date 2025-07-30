@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,34 +15,49 @@ export function ChartPreview({ config, isLoading, error }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
-  useEffect(() => {
-    if (chartRef.current && config) {
-      // Initialize chart if not already done
-      if (!chartInstance.current) {
-        chartInstance.current = echarts.init(chartRef.current);
+  // Initialize or update chart
+  const initializeChart = useCallback(() => {
+    if (!chartRef.current || !config) return;
+
+    try {
+      // Dispose existing instance if it exists
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
       }
+
+      // Create new instance
+      chartInstance.current = echarts.init(chartRef.current);
 
       // Set chart option
       chartInstance.current.setOption(config);
-
-      // Handle resize
-      const handleResize = () => {
-        chartInstance.current?.resize();
-      };
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-      };
+    } catch (err) {
+      console.error('Error initializing chart:', err);
     }
-    // Return undefined for the else case
-    return undefined;
   }, [config]);
+
+  useEffect(() => {
+    initializeChart();
+
+    // Handle resize
+    const handleResize = () => {
+      chartInstance.current?.resize();
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [initializeChart]);
 
   useEffect(() => {
     // Cleanup on unmount
     return () => {
-      chartInstance.current?.dispose();
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
     };
   }, []);
 
