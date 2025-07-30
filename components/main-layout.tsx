@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Home,
   LayoutDashboard,
+  ChartBarBig,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -91,6 +92,12 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       href: '/metrics',
       icon: BarChart3,
       isActive: currentPath.startsWith('/metrics'),
+    },
+    {
+      title: 'Charts',
+      href: '/charts',
+      icon: ChartBarBig,
+      isActive: currentPath.startsWith('/charts'),
     },
     {
       title: 'Dashboards',
