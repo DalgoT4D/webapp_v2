@@ -36,7 +36,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       setEditedData({
         title: chart.title,
         description: chart.description || '',
-        customizations: chart.customizations || {},
+        customizations: chart.extra_config?.customizations || {},
       });
     }
   }, [chart]);
@@ -48,12 +48,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         computation_type: chart.computation_type,
         schema_name: chart.schema_name,
         table_name: chart.table_name,
-        x_axis: chart.x_axis_column,
-        y_axis: chart.y_axis_column,
-        dimension_col: chart.dimension_column,
-        aggregate_col: chart.aggregate_column,
-        aggregate_func: chart.aggregate_function,
-        extra_dimension: chart.extra_dimension_column,
+        x_axis: chart.extra_config?.x_axis_column,
+        y_axis: chart.extra_config?.y_axis_column,
+        dimension_col: chart.extra_config?.dimension_column,
+        aggregate_col: chart.extra_config?.aggregate_column,
+        aggregate_func: chart.extra_config?.aggregate_function,
+        extra_dimension: chart.extra_config?.extra_dimension_column,
         customizations: {
           ...editedData.customizations,
           title: editedData.title || '',
@@ -71,7 +71,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     try {
       await updateChart({
         id: chartId,
-        data: editedData,
+        data: {
+          title: editedData.title,
+          description: editedData.description,
+          extra_config: {
+            ...chart?.extra_config,
+            customizations: editedData.customizations,
+          },
+        },
       });
       toast.success('Chart updated successfully');
     } catch (error) {

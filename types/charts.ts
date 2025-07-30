@@ -6,15 +6,8 @@ export interface Chart {
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
-  x_axis_column?: string;
-  y_axis_column?: string;
-  dimension_column?: string;
-  aggregate_column?: string;
-  aggregate_function?: string;
-  extra_dimension_column?: string;
-  config: Record<string, any>;
-  customizations: Record<string, any>;
-  is_favorite: boolean;
+  extra_config: Record<string, any>;
+  echarts_config: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -26,20 +19,21 @@ export interface ChartCreate {
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
-  x_axis_column?: string;
-  y_axis_column?: string;
-  dimension_column?: string;
-  aggregate_column?: string;
-  aggregate_function?: string;
-  extra_dimension_column?: string;
-  customizations?: Record<string, any>;
+  extra_config: {
+    x_axis_column?: string;
+    y_axis_column?: string;
+    dimension_column?: string;
+    aggregate_column?: string;
+    aggregate_function?: string;
+    extra_dimension_column?: string;
+    customizations?: Record<string, any>;
+  };
 }
 
 export interface ChartUpdate {
   title?: string;
   description?: string;
-  customizations?: Record<string, any>;
-  is_favorite?: boolean;
+  extra_config?: Record<string, any>;
 }
 
 export interface ChartDataPayload {

@@ -99,7 +99,26 @@ export function ChartBuilder({
       return;
     }
 
-    onSave(formData as ChartCreate);
+    // Construct the payload with extra_config structure
+    const chartData: ChartCreate = {
+      title: formData.title!,
+      description: formData.description,
+      chart_type: formData.chart_type!,
+      computation_type: formData.computation_type!,
+      schema_name: formData.schema_name!,
+      table_name: formData.table_name!,
+      extra_config: {
+        x_axis_column: formData.x_axis_column,
+        y_axis_column: formData.y_axis_column,
+        dimension_column: formData.dimension_column,
+        aggregate_column: formData.aggregate_column,
+        aggregate_function: formData.aggregate_function,
+        extra_dimension_column: formData.extra_dimension_column,
+        customizations: formData.customizations,
+      },
+    };
+
+    onSave(chartData);
   };
 
   const getStepStatus = (step: number) => {
