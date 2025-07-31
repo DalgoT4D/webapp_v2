@@ -135,16 +135,23 @@ export function ChartBuilder({
 
     // Special validation for number charts
     if (formData.chart_type === 'number') {
-      return !!(formData.aggregate_column && formData.aggregate_function);
+      // For count function, aggregate_column is not required
+      const needsAggregateColumn = formData.aggregate_function !== 'count';
+      return !!(
+        formData.aggregate_function &&
+        (!needsAggregateColumn || formData.aggregate_column)
+      );
     }
 
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For aggregated charts, allow count function without aggregate column
+      const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.dimension_column &&
-        formData.aggregate_column &&
-        formData.aggregate_function
+        formData.aggregate_function &&
+        (!needsAggregateColumn || formData.aggregate_column)
       );
     }
   };
@@ -203,11 +210,15 @@ export function ChartBuilder({
               ? 'current'
               : 'pending';
         } else {
-          return hasBasicConfig && formData.dimension_column && formData.aggregate_column
-            ? 'complete'
-            : formData.chart_type
-              ? 'current'
-              : 'pending';
+          // For aggregated data, allow count function without aggregate column
+          const needsAggregateColumn = formData.aggregate_function !== 'count';
+          const hasRequiredFields =
+            hasBasicConfig &&
+            formData.dimension_column &&
+            formData.aggregate_function &&
+            (!needsAggregateColumn || formData.aggregate_column);
+
+          return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
         }
       default:
         return 'pending';

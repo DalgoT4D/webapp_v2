@@ -312,30 +312,47 @@ export function ChartDataConfigurationV2({
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="aggregate-col">Aggregate Column</Label>
-                <Select
-                  value={formData.aggregate_column}
-                  onValueChange={(value) => onChange({ aggregate_column: value })}
-                >
-                  <SelectTrigger id="aggregate-col">
-                    <SelectValue placeholder="Select column to aggregate" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {numericColumns?.map((col) => (
-                      <SelectItem key={col.column_name} value={col.column_name}>
-                        {col.column_name} ({col.data_type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Hide aggregate column dropdown when count function is selected */}
+              {formData.aggregate_function === 'count' ? (
+                <div className="space-y-2">
+                  <Label>Aggregate Column</Label>
+                  <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                    Count function counts all rows - no specific column needed
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="aggregate-col">Aggregate Column</Label>
+                  <Select
+                    value={formData.aggregate_column}
+                    onValueChange={(value) => onChange({ aggregate_column: value })}
+                  >
+                    <SelectTrigger id="aggregate-col">
+                      <SelectValue placeholder="Select column to aggregate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {numericColumns?.map((col) => (
+                        <SelectItem key={col.column_name} value={col.column_name}>
+                          {col.column_name} ({col.data_type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="aggregate-func">Aggregate Function</Label>
                 <Select
                   value={formData.aggregate_function}
-                  onValueChange={(value) => onChange({ aggregate_function: value })}
+                  onValueChange={(value) => {
+                    // Clear aggregate_column when count is selected since it's not needed
+                    if (value === 'count') {
+                      onChange({ aggregate_function: value, aggregate_column: null });
+                    } else {
+                      onChange({ aggregate_function: value });
+                    }
+                  }}
                 >
                   <SelectTrigger id="aggregate-func">
                     <SelectValue placeholder="Select function" />
