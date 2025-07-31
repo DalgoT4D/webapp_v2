@@ -238,20 +238,54 @@ export function ChartBuilder({
             <ChartTypeSelector
               value={formData.chart_type}
               onChange={(chart_type) => {
-                const updates: any = {
-                  chart_type: chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+                const newChartType = chart_type as ChartBuilderFormData['chart_type'];
+
+                // Base updates - always set chart type
+                const updates: Partial<ChartBuilderFormData> = {
+                  chart_type: newChartType,
                 };
 
-                // Set default computation type based on chart type
-                if (chart_type === 'number') {
+                // Only force computation_type for number charts
+                if (newChartType === 'number') {
                   updates.computation_type = 'aggregated';
-                } else if (chart_type !== 'map') {
-                  // Default to aggregated for other charts (except map)
-                  updates.computation_type = 'aggregated';
+                } else if (newChartType === 'map') {
+                  // Map might have special requirements - leave as is
+                } else {
+                  // For bar/line/pie, preserve existing computation_type
+                  // If no existing value, default to aggregated
+                  updates.computation_type = formData.computation_type || 'aggregated';
                 }
 
-                // Set default customizations for the new chart type
-                updates.customizations = getDefaultCustomizations(chart_type as any);
+                // Merge customizations intelligently
+                const existingCustomizations = formData.customizations || {};
+                const newDefaults = getDefaultCustomizations(newChartType);
+
+                // Preserve common settings and user-entered text
+                const preservedFields: Record<string, any> = {};
+
+                // Common UI settings across chart types
+                ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {
+                  if (field in existingCustomizations && field in newDefaults) {
+                    preservedFields[field] = existingCustomizations[field];
+                  }
+                });
+
+                // Preserve user-entered text fields
+                ['xAxisTitle', 'yAxisTitle', 'subtitle'].forEach((field) => {
+                  if (existingCustomizations[field]?.trim()) {
+                    preservedFields[field] = existingCustomizations[field];
+                  }
+                });
+
+                // Preserve data label positions if compatible
+                if (existingCustomizations.dataLabelPosition && newDefaults.dataLabelPosition) {
+                  preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
+                }
+
+                updates.customizations = {
+                  ...newDefaults,
+                  ...preservedFields,
+                };
 
                 handleFormChange(updates);
               }}
