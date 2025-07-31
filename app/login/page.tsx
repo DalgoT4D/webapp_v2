@@ -20,7 +20,7 @@ export default function LoginPage() {
   const {
     isAuthenticated,
     token,
-    setToken,
+    setTokens,
     setOrgUsers,
     setSelectedOrg,
     logout,
@@ -84,7 +84,8 @@ export default function LoginPage() {
       });
 
       if (response?.token) {
-        setToken(response.token);
+        // Store both access and refresh tokens
+        setTokens(response.token, response.refresh_token);
       } else {
         setError('root', { message: 'Invalid response from server' });
       }

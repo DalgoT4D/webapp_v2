@@ -17,17 +17,21 @@ export interface OrgUser {
 interface AuthState {
   // State
   token: string | null;
+  refreshToken: string | null;
   selectedOrgSlug: string | null;
   currentOrg: Org | null;
   orgUsers: OrgUser[];
   isAuthenticated: boolean;
   isOrgSwitching: boolean;
+  isRefreshing: boolean;
 
   // Actions
+  setTokens: (token: string, refreshToken?: string) => void;
   setToken: (token: string) => void;
   setOrgUsers: (orgUsers: OrgUser[]) => void;
   setSelectedOrg: (orgSlug: string) => void;
   setOrgSwitching: (switching: boolean) => void;
+  setRefreshing: (refreshing: boolean) => void;
   logout: () => void;
   initialize: () => void;
   getCurrentOrgUser: () => OrgUser | null;
@@ -37,16 +41,27 @@ export const useAuthStore = createAppStore<AuthState>(
   (set, get) => ({
     // Initial state
     token: null,
+    refreshToken: null,
     selectedOrgSlug: null,
     currentOrg: null,
     orgUsers: [],
     isAuthenticated: false,
     isOrgSwitching: false,
+    isRefreshing: false,
 
     // Actions
+    setTokens: (token: string, refreshToken?: string) => {
+      localStorage.setItem('authToken', token);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+      set({ token, refreshToken, isAuthenticated: true });
+    },
+
     setToken: (token: string) => {
       localStorage.setItem('authToken', token);
-      set({ token, isAuthenticated: true });
+      const { refreshToken } = get(); // preserve existing refresh token
+      set({ token, refreshToken, isAuthenticated: true });
     },
 
     setOrgUsers: (orgUsers: OrgUser[]) => {
@@ -80,27 +95,36 @@ export const useAuthStore = createAppStore<AuthState>(
       set({ isOrgSwitching: switching });
     },
 
+    setRefreshing: (refreshing: boolean) => {
+      set({ isRefreshing: refreshing });
+    },
+
     logout: () => {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('selectedOrg');
       set({
         token: null,
+        refreshToken: null,
         selectedOrgSlug: null,
         currentOrg: null,
         orgUsers: [],
         isAuthenticated: false,
         isOrgSwitching: false,
+        isRefreshing: false,
       });
     },
 
     initialize: () => {
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('authToken');
+        const refreshToken = localStorage.getItem('refreshToken');
         const selectedOrgSlug = localStorage.getItem('selectedOrg');
 
         if (token) {
           set({
             token,
+            refreshToken,
             selectedOrgSlug,
             isAuthenticated: true,
           });
