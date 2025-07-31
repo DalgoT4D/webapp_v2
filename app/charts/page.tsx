@@ -1,18 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import {
+  Plus,
+  BarChart2,
+  PieChart,
+  LineChart,
+  MoreVertical,
+  Edit,
+  Trash,
+  Star,
+  StarOff,
+} from 'lucide-react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCharts, useDeleteChart, useUpdateChart } from '@/hooks/api/useChart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,115 +24,69 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Plus,
-  Search,
-  Filter,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  Heart,
-  Download,
-  Eye,
-  BarChart3,
-  LineChart,
-  PieChart,
-  TrendingUp,
-} from 'lucide-react';
-import { useCharts, useChartDelete, useChartFavorite, type Chart } from '@/hooks/api/useChart';
-import { formatDistanceToNow } from 'date-fns';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { format } from 'date-fns';
+import { toast } from 'sonner';
+import type { Chart } from '@/types/charts';
+
+const chartIcons = {
+  bar: BarChart2,
+  pie: PieChart,
+  line: LineChart,
+};
 
 export default function ChartsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-
-  // API hooks
+  const [deleteChartId, setDeleteChartId] = useState<number | null>(null);
   const { data: charts, isLoading, error, mutate } = useCharts();
+  const { trigger: deleteChart } = useDeleteChart();
+  const { trigger: updateChart } = useUpdateChart();
 
-  const { delete: deleteChart } = useChartDelete();
-  const { toggleFavorite } = useChartFavorite();
+  const filteredCharts = charts?.filter(
+    (chart) =>
+      chart.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      chart.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // Handle chart deletion
-  const handleDelete = async (chartId: number) => {
-    if (confirm('Are you sure you want to delete this chart?')) {
-      try {
-        await deleteChart(chartId);
-        mutate(); // Refresh the charts list
-      } catch (error) {
-        console.error('Error deleting chart:', error);
-      }
-    }
-  };
+  const handleDelete = async () => {
+    if (!deleteChartId) return;
 
-  // Handle favorite toggle
-  const handleFavorite = async (chartId: number) => {
     try {
-      await toggleFavorite(chartId);
-      mutate(); // Refresh the charts list
+      await deleteChart(deleteChartId);
+      toast.success('Chart deleted successfully');
+      mutate();
+      setDeleteChartId(null);
     } catch (error) {
-      console.error('Error toggling favorite:', error);
+      toast.error('Failed to delete chart');
     }
   };
 
-  // Filter charts based on search and filters
-  const filteredCharts = React.useMemo(() => {
-    // Handle both paginated response and array response
-    const chartsList = charts?.items || charts || [];
-
-    if (!Array.isArray(chartsList)) return [];
-
-    return chartsList.filter((chart: Chart) => {
-      const matchesSearch =
-        chart.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        chart.description?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesType = filterType === 'all' || chart.config?.chartType === filterType;
-
-      const matchesStatus =
-        filterStatus === 'all' ||
-        (filterStatus === 'public' && chart.is_public) ||
-        (filterStatus === 'private' && !chart.is_public) ||
-        (filterStatus === 'favorite' && chart.is_favorite);
-
-      return matchesSearch && matchesType && matchesStatus;
-    });
-  }, [charts, searchTerm, filterType, filterStatus]);
-
-  // Chart type icons
-  const getChartIcon = (config: Chart['config']) => {
-    const chartType = config?.chartType || 'bar';
-    switch (chartType) {
-      case 'line':
-        return <LineChart className="h-4 w-4" />;
-      case 'pie':
-        return <PieChart className="h-4 w-4" />;
-      default:
-        return <BarChart3 className="h-4 w-4" />;
+  const handleToggleFavorite = async (chart: Chart) => {
+    try {
+      await updateChart({
+        id: chart.id,
+        data: { is_favorite: !chart.is_favorite },
+      });
+      toast.success(chart.is_favorite ? 'Removed from favorites' : 'Added to favorites');
+      mutate();
+    } catch (error) {
+      toast.error('Failed to update favorite status');
     }
   };
-
-  // Chart type label
-  const getChartTypeLabel = (config: Chart['config']) => {
-    const chartType = config?.chartType || 'bar';
-    return chartType.charAt(0).toUpperCase() + chartType.slice(1);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error loading charts</h2>
-          <p className="text-gray-600">{error.message}</p>
+        <div className="text-center text-red-600">
+          Failed to load charts. Please try again later.
         </div>
       </div>
     );
@@ -136,172 +94,157 @@ export default function ChartsPage() {
 
   return (
     <div className="container mx-auto p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Charts</h1>
-          <p className="text-gray-600 mt-1">Create and manage your data visualizations</p>
+          <h1 className="text-3xl font-bold">Charts</h1>
+          <p className="text-muted-foreground mt-1">Create and manage your data visualizations</p>
         </div>
-        <Link href="/charts/builder">
+        <Link href="/charts/new">
           <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            New Chart
+            <Plus className="mr-2 h-4 w-4" />
+            Create Chart
           </Button>
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center space-x-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search charts..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="bar">Bar Charts</SelectItem>
-            <SelectItem value="line">Line Charts</SelectItem>
-            <SelectItem value="pie">Pie Charts</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Charts</SelectItem>
-            <SelectItem value="public">Public</SelectItem>
-            <SelectItem value="private">Private</SelectItem>
-            <SelectItem value="favorite">Favorites</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="mb-6">
+        <Input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search charts..."
+          className="max-w-sm"
+        />
       </div>
 
-      {/* Charts Grid */}
-      {filteredCharts.length === 0 ? (
-        <div className="text-center py-12">
-          <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm || filterType !== 'all' || filterStatus !== 'all'
-              ? 'No charts match your filters'
-              : 'No charts created yet'}
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {searchTerm || filterType !== 'all' || filterStatus !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Create your first chart to get started with data visualization'}
-          </p>
-          <Link href="/charts/builder">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Chart
-            </Button>
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCharts.map((chart: Chart) => (
-            <Card key={chart.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2 bg-blue-50 rounded-lg">{getChartIcon(chart.config)}</div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg line-clamp-1">{chart.title}</CardTitle>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                        {chart.description || 'No description'}
-                      </p>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleFavorite(chart.id)}>
-                        <Heart
-                          className={`h-4 w-4 mr-2 ${chart.is_favorite ? 'text-red-500' : ''}`}
-                        />
-                        {chart.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(chart.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="secondary">{getChartTypeLabel(chart.config)}</Badge>
-                    {chart.is_public && <Badge variant="outline">Public</Badge>}
-                    {chart.is_favorite && (
-                      <Badge variant="outline" className="text-red-600 border-red-200">
-                        <Heart className="h-3 w-3 mr-1" />
-                        Favorite
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="text-sm text-gray-600">
-                    <p>
-                      <strong>Source:</strong> {chart.schema_name}.{chart.table}
-                    </p>
-                    <p>
-                      <strong>Created:</strong>{' '}
-                      {formatDistanceToNow(new Date(chart.created_at), { addSuffix: true })}
-                    </p>
-                    <p>
-                      <strong>By:</strong> {chart.created_by?.user.first_name}{' '}
-                      {chart.created_by?.user.last_name}
-                    </p>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                  </div>
-                </div>
+                <div className="h-20 bg-gray-200 rounded"></div>
               </CardContent>
             </Card>
           ))}
         </div>
+      ) : filteredCharts?.length === 0 ? (
+        <div className="text-center py-12">
+          <BarChart2 className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-4 text-lg text-gray-600">No charts found</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {searchTerm ? 'Try a different search term or ' : ''}
+            <Link href="/charts/new" className="text-primary hover:underline">
+              create your first chart
+            </Link>
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCharts?.map((chart) => {
+            const IconComponent =
+              chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
+
+            return (
+              <Card key={chart.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-2">
+                      <IconComponent className="h-5 w-5 text-primary" />
+                      <CardTitle className="text-lg">{chart.title}</CardTitle>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/charts/${chart.id}`}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleToggleFavorite(chart)}>
+                          {chart.is_favorite ? (
+                            <>
+                              <StarOff className="mr-2 h-4 w-4" />
+                              Remove from favorites
+                            </>
+                          ) : (
+                            <>
+                              <Star className="mr-2 h-4 w-4" />
+                              Add to favorites
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setDeleteChartId(chart.id)}
+                          className="text-red-600"
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {chart.description && (
+                    <CardDescription className="mt-1 line-clamp-2">
+                      {chart.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span>Type:</span>
+                      <span className="capitalize">{chart.chart_type}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Source:</span>
+                      <span className="font-mono text-xs">
+                        {chart.schema_name}.{chart.table_name}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Updated:</span>
+                      <span>{format(new Date(chart.updated_at), 'MMM d, yyyy')}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <Link href={`/charts/${chart.id}`}>
+                      <Button variant="outline" size="sm" className="w-full">
+                        View Chart
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
+
+      <AlertDialog open={deleteChartId !== null} onOpenChange={() => setDeleteChartId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chart</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this chart? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

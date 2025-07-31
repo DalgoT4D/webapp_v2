@@ -144,3 +144,11 @@ export function apiPut(path: string, body: any, options: RequestInit = {}) {
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
 }
+
+// Export unified API object for convenience
+export const api = {
+  get: <T = any>(path: string) => apiFetch(path) as Promise<T>,
+  post: <T = any>(path: string, body: any) => apiPost(path, body) as Promise<T>,
+  put: <T = any>(path: string, body: any) => apiPut(path, body) as Promise<T>,
+  delete: (path: string) => apiDelete(path),
+};
