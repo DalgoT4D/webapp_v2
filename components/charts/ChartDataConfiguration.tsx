@@ -311,12 +311,12 @@ export function ChartDataConfiguration({
           </>
         )}
 
-      {/* Extra Dimension (optional) */}
+      {/* Extra Dimension (optional) - Only for aggregated data */}
       {formData.chart_type !== 'pie' &&
         formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
-        ((formData.computation_type === 'raw' && formData.y_axis_column) ||
-          (formData.computation_type === 'aggregated' && formData.aggregate_column)) && (
+        formData.computation_type === 'aggregated' &&
+        formData.aggregate_column && (
           <div className="space-y-2">
             <Label htmlFor="extra-dimension">
               Extra Dimension (Optional) - For grouped/stacked charts
