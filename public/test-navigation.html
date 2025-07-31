@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chart Navigation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Chart Navigation Test</h1>
+    
+    <div class="test-section">
+        <h2>Direct Navigation Tests</h2>
+        <button onclick="navigateTo('/charts')">Go to Charts List</button>
+        <button onclick="navigateTo('/charts/builder')">Go to Chart Builder</button>
+        <button onclick="checkCurrentPage()">Check Current Page</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Test Instructions</h2>
+        <ol>
+            <li>Click "Go to Charts List" - You should see existing charts</li>
+            <li>Look for a "Create Chart" button with a + icon</li>
+            <li>Click the "Create Chart" button</li>
+            <li>You should be taken to the chart builder at /charts/builder</li>
+            <li>If step 3-4 don't work, click "Go to Chart Builder" directly</li>
+        </ol>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+        }
+
+        function navigateTo(path) {
+            log(`Navigating to ${path}...`);
+            window.location.href = path;
+        }
+
+        function checkCurrentPage() {
+            const path = window.location.pathname;
+            log(`Current page: ${path}`);
+            
+            if (path === '/charts') {
+                log('You are on the Charts List page', 'success');
+                log('Look for the "Create Chart" button', 'info');
+            } else if (path === '/charts/builder') {
+                log('You are on the Chart Builder page', 'success');
+                log('You should see chart type selection', 'info');
+            } else {
+                log('You are on: ' + path, 'info');
+            }
+        }
+
+        // Auto-check on load
+        window.onload = () => {
+            checkCurrentPage();
+            
+            // Check if React is loaded
+            if (typeof React !== 'undefined') {
+                log('React is loaded', 'success');
+            } else {
+                log('React might not be loaded yet', 'error');
+            }
+        };
+    </script>
+</body>
+</html>
