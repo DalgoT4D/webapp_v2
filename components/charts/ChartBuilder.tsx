@@ -5,14 +5,55 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartTypeSelector } from './ChartTypeSelector';
-import { ChartDataConfiguration } from './ChartDataConfiguration';
+import { ChartDataConfigurationV2 } from './ChartDataConfigurationV2';
 import { ChartCustomizations } from './ChartCustomizations';
-import { ChartMetadata } from './ChartMetadata';
+import { WorkInProgress } from './WorkInProgress';
 import { ChartPreview } from './ChartPreview';
 import { DataPreview } from './DataPreview';
 import { useChartData, useChartDataPreview } from '@/hooks/api/useChart';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { debounce } from 'lodash';
+
+// Default customizations for each chart type
+function getDefaultCustomizations(chartType: string): Record<string, any> {
+  switch (chartType) {
+    case 'bar':
+      return {
+        orientation: 'vertical',
+        showDataLabels: false,
+        dataLabelPosition: 'top',
+        stacked: false,
+        showTooltip: true,
+        showLegend: true,
+        xAxisTitle: '',
+        yAxisTitle: '',
+        xAxisLabelRotation: 'horizontal',
+        yAxisLabelRotation: 'horizontal',
+      };
+    case 'pie':
+      return {
+        chartStyle: 'pie',
+        labelFormat: 'percentage',
+        showLegend: true,
+        legendPosition: 'right',
+      };
+    case 'line':
+      return {
+        lineStyle: 'straight',
+        showDataPoints: true,
+        xAxisTitle: '',
+        yAxisTitle: '',
+      };
+    case 'number':
+      return {
+        subtitle: '',
+        numberFormat: 'default',
+        decimalPlaces: 0,
+      };
+    default:
+      return {};
+  }
+}
 
 interface ChartBuilderProps {
   onSave: (chart: ChartCreate) => void;
@@ -29,8 +70,8 @@ export function ChartBuilder({
 }: ChartBuilderProps) {
   const [formData, setFormData] = useState<ChartBuilderFormData>({
     chart_type: 'bar',
-    computation_type: 'raw',
-    customizations: {},
+    computation_type: 'aggregated', // Default to aggregated
+    customizations: getDefaultCustomizations('bar'),
     ...initialData,
   });
 
@@ -131,40 +172,34 @@ export function ChartBuilder({
       case 1:
         return formData.chart_type ? 'complete' : 'current';
       case 2:
-        return formData.schema_name && formData.table_name
-          ? 'complete'
-          : formData.chart_type
-            ? 'current'
-            : 'pending';
-      case 3:
-        // Special handling for number charts
+        // For data configuration step
+        if (!formData.chart_type || formData.chart_type === 'map') {
+          return 'pending';
+        }
+
+        const hasBasicConfig = formData.schema_name && formData.table_name && formData.title;
+
         if (formData.chart_type === 'number') {
-          return formData.aggregate_column && formData.aggregate_function
+          return hasBasicConfig && formData.aggregate_column && formData.aggregate_function
             ? 'complete'
-            : formData.table_name
+            : formData.chart_type
               ? 'current'
               : 'pending';
         }
 
         if (formData.computation_type === 'raw') {
-          return formData.x_axis_column && formData.y_axis_column
+          return hasBasicConfig && formData.x_axis_column && formData.y_axis_column
             ? 'complete'
-            : formData.table_name
+            : formData.chart_type
               ? 'current'
               : 'pending';
         } else {
-          return formData.dimension_column && formData.aggregate_column
+          return hasBasicConfig && formData.dimension_column && formData.aggregate_column
             ? 'complete'
-            : formData.table_name
+            : formData.chart_type
               ? 'current'
               : 'pending';
         }
-      case 4:
-        return formData.title
-          ? 'complete'
-          : formData.x_axis_column || formData.dimension_column || formData.aggregate_column
-            ? 'current'
-            : 'pending';
       default:
         return 'pending';
     }
@@ -187,52 +222,40 @@ export function ChartBuilder({
                   chart_type: chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
                 };
 
-                // For number charts, always set computation_type to aggregated
+                // Set default computation type based on chart type
                 if (chart_type === 'number') {
                   updates.computation_type = 'aggregated';
+                } else if (chart_type !== 'map') {
+                  // Default to aggregated for other charts (except map)
+                  updates.computation_type = 'aggregated';
                 }
+
+                // Set default customizations for the new chart type
+                updates.customizations = getDefaultCustomizations(chart_type as any);
 
                 handleFormChange(updates);
               }}
             />
           </div>
 
-          {/* Step 2: Data Configuration */}
-          <div
-            className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
-          >
-            <h3 className="text-lg font-semibold mb-6">2. Configure Data Source</h3>
-            <ChartDataConfiguration
-              formData={formData}
-              onChange={handleFormChange}
-              disabled={!formData.chart_type}
-            />
-          </div>
-
-          {/* Step 3: Customizations */}
-          <div
-            className={`transition-opacity ${getStepStatus(3) === 'pending' ? 'opacity-50' : ''}`}
-          >
-            <h3 className="text-lg font-semibold mb-6">3. Customize Chart</h3>
-            <ChartCustomizations
-              chartType={formData.chart_type!}
-              formData={formData}
-              onChange={handleFormChange}
-              disabled={!formData.table_name}
-            />
-          </div>
-
-          {/* Step 4: Metadata */}
-          <div
-            className={`transition-opacity ${getStepStatus(4) === 'pending' ? 'opacity-50' : ''}`}
-          >
-            <h3 className="text-lg font-semibold mb-6">4. Add Details</h3>
-            <ChartMetadata
-              formData={formData}
-              onChange={handleFormChange}
-              disabled={getStepStatus(3) !== 'complete'}
-            />
-          </div>
+          {/* Show Work in Progress for Map Charts */}
+          {formData.chart_type === 'map' ? (
+            <WorkInProgress onBack={() => handleFormChange({ chart_type: 'bar' })} />
+          ) : (
+            <>
+              {/* Step 2: Data Configuration */}
+              <div
+                className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
+              >
+                <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
+                <ChartDataConfigurationV2
+                  formData={formData}
+                  onChange={handleFormChange}
+                  disabled={!formData.chart_type}
+                />
+              </div>
+            </>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 mt-8 border-t">
