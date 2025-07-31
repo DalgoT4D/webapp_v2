@@ -1,178 +1,91 @@
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { api } from '@/lib/api';
+import type {
+  Chart,
+  ChartCreate,
+  ChartUpdate,
+  ChartDataPayload,
+  ChartDataResponse,
+  DataPreviewResponse,
+} from '@/types/charts';
 
-// Types
-export interface Column {
-  name: string;
-  data_type: string;
-}
+// Fetchers
+const chartsFetcher = (url: string) => api.get<Chart[]>(url);
+const chartFetcher = (url: string) => api.get<Chart>(url);
+const chartDataFetcher = ([url, data]: [string, ChartDataPayload]) =>
+  api.post<ChartDataResponse>(url, data);
+const dataPreviewFetcher = ([url, data]: [string, ChartDataPayload]) =>
+  api.post<DataPreviewResponse>(url, data);
 
-export interface ChartData {
-  chart_config: any; // The ECharts configuration from backend
-}
+// Mutations
+const createChart = (url: string, { arg }: { arg: ChartCreate }) => api.post<Chart>(url, arg);
 
-export interface GenerateChartPayload {
-  chart_type: string;
-  computation_type?: 'raw' | 'aggregated';
-  schema_name: string;
-  table_name: string;
-  xaxis?: string;
-  yaxis?: string;
-  offset?: number;
-  limit?: number;
-  dimensions?: string | string[];
-  aggregate_col?: string;
-  aggregate_func?: string;
-}
+const updateChart = (url: string, { arg }: { arg: { id: number; data: ChartUpdate } }) =>
+  api.put<Chart>(`${url}${arg.id}/`, arg.data);
 
-export interface SaveChartPayload {
-  title: string;
-  description: string;
-  chart_type: string;
-  schema_name: string;
-  table: string;
-  config: {
-    chartType: string;
-    computation_type: 'raw' | 'aggregated';
-    xAxis?: string;
-    yAxis?: string;
-    dimensions?: string | string[];
-    aggregate_col?: string;
-    aggregate_func?: string;
-  };
-}
+const deleteChart = (url: string, { arg }: { arg: number }) => api.delete(`${url}${arg}/`);
 
-export interface Chart {
-  id: number;
-  title: string;
-  description: string;
-  chart_type: string;
-  schema_name: string;
-  table: string;
-  config: {
-    chartType: string;
-    mode?: 'raw' | 'aggregated';
-    xAxis?: string;
-    yAxis?: string;
-    dimensions?: string | string[];
-    aggregate_col?: string;
-    aggregate_func?: string;
-  };
-}
-
-// Data fetching hooks
-export function useSchemas() {
-  return useSWR<string[]>('/api/warehouse/schemas', apiGet, {
-    revalidateOnMount: true,
-  });
-}
-
-export function useTables(schema: string | null) {
-  return useSWR<string[]>(schema ? `/api/warehouse/tables/${schema}` : null, apiGet, {
-    revalidateOnMount: true,
-  });
-}
-
-export function useColumns(schema: string | null, table: string | null) {
-  return useSWR<Column[]>(
-    schema && table ? `/api/warehouse/table_columns/${schema}/${table}` : null,
-    apiGet,
-    {
-      revalidateOnMount: true,
-    }
-  );
-}
-
+// Hooks
 export function useCharts() {
-  return useSWR<Chart[]>('/api/visualization/charts', apiGet);
+  return useSWR('/api/charts/', chartsFetcher);
 }
 
 export function useChart(id: number | null) {
-  return useSWR<Chart>(id ? `/api/visualization/charts/${id}` : null, apiGet);
+  return useSWR(id ? `/api/charts/${id}/` : null, chartFetcher);
 }
 
-// Mutation hooks
-// Commenting out as it's currently unused
-/*export function useChartGeneration() {
-  return useSWRMutation(
-    '/api/visualization/generate_chart/',
-    async (url: string, { arg }: { arg: GenerateChartPayload }) => {
-      const response = await apiPost(url, arg)
-      return response
-    }
-  )
-}*/
-
-export function useChartSave() {
-  return useSWRMutation(
-    '/api/visualization/charts',
-    async (url: string, { arg }: { arg: SaveChartPayload }) => {
-      const response = await apiPost(url, arg);
-      return response;
-    }
-  );
+export function useCreateChart() {
+  return useSWRMutation('/api/charts/', createChart);
 }
 
-export function useChartUpdate() {
-  return useSWRMutation(
-    '/api/visualization/charts',
-    async (url: string, { arg }: { arg: { id: number } & Partial<SaveChartPayload> }) => {
-      const { id, ...updateData } = arg;
-      const response = await apiPut(`${url}/${id}`, updateData);
-      return response;
-    }
-  );
+export function useUpdateChart() {
+  return useSWRMutation('/api/charts/', updateChart);
 }
 
-export function useChartDelete() {
-  return useSWRMutation(
-    '/api/visualization/charts',
-    async (url: string, { arg }: { arg: { id: number } }) => {
-      await apiDelete(`${url}/${arg.id}`);
-      return { success: true };
-    }
-  );
+export function useDeleteChart() {
+  return useSWRMutation('/api/charts/', deleteChart);
 }
 
-// Helper hook for chart data with caching
-export function useChartData(
-  payload: GenerateChartPayload | null,
-  options: { enabled?: boolean } = {}
+export function useChartData(payload: ChartDataPayload | null) {
+  return useSWR(payload ? ['/api/charts/chart-data/', payload] : null, chartDataFetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 2000,
+  });
+}
+
+export function useChartDataPreview(
+  payload: ChartDataPayload | null,
+  page: number = 1,
+  pageSize: number = 50
 ) {
-  const { enabled = true } = options;
-
-  const cacheKey = payload && enabled ? `chart-data-${JSON.stringify(payload)}` : null;
-
-  return useSWR<ChartData>(
-    cacheKey,
-    async () => {
-      if (!payload) throw new Error('No payload provided');
-
-      try {
-        const response = await apiPost('/api/visualization/charts/generate/', payload);
-
-        if (!response.chart_config) {
-          throw new Error('No chart configuration received from server');
-        }
-
-        return {
-          chart_config: response.chart_config,
-        };
-      } catch (error) {
-        console.error('Chart data fetch error:', error);
-        throw error;
+  const enrichedPayload = payload
+    ? {
+        ...payload,
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
       }
-    },
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 100, // Small deduping interval to prevent infinite loops
-      shouldRetryOnError: false,
-      revalidateOnMount: true,
-      revalidateIfStale: true,
-      refreshInterval: 0,
-      refreshWhenHidden: false,
-      refreshWhenOffline: false,
-    }
+    : null;
+
+  return useSWR(
+    enrichedPayload ? ['/api/charts/chart-data-preview/', enrichedPayload] : null,
+    dataPreviewFetcher
+  );
+}
+
+// Warehouse hooks for chart builder
+export function useSchemas() {
+  return useSWR<string[]>('/api/warehouse/schemas', api.get);
+}
+
+export function useTables(schema: string | null) {
+  return useSWR<any[]>(schema ? `/api/warehouse/tables/${schema}` : null, api.get);
+}
+
+export function useColumns(schema: string | null, table: string | null) {
+  return useSWR<any[]>(
+    schema && table ? `/api/warehouse/table_columns/${schema}/${table}` : null,
+    api.get
   );
 }

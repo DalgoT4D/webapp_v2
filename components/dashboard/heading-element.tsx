@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -30,6 +30,12 @@ const sizeOptions = [
   { label: 'Extra Large (3x2)', value: '3x2', cols: 3, rows: 2 },
 ];
 
+const headingLevels = [
+  { label: 'H1', value: '1' },
+  { label: 'H2', value: '2' },
+  { label: 'H3', value: '3' },
+];
+
 export function HeadingElement({
   element,
   isSelected,
@@ -38,32 +44,7 @@ export function HeadingElement({
   onDelete,
 }: HeadingElementProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
-  const [editLevel, setEditLevel] = useState<1 | 2 | 3>(2);
   const config = element.config as HeadingConfig;
-
-  const handleEdit = () => {
-    setEditText(config.text);
-    setEditLevel(config.level);
-    setIsEditing(true);
-  };
-
-  const handleSave = () => {
-    onUpdate({
-      config: {
-        ...config,
-        text: editText,
-        level: editLevel,
-      },
-    });
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditText(config.text);
-    setEditLevel(config.level);
-    setIsEditing(false);
-  };
 
   const handleSizeChange = (sizeValue: string) => {
     const sizeOption = sizeOptions.find((option) => option.value === sizeValue);
@@ -79,19 +60,79 @@ export function HeadingElement({
 
   const getCurrentSizeValue = () => {
     const currentSize = `${element.gridSize.cols}x${element.gridSize.rows}`;
-    return sizeOptions.find((option) => option.value === currentSize)?.value || '1x1';
+    return sizeOptions.find((option) => option.value === currentSize)?.value || '2x1';
+  };
+
+  const handleTextChange = (text: string) => {
+    onUpdate({
+      config: {
+        ...config,
+        text,
+      },
+    });
+  };
+
+  const handleLevelChange = (level: string) => {
+    onUpdate({
+      config: {
+        ...config,
+        level: parseInt(level) as 1 | 2 | 3,
+      },
+    });
+  };
+
+  const handleColorChange = (color: string) => {
+    onUpdate({
+      config: {
+        ...config,
+        color,
+      },
+    });
   };
 
   const getHeadingSize = (level: 1 | 2 | 3) => {
     switch (level) {
       case 1:
-        return 'text-3xl font-bold';
+        return 'text-3xl';
       case 2:
-        return 'text-2xl font-semibold';
+        return 'text-2xl';
       case 3:
-        return 'text-xl font-medium';
+        return 'text-xl';
       default:
-        return 'text-2xl font-semibold';
+        return 'text-2xl';
+    }
+  };
+
+  const renderHeading = () => {
+    const className = `font-semibold ${getHeadingSize(config.level)}`;
+    const style = { color: config.color };
+    const text = config.text || 'Heading';
+
+    switch (config.level) {
+      case 1:
+        return (
+          <h1 className={className} style={style}>
+            {text}
+          </h1>
+        );
+      case 2:
+        return (
+          <h2 className={className} style={style}>
+            {text}
+          </h2>
+        );
+      case 3:
+        return (
+          <h3 className={className} style={style}>
+            {text}
+          </h3>
+        );
+      default:
+        return (
+          <h2 className={className} style={style}>
+            {text}
+          </h2>
+        );
     }
   };
 
@@ -108,9 +149,12 @@ export function HeadingElement({
             <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded">
               <GripVertical className="h-4 w-4 text-gray-400" />
             </div>
-            <div className="flex items-center gap-2">
-              <Heading className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Heading</CardTitle>
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Heading className="h-4 w-4" />
+                {element.title || 'Heading'}
+              </CardTitle>
+              <CardDescription className="text-xs">H{config.level} Element</CardDescription>
             </div>
           </div>
 
@@ -133,7 +177,7 @@ export function HeadingElement({
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleEdit();
+                  setIsEditing(!isEditing);
                 }}
               >
                 <Settings className="h-4 w-4" />
@@ -156,41 +200,53 @@ export function HeadingElement({
 
       <CardContent className="pt-0">
         {isEditing ? (
-          <div className="space-y-3">
-            <Input
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              placeholder="Enter heading text..."
-              className="text-lg font-semibold"
-            />
-            <Select
-              value={editLevel.toString()}
-              onValueChange={(value) => setEditLevel(parseInt(value) as 1 | 2 | 3)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select heading level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Heading 1 (Large)</SelectItem>
-                <SelectItem value="2">Heading 2 (Medium)</SelectItem>
-                <SelectItem value="3">Heading 3 (Small)</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave}>
-                Save
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleCancel}>
-                Cancel
-              </Button>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Text</label>
+              <Input
+                value={config.text}
+                onChange={(e) => handleTextChange(e.target.value)}
+                placeholder="Enter heading text..."
+                className="mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Heading Level</label>
+                <Select value={config.level.toString()} onValueChange={handleLevelChange}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {headingLevels.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Color</label>
+                <Input
+                  type="color"
+                  value={config.color}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  className="mt-1 w-20 h-10"
+                />
+              </div>
             </div>
           </div>
         ) : (
           <div
-            className={`p-4 border rounded-md bg-muted/30 text-center ${getHeadingSize(config.level)}`}
-            style={{ color: config.color }}
+            className="w-full"
+            style={{
+              minHeight: `${Math.max(60, element.gridSize.rows * 60)}px`,
+            }}
           >
-            {config.text || 'Enter heading text...'}
+            {renderHeading()}
           </div>
         )}
       </CardContent>

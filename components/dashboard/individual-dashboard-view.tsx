@@ -1,253 +1,298 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { MainLayout } from '@/components/main-layout';
-import { DashboardContent } from '@/components/dashboard/dashboard-content';
-import { DashboardChat } from '@/components/dashboard/dashboard-chat';
+import { useState, useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MessageSquare, Share2, Download, MoreVertical } from 'lucide-react';
-import Link from 'next/link';
-import type { DashboardType } from './dashboard-view';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { apiGet } from '@/lib/api';
-import { embedDashboard, EmbedDashboardParams } from '@superset-ui/embedded-sdk';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft, Edit, Share2, Download, MoreHorizontal } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { DashboardElementData } from './dashboard-builder';
+import { ChartElement } from './chart-element';
+import { TextElement } from './text-element';
+import { HeadingElement } from './heading-element';
 
 interface IndividualDashboardViewProps {
   dashboardId: string;
 }
 
+interface Dashboard {
+  id: string;
+  title: string;
+  description?: string;
+  elements: DashboardElementData[];
+  createdAt: string;
+  updatedAt: string;
+  author: string;
+  isPublic: boolean;
+  tags: string[];
+}
+
 function ErrorFallback({ error }: { error: Error }) {
   return (
     <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-      <h2 className="text-base font-bold text-red-800">Component Error:</h2>
+      <h2 className="text-base font-bold text-red-800">Dashboard Error:</h2>
       <p className="text-sm text-red-600">{error.message}</p>
     </div>
   );
 }
 
-// Fetch dashboard info from backend
-type DashboardInfo = {
-  id: string;
-  dashboard_title: string;
-  description: string;
-  type: DashboardType;
-};
-
 export function IndividualDashboardView({ dashboardId }: IndividualDashboardViewProps) {
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [embedInfo, setEmbedInfo] = useState<null | {
-    uuid: string;
-    host: string;
-    guest_token: string;
-  }>(null);
-  const [embedLoading, setEmbedLoading] = useState(false);
-  const [embedError, setEmbedError] = useState<string | null>(null);
-  const supersetContainerRef = useRef<HTMLDivElement>(null);
-  const [dashboard, setDashboard] = useState<DashboardInfo | null>(null);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const router = useRouter();
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch Superset embed info when dashboardId changes
   useEffect(() => {
-    let isMounted = true;
-    setEmbedLoading(true);
-    setEmbedError(null);
-    setEmbedInfo(null);
-    apiGet(`/api/superset/dashboards/${dashboardId}/embed_info/`)
-      .then((data) => {
-        if (isMounted) setEmbedInfo(data);
-      })
-      .catch((err) => {
-        if (isMounted) setEmbedError(err.message || 'Failed to load embed info');
-      })
-      .finally(() => {
-        if (isMounted) setEmbedLoading(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [dashboardId]);
+    async function fetchDashboard() {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  // Embed the Superset dashboard when embedInfo is available
-  useEffect(() => {
-    if (embedInfo && supersetContainerRef.current) {
-      // Clear previous embed if any
-      supersetContainerRef.current.innerHTML = '';
-      embedDashboard({
-        id: embedInfo.uuid,
-        supersetDomain: embedInfo.host,
-        mountPoint: supersetContainerRef.current,
-        fetchGuestToken: () => Promise.resolve(embedInfo.guest_token),
-        dashboardUiConfig: {
-          // dashboard UI config: hideTitle, hideTab, hideChartControls, filters.visible, filters.expanded (optional)
-          hideTitle: true,
-          filters: {
-            expanded: true,
-          },
-        },
-      } as EmbedDashboardParams);
+        // TODO: Replace with actual API call
+        // const response = await fetch(`/api/dashboards/${dashboardId}`);
+        // if (!response.ok) throw new Error('Failed to fetch dashboard');
+        // const data = await response.json();
+
+        // Mock data for now
+        const mockDashboard: Dashboard = {
+          id: dashboardId,
+          title: 'Sample Dashboard',
+          description: 'This is a sample dashboard with various elements',
+          elements: [
+            {
+              id: 'element-1',
+              type: 'heading',
+              position: { x: 0, y: 0 },
+              size: { width: 600, height: 80 },
+              gridSize: { cols: 3, rows: 1 },
+              config: {
+                text: 'Dashboard Overview',
+                level: 1,
+                color: '#1a365d',
+              },
+              title: 'Main Heading',
+            },
+            {
+              id: 'element-2',
+              type: 'chart',
+              position: { x: 0, y: 100 },
+              size: { width: 400, height: 300 },
+              gridSize: { cols: 2, rows: 2 },
+              config: {
+                chartType: 'bar',
+                data: [
+                  { name: 'Jan', value: 100 },
+                  { name: 'Feb', value: 120 },
+                  { name: 'Mar', value: 90 },
+                  { name: 'Apr', value: 150 },
+                  { name: 'May', value: 110 },
+                  { name: 'Jun', value: 180 },
+                ],
+                xKey: 'name',
+                yKey: 'value',
+                title: 'Monthly Performance',
+              },
+              title: 'Performance Chart',
+            },
+            {
+              id: 'element-3',
+              type: 'text',
+              position: { x: 420, y: 100 },
+              size: { width: 300, height: 200 },
+              gridSize: { cols: 1, rows: 1 },
+              config: {
+                content:
+                  'This dashboard shows key performance indicators and metrics for the current quarter. The data is updated in real-time to provide the most current insights.',
+                fontSize: 14,
+                fontWeight: 'normal',
+                color: '#4a5568',
+              },
+              title: 'Description',
+            },
+          ],
+          createdAt: '2024-01-15T10:30:00Z',
+          updatedAt: '2024-01-20T14:20:00Z',
+          author: 'John Doe',
+          isPublic: true,
+          tags: ['analytics', 'performance', 'quarterly'],
+        };
+
+        // Simulate API delay
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        setDashboard(mockDashboard);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [embedInfo]);
 
-  // Trigger resize event when chat opens/closes to help charts adapt
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 300); // Small delay to allow transition to complete
-
-    return () => clearTimeout(timer);
-  }, [isChatOpen]);
-
-  // Fetch dashboard info when dashboardId changes
-  useEffect(() => {
-    let isMounted = true;
-    setDashboardLoading(true);
-    setDashboardError(null);
-    setDashboard(null);
-    apiGet(`/api/superset/dashboards/${dashboardId}`)
-      .then((data) => {
-        if (isMounted) setDashboard(data);
-      })
-      .catch((err) => {
-        if (isMounted) setDashboardError(err.message || 'Failed to load dashboard info');
-      })
-      .finally(() => {
-        if (isMounted) setDashboardLoading(false);
-      });
-    return () => {
-      isMounted = false;
-    };
+    fetchDashboard();
   }, [dashboardId]);
 
-  if (dashboardLoading) {
-    return <div className="p-6 text-center">Loading dashboard info...</div>;
-  }
+  const handleEdit = () => {
+    router.push(`/dashboards/${dashboardId}/edit`);
+  };
 
-  if (dashboardError || !dashboard) {
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      // TODO: Show success toast
+      console.log('Dashboard link copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  const handleDownload = () => {
+    // TODO: Implement dashboard export functionality
+    console.log('Download dashboard');
+  };
+
+  const renderElement = (element: DashboardElementData) => {
+    const commonProps = {
+      element,
+      isSelected: false,
+      onSelect: () => {},
+      onUpdate: () => {},
+      onDelete: () => {},
+    };
+
+    switch (element.type) {
+      case 'chart':
+        return <ChartElement key={element.id} {...commonProps} />;
+      case 'text':
+        return <TextElement key={element.id} {...commonProps} />;
+      case 'heading':
+        return <HeadingElement key={element.id} {...commonProps} />;
+      default:
+        return null;
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboards">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboards
-            </Link>
-          </Button>
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
         </div>
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold text-muted-foreground mb-2">Dashboard Not Found</h1>
-          <p className="text-muted-foreground">
-            {dashboardError || 'The requested dashboard could not be found.'}
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
         </div>
       </div>
     );
   }
 
-  // Handle element selection for targeted questions
-  const handleElementSelect = (elementId: string) => {
-    if (elementId) {
-      setSelectedElement(elementId);
-      setIsChatOpen(true);
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Dashboard Header with navigation and actions */}
-      <div className="flex items-center justify-between gap-4 p-4 border-b">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboards">
+  if (error) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Dashboard</h2>
+          <p className="text-red-600">{error}</p>
+          <Button variant="outline" onClick={() => router.push('/dashboards')} className="mt-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboards
-          </Link>
-        </Button>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={isChatOpen ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className="relative"
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {isChatOpen ? 'Close Assistant' : 'Ask Assistant'}
-            {!isChatOpen && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-              </span>
-            )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboard) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Dashboard not found</p>
+          <Button variant="outline" onClick={() => router.push('/dashboards')} className="mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboards
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" onClick={() => router.push('/dashboards')} className="mb-2">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboards
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Dashboard Title and Description */}
-      <div className="p-4 border-b">
-        <h1 className="text-2xl font-bold tracking-tight">{dashboard.dashboard_title}</h1>
-        <p className="text-muted-foreground">{dashboard.description}</p>
-      </div>
-
-      {/* Main content area with chat sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Superset Embed */}
-        <div className="w-full flex flex-col items-center justify-center p-4 mt-50">
-          {embedLoading && <div className="text-muted-foreground">Loading dashboard...</div>}
-          {embedError && <div className="text-red-600">{embedError}</div>}
-          <div className="embeddedsuperset w-full" style={{ maxWidth: '1600px' }} key={dashboardId}>
-            <div ref={supersetContainerRef} className="bg-white rounded-lg shadow border" />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleShare}>
+              <Share2 className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button variant="default" size="sm" onClick={handleEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
           </div>
         </div>
-        {/* Dashboard Content */}
-        <div
-          className={`flex-1 overflow-auto transition-all duration-300 ${isChatOpen ? 'md:w-2/3' : 'w-full'}`}
-        >
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <DashboardContent
-              dashboardType={dashboard.type}
-              onElementSelect={handleElementSelect}
-              isChatOpen={isChatOpen}
-            />
-          </ErrorBoundary>
-        </div>
 
-        {/* Chat Sidebar */}
-        {isChatOpen && (
-          <div className="w-full md:w-1/3 border-l border-border overflow-hidden flex flex-col">
-            <ErrorBoundary FallbackComponent={ErrorFallback}>
-              <DashboardChat
-                dashboardType={dashboard.type}
-                selectedElement={selectedElement}
-                onClose={() => setIsChatOpen(false)}
-              />
-            </ErrorBoundary>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+          {dashboard.description && (
+            <p className="text-muted-foreground text-lg">{dashboard.description}</p>
+          )}
+
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span>Created by {dashboard.author}</span>
+            <span>•</span>
+            <span>Updated {new Date(dashboard.updatedAt).toLocaleDateString()}</span>
+            {dashboard.isPublic && (
+              <>
+                <span>•</span>
+                <Badge variant="secondary">Public</Badge>
+              </>
+            )}
           </div>
-        )}
+
+          {dashboard.tags.length > 0 && (
+            <div className="flex gap-2 mt-2">
+              {dashboard.tags.map((tag) => (
+                <Badge key={tag} variant="outline">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Dashboard Content */}
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <div className="space-y-6">
+          {dashboard.elements.length === 0 ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <p className="text-muted-foreground mb-4">This dashboard is empty</p>
+                  <Button onClick={handleEdit}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Add Elements
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6">{dashboard.elements.map(renderElement)}</div>
+          )}
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

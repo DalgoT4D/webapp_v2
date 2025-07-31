@@ -15,7 +15,6 @@ import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortab
 import { DashboardCanvas } from './dashboard-canvas';
 import { ComponentPalette } from './component-palette';
 import { DashboardToolbar } from './dashboard-toolbar';
-import { DashboardElement } from './dashboard-element';
 import { ChartElement } from './chart-element';
 import { TextElement } from './text-element';
 import { HeadingElement } from './heading-element';
