@@ -105,7 +105,6 @@ export function ChartBuilder({
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
           customizations: formData.customizations,
-          title: formData.title || '',
         }
       : null;
 
