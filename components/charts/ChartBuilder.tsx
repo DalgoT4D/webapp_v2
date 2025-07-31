@@ -42,10 +42,16 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
       };
     case 'line':
       return {
-        lineStyle: 'straight',
+        lineStyle: 'smooth',
         showDataPoints: true,
+        showTooltip: true,
+        showLegend: true,
+        showDataLabels: false,
+        dataLabelPosition: 'top',
         xAxisTitle: '',
         yAxisTitle: '',
+        xAxisLabelRotation: 'horizontal',
+        yAxisLabelRotation: 'horizontal',
       };
     case 'number':
       return {
