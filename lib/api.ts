@@ -1,6 +1,12 @@
 // Centralized API config and fetch utility
 
+import { useAuthStore } from '@/stores/authStore';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
+
+// Track ongoing refresh request to prevent multiple simultaneous refreshes
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> = Promise.resolve(null);
 
 // Placeholder for getting auth token (to be implemented)
 function getAuthToken() {
@@ -12,11 +18,75 @@ function getAuthToken() {
   return undefined;
 }
 
+function getRefreshToken() {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('refreshToken') || undefined;
+  }
+  return undefined;
+}
+
 function getSelectOrg() {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('selectedOrg') || undefined;
   }
   return undefined;
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    console.error('No refresh token available');
+    return null;
+  }
+
+  try {
+    console.log('Attempting to refresh token...');
+
+    const response = await fetch(`${API_BASE_URL}/api/token/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+
+    if (!response.ok) {
+      console.error('Token refresh failed:', response.status, response.statusText);
+
+      // If refresh token is invalid (401, 403), clear it
+      if (response.status === 401 || response.status === 403) {
+        console.log('Refresh token is invalid, clearing tokens');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('authToken');
+      }
+
+      return null;
+    }
+
+    const data = await response.json();
+    const newAccessToken = data.token;
+
+    if (newAccessToken) {
+      // Update localStorage and auth store
+      localStorage.setItem('authToken', newAccessToken);
+
+      // Update auth store if available
+      if (typeof window !== 'undefined') {
+        const store = useAuthStore.getState();
+        store.setToken(newAccessToken);
+      }
+
+      console.log('Token refreshed successfully');
+      return newAccessToken;
+    }
+
+    console.error('No token in refresh response');
+    return null;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+
+    // On network errors, don't clear tokens - they might be temporary
+    return null;
+  }
 }
 
 function getHeaders() {
@@ -29,7 +99,27 @@ function getHeaders() {
   };
 }
 
-async function apiFetch(path: string, options: RequestInit = {}) {
+function handleAuthFailure() {
+  console.log('Authentication failed, logging out user');
+
+  if (typeof window !== 'undefined') {
+    // Clear all auth-related data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('selectedOrg');
+
+    // Update auth store
+    const store = useAuthStore.getState();
+    store.logout();
+
+    // Navigate to login page
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+  }
+}
+
+async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
   const headers: HeadersInit = {
     ...(options.headers || {}),
@@ -40,10 +130,36 @@ async function apiFetch(path: string, options: RequestInit = {}) {
     url,
     method: options.method,
     headers,
+    retryCount,
   });
 
   try {
     const response = await fetch(url, { ...options, headers });
+
+    // Handle 401 Unauthorized - attempt to refresh token and retry once
+    if (response.status === 401 && retryCount === 0) {
+      console.log('Received 401, attempting token refresh...');
+
+      // Prevent multiple simultaneous refresh attempts
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = refreshAccessToken().finally(() => {
+          isRefreshing = false;
+        });
+      }
+
+      const newToken = await refreshPromise;
+
+      if (newToken) {
+        console.log('Token refreshed, retrying original request...');
+        // Retry the original request with the new token
+        return apiFetch(path, options, retryCount + 1);
+      } else {
+        // Token refresh failed, logout user
+        handleAuthFailure();
+        throw new Error('Authentication failed. Please log in again.');
+      }
+    }
 
     // Check if response has JSON content
     const contentType = response.headers.get('content-type');
@@ -68,6 +184,7 @@ async function apiFetch(path: string, options: RequestInit = {}) {
       ok: response.ok,
       contentType,
       data,
+      retryCount,
     });
 
     if (!response.ok) {
@@ -79,6 +196,7 @@ async function apiFetch(path: string, options: RequestInit = {}) {
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         data,
+        retryCount,
       });
 
       // Handle different error formats from the backend
