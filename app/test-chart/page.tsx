@@ -36,9 +36,9 @@ export default function TestChartPage() {
           chart_type: 'bar',
           computation_type: 'raw' as const,
           schema_name: selectedSchema,
-          table: selectedTable,
-          xaxis: selectedXAxis,
-          yaxis: selectedYAxis,
+          table_name: selectedTable,
+          x_axis: selectedXAxis,
+          y_axis: selectedYAxis,
           offset: 0,
           limit: 5,
         }

@@ -15,7 +15,7 @@ export default function NewChartPage() {
       const result = await createChart(chartData);
       toast.success('Chart created successfully');
       router.push(`/charts/${result.id}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to create chart');
     }
   };

@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
 import { useState } from 'react';
-import ChartBuilder from '@/components/charts/ChartBuilder';
+import { ChartBuilder } from '@/components/charts/ChartBuilder';
+import type { ChartCreate } from '@/types/charts';
 
 export default function TestChartBuilderPage() {
   const [log, setLog] = useState<string[]>(['Page loaded']);
@@ -11,9 +11,8 @@ export default function TestChartBuilderPage() {
     setLog((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: ChartCreate) => {
     addLog('Save called with data: ' + JSON.stringify(data));
-    console.log('Chart data:', data);
   };
 
   const handleCancel = () => {
@@ -27,8 +26,8 @@ export default function TestChartBuilderPage() {
       <div className="mb-4 p-4 bg-gray-100 rounded">
         <h2 className="font-semibold mb-2">Debug Log:</h2>
         <div className="font-mono text-sm">
-          {log.map((entry, i) => (
-            <div key={i}>{entry}</div>
+          {log.map((entry, index) => (
+            <div key={`log-${index}`}>{entry}</div>
           ))}
         </div>
       </div>

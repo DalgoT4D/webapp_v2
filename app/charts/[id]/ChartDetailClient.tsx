@@ -1,10 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useChart, useChartData } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Download, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -15,7 +14,6 @@ interface ChartDetailClientProps {
 }
 
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
-  const router = useRouter();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
 
   // Build payload for chart data

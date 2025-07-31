@@ -20,7 +20,7 @@ interface ChartExportProps {
   chartId: number;
   chartTitle: string;
   trigger?: React.ReactNode;
-  echartsRef?: React.RefObject<any>;
+  chartInstance?: any; // echarts.ECharts instance
 }
 
 const exportFormats = [
@@ -60,7 +60,7 @@ export default function ChartExport({
   chartId,
   chartTitle,
   trigger,
-  echartsRef,
+  chartInstance,
 }: ChartExportProps) {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('png');
   const [isOpen, setIsOpen] = useState(false);
@@ -68,29 +68,26 @@ export default function ChartExport({
 
   const handleExport = async () => {
     try {
-      if (selectedFormat === 'png' && echartsRef?.current) {
+      if (selectedFormat === 'png' && chartInstance) {
         // Use ECharts instance to export as PNG
-        const echartsInstance = echartsRef.current.getEchartsInstance();
-        if (echartsInstance) {
-          const url = echartsInstance.getDataURL({
-            type: 'png',
-            pixelRatio: 2,
-            backgroundColor: '#fff',
-          });
+        const url = chartInstance.getDataURL({
+          type: 'png',
+          pixelRatio: 2,
+          backgroundColor: '#fff',
+        });
 
-          // Create download link
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${chartTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+        // Create download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${chartTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
 
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-          setIsOpen(false);
-          return;
-        }
+        setIsOpen(false);
+        return;
       }
 
       // Fallback to API export for other formats or if no echarts ref

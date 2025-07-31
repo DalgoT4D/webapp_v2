@@ -6,6 +6,7 @@ export interface Chart {
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
+  is_favorite?: boolean;
   extra_config: Record<string, any>;
   echarts_config: Record<string, any>;
   created_at: string;
@@ -37,6 +38,7 @@ export interface ChartUpdate {
   computation_type?: 'raw' | 'aggregated';
   schema_name?: string;
   table_name?: string;
+  is_favorite?: boolean;
   extra_config?: {
     x_axis_column?: string;
     y_axis_column?: string;
@@ -98,3 +100,15 @@ export interface TableInfo {
   table_schema: string;
   table_type: string;
 }
+
+// Extended ChartCreate type for internal ChartBuilder state
+export type ChartBuilderFormData = Partial<ChartCreate> & {
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  x_axis_column?: string;
+  y_axis_column?: string;
+  dimension_column?: string;
+  aggregate_column?: string;
+  aggregate_function?: string;
+  extra_dimension_column?: string;
+  customizations?: Record<string, any>;
+};

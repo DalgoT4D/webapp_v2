@@ -11,12 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { ChartCreate } from '@/types/charts';
+import type { ChartBuilderFormData } from '@/types/charts';
 
 interface ChartCustomizationsProps {
   chartType: string;
-  formData: Partial<ChartCreate>;
-  onChange: (updates: Partial<ChartCreate>) => void;
+  formData: ChartBuilderFormData;
+  onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
 }
 

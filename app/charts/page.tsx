@@ -64,7 +64,7 @@ export default function ChartsPage() {
       toast.success('Chart deleted successfully');
       mutate();
       setDeleteChartId(null);
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete chart');
     }
   };
@@ -77,7 +77,7 @@ export default function ChartsPage() {
       });
       toast.success(chart.is_favorite ? 'Removed from favorites' : 'Added to favorites');
       mutate();
-    } catch (error) {
+    } catch {
       toast.error('Failed to update favorite status');
     }
   };

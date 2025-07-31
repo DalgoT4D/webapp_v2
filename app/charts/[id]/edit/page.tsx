@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import type { ChartCreate, ChartUpdate } from '@/types/charts';
+import type { ChartCreate, ChartUpdate, ChartBuilderFormData } from '@/types/charts';
 
 export default function EditChartPage() {
   const params = useParams();
@@ -37,7 +37,7 @@ export default function EditChartPage() {
 
       toast.success('Chart updated successfully');
       router.push(`/charts/${chartId}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to update chart');
     }
   };
@@ -71,7 +71,7 @@ export default function EditChartPage() {
   }
 
   // Convert Chart to ChartCreate format for ChartBuilder
-  const initialData: Partial<ChartCreate> = {
+  const initialData: ChartBuilderFormData = {
     title: chart.title,
     description: chart.description,
     chart_type: chart.chart_type as 'bar' | 'pie' | 'line',

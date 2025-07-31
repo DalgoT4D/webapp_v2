@@ -9,9 +9,10 @@ interface ChartPreviewProps {
   config?: Record<string, any>;
   isLoading?: boolean;
   error?: any;
+  onChartReady?: (chart: echarts.ECharts) => void;
 }
 
-export function ChartPreview({ config, isLoading, error }: ChartPreviewProps) {
+export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -31,10 +32,15 @@ export function ChartPreview({ config, isLoading, error }: ChartPreviewProps) {
 
       // Set chart option
       chartInstance.current.setOption(config);
+
+      // Notify parent component that chart is ready
+      if (onChartReady) {
+        onChartReady(chartInstance.current);
+      }
     } catch (err) {
       console.error('Error initializing chart:', err);
     }
-  }, [config]);
+  }, [config, onChartReady]);
 
   useEffect(() => {
     initializeChart();

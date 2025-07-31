@@ -11,14 +11,14 @@ import { ChartMetadata } from './ChartMetadata';
 import { ChartPreview } from './ChartPreview';
 import { DataPreview } from './DataPreview';
 import { useChartData, useChartDataPreview } from '@/hooks/api/useChart';
-import type { ChartCreate, ChartDataPayload } from '@/types/charts';
+import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { debounce } from 'lodash';
 
 interface ChartBuilderProps {
   onSave: (chart: ChartCreate) => void;
   onCancel: () => void;
   isSaving?: boolean;
-  initialData?: Partial<ChartCreate>;
+  initialData?: ChartBuilderFormData;
 }
 
 export function ChartBuilder({
@@ -27,7 +27,7 @@ export function ChartBuilder({
   isSaving = false,
   initialData,
 }: ChartBuilderProps) {
-  const [formData, setFormData] = useState<Partial<ChartCreate>>({
+  const [formData, setFormData] = useState<ChartBuilderFormData>({
     chart_type: 'bar',
     computation_type: 'raw',
     customizations: {},
@@ -72,7 +72,7 @@ export function ChartBuilder({
     isLoading: previewLoading,
   } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
 
-  const handleFormChange = useCallback((updates: Partial<ChartCreate>) => {
+  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 

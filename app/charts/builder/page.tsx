@@ -2,48 +2,35 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import ChartBuilder from '@/components/charts/ChartBuilder';
+import { ChartBuilder } from '@/components/charts/ChartBuilder';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useChartSave } from '@/hooks/api/useChart';
-import { useToast } from '@/components/ui/use-toast';
+import { useCreateChart } from '@/hooks/api/useChart';
+import { toast } from 'sonner';
+import type { ChartCreate } from '@/types/charts';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
-  const { save } = useChartSave();
-  const { toast } = useToast();
+  const { trigger: createChart, isMutating } = useCreateChart();
 
-  const handleSave = async (chart: any) => {
+  const handleSave = async (chart: ChartCreate) => {
     try {
-      console.log('ChartBuilderPage - Saving chart with payload:', chart);
-      const response = await save(chart);
-      console.log('ChartBuilderPage - Save response:', response);
+      const response = await createChart(chart);
 
-      toast({
-        title: 'Success',
-        description: 'Chart created successfully',
-      });
+      toast.success('Chart created successfully');
 
       // Navigate back to charts list
       router.push('/charts');
-    } catch (error: any) {
-      console.error('ChartBuilderPage - Failed to save chart:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save chart';
 
       // Check if it's an authentication error
-      if (error.message === 'unauthorized' || error.message.includes('unauthorized')) {
-        toast({
-          title: 'Authentication Error',
-          description: 'Please login again to continue',
-          variant: 'destructive',
-        });
+      if (errorMessage === 'unauthorized' || errorMessage.includes('unauthorized')) {
+        toast.error('Please login again to continue');
         // Redirect to login
         router.push('/login');
       } else {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to save chart',
-          variant: 'destructive',
-        });
+        toast.error(errorMessage);
       }
     }
   };
@@ -76,7 +63,7 @@ export default function ChartBuilderPage() {
       </div>
 
       {/* Chart Builder */}
-      <ChartBuilder onSave={handleSave} onCancel={handleCancel} />
+      <ChartBuilder onSave={handleSave} onCancel={handleCancel} isSaving={isMutating} />
     </div>
   );
 }

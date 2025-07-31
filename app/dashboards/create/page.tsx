@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { DashboardBuilder } from '@/components/dashboard/dashboard-builder';
 
 export default function CreateDashboardPage() {

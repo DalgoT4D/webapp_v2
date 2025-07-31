@@ -3,11 +3,11 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { ChartCreate } from '@/types/charts';
+import type { ChartBuilderFormData } from '@/types/charts';
 
 interface ChartMetadataProps {
-  formData: Partial<ChartCreate>;
-  onChange: (updates: Partial<ChartCreate>) => void;
+  formData: ChartBuilderFormData;
+  onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
 }
 

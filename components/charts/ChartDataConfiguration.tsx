@@ -11,11 +11,11 @@ import {
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSchemas, useTables, useColumns } from '@/hooks/api/useChart';
-import type { ChartCreate } from '@/types/charts';
+import type { ChartBuilderFormData } from '@/types/charts';
 
 interface ChartDataConfigurationProps {
-  formData: Partial<ChartCreate>;
-  onChange: (updates: Partial<ChartCreate>) => void;
+  formData: ChartBuilderFormData;
+  onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
 }
 
@@ -245,12 +245,12 @@ export function ChartDataConfiguration({
         </>
       )}
 
-      {formData.chart_type !== 'number' &&
+      {!['number'].includes(formData.chart_type as string) &&
         formData.computation_type === 'aggregated' &&
         columns && (
           <>
             {/* Only show dimension column for non-number charts */}
-            {formData.chart_type !== 'number' && (
+            {!['number'].includes(formData.chart_type as string) && (
               <div className="space-y-2">
                 <Label htmlFor="dimension">Dimension Column</Label>
                 <Select

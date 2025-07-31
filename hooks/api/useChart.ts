@@ -74,6 +74,18 @@ export function useChartDataPreview(
   );
 }
 
+// Chart export hook
+export function useChartExport() {
+  return useSWRMutation(
+    '/api/charts/export/',
+    (url: string, { arg }: { arg: { chart_id: number; format: string } }) =>
+      api.post(url, {
+        ...arg,
+        responseType: arg.format === 'png' ? 'blob' : 'json',
+      })
+  );
+}
+
 // Warehouse hooks for chart builder
 export function useSchemas() {
   return useSWR<string[]>('/api/warehouse/schemas', api.get);
