@@ -55,9 +55,12 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
       };
     case 'number':
       return {
+        numberSize: 'medium',
         subtitle: '',
         numberFormat: 'default',
         decimalPlaces: 0,
+        numberPrefix: '',
+        numberSuffix: '',
       };
     default:
       return {};
