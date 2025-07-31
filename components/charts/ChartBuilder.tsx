@@ -32,8 +32,11 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
       };
     case 'pie':
       return {
-        chartStyle: 'pie',
+        chartStyle: 'donut',
         labelFormat: 'percentage',
+        showDataLabels: true,
+        dataLabelPosition: 'outside',
+        showTooltip: true,
         showLegend: true,
         legendPosition: 'right',
       };
@@ -92,10 +95,8 @@ export function ChartBuilder({
           aggregate_col: formData.aggregate_column,
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
-          customizations: {
-            ...formData.customizations,
-            title: formData.title || '',
-          },
+          customizations: formData.customizations,
+          title: formData.title || '',
         }
       : null;
 

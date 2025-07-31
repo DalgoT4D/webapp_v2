@@ -148,17 +148,15 @@ function BarChartCustomizations({
           <Label htmlFor="showTooltip">Show Tooltip on Hover</Label>
         </div>
 
-        {hasExtraDimension && (
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="showLegend"
-              checked={customizations.showLegend !== false}
-              onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
-              disabled={disabled}
-            />
-            <Label htmlFor="showLegend">Show Legend</Label>
-          </div>
-        )}
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="showLegend"
+            checked={customizations.showLegend !== false}
+            onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
+            disabled={disabled}
+          />
+          <Label htmlFor="showLegend">Show Legend</Label>
+        </div>
       </div>
 
       {/* Data Labels */}
@@ -269,85 +267,109 @@ function PieChartCustomizations({
 }: CustomizationProps) {
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>Chart Style</Label>
-        <RadioGroup
-          value={customizations.chartStyle || 'pie'}
-          onValueChange={(value) => updateCustomization('chartStyle', value)}
-          disabled={disabled}
-        >
-          <div className="flex items-center space-x-2 mt-2">
-            <RadioGroupItem value="pie" id="pie" />
-            <Label htmlFor="pie">Full Pie</Label>
-          </div>
-          <div className="flex items-center space-x-2 mt-2">
-            <RadioGroupItem value="donut" id="donut" />
-            <Label htmlFor="donut">Donut Chart</Label>
-          </div>
-        </RadioGroup>
+      {/* Legend */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Legend</h4>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="showLegend"
+            checked={customizations.showLegend !== false}
+            onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
+            disabled={disabled}
+          />
+          <Label htmlFor="showLegend">Show Legend</Label>
+        </div>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="showDataLabels"
-          checked={customizations.showDataLabels !== false}
-          onCheckedChange={(checked) => updateCustomization('showDataLabels', checked)}
-          disabled={disabled}
-        />
-        <Label htmlFor="showDataLabels">Show Data Labels</Label>
-      </div>
+      {/* Basic Display Options */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Display Options</h4>
 
-      {customizations.showDataLabels !== false && (
         <div className="space-y-2">
-          <Label htmlFor="labelFormat">Label Format</Label>
-          <Select
-            value={customizations.labelFormat || 'percentage'}
-            onValueChange={(value) => updateCustomization('labelFormat', value)}
+          <Label>Chart Style</Label>
+          <RadioGroup
+            value={customizations.chartStyle || 'donut'}
+            onValueChange={(value) => updateCustomization('chartStyle', value)}
             disabled={disabled}
           >
-            <SelectTrigger id="labelFormat">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="percentage">Percentage only</SelectItem>
-              <SelectItem value="value">Value only</SelectItem>
-              <SelectItem value="name_percentage">Name + Percentage</SelectItem>
-              <SelectItem value="name_value">Name + Value</SelectItem>
-            </SelectContent>
-          </Select>
+            <div className="flex items-center space-x-2 mt-2">
+              <RadioGroupItem value="donut" id="donut" />
+              <Label htmlFor="donut">Donut Chart</Label>
+            </div>
+            <div className="flex items-center space-x-2 mt-2">
+              <RadioGroupItem value="pie" id="pie" />
+              <Label htmlFor="pie">Full Pie</Label>
+            </div>
+          </RadioGroup>
         </div>
-      )}
 
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="showLegend"
-          checked={customizations.showLegend !== false}
-          onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
-          disabled={disabled}
-        />
-        <Label htmlFor="showLegend">Show Legend</Label>
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="showTooltip"
+            checked={customizations.showTooltip !== false}
+            onCheckedChange={(checked) => updateCustomization('showTooltip', checked)}
+            disabled={disabled}
+          />
+          <Label htmlFor="showTooltip">Show Tooltip on Hover</Label>
+        </div>
       </div>
 
-      {customizations.showLegend !== false && (
-        <div className="space-y-2">
-          <Label htmlFor="legendPosition">Legend Position</Label>
-          <Select
-            value={customizations.legendPosition || 'right'}
-            onValueChange={(value) => updateCustomization('legendPosition', value)}
+      {/* Data Labels */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Data Labels</h4>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="showDataLabels"
+            checked={customizations.showDataLabels !== false}
+            onCheckedChange={(checked) => updateCustomization('showDataLabels', checked)}
             disabled={disabled}
-          >
-            <SelectTrigger id="legendPosition">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="right">Right</SelectItem>
-              <SelectItem value="bottom">Bottom</SelectItem>
-              <SelectItem value="left">Left</SelectItem>
-              <SelectItem value="top">Top</SelectItem>
-            </SelectContent>
-          </Select>
+          />
+          <Label htmlFor="showDataLabels">Show Data Labels</Label>
         </div>
-      )}
+
+        {customizations.showDataLabels !== false && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="labelFormat">Label Format</Label>
+              <Select
+                value={customizations.labelFormat || 'percentage'}
+                onValueChange={(value) => updateCustomization('labelFormat', value)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="labelFormat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percentage">Percentage only</SelectItem>
+                  <SelectItem value="value">Value only</SelectItem>
+                  <SelectItem value="name_percentage">Name + Percentage</SelectItem>
+                  <SelectItem value="name_value">Name + Value</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dataLabelPosition">Label Position</Label>
+              <Select
+                value={customizations.dataLabelPosition || 'outside'}
+                onValueChange={(value) => updateCustomization('dataLabelPosition', value)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="dataLabelPosition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="outside">Outside (Top)</SelectItem>
+                  <SelectItem value="inside">Inside (Mid)</SelectItem>
+                  <SelectItem value="center">Center (Bottom)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
