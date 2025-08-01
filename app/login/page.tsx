@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ interface LoginForm {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     isAuthenticated,
     token,
@@ -123,6 +124,12 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold mb-2">Welcome to Dalgo</h1>
           <p className="text-gray-600 dark:text-gray-400">Sign in to your account</p>
         </div>
+
+        {searchParams.get('reset') === 'success' && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 px-4 py-3 rounded text-sm">
+            Password reset successful! You can now sign in with your new password.
+          </div>
+        )}
 
         <div>
           <Label htmlFor="username">Business Email</Label>
