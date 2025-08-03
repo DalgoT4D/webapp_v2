@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, User, LogOut, ChevronDown, Bell, Menu, AlignJustify } from 'lucide-react';
+import { BarChart3, User, LogOut, ChevronDown, Bell, Menu, AlignJustify, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -221,6 +221,10 @@ export function Header({
               <DropdownMenuItem onClick={() => router.push('/settings')}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/change-password')}>
+                <Key className="mr-2 h-4 w-4" />
+                <span>Change Password</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
