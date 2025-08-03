@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useSchemas, useTables, useColumns, useChartData } from '@/hooks/api/useChart';
+import { api } from '@/lib/api';
 
 export default function TestChartPage() {
   const [selectedSchema, setSelectedSchema] = useState<string>('');
@@ -52,16 +53,7 @@ export default function TestChartPage() {
 
   const testConnection = async () => {
     try {
-      const response = await fetch('http://localhost:8002/api/visualization/charts/', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('authToken') || 'test-token'}`,
-          'x-dalgo-org': localStorage.getItem('selectedOrg') || 'test-org',
-        },
-      });
-
-      const data = await response.json();
+      const data = await api.get('/api/visualization/charts/');
       setTestResult(JSON.stringify(data, null, 2));
     } catch (error) {
       setTestResult(`Error: ${error.message}`);

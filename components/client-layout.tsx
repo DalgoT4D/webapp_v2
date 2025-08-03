@@ -5,7 +5,7 @@ import { AuthGuard } from '@/components/auth-guard';
 import { MainLayout } from '@/components/main-layout';
 
 // Define public routes that don't require authentication
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
+const publicRoutes = ['/login', '/signup', '/forgot-password', '/resetpassword'];
 
 interface ClientLayoutProps {
   children: React.ReactNode;
