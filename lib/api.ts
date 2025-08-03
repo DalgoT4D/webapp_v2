@@ -43,13 +43,9 @@ async function refreshAccessToken(): Promise<string | null> {
   try {
     console.log('Attempting to refresh token...');
 
-    // Get default headers but exclude Authorization since we're refreshing it
-    const headers = getHeaders();
-    delete headers.Authorization;
-
     const response = await fetch(`${API_BASE_URL}/api/token/refresh`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
     });
 
@@ -100,7 +96,6 @@ function getHeaders() {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(selectedOrgSlug ? { 'x-dalgo-org': selectedOrgSlug } : {}),
-    ...(typeof window !== 'undefined' ? { 'x-request-url': window.location.href } : {}),
   };
 }
 
