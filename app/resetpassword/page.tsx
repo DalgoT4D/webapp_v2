@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { apiPost } from '@/lib/api';
 import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface ResetPasswordForm {
   password: string;
@@ -18,6 +19,8 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [token, setToken] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
@@ -81,20 +84,30 @@ export default function ResetPasswordPage() {
 
         <div>
           <Label htmlFor="password">New password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Enter new password"
-            {...register('password', {
-              required: 'Password is required',
-              minLength: {
-                value: 8,
-                message: 'Password must be at least 8 characters',
-              },
-            })}
-            className="mt-1"
-          />
+          <div className="relative mt-1">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="Enter new password"
+              {...register('password', {
+                required: 'Password is required',
+                minLength: {
+                  value: 8,
+                  message: 'Password must be at least 8 characters',
+                },
+              })}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          </div>
           {errors.password && (
             <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
           )}
@@ -102,17 +115,27 @@ export default function ResetPasswordPage() {
 
         <div>
           <Label htmlFor="confirmPassword">Confirm password</Label>
-          <Input
-            id="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Confirm new password"
-            {...register('confirmPassword', {
-              required: 'Please confirm your password',
-              validate: (value) => value === password || 'Passwords do not match',
-            })}
-            className="mt-1"
-          />
+          <div className="relative mt-1">
+            <Input
+              id="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="Confirm new password"
+              {...register('confirmPassword', {
+                required: 'Please confirm your password',
+                validate: (value) => value === password || 'Passwords do not match',
+              })}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          </div>
           {errors.confirmPassword && (
             <p className="text-red-600 text-sm mt-1">{errors.confirmPassword.message}</p>
           )}

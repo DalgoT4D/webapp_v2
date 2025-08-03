@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { apiPost } from '@/lib/api';
 import { useAuthStore, type OrgUser } from '@/stores/authStore';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface LoginForm {
   username: string;
@@ -29,6 +30,7 @@ export default function LoginPage() {
     selectedOrgSlug,
     currentOrg,
   } = useAuthStore();
+  const [showPassword, setShowPassword] = useState(false);
 
   // Initialize auth state from localStorage
   useEffect(() => {
@@ -148,14 +150,24 @@ export default function LoginPage() {
 
         <div>
           <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            {...register('password', { required: 'Password is required' })}
-            className="mt-1"
-          />
+          <div className="relative mt-1">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              {...register('password', { required: 'Password is required' })}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          </div>
           {errors.password && (
             <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
           )}
