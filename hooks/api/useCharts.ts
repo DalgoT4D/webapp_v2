@@ -20,7 +20,16 @@ interface UseChartsParams {
 }
 
 export function useCharts(params?: UseChartsParams) {
-  const { data, error, mutate } = useSWR<Chart[]>('/api/charts/', apiGet);
+  const { data, error, mutate } = useSWR<Chart[]>('/api/charts/', async (url) => {
+    try {
+      const response = await apiGet(url);
+      console.log('Charts API response:', response);
+      return response;
+    } catch (err) {
+      console.error('Error fetching charts:', err);
+      throw err;
+    }
+  });
 
   // Mock data for testing when API fails
   const mockCharts: Chart[] = [

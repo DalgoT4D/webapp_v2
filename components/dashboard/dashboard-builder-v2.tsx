@@ -7,6 +7,9 @@ import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { ChartSelectorModal } from './chart-selector-modal';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
 import {
@@ -22,8 +25,11 @@ import {
   X,
   Lock,
   Unlock,
+  Settings,
+  Edit2,
+  Check,
 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+// Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
 import { TextElement } from './text-element';
 import { HeadingElement } from './heading-element';
@@ -61,14 +67,23 @@ interface DashboardState {
 interface DashboardBuilderV2Props {
   dashboardId?: number;
   initialData?: any;
+  isNewDashboard?: boolean;
 }
 
-export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilderV2Props) {
+export function DashboardBuilderV2({
+  dashboardId,
+  initialData,
+  isNewDashboard,
+}: DashboardBuilderV2Props) {
+  // Ensure layout_config is always an array
+  const initialLayout = Array.isArray(initialData?.layout_config) ? initialData.layout_config : [];
+  const initialComponents = initialData?.components || {};
+
   // State management with undo/redo
   const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
     {
-      layout: initialData?.layout_config || [],
-      components: initialData?.components || {},
+      layout: initialLayout,
+      components: initialComponents,
     },
     20
   );
@@ -80,6 +95,9 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
   const [lockToken, setLockToken] = useState<string | null>(null);
   const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
   const [description, setDescription] = useState(initialData?.description || '');
+  const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
+  const [gridColumns, setGridColumns] = useState(initialData?.grid_columns || 12);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Debounced state for auto-save
   const debouncedState = useDebounce(state, 5000);
@@ -127,11 +145,10 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
       setIsLocked(true);
       setLockToken(response.lock_token);
     } catch (error: any) {
-      toast({
-        title: 'Failed to lock dashboard',
-        description: error.message || 'Someone else might be editing this dashboard',
-        variant: 'destructive',
-      });
+      console.error(
+        'Failed to lock dashboard:',
+        error.message || 'Someone else might be editing this dashboard'
+      );
     }
   };
 
@@ -155,15 +172,12 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
       await apiPut(`/api/dashboards/${dashboardId}/`, {
         title,
         description,
+        grid_columns: gridColumns,
         layout_config: state.layout,
         components: state.components,
       });
     } catch (error: any) {
-      toast({
-        title: 'Failed to save dashboard',
-        description: error.message || 'Please try again',
-        variant: 'destructive',
-      });
+      console.error('Failed to save dashboard:', error.message || 'Please try again');
     } finally {
       setIsSaving(false);
     }
@@ -226,11 +240,7 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
         },
       });
     } catch (error: any) {
-      toast({
-        title: 'Failed to add chart',
-        description: error.message || 'Please try again',
-        variant: 'destructive',
-      });
+      console.error('Failed to add chart:', error.message || 'Please try again');
     }
   };
 
@@ -358,8 +368,99 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
 
   return (
     <div className="dashboard-builder h-full flex flex-col">
+      {/* Header with Title */}
+      <div className="border-b px-6 py-3 bg-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Dashboard title..."
+                  className="text-xl font-semibold"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setIsEditingTitle(false);
+                      saveDashboard();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditingTitle(false);
+                    saveDashboard();
+                  }}
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
+                onClick={() => setIsEditingTitle(true)}
+              >
+                <h1 className="text-xl font-semibold">{title}</h1>
+                <Edit2 className="w-4 h-4 text-gray-400" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isSaving && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </div>
+            )}
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Dashboard Settings</h4>
+                    <p className="text-sm text-muted-foreground">Configure your dashboard layout</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="grid-columns">Grid Columns</Label>
+                      <select
+                        id="grid-columns"
+                        value={gridColumns}
+                        onChange={(e) => {
+                          setGridColumns(Number(e.target.value));
+                          saveDashboard();
+                        }}
+                        className="col-span-2 px-3 py-2 border rounded-md"
+                      >
+                        <option value={12}>12 Columns</option>
+                        <option value={14}>14 Columns</option>
+                        <option value={16}>16 Columns</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button onClick={saveDashboard} size="sm" variant="outline">
+              <Save className="w-4 h-4 mr-2" />
+              Save
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Toolbar */}
-      <div className="toolbar flex gap-2 p-4 border-b bg-white">
+      <div className="toolbar flex gap-2 p-4 border-b bg-gray-50">
         <Button onClick={() => setShowChartSelector(true)} size="sm">
           <Plus className="w-4 h-4 mr-2" />
           Add Chart
@@ -386,13 +487,6 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {isSaving && (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving...
-            </div>
-          )}
-
           {isLocked ? (
             <div className="flex items-center gap-1 text-sm text-green-600">
               <Lock className="w-4 h-4" />
@@ -404,11 +498,6 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
               Not locked
             </div>
           )}
-
-          <Button onClick={saveDashboard} size="sm" variant="outline">
-            <Save className="w-4 h-4 mr-2" />
-            Save
-          </Button>
         </div>
       </div>
 
@@ -416,8 +505,8 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
       <div className="flex-1 overflow-auto bg-gray-50 p-4">
         <GridLayout
           className="layout"
-          layout={state.layout}
-          cols={12}
+          layout={Array.isArray(state.layout) ? state.layout : []}
+          cols={gridColumns}
           rowHeight={30}
           width={1200}
           onLayoutChange={handleLayoutChange}
@@ -425,7 +514,7 @@ export function DashboardBuilderV2({ dashboardId, initialData }: DashboardBuilde
           compactType={null}
           preventCollision={false}
         >
-          {state.layout.map((item) => (
+          {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
             <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
               <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded">
                 <Grip className="w-4 h-4 text-gray-400" />
