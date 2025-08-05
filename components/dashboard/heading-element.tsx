@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -11,100 +9,66 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Settings, Trash2, GripVertical, Heading } from 'lucide-react';
-import { DashboardElementData, HeadingConfig } from './dashboard-builder';
+import { Button } from '@/components/ui/button';
+import { Settings, Heading } from 'lucide-react';
 
-interface HeadingElementProps {
-  element: DashboardElementData;
-  isSelected: boolean;
-  onSelect: () => void;
-  onUpdate: (updates: Partial<DashboardElementData>) => void;
-  onDelete: () => void;
+export interface HeadingConfig {
+  text: string;
+  level: 1 | 2 | 3;
+  color: string;
 }
 
-const sizeOptions = [
-  { label: 'Small (1x1)', value: '1x1', cols: 1, rows: 1 },
-  { label: 'Medium (2x1)', value: '2x1', cols: 2, rows: 1 },
-  { label: 'Large (2x2)', value: '2x2', cols: 2, rows: 2 },
-  { label: 'Wide (3x1)', value: '3x1', cols: 3, rows: 1 },
-  { label: 'Extra Large (3x2)', value: '3x2', cols: 3, rows: 2 },
-];
+interface HeadingElementProps {
+  config: HeadingConfig;
+  onUpdate: (config: HeadingConfig) => void;
+  onRemove?: () => void;
+}
 
 const headingLevels = [
-  { label: 'H1', value: '1' },
-  { label: 'H2', value: '2' },
-  { label: 'H3', value: '3' },
+  { label: 'H1 - Main Title', value: '1' },
+  { label: 'H2 - Section', value: '2' },
+  { label: 'H3 - Subsection', value: '3' },
 ];
 
-export function HeadingElement({
-  element,
-  isSelected,
-  onSelect,
-  onUpdate,
-  onDelete,
-}: HeadingElementProps) {
+export function HeadingElement({ config, onUpdate, onRemove }: HeadingElementProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const config = element.config as HeadingConfig;
-
-  const handleSizeChange = (sizeValue: string) => {
-    const sizeOption = sizeOptions.find((option) => option.value === sizeValue);
-    if (sizeOption) {
-      onUpdate({
-        gridSize: {
-          cols: sizeOption.cols,
-          rows: sizeOption.rows,
-        },
-      });
-    }
-  };
-
-  const getCurrentSizeValue = () => {
-    const currentSize = `${element.gridSize.cols}x${element.gridSize.rows}`;
-    return sizeOptions.find((option) => option.value === currentSize)?.value || '2x1';
-  };
 
   const handleTextChange = (text: string) => {
     onUpdate({
-      config: {
-        ...config,
-        text,
-      },
+      ...config,
+      text,
     });
   };
 
   const handleLevelChange = (level: string) => {
     onUpdate({
-      config: {
-        ...config,
-        level: parseInt(level) as 1 | 2 | 3,
-      },
+      ...config,
+      level: parseInt(level) as 1 | 2 | 3,
     });
   };
 
   const handleColorChange = (color: string) => {
     onUpdate({
-      config: {
-        ...config,
-        color,
-      },
+      ...config,
+      color,
     });
   };
 
   const getHeadingSize = (level: 1 | 2 | 3) => {
     switch (level) {
       case 1:
-        return 'text-3xl';
+        return 'text-3xl font-bold';
       case 2:
-        return 'text-2xl';
+        return 'text-2xl font-semibold';
       case 3:
-        return 'text-xl';
+        return 'text-xl font-medium';
       default:
-        return 'text-2xl';
+        return 'text-2xl font-semibold';
     }
   };
 
   const renderHeading = () => {
-    const className = `font-semibold ${getHeadingSize(config.level)}`;
+    const className = getHeadingSize(config.level);
     const style = { color: config.color };
     const text = config.text || 'Heading';
 
@@ -137,85 +101,42 @@ export function HeadingElement({
   };
 
   return (
-    <Card
-      className={`cursor-pointer transition-all duration-200 ${
-        isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'hover:shadow-md'
-      }`}
-      onClick={onSelect}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded">
-              <GripVertical className="h-4 w-4 text-gray-400" />
-            </div>
-            <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Heading className="h-4 w-4" />
-                {element.title || 'Heading'}
-              </CardTitle>
-              <CardDescription className="text-xs">H{config.level} Element</CardDescription>
-            </div>
-          </div>
-
-          {isSelected && (
-            <div className="flex items-center gap-1">
-              <Select value={getCurrentSizeValue()} onValueChange={handleSizeChange}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sizeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(!isEditing);
-                }}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+    <div className="h-full flex flex-col">
+      {/* Mini toolbar */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Heading className="w-4 h-4" />
+          <span>H{config.level} Heading</span>
         </div>
-      </CardHeader>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setIsEditing(!isEditing)}
+          className="h-6 px-2"
+        >
+          <Settings className="w-3 h-3" />
+        </Button>
+      </div>
 
-      <CardContent className="pt-0">
+      {/* Content */}
+      <div className="flex-1">
         {isEditing ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium">Text</label>
+              <label className="text-xs font-medium">Heading Text</label>
               <Input
                 value={config.text}
                 onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="Enter heading text..."
-                className="mt-1"
+                className="mt-1 text-sm"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-sm font-medium">Heading Level</label>
+                <label className="text-xs font-medium">Heading Level</label>
                 <Select value={config.level.toString()} onValueChange={handleLevelChange}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1 h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -229,27 +150,29 @@ export function HeadingElement({
               </div>
 
               <div>
-                <label className="text-sm font-medium">Color</label>
-                <Input
-                  type="color"
-                  value={config.color}
-                  onChange={(e) => handleColorChange(e.target.value)}
-                  className="mt-1 w-20 h-10"
-                />
+                <label className="text-xs font-medium">Color</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="color"
+                    value={config.color}
+                    onChange={(e) => handleColorChange(e.target.value)}
+                    className="w-16 h-8 p-1 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={config.color}
+                    onChange={(e) => handleColorChange(e.target.value)}
+                    placeholder="#000000"
+                    className="flex-1 h-8 text-sm"
+                  />
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <div
-            className="w-full"
-            style={{
-              minHeight: `${Math.max(60, element.gridSize.rows * 60)}px`,
-            }}
-          >
-            {renderHeading()}
-          </div>
+          <div className="flex items-center h-full">{renderHeading()}</div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

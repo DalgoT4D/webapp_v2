@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiPost } from '@/lib/api';
-import MiniChart, { MiniChartProps } from './MiniChart';
+import { MiniChart, MiniChartProps } from './MiniChart';
 
 interface SavedChartThumbnailProps {
   chart: {

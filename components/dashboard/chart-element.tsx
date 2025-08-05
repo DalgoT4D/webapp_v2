@@ -60,6 +60,9 @@ export function ChartElement({
   const [isEditing, setIsEditing] = useState(false);
   const config = element.config as ChartConfig;
 
+  // Handle different config structures
+  const chartId = config?.chartId || config?.id;
+
   const handleSizeChange = (sizeValue: string) => {
     const sizeOption = sizeOptions.find((option) => option.value === sizeValue);
     if (sizeOption) {
@@ -78,6 +81,17 @@ export function ChartElement({
   };
 
   const renderChart = () => {
+    // Mock data for now when we have chartId
+    if (chartId) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full">
+          <div className="text-6xl mb-2">📊</div>
+          <p className="text-sm text-muted-foreground">Chart #{chartId}</p>
+          <p className="text-xs text-muted-foreground mt-1">Chart visualization will load here</p>
+        </div>
+      );
+    }
+
     const { chartType, data, xKey, yKey } = config;
 
     switch (chartType) {
@@ -166,9 +180,11 @@ export function ChartElement({
               <GripVertical className="h-4 w-4 text-gray-400" />
             </div>
             <div>
-              <CardTitle className="text-base">{config.title || 'Chart'}</CardTitle>
+              <CardTitle className="text-base">
+                {config?.title || `Chart #${chartId}` || 'Chart'}
+              </CardTitle>
               <CardDescription className="text-xs capitalize">
-                {config.chartType} Chart
+                {config?.chartType || 'Data'} Chart
               </CardDescription>
             </div>
           </div>
@@ -222,8 +238,8 @@ export function ChartElement({
         >
           <ChartContainer
             config={{
-              [config.yKey]: {
-                label: config.yKey,
+              [config?.yKey || 'value']: {
+                label: config?.yKey || 'value',
                 color: 'hsl(var(--chart-1))',
               },
             }}

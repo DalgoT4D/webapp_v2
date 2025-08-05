@@ -24,22 +24,50 @@ echarts.use([
 ]);
 
 export interface MiniChartProps {
-  config: any; // ECharts configuration object
-  chartType: string;
+  config?: any; // ECharts configuration object
+  chartType?: string;
+  chartId?: number; // Alternative: chart ID to fetch config
   className?: string;
 }
 
-export default function MiniChart({
+export function MiniChart({
   config,
   chartType,
+  chartId,
   className = 'w-full h-full',
 }: MiniChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const [chartData, setChartData] = React.useState<any>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  // Fetch chart data if we have a chartId
+  useEffect(() => {
+    if (chartId) {
+      setIsLoading(true);
+      // Import apiGet dynamically to avoid circular dependencies
+      import('@/lib/api').then(({ apiGet }) => {
+        apiGet(`/api/charts/${chartId}/`)
+          .then((chart) => {
+            // Use render_config if available, otherwise fall back to mock
+            if (chart.render_config && Object.keys(chart.render_config).length > 0) {
+              setChartData(chart.render_config);
+            } else {
+              setChartData(getMockConfig(chartId));
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to load chart:', err);
+            setChartData(getMockConfig(chartId));
+          })
+          .finally(() => setIsLoading(false));
+      });
+    }
+  }, [chartId]);
 
   useEffect(() => {
     // Initialize chart
-    if (chartRef.current) {
+    if (chartRef.current && (config || chartData)) {
       if (!chartInstance.current) {
         chartInstance.current = echarts.init(chartRef.current);
       }
@@ -56,7 +84,7 @@ export default function MiniChart({
         chartInstance.current = null;
       }
     };
-  }, [config, chartType]);
+  }, [config, chartType, chartId, chartData]);
 
   // Handle window resize
   useEffect(() => {
@@ -73,8 +101,44 @@ export default function MiniChart({
     };
   }, []);
 
+  // Generate mock config based on chartId if config not provided
+  const getMockConfig = (id: number) => {
+    const chartTypes = ['line', 'bar', 'pie'];
+    const type = chartTypes[(id - 1) % chartTypes.length];
+
+    const mockData = {
+      line: {
+        xAxis: { type: 'category', data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+        yAxis: { type: 'value' },
+        series: [{ type: 'line', data: [120, 200, 150, 80, 70] }],
+      },
+      bar: {
+        xAxis: { type: 'category', data: ['A', 'B', 'C', 'D'] },
+        yAxis: { type: 'value' },
+        series: [{ type: 'bar', data: [120, 200, 150, 80] }],
+      },
+      pie: {
+        series: [
+          {
+            type: 'pie',
+            data: [
+              { value: 335, name: 'Direct' },
+              { value: 310, name: 'Email' },
+              { value: 234, name: 'Union Ads' },
+              { value: 135, name: 'Video Ads' },
+            ],
+          },
+        ],
+      },
+    };
+
+    return mockData[type as keyof typeof mockData] || mockData.line;
+  };
+
   const generateMiniOption = () => {
-    if (!config) return {};
+    // Use provided config or fetched chartData or generate mock based on chartId
+    const chartConfig = config || chartData || (chartId ? getMockConfig(chartId) : {});
+    if (!chartConfig) return {};
 
     const baseOption = {
       backgroundColor: 'transparent',
@@ -91,27 +155,41 @@ export default function MiniChart({
       title: { show: false },
     };
 
-    // Merge baseOption with the provided config
+    // Merge baseOption with the chart config
     return {
       ...baseOption,
-      ...config,
+      ...chartConfig,
       // Override specific options for thumbnail view
-      xAxis: {
-        ...config.xAxis,
-        show: false,
-      },
-      yAxis: {
-        ...config.yAxis,
-        show: false,
-      },
-      series: config.series.map((series: any) => ({
-        ...series,
-        // Customize series options for thumbnail
-        label: { show: false },
-        emphasis: { scale: false },
-      })),
+      xAxis: chartConfig.xAxis
+        ? {
+            ...chartConfig.xAxis,
+            show: false,
+          }
+        : undefined,
+      yAxis: chartConfig.yAxis
+        ? {
+            ...chartConfig.yAxis,
+            show: false,
+          }
+        : undefined,
+      series: chartConfig.series
+        ? chartConfig.series.map((series: any) => ({
+            ...series,
+            // Customize series options for thumbnail
+            label: { show: false },
+            emphasis: { scale: false },
+          }))
+        : [],
     };
   };
+
+  if (isLoading) {
+    return (
+      <div className={`flex items-center justify-center ${className}`}>
+        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return <div ref={chartRef} className={className} />;
 }
