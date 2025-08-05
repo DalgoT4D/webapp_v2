@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Home,
   LayoutDashboard,
+  ChartBarBig,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -38,11 +39,10 @@ const PRODUCTION_HIDDEN_ITEMS = [
   // Add menu item titles to hide in production
   'Metrics',
   'Reports',
-  'Dashboards',
   'Alerts',
   'Settings',
 ];
-
+console.log(NEXT_PUBLIC_WEBAPP_ENVIRONMENT);
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
   if (NEXT_PUBLIC_WEBAPP_ENVIRONMENT !== 'production') {
@@ -95,7 +95,7 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     {
       title: 'Charts',
       href: '/charts',
-      icon: BarChart3,
+      icon: ChartBarBig,
       isActive: currentPath.startsWith('/charts'),
     },
     {
