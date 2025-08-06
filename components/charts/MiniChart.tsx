@@ -84,7 +84,7 @@ export function MiniChart({
         chartInstance.current = null;
       }
     };
-  }, [config, chartType, chartId, chartData]);
+  }, [config, chartData]); // Remove chartType and chartId to reduce re-renders
 
   // Handle window resize
   useEffect(() => {
