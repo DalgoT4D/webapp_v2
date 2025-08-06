@@ -79,6 +79,10 @@ interface DashboardBuilderV2Props {
   dashboardId?: number;
   initialData?: any;
   isNewDashboard?: boolean;
+  dashboardLockInfo?: {
+    isLocked: boolean;
+    lockedBy?: string;
+  };
 }
 
 // Interface for the ref methods exposed to parent
@@ -291,10 +295,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         setLockRefreshInterval(interval);
       } catch (error: any) {
-        console.error(
-          'Failed to lock dashboard:',
-          error.message || 'Someone else might be editing this dashboard'
-        );
+        console.error('Failed to lock dashboard:', error.message);
+
+        // If dashboard is locked by another user (423 error), redirect to dashboard list
+        if (error.status === 423 || error.message?.includes('locked by')) {
+          alert(`This dashboard is currently being edited by another user: ${error.message}`);
+          // Redirect back to dashboard list
+          if (typeof window !== 'undefined') {
+            window.location.href = '/dashboards';
+          }
+          return;
+        }
+
+        // For other errors, just log them
+        console.error('Lock acquisition failed:', error.message || 'Unknown error');
       }
     };
 
