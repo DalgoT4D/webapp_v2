@@ -63,11 +63,19 @@ export function useChart(id: number) {
 }
 
 export function useChartData(id: number) {
-  const { data, error, mutate } = useSWR(id ? `/api/charts/${id}/data/` : null, apiGet);
+  const { data, error, mutate } = useSWR(id ? `/api/charts/${id}/data/` : null, async (url) => {
+    try {
+      return await apiGet(url);
+    } catch (err: any) {
+      // If data endpoint doesn't exist, return null instead of throwing
+      console.warn(`Chart data endpoint failed for chart ${id}:`, err.message);
+      return null;
+    }
+  });
 
   return {
     data: data,
-    isLoading: !error && !data,
+    isLoading: !error && !data && id !== null,
     isError: error,
     mutate,
   };

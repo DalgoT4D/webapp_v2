@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { X, AlertCircle } from 'lucide-react';
 import { useChart, useChartData } from '@/hooks/api/useCharts';
 import * as echarts from 'echarts/core';
-import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
   LegendComponent,
+  DatasetComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -20,10 +21,13 @@ echarts.use([
   BarChart,
   LineChart,
   PieChart,
+  GaugeChart,
+  ScatterChart,
   TitleComponent,
   TooltipComponent,
   GridComponent,
   LegendComponent,
+  DatasetComponent,
   CanvasRenderer,
 ]);
 
@@ -47,7 +51,26 @@ export function ChartElementV2({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: chart, isLoading: chartLoading, isError: chartError } = useChart(chartId);
+  // Try to use chart data endpoint, but it might not exist
   const { data: chartData, isLoading: dataLoading, isError: dataError } = useChartData(chartId);
+
+  // Compute derived state
+  const isLoading = chartLoading || dataLoading;
+  const isError = chartError || dataError;
+
+  // Debug logging
+  useEffect(() => {
+    console.log(`ChartElementV2 ${chartId} - Chart metadata:`, chart);
+    console.log(`ChartElementV2 ${chartId} - Chart data:`, chartData);
+    console.log(
+      `ChartElementV2 ${chartId} - render_config available:`,
+      chart?.render_config ? 'yes' : 'no'
+    );
+    console.log(
+      `ChartElementV2 ${chartId} - echarts_config available:`,
+      chartData?.echarts_config ? 'yes' : 'no'
+    );
+  }, [chart, chartData, chartId]);
 
   // Initialize chart instance once
   useEffect(() => {
@@ -79,8 +102,11 @@ export function ChartElementV2({
 
   // Update chart data separately
   useEffect(() => {
+    // Determine which config to use - prefer echarts_config from data endpoint, fallback to render_config
+    const chartConfig = chartData?.echarts_config || chart?.render_config;
+
     // If we have data but no chart instance yet, try to initialize
-    if (!chartInstance.current && chartRef.current && chartData?.echarts_config) {
+    if (!chartInstance.current && chartRef.current && chartConfig) {
       const { width, height } = chartRef.current.getBoundingClientRect();
       if (width > 0 && height > 0) {
         console.log(`Late initialization of ECharts for chart ${chartId}`);
@@ -88,11 +114,11 @@ export function ChartElementV2({
       }
     }
 
-    if (chartInstance.current && chartData?.echarts_config) {
-      console.log(`Updating chart data for chart ${chartId}`);
+    if (chartInstance.current && chartConfig) {
+      console.log(`Updating chart ${chartId} with config:`, chartConfig);
 
       // Set chart option with animation disabled for better performance
-      chartInstance.current.setOption(chartData.echarts_config, {
+      chartInstance.current.setOption(chartConfig, {
         notMerge: true,
         lazyUpdate: false,
         silent: false,
@@ -104,8 +130,10 @@ export function ChartElementV2({
           chartInstance.current.resize();
         }
       }, 100);
+    } else if (!chartConfig && !isLoading) {
+      console.warn(`No chart config available for chart ${chartId}`);
     }
-  }, [chartData, chartId]); // Only update when data changes
+  }, [chartData, chart, chartId, isLoading]); // Update when either data source changes
 
   // Handle window resize and container resize - separate from chart data changes
   useEffect(() => {
@@ -210,9 +238,6 @@ export function ChartElementV2({
       }
     };
   }, [isResizing]);
-
-  const isLoading = chartLoading || dataLoading;
-  const isError = chartError || dataError;
 
   return (
     <Card className="h-full flex flex-col">

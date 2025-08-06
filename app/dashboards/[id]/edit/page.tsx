@@ -1,19 +1,32 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 
 export default function EditDashboardPage() {
   const params = useParams();
   const router = useRouter();
   const dashboardId = parseInt(params.id as string);
 
+  // Ref to access dashboard builder cleanup function
+  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
+
   const { data: dashboard, isLoading, isError } = useDashboard(dashboardId);
+
+  // Handle navigation back to dashboard list
+  const handleBackNavigation = async () => {
+    // Call cleanup function if available
+    if (dashboardBuilderRef.current?.cleanup) {
+      await dashboardBuilderRef.current.cleanup();
+    }
+
+    // Navigate to dashboard list
+    router.push('/dashboards');
+  };
 
   // Mock data for testing
   const mockDashboard = {
@@ -66,12 +79,10 @@ export default function EditDashboardPage() {
       <div className="border-b px-6 py-3 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/dashboards">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboards
-              </Button>
-            </Link>
+            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboards
+            </Button>
             <div>
               <h1 className="text-xl font-semibold">{dashboardData.title}</h1>
               {dashboardData.description && (
@@ -83,7 +94,11 @@ export default function EditDashboardPage() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <DashboardBuilderV2 dashboardId={dashboardId} initialData={dashboardData} />
+        <DashboardBuilderV2
+          ref={dashboardBuilderRef}
+          dashboardId={dashboardId}
+          initialData={dashboardData}
+        />
       </div>
     </div>
   );

@@ -2,12 +2,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
-import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
   LegendComponent,
+  DatasetComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -16,10 +17,13 @@ echarts.use([
   BarChart,
   LineChart,
   PieChart,
+  GaugeChart,
+  ScatterChart,
   TitleComponent,
   TooltipComponent,
   GridComponent,
   LegendComponent,
+  DatasetComponent,
   CanvasRenderer,
 ]);
 
@@ -47,17 +51,31 @@ export function MiniChart({
       setIsLoading(true);
       // Import apiGet dynamically to avoid circular dependencies
       import('@/lib/api').then(({ apiGet }) => {
+        // First fetch chart metadata to get render_config
         apiGet(`/api/charts/${chartId}/`)
           .then((chart) => {
-            // Use render_config if available, otherwise fall back to mock
+            console.log(`MiniChart ${chartId} - Chart metadata:`, chart);
+
+            // Check if render_config exists and has content
             if (chart.render_config && Object.keys(chart.render_config).length > 0) {
+              console.log(`MiniChart ${chartId} - Using render_config`);
               setChartData(chart.render_config);
             } else {
-              setChartData(getMockConfig(chartId));
+              // If no render_config, try fetching from data endpoint
+              console.log(`MiniChart ${chartId} - No render_config, fetching from /data endpoint`);
+              return apiGet(`/api/charts/${chartId}/data/`).then((data) => {
+                if (data?.echarts_config) {
+                  console.log(`MiniChart ${chartId} - Using echarts_config from data endpoint`);
+                  setChartData(data.echarts_config);
+                } else {
+                  console.log(`MiniChart ${chartId} - No data available, using mock`);
+                  setChartData(getMockConfig(chartId));
+                }
+              });
             }
           })
           .catch((err) => {
-            console.error('Failed to load chart:', err);
+            console.error(`MiniChart ${chartId} - Failed to load chart:`, err);
             setChartData(getMockConfig(chartId));
           })
           .finally(() => setIsLoading(false));

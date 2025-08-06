@@ -56,49 +56,15 @@ export function useDashboards(params?: UseDashboardsParams) {
   const queryString = queryParams.toString();
   const url = `/api/dashboards/${queryString ? `?${queryString}` : ''}`;
 
-  const { data, error, mutate } = useSWR<Dashboard[]>(url, apiGet);
-
-  // Mock data for now to test UI
-  const mockData: Dashboard[] = [
-    {
-      id: 1,
-      title: 'Sales Dashboard',
-      description: 'Monthly sales performance metrics',
-      dashboard_type: 'native',
-      grid_columns: 12,
-      layout_config: [],
-      components: {},
-      is_published: true,
-      published_at: '2024-01-01T00:00:00Z',
-      is_locked: false,
-      created_by: 'John Doe',
-      org_id: 10,
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      filters: [],
-    },
-    {
-      id: 2,
-      title: 'Analytics Overview',
-      description: 'Comprehensive analytics dashboard from Superset',
-      dashboard_type: 'superset',
-      grid_columns: 12,
-      layout_config: [],
-      components: {},
-      is_published: true,
-      published_at: '2024-01-01T00:00:00Z',
-      is_locked: false,
-      created_by: 'Jane Smith',
-      org_id: 10,
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      filters: [],
-    },
-  ];
+  const { data, error, mutate } = useSWR<Dashboard[]>(url, apiGet, {
+    revalidateOnFocus: true, // Refresh when tab/window gets focus
+    revalidateOnReconnect: true, // Refresh on network reconnect
+    dedupingInterval: 5000, // Avoid duplicate requests for 5 seconds
+  });
 
   return {
-    data: error ? undefined : mockData,
-    isLoading: false,
+    data: data,
+    isLoading: !error && !data,
     isError: error,
     mutate,
   };
@@ -107,36 +73,9 @@ export function useDashboards(params?: UseDashboardsParams) {
 export function useDashboard(id: number) {
   const { data, error, mutate } = useSWR<Dashboard>(id ? `/api/dashboards/${id}/` : null, apiGet);
 
-  // Mock data for testing
-  const mockDashboard: Dashboard = {
-    id,
-    title: 'Sales Dashboard',
-    description: 'Monthly sales performance metrics',
-    dashboard_type: 'native',
-    grid_columns: 12,
-    layout_config: [
-      { i: 'chart-1', x: 0, y: 0, w: 6, h: 4 },
-      { i: 'text-1', x: 6, y: 0, w: 6, h: 2 },
-      { i: 'heading-1', x: 6, y: 2, w: 6, h: 2 },
-    ],
-    components: {
-      'chart-1': { type: 'chart', config: { chartId: 1 } },
-      'text-1': { type: 'text', config: { content: 'Welcome to the Sales Dashboard' } },
-      'heading-1': { type: 'heading', config: { content: 'Monthly Overview', level: 'h2' } },
-    },
-    is_published: true,
-    published_at: '2024-01-01T00:00:00Z',
-    is_locked: false,
-    created_by: 'John Doe',
-    org_id: 10,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-    filters: [],
-  };
-
   return {
-    data: error ? undefined : mockDashboard,
-    isLoading: false,
+    data: data,
+    isLoading: !error && !data,
     isError: error,
     mutate,
   };
@@ -147,28 +86,7 @@ export async function createDashboard(data: {
   description?: string;
   grid_columns?: number;
 }) {
-  try {
-    return await apiPost('/api/dashboards/', data);
-  } catch (error) {
-    console.error('API call failed, returning mock data:', error);
-    // Return mock data for development
-    return {
-      id: Math.floor(Math.random() * 1000) + 100,
-      title: data.title,
-      description: data.description || '',
-      dashboard_type: 'native',
-      grid_columns: data.grid_columns || 12,
-      layout_config: [],
-      components: {},
-      is_published: false,
-      is_locked: false,
-      created_by: 'Current User',
-      org_id: 10,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      filters: [],
-    };
-  }
+  return await apiPost('/api/dashboards/', data);
 }
 
 export async function updateDashboard(id: number, data: Partial<Dashboard>) {
@@ -181,6 +99,10 @@ export async function deleteDashboard(id: number) {
 
 export async function lockDashboard(id: number) {
   return apiPost(`/api/dashboards/${id}/lock/`, {});
+}
+
+export async function refreshDashboardLock(id: number) {
+  return apiPut(`/api/dashboards/${id}/lock/refresh/`, {});
 }
 
 export async function unlockDashboard(id: number) {

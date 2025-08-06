@@ -83,32 +83,7 @@ export function DashboardListV2() {
   // Fetch dashboards
   const { data: dashboards, isLoading, isError } = useDashboards(params);
 
-  // Hardcode mock data to test UI
-  const mockDashboards = [
-    {
-      id: 1,
-      title: 'Sales Dashboard',
-      dashboard_title: 'Sales Dashboard',
-      description: 'Monthly sales performance metrics',
-      dashboard_type: 'native',
-      is_published: true,
-      is_locked: false,
-      created_by: 'John Doe',
-      updated_at: '2024-01-01T00:00:00Z',
-    },
-    {
-      id: 2,
-      title: 'Analytics Overview',
-      dashboard_title: 'Analytics Overview',
-      description: 'Comprehensive analytics dashboard from Superset',
-      dashboard_type: 'superset',
-      is_published: true,
-      is_locked: false,
-      created_by: 'Jane Smith',
-      changed_by_name: 'Jane Smith',
-      updated_at: '2024-01-01T00:00:00Z',
-    },
-  ];
+  // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
     const isNative = dashboard.dashboard_type === 'native';
@@ -275,18 +250,17 @@ export function DashboardListV2() {
     );
   };
 
-  // Remove error check temporarily to test UI
-  // if (isError) {
-  //   return (
-  //     <div className="flex flex-col items-center justify-center h-64 gap-4">
-  //       <AlertCircle className="w-12 h-12 text-destructive" />
-  //       <p className="text-muted-foreground">Failed to load dashboards</p>
-  //       <Button variant="outline" onClick={() => window.location.reload()}>
-  //         Retry
-  //       </Button>
-  //     </div>
-  //   );
-  // }
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertCircle className="w-12 h-12 text-destructive" />
+        <p className="text-muted-foreground">Failed to load dashboards</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -379,7 +353,7 @@ export function DashboardListV2() {
             </Card>
           ))}
         </div>
-      ) : mockDashboards && mockDashboards.length > 0 ? (
+      ) : dashboards && dashboards.length > 0 ? (
         <div
           className={cn(
             viewMode === 'grid'
@@ -387,7 +361,7 @@ export function DashboardListV2() {
               : 'space-y-2'
           )}
         >
-          {mockDashboards.map((dashboard) =>
+          {dashboards.map((dashboard) =>
             viewMode === 'grid' ? renderDashboardCard(dashboard) : renderDashboardList(dashboard)
           )}
         </div>
