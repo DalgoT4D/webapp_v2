@@ -139,3 +139,49 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Dashboard Builder Styles */
+.dashboard-builder .react-grid-layout {
+  position: relative;
+}
+
+.dashboard-builder .react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.dashboard-builder .react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.dashboard-builder .react-grid-item.resizing {
+  transition: none;
+  z-index: 1;
+}
+
+.dashboard-builder .react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+
+/* Dashboard item styling */
+.dashboard-item {
+  transition: box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.dashboard-item:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Ensure charts resize smoothly */
+.dashboard-item canvas,
+.dashboard-item svg {
+  transition: none !important; /* Prevent chart animations during resize */
+}

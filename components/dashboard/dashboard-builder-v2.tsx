@@ -28,6 +28,7 @@ import {
   Settings,
   Edit2,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -91,6 +92,8 @@ export function DashboardBuilderV2({
   // Component state
   const [showChartSelector, setShowChartSelector] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [lockToken, setLockToken] = useState<string | null>(null);
   const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
@@ -98,6 +101,7 @@ export function DashboardBuilderV2({
   const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
   const [gridColumns, setGridColumns] = useState(initialData?.grid_columns || 12);
   const [showSettings, setShowSettings] = useState(false);
+  const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
 
   // Debounced state for auto-save
   const debouncedState = useDebounce(state, 5000);
@@ -168,6 +172,9 @@ export function DashboardBuilderV2({
     if (!dashboardId) return;
 
     setIsSaving(true);
+    setSaveStatus('saving');
+    setSaveError(null);
+
     try {
       await apiPut(`/api/dashboards/${dashboardId}/`, {
         title,
@@ -176,8 +183,22 @@ export function DashboardBuilderV2({
         layout_config: state.layout,
         components: state.components,
       });
+
+      setSaveStatus('saved');
+      // Reset save status after 3 seconds
+      setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
     } catch (error: any) {
       console.error('Failed to save dashboard:', error.message || 'Please try again');
+      setSaveStatus('error');
+      setSaveError(error.message || 'Failed to save dashboard. Please try again.');
+
+      // Reset error status after 5 seconds
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveError(null);
+      }, 5000);
     } finally {
       setIsSaving(false);
     }
@@ -189,6 +210,26 @@ export function DashboardBuilderV2({
       ...state,
       layout: newLayout,
     });
+  };
+
+  // Handle resize start
+  const handleResizeStart = (
+    layout: GridLayout.Layout[],
+    oldItem: GridLayout.Layout,
+    newItem: GridLayout.Layout
+  ) => {
+    setResizingItems(new Set([...resizingItems, newItem.i]));
+  };
+
+  // Handle resize stop
+  const handleResizeStop = (
+    layout: GridLayout.Layout[],
+    oldItem: GridLayout.Layout,
+    newItem: GridLayout.Layout
+  ) => {
+    const newResizingItems = new Set(resizingItems);
+    newResizingItems.delete(newItem.i);
+    setResizingItems(newResizingItems);
   };
 
   // Add chart component
@@ -243,6 +284,8 @@ export function DashboardBuilderV2({
       console.error('Failed to add chart:', error.message || 'Please try again');
     }
   };
+
+  console.log(state);
 
   // Add text component
   const addTextComponent = () => {
@@ -352,6 +395,7 @@ export function DashboardBuilderV2({
             {...commonProps}
             chartId={component.config.chartId}
             config={component.config}
+            isResizing={resizingItems.has(componentId)}
           />
         );
 
@@ -410,10 +454,23 @@ export function DashboardBuilderV2({
           </div>
 
           <div className="flex items-center gap-2">
-            {isSaving && (
+            {/* Save Status Indicator */}
+            {saveStatus === 'saving' && (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Saving...
+              </div>
+            )}
+            {saveStatus === 'saved' && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <Check className="w-4 h-4" />
+                Saved
+              </div>
+            )}
+            {saveStatus === 'error' && (
+              <div className="flex items-center gap-2 text-sm text-red-600">
+                <AlertCircle className="w-4 h-4" />
+                {saveError || 'Save failed'}
               </div>
             )}
 
@@ -510,6 +567,8 @@ export function DashboardBuilderV2({
           rowHeight={30}
           width={1200}
           onLayoutChange={handleLayoutChange}
+          onResizeStart={handleResizeStart}
+          onResizeStop={handleResizeStop}
           draggableHandle=".drag-handle"
           compactType={null}
           preventCollision={false}

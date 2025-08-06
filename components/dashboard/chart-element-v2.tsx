@@ -32,21 +32,64 @@ interface ChartElementV2Props {
   config: any;
   onRemove: () => void;
   onUpdate: (config: any) => void;
+  isResizing?: boolean;
 }
 
-export function ChartElementV2({ chartId, config, onRemove, onUpdate }: ChartElementV2Props) {
+export function ChartElementV2({
+  chartId,
+  config,
+  onRemove,
+  onUpdate,
+  isResizing,
+}: ChartElementV2Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: chart, isLoading: chartLoading, isError: chartError } = useChart(chartId);
   const { data: chartData, isLoading: dataLoading, isError: dataError } = useChartData(chartId);
 
+  // Initialize chart instance once
   useEffect(() => {
-    // Initialize or update chart
-    if (chartRef.current && chartData?.echarts_config) {
-      if (!chartInstance.current) {
+    // Use a small delay to ensure DOM is ready and container has dimensions
+    const initTimer = setTimeout(() => {
+      if (chartRef.current && !chartInstance.current) {
+        const { width, height } = chartRef.current.getBoundingClientRect();
+
+        // Only initialize if container has dimensions
+        if (width > 0 && height > 0) {
+          console.log(`Initializing ECharts instance for chart ${chartId} (${width}x${height})`);
+          chartInstance.current = echarts.init(chartRef.current);
+        } else {
+          console.warn(`Chart container for ${chartId} has no dimensions, delaying initialization`);
+        }
+      }
+    }, 50);
+
+    // Cleanup only on unmount
+    return () => {
+      clearTimeout(initTimer);
+      if (chartInstance.current) {
+        console.log(`Disposing ECharts instance for chart ${chartId}`);
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
+    };
+  }, []); // Empty dependency array - only run on mount/unmount
+
+  // Update chart data separately
+  useEffect(() => {
+    // If we have data but no chart instance yet, try to initialize
+    if (!chartInstance.current && chartRef.current && chartData?.echarts_config) {
+      const { width, height } = chartRef.current.getBoundingClientRect();
+      if (width > 0 && height > 0) {
+        console.log(`Late initialization of ECharts for chart ${chartId}`);
         chartInstance.current = echarts.init(chartRef.current);
       }
+    }
+
+    if (chartInstance.current && chartData?.echarts_config) {
+      console.log(`Updating chart data for chart ${chartId}`);
 
       // Set chart option with animation disabled for better performance
       chartInstance.current.setOption(chartData.echarts_config, {
@@ -62,15 +105,7 @@ export function ChartElementV2({ chartId, config, onRemove, onUpdate }: ChartEle
         }
       }, 100);
     }
-
-    // Cleanup on unmount
-    return () => {
-      if (chartInstance.current) {
-        chartInstance.current.dispose();
-        chartInstance.current = null;
-      }
-    };
-  }, [chartData]);
+  }, [chartData, chartId]); // Only update when data changes
 
   // Handle window resize and container resize - separate from chart data changes
   useEffect(() => {
@@ -147,6 +182,34 @@ export function ChartElementV2({ chartId, config, onRemove, onUpdate }: ChartEle
       }
     };
   }, []); // No dependencies to avoid re-creating observer
+
+  // Handle resize when isResizing prop changes
+  useEffect(() => {
+    if (!isResizing && chartInstance.current && chartRef.current) {
+      // Clear any pending resize
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+
+      // Perform final resize after drag/resize stops
+      resizeTimeoutRef.current = setTimeout(() => {
+        if (chartInstance.current && chartRef.current) {
+          const { width, height } = chartRef.current.getBoundingClientRect();
+          console.log('Final resize after drag stop:', width, 'x', height);
+          chartInstance.current.resize({
+            width: Math.floor(width),
+            height: Math.floor(height),
+          });
+        }
+      }, 300); // Slightly longer delay for final resize
+    }
+
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+    };
+  }, [isResizing]);
 
   const isLoading = chartLoading || dataLoading;
   const isError = chartError || dataError;
