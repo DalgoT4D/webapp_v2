@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -51,6 +51,10 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   const [selectedFilters, setSelectedFilters] = useState<Record<string, any>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(1200);
+
+  // Ref for the dashboard container to measure its width
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
 
@@ -77,6 +81,42 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
   // Check if dashboard is locked by another user
   const isLockedByOther = isLocked && lockedBy && lockedBy !== currentUser?.email;
+
+  // Measure container width and update on resize (same logic as edit mode)
+  useEffect(() => {
+    let lastWidth = 0;
+
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const newWidth = Math.max(rect.width - 32, 800); // Subtract padding for margins, minimum 800px
+
+        // Only update if width has changed significantly (prevent infinite loops)
+        if (Math.abs(newWidth - lastWidth) > 10) {
+          lastWidth = newWidth;
+          setContainerWidth(newWidth);
+        }
+      }
+    };
+
+    // Initial measurement with delay to ensure DOM is ready
+    const timer = setTimeout(updateWidth, 100);
+
+    // Update on window resize with debouncing
+    let resizeTimeout: NodeJS.Timeout;
+    const debouncedResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(updateWidth, 150);
+    };
+
+    window.addEventListener('resize', debouncedResize);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(resizeTimeout);
+      window.removeEventListener('resize', debouncedResize);
+    };
+  }, []);
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
@@ -418,19 +458,19 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
       </div>
 
       {/* Dashboard Content */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-[1600px] mx-auto">
+      <div ref={containerRef} className="flex-1 overflow-auto p-4">
+        <div className="w-full">
           <GridLayout
             className="dashboard-grid"
             layout={dashboard.layout_config || []}
             cols={dashboard.grid_columns || 12}
-            rowHeight={60}
-            width={1200}
+            rowHeight={30}
+            width={containerWidth}
             isDraggable={false}
             isResizable={false}
             compactType={null}
             preventCollision={false}
-            margin={[16, 16]}
+            margin={[10, 10]}
           >
             {(dashboard.layout_config || []).map((layoutItem: any) => (
               <div key={layoutItem.i} className="dashboard-item">

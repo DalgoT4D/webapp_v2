@@ -131,9 +131,49 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [gridColumns, setGridColumns] = useState(initialData?.grid_columns || 12);
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
+    const [containerWidth, setContainerWidth] = useState(1200);
+
+    // Ref for the canvas container to measure its width
+    const canvasRef = useRef<HTMLDivElement>(null);
 
     // Debounced state for auto-save (keep original 5-second delay for responsive auto-save)
     const debouncedState = useDebounce(state, 5000);
+
+    // Measure container width and update on resize
+    useEffect(() => {
+      let lastWidth = 0;
+
+      const updateWidth = () => {
+        if (canvasRef.current) {
+          const rect = canvasRef.current.getBoundingClientRect();
+          const newWidth = Math.max(rect.width - 32, 800); // Subtract padding, minimum 800px
+
+          // Only update if width has changed significantly (prevent infinite loops)
+          if (Math.abs(newWidth - lastWidth) > 10) {
+            lastWidth = newWidth;
+            setContainerWidth(newWidth);
+          }
+        }
+      };
+
+      // Initial measurement with delay to ensure DOM is ready
+      const timer = setTimeout(updateWidth, 100);
+
+      // Update on window resize with debouncing
+      let resizeTimeout: NodeJS.Timeout;
+      const debouncedResize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(updateWidth, 150);
+      };
+
+      window.addEventListener('resize', debouncedResize);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(resizeTimeout);
+        window.removeEventListener('resize', debouncedResize);
+      };
+    }, []);
 
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
@@ -813,13 +853,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         </div>
 
         {/* Dashboard Canvas */}
-        <div className="flex-1 overflow-auto bg-gray-50 p-4">
+        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4">
           <GridLayout
             className="layout"
             layout={Array.isArray(state.layout) ? state.layout : []}
             cols={gridColumns}
             rowHeight={30}
-            width={1200}
+            width={containerWidth}
             onLayoutChange={handleLayoutChange}
             onResizeStart={handleResizeStart}
             onResizeStop={handleResizeStop}
