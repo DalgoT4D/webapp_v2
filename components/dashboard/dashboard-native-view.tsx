@@ -212,65 +212,91 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
         );
 
       case 'text':
-        return (
-          <div key={componentId} className="h-full p-4">
-            <div
-              className="text-gray-900"
-              style={{
-                fontSize: component.config?.fontSize || 14,
-                fontWeight: component.config?.fontWeight || 'normal',
-                color: component.config?.color || '#1f2937',
-              }}
-            >
-              {component.config?.content || 'Text content'}
+        const config = component.config;
+
+        // Handle both old and new text component formats
+        const isUnifiedTextComponent = config?.type !== undefined;
+
+        if (isUnifiedTextComponent) {
+          // New unified text component format
+          const content = config?.content || 'Text content';
+          const commonStyle = {
+            fontSize: `${config?.fontSize || 14}px`,
+            fontWeight: config?.fontWeight || 'normal',
+            fontStyle: config?.fontStyle || 'normal',
+            textDecoration: config?.textDecoration || 'none',
+            textAlign: (config?.textAlign || 'left') as any,
+            color: config?.color || '#1f2937',
+            backgroundColor: config?.backgroundColor || 'transparent',
+            lineHeight: config?.type === 'heading' ? '1.2' : '1.6',
+            padding: '8px',
+            margin: 0,
+            whiteSpace: 'pre-wrap' as any,
+            wordBreak: 'break-words' as any,
+          };
+
+          if (config?.type === 'heading') {
+            const headingLevel = config?.headingLevel || 2;
+            const HeadingTag = `h${headingLevel}` as keyof JSX.IntrinsicElements;
+            const headingClass = cn(
+              headingLevel === 1 && 'text-3xl font-bold',
+              headingLevel === 2 && 'text-2xl font-semibold',
+              headingLevel === 3 && 'text-xl font-medium'
+            );
+
+            return (
+              <div key={componentId} className="h-full flex items-start">
+                <HeadingTag className={headingClass} style={commonStyle}>
+                  {content}
+                </HeadingTag>
+              </div>
+            );
+          }
+
+          return (
+            <div key={componentId} className="h-full flex items-start">
+              <div style={commonStyle}>{content}</div>
             </div>
-          </div>
-        );
+          );
+        } else {
+          // Legacy text component format
+          return (
+            <div key={componentId} className="h-full p-4">
+              <div
+                className="text-gray-900"
+                style={{
+                  fontSize: config?.fontSize || 14,
+                  fontWeight: config?.fontWeight || 'normal',
+                  color: config?.color || '#1f2937',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-words',
+                }}
+              >
+                {config?.content || 'Text content'}
+              </div>
+            </div>
+          );
+        }
 
       case 'heading':
-        const level = component.config?.level || 'h2';
+        // Legacy heading component - keep for backward compatibility
+        const level = component.config?.level || 2;
         const headingStyles = cn(
           'text-gray-900 font-semibold',
-          level === 'h1' && 'text-2xl',
-          level === 'h2' && 'text-xl',
-          level === 'h3' && 'text-lg',
-          level === 'h4' && 'text-base',
-          level === 'h5' && 'text-sm',
-          level === 'h6' && 'text-xs'
+          level === 1 && 'text-2xl',
+          level === 2 && 'text-xl',
+          level === 3 && 'text-lg'
         );
 
+        const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
         return (
-          <div key={componentId} className="h-full p-4">
-            {level === 'h1' && (
-              <h1 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
-                {component.config?.text || 'Heading'}
-              </h1>
-            )}
-            {level === 'h2' && (
-              <h2 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
-                {component.config?.text || 'Heading'}
-              </h2>
-            )}
-            {level === 'h3' && (
-              <h3 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
-                {component.config?.text || 'Heading'}
-              </h3>
-            )}
-            {level === 'h4' && (
-              <h4 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
-                {component.config?.text || 'Heading'}
-              </h4>
-            )}
-            {level === 'h5' && (
-              <h5 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
-                {component.config?.text || 'Heading'}
-              </h5>
-            )}
-            {level === 'h6' && (
-              <h6 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
-                {component.config?.text || 'Heading'}
-              </h6>
-            )}
+          <div key={componentId} className="h-full p-4 flex items-center">
+            <HeadingTag
+              className={headingStyles}
+              style={{ color: component.config?.color || '#1f2937' }}
+            >
+              {component.config?.text || 'Heading'}
+            </HeadingTag>
           </div>
         );
 

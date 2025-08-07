@@ -42,14 +42,12 @@ import {
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
-import { TextElement } from './text-element';
-import { HeadingElement } from './heading-element';
+import { UnifiedTextElement, UnifiedTextConfig } from './text-element-unified';
 
 // Types
 export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',
-  HEADING = 'heading',
 }
 
 interface DashboardLayout {
@@ -515,61 +513,29 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         id: `text-${Date.now()}`,
         type: DashboardComponentType.TEXT,
         config: {
-          content: 'Enter your text here...',
+          content: '',
+          type: 'paragraph',
           fontSize: 14,
           fontWeight: 'normal',
+          fontStyle: 'normal',
+          textDecoration: 'none',
+          textAlign: 'left',
           color: '#000000',
-        },
+        } as UnifiedTextConfig,
       };
 
       // Find the best available position for the new text component
-      const position = findAvailablePosition(3, 4);
+      const position = findAvailablePosition(4, 3);
 
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
         x: position.x,
         y: position.y,
-        w: 3,
-        h: 4,
+        w: 4,
+        h: 3,
         minW: 2,
         maxW: 12,
         minH: 2,
-      };
-
-      setState({
-        layout: [...state.layout, newLayoutItem],
-        components: {
-          ...state.components,
-          [newComponent.id]: newComponent,
-        },
-      });
-    };
-
-    // Add heading component
-    const addHeadingComponent = () => {
-      const newComponent: DashboardComponent = {
-        id: `heading-${Date.now()}`,
-        type: DashboardComponentType.HEADING,
-        config: {
-          text: 'Dashboard Section',
-          level: 2,
-          color: '#000000',
-        },
-      };
-
-      // Find the best available position for the new heading component
-      const position = findAvailablePosition(6, 2);
-
-      const newLayoutItem: DashboardLayout = {
-        i: newComponent.id,
-        x: position.x,
-        y: position.y,
-        w: 6,
-        h: 2,
-        minW: 2,
-        maxW: 12,
-        minH: 1,
-        maxH: 3,
       };
 
       setState({
@@ -692,10 +658,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           );
 
         case DashboardComponentType.TEXT:
-          return <TextElement {...commonProps} config={component.config} />;
-
-        case DashboardComponentType.HEADING:
-          return <HeadingElement {...commonProps} config={component.config} />;
+          return <UnifiedTextElement {...commonProps} config={component.config} />;
 
         default:
           return null;
@@ -820,11 +783,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <Button onClick={addTextComponent} size="sm" variant="outline">
             <Type className="w-4 h-4 mr-2" />
             Add Text
-          </Button>
-
-          <Button onClick={addHeadingComponent} size="sm" variant="outline">
-            <Heading1 className="w-4 h-4 mr-2" />
-            Add Heading
           </Button>
 
           <div className="ml-4 flex gap-1">
