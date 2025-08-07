@@ -1,0 +1,470 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import GridLayout from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  ArrowLeft,
+  Edit,
+  Share2,
+  Download,
+  Maximize2,
+  Filter,
+  RefreshCw,
+  Lock,
+  Clock,
+  User,
+  Trash2,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
+import { useAuthStore } from '@/stores/authStore';
+import { ChartElementView } from './chart-element-view';
+import { DashboardFiltersDynamic } from './dashboard-filters-dynamic';
+import { useToast } from '@/components/ui/use-toast';
+
+interface DashboardNativeViewProps {
+  dashboardId: number;
+}
+
+export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
+  const router = useRouter();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, any>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const { toast } = useToast();
+
+  // Get current user info for permission checks
+  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
+  const currentUser = getCurrentOrgUser();
+
+  // Fetch dashboard data
+  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
+
+  // Check if user can edit (creator or admin)
+  const canEdit = useMemo(() => {
+    if (!dashboard || !currentUser) return false;
+    return (
+      dashboard.created_by === currentUser.email ||
+      currentUser.role === 'admin' ||
+      currentUser.role === 'super-admin'
+    );
+  }, [dashboard, currentUser]);
+
+  // Check if dashboard is locked
+  const isLocked = dashboard?.is_locked || false;
+  const lockedBy = dashboard?.locked_by;
+
+  // Check if dashboard is locked by another user
+  const isLockedByOther = isLocked && lockedBy && lockedBy !== currentUser?.email;
+
+  // Handle fullscreen toggle
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  // Handle edit navigation
+  const handleEdit = () => {
+    router.push(`/dashboards/${dashboardId}/edit`);
+  };
+
+  // Handle share
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      // TODO: Show toast notification
+      console.log('Dashboard link copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await mutate();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (filterId: string, value: any) => {
+    setSelectedFilters((prev) => ({
+      ...prev,
+      [filterId]: value,
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setSelectedFilters({});
+  };
+
+  // Handle dashboard deletion
+  const handleDelete = async () => {
+    setIsDeleting(true);
+
+    try {
+      await deleteDashboard(dashboardId);
+
+      toast({
+        title: 'Dashboard deleted',
+        description: `"${dashboard?.title}" has been successfully deleted.`,
+        variant: 'default',
+      });
+
+      // Navigate back to dashboard list
+      router.push('/dashboards');
+    } catch (error) {
+      console.error('Error deleting dashboard:', error);
+      toast({
+        title: 'Delete failed',
+        description: 'Failed to delete the dashboard. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Render dashboard components
+  const renderComponent = (componentId: string) => {
+    if (!dashboard?.components) return null;
+
+    const component = dashboard.components[componentId];
+    if (!component) return null;
+
+    switch (component.type) {
+      case 'chart':
+        return (
+          <div key={componentId} className="h-full">
+            <ChartElementView
+              chartId={component.config?.chartId}
+              dashboardFilters={selectedFilters}
+              viewMode={true}
+              className="h-full"
+            />
+          </div>
+        );
+
+      case 'text':
+        return (
+          <div key={componentId} className="h-full p-4">
+            <div
+              className="text-gray-900"
+              style={{
+                fontSize: component.config?.fontSize || 14,
+                fontWeight: component.config?.fontWeight || 'normal',
+                color: component.config?.color || '#1f2937',
+              }}
+            >
+              {component.config?.content || 'Text content'}
+            </div>
+          </div>
+        );
+
+      case 'heading':
+        const level = component.config?.level || 'h2';
+        const headingStyles = cn(
+          'text-gray-900 font-semibold',
+          level === 'h1' && 'text-2xl',
+          level === 'h2' && 'text-xl',
+          level === 'h3' && 'text-lg',
+          level === 'h4' && 'text-base',
+          level === 'h5' && 'text-sm',
+          level === 'h6' && 'text-xs'
+        );
+
+        return (
+          <div key={componentId} className="h-full p-4">
+            {level === 'h1' && (
+              <h1 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
+                {component.config?.text || 'Heading'}
+              </h1>
+            )}
+            {level === 'h2' && (
+              <h2 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
+                {component.config?.text || 'Heading'}
+              </h2>
+            )}
+            {level === 'h3' && (
+              <h3 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
+                {component.config?.text || 'Heading'}
+              </h3>
+            )}
+            {level === 'h4' && (
+              <h4 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
+                {component.config?.text || 'Heading'}
+              </h4>
+            )}
+            {level === 'h5' && (
+              <h5 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
+                {component.config?.text || 'Heading'}
+              </h5>
+            )}
+            {level === 'h6' && (
+              <h6 className={headingStyles} style={{ color: component.config?.color || '#1f2937' }}>
+                {component.config?.text || 'Heading'}
+              </h6>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex flex-col bg-gray-50">
+        <div className="bg-white border-b px-6 py-4">
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="flex-1 p-6">
+          <div className="grid grid-cols-12 gap-4">
+            <Skeleton className="col-span-6 h-64" />
+            <Skeleton className="col-span-6 h-64" />
+            <Skeleton className="col-span-4 h-48" />
+            <Skeleton className="col-span-8 h-48" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !dashboard) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold mb-2">Dashboard Not Found</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                The dashboard you're looking for doesn't exist or you don't have access to it.
+              </p>
+              <Button onClick={() => router.push('/dashboards')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboards
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const hasFilters = dashboard.filters && dashboard.filters.length > 0;
+  const activeFilterCount = Object.keys(selectedFilters).length;
+
+  return (
+    <div className={cn('h-screen flex flex-col bg-gray-50', isFullscreen && 'fixed inset-0 z-50')}>
+      {/* Header */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {!isFullscreen && (
+                <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              )}
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-gray-900">{dashboard.title}</h1>
+                  {dashboard.is_published && (
+                    <Badge variant="success" className="text-xs">
+                      Published
+                    </Badge>
+                  )}
+                  {isLocked && (
+                    <Badge
+                      variant={isLockedByOther ? 'destructive' : 'secondary'}
+                      className="text-xs"
+                    >
+                      <Lock className="w-3 h-3 mr-1" />
+                      {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
+                    </Badge>
+                  )}
+                </div>
+                {dashboard.description && (
+                  <p className="text-sm text-gray-600 mt-1">{dashboard.description}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Metadata */}
+              <div className="flex items-center gap-4 mr-4 text-xs text-gray-500">
+                {dashboard.last_modified_by && (
+                  <div className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    <span>{dashboard.last_modified_by}</span>
+                  </div>
+                )}
+                {dashboard.updated_at && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    <span>{format(new Date(dashboard.updated_at), 'MMM d, yyyy')}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={handleShare}>
+                <Share2 className="w-4 h-4" />
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+                <Maximize2 className="w-4 h-4" />
+              </Button>
+
+              {canEdit && !isLockedByOther && (
+                <>
+                  <Button onClick={handleEdit} size="sm">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Dashboard
+                  </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={isDeleting}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{dashboard?.title}"? This action cannot
+                          be undone and will permanently remove all dashboard content and
+                          configuration.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Bar */}
+        {hasFilters && (
+          <div className="px-6 py-3 bg-gray-50 border-t">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Filter className="w-4 h-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {activeFilterCount} active
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <DashboardFiltersDynamic
+                  filters={dashboard.filters}
+                  selectedValues={selectedFilters}
+                  onChange={handleFilterChange}
+                  onClear={handleClearFilters}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Dashboard Content */}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-[1600px] mx-auto">
+          <GridLayout
+            className="dashboard-grid"
+            layout={dashboard.layout_config || []}
+            cols={dashboard.grid_columns || 12}
+            rowHeight={60}
+            width={1200}
+            isDraggable={false}
+            isResizable={false}
+            compactType={null}
+            preventCollision={false}
+            margin={[16, 16]}
+          >
+            {(dashboard.layout_config || []).map((layoutItem: any) => (
+              <div key={layoutItem.i} className="dashboard-item">
+                <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <CardContent className="p-4 h-full">{renderComponent(layoutItem.i)}</CardContent>
+                </Card>
+              </div>
+            ))}
+          </GridLayout>
+        </div>
+      </div>
+
+      {/* Custom styles for view mode */}
+      <style jsx global>{`
+        .dashboard-grid {
+          position: relative;
+        }
+
+        .dashboard-item {
+          transition: transform 0.2s ease;
+        }
+
+        .dashboard-item:hover {
+          z-index: 10;
+        }
+
+        .react-grid-item {
+          transition: none !important;
+        }
+
+        .react-grid-item.react-grid-placeholder {
+          display: none !important;
+        }
+      `}</style>
+    </div>
+  );
+}

@@ -15,6 +15,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   Search,
   Grid,
   List,
@@ -28,12 +39,16 @@ import {
   Clock,
   User,
   Lock,
+  Trash2,
+  MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { useDashboards } from '@/hooks/api/useDashboards';
+import { useDashboards, deleteDashboard } from '@/hooks/api/useDashboards';
 import { DashboardThumbnail } from './dashboard-thumbnail';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuthStore } from '@/stores/authStore';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -53,6 +68,13 @@ export function DashboardListV2() {
   const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
   const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isDeleting, setIsDeleting] = useState<number | null>(null);
+
+  const { toast } = useToast();
+
+  // Get current user info for permission checks
+  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
+  const currentUser = getCurrentOrgUser();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -81,172 +103,308 @@ export function DashboardListV2() {
   };
 
   // Fetch dashboards
-  const { data: dashboards, isLoading, isError } = useDashboards(params);
+  const { data: dashboards, isLoading, isError, mutate } = useDashboards(params);
+
+  // Handle dashboard deletion
+  const handleDeleteDashboard = useCallback(
+    async (dashboardId: number, dashboardTitle: string) => {
+      setIsDeleting(dashboardId);
+
+      try {
+        await deleteDashboard(dashboardId);
+
+        // Refresh the dashboard list
+        await mutate();
+
+        toast({
+          title: 'Dashboard deleted',
+          description: `"${dashboardTitle}" has been successfully deleted.`,
+          variant: 'default',
+        });
+      } catch (error) {
+        console.error('Error deleting dashboard:', error);
+        toast({
+          title: 'Delete failed',
+          description: 'Failed to delete the dashboard. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsDeleting(null);
+      }
+    },
+    [mutate, toast]
+  );
 
   // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
     const isNative = dashboard.dashboard_type === 'native';
     const isLocked = dashboard.is_locked;
+    const isLockedByOther =
+      isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
+
+    // By default, all dashboards go to view mode first
+    const getNavigationUrl = () => {
+      return `/dashboards/${dashboard.id}`;
+    };
 
     return (
-      <Link
+      <Card
         key={dashboard.id}
-        href={isNative ? `/dashboards/${dashboard.id}/edit` : `/dashboards/${dashboard.id}`}
+        className={cn(
+          'transition-all duration-200 hover:shadow-md h-full relative group',
+          !dashboard.is_published && 'opacity-75'
+        )}
       >
-        <Card
-          className={cn(
-            'cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] h-full',
-            !dashboard.is_published && 'opacity-75'
-          )}
-        >
-          {/* Thumbnail */}
-          <div className="relative h-48 bg-muted overflow-hidden">
-            {isNative ? (
-              <div className="flex items-center justify-center h-full">
-                <Layout className="w-16 h-16 text-muted-foreground" />
-              </div>
-            ) : (
-              <DashboardThumbnail
-                dashboardId={dashboard.id}
-                thumbnailUrl={dashboard.thumbnail_url}
-                alt={dashboard.title}
-              />
-            )}
+        {/* Delete Button - appears on hover */}
+        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8"
+                disabled={isDeleting === dashboard.id}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{dashboard.title || dashboard.dashboard_title}"?
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    handleDeleteDashboard(
+                      dashboard.id,
+                      dashboard.title || dashboard.dashboard_title
+                    )
+                  }
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
 
-            {/* Type badge */}
-            <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 right-2">
-              {isNative ? 'Native' : 'Superset'}
-            </Badge>
+        {/* Clickable content area */}
+        <Link href={getNavigationUrl()}>
+          <div className="cursor-pointer">
+            {/* Thumbnail */}
+            <div className="relative h-48 bg-muted overflow-hidden">
+              {isNative ? (
+                <div className="flex items-center justify-center h-full">
+                  <Layout className="w-16 h-16 text-muted-foreground" />
+                </div>
+              ) : (
+                <DashboardThumbnail
+                  dashboardId={dashboard.id}
+                  thumbnailUrl={dashboard.thumbnail_url}
+                  alt={dashboard.title}
+                />
+              )}
 
-            {/* Lock indicator */}
-            {isLocked && (
-              <div className="absolute top-2 left-2 bg-yellow-500 text-white p-1 rounded">
-                <Lock className="w-4 h-4" />
-              </div>
-            )}
-          </div>
+              {/* Type badge */}
+              <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
+                {isNative ? 'Native' : 'Superset'}
+              </Badge>
 
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1 flex-1">
-                <CardTitle className="text-base line-clamp-1">
-                  {dashboard.title || dashboard.dashboard_title}
-                </CardTitle>
-                <CardDescription className="text-xs line-clamp-2">
-                  {dashboard.description || 'No description'}
-                </CardDescription>
-              </div>
-
-              {!isNative && (
-                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
+              {/* Lock indicator */}
+              {isLocked && (
+                <div
+                  className={cn(
+                    'absolute bottom-2 left-2 text-white p-1 rounded text-xs flex items-center gap-1',
+                    isLockedByOther ? 'bg-red-500' : 'bg-blue-500'
+                  )}
+                >
+                  <Lock className="w-3 h-3" />
+                  {isLockedByOther ? 'Locked' : 'By you'}
+                </div>
               )}
             </div>
-          </CardHeader>
 
-          <CardContent className="pt-0">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <User className="w-3 h-3" />
-                <span>{dashboard.created_by || dashboard.changed_by_name || 'Unknown'}</span>
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1 flex-1">
+                  <CardTitle className="text-base line-clamp-1">
+                    {dashboard.title || dashboard.dashboard_title}
+                  </CardTitle>
+                  <CardDescription className="text-xs line-clamp-2">
+                    {dashboard.description || 'No description'}
+                  </CardDescription>
+                </div>
+
+                {!isNative && (
+                  <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-0">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span>{dashboard.created_by || dashboard.changed_by_name || 'Unknown'}</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>
+                    {dashboard.updated_at
+                      ? format(new Date(dashboard.updated_at), 'MMM d')
+                      : 'Unknown'}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>
-                  {dashboard.updated_at
-                    ? format(new Date(dashboard.updated_at), 'MMM d')
-                    : 'Unknown'}
-                </span>
-              </div>
-            </div>
+              {dashboard.is_published ? (
+                <Badge variant="outline" className="mt-2 text-xs">
+                  Published
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="mt-2 text-xs">
+                  Draft
+                </Badge>
+              )}
 
-            {dashboard.is_published ? (
-              <Badge variant="outline" className="mt-2 text-xs">
-                Published
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="mt-2 text-xs">
-                Draft
-              </Badge>
-            )}
-
-            {isLocked && dashboard.locked_by && (
-              <p className="text-xs text-yellow-600 mt-2">Locked by {dashboard.locked_by}</p>
-            )}
-          </CardContent>
-        </Card>
-      </Link>
+              {isLocked && dashboard.locked_by && (
+                <p
+                  className={cn('text-xs mt-2', isLockedByOther ? 'text-red-600' : 'text-blue-600')}
+                >
+                  {isLockedByOther ? `Locked by ${dashboard.locked_by}` : 'Locked by you'}
+                </p>
+              )}
+            </CardContent>
+          </div>
+        </Link>
+      </Card>
     );
   };
 
   const renderDashboardList = (dashboard: any) => {
     const isNative = dashboard.dashboard_type === 'native';
     const isLocked = dashboard.is_locked;
+    const isLockedByOther =
+      isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
+
+    // By default, all dashboards go to view mode first
+    const getNavigationUrl = () => {
+      return `/dashboards/${dashboard.id}`;
+    };
 
     return (
-      <Link
-        key={dashboard.id}
-        href={isNative ? `/dashboards/${dashboard.id}/edit` : `/dashboards/${dashboard.id}`}
-      >
-        <Card className="cursor-pointer transition-all duration-200 hover:shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                  {isNative ? (
-                    <Layout className="w-8 h-8 text-muted-foreground" />
-                  ) : (
-                    <BarChart3 className="w-8 h-8 text-muted-foreground" />
+      <Card key={dashboard.id} className="transition-all duration-200 hover:shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            {/* Clickable main content */}
+            <Link
+              href={getNavigationUrl()}
+              className="flex items-center gap-4 flex-1 cursor-pointer"
+            >
+              <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                {isNative ? (
+                  <Layout className="w-8 h-8 text-muted-foreground" />
+                ) : (
+                  <BarChart3 className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium truncate">
+                    {dashboard.title || dashboard.dashboard_title}
+                  </h3>
+                  <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
+                    {isNative ? 'Native' : 'Superset'}
+                  </Badge>
+                  {isLocked && (
+                    <Lock
+                      className={cn('w-4 h-4', isLockedByOther ? 'text-red-500' : 'text-blue-500')}
+                    />
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium truncate">
-                      {dashboard.title || dashboard.dashboard_title}
-                    </h3>
-                    <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
-                      {isNative ? 'Native' : 'Superset'}
+                <p className="text-sm text-muted-foreground truncate">
+                  {dashboard.description || 'No description'}
+                </p>
+
+                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {dashboard.updated_at
+                      ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
+                      : 'Unknown'}
+                  </span>
+                  {dashboard.is_published ? (
+                    <Badge variant="outline" className="text-xs">
+                      Published
                     </Badge>
-                    {isLocked && <Lock className="w-4 h-4 text-yellow-500" />}
-                  </div>
-
-                  <p className="text-sm text-muted-foreground truncate">
-                    {dashboard.description || 'No description'}
-                  </p>
-
-                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {dashboard.updated_at
-                        ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
-                        : 'Unknown'}
-                    </span>
-                    {dashboard.is_published ? (
-                      <Badge variant="outline" className="text-xs">
-                        Published
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs">
-                        Draft
-                      </Badge>
-                    )}
-                  </div>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">
+                      Draft
+                    </Badge>
+                  )}
                 </div>
               </div>
 
               {!isNative && (
-                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
               )}
+            </Link>
+
+            {/* Delete button */}
+            <div className="flex items-center gap-2 ml-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={isDeleting === dashboard.id}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete "
+                      {dashboard.title || dashboard.dashboard_title}"? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() =>
+                        handleDeleteDashboard(
+                          dashboard.id,
+                          dashboard.title || dashboard.dashboard_title
+                        )
+                      }
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-          </CardContent>
-        </Card>
-      </Link>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
 

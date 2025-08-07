@@ -125,30 +125,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     useEffect(() => {
       lockStateRef.current = { dashboardId, lockToken, lockRefreshInterval };
     }, [dashboardId, lockToken, lockRefreshInterval]);
-
-    // Expose cleanup function to parent component
-    useImperativeHandle(
-      ref,
-      () => ({
-        cleanup: async () => {
-          if (dashboardId && lockToken) {
-            await unlockDashboard();
-          }
-
-          // Clear SWR cache to ensure dashboard list refreshes
-          try {
-            const { mutate } = await import('swr');
-            mutate('/api/dashboards/'); // Refresh dashboard list
-            if (dashboardId) {
-              mutate(`/api/dashboards/${dashboardId}/`); // Refresh current dashboard
-            }
-          } catch (error) {
-            console.error('Error clearing SWR cache:', error);
-          }
-        },
-      }),
-      [dashboardId, lockToken]
-    );
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
@@ -372,6 +348,41 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
+    // Expose cleanup function to parent component
+    useImperativeHandle(
+      ref,
+      () => ({
+        cleanup: async () => {
+          // First save any pending changes
+          if (dashboardId) {
+            try {
+              await saveDashboard();
+              console.log('Dashboard saved before cleanup');
+            } catch (error) {
+              console.error('Error saving dashboard before cleanup:', error);
+            }
+          }
+
+          // Then unlock the dashboard
+          if (dashboardId && lockToken) {
+            await unlockDashboard();
+          }
+
+          // Clear SWR cache to ensure dashboard list refreshes
+          try {
+            const { mutate } = await import('swr');
+            mutate('/api/dashboards/'); // Refresh dashboard list
+            if (dashboardId) {
+              mutate(`/api/dashboards/${dashboardId}/`); // Refresh current dashboard
+            }
+          } catch (error) {
+            console.error('Error clearing SWR cache:', error);
+          }
+        },
+      }),
+      [dashboardId, lockToken, saveDashboard, unlockDashboard]
+    );
+
     // Handle layout changes
     const handleLayoutChange = (newLayout: GridLayout.Layout[]) => {
       setState({
@@ -530,6 +541,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         layout: state.layout.filter((item) => item.i !== componentId),
         components: newComponents,
       });
+    };
+
+    // Get chart IDs that are already added to the dashboard
+    const getExcludedChartIds = (): number[] => {
+      const chartIds: number[] = [];
+
+      Object.values(state.components).forEach((component) => {
+        if (component.type === DashboardComponentType.CHART && component.config.chartId) {
+          chartIds.push(component.config.chartId);
+        }
+      });
+
+      return chartIds;
     };
 
     // Update component config
@@ -765,6 +789,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           open={showChartSelector}
           onClose={() => setShowChartSelector(false)}
           onSelect={handleChartSelected}
+          excludedChartIds={getExcludedChartIds()}
         />
       </div>
     );

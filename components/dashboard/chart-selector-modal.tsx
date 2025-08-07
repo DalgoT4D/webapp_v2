@@ -12,13 +12,26 @@ interface ChartSelectorModalProps {
   open: boolean;
   onClose: () => void;
   onSelect: (chartId: number) => void;
+  excludedChartIds?: number[]; // Charts already added to the dashboard
 }
 
-export function ChartSelectorModal({ open, onClose, onSelect }: ChartSelectorModalProps) {
+export function ChartSelectorModal({
+  open,
+  onClose,
+  onSelect,
+  excludedChartIds = [],
+}: ChartSelectorModalProps) {
   const [search, setSearch] = useState('');
   const { data: charts, isLoading } = useCharts({ search });
 
   const handleSelect = (chartId: number) => {
+    // Prevent selection if chart is already added
+    if (excludedChartIds.includes(chartId)) {
+      // Could show a toast message here in the future
+      console.log(`Chart ${chartId} is already added to the dashboard`);
+      return;
+    }
+
     onSelect(chartId);
     onClose();
     setSearch(''); // Reset search on close
@@ -55,27 +68,32 @@ export function ChartSelectorModal({ open, onClose, onSelect }: ChartSelectorMod
               </div>
             ) : charts && charts.length > 0 ? (
               <div className="grid grid-cols-2 gap-4">
-                {charts.map((chart) => (
-                  <div
-                    key={chart.id}
-                    className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
-                    onClick={() => handleSelect(chart.id)}
-                  >
-                    <h3 className="font-medium mb-2 text-sm">{chart.title}</h3>
-                    <div className="h-32 mb-2">
-                      <MiniChart chartId={chart.id} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-gray-500 capitalize">{chart.chart_type} Chart</p>
-                        <p className="text-xs text-gray-500 capitalize">{chart.computation_type}</p>
+                {charts.map((chart) => {
+                  const isAlreadyAdded = excludedChartIds.includes(chart.id);
+
+                  return (
+                    <div
+                      key={chart.id}
+                      className={`border rounded-lg p-4 transition-all duration-200 ${
+                        isAlreadyAdded
+                          ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
+                          : 'cursor-pointer hover:bg-gray-50 hover:border-gray-300'
+                      }`}
+                      onClick={() => handleSelect(chart.id)}
+                    >
+                      <div className="h-36 mb-3">
+                        <MiniChart chartId={chart.id} showTitle={false} />
                       </div>
-                      <p className="text-xs text-gray-400 truncate">
-                        {chart.schema_name}.{chart.table_name}
-                      </p>
+                      <div className="text-center">
+                        <h4 className="text-sm font-medium truncate mb-1">{chart.title}</h4>
+                        <p className="text-xs text-gray-500 capitalize">{chart.chart_type}</p>
+                        {isAlreadyAdded && (
+                          <p className="text-xs text-orange-600 font-medium mt-1">Already added</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">

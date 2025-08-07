@@ -32,6 +32,7 @@ export interface MiniChartProps {
   chartType?: string;
   chartId?: number; // Alternative: chart ID to fetch config
   className?: string;
+  showTitle?: boolean; // Whether to show the chart title in ECharts
 }
 
 export function MiniChart({
@@ -39,6 +40,7 @@ export function MiniChart({
   chartType,
   chartId,
   className = 'w-full h-full',
+  showTitle = false,
 }: MiniChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -164,13 +166,22 @@ export function MiniChart({
       grid: {
         left: 15,
         right: 15,
-        top: 15,
+        top: showTitle ? 35 : 15,
         bottom: 15,
         containLabel: false,
       },
       tooltip: { show: false },
       legend: { show: false },
-      title: { show: false },
+      title: {
+        show: showTitle,
+        text: showTitle ? chartConfig.title?.text || '' : '',
+        left: 'center',
+        top: '10',
+        textStyle: {
+          fontSize: 12,
+          fontWeight: 'bold',
+        },
+      },
     };
 
     // Merge baseOption with the chart config
@@ -178,6 +189,7 @@ export function MiniChart({
       ...baseOption,
       ...chartConfig,
       // Override specific options for thumbnail view
+      title: baseOption.title, // Force override the title from baseOption
       xAxis: chartConfig.xAxis
         ? {
             ...chartConfig.xAxis,

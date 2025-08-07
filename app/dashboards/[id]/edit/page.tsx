@@ -7,7 +7,7 @@ import { useDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Lock, User, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
 
 export default function EditDashboardPage() {
   const params = useParams();
@@ -31,6 +31,9 @@ export default function EditDashboardPage() {
 
   // State for refresh countdown
   const [refreshCountdown, setRefreshCountdown] = useState(10);
+
+  // State for navigation loading
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Auto-refresh dashboard data when locked by another user (every 10 seconds)
   useEffect(() => {
@@ -60,6 +63,26 @@ export default function EditDashboardPage() {
 
     // Navigate to dashboard list
     router.push('/dashboards');
+  };
+
+  // Handle navigation to view mode
+  const handleViewMode = async () => {
+    setIsNavigating(true);
+
+    try {
+      // Call cleanup function if available (this will save changes first)
+      if (dashboardBuilderRef.current?.cleanup) {
+        console.log('Saving changes and cleaning up before view mode...');
+        await dashboardBuilderRef.current.cleanup();
+        console.log('Cleanup completed, navigating to view mode...');
+      }
+
+      // Navigate to view mode
+      router.push(`/dashboards/${dashboardId}`);
+    } catch (error) {
+      console.error('Error navigating to view mode:', error);
+      setIsNavigating(false);
+    }
   };
 
   // Mock data for testing
@@ -205,6 +228,18 @@ export default function EditDashboardPage() {
                 <p className="text-sm text-gray-500">{dashboardData.description}</p>
               )}
             </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleViewMode} disabled={isNavigating}>
+              {isNavigating ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Eye className="w-4 h-4 mr-2" />
+              )}
+              {isNavigating ? 'Switching...' : 'View Mode'}
+            </Button>
           </div>
         </div>
       </div>

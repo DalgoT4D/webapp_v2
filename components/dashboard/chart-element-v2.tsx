@@ -241,17 +241,7 @@ export function ChartElementV2({
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3 flex-shrink-0">
-        <div>
-          <CardTitle className="text-base">{chart?.title || `Chart #${chartId}`}</CardTitle>
-          <CardDescription className="text-xs">
-            {chart?.chart_type && chart?.computation_type
-              ? `${chart.chart_type} • ${chart.computation_type}`
-              : 'Data Visualization'}
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0 pb-0 flex-1">
+      <CardContent className="p-0 flex-1">
         <div className="h-full min-h-[200px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
