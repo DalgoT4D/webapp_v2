@@ -441,10 +441,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         };
 
+        // Find the best available position for the new chart
+        const position = findAvailablePosition(4, 8);
+
         const newLayoutItem: DashboardLayout = {
           i: newComponent.id,
-          x: 0,
-          y: 0,
+          x: position.x,
+          y: position.y,
           w: 4,
           h: 8,
           minW: 2,
@@ -479,10 +482,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       };
 
+      // Find the best available position for the new text component
+      const position = findAvailablePosition(3, 4);
+
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
-        x: 0,
-        y: 0,
+        x: position.x,
+        y: position.y,
         w: 3,
         h: 4,
         minW: 2,
@@ -511,10 +517,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       };
 
+      // Find the best available position for the new heading component
+      const position = findAvailablePosition(6, 2);
+
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
-        x: 0,
-        y: 0,
+        x: position.x,
+        y: position.y,
         w: 6,
         h: 2,
         minW: 2,
@@ -568,6 +577,57 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         },
       });
+    };
+
+    // Find next available position for new component
+    const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
+      const layout = state.layout || [];
+      const maxCols = gridColumns;
+
+      // Create a grid to track occupied spaces
+      const occupiedGrid: boolean[][] = [];
+
+      // Initialize grid - find max Y coordinate to determine grid height
+      const maxY = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+      const gridHeight = Math.max(maxY + height + 5, 20); // Add some buffer
+
+      for (let y = 0; y < gridHeight; y++) {
+        occupiedGrid[y] = new Array(maxCols).fill(false);
+      }
+
+      // Mark occupied positions
+      layout.forEach((item) => {
+        for (let y = item.y; y < item.y + item.h; y++) {
+          for (let x = item.x; x < item.x + item.w; x++) {
+            if (y < gridHeight && x < maxCols) {
+              occupiedGrid[y][x] = true;
+            }
+          }
+        }
+      });
+
+      // Find first available position that fits the component
+      for (let y = 0; y <= gridHeight - height; y++) {
+        for (let x = 0; x <= maxCols - width; x++) {
+          let canPlace = true;
+
+          // Check if this position and size is available
+          for (let dy = 0; dy < height && canPlace; dy++) {
+            for (let dx = 0; dx < width && canPlace; dx++) {
+              if (y + dy < gridHeight && x + dx < maxCols && occupiedGrid[y + dy][x + dx]) {
+                canPlace = false;
+              }
+            }
+          }
+
+          if (canPlace) {
+            return { x, y };
+          }
+        }
+      }
+
+      // If no position found, place at the end
+      return { x: 0, y: maxY + 1 };
     };
 
     // Render components
@@ -765,7 +825,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             onResizeStop={handleResizeStop}
             draggableHandle=".drag-handle"
             compactType={null}
-            preventCollision={false}
+            preventCollision={true}
+            allowOverlap={false}
           >
             {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
               <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
