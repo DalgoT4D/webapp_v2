@@ -24,6 +24,7 @@ export interface Dashboard {
 export interface DashboardFilter {
   id: number;
   dashboard_id: number;
+  name: string;
   filter_type: 'value' | 'numerical';
   schema_name: string;
   table_name: string;
@@ -127,4 +128,20 @@ export async function getFilterOptions(params: {
 
 export async function getFilteredDashboardData(dashboardId: number, filters: any) {
   return apiPost(`/api/dashboards/${dashboardId}/filter-data/`, filters);
+}
+
+export async function updateDashboardFilter(
+  dashboardId: number,
+  filterId: number,
+  data: {
+    name?: string;
+    filter_type?: 'value' | 'numerical';
+    schema_name?: string;
+    table_name?: string;
+    column_name?: string;
+    settings?: any;
+    order?: number;
+  }
+) {
+  return apiPut(`/api/dashboards/${dashboardId}/filters/${filterId}/`, data);
 }

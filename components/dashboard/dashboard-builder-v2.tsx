@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-  forwardRef,
-  useImperativeHandle,
-} from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useRouter } from 'next/navigation';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -19,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { refreshDashboardLock } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -30,8 +21,6 @@ import {
   Save,
   Loader2,
   Type,
-  Heading1,
-  BarChart3,
   Grip,
   X,
   Lock,
@@ -46,14 +35,11 @@ import {
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
-import { UnifiedTextElement, UnifiedTextConfig } from './text-element-unified';
+import { UnifiedTextElement } from './text-element-unified';
+import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
 import { FilterElement } from './filter-element';
-import {
-  DashboardFilterConfig,
-  CreateFilterPayload,
-  AppliedFilters,
-} from '@/types/dashboard-filters';
+import type { DashboardFilterConfig, CreateFilterPayload } from '@/types/dashboard-filters';
 
 // Types
 export enum DashboardComponentType {
@@ -121,7 +107,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const initialFilters = Array.isArray(initialData?.filters)
       ? initialData.filters.map((filter: any) => ({
           id: filter.id,
-          name: filter.column_name, // Use column_name as default name
+          name: filter.name || filter.column_name, // Use name first, fallback to column_name
           schema_name: filter.schema_name,
           table_name: filter.table_name,
           column_name: filter.column_name,
@@ -148,6 +134,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
     const [showFilterModal, setShowFilterModal] = useState(false);
+    const [selectedFilterForEdit, setSelectedFilterForEdit] =
+      useState<DashboardFilterConfig | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -400,6 +388,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         // Prepare filters without position data (position is in layout_config)
         const backendFilters = state.filters.map((filter) => ({
           id: filter.id,
+          name: filter.name,
           filter_type: filter.filter_type,
           schema_name: filter.schema_name,
           table_name: filter.table_name,
@@ -624,12 +613,88 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     // Add filter
+    const handleFilterSave = async (
+      filterPayload: CreateFilterPayload | any,
+      filterId?: number
+    ) => {
+      if (!dashboardId) return;
+
+      // Check if this is an update or create
+      if (filterId && selectedFilterForEdit) {
+        // Update existing filter
+        try {
+          const updateData = {
+            name: filterPayload.name,
+            schema_name: filterPayload.schema_name,
+            table_name: filterPayload.table_name,
+            column_name: filterPayload.column_name,
+            filter_type: filterPayload.filter_type || selectedFilterForEdit.filter_type,
+            settings: filterPayload.settings,
+          };
+          const response = await apiPut(
+            `/api/dashboards/${dashboardId}/filters/${filterId}/`,
+            updateData
+          );
+
+          // Update the filter in the filters array
+          const updatedFilters = state.filters.map((filter) =>
+            String(filter.id) === String(filterId)
+              ? ({
+                  ...filter,
+                  name: filterPayload.name,
+                  schema_name: filterPayload.schema_name || selectedFilterForEdit.schema_name,
+                  table_name: filterPayload.table_name || selectedFilterForEdit.table_name,
+                  column_name: filterPayload.column_name || selectedFilterForEdit.column_name,
+                  filter_type: filterPayload.filter_type || selectedFilterForEdit.filter_type,
+                  settings: filterPayload.settings,
+                } as DashboardFilterConfig)
+              : filter
+          );
+
+          // Find the component that references this filter and update its name
+          const updatedComponents = { ...state.components };
+          const componentId = Object.keys(updatedComponents).find(
+            (id) =>
+              updatedComponents[id].type === DashboardComponentType.FILTER &&
+              updatedComponents[id].config.filterId === filterId
+          );
+
+          if (componentId) {
+            updatedComponents[componentId] = {
+              ...updatedComponents[componentId],
+              config: {
+                ...updatedComponents[componentId].config,
+                name: filterPayload.name,
+              },
+            };
+          }
+
+          // Update state with all preserved data
+          setState({
+            ...state,
+            filters: updatedFilters,
+            components: updatedComponents,
+          });
+
+          console.log('Filter updated successfully');
+          setSelectedFilterForEdit(null);
+          setShowFilterModal(false);
+        } catch (error) {
+          console.error('Error updating filter:', error);
+        }
+      } else {
+        // Create new filter (existing logic)
+        handleFilterCreate(filterPayload as CreateFilterPayload);
+      }
+    };
+
     const handleFilterCreate = async (filterPayload: CreateFilterPayload) => {
       if (!dashboardId) return;
 
       try {
         // Create filter in database first (without position in settings)
         const response = await apiPost(`/api/dashboards/${dashboardId}/filters/`, {
+          name: filterPayload.name,
           filter_type: filterPayload.filter_type,
           schema_name: filterPayload.schema_name,
           table_name: filterPayload.table_name,
@@ -723,25 +788,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
-    // Update filter
-    const updateFilter = (filterId: string, updates: Partial<DashboardFilterConfig>) => {
-      setState({
-        ...state,
-        filters: state.filters.map((filter) =>
-          filter.id === filterId ? ({ ...filter, ...updates } as DashboardFilterConfig) : filter
-        ),
-      });
-    };
-
     // Get chart IDs that are already added to the dashboard
     const getExcludedChartIds = (): number[] => {
       const chartIds: number[] = [];
 
-      Object.values(state.components).forEach((component) => {
-        if (component.type === DashboardComponentType.CHART && component.config.chartId) {
-          chartIds.push(component.config.chartId);
-        }
-      });
+      // Guard against state.components being null/undefined during state transitions
+      if (state.components) {
+        Object.values(state.components).forEach((component) => {
+          if (component.type === DashboardComponentType.CHART && component.config.chartId) {
+            chartIds.push(component.config.chartId);
+          }
+        });
+      }
 
       return chartIds;
     };
@@ -838,7 +896,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         case DashboardComponentType.FILTER:
           // Get the actual filter data from state.filters using the filterId
           const filterId = component.config.filterId;
-          const filterData = state.filters.find((f) => f.id === filterId);
+          const filterData = state.filters.find((f) => String(f.id) === String(filterId));
 
           if (!filterData) {
             console.error(`Filter with id ${filterId} not found`);
@@ -850,12 +908,33 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               filter={filterData}
               onRemove={commonProps.onRemove}
               onUpdate={(updatedFilter) => {
-                // Update both the filter data and the component
-                updateFilter(filterId, updatedFilter);
-                commonProps.onUpdate({
-                  ...component.config,
-                  name: updatedFilter.name,
+                // Update both the filter data and the component with preserved state
+                const updatedFilters = state.filters.map((filter) =>
+                  String(filter.id) === String(filterId)
+                    ? ({ ...filter, ...updatedFilter } as DashboardFilterConfig)
+                    : filter
+                );
+
+                const updatedComponents = {
+                  ...state.components,
+                  [componentId]: {
+                    ...component,
+                    config: {
+                      ...component.config,
+                      name: updatedFilter.name,
+                    },
+                  },
+                };
+
+                setState({
+                  ...state,
+                  filters: updatedFilters,
+                  components: updatedComponents,
                 });
+              }}
+              onEdit={() => {
+                setSelectedFilterForEdit(filterData);
+                setShowFilterModal(true);
               }}
               isEditMode={true}
             />
@@ -1083,8 +1162,25 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         {/* Filter Config Modal */}
         <FilterConfigModal
           open={showFilterModal}
-          onClose={() => setShowFilterModal(false)}
-          onSave={handleFilterCreate}
+          onClose={() => {
+            setShowFilterModal(false);
+            setSelectedFilterForEdit(null);
+          }}
+          onSave={handleFilterSave}
+          mode={selectedFilterForEdit ? 'edit' : 'create'}
+          filterId={selectedFilterForEdit?.id ? Number(selectedFilterForEdit.id) : undefined}
+          initialData={
+            selectedFilterForEdit
+              ? {
+                  name: selectedFilterForEdit.name,
+                  schema_name: selectedFilterForEdit.schema_name,
+                  table_name: selectedFilterForEdit.table_name,
+                  column_name: selectedFilterForEdit.column_name,
+                  filter_type: selectedFilterForEdit.filter_type,
+                  settings: selectedFilterForEdit.settings,
+                }
+              : undefined
+          }
         />
       </div>
     );

@@ -35,6 +35,7 @@ import {
   DashboardFilterType,
   NumericalFilterMode,
   CreateFilterPayload,
+  UpdateFilterPayload,
   FilterOption,
   NumericalFilterStats,
   ValueFilterSettings,
@@ -44,8 +45,10 @@ import {
 interface FilterConfigModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (filter: CreateFilterPayload) => void;
+  onSave: (filter: CreateFilterPayload | UpdateFilterPayload, filterId?: number) => void;
   initialData?: Partial<CreateFilterPayload>;
+  mode?: 'create' | 'edit';
+  filterId?: number;
 }
 
 function useFilterPreview(
@@ -76,7 +79,14 @@ function useFilterPreview(
   );
 }
 
-export function FilterConfigModal({ open, onClose, onSave, initialData }: FilterConfigModalProps) {
+export function FilterConfigModal({
+  open,
+  onClose,
+  onSave,
+  initialData,
+  mode = 'create',
+  filterId,
+}: FilterConfigModalProps) {
   // Basic filter info
   const [name, setName] = useState(initialData?.name || '');
   const [schemaName, setSchemaName] = useState(initialData?.schema_name || '');
@@ -110,6 +120,45 @@ export function FilterConfigModal({ open, onClose, onSave, initialData }: Filter
     filterType
   );
 
+  // Initialize form when modal opens with initialData
+  useEffect(() => {
+    if (open && initialData) {
+      setName(initialData.name || '');
+      setSchemaName(initialData.schema_name || '');
+      setTableName(initialData.table_name || '');
+      setColumnName(initialData.column_name || '');
+      setFilterType(initialData.filter_type || DashboardFilterType.VALUE);
+
+      // Parse settings if they exist
+      if (initialData.settings) {
+        if (initialData.filter_type === DashboardFilterType.VALUE) {
+          const settings = initialData.settings as any;
+          setHasDefaultValue(settings.has_default_value || false);
+          setCanSelectMultiple(settings.can_select_multiple || false);
+          if (settings.default_value) {
+            setDefaultValues(
+              Array.isArray(settings.default_value)
+                ? settings.default_value
+                : [settings.default_value]
+            );
+          }
+        } else if (initialData.filter_type === DashboardFilterType.NUMERICAL) {
+          const settings = initialData.settings as any;
+          setNumericalMode(settings.mode || NumericalFilterMode.RANGE);
+          if (settings.min_value !== undefined && settings.max_value !== undefined) {
+            setCustomRange({ min: settings.min_value, max: settings.max_value });
+          }
+          if (settings.default_value !== undefined) {
+            setDefaultSingleValue(settings.default_value);
+          }
+          if (settings.default_min !== undefined && settings.default_max !== undefined) {
+            setDefaultRangeValue({ min: settings.default_min, max: settings.default_max });
+          }
+        }
+      }
+    }
+  }, [open, initialData]);
+
   // Reset dependent fields when parent changes
   useEffect(() => {
     setTableName('');
@@ -132,7 +181,12 @@ export function FilterConfigModal({ open, onClose, onSave, initialData }: Filter
   }, [columnName, name]);
 
   const handleSave = () => {
-    if (!name || !schemaName || !tableName || !columnName) {
+    if (!name) {
+      return;
+    }
+
+    // For create mode, all fields are required
+    if (mode === 'create' && (!schemaName || !tableName || !columnName)) {
       return;
     }
 
@@ -172,16 +226,30 @@ export function FilterConfigModal({ open, onClose, onSave, initialData }: Filter
       } as NumericalFilterSettings;
     }
 
-    const payload: CreateFilterPayload = {
-      name,
-      schema_name: schemaName,
-      table_name: tableName,
-      column_name: columnName,
-      filter_type: filterType,
-      settings,
-    };
+    if (mode === 'edit') {
+      // For edit mode, send all fields that can be updated
+      const updatePayload: UpdateFilterPayload = {
+        name,
+        schema_name: schemaName,
+        table_name: tableName,
+        column_name: columnName,
+        filter_type: filterType,
+        settings: settings,
+      };
+      onSave(updatePayload, filterId);
+    } else {
+      // For create mode, send all fields
+      const createPayload: CreateFilterPayload = {
+        name,
+        schema_name: schemaName,
+        table_name: tableName,
+        column_name: columnName,
+        filter_type: filterType,
+        settings,
+      };
+      onSave(createPayload);
+    }
 
-    onSave(payload);
     handleClose();
   };
 
@@ -199,7 +267,7 @@ export function FilterConfigModal({ open, onClose, onSave, initialData }: Filter
     onClose();
   };
 
-  const isFormValid = name && schemaName && tableName && columnName;
+  const isFormValid = mode === 'edit' ? !!name : name && schemaName && tableName && columnName;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -207,7 +275,7 @@ export function FilterConfigModal({ open, onClose, onSave, initialData }: Filter
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />
-            Create Dashboard Filter
+            {mode === 'edit' ? 'Edit Dashboard Filter' : 'Create Dashboard Filter'}
           </DialogTitle>
         </DialogHeader>
 
@@ -641,7 +709,7 @@ export function FilterConfigModal({ open, onClose, onSave, initialData }: Filter
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={!isFormValid}>
-              Create Filter
+              {mode === 'edit' ? 'Save Changes' : 'Create Filter'}
             </Button>
           </div>
         </div>

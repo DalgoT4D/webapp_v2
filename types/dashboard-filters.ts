@@ -74,6 +74,16 @@ export interface CreateFilterPayload {
   settings: ValueFilterSettings | NumericalFilterSettings;
 }
 
+// Filter update payload
+export interface UpdateFilterPayload {
+  name?: string;
+  schema_name?: string;
+  table_name?: string;
+  column_name?: string;
+  filter_type?: DashboardFilterType;
+  settings?: ValueFilterSettings | NumericalFilterSettings;
+}
+
 // API response types
 export interface FilterOption {
   label: string;
