@@ -41,6 +41,8 @@ import {
   Check,
   AlertCircle,
   Filter,
+  ArrowLeft,
+  Eye,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -90,6 +92,9 @@ interface DashboardBuilderV2Props {
     isLocked: boolean;
     lockedBy?: string;
   };
+  onBack?: () => void;
+  onPreview?: () => void;
+  isNavigating?: boolean;
 }
 
 // Interface for the ref methods exposed to parent
@@ -98,7 +103,10 @@ interface DashboardBuilderV2Ref {
 }
 
 export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBuilderV2Props>(
-  function DashboardBuilderV2({ dashboardId, initialData, isNewDashboard }, ref) {
+  function DashboardBuilderV2(
+    { dashboardId, initialData, isNewDashboard, onBack, onPreview, isNavigating },
+    ref
+  ) {
     const router = useRouter();
 
     // Ensure layout_config is always an array
@@ -785,17 +793,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     return (
       <div className="dashboard-builder h-full flex flex-col">
-        {/* Header with Title */}
+        {/* Merged Header with Title and Toolbar */}
         <div className="border-b px-6 py-3 bg-white">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* Back button */}
+              {onBack && (
+                <Button variant="ghost" size="sm" onClick={onBack}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              )}
+
+              <div className="h-6 w-px bg-gray-300" />
+
+              {/* Title editing */}
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Dashboard title..."
-                    className="text-xl font-semibold"
+                    className="text-lg font-semibold"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -820,30 +839,72 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
                   onClick={() => setIsEditingTitle(true)}
                 >
-                  <h1 className="text-xl font-semibold">{title}</h1>
+                  <h1 className="text-lg font-semibold">{title}</h1>
                   <Edit2 className="w-4 h-4 text-gray-400" />
                 </div>
               )}
+
+              <div className="h-6 w-px bg-gray-300" />
+
+              <Button onClick={() => setShowChartSelector(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Chart
+              </Button>
+
+              <Button onClick={addTextComponent} size="sm" variant="outline">
+                <Type className="w-4 h-4 mr-2" />
+                Add Text
+              </Button>
+
+              <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
+                <Filter className="w-4 h-4 mr-2" />
+                Add Filter
+              </Button>
+
+              <div className="ml-2 flex gap-1">
+                <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
+                  <Undo className="w-4 h-4" />
+                </Button>
+
+                <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
+                  <Redo className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Lock Status */}
+              {isLocked ? (
+                <div className="flex items-center gap-1 text-sm text-green-600">
+                  <Lock className="w-4 h-4" />
+                  <span className="hidden lg:inline">Locked for editing</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-sm text-yellow-600">
+                  <Unlock className="w-4 h-4" />
+                  <span className="hidden lg:inline">Not locked</span>
+                </div>
+              )}
+
+              <div className="h-6 w-px bg-gray-300 mx-1" />
+
               {/* Save Status Indicator */}
               {saveStatus === 'saving' && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
+                  <span className="hidden lg:inline">Saving...</span>
                 </div>
               )}
               {saveStatus === 'saved' && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <Check className="w-4 h-4" />
-                  Saved
+                  <span className="hidden lg:inline">Saved</span>
                 </div>
               )}
               {saveStatus === 'error' && (
                 <div className="flex items-center gap-2 text-sm text-red-600">
                   <AlertCircle className="w-4 h-4" />
-                  {saveError || 'Save failed'}
+                  <span className="hidden lg:inline">{saveError || 'Save failed'}</span>
                 </div>
               )}
 
@@ -887,49 +948,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Save className="w-4 h-4 mr-2" />
                 Save
               </Button>
+
+              {/* Preview button */}
+              {onPreview && (
+                <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
+                  {isNavigating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Eye className="w-4 h-4 mr-2" />
+                  )}
+                  {isNavigating ? 'Switching...' : 'Preview'}
+                </Button>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="toolbar flex gap-2 p-4 border-b bg-gray-50">
-          <Button onClick={() => setShowChartSelector(true)} size="sm">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Chart
-          </Button>
-
-          <Button onClick={addTextComponent} size="sm" variant="outline">
-            <Type className="w-4 h-4 mr-2" />
-            Add Text
-          </Button>
-
-          <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
-            <Filter className="w-4 h-4 mr-2" />
-            Add Filter
-          </Button>
-
-          <div className="ml-4 flex gap-1">
-            <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
-              <Undo className="w-4 h-4" />
-            </Button>
-
-            <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
-              <Redo className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            {isLocked ? (
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <Lock className="w-4 h-4" />
-                Locked for editing
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-sm text-yellow-600">
-                <Unlock className="w-4 h-4" />
-                Not locked
-              </div>
-            )}
           </div>
         </div>
 

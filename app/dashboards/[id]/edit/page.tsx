@@ -66,22 +66,22 @@ export default function EditDashboardPage() {
     router.push('/dashboards');
   };
 
-  // Handle navigation to view mode
-  const handleViewMode = async () => {
+  // Handle navigation to preview mode
+  const handlePreviewMode = async () => {
     setIsNavigating(true);
 
     try {
       // Call cleanup function if available (this will save changes first)
       if (dashboardBuilderRef.current?.cleanup) {
-        console.log('Saving changes and cleaning up before view mode...');
+        console.log('Saving changes and cleaning up before preview mode...');
         await dashboardBuilderRef.current.cleanup();
-        console.log('Cleanup completed, navigating to view mode...');
+        console.log('Cleanup completed, navigating to preview mode...');
       }
 
-      // Navigate to view mode
+      // Navigate to preview mode
       router.push(`/dashboards/${dashboardId}`);
     } catch (error) {
-      console.error('Error navigating to view mode:', error);
+      console.error('Error navigating to preview mode:', error);
       setIsNavigating(false);
     }
   };
@@ -216,35 +216,6 @@ export default function EditDashboardPage() {
 
   return (
     <div className="h-screen flex flex-col">
-      <div className="border-b px-6 py-3 bg-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboards
-            </Button>
-            <div>
-              <h1 className="text-xl font-semibold">{dashboardData.title}</h1>
-              {dashboardData.description && (
-                <p className="text-sm text-gray-500">{dashboardData.description}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleViewMode} disabled={isNavigating}>
-              {isNavigating ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Eye className="w-4 h-4 mr-2" />
-              )}
-              {isNavigating ? 'Switching...' : 'View Mode'}
-            </Button>
-          </div>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-hidden">
         <DashboardBuilderV2
           ref={dashboardBuilderRef}
@@ -254,6 +225,9 @@ export default function EditDashboardPage() {
             isLocked: dashboard?.is_locked || false,
             lockedBy: dashboard?.locked_by,
           }}
+          onBack={handleBackNavigation}
+          onPreview={handlePreviewMode}
+          isNavigating={isNavigating}
         />
       </div>
     </div>
