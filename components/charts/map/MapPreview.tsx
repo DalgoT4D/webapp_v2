@@ -77,7 +77,7 @@ export function MapPreview({ config, isLoading, error, onChartReady }: MapPrevie
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
+      <div className="flex items-center justify-center h-full min-h-[500px]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted-foreground">Loading map...</p>
@@ -88,7 +88,7 @@ export function MapPreview({ config, isLoading, error, onChartReady }: MapPrevie
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px] p-6">
+      <div className="flex items-center justify-center h-full min-h-[500px] p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -103,7 +103,7 @@ export function MapPreview({ config, isLoading, error, onChartReady }: MapPrevie
 
   if (!config) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
+      <div className="flex items-center justify-center h-full min-h-[500px]">
         <div className="text-center text-muted-foreground">
           <Map className="h-12 w-12 mx-auto mb-4 opacity-20" />
           <p>Configure your map to see a preview</p>
@@ -116,8 +116,8 @@ export function MapPreview({ config, isLoading, error, onChartReady }: MapPrevie
   return (
     <div
       ref={chartRef}
-      className="w-full h-full min-h-[400px]"
-      style={{ width: '100%', height: '400px' }}
+      className="w-full h-full min-h-[500px]"
+      style={{ width: '100%', height: '100%', minHeight: '500px' }}
     />
   );
 }

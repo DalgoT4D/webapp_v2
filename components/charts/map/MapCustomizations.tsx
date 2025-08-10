@@ -104,6 +104,28 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
               onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
             />
           </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Enable Zoom & Pan</Label>
+              <p className="text-xs text-muted-foreground">Allow users to zoom and pan the map</p>
+            </div>
+            <Switch
+              checked={customizations.roam !== false}
+              onCheckedChange={(checked) => updateCustomization('roam', checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Enable Selection</Label>
+              <p className="text-xs text-muted-foreground">Allow clicking to select regions</p>
+            </div>
+            <Switch
+              checked={customizations.select !== false}
+              onCheckedChange={(checked) => updateCustomization('select', checked)}
+            />
+          </div>
         </CardContent>
       </Card>
 

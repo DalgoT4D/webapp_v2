@@ -222,8 +222,22 @@ export function ChartBuilder({
         return formData.chart_type ? 'complete' : 'current';
       case 2:
         // For data configuration step
-        if (!formData.chart_type || formData.chart_type === 'map') {
+        if (!formData.chart_type) {
           return 'pending';
+        }
+
+        // Special handling for map charts
+        if (formData.chart_type === 'map') {
+          const hasMapConfig =
+            formData.schema_name &&
+            formData.table_name &&
+            formData.title &&
+            formData.geographic_column &&
+            formData.value_column &&
+            formData.aggregate_function &&
+            formData.selected_geojson_id;
+
+          return hasMapConfig ? 'complete' : 'current';
         }
 
         const hasBasicConfig = formData.schema_name && formData.table_name && formData.title;
@@ -278,11 +292,12 @@ export function ChartBuilder({
                   chart_type: newChartType,
                 };
 
-                // Only force computation_type for number charts
+                // Set computation_type based on chart type
                 if (newChartType === 'number') {
                   updates.computation_type = 'aggregated';
                 } else if (newChartType === 'map') {
-                  // Map might have special requirements - leave as is
+                  // Maps always use aggregation
+                  updates.computation_type = 'aggregated';
                 } else {
                   // For bar/line/pie, preserve existing computation_type
                   // If no existing value, default to aggregated
