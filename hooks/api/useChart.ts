@@ -101,3 +101,36 @@ export function useColumns(schema: string | null, table: string | null) {
     api.get
   );
 }
+
+// Map-specific hooks
+
+export interface GeoJSONListItem {
+  id: number;
+  name: string;
+  display_name: string;
+  is_default: boolean;
+  layer_name: string;
+  properties_key: string;
+}
+
+export interface GeoJSONDetail {
+  id: number;
+  name: string;
+  display_name: string;
+  geojson_data: any;
+  properties_key: string;
+}
+
+const geojsonListFetcher = (url: string) => api.get<GeoJSONListItem[]>(url);
+const geojsonDetailFetcher = (url: string) => api.get<GeoJSONDetail>(url);
+
+export function useAvailableGeoJSONs(countryCode: string = 'IND', layerLevel: number = 1) {
+  return useSWR(
+    `/api/charts/geojsons/?country_code=${countryCode}&layer_level=${layerLevel}`,
+    geojsonListFetcher
+  );
+}
+
+export function useGeoJSONData(geojsonId: number | null) {
+  return useSWR(geojsonId ? `/api/charts/geojsons/${geojsonId}/` : null, geojsonDetailFetcher);
+}

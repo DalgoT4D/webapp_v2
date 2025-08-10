@@ -10,7 +10,10 @@ import { ChartCustomizations } from './ChartCustomizations';
 import { WorkInProgress } from './WorkInProgress';
 import { ChartPreview } from './ChartPreview';
 import { DataPreview } from './DataPreview';
-import { useChartData, useChartDataPreview } from '@/hooks/api/useChart';
+import { MapDataConfiguration } from './map/MapDataConfiguration';
+import { MapCustomizations } from './map/MapCustomizations';
+import { MapPreview } from './map/MapPreview';
+import { useChartData, useChartDataPreview, useTables, useColumns } from '@/hooks/api/useChart';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { debounce } from 'lodash';
 
@@ -62,6 +65,14 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         numberPrefix: '',
         numberSuffix: '',
       };
+    case 'map':
+      return {
+        colorScheme: 'Blues',
+        showTooltip: true,
+        showLegend: true,
+        nullValueLabel: 'No Data',
+        title: '',
+      };
     default:
       return {};
   }
@@ -104,6 +115,10 @@ export function ChartBuilder({
           aggregate_col: formData.aggregate_column,
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
+          // Map-specific fields
+          geographic_column: formData.geographic_column,
+          value_column: formData.value_column,
+          selected_geojson_id: formData.selected_geojson_id,
           customizations: formData.customizations,
         }
       : null;
@@ -121,6 +136,10 @@ export function ChartBuilder({
     error: previewError,
     isLoading: previewLoading,
   } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
+
+  // Fetch warehouse data for map configuration
+  const { data: tables } = useTables(formData.schema_name);
+  const { data: columns } = useColumns(formData.schema_name, formData.table_name);
 
   const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
@@ -140,6 +159,16 @@ export function ChartBuilder({
       return !!(
         formData.aggregate_function &&
         (!needsAggregateColumn || formData.aggregate_column)
+      );
+    }
+
+    // Special validation for map charts
+    if (formData.chart_type === 'map') {
+      return !!(
+        formData.geographic_column &&
+        formData.value_column &&
+        formData.aggregate_function &&
+        formData.selected_geojson_id
       );
     }
 
@@ -176,6 +205,10 @@ export function ChartBuilder({
         aggregate_column: formData.aggregate_column,
         aggregate_function: formData.aggregate_function,
         extra_dimension_column: formData.extra_dimension_column,
+        // Map-specific fields
+        geographic_column: formData.geographic_column,
+        value_column: formData.value_column,
+        selected_geojson_id: formData.selected_geojson_id,
         customizations: formData.customizations,
       },
     };
@@ -292,24 +325,21 @@ export function ChartBuilder({
             />
           </div>
 
-          {/* Show Work in Progress for Map Charts */}
-          {formData.chart_type === 'map' ? (
-            <WorkInProgress onBack={() => handleFormChange({ chart_type: 'bar' })} />
-          ) : (
-            <>
-              {/* Step 2: Data Configuration */}
-              <div
-                className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
-              >
-                <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
-                <ChartDataConfigurationV2
-                  formData={formData}
-                  onChange={handleFormChange}
-                  disabled={!formData.chart_type}
-                />
-              </div>
-            </>
-          )}
+          {/* Step 2: Data Configuration */}
+          <div
+            className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
+          >
+            <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
+            {formData.chart_type === 'map' ? (
+              <MapDataConfiguration formData={formData} onFormDataChange={handleFormChange} />
+            ) : (
+              <ChartDataConfigurationV2
+                formData={formData}
+                onChange={handleFormChange}
+                disabled={!formData.chart_type}
+              />
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 mt-8 border-t">
@@ -332,11 +362,19 @@ export function ChartBuilder({
           </TabsList>
 
           <TabsContent value="chart" className="h-[calc(100%-3rem)]">
-            <ChartPreview
-              config={chartData?.echarts_config}
-              isLoading={chartLoading}
-              error={chartError}
-            />
+            {formData.chart_type === 'map' ? (
+              <MapPreview
+                config={chartData?.echarts_config}
+                isLoading={chartLoading}
+                error={chartError}
+              />
+            ) : (
+              <ChartPreview
+                config={chartData?.echarts_config}
+                isLoading={chartLoading}
+                error={chartError}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="data" className="h-[calc(100%-3rem)]">
