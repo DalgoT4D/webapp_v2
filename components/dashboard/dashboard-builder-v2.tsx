@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { refreshDashboardLock } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -39,10 +40,17 @@ import {
   Edit2,
   Check,
   AlertCircle,
+  Filter,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
 import { UnifiedTextElement, UnifiedTextConfig } from './text-element-unified';
+import { FilterConfigModal } from './filter-config-modal';
+import {
+  DashboardFilterConfig,
+  CreateFilterPayload,
+  AppliedFilters,
+} from '@/types/dashboard-filters';
 
 // Types
 export enum DashboardComponentType {
@@ -71,6 +79,7 @@ interface DashboardComponent {
 interface DashboardState {
   layout: DashboardLayout[];
   components: Record<string, DashboardComponent>;
+  filters: DashboardFilterConfig[];
 }
 
 interface DashboardBuilderV2Props {
@@ -98,17 +107,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       : [];
     const initialComponents = initialData?.components || {};
 
+    // Transform filters from backend format to frontend format
+    // Backend stores name and position in settings, frontend expects them as top-level fields
+    const initialFilters = Array.isArray(initialData?.filters)
+      ? initialData.filters.map((filter: any) => ({
+          id: filter.id,
+          name: filter.settings?.name || filter.column_name,
+          schema_name: filter.schema_name,
+          table_name: filter.table_name,
+          column_name: filter.column_name,
+          filter_type: filter.filter_type,
+          settings: filter.settings || {},
+          position: filter.settings?.position || { x: 0, y: 0, w: 3, h: 2 },
+        }))
+      : [];
+
     // State management with undo/redo
     const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
       {
         layout: initialLayout,
         components: initialComponents,
+        filters: initialFilters,
       },
       20
     );
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
+    const [showFilterModal, setShowFilterModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -358,12 +384,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setSaveError(null);
 
       try {
+        // Transform filters back to backend format (store name and position in settings)
+        const backendFilters = state.filters.map((filter) => ({
+          id: filter.id,
+          filter_type: filter.filter_type,
+          schema_name: filter.schema_name,
+          table_name: filter.table_name,
+          column_name: filter.column_name,
+          settings: {
+            ...filter.settings,
+            name: filter.name,
+            position: filter.position,
+          },
+          order: 0,
+        }));
+
         await apiPut(`/api/dashboards/${dashboardId}/`, {
           title,
           description,
           grid_columns: gridColumns,
           layout_config: state.layout,
           components: state.components,
+          filters: backendFilters,
         });
 
         setSaveStatus('saved');
@@ -499,6 +541,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             ...state.components,
             [newComponent.id]: newComponent,
           },
+          filters: state.filters,
         });
       } catch (error: any) {
         console.error('Failed to add chart:', error.message || 'Please try again');
@@ -544,6 +587,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           ...state.components,
           [newComponent.id]: newComponent,
         },
+        filters: state.filters,
       });
     };
 
@@ -555,6 +599,80 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setState({
         layout: state.layout.filter((item) => item.i !== componentId),
         components: newComponents,
+        filters: state.filters,
+      });
+    };
+
+    // Add filter
+    const handleFilterCreate = async (filterPayload: CreateFilterPayload) => {
+      if (!dashboardId) return;
+
+      try {
+        // Create filter in database first
+        // Include name and position in settings since backend doesn't have these as separate fields
+        const response = await apiPost(`/api/dashboards/${dashboardId}/filters/`, {
+          filter_type: filterPayload.filter_type,
+          schema_name: filterPayload.schema_name,
+          table_name: filterPayload.table_name,
+          column_name: filterPayload.column_name,
+          settings: {
+            ...filterPayload.settings,
+            name: filterPayload.name || filterPayload.column_name,
+            position: {
+              x: 0,
+              y: 0,
+              w: 3,
+              h: 2,
+            },
+          },
+          order: 0,
+        });
+
+        // Create filter object with server response
+        const newFilter: DashboardFilterConfig = {
+          id: response.id || `filter-${Date.now()}`,
+          name: filterPayload.name || filterPayload.column_name, // Use column name as fallback
+          schema_name: filterPayload.schema_name,
+          table_name: filterPayload.table_name,
+          column_name: filterPayload.column_name,
+          filter_type: filterPayload.filter_type,
+          settings: filterPayload.settings,
+          position: {
+            x: 0,
+            y: 0,
+            w: 3,
+            h: 2,
+          },
+        } as DashboardFilterConfig;
+
+        // Update local state after successful API call
+        setState({
+          ...state,
+          filters: [...state.filters, newFilter],
+        });
+
+        console.log('Filter created successfully:', response);
+      } catch (error: any) {
+        console.error('Failed to create filter:', error.message || 'Please try again');
+        // Could add error handling/notification here
+      }
+    };
+
+    // Remove filter
+    const removeFilter = (filterId: string) => {
+      setState({
+        ...state,
+        filters: state.filters.filter((filter) => filter.id !== filterId),
+      });
+    };
+
+    // Update filter
+    const updateFilter = (filterId: string, updates: Partial<DashboardFilterConfig>) => {
+      setState({
+        ...state,
+        filters: state.filters.map((filter) =>
+          filter.id === filterId ? ({ ...filter, ...updates } as DashboardFilterConfig) : filter
+        ),
       });
     };
 
@@ -785,6 +903,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             Add Text
           </Button>
 
+          <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
+            <Filter className="w-4 h-4 mr-2" />
+            Add Filter
+          </Button>
+
           <div className="ml-4 flex gap-1">
             <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
               <Undo className="w-4 h-4" />
@@ -850,6 +973,59 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onSelect={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
         />
+
+        {/* Filter Config Modal */}
+        <FilterConfigModal
+          open={showFilterModal}
+          onClose={() => setShowFilterModal(false)}
+          onSave={handleFilterCreate}
+        />
+
+        {/* Filters List */}
+        {state.filters.length > 0 && (
+          <div className="border-t bg-gray-50/50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                <span className="text-sm font-medium">Dashboard Filters</span>
+                <Badge variant="secondary" className="text-xs">
+                  {state.filters.length}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {state.filters.map((filter) => (
+                <div
+                  key={filter.id}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg border"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <div>
+                      <div className="font-medium text-sm">{filter.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {filter.schema_name}.{filter.table_name}.{filter.column_name}
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {filter.filter_type}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFilter(filter.id)}
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

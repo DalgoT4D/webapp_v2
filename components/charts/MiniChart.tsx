@@ -62,6 +62,7 @@ export function MiniChart({
             if (chart.render_config && Object.keys(chart.render_config).length > 0) {
               console.log(`MiniChart ${chartId} - Using render_config`);
               setChartData(chart.render_config);
+              return Promise.resolve();
             } else {
               // If no render_config, try fetching from data endpoint
               console.log(`MiniChart ${chartId} - No render_config, fetching from /data endpoint`);

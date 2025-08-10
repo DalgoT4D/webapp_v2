@@ -38,8 +38,9 @@ import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
-import { DashboardFiltersDynamic } from './dashboard-filters-dynamic';
+import { DashboardFilterBar } from './dashboard-filter-widgets';
 import { useToast } from '@/components/ui/use-toast';
+import { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 
 interface DashboardNativeViewProps {
   dashboardId: number;
@@ -48,7 +49,7 @@ interface DashboardNativeViewProps {
 export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<Record<string, any>>({});
+  const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [containerWidth, setContainerWidth] = useState(1200);
@@ -70,8 +71,8 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
     if (!dashboard || !currentUser) return false;
     return (
       dashboard.created_by === currentUser.email ||
-      currentUser.role === 'admin' ||
-      currentUser.role === 'super-admin'
+      currentUser.new_role_slug === 'admin' ||
+      currentUser.new_role_slug === 'super-admin'
     );
   }, [dashboard, currentUser]);
 
@@ -160,7 +161,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
     }));
   };
 
-  const handleClearFilters = () => {
+  const handleClearAllFilters = () => {
     setSelectedFilters({});
   };
 
@@ -237,7 +238,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
           if (config?.type === 'heading') {
             const headingLevel = config?.headingLevel || 2;
-            const HeadingTag = `h${headingLevel}` as keyof JSX.IntrinsicElements;
+            const HeadingTag = `h${headingLevel}` as keyof React.JSX.IntrinsicElements;
             const headingClass = cn(
               headingLevel === 1 && 'text-3xl font-bold',
               headingLevel === 2 && 'text-2xl font-semibold',
@@ -345,8 +346,11 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
     );
   }
 
-  const hasFilters = dashboard.filters && dashboard.filters.length > 0;
-  const activeFilterCount = Object.keys(selectedFilters).length;
+  const dashboardFilters: DashboardFilterConfig[] = dashboard?.filters || [];
+  const hasFilters = dashboardFilters.length > 0;
+  const activeFilterCount = Object.values(selectedFilters).filter(
+    (v) => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : true)
+  ).length;
 
   return (
     <div className={cn('h-screen flex flex-col bg-gray-50', isFullscreen && 'fixed inset-0 z-50')}>
@@ -458,28 +462,12 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
         {/* Filters Bar */}
         {hasFilters && (
-          <div className="px-6 py-3 bg-gray-50 border-t">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Filter className="w-4 h-4" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {activeFilterCount} active
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex-1">
-                <DashboardFiltersDynamic
-                  filters={dashboard.filters}
-                  selectedValues={selectedFilters}
-                  onChange={handleFilterChange}
-                  onClear={handleClearFilters}
-                />
-              </div>
-            </div>
-          </div>
+          <DashboardFilterBar
+            filters={dashboardFilters}
+            values={selectedFilters}
+            onChange={handleFilterChange}
+            onClearAll={handleClearAllFilters}
+          />
         )}
       </div>
 

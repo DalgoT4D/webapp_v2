@@ -77,7 +77,7 @@ export function useChartExport() {
   return useSWRMutation(
     '/api/charts/export/',
     (url: string, { arg }: { arg: { chart_id: number; format: string } }) =>
-      api.post(url, {
+      apiPost(url, {
         ...arg,
         responseType: arg.format === 'png' ? 'blob' : 'json',
       })
@@ -99,3 +99,9 @@ export function useColumns(schema: string | null, table: string | null) {
     apiGet
   );
 }
+
+// Re-export types for convenience
+export type { ChartDataPayload, ChartCreate as ChartCreatePayload } from '@/types/charts';
+
+// Alias for backward compatibility with tests
+export const useChartSave = useCreateChart;

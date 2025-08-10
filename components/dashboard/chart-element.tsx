@@ -58,7 +58,7 @@ export function ChartElement({
   onDelete,
 }: ChartElementProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const config = element.config as ChartConfig;
+  const config = element.config as ChartConfig & { chartId?: number; id?: number };
 
   // Handle different config structures
   const chartId = config?.chartId || config?.id;

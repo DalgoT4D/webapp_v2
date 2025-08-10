@@ -16,8 +16,8 @@ import { DashboardCanvas } from './dashboard-canvas';
 import { ComponentPalette } from './component-palette';
 import { DashboardToolbar } from './dashboard-toolbar';
 import { ChartElement } from './chart-element';
-import { TextElement } from './text-element';
-import { HeadingElement } from './heading-element';
+import { UnifiedTextElement as TextElement } from './text-element-unified';
+import { UnifiedTextElement as HeadingElement } from './text-element-unified';
 
 export interface DashboardElementData {
   id: string;
@@ -211,22 +211,18 @@ export function DashboardBuilder() {
         return (
           <TextElement
             key={element.id}
-            element={element}
-            isSelected={selectedElement === element.id}
-            onSelect={() => setSelectedElement(element.id)}
-            onUpdate={(updates) => updateElement(element.id, updates)}
-            onDelete={() => deleteElement(element.id)}
+            config={element.config as any}
+            onUpdate={(updates) => updateElement(element.id, { config: updates })}
+            onRemove={() => deleteElement(element.id)}
           />
         );
       case 'heading':
         return (
           <HeadingElement
             key={element.id}
-            element={element}
-            isSelected={selectedElement === element.id}
-            onSelect={() => setSelectedElement(element.id)}
-            onUpdate={(updates) => updateElement(element.id, updates)}
-            onDelete={() => deleteElement(element.id)}
+            config={element.config as any}
+            onUpdate={(updates) => updateElement(element.id, { config: updates })}
+            onRemove={() => deleteElement(element.id)}
           />
         );
       default:

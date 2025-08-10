@@ -5,8 +5,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { BarChart3 } from 'lucide-react';
 import { DashboardElementData } from './dashboard-builder';
 import { ChartElement } from './chart-element';
-import { TextElement } from './text-element';
-import { HeadingElement } from './heading-element';
+import { UnifiedTextElement as TextElement } from './text-element-unified';
+import { UnifiedTextElement as HeadingElement } from './text-element-unified';
 
 interface DashboardCanvasProps {
   elements: DashboardElementData[];
@@ -57,21 +57,17 @@ function SortableElement({
       case 'text':
         return (
           <TextElement
-            element={element}
-            isSelected={isSelected}
-            onSelect={onSelect}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
+            config={element.config as any}
+            onUpdate={(updates) => onUpdate({ config: updates })}
+            onRemove={onDelete}
           />
         );
       case 'heading':
         return (
           <HeadingElement
-            element={element}
-            isSelected={isSelected}
-            onSelect={onSelect}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
+            config={element.config as any}
+            onUpdate={(updates) => onUpdate({ config: updates })}
+            onRemove={onDelete}
           />
         );
       default:

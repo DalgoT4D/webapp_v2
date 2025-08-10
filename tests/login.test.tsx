@@ -42,6 +42,9 @@ jest.mock('swr', () => ({
   default: jest.fn(() => ({
     data: [{ org: { slug: 'org1' } }, { org: { slug: 'org2' } }],
     error: null,
+    isLoading: false,
+    mutate: jest.fn(),
+    isValidating: false,
   })),
 }));
 

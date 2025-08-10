@@ -52,6 +52,7 @@ export default function EditDashboardPage() {
         clearInterval(countdownInterval);
       };
     }
+    return undefined;
   }, [isLockedByOther, dashboard, mutate]);
 
   // Handle navigation back to dashboard list

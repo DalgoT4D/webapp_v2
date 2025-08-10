@@ -73,7 +73,7 @@ export function ChartElementView({
   const {
     data: chartData,
     isLoading,
-    isError,
+    error: isError,
     mutate,
   } = useSWR(
     `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
@@ -86,7 +86,7 @@ export function ChartElementView({
 
   // Initialize and update chart
   useEffect(() => {
-    if (!chartRef.current || !chartData?.echarts_config) return;
+    if (!chartRef.current || !chartData?.echarts_config) return undefined;
 
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current, null, {
