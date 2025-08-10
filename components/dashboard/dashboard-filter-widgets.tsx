@@ -49,7 +49,17 @@ function ValueFilterWidget({ filter, value, onChange, className }: FilterWidgetP
     Array.isArray(value) ? value : value ? [value] : []
   );
 
-  const availableOptions = valueFilter.settings.available_values || [];
+  // Ensure settings exists with default values
+  if (!valueFilter.settings) {
+    console.warn('Filter settings missing, using defaults');
+    valueFilter.settings = {
+      has_default_value: false,
+      can_select_multiple: false,
+      available_values: [],
+    };
+  }
+
+  const availableOptions = valueFilter.settings?.available_values || [];
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
     let newSelection: string[];
@@ -90,7 +100,7 @@ function ValueFilterWidget({ filter, value, onChange, className }: FilterWidgetP
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Type className="w-4 h-4" />
-          {filter.name}
+          {filter.name || filter.column_name || 'Filter'}
           {selectedValues.length > 0 && (
             <Badge variant="secondary" className="text-xs">
               {selectedValues.length}
@@ -100,7 +110,11 @@ function ValueFilterWidget({ filter, value, onChange, className }: FilterWidgetP
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-2">
-          {valueFilter.settings.can_select_multiple ? (
+          {availableOptions.length === 0 ? (
+            <div className="text-sm text-muted-foreground p-2 bg-gray-50 rounded">
+              No filter options available. Configure filter in edit mode.
+            </div>
+          ) : valueFilter.settings?.can_select_multiple ? (
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -351,13 +365,18 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
 
 // Main Filter Widget Component
 export function DashboardFilterWidget(props: FilterWidgetProps) {
+  if (!props.filter) {
+    console.error('No filter provided to DashboardFilterWidget');
+    return <div>No filter data</div>;
+  }
+
   if (props.filter.filter_type === DashboardFilterType.VALUE) {
     return <ValueFilterWidget {...props} />;
   } else if (props.filter.filter_type === DashboardFilterType.NUMERICAL) {
     return <NumericalFilterWidget {...props} />;
   }
 
-  return null;
+  return <div></div>;
 }
 
 // Filter Bar Component for Dashboard View
@@ -397,7 +416,6 @@ export function DashboardFilterBar({
             </Badge>
           )}
         </div>
-
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={onClearAll} className="h-6 text-xs">
             <RotateCcw className="w-3 h-3 mr-1" />

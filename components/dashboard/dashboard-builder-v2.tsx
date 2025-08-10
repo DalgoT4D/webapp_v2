@@ -48,6 +48,7 @@ import {
 import { ChartElementV2 } from './chart-element-v2';
 import { UnifiedTextElement, UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
+import { FilterElement } from './filter-element';
 import {
   DashboardFilterConfig,
   CreateFilterPayload,
@@ -58,6 +59,7 @@ import {
 export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',
+  FILTER = 'filter',
 }
 
 interface DashboardLayout {
@@ -115,26 +117,29 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       : [];
     const initialComponents = initialData?.components || {};
 
-    // Transform filters from backend format to frontend format
-    // Backend stores name and position in settings, frontend expects them as top-level fields
+    // Load filters from backend (without creating components - they're already in components)
     const initialFilters = Array.isArray(initialData?.filters)
       ? initialData.filters.map((filter: any) => ({
           id: filter.id,
-          name: filter.settings?.name || filter.column_name,
+          name: filter.column_name, // Use column_name as default name
           schema_name: filter.schema_name,
           table_name: filter.table_name,
           column_name: filter.column_name,
           filter_type: filter.filter_type,
           settings: filter.settings || {},
-          position: filter.settings?.position || { x: 0, y: 0, w: 3, h: 2 },
         }))
       : [];
+
+    // Don't create filter components - they should already be in initialComponents
+    // Just use the components and layout as they are
+    const mergedComponents = initialComponents;
+    const mergedLayout = initialLayout;
 
     // State management with undo/redo
     const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
       {
-        layout: initialLayout,
-        components: initialComponents,
+        layout: mergedLayout,
+        components: mergedComponents,
         filters: initialFilters,
       },
       20
@@ -392,7 +397,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setSaveError(null);
 
       try {
-        // Transform filters back to backend format (store name and position in settings)
+        // Prepare filters without position data (position is in layout_config)
         const backendFilters = state.filters.map((filter) => ({
           id: filter.id,
           filter_type: filter.filter_type,
@@ -401,8 +406,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           column_name: filter.column_name,
           settings: {
             ...filter.settings,
-            name: filter.name,
-            position: filter.position,
+            // Don't include position or name in settings
           },
           order: 0,
         }));
@@ -411,9 +415,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           title,
           description,
           grid_columns: gridColumns,
-          layout_config: state.layout,
-          components: state.components,
-          filters: backendFilters,
+          layout_config: state.layout, // This has filter positions
+          components: state.components, // This has filter references (filterId)
+          filters: backendFilters, // This has filter configurations
         });
 
         setSaveStatus('saved');
@@ -601,13 +605,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Remove component
     const removeComponent = (componentId: string) => {
+      const component = state.components[componentId];
       const newComponents = { ...state.components };
       delete newComponents[componentId];
+
+      // If it's a filter component, also remove from filters array
+      let newFilters = state.filters;
+      if (component && component.type === DashboardComponentType.FILTER) {
+        const filterId = component.config.filterId; // Use filterId reference
+        newFilters = state.filters.filter((filter) => filter.id !== filterId);
+      }
 
       setState({
         layout: state.layout.filter((item) => item.i !== componentId),
         components: newComponents,
-        filters: state.filters,
+        filters: newFilters,
       });
     };
 
@@ -616,46 +628,63 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       if (!dashboardId) return;
 
       try {
-        // Create filter in database first
-        // Include name and position in settings since backend doesn't have these as separate fields
+        // Create filter in database first (without position in settings)
         const response = await apiPost(`/api/dashboards/${dashboardId}/filters/`, {
           filter_type: filterPayload.filter_type,
           schema_name: filterPayload.schema_name,
           table_name: filterPayload.table_name,
           column_name: filterPayload.column_name,
-          settings: {
-            ...filterPayload.settings,
-            name: filterPayload.name || filterPayload.column_name,
-            position: {
-              x: 0,
-              y: 0,
-              w: 3,
-              h: 2,
-            },
-          },
+          settings: filterPayload.settings, // No position or name here
           order: 0,
         });
 
-        // Create filter object with server response
+        // Find the best available position for the new filter
+        const position = findAvailablePosition(3, 3);
+
+        // Create filter component ID using the filter ID from response
+        const filterComponentId = `filter-${response.id}`;
+
+        // Create filter data object for local state
         const newFilter: DashboardFilterConfig = {
-          id: response.id || `filter-${Date.now()}`,
+          id: response.id,
           name: filterPayload.name || filterPayload.column_name, // Use column name as fallback
           schema_name: filterPayload.schema_name,
           table_name: filterPayload.table_name,
           column_name: filterPayload.column_name,
           filter_type: filterPayload.filter_type,
           settings: filterPayload.settings,
-          position: {
-            x: 0,
-            y: 0,
-            w: 3,
-            h: 2,
-          },
+          // NO position in filter object anymore
         } as DashboardFilterConfig;
 
-        // Update local state after successful API call
+        // Create the filter component (with reference to filter ID)
+        const newComponent: DashboardComponent = {
+          id: filterComponentId,
+          type: DashboardComponentType.FILTER,
+          config: {
+            filterId: response.id, // Just store the filter ID reference
+            name: newFilter.name, // Store name for quick access
+          },
+        };
+
+        // Create the layout item (position stored here)
+        const newLayoutItem: DashboardLayout = {
+          i: filterComponentId,
+          x: position.x,
+          y: position.y,
+          w: 3,
+          h: 3,
+          minW: 2,
+          maxW: 6,
+          minH: 2,
+        };
+
+        // Update local state
         setState({
-          ...state,
+          layout: [...state.layout, newLayoutItem],
+          components: {
+            ...state.components,
+            [filterComponentId]: newComponent,
+          },
           filters: [...state.filters, newFilter],
         });
 
@@ -668,10 +697,30 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Remove filter
     const removeFilter = (filterId: string) => {
-      setState({
-        ...state,
-        filters: state.filters.filter((filter) => filter.id !== filterId),
-      });
+      // Find the component ID that contains this filter (using filterId reference)
+      const componentId = Object.keys(state.components).find(
+        (id) =>
+          state.components[id].type === DashboardComponentType.FILTER &&
+          state.components[id].config.filterId === filterId
+      );
+
+      if (componentId) {
+        // Remove from components and layout
+        const newComponents = { ...state.components };
+        delete newComponents[componentId];
+
+        setState({
+          layout: state.layout.filter((item) => item.i !== componentId),
+          components: newComponents,
+          filters: state.filters.filter((filter) => filter.id !== filterId),
+        });
+      } else {
+        // Just remove from filters array if not found in components
+        setState({
+          ...state,
+          filters: state.filters.filter((filter) => filter.id !== filterId),
+        });
+      }
     };
 
     // Update filter
@@ -785,6 +834,32 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         case DashboardComponentType.TEXT:
           return <UnifiedTextElement {...commonProps} config={component.config} />;
+
+        case DashboardComponentType.FILTER:
+          // Get the actual filter data from state.filters using the filterId
+          const filterId = component.config.filterId;
+          const filterData = state.filters.find((f) => f.id === filterId);
+
+          if (!filterData) {
+            console.error(`Filter with id ${filterId} not found`);
+            return null;
+          }
+
+          return (
+            <FilterElement
+              filter={filterData}
+              onRemove={commonProps.onRemove}
+              onUpdate={(updatedFilter) => {
+                // Update both the filter data and the component
+                updateFilter(filterId, updatedFilter);
+                commonProps.onUpdate({
+                  ...component.config,
+                  name: updatedFilter.name,
+                });
+              }}
+              isEditMode={true}
+            />
+          );
 
         default:
           return null;
@@ -1011,52 +1086,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onClose={() => setShowFilterModal(false)}
           onSave={handleFilterCreate}
         />
-
-        {/* Filters List */}
-        {state.filters.length > 0 && (
-          <div className="border-t bg-gray-50/50 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                <span className="text-sm font-medium">Dashboard Filters</span>
-                <Badge variant="secondary" className="text-xs">
-                  {state.filters.length}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {state.filters.map((filter) => (
-                <div
-                  key={filter.id}
-                  className="flex items-center justify-between p-3 bg-white rounded-lg border"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <div>
-                      <div className="font-medium text-sm">{filter.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {filter.schema_name}.{filter.table_name}.{filter.column_name}
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {filter.filter_type}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFilter(filter.id)}
-                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     );
   }

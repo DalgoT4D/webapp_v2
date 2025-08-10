@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, RefreshCw, Maximize2, Download } from 'lucide-react';
@@ -63,11 +63,17 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Create a unique identifier for when filters change to trigger instance recreation
+  const filterHash = useMemo(() => JSON.stringify(dashboardFilters), [dashboardFilters]);
+  const previousFilterHash = useRef<string>(filterHash);
+
   // Build query params with filters
   const queryParams = new URLSearchParams();
   if (Object.keys(dashboardFilters).length > 0) {
     queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
   }
+
+  const apiUrl = `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
   // Fetch chart data with filters
   const {
@@ -75,23 +81,77 @@ export function ChartElementView({
     isLoading,
     error: isError,
     mutate,
-  } = useSWR(
-    `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
-    apiGet,
-    {
-      revalidateOnFocus: false,
-      refreshInterval: 0, // Disable auto-refresh
-    }
-  );
+  } = useSWR(apiUrl, apiGet, {
+    revalidateOnFocus: false,
+    refreshInterval: 0, // Disable auto-refresh
+    onSuccess: (data) => {
+      console.log(
+        'Chart data fetched successfully for',
+        chartId,
+        'with filters',
+        dashboardFilters,
+        data
+      );
+    },
+    onError: (error) => {
+      console.error(
+        'Error fetching chart data for',
+        chartId,
+        'with filters',
+        dashboardFilters,
+        error
+      );
+    },
+  });
 
   // Initialize and update chart
   useEffect(() => {
-    if (!chartRef.current || !chartData?.echarts_config) return undefined;
+    console.log('Chart effect triggered for chart', chartId, {
+      hasChartRef: !!chartRef.current,
+      hasChartInstance: !!chartInstance.current,
+      hasChartData: !!chartData,
+      hasEchartsConfig: !!chartData?.echarts_config,
+      filterHash,
+      previousFilterHash: previousFilterHash.current,
+    });
 
+    if (!chartRef.current) {
+      console.log('No chart ref available');
+      return undefined;
+    }
+
+    // Check if filters changed and we need to recreate the chart instance
+    const filtersChanged = previousFilterHash.current !== filterHash;
+    if (filtersChanged && chartInstance.current && chartData?.echarts_config) {
+      console.log('Recreating chart instance due to filter change for chart', chartId);
+      chartInstance.current.dispose();
+      chartInstance.current = null;
+      previousFilterHash.current = filterHash;
+    }
+
+    // Initialize chart instance if it doesn't exist
     if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current, null, {
-        renderer: 'canvas',
-      });
+      console.log('Creating new chart instance for chart', chartId);
+      try {
+        chartInstance.current = echarts.init(chartRef.current, null, {
+          renderer: 'canvas',
+        });
+        console.log('Chart instance created:', !!chartInstance.current);
+      } catch (error) {
+        console.error('Failed to create chart instance:', error);
+        return;
+      }
+    }
+
+    // Only proceed with config if we have valid echarts_config
+    if (!chartData?.echarts_config) {
+      console.log('No echarts config available for chart', chartId, 'chartData:', chartData);
+      // Clear chart but don't dispose instance
+      if (chartInstance.current) {
+        chartInstance.current.clear();
+        console.log('Chart cleared due to no config');
+      }
+      return undefined;
     }
 
     // Apply beautiful theme and styling
@@ -141,7 +201,23 @@ export function ChartElementView({
       },
     };
 
-    chartInstance.current.setOption(styledConfig, true);
+    // Check DOM element dimensions before setting options
+    const rect = chartRef.current.getBoundingClientRect();
+    console.log('Chart DOM dimensions:', rect);
+
+    console.log('Setting chart option for chart', chartId, 'with config:', styledConfig);
+
+    try {
+      // Use notMerge: true on first render after filter change, false otherwise
+      const notMerge = filtersChanged || !chartInstance.current.getOption();
+      chartInstance.current.setOption(styledConfig, notMerge);
+
+      // Ensure the chart is properly sized after setting options
+      chartInstance.current.resize();
+      console.log('Chart option set and resized for chart', chartId);
+    } catch (error) {
+      console.error('Error setting chart option for chart', chartId, error);
+    }
 
     // Handle resize
     const handleResize = () => {
@@ -165,10 +241,11 @@ export function ChartElementView({
 
   // Re-fetch data when filters change
   useEffect(() => {
+    console.log('Dashboard filters changed, re-fetching data for chart', chartId, dashboardFilters);
     mutate();
-  }, [dashboardFilters, mutate]);
+  }, [dashboardFilters, mutate, chartId]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount and when chartId changes
   useEffect(() => {
     return () => {
       if (chartInstance.current) {
@@ -176,7 +253,7 @@ export function ChartElementView({
         chartInstance.current = null;
       }
     };
-  }, []);
+  }, [chartId]);
 
   const handleRefresh = () => {
     mutate();

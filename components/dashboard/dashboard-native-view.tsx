@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
-import { DashboardFilterBar } from './dashboard-filter-widgets';
+import { FilterElement } from './filter-element';
 import { useToast } from '@/components/ui/use-toast';
 import { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 
@@ -301,6 +301,59 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
           </div>
         );
 
+      case 'filter':
+        // Get the actual filter data from dashboard.filters using the filterId reference
+        const filterId = component.config?.filterId || component.config?.id;
+
+        // First try to find in dashboard.filters array
+        let filterData = dashboard?.filters?.find((f: any) => {
+          console.log(
+            'Comparing filter:',
+            f.id,
+            'with filterId:',
+            filterId,
+            'Match?',
+            f.id === filterId
+          );
+          // Convert both to numbers for comparison since one might be string
+          return Number(f.id) === Number(filterId);
+        });
+
+        // If not found in filters array (for backward compatibility), use config directly
+        if (!filterData && component.config?.column_name) {
+          filterData = component.config;
+        }
+
+        if (!filterData) {
+          return (
+            <div key={componentId} className="h-full p-4 bg-red-50 border border-red-200 rounded">
+              <p className="text-red-600">Filter not found: ID {filterId}</p>
+              <p className="text-xs">
+                Available: {dashboard?.filters?.map((f: any) => f.id).join(', ')}
+              </p>
+            </div>
+          );
+        }
+
+        // Ensure filter data has required fields for the component
+        const normalizedFilter = {
+          ...filterData,
+          name: filterData.name || filterData.column_name || 'Filter', // Use column_name as fallback
+          id: String(filterData.id), // Ensure id is string as expected by types
+        };
+
+        return (
+          <div key={componentId} className="h-full">
+            <FilterElement
+              filter={normalizedFilter}
+              onRemove={() => {}} // No remove in view mode
+              isEditMode={false}
+              value={selectedFilters[normalizedFilter.id]}
+              onChange={handleFilterChange}
+            />
+          </div>
+        );
+
       default:
         return null;
     }
@@ -345,12 +398,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
       </div>
     );
   }
-
-  const dashboardFilters: DashboardFilterConfig[] = dashboard?.filters || [];
-  const hasFilters = dashboardFilters.length > 0;
-  const activeFilterCount = Object.values(selectedFilters).filter(
-    (v) => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : true)
-  ).length;
 
   return (
     <div className={cn('h-screen flex flex-col bg-gray-50', isFullscreen && 'fixed inset-0 z-50')}>
@@ -459,16 +506,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             </div>
           </div>
         </div>
-
-        {/* Filters Bar */}
-        {hasFilters && (
-          <DashboardFilterBar
-            filters={dashboardFilters}
-            values={selectedFilters}
-            onChange={handleFilterChange}
-            onClearAll={handleClearAllFilters}
-          />
-        )}
       </div>
 
       {/* Dashboard Content */}
