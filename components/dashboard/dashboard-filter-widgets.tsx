@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -346,6 +346,21 @@ function NumericalFilterWidget({
       max: numericalFilter.settings.default_max || maxValue,
     }
   );
+
+  // Update local value when stats are loaded (if no value is set yet)
+  useEffect(() => {
+    if (!value && numericalStats?.stats) {
+      setLocalValue({
+        min: numericalFilter.settings.default_min || numericalStats.stats.min_value || 0,
+        max: numericalFilter.settings.default_max || numericalStats.stats.max_value || 100,
+      });
+    }
+  }, [
+    numericalStats,
+    value,
+    numericalFilter.settings.default_min,
+    numericalFilter.settings.default_max,
+  ]);
 
   const handleSliderChange = (newValue: number[]) => {
     // Update local state immediately for smooth UI response
