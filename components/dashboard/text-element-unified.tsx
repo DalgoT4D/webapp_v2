@@ -132,7 +132,7 @@ export function UnifiedTextElement({ config, onUpdate, onRemove }: UnifiedTextEl
   };
 
   const getDisplayStyle = () => {
-    let baseStyle = {
+    const baseStyle = {
       fontSize: `${config.fontSize}px`,
       fontWeight: config.fontWeight,
       fontStyle: config.fontStyle,

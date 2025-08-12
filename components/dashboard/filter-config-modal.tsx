@@ -33,18 +33,21 @@ import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import useSWR from 'swr';
 import { useSchemas, useTables, useColumns } from '@/hooks/api/useChart';
-import { useDashboardFilter, DashboardFilter } from '@/hooks/api/useDashboards';
-import {
-  DashboardFilterType,
+import type { DashboardFilter } from '@/hooks/api/useDashboards';
+import { useDashboardFilter } from '@/hooks/api/useDashboards';
+import type {
   DashboardFilterConfig,
-  NumericalFilterMode,
   CreateFilterPayload,
   UpdateFilterPayload,
-  FilterOption,
-  NumericalFilterStats,
   ValueFilterSettings,
   NumericalFilterSettings,
   DateTimeFilterSettings,
+} from '@/types/dashboard-filters';
+import {
+  DashboardFilterType,
+  NumericalFilterUIMode,
+  FilterOption,
+  NumericalFilterStats,
 } from '@/types/dashboard-filters';
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
@@ -144,11 +147,9 @@ export function FilterConfigModal({
   const [defaultValues, setDefaultValues] = useState<string[]>([]);
 
   // Numerical filter settings
-  const [numericalMode, setNumericalMode] = useState<NumericalFilterMode>(
-    NumericalFilterMode.RANGE
+  const [numericalUIMode, setNumericalUIMode] = useState<NumericalFilterUIMode>(
+    NumericalFilterUIMode.SLIDER
   );
-  const [customRange, setCustomRange] = useState({ min: 0, max: 100 });
-  const [defaultSingleValue, setDefaultSingleValue] = useState(0);
   const [defaultRangeValue, setDefaultRangeValue] = useState({ min: 0, max: 100 });
 
   // Data fetching using existing warehouse APIs
@@ -192,13 +193,7 @@ export function FilterConfigModal({
             }
           } else if (dataToUse.filter_type === DashboardFilterType.NUMERICAL) {
             const settings = dataToUse.settings as any;
-            setNumericalMode(settings.mode || NumericalFilterMode.RANGE);
-            if (settings.min_value !== undefined && settings.max_value !== undefined) {
-              setCustomRange({ min: settings.min_value, max: settings.max_value });
-            }
-            if (settings.default_value !== undefined) {
-              setDefaultSingleValue(settings.default_value);
-            }
+            setNumericalUIMode(settings.ui_mode || NumericalFilterUIMode.SLIDER);
             if (settings.default_min !== undefined && settings.default_max !== undefined) {
               setDefaultRangeValue({ min: settings.default_min, max: settings.default_max });
             }
@@ -222,9 +217,7 @@ export function FilterConfigModal({
       setHasDefaultValue(false);
       setCanSelectMultiple(false);
       setDefaultValues([]);
-      setNumericalMode(NumericalFilterMode.RANGE);
-      setCustomRange({ min: 0, max: 100 });
-      setDefaultSingleValue(0);
+      setNumericalUIMode(NumericalFilterUIMode.SLIDER);
       setDefaultRangeValue({ min: 0, max: 100 });
       setIsInitialized(false);
     }
@@ -321,15 +314,9 @@ export function FilterConfigModal({
       } as ValueFilterSettings;
     } else {
       settings = {
-        mode: numericalMode,
-        min_value: customRange.min,
-        max_value: customRange.max,
-        default_min:
-          numericalMode === NumericalFilterMode.RANGE ? defaultRangeValue.min : undefined,
-        default_max:
-          numericalMode === NumericalFilterMode.RANGE ? defaultRangeValue.max : undefined,
-        default_value:
-          numericalMode === NumericalFilterMode.SINGLE ? defaultSingleValue : undefined,
+        ui_mode: numericalUIMode,
+        default_min: defaultRangeValue.min,
+        default_max: defaultRangeValue.max,
         step: 1,
       } as NumericalFilterSettings;
     }
@@ -371,7 +358,7 @@ export function FilterConfigModal({
     setHasDefaultValue(false);
     setCanSelectMultiple(false);
     setDefaultValues([]);
-    setNumericalMode(NumericalFilterMode.RANGE);
+    setNumericalUIMode(NumericalFilterUIMode.SLIDER);
     setIsInitialized(false);
     onClose();
   };
@@ -631,12 +618,51 @@ export function FilterConfigModal({
                       {columnName && filterType === DashboardFilterType.NUMERICAL && (
                         <Card>
                           <CardHeader>
-                            <CardTitle className="text-sm">Range Filter</CardTitle>
+                            <CardTitle className="text-sm">
+                              Numerical Filter Configuration
+                            </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="space-y-4">
+                            <div>
+                              <Label className="text-sm font-medium">UI Style</Label>
+                              <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="slider-ui"
+                                    checked={numericalUIMode === NumericalFilterUIMode.SLIDER}
+                                    onCheckedChange={(checked) =>
+                                      setNumericalUIMode(
+                                        checked
+                                          ? NumericalFilterUIMode.SLIDER
+                                          : NumericalFilterUIMode.INPUT
+                                      )
+                                    }
+                                  />
+                                  <Label htmlFor="slider-ui">Interactive Slider</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="input-ui"
+                                    checked={numericalUIMode === NumericalFilterUIMode.INPUT}
+                                    onCheckedChange={(checked) =>
+                                      setNumericalUIMode(
+                                        checked
+                                          ? NumericalFilterUIMode.INPUT
+                                          : NumericalFilterUIMode.SLIDER
+                                      )
+                                    }
+                                  />
+                                  <Label htmlFor="input-ui">Min/Max Inputs</Label>
+                                </div>
+                              </div>
+                            </div>
+
                             <div className="text-sm text-muted-foreground bg-green-50 p-3 rounded">
-                              <strong>Renders as:</strong> Dual-handle range slider with min/max
-                              input fields. Range limits automatically computed from your data.
+                              <strong>Will render as:</strong>{' '}
+                              {numericalUIMode === NumericalFilterUIMode.SLIDER
+                                ? 'Dual-handle range slider for min/max selection'
+                                : 'Separate Min and Max input fields'}
+                              . Range limits automatically computed from your data.
                             </div>
                           </CardContent>
                         </Card>

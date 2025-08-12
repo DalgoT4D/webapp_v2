@@ -30,7 +30,7 @@ import {
   PolarRadiusAxis,
 } from 'recharts';
 import { Settings, Trash2, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
-import { DashboardElementData, ChartConfig } from './dashboard-builder';
+import type { DashboardElementData, ChartConfig } from './dashboard-builder';
 
 interface ChartElementProps {
   element: DashboardElementData;

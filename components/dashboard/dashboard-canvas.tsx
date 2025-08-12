@@ -3,7 +3,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { BarChart3 } from 'lucide-react';
-import { DashboardElementData } from './dashboard-builder';
+import type { DashboardElementData } from './dashboard-builder';
 import { ChartElement } from './chart-element';
 import { UnifiedTextElement as TextElement } from './text-element-unified';
 import { UnifiedTextElement as HeadingElement } from './text-element-unified';

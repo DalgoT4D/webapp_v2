@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Save, Eye, Settings, Trash2, Undo, Redo } from 'lucide-react';
-import { DashboardElementData } from './dashboard-builder';
+import type { DashboardElementData } from './dashboard-builder';
 
 interface DashboardToolbarProps {
   title: string;

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Edit2 } from 'lucide-react';
 import { DashboardFilterWidget } from './dashboard-filter-widgets';
-import { DashboardFilterConfig } from '@/types/dashboard-filters';
+import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 
 interface FilterElementProps {
   filter: DashboardFilterConfig;

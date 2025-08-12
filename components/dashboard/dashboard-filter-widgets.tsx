@@ -16,15 +16,17 @@ import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Filter, ChevronDown, X, Check, Hash, Type, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
+import type {
   DashboardFilterConfig,
-  DashboardFilterType,
-  NumericalFilterMode,
   ValueFilterConfig,
   NumericalFilterConfig,
-  DateTimeFilterConfig,
   FilterOption,
   AppliedFilters,
+} from '@/types/dashboard-filters';
+import {
+  DashboardFilterType,
+  NumericalFilterUIMode,
+  DateTimeFilterConfig,
 } from '@/types/dashboard-filters';
 import { DateTimeFilterWidget } from './datetime-filter-widget';
 import useSWR from 'swr';
@@ -309,6 +311,17 @@ function NumericalFilterWidget({
 }: FilterWidgetProps) {
   const numericalFilter = filter as NumericalFilterConfig;
 
+  // Ensure settings exists with default values
+  if (!numericalFilter.settings) {
+    console.warn('Numerical filter settings missing, using defaults');
+    numericalFilter.settings = {
+      ui_mode: NumericalFilterUIMode.SLIDER,
+    };
+  }
+
+  // Default ui_mode to SLIDER if not specified
+  const uiMode = numericalFilter.settings.ui_mode || NumericalFilterUIMode.SLIDER;
+
   // Fetch numerical stats dynamically from the API
   const {
     data: numericalStats,
@@ -327,65 +340,43 @@ function NumericalFilterWidget({
   const maxValue = numericalStats?.stats?.max_value ?? 100;
   const step = numericalFilter.settings.step || 1;
 
-  const [localValue, setLocalValue] = useState<number | { min: number; max: number }>(
-    value ||
-      (numericalFilter.settings.mode === NumericalFilterMode.SINGLE
-        ? numericalFilter.settings.default_value || minValue
-        : {
-            min: numericalFilter.settings.default_min || minValue,
-            max: numericalFilter.settings.default_max || maxValue,
-          })
+  const [localValue, setLocalValue] = useState<{ min: number; max: number }>(
+    value || {
+      min: numericalFilter.settings.default_min || minValue,
+      max: numericalFilter.settings.default_max || maxValue,
+    }
   );
 
   const handleSliderChange = (newValue: number[]) => {
-    if (numericalFilter.settings.mode === NumericalFilterMode.SINGLE) {
-      const singleValue = newValue[0];
-      setLocalValue(singleValue);
-      onChange(filter.id, singleValue);
-    } else {
-      const rangeValue = { min: newValue[0], max: newValue[1] };
-      setLocalValue(rangeValue);
-      onChange(filter.id, rangeValue);
-    }
+    const rangeValue = { min: newValue[0], max: newValue[1] };
+    setLocalValue(rangeValue);
+    onChange(filter.id, rangeValue);
   };
 
-  const handleInputChange = (inputValue: string, type: 'single' | 'min' | 'max') => {
+  const handleInputChange = (inputValue: string, type: 'min' | 'max') => {
     const numValue = parseFloat(inputValue);
     if (isNaN(numValue)) return;
 
-    if (type === 'single') {
-      setLocalValue(numValue);
-      onChange(filter.id, numValue);
-    } else if (typeof localValue === 'object') {
-      const newRange = {
-        ...localValue,
-        [type]: Math.max(minValue, Math.min(maxValue, numValue)),
-      };
-      setLocalValue(newRange);
-      onChange(filter.id, newRange);
-    }
+    const newRange = {
+      ...localValue,
+      [type]: Math.max(minValue, Math.min(maxValue, numValue)),
+    };
+    setLocalValue(newRange);
+    onChange(filter.id, newRange);
   };
 
   const handleReset = () => {
-    const defaultValue =
-      numericalFilter.settings.mode === NumericalFilterMode.SINGLE
-        ? numericalFilter.settings.default_value || minValue
-        : {
-            min: numericalFilter.settings.default_min || minValue,
-            max: numericalFilter.settings.default_max || maxValue,
-          };
+    const defaultValue = {
+      min: numericalFilter.settings.default_min || minValue,
+      max: numericalFilter.settings.default_max || maxValue,
+    };
 
     setLocalValue(defaultValue);
     onChange(filter.id, defaultValue);
   };
 
   const getSliderValue = (): number[] => {
-    if (numericalFilter.settings.mode === NumericalFilterMode.SINGLE) {
-      return [typeof localValue === 'number' ? localValue : minValue];
-    } else {
-      const range = typeof localValue === 'object' ? localValue : { min: minValue, max: maxValue };
-      return [range.min, range.max];
-    }
+    return [localValue.min, localValue.max];
   };
 
   return (
@@ -415,76 +406,71 @@ function NumericalFilterWidget({
             isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2 bg-green-100 text-green-800'
           )}
         >
-          {numericalFilter.settings.mode === NumericalFilterMode.SINGLE ? 'Single' : 'Range'}
+          Range • {uiMode === NumericalFilterUIMode.SLIDER ? 'Slider' : 'Input'}
         </Badge>
       </div>
       <div className="space-y-3">
         {/* Current value display */}
         <div className="text-xs text-center font-medium text-gray-600">
-          {numericalFilter.settings.mode === NumericalFilterMode.SINGLE ? (
-            <span>{typeof localValue === 'number' ? localValue : minValue}</span>
-          ) : (
-            <span>
-              {typeof localValue === 'object' ? localValue.min : minValue} -{' '}
-              {typeof localValue === 'object' ? localValue.max : maxValue}
-            </span>
-          )}
+          <span>
+            {localValue.min} - {localValue.max}
+          </span>
         </div>
 
-        {/* Slider */}
-        <div className="px-1">
-          <Slider
-            value={getSliderValue()}
-            onValueChange={handleSliderChange}
-            min={minValue}
-            max={maxValue}
-            step={step}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-muted-foreground mt-1">
-            <span>{minValue}</span>
-            <span>{maxValue}</span>
+        {/* Conditional UI based on ui_mode setting */}
+        {uiMode === NumericalFilterUIMode.SLIDER ? (
+          /* Slider UI */
+          <div className="px-1">
+            <Slider
+              value={getSliderValue()}
+              onValueChange={handleSliderChange}
+              min={minValue}
+              max={maxValue}
+              step={step}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>{minValue}</span>
+              <span>{maxValue}</span>
+            </div>
           </div>
-        </div>
-
-        {/* Manual input */}
-        {numericalFilter.settings.mode === NumericalFilterMode.SINGLE ? (
-          <Input
-            type="number"
-            value={typeof localValue === 'number' ? localValue : minValue}
-            onChange={(e) => handleInputChange(e.target.value, 'single')}
-            min={minValue}
-            max={maxValue}
-            step={step}
-            className="text-center h-7 text-xs"
-          />
         ) : (
-          <div className="grid grid-cols-2 gap-1.5">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Min</label>
-              <Input
-                type="number"
-                value={typeof localValue === 'object' ? localValue.min : minValue}
-                onChange={(e) => handleInputChange(e.target.value, 'min')}
-                min={minValue}
-                max={typeof localValue === 'object' ? localValue.max : maxValue}
-                step={step}
-                className="text-center h-7 text-xs"
-              />
+          /* Input Fields UI */
+          <>
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Min</label>
+                <Input
+                  type="number"
+                  value={localValue.min}
+                  onChange={(e) => handleInputChange(e.target.value, 'min')}
+                  min={minValue}
+                  max={localValue.max}
+                  step={step}
+                  className="text-center h-7 text-xs"
+                  placeholder="Min"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Max</label>
+                <Input
+                  type="number"
+                  value={localValue.max}
+                  onChange={(e) => handleInputChange(e.target.value, 'max')}
+                  min={localValue.min}
+                  max={maxValue}
+                  step={step}
+                  className="text-center h-7 text-xs"
+                  placeholder="Max"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Max</label>
-              <Input
-                type="number"
-                value={typeof localValue === 'object' ? localValue.max : maxValue}
-                onChange={(e) => handleInputChange(e.target.value, 'max')}
-                min={typeof localValue === 'object' ? localValue.min : minValue}
-                max={maxValue}
-                step={step}
-                className="text-center h-7 text-xs"
-              />
+            {/* Show range limits for input mode */}
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>Min: {minValue}</span>
+              <span>Max: {maxValue}</span>
             </div>
-          </div>
+          </>
         )}
 
         {/* Reset button */}

@@ -6,9 +6,9 @@ export enum DashboardFilterType {
   DATETIME = 'datetime', // Date range filter
 }
 
-export enum NumericalFilterMode {
-  SINGLE = 'single', // Single value
-  RANGE = 'range', // Min/max range
+export enum NumericalFilterUIMode {
+  SLIDER = 'slider', // Interactive slider UI
+  INPUT = 'input', // Min/Max input fields UI
 }
 
 export interface BaseFilterConfig {
@@ -34,12 +34,11 @@ export interface ValueFilterSettings {
 }
 
 export interface NumericalFilterSettings {
-  mode: NumericalFilterMode;
+  ui_mode: NumericalFilterUIMode; // Choose between slider or input UI
   // Note: min_value, max_value are fetched dynamically from warehouse
-  default_min?: number; // User-configured default, not data-derived
-  default_max?: number; // User-configured default, not data-derived
-  default_value?: number; // User-configured default
-  step?: number; // UI configuration
+  default_min?: number; // User-configured default range minimum
+  default_max?: number; // User-configured default range maximum
+  step?: number; // UI configuration for slider precision
 }
 
 export interface DateTimeFilterSettings {

@@ -46,7 +46,7 @@ import {
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
-import { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
+import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
