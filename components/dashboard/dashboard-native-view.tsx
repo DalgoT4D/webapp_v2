@@ -39,8 +39,57 @@ import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
+import {
+  DashboardFilterType,
+  type ValueFilterSettings,
+  type NumericalFilterSettings,
+  type DateTimeFilterSettings,
+} from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
+
+// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
+function convertFilterToConfig(
+  filter: any,
+  position: { x: number; y: number; w: number; h: number }
+): DashboardFilterConfig {
+  const baseConfig = {
+    id: filter.id.toString(),
+    name: filter.name,
+    schema_name: filter.schema_name,
+    table_name: filter.table_name,
+    column_name: filter.column_name,
+    filter_type: filter.filter_type as DashboardFilterType,
+    position,
+  };
+
+  if (filter.filter_type === 'value') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.VALUE,
+      settings: filter.settings as ValueFilterSettings,
+    };
+  } else if (filter.filter_type === 'numerical') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.NUMERICAL,
+      settings: filter.settings as NumericalFilterSettings,
+    };
+  } else if (filter.filter_type === 'datetime') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.DATETIME,
+      settings: filter.settings as DateTimeFilterSettings,
+    };
+  } else {
+    // Fallback to VALUE type for unknown types
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.VALUE,
+      settings: filter.settings as ValueFilterSettings,
+    };
+  }
+}
 
 interface DashboardNativeViewProps {
   dashboardId: number;
@@ -289,7 +338,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
           level === 3 && 'text-lg'
         );
 
-        const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
         return (
           <div key={componentId} className="h-full p-4 flex items-center">
             <HeadingTag
@@ -335,12 +384,8 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
           );
         }
 
-        // Ensure filter data has required fields for the component
-        const normalizedFilter = {
-          ...filterData,
-          name: filterData.name || filterData.column_name || 'Filter', // Use column_name as fallback
-          id: String(filterData.id), // Ensure id is string as expected by types
-        };
+        // Convert to proper format using conversion function
+        const normalizedFilter = convertFilterToConfig(filterData, { x: 0, y: 0, w: 4, h: 3 });
 
         return (
           <div key={componentId} className="h-full">
@@ -416,7 +461,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-gray-900">{dashboard.title}</h1>
                   {dashboard.is_published && (
-                    <Badge variant="success" className="text-xs">
+                    <Badge variant="default" className="text-xs bg-green-100 text-green-800">
                       Published
                     </Badge>
                   )}

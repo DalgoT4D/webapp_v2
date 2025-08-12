@@ -26,14 +26,17 @@ import {
   Type as TypeIcon,
   Settings2,
   Info,
+  Calendar,
+  List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import useSWR from 'swr';
 import { useSchemas, useTables, useColumns } from '@/hooks/api/useChart';
-import { useDashboardFilter } from '@/hooks/api/useDashboards';
+import { useDashboardFilter, DashboardFilter } from '@/hooks/api/useDashboards';
 import {
   DashboardFilterType,
+  DashboardFilterConfig,
   NumericalFilterMode,
   CreateFilterPayload,
   UpdateFilterPayload,
@@ -41,7 +44,51 @@ import {
   NumericalFilterStats,
   ValueFilterSettings,
   NumericalFilterSettings,
+  DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
+
+// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
+function convertFilterToConfig(
+  filter: DashboardFilter,
+  position?: { x: number; y: number; w: number; h: number }
+): DashboardFilterConfig {
+  const baseConfig = {
+    id: filter.id.toString(),
+    name: filter.name,
+    schema_name: filter.schema_name,
+    table_name: filter.table_name,
+    column_name: filter.column_name,
+    filter_type: filter.filter_type as DashboardFilterType,
+    position: position || { x: 0, y: 0, w: 4, h: 3 }, // Default position if not provided
+  };
+
+  if (filter.filter_type === 'value') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.VALUE,
+      settings: filter.settings as ValueFilterSettings,
+    };
+  } else if (filter.filter_type === 'numerical') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.NUMERICAL,
+      settings: filter.settings as NumericalFilterSettings,
+    };
+  } else if (filter.filter_type === 'datetime') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.DATETIME,
+      settings: filter.settings as DateTimeFilterSettings,
+    };
+  } else {
+    // Fallback to VALUE type for unknown types
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.VALUE,
+      settings: filter.settings as ValueFilterSettings,
+    };
+  }
+}
 
 interface FilterConfigModalProps {
   open: boolean;
@@ -61,22 +108,9 @@ function useFilterPreview(
 ) {
   return useSWR(
     schemaName && tableName && columnName && filterType
-      ? [
-          '/api/charts/chart-data/',
-          {
-            chart_type: 'bar',
-            computation_type: 'aggregated',
-            schema_name: schemaName,
-            table_name: tableName,
-            dimension_col: columnName,
-            aggregate_col: null,
-            aggregate_func: 'count',
-            offset: 0,
-            limit: filterType === 'value' ? 100 : 1,
-          },
-        ]
+      ? `/api/filters/preview/?schema_name=${encodeURIComponent(schemaName)}&table_name=${encodeURIComponent(tableName)}&column_name=${encodeURIComponent(columnName)}&filter_type=${filterType}&limit=100`
       : null,
-    ([url, data]) => apiPost(url, data),
+    (url: string) => apiGet(url),
     { revalidateOnFocus: false }
   );
 }
@@ -141,7 +175,7 @@ export function FilterConfigModal({
         setSchemaName(dataToUse.schema_name || '');
         setTableName(dataToUse.table_name || '');
         setColumnName(dataToUse.column_name || '');
-        setFilterType(dataToUse.filter_type || DashboardFilterType.VALUE);
+        setFilterType((dataToUse.filter_type as DashboardFilterType) || DashboardFilterType.VALUE);
 
         // Parse settings if they exist
         if (dataToUse.settings) {
@@ -210,6 +244,39 @@ export function FilterConfigModal({
     }
   }, [tableName]);
 
+  // Auto-detect filter type based on column data type
+  useEffect(() => {
+    if (columnName && columns) {
+      const selectedColumn = columns.find(
+        (col: any) => col.column_name === columnName || col.name === columnName
+      );
+
+      if (selectedColumn?.recommended_filter_type) {
+        setFilterType(selectedColumn.recommended_filter_type as DashboardFilterType);
+        console.log(
+          `Auto-detected filter type: ${selectedColumn.recommended_filter_type} for column ${columnName} (${selectedColumn.data_type})`
+        );
+      } else if (selectedColumn?.data_type) {
+        // Fallback to local detection if backend doesn't provide recommended_filter_type
+        const dataType = selectedColumn.data_type.toLowerCase();
+
+        if (
+          ['timestamp', 'datetime', 'date', 'timestamptz', 'time'].some((t) => dataType.includes(t))
+        ) {
+          setFilterType(DashboardFilterType.DATETIME);
+        } else if (
+          ['integer', 'bigint', 'numeric', 'decimal', 'double', 'real', 'float'].some((t) =>
+            dataType.includes(t)
+          )
+        ) {
+          setFilterType(DashboardFilterType.NUMERICAL);
+        } else {
+          setFilterType(DashboardFilterType.VALUE);
+        }
+      }
+    }
+  }, [columnName, columns]);
+
   useEffect(() => {
     // Auto-generate name when column is selected
     if (columnName && !name) {
@@ -250,7 +317,7 @@ export function FilterConfigModal({
             : defaultValues[0]
           : undefined,
         can_select_multiple: canSelectMultiple,
-        available_values: availableValues,
+        // available_values are fetched dynamically, not stored
       } as ValueFilterSettings;
     } else {
       settings = {
@@ -330,19 +397,16 @@ export function FilterConfigModal({
           </div>
         ) : (
           <div className="flex-1 overflow-hidden">
-            <Tabs defaultValue="basic" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger value="settings" disabled={!columnName}>
-                  Settings
-                </TabsTrigger>
+            <Tabs defaultValue="info" className="h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="info">Info</TabsTrigger>
                 <TabsTrigger value="preview" disabled={!columnName}>
                   Preview
                 </TabsTrigger>
               </TabsList>
 
               <div className="flex-1 overflow-hidden mt-4">
-                <TabsContent value="basic" className="h-full overflow-auto">
+                <TabsContent value="info" className="h-full overflow-auto">
                   <div className="space-y-6">
                     <div className="grid gap-4">
                       <div>
@@ -470,224 +534,128 @@ export function FilterConfigModal({
                         </div>
                       </div>
 
-                      <div>
-                        <Label>Filter Type</Label>
-                        <Select
-                          value={filterType}
-                          onValueChange={(value) => setFilterType(value as DashboardFilterType)}
-                          disabled={!columnName}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={DashboardFilterType.VALUE}>
-                              <div className="flex items-center gap-2">
-                                <TypeIcon className="w-4 h-4" />
-                                <div>
-                                  <div>Value (Dropdown)</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    For categorical data
+                      {/* Auto-detected filter type display */}
+                      {columnName && columns && (
+                        <Card>
+                          <CardContent className="pt-4">
+                            <div className="flex items-center gap-3">
+                              {filterType === DashboardFilterType.VALUE && (
+                                <>
+                                  <List className="w-5 h-5 text-blue-600" />
+                                  <div>
+                                    <div className="font-medium">Dropdown Filter</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Auto-detected from{' '}
+                                      {columns.find(
+                                        (col: any) =>
+                                          col.column_name === columnName || col.name === columnName
+                                      )?.data_type || 'column type'}
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value={DashboardFilterType.NUMERICAL}>
-                              <div className="flex items-center gap-2">
-                                <Hash className="w-4 h-4" />
-                                <div>
-                                  <div>Numerical (Slider)</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    For numerical data
+                                </>
+                              )}
+                              {filterType === DashboardFilterType.NUMERICAL && (
+                                <>
+                                  <Hash className="w-5 h-5 text-green-600" />
+                                  <div>
+                                    <div className="font-medium">Range Filter</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Auto-detected from{' '}
+                                      {columns.find(
+                                        (col: any) =>
+                                          col.column_name === columnName || col.name === columnName
+                                      )?.data_type || 'column type'}
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="settings" className="h-full overflow-auto">
-                  <div className="space-y-6">
-                    {filterType === DashboardFilterType.VALUE && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <Settings2 className="w-5 h-5" />
-                            Value Filter Settings
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="has-default"
-                              checked={hasDefaultValue}
-                              onCheckedChange={setHasDefaultValue}
-                            />
-                            <Label htmlFor="has-default">Has default value</Label>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="multiple-select"
-                              checked={canSelectMultiple}
-                              onCheckedChange={setCanSelectMultiple}
-                            />
-                            <Label htmlFor="multiple-select">Can select multiple values</Label>
-                          </div>
-
-                          {hasDefaultValue && (
-                            <div>
-                              <Label>Default Value(s)</Label>
-                              {loadingPreview ? (
-                                <div className="mt-2 flex items-center justify-center py-4 border border-dashed rounded-md">
-                                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                  <span className="text-sm text-muted-foreground">
-                                    Loading available values...
-                                  </span>
-                                </div>
-                              ) : filterPreview?.data?.xAxisData ? (
-                                <div className="mt-2 space-y-2 max-h-32 overflow-auto">
-                                  {filterPreview.data.xAxisData
-                                    .slice(0, 20)
-                                    .map((option: string, index: number) => (
-                                      <div key={option} className="flex items-center space-x-2">
-                                        <Checkbox
-                                          id={`default-${option}`}
-                                          checked={defaultValues.includes(option)}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              if (canSelectMultiple) {
-                                                setDefaultValues([...defaultValues, option]);
-                                              } else {
-                                                setDefaultValues([option]);
-                                              }
-                                            } else {
-                                              setDefaultValues(
-                                                defaultValues.filter((v) => v !== option)
-                                              );
-                                            }
-                                          }}
-                                        />
-                                        <Label htmlFor={`default-${option}`} className="flex-1">
-                                          <div className="flex items-center justify-between">
-                                            <span>{option}</span>
-                                            {filterPreview.data.series?.[0]?.data?.[index] && (
-                                              <Badge variant="outline" className="text-xs">
-                                                {filterPreview.data.series[0].data[index]}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </Label>
-                                      </div>
-                                    ))}
-                                </div>
-                              ) : (
-                                <div className="mt-2 text-sm text-muted-foreground p-4 border border-dashed rounded-md text-center">
-                                  No values available. Please select a column first.
-                                </div>
+                                </>
+                              )}
+                              {filterType === DashboardFilterType.DATETIME && (
+                                <>
+                                  <Calendar className="w-5 h-5 text-purple-600" />
+                                  <div>
+                                    <div className="font-medium">Date Range Filter</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Auto-detected from{' '}
+                                      {columns.find(
+                                        (col: any) =>
+                                          col.column_name === columnName || col.name === columnName
+                                      )?.data_type || 'column type'}
+                                    </div>
+                                  </div>
+                                </>
                               )}
                             </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )}
+                          </CardContent>
+                        </Card>
+                      )}
 
-                    {filterType === DashboardFilterType.NUMERICAL && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <Settings2 className="w-5 h-5" />
-                            Numerical Filter Settings
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div>
-                            <Label>Filter Mode</Label>
-                            <Select
-                              value={numericalMode}
-                              onValueChange={(value) =>
-                                setNumericalMode(value as NumericalFilterMode)
-                              }
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={NumericalFilterMode.SINGLE}>
-                                  Single Value
-                                </SelectItem>
-                                <SelectItem value={NumericalFilterMode.RANGE}>
-                                  Range (Min/Max)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {filterType === DashboardFilterType.NUMERICAL && (
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Info className="w-4 h-4 text-blue-600" />
-                                <span className="text-sm font-medium text-blue-900">Note</span>
-                              </div>
-                              <p className="text-sm text-blue-800">
-                                For numerical filters, you can set custom min/max ranges or let
-                                users define their own. The actual data range will be determined
-                                dynamically when filters are applied.
-                              </p>
-                            </div>
-                          )}
-
-                          {numericalMode === NumericalFilterMode.SINGLE && (
-                            <div>
-                              <Label>Default Value</Label>
-                              <Input
-                                type="number"
-                                value={defaultSingleValue}
-                                onChange={(e) => setDefaultSingleValue(Number(e.target.value))}
-                                className="mt-1"
-                              />
-                            </div>
-                          )}
-
-                          {numericalMode === NumericalFilterMode.RANGE && (
+                      {/* Type-specific configuration */}
+                      {columnName && filterType === DashboardFilterType.VALUE && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Dropdown Configuration</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
                             <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>Default Min</Label>
-                                <Input
-                                  type="number"
-                                  value={defaultRangeValue.min}
-                                  onChange={(e) =>
-                                    setDefaultRangeValue((prev) => ({
-                                      ...prev,
-                                      min: Number(e.target.value),
-                                    }))
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="single-select"
+                                  checked={!canSelectMultiple}
+                                  onCheckedChange={(checked) =>
+                                    setCanSelectMultiple(checked !== true)
                                   }
-                                  className="mt-1"
                                 />
+                                <Label htmlFor="single-select">Single Select</Label>
                               </div>
-                              <div>
-                                <Label>Default Max</Label>
-                                <Input
-                                  type="number"
-                                  value={defaultRangeValue.max}
-                                  onChange={(e) =>
-                                    setDefaultRangeValue((prev) => ({
-                                      ...prev,
-                                      max: Number(e.target.value),
-                                    }))
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="multi-select"
+                                  checked={canSelectMultiple}
+                                  onCheckedChange={(checked) =>
+                                    setCanSelectMultiple(checked === true)
                                   }
-                                  className="mt-1"
                                 />
+                                <Label htmlFor="multi-select">Multi Select</Label>
                               </div>
                             </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )}
+                            <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded">
+                              <strong>Renders as:</strong> Dropdown menu with{' '}
+                              {canSelectMultiple
+                                ? 'checkboxes (multiple selection)'
+                                : 'radio buttons (single selection)'}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {columnName && filterType === DashboardFilterType.NUMERICAL && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Range Filter</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-sm text-muted-foreground bg-green-50 p-3 rounded">
+                              <strong>Renders as:</strong> Dual-handle range slider with min/max
+                              input fields. Range limits automatically computed from your data.
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {columnName && filterType === DashboardFilterType.DATETIME && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Date Range Filter</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-sm text-muted-foreground bg-purple-50 p-3 rounded">
+                              <strong>Renders as:</strong> Date range picker with start and end date
+                              selection. Date limits automatically computed from your data.
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -702,41 +670,35 @@ export function FilterConfigModal({
                           <Loader2 className="w-6 h-6 animate-spin" />
                           <span className="ml-2">Loading preview...</span>
                         </div>
-                      ) : filterPreview?.data ? (
+                      ) : filterPreview ? (
                         <div className="space-y-4">
-                          {filterType === DashboardFilterType.VALUE &&
-                            filterPreview.data.xAxisData && (
-                              <div>
-                                <h4 className="font-medium mb-2">
-                                  Available Values ({filterPreview.data.xAxisData.length})
-                                </h4>
-                                <ScrollArea className="h-48">
-                                  <div className="space-y-2">
-                                    {filterPreview.data.xAxisData
-                                      .slice(0, 50)
-                                      .map((value: string, index: number) => (
-                                        <div
-                                          key={value}
-                                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                                        >
-                                          <span>{value}</span>
-                                          {filterPreview.data.series?.[0]?.data?.[index] && (
-                                            <Badge variant="outline">
-                                              {filterPreview.data.series[0].data[index]}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      ))}
-                                    {filterPreview.data.xAxisData.length > 50 && (
-                                      <div className="text-center text-sm text-gray-500 p-2">
-                                        ... and {filterPreview.data.xAxisData.length - 50} more
-                                        values
-                                      </div>
-                                    )}
-                                  </div>
-                                </ScrollArea>
-                              </div>
-                            )}
+                          {filterType === DashboardFilterType.VALUE && filterPreview.options && (
+                            <div>
+                              <h4 className="font-medium mb-2">
+                                Available Values ({filterPreview.options.length})
+                              </h4>
+                              <ScrollArea className="h-48">
+                                <div className="space-y-2">
+                                  {filterPreview.options.slice(0, 50).map((option: any) => (
+                                    <div
+                                      key={option.value}
+                                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                                    >
+                                      <span>{option.label}</span>
+                                      {option.count && (
+                                        <Badge variant="outline">{option.count}</Badge>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {filterPreview.options.length > 50 && (
+                                    <div className="text-center text-sm text-gray-500 p-2">
+                                      ... and {filterPreview.options.length - 50} more values
+                                    </div>
+                                  )}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                          )}
 
                           {filterType === DashboardFilterType.NUMERICAL && (
                             <div>
@@ -748,9 +710,47 @@ export function FilterConfigModal({
                                 </p>
                                 <div className="mt-2 h-2 bg-gray-200 rounded relative">
                                   <div
-                                    className="h-full bg-blue-500 rounded"
+                                    className="h-full bg-green-500 rounded"
                                     style={{ width: '100%' }}
                                   />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {filterType === DashboardFilterType.DATETIME && filterPreview?.stats && (
+                            <div>
+                              <h4 className="font-medium mb-2">Date Range Filter</h4>
+                              <div className="bg-purple-50 p-4 rounded">
+                                <p className="text-sm text-purple-800 mb-3">
+                                  This column contains date/time data. Users will be able to select
+                                  start and end dates to filter the data.
+                                </p>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="font-medium text-purple-900">Date Range:</span>
+                                    <div className="text-purple-700">
+                                      {filterPreview.stats.min_date
+                                        ? new Date(
+                                            filterPreview.stats.min_date
+                                          ).toLocaleDateString()
+                                        : 'N/A'}{' '}
+                                      -{' '}
+                                      {filterPreview.stats.max_date
+                                        ? new Date(
+                                            filterPreview.stats.max_date
+                                          ).toLocaleDateString()
+                                        : 'N/A'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-purple-900">
+                                      Unique Days:
+                                    </span>
+                                    <div className="text-purple-700">
+                                      {filterPreview.stats.distinct_days || 0}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>

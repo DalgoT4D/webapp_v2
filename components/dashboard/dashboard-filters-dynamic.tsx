@@ -114,7 +114,15 @@ function CategoricalFilter({
 }) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const multiSelect = filter.settings?.multiSelect ?? false;
+  const multiSelect = (filter.settings as any)?.can_select_multiple ?? false;
+
+  // Debug: Log filter settings
+  console.log('CategoricalFilter - Filter settings:', {
+    filterId: filter.id,
+    settings: filter.settings,
+    can_select_multiple: (filter.settings as any)?.can_select_multiple,
+    multiSelect,
+  });
 
   // Fetch filter options from API
   const { data: options, isLoading } = useSWR(
@@ -132,13 +140,23 @@ function CategoricalFilter({
     [];
 
   const handleSelect = (optionValue: string) => {
+    console.log('CategoricalFilter - handleSelect called:', {
+      optionValue,
+      multiSelect,
+      currentValue: value,
+      selectedValues,
+    });
+
     if (multiSelect) {
       const newValues = selectedValues.includes(optionValue)
         ? selectedValues.filter((v: string) => v !== optionValue)
         : [...selectedValues, optionValue];
+      console.log('CategoricalFilter - Multi-select new values:', newValues);
       onChange(newValues.length > 0 ? newValues : null);
     } else {
-      onChange(optionValue === value ? null : optionValue);
+      const newValue = optionValue === value ? null : optionValue;
+      console.log('CategoricalFilter - Single select new value:', newValue);
+      onChange(newValue);
       setOpen(false);
     }
   };

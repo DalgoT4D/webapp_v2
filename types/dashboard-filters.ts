@@ -3,6 +3,7 @@
 export enum DashboardFilterType {
   VALUE = 'value', // Categorical/dropdown filter
   NUMERICAL = 'numerical', // Range/slider filter
+  DATETIME = 'datetime', // Date range filter
 }
 
 export enum NumericalFilterMode {
@@ -29,17 +30,23 @@ export interface ValueFilterSettings {
   has_default_value: boolean;
   default_value?: string | string[];
   can_select_multiple: boolean;
-  available_values?: Array<{ label: string; value: string }>;
+  // Note: available_values are fetched dynamically, not stored in settings
 }
 
 export interface NumericalFilterSettings {
   mode: NumericalFilterMode;
-  min_value?: number;
-  max_value?: number;
-  default_min?: number;
-  default_max?: number;
-  default_value?: number;
-  step?: number;
+  // Note: min_value, max_value are fetched dynamically from warehouse
+  default_min?: number; // User-configured default, not data-derived
+  default_max?: number; // User-configured default, not data-derived
+  default_value?: number; // User-configured default
+  step?: number; // UI configuration
+}
+
+export interface DateTimeFilterSettings {
+  // Note: min_date, max_date are fetched dynamically from warehouse
+  default_start_date?: string; // User-configured default
+  default_end_date?: string; // User-configured default
+  date_format?: string; // Display format preference
 }
 
 export interface ValueFilterConfig extends BaseFilterConfig {
@@ -52,16 +59,36 @@ export interface NumericalFilterConfig extends BaseFilterConfig {
   settings: NumericalFilterSettings;
 }
 
-export type DashboardFilterConfig = ValueFilterConfig | NumericalFilterConfig;
+export interface DateTimeFilterConfig extends BaseFilterConfig {
+  filter_type: DashboardFilterType.DATETIME;
+  settings: DateTimeFilterSettings;
+}
+
+export type DashboardFilterConfig =
+  | ValueFilterConfig
+  | NumericalFilterConfig
+  | DateTimeFilterConfig;
 
 // Filter values for applying to charts
 export interface FilterValue {
   filterId: string;
-  value: string | string[] | number | { min: number; max: number } | null;
+  value:
+    | string
+    | string[]
+    | number
+    | { min: number; max: number }
+    | { start_date?: string; end_date?: string }
+    | null;
 }
 
 export interface AppliedFilters {
-  [filterId: string]: string | string[] | number | { min: number; max: number } | null;
+  [filterId: string]:
+    | string
+    | string[]
+    | number
+    | { min: number; max: number }
+    | { start_date?: string; end_date?: string }
+    | null;
 }
 
 // Filter creation payload
@@ -71,7 +98,7 @@ export interface CreateFilterPayload {
   table_name: string;
   column_name: string;
   filter_type: DashboardFilterType;
-  settings: ValueFilterSettings | NumericalFilterSettings;
+  settings: ValueFilterSettings | NumericalFilterSettings | DateTimeFilterSettings;
 }
 
 // Filter update payload
@@ -81,7 +108,7 @@ export interface UpdateFilterPayload {
   table_name?: string;
   column_name?: string;
   filter_type?: DashboardFilterType;
-  settings?: ValueFilterSettings | NumericalFilterSettings;
+  settings?: ValueFilterSettings | NumericalFilterSettings | DateTimeFilterSettings;
 }
 
 // API response types

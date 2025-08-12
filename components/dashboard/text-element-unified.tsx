@@ -188,10 +188,10 @@ export function UnifiedTextElement({ config, onUpdate, onRemove }: UnifiedTextEl
     );
 
     if (config.type === 'heading') {
-      const HeadingTag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+      const HeadingTag = `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
       return (
         <HeadingTag
-          ref={textRef}
+          ref={textRef as any}
           className={className}
           style={getDisplayStyle()}
           onClick={handleInlineEdit}

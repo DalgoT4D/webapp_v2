@@ -43,8 +43,58 @@ import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
 import { FilterElement } from './filter-element';
-import type { CreateFilterPayload } from '@/types/dashboard-filters';
+import { DashboardFilterType } from '@/types/dashboard-filters';
+import type {
+  CreateFilterPayload,
+  DashboardFilterConfig,
+  ValueFilterSettings,
+  NumericalFilterSettings,
+  DateTimeFilterSettings,
+} from '@/types/dashboard-filters';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
+
+// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
+function convertFilterToConfig(
+  filter: DashboardFilter,
+  position: { x: number; y: number; w: number; h: number }
+): DashboardFilterConfig {
+  const baseConfig = {
+    id: filter.id.toString(),
+    name: filter.name,
+    schema_name: filter.schema_name,
+    table_name: filter.table_name,
+    column_name: filter.column_name,
+    filter_type: filter.filter_type as DashboardFilterType,
+    position,
+  };
+
+  if (filter.filter_type === 'value') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.VALUE,
+      settings: filter.settings as ValueFilterSettings,
+    };
+  } else if (filter.filter_type === 'numerical') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.NUMERICAL,
+      settings: filter.settings as NumericalFilterSettings,
+    };
+  } else if (filter.filter_type === 'datetime') {
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.DATETIME,
+      settings: filter.settings as DateTimeFilterSettings,
+    };
+  } else {
+    // Fallback to VALUE type for unknown types
+    return {
+      ...baseConfig,
+      filter_type: DashboardFilterType.VALUE,
+      settings: filter.settings as ValueFilterSettings,
+    };
+  }
+}
 
 // Types
 export enum DashboardComponentType {
@@ -717,16 +767,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         // Create filter component ID using the filter ID from API response
         const filterComponentId = `filter-${newFilterFromAPI.id}`;
 
-        // Use complete filter data from API response
-        const newFilter: DashboardFilter = {
-          id: newFilterFromAPI.id,
-          name: newFilterFromAPI.name,
-          schema_name: newFilterFromAPI.schema_name,
-          table_name: newFilterFromAPI.table_name,
-          column_name: newFilterFromAPI.column_name,
-          filter_type: newFilterFromAPI.filter_type,
-          settings: newFilterFromAPI.settings,
-        } as any; // Using API response type
+        // Convert API response to frontend config format
+        const filterConfig = convertFilterToConfig(newFilterFromAPI, {
+          x: position.x,
+          y: position.y,
+          w: 3,
+          h: 3,
+        });
 
         // Create the filter component (with reference to filter ID)
         const newComponent: DashboardComponent = {
@@ -734,7 +781,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           type: DashboardComponentType.FILTER,
           config: {
             filterId: newFilterFromAPI.id, // Just store the filter ID reference
-            name: newFilter.name, // Store name for quick access
+            name: filterConfig.name, // Store name for quick access
           },
         };
 
@@ -757,10 +804,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             ...state.components,
             [filterComponentId]: newComponent,
           },
-          filters: [...state.filters, newFilter],
+          filters: [...state.filters, filterConfig],
         });
 
-        console.log('Filter created successfully:', response);
+        console.log('Filter created successfully:', newFilterFromAPI);
       } catch (error: any) {
         console.error('Failed to create filter:', error.message || 'Please try again');
         // Could add error handling/notification here
@@ -940,7 +987,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 });
               }}
               onEdit={() => {
-                setSelectedFilterForEdit(filterData);
+                // Convert DashboardFilterConfig back to format expected by modal
+                const filterForEdit: DashboardFilter = {
+                  id: parseInt(filterData.id),
+                  dashboard_id: dashboardId || 0,
+                  name: filterData.name,
+                  filter_type: filterData.filter_type,
+                  schema_name: filterData.schema_name,
+                  table_name: filterData.table_name,
+                  column_name: filterData.column_name,
+                  settings: filterData.settings,
+                  order: 0,
+                  created_at: '',
+                  updated_at: '',
+                };
+                setSelectedFilterForEdit(filterForEdit);
                 setShowFilterModal(true);
               }}
               isEditMode={true}
@@ -1184,7 +1245,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   schema_name: selectedFilterForEdit.schema_name,
                   table_name: selectedFilterForEdit.table_name,
                   column_name: selectedFilterForEdit.column_name,
-                  filter_type: selectedFilterForEdit.filter_type,
+                  filter_type: selectedFilterForEdit.filter_type as DashboardFilterType,
                   settings: selectedFilterForEdit.settings,
                 }
               : undefined

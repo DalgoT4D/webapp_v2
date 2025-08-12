@@ -25,7 +25,7 @@ export interface DashboardFilter {
   id: number;
   dashboard_id: number;
   name: string;
-  filter_type: 'value' | 'numerical';
+  filter_type: 'value' | 'numerical' | 'datetime';
   schema_name: string;
   table_name: string;
   column_name: string;
@@ -126,16 +126,12 @@ export async function getFilterOptions(params: {
   return apiGet(`/api/dashboards/filter-options/?${queryParams}`);
 }
 
-export async function getFilteredDashboardData(dashboardId: number, filters: any) {
-  return apiPost(`/api/dashboards/${dashboardId}/filter-data/`, filters);
-}
-
 export async function updateDashboardFilter(
   dashboardId: number,
   filterId: number,
   data: {
     name?: string;
-    filter_type?: 'value' | 'numerical';
+    filter_type?: 'value' | 'numerical' | 'datetime';
     schema_name?: string;
     table_name?: string;
     column_name?: string;
@@ -167,7 +163,7 @@ export async function createDashboardFilter(
   dashboardId: number,
   data: {
     name: string;
-    filter_type: 'value' | 'numerical';
+    filter_type: 'value' | 'numerical' | 'datetime';
     schema_name: string;
     table_name: string;
     column_name: string;

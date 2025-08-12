@@ -29,9 +29,13 @@ import {
   NumericalFilterMode,
   ValueFilterConfig,
   NumericalFilterConfig,
+  DateTimeFilterConfig,
   FilterOption,
   AppliedFilters,
 } from '@/types/dashboard-filters';
+import { DateTimeFilterWidget } from './datetime-filter-widget';
+import useSWR from 'swr';
+import { apiGet } from '@/lib/api';
 
 interface FilterWidgetProps {
   filter: DashboardFilterConfig;
@@ -55,19 +59,48 @@ function ValueFilterWidget({
     Array.isArray(value) ? value : value ? [value] : []
   );
 
+  // Fetch available options dynamically from the API
+  const {
+    data: filterOptions,
+    error: filterOptionsError,
+    isLoading: filterOptionsLoading,
+  } = useSWR(
+    filter.schema_name && filter.table_name && filter.column_name
+      ? `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
+      : null,
+    (url: string) => apiGet(url),
+    { revalidateOnFocus: false }
+  );
+
+  // Debug: Log filter settings
+  console.log('ValueFilterWidget - Filter settings:', {
+    filterId: filter.id,
+    settings: valueFilter.settings,
+    can_select_multiple: valueFilter.settings?.can_select_multiple,
+    options_count: filterOptions?.options?.length || 0,
+    selectedValues: selectedValues,
+  });
+
   // Ensure settings exists with default values
   if (!valueFilter.settings) {
     console.warn('Filter settings missing, using defaults');
     valueFilter.settings = {
       has_default_value: false,
       can_select_multiple: false,
-      available_values: [],
     };
   }
 
-  const availableOptions = valueFilter.settings?.available_values || [];
+  // Use dynamically fetched options
+  const availableOptions = filterOptions?.options || [];
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
+    console.log('handleSelectionChange called:', {
+      optionValue,
+      isChecked,
+      can_select_multiple: valueFilter.settings.can_select_multiple,
+      currentSelection: selectedValues,
+    });
+
     let newSelection: string[];
 
     if (valueFilter.settings.can_select_multiple) {
@@ -81,6 +114,7 @@ function ValueFilterWidget({
       setOpen(false);
     }
 
+    console.log('New selection:', newSelection);
     setSelectedValues(newSelection);
     onChange(
       filter.id,
@@ -134,7 +168,15 @@ function ValueFilterWidget({
         )}
       </div>
       <div>
-        {availableOptions.length === 0 ? (
+        {filterOptionsLoading ? (
+          <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
+            Loading options...
+          </div>
+        ) : filterOptionsError ? (
+          <div className="text-xs text-red-600 p-2 bg-red-50 rounded text-center">
+            Error loading options
+          </div>
+        ) : availableOptions.length === 0 ? (
           <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
             No options available
           </div>
@@ -177,15 +219,20 @@ function ValueFilterWidget({
                     <CommandItem
                       key={option.value}
                       onSelect={() => {
-                        const isSelected = selectedValues.includes(option.value);
-                        handleSelectionChange(option.value, !isSelected);
+                        // For multi-select, don't close the popover
+                        if (valueFilter.settings.can_select_multiple) {
+                          const isSelected = selectedValues.includes(option.value);
+                          handleSelectionChange(option.value, !isSelected);
+                        }
                       }}
-                      className="py-1.5"
+                      className="py-1.5 cursor-pointer"
                     >
                       <div className="flex items-center gap-1.5 w-full">
                         <Checkbox
                           checked={selectedValues.includes(option.value)}
-                          onChange={(checked) => handleSelectionChange(option.value, !!checked)}
+                          onCheckedChange={(checked) =>
+                            handleSelectionChange(option.value, checked === true)
+                          }
                           className="h-3 w-3"
                         />
                         <span className="flex-1 text-xs">{option.label}</span>
@@ -259,19 +306,34 @@ function NumericalFilterWidget({
   isEditMode = false,
 }: FilterWidgetProps) {
   const numericalFilter = filter as NumericalFilterConfig;
+
+  // Fetch numerical stats dynamically from the API
+  const {
+    data: numericalStats,
+    error: numericalStatsError,
+    isLoading: numericalStatsLoading,
+  } = useSWR(
+    filter.schema_name && filter.table_name && filter.column_name
+      ? `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
+      : null,
+    (url: string) => apiGet(url),
+    { revalidateOnFocus: false }
+  );
+
+  // Use fetched values or fallbacks
+  const minValue = numericalStats?.stats?.min_value ?? 0;
+  const maxValue = numericalStats?.stats?.max_value ?? 100;
+  const step = numericalFilter.settings.step || 1;
+
   const [localValue, setLocalValue] = useState<number | { min: number; max: number }>(
     value ||
       (numericalFilter.settings.mode === NumericalFilterMode.SINGLE
-        ? numericalFilter.settings.default_value || 0
+        ? numericalFilter.settings.default_value || minValue
         : {
-            min: numericalFilter.settings.default_min || numericalFilter.settings.min_value || 0,
-            max: numericalFilter.settings.default_max || numericalFilter.settings.max_value || 100,
+            min: numericalFilter.settings.default_min || minValue,
+            max: numericalFilter.settings.default_max || maxValue,
           })
   );
-
-  const minValue = numericalFilter.settings.min_value || 0;
-  const maxValue = numericalFilter.settings.max_value || 100;
-  const step = numericalFilter.settings.step || 1;
 
   const handleSliderChange = (newValue: number[]) => {
     if (numericalFilter.settings.mode === NumericalFilterMode.SINGLE) {
@@ -444,9 +506,13 @@ export function DashboardFilterWidget(props: FilterWidgetProps) {
     return <ValueFilterWidget {...props} />;
   } else if (props.filter.filter_type === DashboardFilterType.NUMERICAL) {
     return <NumericalFilterWidget {...props} />;
+  } else if (props.filter.filter_type === DashboardFilterType.DATETIME) {
+    return (
+      <DateTimeFilterWidget filter={props.filter} value={props.value} onChange={props.onChange} />
+    );
   }
 
-  return <div></div>;
+  return <div>Unknown filter type: {(props.filter as any).filter_type}</div>;
 }
 
 // Filter Bar Component for Dashboard View
