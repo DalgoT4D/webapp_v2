@@ -53,28 +53,16 @@ export function MiniChart({
       setIsLoading(true);
       // Import apiGet dynamically to avoid circular dependencies
       import('@/lib/api').then(({ apiGet }) => {
-        // First fetch chart metadata to get render_config
-        apiGet(`/api/charts/${chartId}/`)
-          .then((chart) => {
-            console.log(`MiniChart ${chartId} - Chart metadata:`, chart);
-
-            // Check if render_config exists and has content
-            if (chart.render_config && Object.keys(chart.render_config).length > 0) {
-              console.log(`MiniChart ${chartId} - Using render_config`);
-              setChartData(chart.render_config);
-              return Promise.resolve();
+        // Fetch fresh chart config from data endpoint
+        console.log(`MiniChart ${chartId} - Fetching from /data endpoint`);
+        apiGet(`/api/charts/${chartId}/data/`)
+          .then((data) => {
+            if (data?.echarts_config) {
+              console.log(`MiniChart ${chartId} - Using echarts_config from data endpoint`);
+              setChartData(data.echarts_config);
             } else {
-              // If no render_config, try fetching from data endpoint
-              console.log(`MiniChart ${chartId} - No render_config, fetching from /data endpoint`);
-              return apiGet(`/api/charts/${chartId}/data/`).then((data) => {
-                if (data?.echarts_config) {
-                  console.log(`MiniChart ${chartId} - Using echarts_config from data endpoint`);
-                  setChartData(data.echarts_config);
-                } else {
-                  console.log(`MiniChart ${chartId} - No data available, using mock`);
-                  setChartData(getMockConfig(chartId));
-                }
-              });
+              console.log(`MiniChart ${chartId} - No data available, using mock`);
+              setChartData(getMockConfig(chartId));
             }
           })
           .catch((err) => {

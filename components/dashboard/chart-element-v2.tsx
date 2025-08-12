@@ -62,10 +62,7 @@ export function ChartElementV2({
   useEffect(() => {
     console.log(`ChartElementV2 ${chartId} - Chart metadata:`, chart);
     console.log(`ChartElementV2 ${chartId} - Chart data:`, chartData);
-    console.log(
-      `ChartElementV2 ${chartId} - render_config available:`,
-      chart?.render_config ? 'yes' : 'no'
-    );
+    // Note: render_config no longer used - charts always fetch fresh config from /data endpoint
     console.log(
       `ChartElementV2 ${chartId} - echarts_config available:`,
       chartData?.echarts_config ? 'yes' : 'no'
@@ -102,8 +99,8 @@ export function ChartElementV2({
 
   // Update chart data separately
   useEffect(() => {
-    // Determine which config to use - prefer echarts_config from data endpoint, fallback to render_config
-    const chartConfig = chartData?.echarts_config || chart?.render_config;
+    // Use fresh echarts_config from data endpoint (no more render_config fallback)
+    const chartConfig = chartData?.echarts_config;
 
     // If we have data but no chart instance yet, try to initialize
     if (!chartInstance.current && chartRef.current && chartConfig) {

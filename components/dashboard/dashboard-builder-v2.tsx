@@ -574,7 +574,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             chartId,
             title: chartDetails.title,
             chartType: chartDetails.chart_type,
-            ...chartDetails,
+            computation_type: chartDetails.computation_type,
+            description: chartDetails.description,
+            // Note: render_config not stored - charts fetch fresh config via /data endpoint
           },
         };
 
