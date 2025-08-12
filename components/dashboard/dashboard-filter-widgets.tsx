@@ -11,13 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -55,6 +48,7 @@ function ValueFilterWidget({
 }: FilterWidgetProps) {
   const valueFilter = filter as ValueFilterConfig;
   const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedValues, setSelectedValues] = useState<string[]>(
     Array.isArray(value) ? value : value ? [value] : []
   );
@@ -72,15 +66,6 @@ function ValueFilterWidget({
     { revalidateOnFocus: false }
   );
 
-  // Debug: Log filter settings
-  console.log('ValueFilterWidget - Filter settings:', {
-    filterId: filter.id,
-    settings: valueFilter.settings,
-    can_select_multiple: valueFilter.settings?.can_select_multiple,
-    options_count: filterOptions?.options?.length || 0,
-    selectedValues: selectedValues,
-  });
-
   // Ensure settings exists with default values
   if (!valueFilter.settings) {
     console.warn('Filter settings missing, using defaults');
@@ -90,17 +75,27 @@ function ValueFilterWidget({
     };
   }
 
+  console.log('ValueFilterWidget', {
+    filter,
+    value,
+    valueFilter,
+    filterOptions,
+    filterOptionsLoading,
+    filterOptionsError,
+    selectedValues,
+  });
+
   // Use dynamically fetched options
   const availableOptions = filterOptions?.options || [];
 
-  const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
-    console.log('handleSelectionChange called:', {
-      optionValue,
-      isChecked,
-      can_select_multiple: valueFilter.settings.can_select_multiple,
-      currentSelection: selectedValues,
-    });
+  // Filter options based on search term
+  const filteredOptions = availableOptions.filter(
+    (option: FilterOption) =>
+      option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      option.value.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
+  const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
     let newSelection: string[];
 
     if (valueFilter.settings.can_select_multiple) {
@@ -132,7 +127,7 @@ function ValueFilterWidget({
   };
 
   const selectedLabels = selectedValues.map(
-    (val) => availableOptions.find((opt) => opt.value === val)?.label || val
+    (val) => availableOptions.find((opt: FilterOption) => opt.value === val)?.label || val
   );
 
   return (
@@ -181,7 +176,15 @@ function ValueFilterWidget({
             No options available
           </div>
         ) : valueFilter.settings?.can_select_multiple ? (
-          <Popover open={open} onOpenChange={setOpen}>
+          <Popover
+            open={open}
+            onOpenChange={(newOpen) => {
+              setOpen(newOpen);
+              if (!newOpen) {
+                setSearchTerm(''); // Clear search when closing
+              }
+            }}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -211,36 +214,45 @@ function ValueFilterWidget({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search..." className="h-8" />
-                <CommandEmpty>No options found.</CommandEmpty>
-                <CommandGroup className="max-h-48 overflow-auto">
-                  {availableOptions.map((option) => (
-                    <CommandItem
-                      key={option.value}
-                      onSelect={() => {
-                        // For multi-select, don't close the popover
-                        if (valueFilter.settings.can_select_multiple) {
-                          const isSelected = selectedValues.includes(option.value);
-                          handleSelectionChange(option.value, !isSelected);
-                        }
-                      }}
-                      className="py-1.5 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-1.5 w-full">
+              <div className="p-2">
+                <Input
+                  placeholder="Search..."
+                  className="h-8 mb-2"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <div className="max-h-48 overflow-auto">
+                  {filteredOptions.length === 0 ? (
+                    <div className="text-xs text-muted-foreground p-2 text-center">
+                      {searchTerm ? 'No options found.' : 'No options available.'}
+                    </div>
+                  ) : (
+                    filteredOptions.map((option: FilterOption) => (
+                      <div
+                        key={option.value}
+                        className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-gray-100 cursor-pointer rounded"
+                        onClick={() => {
+                          const isCurrentlySelected = selectedValues.includes(option.value);
+                          handleSelectionChange(option.value, !isCurrentlySelected);
+                        }}
+                      >
                         <Checkbox
                           checked={selectedValues.includes(option.value)}
                           onCheckedChange={(checked) =>
                             handleSelectionChange(option.value, checked === true)
                           }
+                          onClick={(e) => {
+                            // Stop propagation to prevent double handling
+                            e.stopPropagation();
+                          }}
                           className="h-3 w-3"
                         />
                         <span className="flex-1 text-xs">{option.label}</span>
                       </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </Command>
+                    ))
+                  )}
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
         ) : (
@@ -254,7 +266,7 @@ function ValueFilterWidget({
               <SelectValue placeholder={isEditMode ? 'Select...' : 'Choose option...'} />
             </SelectTrigger>
             <SelectContent>
-              {availableOptions.map((option) => (
+              {availableOptions.map((option: FilterOption) => (
                 <SelectItem key={option.value} value={option.value} className="text-xs py-1.5">
                   <div className="flex items-center justify-between w-full">
                     <span>{option.label}</span>
