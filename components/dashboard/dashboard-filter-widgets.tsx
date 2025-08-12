@@ -75,16 +75,6 @@ function ValueFilterWidget({
     };
   }
 
-  console.log('ValueFilterWidget', {
-    filter,
-    value,
-    valueFilter,
-    filterOptions,
-    filterOptionsLoading,
-    filterOptionsError,
-    selectedValues,
-  });
-
   // Use dynamically fetched options
   const availableOptions = filterOptions?.options || [];
 
