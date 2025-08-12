@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,10 +38,17 @@ interface FilterWidgetProps {
   value: any;
   onChange: (filterId: string, value: any) => void;
   className?: string;
+  isEditMode?: boolean;
 }
 
 // Value Filter Widget (Dropdown/Multi-select)
-function ValueFilterWidget({ filter, value, onChange, className }: FilterWidgetProps) {
+function ValueFilterWidget({
+  filter,
+  value,
+  onChange,
+  className,
+  isEditMode = false,
+}: FilterWidgetProps) {
   const valueFilter = filter as ValueFilterConfig;
   const [open, setOpen] = useState(false);
   const [selectedValues, setSelectedValues] = useState<string[]>(
@@ -96,117 +102,162 @@ function ValueFilterWidget({ filter, value, onChange, className }: FilterWidgetP
   );
 
   return (
-    <Card className={cn('w-full', className)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Type className="w-4 h-4" />
-          {filter.name || filter.column_name || 'Filter'}
-          {selectedValues.length > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {selectedValues.length}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="space-y-2">
-          {availableOptions.length === 0 ? (
-            <div className="text-sm text-muted-foreground p-2 bg-gray-50 rounded">
-              No filter options available. Configure filter in edit mode.
-            </div>
-          ) : valueFilter.settings?.can_select_multiple ? (
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={open}
-                  className="w-full justify-between"
-                >
-                  <span className="truncate">
-                    {selectedValues.length === 0
-                      ? 'Select values...'
-                      : `${selectedValues.length} selected`}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search options..." />
-                  <CommandEmpty>No options found.</CommandEmpty>
-                  <CommandGroup className="max-h-64 overflow-auto">
-                    {availableOptions.map((option) => (
-                      <CommandItem
-                        key={option.value}
-                        onSelect={() => {
-                          const isSelected = selectedValues.includes(option.value);
-                          handleSelectionChange(option.value, !isSelected);
-                        }}
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          <Checkbox
-                            checked={selectedValues.includes(option.value)}
-                            onChange={(checked) => handleSelectionChange(option.value, !!checked)}
-                          />
-                          <span className="flex-1">{option.label}</span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <Select
-              value={selectedValues[0] || ''}
-              onValueChange={(val) => handleSelectionChange(val, true)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select an option" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{option.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {/* Selected values display for multi-select */}
-          {valueFilter.settings.can_select_multiple && selectedValues.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {selectedLabels.map((label, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  {label}
-                  <X
-                    className="ml-1 w-3 h-3 cursor-pointer"
-                    onClick={() => handleSelectionChange(selectedValues[index], false)}
-                  />
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {/* Clear button */}
-          {selectedValues.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleClear} className="h-6 text-xs">
-              <RotateCcw className="w-3 h-3 mr-1" />
-              Clear
-            </Button>
-          )}
+    <div
+      className={cn(
+        'w-full rounded-lg',
+        isEditMode
+          ? 'bg-white border p-3 shadow-sm'
+          : 'bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-4 shadow-md',
+        className
+      )}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'font-medium truncate',
+              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-blue-900'
+            )}
+          >
+            {filter.name || filter.column_name || 'Filter'}
+          </span>
         </div>
-      </CardContent>
-    </Card>
+        {selectedValues.length > 0 && (
+          <Badge
+            variant={isEditMode ? 'secondary' : 'default'}
+            className={cn(
+              isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2 bg-blue-100 text-blue-800'
+            )}
+          >
+            {selectedValues.length}
+          </Badge>
+        )}
+      </div>
+      <div>
+        {availableOptions.length === 0 ? (
+          <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
+            No options available
+          </div>
+        ) : valueFilter.settings?.can_select_multiple ? (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className={cn(
+                  'w-full justify-between',
+                  isEditMode
+                    ? 'h-8 text-xs'
+                    : 'h-10 text-sm bg-white hover:bg-blue-50 border-blue-200'
+                )}
+                size={isEditMode ? 'sm' : 'default'}
+              >
+                <span className="truncate">
+                  {selectedValues.length === 0
+                    ? isEditMode
+                      ? 'Select...'
+                      : 'Choose values...'
+                    : `${selectedValues.length} selected`}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'shrink-0 opacity-50',
+                    isEditMode ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4'
+                  )}
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search..." className="h-8" />
+                <CommandEmpty>No options found.</CommandEmpty>
+                <CommandGroup className="max-h-48 overflow-auto">
+                  {availableOptions.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      onSelect={() => {
+                        const isSelected = selectedValues.includes(option.value);
+                        handleSelectionChange(option.value, !isSelected);
+                      }}
+                      className="py-1.5"
+                    >
+                      <div className="flex items-center gap-1.5 w-full">
+                        <Checkbox
+                          checked={selectedValues.includes(option.value)}
+                          onChange={(checked) => handleSelectionChange(option.value, !!checked)}
+                          className="h-3 w-3"
+                        />
+                        <span className="flex-1 text-xs">{option.label}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <Select
+            value={selectedValues[0] || ''}
+            onValueChange={(val) => handleSelectionChange(val, true)}
+          >
+            <SelectTrigger
+              className={cn(isEditMode ? 'h-8' : 'h-10 bg-white hover:bg-blue-50 border-blue-200')}
+            >
+              <SelectValue placeholder={isEditMode ? 'Select...' : 'Choose option...'} />
+            </SelectTrigger>
+            <SelectContent>
+              {availableOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value} className="text-xs py-1.5">
+                  <div className="flex items-center justify-between w-full">
+                    <span>{option.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Selected values display for multi-select */}
+        {valueFilter.settings.can_select_multiple && selectedValues.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {selectedLabels.slice(0, 2).map((label, index) => (
+              <Badge key={index} variant="secondary" className="text-xs h-5 px-1.5">
+                {label}
+                <X
+                  className="ml-1 w-2.5 h-2.5 cursor-pointer"
+                  onClick={() => handleSelectionChange(selectedValues[index], false)}
+                />
+              </Badge>
+            ))}
+            {selectedValues.length > 2 && (
+              <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                +{selectedValues.length - 2}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* Clear button */}
+        {selectedValues.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={handleClear} className="h-6 text-xs mt-2">
+            <RotateCcw className="w-3 h-3 mr-1" />
+            Clear
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
 // Numerical Filter Widget (Slider/Range)
-function NumericalFilterWidget({ filter, value, onChange, className }: FilterWidgetProps) {
+function NumericalFilterWidget({
+  filter,
+  value,
+  onChange,
+  className,
+  isEditMode = false,
+}: FilterWidgetProps) {
   const numericalFilter = filter as NumericalFilterConfig;
   const [localValue, setLocalValue] = useState<number | { min: number; max: number }>(
     value ||
@@ -274,19 +325,38 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
   };
 
   return (
-    <Card className={cn('w-full', className)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Hash className="w-4 h-4" />
-          {filter.name}
-          <Badge variant="secondary" className="text-xs">
-            {numericalFilter.settings.mode === NumericalFilterMode.SINGLE ? 'Single' : 'Range'}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0 space-y-4">
+    <div
+      className={cn(
+        'w-full rounded-lg',
+        isEditMode
+          ? 'bg-white border p-3 shadow-sm'
+          : 'bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 p-4 shadow-md',
+        className
+      )}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'font-medium truncate',
+              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-green-900'
+            )}
+          >
+            {filter.name}
+          </span>
+        </div>
+        <Badge
+          variant={isEditMode ? 'secondary' : 'default'}
+          className={cn(
+            isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2 bg-green-100 text-green-800'
+          )}
+        >
+          {numericalFilter.settings.mode === NumericalFilterMode.SINGLE ? 'Single' : 'Range'}
+        </Badge>
+      </div>
+      <div className="space-y-3">
         {/* Current value display */}
-        <div className="text-sm text-center font-medium">
+        <div className="text-xs text-center font-medium text-gray-600">
           {numericalFilter.settings.mode === NumericalFilterMode.SINGLE ? (
             <span>{typeof localValue === 'number' ? localValue : minValue}</span>
           ) : (
@@ -298,7 +368,7 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
         </div>
 
         {/* Slider */}
-        <div className="px-2">
+        <div className="px-1">
           <Slider
             value={getSliderValue()}
             onValueChange={handleSliderChange}
@@ -322,12 +392,12 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
             min={minValue}
             max={maxValue}
             step={step}
-            className="text-center h-8"
+            className="text-center h-7 text-xs"
           />
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             <div>
-              <label className="text-xs text-muted-foreground">Min</label>
+              <label className="text-xs text-gray-500 mb-1 block">Min</label>
               <Input
                 type="number"
                 value={typeof localValue === 'object' ? localValue.min : minValue}
@@ -335,11 +405,11 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
                 min={minValue}
                 max={typeof localValue === 'object' ? localValue.max : maxValue}
                 step={step}
-                className="text-center h-8"
+                className="text-center h-7 text-xs"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Max</label>
+              <label className="text-xs text-gray-500 mb-1 block">Max</label>
               <Input
                 type="number"
                 value={typeof localValue === 'object' ? localValue.max : maxValue}
@@ -347,7 +417,7 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
                 min={typeof localValue === 'object' ? localValue.min : minValue}
                 max={maxValue}
                 step={step}
-                className="text-center h-8"
+                className="text-center h-7 text-xs"
               />
             </div>
           </div>
@@ -358,8 +428,8 @@ function NumericalFilterWidget({ filter, value, onChange, className }: FilterWid
           <RotateCcw className="w-3 h-3 mr-1" />
           Reset
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

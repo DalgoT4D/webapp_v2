@@ -12,7 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { refreshDashboardLock } from '@/hooks/api/useDashboards';
+import {
+  refreshDashboardLock,
+  updateDashboardFilter,
+  createDashboardFilter,
+} from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
 import {
   Plus,
@@ -39,7 +43,8 @@ import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
 import { FilterElement } from './filter-element';
-import type { DashboardFilterConfig, CreateFilterPayload } from '@/types/dashboard-filters';
+import type { CreateFilterPayload } from '@/types/dashboard-filters';
+import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
 // Types
 export enum DashboardComponentType {
@@ -134,8 +139,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
     const [showFilterModal, setShowFilterModal] = useState(false);
-    const [selectedFilterForEdit, setSelectedFilterForEdit] =
-      useState<DashboardFilterConfig | null>(null);
+    const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(
+      null
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -631,23 +637,26 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             filter_type: filterPayload.filter_type || selectedFilterForEdit.filter_type,
             settings: filterPayload.settings,
           };
-          const response = await apiPut(
-            `/api/dashboards/${dashboardId}/filters/${filterId}/`,
+
+          // Use the new typed API function that returns complete filter data
+          const updatedFilterFromAPI = await updateDashboardFilter(
+            dashboardId,
+            filterId,
             updateData
           );
 
-          // Update the filter in the filters array
+          // Update the filter in the filters array with fresh data from API
           const updatedFilters = state.filters.map((filter) =>
             String(filter.id) === String(filterId)
               ? ({
-                  ...filter,
-                  name: filterPayload.name,
-                  schema_name: filterPayload.schema_name || selectedFilterForEdit.schema_name,
-                  table_name: filterPayload.table_name || selectedFilterForEdit.table_name,
-                  column_name: filterPayload.column_name || selectedFilterForEdit.column_name,
-                  filter_type: filterPayload.filter_type || selectedFilterForEdit.filter_type,
-                  settings: filterPayload.settings,
-                } as DashboardFilterConfig)
+                  id: updatedFilterFromAPI.id,
+                  name: updatedFilterFromAPI.name,
+                  schema_name: updatedFilterFromAPI.schema_name,
+                  table_name: updatedFilterFromAPI.table_name,
+                  column_name: updatedFilterFromAPI.column_name,
+                  filter_type: updatedFilterFromAPI.filter_type,
+                  settings: updatedFilterFromAPI.settings,
+                } as any) // Using API response type
               : filter
           );
 
@@ -664,7 +673,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               ...updatedComponents[componentId],
               config: {
                 ...updatedComponents[componentId].config,
-                name: filterPayload.name,
+                name: updatedFilterFromAPI.name,
               },
             };
           }
@@ -692,41 +701,39 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       if (!dashboardId) return;
 
       try {
-        // Create filter in database first (without position in settings)
-        const response = await apiPost(`/api/dashboards/${dashboardId}/filters/`, {
+        // Create filter in database first using typed API
+        const newFilterFromAPI = await createDashboardFilter(dashboardId, {
           name: filterPayload.name,
           filter_type: filterPayload.filter_type,
           schema_name: filterPayload.schema_name,
           table_name: filterPayload.table_name,
           column_name: filterPayload.column_name,
-          settings: filterPayload.settings, // No position or name here
-          order: 0,
+          settings: filterPayload.settings,
         });
 
         // Find the best available position for the new filter
         const position = findAvailablePosition(3, 3);
 
-        // Create filter component ID using the filter ID from response
-        const filterComponentId = `filter-${response.id}`;
+        // Create filter component ID using the filter ID from API response
+        const filterComponentId = `filter-${newFilterFromAPI.id}`;
 
-        // Create filter data object for local state
-        const newFilter: DashboardFilterConfig = {
-          id: response.id,
-          name: filterPayload.name || filterPayload.column_name, // Use column name as fallback
-          schema_name: filterPayload.schema_name,
-          table_name: filterPayload.table_name,
-          column_name: filterPayload.column_name,
-          filter_type: filterPayload.filter_type,
-          settings: filterPayload.settings,
-          // NO position in filter object anymore
-        } as DashboardFilterConfig;
+        // Use complete filter data from API response
+        const newFilter: DashboardFilter = {
+          id: newFilterFromAPI.id,
+          name: newFilterFromAPI.name,
+          schema_name: newFilterFromAPI.schema_name,
+          table_name: newFilterFromAPI.table_name,
+          column_name: newFilterFromAPI.column_name,
+          filter_type: newFilterFromAPI.filter_type,
+          settings: newFilterFromAPI.settings,
+        } as any; // Using API response type
 
         // Create the filter component (with reference to filter ID)
         const newComponent: DashboardComponent = {
           id: filterComponentId,
           type: DashboardComponentType.FILTER,
           config: {
-            filterId: response.id, // Just store the filter ID reference
+            filterId: newFilterFromAPI.id, // Just store the filter ID reference
             name: newFilter.name, // Store name for quick access
           },
         };
@@ -1169,6 +1176,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onSave={handleFilterSave}
           mode={selectedFilterForEdit ? 'edit' : 'create'}
           filterId={selectedFilterForEdit?.id ? Number(selectedFilterForEdit.id) : undefined}
+          dashboardId={dashboardId}
           initialData={
             selectedFilterForEdit
               ? {

@@ -142,6 +142,37 @@ export async function updateDashboardFilter(
     settings?: any;
     order?: number;
   }
-) {
+): Promise<DashboardFilter> {
   return apiPut(`/api/dashboards/${dashboardId}/filters/${filterId}/`, data);
+}
+
+export function useDashboardFilter(dashboardId: number, filterId: number | undefined) {
+  const { data, error, mutate } = useSWR<DashboardFilter>(
+    dashboardId && filterId ? `/api/dashboards/${dashboardId}/filters/${filterId}/` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    data: data,
+    isLoading: !error && !data && !!filterId,
+    isError: error,
+    mutate,
+  };
+}
+
+export async function createDashboardFilter(
+  dashboardId: number,
+  data: {
+    name: string;
+    filter_type: 'value' | 'numerical';
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    settings: any;
+  }
+): Promise<DashboardFilter> {
+  return apiPost(`/api/dashboards/${dashboardId}/filters/`, data);
 }

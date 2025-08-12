@@ -233,7 +233,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             padding: '8px',
             margin: 0,
             whiteSpace: 'pre-wrap' as any,
-            wordBreak: 'break-words' as any,
+            wordBreak: 'break-word' as any,
           };
 
           if (config?.type === 'heading') {
@@ -270,7 +270,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                   fontWeight: config?.fontWeight || 'normal',
                   color: config?.color || '#1f2937',
                   whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-words',
+                  wordBreak: 'break-word',
                 }}
               >
                 {config?.content || 'Text content'}

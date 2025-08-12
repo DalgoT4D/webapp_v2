@@ -34,24 +34,24 @@ export function FilterElement({
   };
 
   return (
-    <div className="h-full w-full relative group">
+    <div className="h-full w-full relative">
       {isEditMode && (
         <div className="absolute -top-2 -right-2 z-10 flex gap-1">
           {onEdit && (
             <button
               onClick={onEdit}
-              className="p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+              className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
               title="Edit filter"
             >
-              <Edit2 className="w-3 h-3 text-gray-500 hover:text-blue-500" />
+              <Edit2 className="w-3 h-3 text-gray-600 hover:text-blue-600" />
             </button>
           )}
           <button
             onClick={onRemove}
-            className="p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
             title="Remove filter"
           >
-            <X className="w-3 h-3 text-gray-500 hover:text-red-500" />
+            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
           </button>
         </div>
       )}
@@ -61,6 +61,7 @@ export function FilterElement({
         value={localValue}
         onChange={handleChange}
         className="h-full"
+        isEditMode={isEditMode}
       />
     </div>
   );

@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, ChevronDown, Check, Filter } from 'lucide-react';
+import { X, ChevronDown, Check, Filter, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiGet } from '@/lib/api';
 import useSWR from 'swr';
@@ -113,6 +113,7 @@ function CategoricalFilter({
   onChange: (value: any) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const multiSelect = filter.settings?.multiSelect ?? false;
 
   // Fetch filter options from API
@@ -124,6 +125,11 @@ function CategoricalFilter({
 
   const selectedValues = multiSelect ? value || [] : value ? [value] : [];
   const hasSelection = selectedValues.length > 0;
+
+  // Filter options based on search query
+  const filteredOptions =
+    options?.filter((option: string) => option.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    [];
 
   const handleSelect = (optionValue: string) => {
     if (multiSelect) {
@@ -143,7 +149,15 @@ function CategoricalFilter({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (!newOpen) {
+          setSearchQuery('');
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -167,6 +181,8 @@ function CategoricalFilter({
           </span>
           {hasSelection ? (
             <X className="h-3 w-3 ml-2 opacity-50 hover:opacity-100" onClick={handleClear} />
+          ) : isLoading ? (
+            <Loader2 className="h-3 w-3 ml-2 animate-spin opacity-50" />
           ) : (
             <ChevronDown className="h-3 w-3 ml-2 opacity-50" />
           )}
@@ -174,13 +190,27 @@ function CategoricalFilter({
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
         <div className="p-2">
-          <Input placeholder={`Search ${label.toLowerCase()}...`} className="h-9 mb-2" />
+          <div className="relative">
+            <Input
+              placeholder={`Search ${label.toLowerCase()}...`}
+              className="h-9 mb-2 pr-8"
+              disabled={isLoading}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {isLoading && (
+              <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
           <ScrollArea className="h-[200px]">
             <div className="space-y-1">
               {isLoading ? (
-                <div className="p-2 text-xs text-muted-foreground">Loading...</div>
-              ) : (
-                options?.map((option: string) => (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mb-2" />
+                  <div className="text-xs text-muted-foreground">Loading filter options...</div>
+                </div>
+              ) : filteredOptions && filteredOptions.length > 0 ? (
+                filteredOptions.map((option: string) => (
                   <div
                     key={option}
                     onClick={() => handleSelect(option)}
@@ -202,6 +232,10 @@ function CategoricalFilter({
                     {option}
                   </div>
                 ))
+              ) : (
+                <div className="text-center py-4 text-xs text-muted-foreground">
+                  {searchQuery ? 'No matching options found' : 'No options available'}
+                </div>
               )}
             </div>
           </ScrollArea>

@@ -139,7 +139,7 @@ export function ChartElementView({
         console.log('Chart instance created:', !!chartInstance.current);
       } catch (error) {
         console.error('Failed to create chart instance:', error);
-        return;
+        return undefined;
       }
     }
 
