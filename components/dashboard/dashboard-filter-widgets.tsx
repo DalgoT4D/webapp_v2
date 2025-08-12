@@ -348,6 +348,13 @@ function NumericalFilterWidget({
   );
 
   const handleSliderChange = (newValue: number[]) => {
+    // Update local state immediately for smooth UI response
+    const rangeValue = { min: newValue[0], max: newValue[1] };
+    setLocalValue(rangeValue);
+  };
+
+  const handleSliderCommit = (newValue: number[]) => {
+    // Only call onChange (which triggers API calls) when user finishes dragging
     const rangeValue = { min: newValue[0], max: newValue[1] };
     setLocalValue(rangeValue);
     onChange(filter.id, rangeValue);
@@ -424,6 +431,7 @@ function NumericalFilterWidget({
             <Slider
               value={getSliderValue()}
               onValueChange={handleSliderChange}
+              onValueCommit={handleSliderCommit}
               min={minValue}
               max={maxValue}
               step={step}
