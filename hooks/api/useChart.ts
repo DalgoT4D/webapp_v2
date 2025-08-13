@@ -125,8 +125,8 @@ export interface GeoJSONDetail {
   properties_key: string;
 }
 
-const geojsonListFetcher = (url: string) => api.get<GeoJSONListItem[]>(url);
-const geojsonDetailFetcher = (url: string) => api.get<GeoJSONDetail>(url);
+const geojsonListFetcher = (url: string) => apiGet(url);
+const geojsonDetailFetcher = (url: string) => apiGet(url);
 
 export function useAvailableGeoJSONs(countryCode: string = 'IND', layerLevel: number = 1) {
   return useSWR(
@@ -161,8 +161,8 @@ export interface RegionGeoJSON {
   file_size: number;
 }
 
-const regionsFetcher = (url: string) => api.get<Region[]>(url);
-const regionGeoJSONsFetcher = (url: string) => api.get<RegionGeoJSON[]>(url);
+const regionsFetcher = (url: string) => apiGet(url);
+const regionGeoJSONsFetcher = (url: string) => apiGet(url);
 
 export function useRegions(countryCode: string = 'IND', regionType?: string) {
   const params = new URLSearchParams({ country_code: countryCode });
@@ -193,7 +193,7 @@ export function useRegionGeoJSONs(regionId: number | null | undefined) {
 export function useMapData(payload: ChartDataPayload | null) {
   return useSWR(
     payload ? ['/api/charts/map-data/', payload] : null,
-    ([url, data]: [string, ChartDataPayload]) => api.post(url, data)
+    ([url, data]: [string, ChartDataPayload]) => apiPost(url, data)
   );
 }
 
@@ -210,7 +210,7 @@ export interface LayerOption {
 
 // Fetch available layers (countries, states, districts, etc.) dynamically
 export function useAvailableLayers(layerType: string = 'country') {
-  return useSWR<LayerOption[]>(`/api/charts/available-layers/?layer_type=${layerType}`, api.get);
+  return useSWR<LayerOption[]>(`/api/charts/available-layers/?layer_type=${layerType}`, apiGet);
 }
 
 // Fetch map data separately (for data overlay on existing GeoJSON)
@@ -220,11 +220,11 @@ export function useMapDataOverlay(
     table_name: string;
     geographic_column: string;
     value_column: string;
-    aggregate_func: string;
+    aggregate_function: string;
     filters?: Record<string, any>;
   } | null
 ) {
   return useSWR(payload ? ['/api/charts/map-data-overlay/', payload] : null, ([url, data]) =>
-    api.post(url, data)
+    apiPost(url, data)
   );
 }

@@ -349,7 +349,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
               How to aggregate the values by region
             </p>
             <Select
-              value={formData.aggregate_func || 'sum'}
+              value={formData.aggregate_func || ''}
               onValueChange={(value) =>
                 onFormDataChange({
                   ...formData,
@@ -513,7 +513,7 @@ function LayerCard({
   let geojsonRegionId = null;
   if (isFirstLayer) {
     // For first layer, use India country region (id: 1)
-    geojsonRegionId = regions?.find((r) => r.type === 'country')?.id || 1;
+    geojsonRegionId = regions?.find((r: any) => r.type === 'country')?.id || 1;
   } else {
     // For Layer 2+, if user has selected a region, use that region ID
     // Otherwise, don't fetch GeoJSONs yet
@@ -633,7 +633,9 @@ function LayerCard({
             <Select
               value={layer.geojson_id?.toString() || ''}
               onValueChange={(value) => {
-                const selectedGeojson = (geojsons || []).find((g) => g.id.toString() === value);
+                const selectedGeojson = (geojsons || []).find(
+                  (g: any) => g.id.toString() === value
+                );
                 onUpdate({
                   geojson_id: parseInt(value),
                   geojson_name: selectedGeojson?.version_name,
@@ -673,7 +675,9 @@ function LayerCard({
             <Select
               value={layer.region_id?.toString() || ''}
               onValueChange={(value) => {
-                const selectedRegion = availableRegions?.find((r) => r.id.toString() === value);
+                const selectedRegion = availableRegions?.find(
+                  (r: any) => r.id.toString() === value
+                );
                 onUpdate({
                   region_id: parseInt(value),
                   region_name: selectedRegion?.display_name,

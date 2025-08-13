@@ -83,8 +83,7 @@ export default function EditChartPage() {
     y_axis_column: chart.extra_config?.y_axis_column,
     dimension_column: chart.extra_config?.dimension_column,
     aggregate_column: chart.extra_config?.aggregate_column,
-    aggregate_function: chart.extra_config?.aggregate_function || 'sum',
-    aggregate_func: chart.extra_config?.aggregate_function || 'sum', // Also set aggregate_func for MapDataConfiguration
+    aggregate_function: chart.extra_config?.aggregate_function,
     extra_dimension_column: chart.extra_config?.extra_dimension_column,
     // Map-specific fields
     geographic_column: chart.extra_config?.geographic_column,

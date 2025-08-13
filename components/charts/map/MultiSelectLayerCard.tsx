@@ -334,7 +334,7 @@ function RegionSelectionItem({
           <Select
             value={selectedRegion?.geojson_id?.toString() || ''}
             onValueChange={(value) => {
-              const geojson = geojsons?.find((g) => g.id.toString() === value);
+              const geojson = geojsons?.find((g: any) => g.id.toString() === value);
               if (geojson) {
                 onGeoJSONSelect(region.id, geojson.id, geojson.version_name);
               }

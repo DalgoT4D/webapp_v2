@@ -348,9 +348,7 @@ export function ChartBuilder({
                 } else if (newChartType === 'map') {
                   // Maps always use aggregation
                   updates.computation_type = 'aggregated';
-                  // Set default aggregate function for maps
-                  updates.aggregate_func = formData.aggregate_func || 'sum';
-                  updates.aggregate_function = formData.aggregate_function || 'sum';
+                  // Don't set default aggregate function - let user select
                 } else {
                   // For bar/line/pie, preserve existing computation_type
                   // If no existing value, default to aggregated

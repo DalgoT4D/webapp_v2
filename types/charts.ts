@@ -31,6 +31,12 @@ export interface ChartCreate {
     geographic_column?: string;
     value_column?: string;
     selected_geojson_id?: number;
+    layers?: Array<{
+      id: string;
+      level: number;
+      name?: string;
+      geojson_id?: number;
+    }>;
     customizations?: Record<string, any>;
   };
 }
@@ -54,6 +60,12 @@ export interface ChartUpdate {
     geographic_column?: string;
     value_column?: string;
     selected_geojson_id?: number;
+    layers?: Array<{
+      id: string;
+      level: number;
+      name?: string;
+      geojson_id?: number;
+    }>;
     customizations?: Record<string, any>;
   };
 }
@@ -131,4 +143,22 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
   country_code?: string;
   layer_level?: number;
   customizations?: Record<string, any>;
+  // Additional fields used in map configuration
+  layers?: Array<{
+    id: string;
+    level: number;
+    name?: string;
+    geojson_id?: number;
+  }>;
+  geojsonPreviewPayload?: {
+    geojsonId: number;
+  };
+  dataOverlayPayload?: {
+    schema_name: string;
+    table_name: string;
+    geographic_column: string;
+    value_column: string;
+    aggregate_function: string;
+    selected_geojson_id: number;
+  };
 };
