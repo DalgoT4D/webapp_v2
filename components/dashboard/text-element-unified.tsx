@@ -83,7 +83,7 @@ export function UnifiedTextElement({
   const [isEditing, setIsEditing] = useState(false);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [tempContent, setTempContent] = useState(config.content);
-  const textRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<any>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-focus when entering inline edit mode
@@ -195,17 +195,40 @@ export function UnifiedTextElement({
     );
 
     if (config.type === 'heading') {
-      const HeadingTag = `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
-      return (
-        <HeadingTag
-          ref={textRef as any}
-          className={className}
-          style={getDisplayStyle()}
-          onClick={handleInlineEdit}
-        >
-          {content}
-        </HeadingTag>
-      );
+      if (config.headingLevel === 1) {
+        return (
+          <h1
+            ref={textRef}
+            className={className}
+            style={getDisplayStyle()}
+            onClick={handleInlineEdit}
+          >
+            {content}
+          </h1>
+        );
+      } else if (config.headingLevel === 2) {
+        return (
+          <h2
+            ref={textRef}
+            className={className}
+            style={getDisplayStyle()}
+            onClick={handleInlineEdit}
+          >
+            {content}
+          </h2>
+        );
+      } else {
+        return (
+          <h3
+            ref={textRef}
+            className={className}
+            style={getDisplayStyle()}
+            onClick={handleInlineEdit}
+          >
+            {content}
+          </h3>
+        );
+      }
     }
 
     return (

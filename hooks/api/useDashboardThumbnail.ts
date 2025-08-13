@@ -18,7 +18,7 @@ export function useDashboardThumbnail({
 
   useEffect(() => {
     if (!enabled || !thumbnailUrl || !dashboardId) {
-      return;
+      return () => {}; // Return empty cleanup function
     }
 
     let objectUrl: string | null = null;
