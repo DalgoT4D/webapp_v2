@@ -1206,7 +1206,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           >
             {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
               <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded">
+                <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
                   <Grip className="w-4 h-4 text-gray-400" />
                 </div>
                 <button
