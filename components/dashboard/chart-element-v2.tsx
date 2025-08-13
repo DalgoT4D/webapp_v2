@@ -37,6 +37,7 @@ interface ChartElementV2Props {
   onRemove: () => void;
   onUpdate: (config: any) => void;
   isResizing?: boolean;
+  isEditMode?: boolean;
 }
 
 export function ChartElementV2({
@@ -45,6 +46,7 @@ export function ChartElementV2({
   onRemove,
   onUpdate,
   isResizing,
+  isEditMode = true,
 }: ChartElementV2Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -237,31 +239,44 @@ export function ChartElementV2({
   }, [isResizing]);
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="p-0 flex-1">
-        <div className="h-full min-h-[200px]">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                <p className="text-xs text-muted-foreground">Loading chart...</p>
-              </div>
-            </div>
-          ) : isError ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                <p className="text-sm text-destructive">Failed to load chart</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Please check your data connection
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div ref={chartRef} className="w-full h-full" />
-          )}
+    <div className="h-full w-full relative">
+      {isEditMode && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <button
+            onClick={onRemove}
+            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+            title="Remove chart"
+          >
+            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+          </button>
         </div>
-      </CardContent>
-    </Card>
+      )}
+      <Card className="h-full flex flex-col">
+        <CardContent className="p-0 flex-1">
+          <div className="h-full min-h-[200px]">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                  <p className="text-xs text-muted-foreground">Loading chart...</p>
+                </div>
+              </div>
+            ) : isError ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                  <p className="text-sm text-destructive">Failed to load chart</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Please check your data connection
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div ref={chartRef} className="w-full h-full" />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

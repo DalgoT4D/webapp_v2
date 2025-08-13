@@ -26,6 +26,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,7 @@ interface UnifiedTextElementProps {
   config: UnifiedTextConfig;
   onUpdate: (config: UnifiedTextConfig) => void;
   onRemove?: () => void;
+  isEditMode?: boolean;
 }
 
 const fontSizePresets = [
@@ -72,7 +74,12 @@ const colorPresets = [
   '#F97316',
 ];
 
-export function UnifiedTextElement({ config, onUpdate, onRemove }: UnifiedTextElementProps) {
+export function UnifiedTextElement({
+  config,
+  onUpdate,
+  onRemove,
+  isEditMode = true,
+}: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [tempContent, setTempContent] = useState(config.content);
@@ -209,184 +216,199 @@ export function UnifiedTextElement({ config, onUpdate, onRemove }: UnifiedTextEl
   };
 
   return (
-    <Card className="h-full flex flex-col bg-white/50 hover:bg-white/80 transition-colors">
-      {/* Quick toolbar */}
-      <div className="flex items-center justify-between p-2 border-b bg-gray-50/50">
-        <div className="flex items-center gap-1">
-          {/* Text Type Toggle */}
-          <Button
-            size="sm"
-            variant={config.type === 'heading' ? 'default' : 'ghost'}
-            onClick={toggleTextType}
-            className="h-7 px-2"
-            title={config.type === 'heading' ? 'Switch to Paragraph' : 'Switch to Heading'}
+    <div className="h-full w-full relative">
+      {isEditMode && onRemove && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <button
+            onClick={onRemove}
+            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+            title="Remove text"
           >
-            {config.type === 'heading' ? (
-              config.headingLevel === 1 ? (
-                <Heading1 className="w-3 h-3" />
-              ) : config.headingLevel === 3 ? (
-                <Heading3 className="w-3 h-3" />
-              ) : (
-                <Heading2 className="w-3 h-3" />
-              )
-            ) : (
-              <Type className="w-3 h-3" />
-            )}
-          </Button>
-
-          {/* Quick format buttons */}
-          <Button
-            size="sm"
-            variant={config.fontWeight === 'bold' ? 'default' : 'ghost'}
-            onClick={() =>
-              handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold')
-            }
-            className="h-7 px-2"
-            title="Bold"
-          >
-            <Bold className="w-3 h-3" />
-          </Button>
-
-          <Button
-            size="sm"
-            variant={config.fontStyle === 'italic' ? 'default' : 'ghost'}
-            onClick={() =>
-              handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic')
-            }
-            className="h-7 px-2"
-            title="Italic"
-          >
-            <Italic className="w-3 h-3" />
-          </Button>
-
-          {/* Text align */}
-          <Button
-            size="sm"
-            variant={config.textAlign === 'left' ? 'default' : 'ghost'}
-            onClick={() => handleQuickFormat('textAlign', 'left')}
-            className="h-7 px-2"
-            title="Align Left"
-          >
-            <AlignLeft className="w-3 h-3" />
-          </Button>
-
-          <Button
-            size="sm"
-            variant={config.textAlign === 'center' ? 'default' : 'ghost'}
-            onClick={() => handleQuickFormat('textAlign', 'center')}
-            className="h-7 px-2"
-            title="Align Center"
-          >
-            <AlignCenter className="w-3 h-3" />
-          </Button>
-
-          <Button
-            size="sm"
-            variant={config.textAlign === 'right' ? 'default' : 'ghost'}
-            onClick={() => handleQuickFormat('textAlign', 'right')}
-            className="h-7 px-2"
-            title="Align Right"
-          >
-            <AlignRight className="w-3 h-3" />
-          </Button>
+            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+          </button>
         </div>
-
-        {/* Advanced settings */}
-        <Popover open={isEditing} onOpenChange={setIsEditing}>
-          <PopoverTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-7 px-2" title="More Settings">
-              <Settings className="w-3 h-3" />
+      )}
+      <Card className="h-full flex flex-col bg-white/50 hover:bg-white/80 transition-colors">
+        {/* Quick toolbar */}
+        <div className="flex items-center justify-between p-2 border-b bg-gray-50/50">
+          <div className="flex items-center gap-1">
+            {/* Text Type Toggle */}
+            <Button
+              size="sm"
+              variant={config.type === 'heading' ? 'default' : 'ghost'}
+              onClick={toggleTextType}
+              className="h-7 px-2"
+              title={config.type === 'heading' ? 'Switch to Paragraph' : 'Switch to Heading'}
+            >
+              {config.type === 'heading' ? (
+                config.headingLevel === 1 ? (
+                  <Heading1 className="w-3 h-3" />
+                ) : config.headingLevel === 3 ? (
+                  <Heading3 className="w-3 h-3" />
+                ) : (
+                  <Heading2 className="w-3 h-3" />
+                )
+              ) : (
+                <Type className="w-3 h-3" />
+              )}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" side="right">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <h4 className="font-medium">Text Settings</h4>
 
-                {config.type === 'heading' && (
+            {/* Quick format buttons */}
+            <Button
+              size="sm"
+              variant={config.fontWeight === 'bold' ? 'default' : 'ghost'}
+              onClick={() =>
+                handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold')
+              }
+              className="h-7 px-2"
+              title="Bold"
+            >
+              <Bold className="w-3 h-3" />
+            </Button>
+
+            <Button
+              size="sm"
+              variant={config.fontStyle === 'italic' ? 'default' : 'ghost'}
+              onClick={() =>
+                handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic')
+              }
+              className="h-7 px-2"
+              title="Italic"
+            >
+              <Italic className="w-3 h-3" />
+            </Button>
+
+            {/* Text align */}
+            <Button
+              size="sm"
+              variant={config.textAlign === 'left' ? 'default' : 'ghost'}
+              onClick={() => handleQuickFormat('textAlign', 'left')}
+              className="h-7 px-2"
+              title="Align Left"
+            >
+              <AlignLeft className="w-3 h-3" />
+            </Button>
+
+            <Button
+              size="sm"
+              variant={config.textAlign === 'center' ? 'default' : 'ghost'}
+              onClick={() => handleQuickFormat('textAlign', 'center')}
+              className="h-7 px-2"
+              title="Align Center"
+            >
+              <AlignCenter className="w-3 h-3" />
+            </Button>
+
+            <Button
+              size="sm"
+              variant={config.textAlign === 'right' ? 'default' : 'ghost'}
+              onClick={() => handleQuickFormat('textAlign', 'right')}
+              className="h-7 px-2"
+              title="Align Right"
+            >
+              <AlignRight className="w-3 h-3" />
+            </Button>
+          </div>
+
+          {/* Advanced settings */}
+          <Popover open={isEditing} onOpenChange={setIsEditing}>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-7 px-2" title="More Settings">
+                <Settings className="w-3 h-3" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" side="right">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium">Text Settings</h4>
+
+                  {config.type === 'heading' && (
+                    <div>
+                      <label className="text-xs font-medium">Heading Level</label>
+                      <Select
+                        value={config.headingLevel?.toString() || '2'}
+                        onValueChange={(value) =>
+                          handleQuickFormat('headingLevel', parseInt(value))
+                        }
+                      >
+                        <SelectTrigger className="mt-1 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">H1 - Main Title</SelectItem>
+                          <SelectItem value="2">H2 - Section</SelectItem>
+                          <SelectItem value="3">H3 - Subsection</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div>
-                    <label className="text-xs font-medium">Heading Level</label>
+                    <label className="text-xs font-medium">Font Size</label>
                     <Select
-                      value={config.headingLevel?.toString() || '2'}
-                      onValueChange={(value) => handleQuickFormat('headingLevel', parseInt(value))}
+                      value={config.fontSize.toString()}
+                      onValueChange={(value) => handleQuickFormat('fontSize', parseInt(value))}
                     >
                       <SelectTrigger className="mt-1 h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">H1 - Main Title</SelectItem>
-                        <SelectItem value="2">H2 - Section</SelectItem>
-                        <SelectItem value="3">H3 - Subsection</SelectItem>
+                        {fontSizePresets.map((preset) => (
+                          <SelectItem key={preset.value} value={preset.value.toString()}>
+                            {preset.label} ({preset.value}px)
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
 
-                <div>
-                  <label className="text-xs font-medium">Font Size</label>
-                  <Select
-                    value={config.fontSize.toString()}
-                    onValueChange={(value) => handleQuickFormat('fontSize', parseInt(value))}
-                  >
-                    <SelectTrigger className="mt-1 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fontSizePresets.map((preset) => (
-                        <SelectItem key={preset.value} value={preset.value.toString()}>
-                          {preset.label} ({preset.value}px)
-                        </SelectItem>
+                  <div>
+                    <label className="text-xs font-medium">Text Color</label>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {colorPresets.map((color) => (
+                        <button
+                          key={color}
+                          className={cn(
+                            'w-6 h-6 rounded border-2 transition-all',
+                            config.color === color ? 'border-blue-500 scale-110' : 'border-gray-200'
+                          )}
+                          style={{ backgroundColor: color }}
+                          onClick={() => handleQuickFormat('color', color)}
+                          title={color}
+                        />
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium">Text Color</label>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {colorPresets.map((color) => (
-                      <button
-                        key={color}
-                        className={cn(
-                          'w-6 h-6 rounded border-2 transition-all',
-                          config.color === color ? 'border-blue-500 scale-110' : 'border-gray-200'
-                        )}
-                        style={{ backgroundColor: color }}
-                        onClick={() => handleQuickFormat('color', color)}
-                        title={color}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Input
+                        type="color"
+                        value={config.color}
+                        onChange={(e) => handleQuickFormat('color', e.target.value)}
+                        className="w-12 h-8 p-1"
                       />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Input
-                      type="color"
-                      value={config.color}
-                      onChange={(e) => handleQuickFormat('color', e.target.value)}
-                      className="w-12 h-8 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={config.color}
-                      onChange={(e) => handleQuickFormat('color', e.target.value)}
-                      placeholder="#000000"
-                      className="flex-1 h-8 text-sm font-mono"
-                    />
+                      <Input
+                        type="text"
+                        value={config.color}
+                        onChange={(e) => handleQuickFormat('color', e.target.value)}
+                        placeholder="#000000"
+                        className="flex-1 h-8 text-sm font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Text content */}
-      <div className="flex-1 p-0">{renderContent()}</div>
-
-      {isInlineEditing && (
-        <div className="p-2 bg-blue-50 border-t text-xs text-blue-600">
-          <strong>Tip:</strong> Press Enter to save, Esc to cancel, Shift+Enter for new line
+            </PopoverContent>
+          </Popover>
         </div>
-      )}
-    </Card>
+
+        {/* Text content */}
+        <div className="flex-1 p-0">{renderContent()}</div>
+
+        {isInlineEditing && (
+          <div className="p-2 bg-blue-50 border-t text-xs text-blue-600">
+            <strong>Tip:</strong> Press Enter to save, Esc to cancel, Shift+Enter for new line
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

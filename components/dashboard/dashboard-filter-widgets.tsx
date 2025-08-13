@@ -375,6 +375,7 @@ function NumericalFilterWidget({
     onChange(filter.id, rangeValue);
   };
 
+  // For immediate UI updates without triggering API calls
   const handleInputChange = (inputValue: string, type: 'min' | 'max') => {
     const numValue = parseFloat(inputValue);
     if (isNaN(numValue)) return;
@@ -384,7 +385,19 @@ function NumericalFilterWidget({
       [type]: Math.max(minValue, Math.min(maxValue, numValue)),
     };
     setLocalValue(newRange);
-    onChange(filter.id, newRange);
+    // Don't call onChange here - wait for blur or Enter
+  };
+
+  // Apply the filter when user finishes typing (blur or Enter)
+  const handleInputCommit = (type: 'min' | 'max') => {
+    onChange(filter.id, localValue);
+  };
+
+  // Handle Enter key to apply filter
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, type: 'min' | 'max') => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur(); // This will trigger onBlur which calls handleInputCommit
+    }
   };
 
   const handleReset = () => {
@@ -467,6 +480,8 @@ function NumericalFilterWidget({
                   type="number"
                   value={localValue.min}
                   onChange={(e) => handleInputChange(e.target.value, 'min')}
+                  onBlur={() => handleInputCommit('min')}
+                  onKeyDown={(e) => handleInputKeyDown(e, 'min')}
                   min={minValue}
                   max={localValue.max}
                   step={step}
@@ -480,6 +495,8 @@ function NumericalFilterWidget({
                   type="number"
                   value={localValue.max}
                   onChange={(e) => handleInputChange(e.target.value, 'max')}
+                  onBlur={() => handleInputCommit('max')}
+                  onKeyDown={(e) => handleInputKeyDown(e, 'max')}
                   min={localValue.min}
                   max={maxValue}
                   step={step}
