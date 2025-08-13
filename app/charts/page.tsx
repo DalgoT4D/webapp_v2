@@ -51,7 +51,7 @@ export default function ChartsPage() {
   const { trigger: updateChart } = useUpdateChart();
 
   const filteredCharts = charts?.filter(
-    (chart) =>
+    (chart: Chart) =>
       chart.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       chart.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -144,7 +144,7 @@ export default function ChartsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCharts?.map((chart) => {
+          {filteredCharts?.map((chart: Chart) => {
             const IconComponent =
               chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
 

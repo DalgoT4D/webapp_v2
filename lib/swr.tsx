@@ -1,7 +1,7 @@
 'use client';
 
 import { SWRConfig } from 'swr';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { apiGet } from './api';
 
 // Use existing API infrastructure for SWR fetcher
