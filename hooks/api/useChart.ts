@@ -134,3 +134,93 @@ export function useAvailableGeoJSONs(countryCode: string = 'IND', layerLevel: nu
 export function useGeoJSONData(geojsonId: number | null) {
   return useSWR(geojsonId ? `/api/charts/geojsons/${geojsonId}/` : null, geojsonDetailFetcher);
 }
+
+// New map hooks for phase one implementation
+
+export interface Region {
+  id: number;
+  name: string;
+  display_name: string;
+  type: string;
+  parent_id: number | null;
+  country_code: string;
+  region_code: string;
+}
+
+export interface RegionGeoJSON {
+  id: number;
+  region_id: number;
+  version_name: string;
+  description: string | null;
+  is_default: boolean;
+  properties_key: string;
+  file_size: number;
+}
+
+const regionsFetcher = (url: string) => api.get<Region[]>(url);
+const regionGeoJSONsFetcher = (url: string) => api.get<RegionGeoJSON[]>(url);
+
+export function useRegions(countryCode: string = 'IND', regionType?: string) {
+  const params = new URLSearchParams({ country_code: countryCode });
+  if (regionType) {
+    params.append('region_type', regionType);
+  }
+
+  return useSWR(`/api/charts/regions/?${params.toString()}`, regionsFetcher);
+}
+
+export function useChildRegions(
+  parentRegionId: number | null | undefined,
+  enabled: boolean = true
+) {
+  return useSWR(
+    enabled && parentRegionId ? `/api/charts/regions/${parentRegionId}/children/` : null,
+    regionsFetcher
+  );
+}
+
+export function useRegionGeoJSONs(regionId: number | null | undefined) {
+  return useSWR(
+    regionId ? `/api/charts/regions/${regionId}/geojsons/` : null,
+    regionGeoJSONsFetcher
+  );
+}
+
+export function useMapData(payload: ChartDataPayload | null) {
+  return useSWR(
+    payload ? ['/api/charts/map-data/', payload] : null,
+    ([url, data]: [string, ChartDataPayload]) => api.post(url, data)
+  );
+}
+
+// New hooks for separated data fetching
+
+export interface LayerOption {
+  id: number;
+  code: string;
+  name: string;
+  display_name: string;
+  type: string;
+  parent_id: number | null;
+}
+
+// Fetch available layers (countries, states, districts, etc.) dynamically
+export function useAvailableLayers(layerType: string = 'country') {
+  return useSWR<LayerOption[]>(`/api/charts/available-layers/?layer_type=${layerType}`, api.get);
+}
+
+// Fetch map data separately (for data overlay on existing GeoJSON)
+export function useMapDataOverlay(
+  payload: {
+    schema_name: string;
+    table_name: string;
+    geographic_column: string;
+    value_column: string;
+    aggregate_func: string;
+    filters?: Record<string, any>;
+  } | null
+) {
+  return useSWR(payload ? ['/api/charts/map-data-overlay/', payload] : null, ([url, data]) =>
+    api.post(url, data)
+  );
+}

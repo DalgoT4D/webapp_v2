@@ -148,6 +148,111 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
           </div>
         </CardContent>
       </Card>
+
+      {/* Visual Elements */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Visual Elements</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Legend Position</Label>
+            <Select
+              value={customizations.legendPosition || 'left'}
+              onValueChange={(value) => updateCustomization('legendPosition', value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="left">Left</SelectItem>
+                <SelectItem value="right">Right</SelectItem>
+                <SelectItem value="top">Top</SelectItem>
+                <SelectItem value="bottom">Bottom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Show Region Names</Label>
+              <p className="text-xs text-muted-foreground">Display region labels on the map</p>
+            </div>
+            <Switch
+              checked={customizations.showLabels !== false}
+              onCheckedChange={(checked) => updateCustomization('showLabels', checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Highlight on Hover</Label>
+              <p className="text-xs text-muted-foreground">Emphasize regions when hovering</p>
+            </div>
+            <Switch
+              checked={customizations.emphasis !== false}
+              onCheckedChange={(checked) => updateCustomization('emphasis', checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Animation & Effects */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Animation & Effects</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Border Width</Label>
+            <p className="text-xs text-muted-foreground mb-2">Width of region borders</p>
+            <Select
+              value={customizations.borderWidth?.toString() || '1'}
+              onValueChange={(value) => updateCustomization('borderWidth', parseInt(value))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">No Border</SelectItem>
+                <SelectItem value="1">Thin</SelectItem>
+                <SelectItem value="2">Medium</SelectItem>
+                <SelectItem value="3">Thick</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">Border Color</Label>
+            <Select
+              value={customizations.borderColor || '#333'}
+              onValueChange={(value) => updateCustomization('borderColor', value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="#333">Dark Gray</SelectItem>
+                <SelectItem value="#666">Medium Gray</SelectItem>
+                <SelectItem value="#999">Light Gray</SelectItem>
+                <SelectItem value="#fff">White</SelectItem>
+                <SelectItem value="#000">Black</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Animation</Label>
+              <p className="text-xs text-muted-foreground">Enable smooth transitions</p>
+            </div>
+            <Switch
+              checked={customizations.animation !== false}
+              onCheckedChange={(checked) => updateCustomization('animation', checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

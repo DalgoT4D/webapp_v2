@@ -74,7 +74,7 @@ export default function EditChartPage() {
   const initialData: ChartBuilderFormData = {
     title: chart.title,
     description: chart.description,
-    chart_type: chart.chart_type as 'bar' | 'pie' | 'line',
+    chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'map',
     computation_type: chart.computation_type as 'raw' | 'aggregated',
     schema_name: chart.schema_name,
     table_name: chart.table_name,
@@ -83,8 +83,26 @@ export default function EditChartPage() {
     y_axis_column: chart.extra_config?.y_axis_column,
     dimension_column: chart.extra_config?.dimension_column,
     aggregate_column: chart.extra_config?.aggregate_column,
-    aggregate_function: chart.extra_config?.aggregate_function,
+    aggregate_function: chart.extra_config?.aggregate_function || 'sum',
+    aggregate_func: chart.extra_config?.aggregate_function || 'sum', // Also set aggregate_func for MapDataConfiguration
     extra_dimension_column: chart.extra_config?.extra_dimension_column,
+    // Map-specific fields
+    geographic_column: chart.extra_config?.geographic_column,
+    value_column: chart.extra_config?.value_column,
+    selected_geojson_id: chart.extra_config?.selected_geojson_id,
+    // Restore layers configuration if available
+    layers:
+      chart.extra_config?.layers ||
+      (chart.chart_type === 'map'
+        ? [
+            {
+              id: '0',
+              level: 0,
+              geographic_column: chart.extra_config?.geographic_column,
+              geojson_id: chart.extra_config?.selected_geojson_id,
+            },
+          ]
+        : undefined),
     customizations: chart.extra_config?.customizations || {},
   };
 
