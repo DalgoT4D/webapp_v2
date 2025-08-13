@@ -22,6 +22,13 @@ interface ChartDetailClientProps {
   chartId: number;
 }
 
+interface SelectedRegion {
+  region_id: number;
+  region_name: string;
+  geojson_id?: number;
+  geojson_name?: string;
+}
+
 interface DrillDownLevel {
   level: number;
   name: string;
@@ -168,7 +175,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
       // Find the region that matches the clicked region name
       const matchingRegion = nextLayer.selected_regions.find(
-        (region) => region.region_name === regionName
+        (region: SelectedRegion) => region.region_name === regionName
       );
       if (matchingRegion && matchingRegion.geojson_id) {
         nextGeojsonId = matchingRegion.geojson_id;
