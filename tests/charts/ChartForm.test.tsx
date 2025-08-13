@@ -85,18 +85,24 @@ describe('ChartForm', () => {
       data: ['public', 'analytics'],
       isLoading: false,
       error: null,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
 
     mockUseTables.mockReturnValue({
       data: ['users', 'orders'],
       isLoading: false,
       error: null,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
 
     mockUseColumns.mockReturnValue({
       data: [{ name: 'id', data_type: 'integer' }],
       isLoading: false,
       error: null,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
 
     mockUseChartSave.mockReturnValue({
@@ -118,6 +124,8 @@ describe('ChartForm', () => {
       data: null,
       error: null,
       isLoading: false,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
   });
 
@@ -191,6 +199,8 @@ describe('ChartForm', () => {
       data: mockChartData,
       error: null,
       isLoading: false,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
 
     renderChartForm();
@@ -203,6 +213,8 @@ describe('ChartForm', () => {
       data: null,
       error: null,
       isLoading: true,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
 
     renderChartForm();
@@ -215,6 +227,8 @@ describe('ChartForm', () => {
       data: null,
       error: { message: 'Failed to load chart data' },
       isLoading: false,
+      mutate: jest.fn(),
+      isValidating: false,
     } as any);
 
     renderChartForm();

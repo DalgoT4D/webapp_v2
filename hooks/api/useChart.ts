@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { api } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
   Chart,
   ChartCreate,
@@ -11,20 +11,18 @@ import type {
 } from '@/types/charts';
 
 // Fetchers
-const chartsFetcher = (url: string) => api.get<Chart[]>(url);
-const chartFetcher = (url: string) => api.get<Chart>(url);
-const chartDataFetcher = ([url, data]: [string, ChartDataPayload]) =>
-  api.post<ChartDataResponse>(url, data);
-const dataPreviewFetcher = ([url, data]: [string, ChartDataPayload]) =>
-  api.post<DataPreviewResponse>(url, data);
+const chartsFetcher = (url: string) => apiGet(url);
+const chartFetcher = (url: string) => apiGet(url);
+const chartDataFetcher = ([url, data]: [string, ChartDataPayload]) => apiPost(url, data);
+const dataPreviewFetcher = ([url, data]: [string, ChartDataPayload]) => apiPost(url, data);
 
 // Mutations
-const createChart = (url: string, { arg }: { arg: ChartCreate }) => api.post<Chart>(url, arg);
+const createChart = (url: string, { arg }: { arg: ChartCreate }) => apiPost(url, arg);
 
 const updateChart = (url: string, { arg }: { arg: { id: number; data: ChartUpdate } }) =>
-  api.put<Chart>(`${url}${arg.id}/`, arg.data);
+  apiPut(`${url}${arg.id}/`, arg.data);
 
-const deleteChart = (url: string, { arg }: { arg: number }) => api.delete(`${url}${arg}/`);
+const deleteChart = (url: string, { arg }: { arg: number }) => apiDelete(`${url}${arg}/`);
 
 // Hooks
 export function useCharts() {
@@ -79,7 +77,7 @@ export function useChartExport() {
   return useSWRMutation(
     '/api/charts/export/',
     (url: string, { arg }: { arg: { chart_id: number; format: string } }) =>
-      api.post(url, {
+      apiPost(url, {
         ...arg,
         responseType: arg.format === 'png' ? 'blob' : 'json',
       })
@@ -88,16 +86,22 @@ export function useChartExport() {
 
 // Warehouse hooks for chart builder
 export function useSchemas() {
-  return useSWR<string[]>('/api/warehouse/schemas', api.get);
+  return useSWR<string[]>('/api/warehouse/schemas', apiGet);
 }
 
 export function useTables(schema: string | null) {
-  return useSWR<any[]>(schema ? `/api/warehouse/tables/${schema}` : null, api.get);
+  return useSWR<any[]>(schema ? `/api/warehouse/tables/${schema}` : null, apiGet);
 }
 
 export function useColumns(schema: string | null, table: string | null) {
   return useSWR<any[]>(
     schema && table ? `/api/warehouse/table_columns/${schema}/${table}` : null,
-    api.get
+    apiGet
   );
 }
+
+// Re-export types for convenience
+export type { ChartDataPayload, ChartCreate as ChartCreatePayload } from '@/types/charts';
+
+// Alias for backward compatibility with tests
+export const useChartSave = useCreateChart;

@@ -17,6 +17,7 @@ import {
 import ReactECharts from 'echarts-for-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import type { DragEndEvent } from '@dnd-kit/core';
 import {
   DndContext,
   closestCenter,
@@ -24,7 +25,6 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
 } from '@dnd-kit/core';
 import {
   arrayMove,

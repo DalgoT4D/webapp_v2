@@ -53,26 +53,33 @@ describe('ChartBuilder Component', () => {
       data: mockSchemas,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useTables as jest.Mock).mockReturnValue({
       data: mockTables,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useColumns as jest.Mock).mockReturnValue({
       data: mockColumns,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useChartData as jest.Mock).mockReturnValue({
       data: null,
       isLoading: false,
       error: null,
       mutate: jest.fn(),
-    });
+      isValidating: false,
+    } as any);
 
     (useChartSave as jest.Mock).mockReturnValue({
       trigger: jest.fn(),
@@ -191,7 +198,9 @@ describe('ChartBuilder Component', () => {
         data: null,
         isLoading: true,
         error: null,
-      });
+        mutate: jest.fn(),
+        isValidating: false,
+      } as any);
 
       render(<ChartBuilder onSave={mockOnSave} />);
 
@@ -290,7 +299,8 @@ describe('ChartBuilder Component', () => {
         isLoading: false,
         error: null,
         mutate: jest.fn(),
-      });
+        isValidating: false,
+      } as any);
 
       render(<ChartBuilder onSave={mockOnSave} />);
 

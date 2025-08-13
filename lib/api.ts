@@ -263,10 +263,24 @@ export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
 }
 
-// Export unified API object for convenience
-export const api = {
-  get: <T = any>(path: string) => apiFetch(path) as Promise<T>,
-  post: <T = any>(path: string, body: any) => apiPost(path, body) as Promise<T>,
-  put: <T = any>(path: string, body: any) => apiPut(path, body) as Promise<T>,
-  delete: (path: string) => apiDelete(path),
-};
+// Helper for POST requests that return binary data
+export async function apiPostBinary(path: string, body: any, options: RequestInit = {}) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const headers: HeadersInit = {
+    ...getHeaders(),
+    ...(options.headers || {}),
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+
+  return response.blob();
+}
