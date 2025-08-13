@@ -66,6 +66,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
       value_column: undefined,
       aggregate_column: undefined,
       aggregate_func: undefined,
+      aggregate_function: undefined,
       selected_geojson_id: undefined,
       layers: [createDefaultLayer()],
     });
@@ -110,7 +111,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
         selected_geojson_id: firstLayer.geojson_id,
         // Set value_column and aggregate_column from the aggregate_column field
         value_column: formData.aggregate_column,
-        aggregate_function: formData.aggregate_func,
+        aggregate_function: formData.aggregate_function || formData.aggregate_func,
       });
     } else {
       onFormDataChange({
@@ -171,7 +172,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
         table_name: formData.table_name,
         geographic_column: layer.geographic_column,
         value_column: formData.aggregate_column,
-        aggregate_func: formData.aggregate_func,
+        aggregate_func: formData.aggregate_function || formData.aggregate_func,
       };
 
       // Trigger separated fetching preview
@@ -209,7 +210,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
       firstLayer?.geographic_column &&
       firstLayer?.geojson_id &&
       formData.aggregate_column &&
-      formData.aggregate_func &&
+      (formData.aggregate_function || formData.aggregate_func) &&
       viewingLayer === null
     ) {
       // Automatically view Layer 1
@@ -349,7 +350,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
               How to aggregate the values by region
             </p>
             <Select
-              value={formData.aggregate_func || ''}
+              value={formData.aggregate_function || formData.aggregate_func || ''}
               onValueChange={(value) =>
                 onFormDataChange({
                   ...formData,
@@ -378,7 +379,7 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
       {formData.schema_name &&
         formData.table_name &&
         formData.aggregate_column &&
-        formData.aggregate_func && (
+        (formData.aggregate_function || formData.aggregate_func) && (
           <Card>
             <CardHeader>
               <CardTitle>Map Configuration</CardTitle>
