@@ -393,6 +393,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         return () => clearTimeout(timeoutId);
       }
+      // Return undefined when condition is not met
+      return undefined;
     }, [targetScreenSize, dashboardId]); // Keep the dependency but add initial value check
 
     // Initial lock acquisition - only run once when dashboard changes
