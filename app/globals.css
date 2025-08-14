@@ -3,6 +3,185 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Dashboard Responsive Styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.resizing {
+  transition: none;
+  z-index: 1;
+  will-change: width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgb(59, 130, 246, 0.15);
+  opacity: 0.5;
+  transition-duration: 100ms;
+  z-index: 2;
+  border-radius: 8px;
+  border: 2px dashed rgb(59, 130, 246);
+}
+
+/* Dashboard Item Responsive Styles */
+.dashboard-item {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.dashboard-item > * {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .react-grid-item {
+    /* Ensure items are properly sized on mobile */
+    font-size: 14px;
+  }
+  
+  .dashboard-item .drag-handle {
+    /* Make drag handle more accessible on mobile */
+    padding: 8px !important;
+  }
+  
+  /* Adjust chart containers for mobile */
+  .dashboard-item canvas,
+  .dashboard-item svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* Ensure text content is readable */
+  .dashboard-item p,
+  .dashboard-item span,
+  .dashboard-item div {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Adjust padding for mobile */
+  .dashboard-item .p-4 {
+    padding: 8px !important;
+  }
+  
+  /* Hide non-essential elements on very small screens */
+  @media (max-width: 480px) {
+    .dashboard-item .text-xs,
+    .dashboard-item .text-sm {
+      font-size: 12px !important;
+    }
+  }
+}
+
+/* Tablet Responsive Adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .dashboard-item {
+    font-size: 15px;
+  }
+}
+
+/* Ensure charts are responsive */
+.recharts-responsive-container,
+.echarts-for-react,
+.nivo-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 200px;
+}
+
+/* Filter element responsive styles */
+.filter-element {
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-element select,
+.filter-element input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Header Responsive Styles */
+@media (max-width: 1024px) {
+  .dashboard-header-title {
+    font-size: 1.25rem !important; /* text-xl */
+  }
+  
+  .dashboard-header-description {
+    font-size: 0.875rem !important; /* text-sm */
+    line-height: 1.25rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header-title {
+    font-size: 1.125rem !important; /* text-lg */
+  }
+  
+  .dashboard-header-description {
+    font-size: 0.75rem !important; /* text-xs */
+    line-height: 1rem !important;
+  }
+  
+  /* Enable line clamping for mobile descriptions */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Scrollable button rows on mobile */
+  .mobile-action-row {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .mobile-action-row::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Ensure proper truncation and flexbox behavior */
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.min-w-0 {
+  min-width: 0px;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import GridLayout from 'react-grid-layout';
+import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +47,67 @@ import {
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
+
+// Define responsive breakpoints and column configurations (same as builder)
+const BREAKPOINTS = {
+  lg: 1200,
+  md: 996,
+  sm: 768,
+  xs: 480,
+  xxs: 0,
+};
+
+const COLS = {
+  lg: 12,
+  md: 10,
+  sm: 6,
+  xs: 4,
+  xxs: 2,
+};
+
+// Helper function to generate responsive layouts from base layout
+function generateResponsiveLayouts(layout: any[]): any {
+  const layouts: any = {};
+
+  // For each breakpoint, adjust the layout
+  Object.keys(COLS).forEach((breakpoint) => {
+    const cols = COLS[breakpoint as keyof typeof COLS];
+
+    layouts[breakpoint] = layout.map((item) => {
+      // Calculate responsive dimensions based on breakpoint
+      let newW = item.w;
+      let newX = item.x;
+
+      // For smaller screens, make items wider and stack them
+      if (breakpoint === 'xxs') {
+        newW = 2; // Full width on mobile
+        newX = 0; // Stack vertically
+      } else if (breakpoint === 'xs') {
+        newW = Math.min(4, item.w * 2); // Double width or max
+        newX = 0; // Stack vertically
+      } else if (breakpoint === 'sm') {
+        newW = Math.min(6, Math.ceil(item.w * 1.5)); // 1.5x width
+        newX = Math.min(item.x, cols - newW); // Prevent overflow
+      } else if (breakpoint === 'md') {
+        // Scale proportionally for medium screens
+        const scaleFactor = cols / 12;
+        newW = Math.max(2, Math.floor(item.w * scaleFactor));
+        newX = Math.min(Math.floor(item.x * scaleFactor), cols - newW);
+      }
+
+      return {
+        ...item,
+        w: newW,
+        x: newX,
+        // Maintain minimum dimensions for usability
+        minW: breakpoint === 'xxs' ? 2 : breakpoint === 'xs' ? 2 : item.minW || 2,
+        maxW: cols,
+      };
+    });
+  });
+
+  return layouts;
+}
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -102,6 +163,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [containerWidth, setContainerWidth] = useState(1200);
+  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
 
   // Ref for the dashboard container to measure its width
   const containerRef = useRef<HTMLDivElement>(null);
@@ -446,20 +508,156 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
   return (
     <div className={cn('h-screen flex flex-col bg-gray-50', isFullscreen && 'fixed inset-0 z-50')}>
-      {/* Header */}
+      {/* Responsive Header */}
       <div className="bg-white border-b shadow-sm">
-        <div className="px-6 py-4">
+        {/* Mobile Header */}
+        <div className="lg:hidden">
+          {/* Mobile Top Row */}
+          <div className="px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {!isFullscreen && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push('/dashboards')}
+                  className="p-1 flex-shrink-0"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
+                    {dashboard.title}
+                  </h1>
+                  {dashboard.is_published && (
+                    <Badge
+                      variant="default"
+                      className="text-xs bg-green-100 text-green-800 flex-shrink-0"
+                    >
+                      Published
+                    </Badge>
+                  )}
+                  {isLocked && (
+                    <Badge
+                      variant={isLockedByOther ? 'destructive' : 'secondary'}
+                      className="text-xs flex-shrink-0"
+                    >
+                      <Lock className="w-3 h-3 mr-1" />
+                      Locked
+                    </Badge>
+                  )}
+                </div>
+                {dashboard.description && (
+                  <p className="text-xs text-gray-600 mt-1 line-clamp-2 dashboard-header-description">
+                    {dashboard.description}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile Quick Actions */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-1.5"
+              >
+                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+              </Button>
+              <Button variant="outline" size="sm" onClick={toggleFullscreen} className="p-1.5">
+                <Maximize2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile Action Row */}
+          <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShare}
+              className="flex-shrink-0 h-8 text-xs"
+            >
+              <Share2 className="w-3 h-3 mr-1" />
+              Share
+            </Button>
+            {canEdit && !isLockedByOther && (
+              <>
+                <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
+                  <Edit className="w-3 h-3 mr-1" />
+                  Edit
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isDeleting}
+                      className="flex-shrink-0 h-8 text-xs"
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete "{dashboard?.title}"? This action cannot be
+                        undone and will permanently remove all dashboard content and configuration.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Metadata Row */}
+          <div className="px-4 pb-2 flex items-center gap-4 text-xs text-gray-500 border-t pt-2">
+            {dashboard.last_modified_by && (
+              <div className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                <span className="truncate">{dashboard.last_modified_by}</span>
+              </div>
+            )}
+            {dashboard.updated_at && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{format(new Date(dashboard.updated_at), 'MMM d, yyyy')}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden lg:block px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 min-w-0 flex-1">
               {!isFullscreen && (
                 <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
               )}
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900">{dashboard.title}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                    {dashboard.title}
+                  </h1>
                   {dashboard.is_published && (
                     <Badge variant="default" className="text-xs bg-green-100 text-green-800">
                       Published
@@ -476,12 +674,14 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                   )}
                 </div>
                 {dashboard.description && (
-                  <p className="text-sm text-gray-600 mt-1">{dashboard.description}</p>
+                  <p className="text-sm text-gray-600 mt-1 dashboard-header-description">
+                    {dashboard.description}
+                  </p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {/* Metadata */}
               <div className="flex items-center gap-4 mr-4 text-xs text-gray-500">
                 {dashboard.last_modified_by && (
@@ -556,10 +756,14 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
       {/* Dashboard Content */}
       <div ref={containerRef} className="flex-1 overflow-auto p-4">
         <div className="w-full">
-          <GridLayout
+          <ResponsiveGridLayout
             className="dashboard-grid"
-            layout={dashboard.layout_config || []}
-            cols={dashboard.grid_columns || 12}
+            layouts={
+              dashboard.responsive_layouts ||
+              generateResponsiveLayouts(dashboard.layout_config || [])
+            }
+            breakpoints={BREAKPOINTS}
+            cols={COLS}
             rowHeight={30}
             width={containerWidth}
             isDraggable={false}
@@ -567,15 +771,18 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             compactType={null}
             preventCollision={false}
             margin={[10, 10]}
+            onBreakpointChange={(newBreakpoint: string) => setCurrentBreakpoint(newBreakpoint)}
           >
             {(dashboard.layout_config || []).map((layoutItem: any) => (
               <div key={layoutItem.i} className="dashboard-item">
                 <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
-                  <CardContent className="p-4 h-full">{renderComponent(layoutItem.i)}</CardContent>
+                  <CardContent className="p-4 h-full overflow-auto">
+                    {renderComponent(layoutItem.i)}
+                  </CardContent>
                 </Card>
               </div>
             ))}
-          </GridLayout>
+          </ResponsiveGridLayout>
         </div>
       </div>
 

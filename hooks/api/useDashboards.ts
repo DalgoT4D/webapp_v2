@@ -8,6 +8,7 @@ export interface Dashboard {
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
   layout_config: any;
+  responsive_layouts?: any; // Optional responsive layouts for different breakpoints
   components: any;
   is_published: boolean;
   published_at?: string;

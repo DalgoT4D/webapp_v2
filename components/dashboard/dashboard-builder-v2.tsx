@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useRouter } from 'next/navigation';
-import GridLayout from 'react-grid-layout';
+import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -115,6 +115,28 @@ interface DashboardLayout {
   maxH?: number;
 }
 
+// Define responsive breakpoints and column configurations
+const BREAKPOINTS = {
+  lg: 1200,
+  md: 996,
+  sm: 768,
+  xs: 480,
+  xxs: 0,
+};
+
+const COLS = {
+  lg: 12,
+  md: 10,
+  sm: 6,
+  xs: 4,
+  xxs: 2,
+};
+
+// Type for responsive layouts
+type ResponsiveLayouts = {
+  [key: string]: DashboardLayout[];
+};
+
 interface DashboardComponent {
   id: string;
   type: DashboardComponentType;
@@ -123,6 +145,7 @@ interface DashboardComponent {
 
 interface DashboardState {
   layout: DashboardLayout[];
+  layouts?: ResponsiveLayouts;
   components: Record<string, DashboardComponent>;
   filters: DashboardFilterConfig[];
 }
@@ -145,6 +168,50 @@ interface DashboardBuilderV2Ref {
   cleanup: () => Promise<void>;
 }
 
+// Helper function to generate responsive layouts from base layout
+function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
+  const layouts: ResponsiveLayouts = {};
+
+  // For each breakpoint, adjust the layout
+  Object.keys(COLS).forEach((breakpoint) => {
+    const cols = COLS[breakpoint as keyof typeof COLS];
+
+    layouts[breakpoint] = layout.map((item) => {
+      // Calculate responsive dimensions based on breakpoint
+      let newW = item.w;
+      let newX = item.x;
+
+      // For smaller screens, make items wider and stack them
+      if (breakpoint === 'xxs') {
+        newW = 2; // Full width on mobile
+        newX = 0; // Stack vertically
+      } else if (breakpoint === 'xs') {
+        newW = Math.min(4, item.w * 2); // Double width or max
+        newX = 0; // Stack vertically
+      } else if (breakpoint === 'sm') {
+        newW = Math.min(6, Math.ceil(item.w * 1.5)); // 1.5x width
+        newX = Math.min(item.x, cols - newW); // Prevent overflow
+      } else if (breakpoint === 'md') {
+        // Scale proportionally for medium screens
+        const scaleFactor = cols / 12;
+        newW = Math.max(2, Math.floor(item.w * scaleFactor));
+        newX = Math.min(Math.floor(item.x * scaleFactor), cols - newW);
+      }
+
+      return {
+        ...item,
+        w: newW,
+        x: newX,
+        // Maintain minimum dimensions for usability
+        minW: breakpoint === 'xxs' ? 2 : breakpoint === 'xs' ? 2 : item.minW || 2,
+        maxW: cols,
+      };
+    });
+  });
+
+  return layouts;
+}
+
 export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBuilderV2Props>(
   function DashboardBuilderV2(
     { dashboardId, initialData, isNewDashboard, onBack, onPreview, isNavigating },
@@ -157,6 +224,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       ? initialData.layout_config
       : [];
     const initialComponents = initialData?.components || {};
+
+    // Load responsive layouts if available, otherwise they'll be generated later
+    const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
     // Load filters from backend (without creating components - they're already in components)
     const initialFilters = Array.isArray(initialData?.filters)
@@ -176,10 +246,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const mergedComponents = initialComponents;
     const mergedLayout = initialLayout;
 
+    // Use saved responsive layouts if available, otherwise generate them
+    const initialLayouts = initialResponsiveLayouts || generateResponsiveLayouts(mergedLayout);
+
     // State management with undo/redo
     const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
       {
         layout: mergedLayout,
+        layouts: initialLayouts,
         components: mergedComponents,
         filters: initialFilters,
       },
@@ -520,28 +594,36 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
     );
 
-    // Handle layout changes
-    const handleLayoutChange = (newLayout: GridLayout.Layout[]) => {
+    // Handle layout changes for responsive grid
+    const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
+      // Update both the current layout and all responsive layouts
       setState({
         ...state,
-        layout: newLayout,
+        layout: currentLayout,
+        layouts: allLayouts,
       });
+    };
+
+    // Handle breakpoint changes
+    const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
+    const handleBreakpointChange = (newBreakpoint: string) => {
+      setCurrentBreakpoint(newBreakpoint);
     };
 
     // Handle resize start
     const handleResizeStart = (
-      layout: GridLayout.Layout[],
-      oldItem: GridLayout.Layout,
-      newItem: GridLayout.Layout
+      layout: DashboardLayout[],
+      oldItem: DashboardLayout,
+      newItem: DashboardLayout
     ) => {
       setResizingItems(new Set([...resizingItems, newItem.i]));
     };
 
     // Handle resize stop
     const handleResizeStop = (
-      layout: GridLayout.Layout[],
-      oldItem: GridLayout.Layout,
-      newItem: GridLayout.Layout
+      layout: DashboardLayout[],
+      oldItem: DashboardLayout,
+      newItem: DashboardLayout
     ) => {
       const newResizingItems = new Set(resizingItems);
       newResizingItems.delete(newItem.i);
@@ -594,8 +676,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minH: 4,
         };
 
+        const newLayout = [...state.layout, newLayoutItem];
+        const newLayouts = generateResponsiveLayouts(newLayout);
+
         setState({
-          layout: [...state.layout, newLayoutItem],
+          layout: newLayout,
+          layouts: newLayouts,
           components: {
             ...state.components,
             [newComponent.id]: newComponent,
@@ -640,8 +726,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         minH: 2,
       };
 
+      const newLayout = [...state.layout, newLayoutItem];
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
       setState({
-        layout: [...state.layout, newLayoutItem],
+        layout: newLayout,
+        layouts: newLayouts,
         components: {
           ...state.components,
           [newComponent.id]: newComponent,
@@ -663,8 +753,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         newFilters = state.filters.filter((filter) => filter.id !== filterId);
       }
 
+      const newLayout = state.layout.filter((item) => item.i !== componentId);
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
       setState({
-        layout: state.layout.filter((item) => item.i !== componentId),
+        layout: newLayout,
+        layouts: newLayouts,
         components: newComponents,
         filters: newFilters,
       });
@@ -800,8 +894,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         };
 
         // Update local state
+        const newLayout = [...state.layout, newLayoutItem];
+        const newLayouts = generateResponsiveLayouts(newLayout);
+
         setState({
-          layout: [...state.layout, newLayoutItem],
+          layout: newLayout,
+          layouts: newLayouts,
           components: {
             ...state.components,
             [filterComponentId]: newComponent,
@@ -830,8 +928,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const newComponents = { ...state.components };
         delete newComponents[componentId];
 
+        const newLayout = state.layout.filter((item) => item.i !== componentId);
+        const newLayouts = generateResponsiveLayouts(newLayout);
+
         setState({
-          layout: state.layout.filter((item) => item.i !== componentId),
+          layout: newLayout,
+          layouts: newLayouts,
           components: newComponents,
           filters: state.filters.filter((filter) => filter.id !== filterId),
         });
@@ -1017,192 +1119,390 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     return (
       <div className="dashboard-builder h-full flex flex-col">
-        {/* Merged Header with Title and Toolbar */}
-        <div className="border-b px-6 py-3 bg-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Back button */}
-              {onBack && (
-                <Button variant="ghost" size="sm" onClick={onBack}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-              )}
+        {/* Responsive Header with Title and Toolbar */}
+        <div className="border-b bg-white">
+          {/* Mobile Header */}
+          <div className="lg:hidden">
+            {/* Mobile Top Row - Title and Essential Actions */}
+            <div className="px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {onBack && (
+                  <Button variant="ghost" size="sm" onClick={onBack} className="p-1 flex-shrink-0">
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                )}
 
-              <div className="h-6 w-px bg-gray-300" />
-
-              {/* Title editing */}
-              {isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Dashboard title..."
-                    className="text-lg font-semibold"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                {isEditingTitle ? (
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Dashboard title..."
+                      className="text-sm font-semibold h-8 flex-1"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingTitle(false);
+                          saveDashboard();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="p-1 h-8 flex-shrink-0"
+                      onClick={() => {
                         setIsEditingTitle(false);
                         saveDashboard();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsEditingTitle(false);
-                      saveDashboard();
-                    }}
+                      }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
+                    onClick={() => setIsEditingTitle(true)}
                   >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  <h1 className="text-lg font-semibold">{title}</h1>
-                  <Edit2 className="w-4 h-4 text-gray-400" />
-                </div>
-              )}
+                    <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
+                      {title}
+                    </h1>
+                    <Edit2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  </div>
+                )}
+              </div>
 
-              <div className="h-6 w-px bg-gray-300" />
-
-              <Button onClick={() => setShowChartSelector(true)} size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Chart
-              </Button>
-
-              <Button onClick={addTextComponent} size="sm" variant="outline">
-                <Type className="w-4 h-4 mr-2" />
-                Add Text
-              </Button>
-
-              <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
-                <Filter className="w-4 h-4 mr-2" />
-                Add Filter
-              </Button>
-
-              <div className="ml-2 flex gap-1">
-                <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
-                  <Undo className="w-4 h-4" />
+              {/* Mobile Quick Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button onClick={saveDashboard} size="sm" variant="ghost" className="p-1.5">
+                  <Save className="w-4 h-4" />
                 </Button>
+                {onPreview && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onPreview}
+                    className="p-1.5"
+                    disabled={isNavigating}
+                  >
+                    {isNavigating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="ghost" className="p-1.5">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Configure your dashboard layout
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="grid-columns">Grid Columns</Label>
+                          <select
+                            id="grid-columns"
+                            value={gridColumns}
+                            onChange={(e) => {
+                              setGridColumns(Number(e.target.value));
+                              saveDashboard();
+                            }}
+                            className="col-span-2 px-3 py-2 border rounded-md"
+                          >
+                            <option value={12}>12 Columns</option>
+                            <option value={14}>14 Columns</option>
+                            <option value={16}>16 Columns</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
 
-                <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
-                  <Redo className="w-4 h-4" />
+            {/* Mobile Bottom Row - Component Actions */}
+            <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
+              <Button
+                onClick={() => setShowChartSelector(true)}
+                size="sm"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Chart
+              </Button>
+              <Button
+                onClick={addTextComponent}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Type className="w-3 h-3 mr-1" />
+                Text
+              </Button>
+              <Button
+                onClick={() => setShowFilterModal(true)}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Filter className="w-3 h-3 mr-1" />
+                Filter
+              </Button>
+              <div className="flex gap-1 ml-auto flex-shrink-0">
+                <Button
+                  onClick={undo}
+                  disabled={!canUndo}
+                  size="sm"
+                  variant="ghost"
+                  className="p-1 h-8"
+                >
+                  <Undo className="w-3 h-3" />
+                </Button>
+                <Button
+                  onClick={redo}
+                  disabled={!canRedo}
+                  size="sm"
+                  variant="ghost"
+                  className="p-1 h-8"
+                >
+                  <Redo className="w-3 h-3" />
                 </Button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Lock Status */}
-              {isLocked ? (
-                <div className="flex items-center gap-1 text-sm text-green-600">
-                  <Lock className="w-4 h-4" />
-                  <span className="hidden lg:inline">Locked for editing</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-sm text-yellow-600">
-                  <Unlock className="w-4 h-4" />
-                  <span className="hidden lg:inline">Not locked</span>
-                </div>
-              )}
+            {/* Mobile Status Bar */}
+            {(isLocked || saveStatus !== 'idle') && (
+              <div className="px-4 pb-2 flex items-center justify-between text-xs">
+                {isLocked && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <Lock className="w-3 h-3" />
+                    <span>Locked</span>
+                  </div>
+                )}
+                {saveStatus === 'saving' && (
+                  <div className="flex items-center gap-1 text-gray-500">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Saving...</span>
+                  </div>
+                )}
+                {saveStatus === 'saved' && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <Check className="w-3 h-3" />
+                    <span>Saved</span>
+                  </div>
+                )}
+                {saveStatus === 'error' && (
+                  <div className="flex items-center gap-1 text-red-600">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>Error</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-              <div className="h-6 w-px bg-gray-300 mx-1" />
-
-              {/* Save Status Indicator */}
-              {saveStatus === 'saving' && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="hidden lg:inline">Saving...</span>
-                </div>
-              )}
-              {saveStatus === 'saved' && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <Check className="w-4 h-4" />
-                  <span className="hidden lg:inline">Saved</span>
-                </div>
-              )}
-              {saveStatus === 'error' && (
-                <div className="flex items-center gap-2 text-sm text-red-600">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="hidden lg:inline">{saveError || 'Save failed'}</span>
-                </div>
-              )}
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    <Settings className="w-4 h-4" />
+          {/* Desktop Header */}
+          <div className="hidden lg:block px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Back button */}
+                {onBack && (
+                  <Button variant="ghost" size="sm" onClick={onBack}>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium leading-none">Dashboard Settings</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Configure your dashboard layout
-                      </p>
-                    </div>
-                    <div className="grid gap-2">
-                      <div className="grid grid-cols-3 items-center gap-4">
-                        <Label htmlFor="grid-columns">Grid Columns</Label>
-                        <select
-                          id="grid-columns"
-                          value={gridColumns}
-                          onChange={(e) => {
-                            setGridColumns(Number(e.target.value));
-                            saveDashboard();
-                          }}
-                          className="col-span-2 px-3 py-2 border rounded-md"
-                        >
-                          <option value={12}>12 Columns</option>
-                          <option value={14}>14 Columns</option>
-                          <option value={16}>16 Columns</option>
-                        </select>
+                )}
+
+                <div className="h-6 w-px bg-gray-300" />
+
+                {/* Title editing */}
+                {isEditingTitle ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Dashboard title..."
+                      className="text-lg font-semibold"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingTitle(false);
+                          saveDashboard();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setIsEditingTitle(false);
+                        saveDashboard();
+                      }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
+                    onClick={() => setIsEditingTitle(true)}
+                  >
+                    <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
+                    <Edit2 className="w-4 h-4 text-gray-400" />
+                  </div>
+                )}
+
+                <div className="h-6 w-px bg-gray-300" />
+
+                <Button onClick={() => setShowChartSelector(true)} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Chart
+                </Button>
+
+                <Button onClick={addTextComponent} size="sm" variant="outline">
+                  <Type className="w-4 h-4 mr-2" />
+                  Add Text
+                </Button>
+
+                <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Add Filter
+                </Button>
+
+                <div className="ml-2 flex gap-1">
+                  <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
+                    <Undo className="w-4 h-4" />
+                  </Button>
+
+                  <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
+                    <Redo className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Lock Status */}
+                {isLocked ? (
+                  <div className="flex items-center gap-1 text-sm text-green-600">
+                    <Lock className="w-4 h-4" />
+                    <span className="hidden xl:inline">Locked for editing</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-sm text-yellow-600">
+                    <Unlock className="w-4 h-4" />
+                    <span className="hidden xl:inline">Not locked</span>
+                  </div>
+                )}
+
+                <div className="h-6 w-px bg-gray-300 mx-1" />
+
+                {/* Save Status Indicator */}
+                {saveStatus === 'saving' && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="hidden xl:inline">Saving...</span>
+                  </div>
+                )}
+                {saveStatus === 'saved' && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="w-4 h-4" />
+                    <span className="hidden xl:inline">Saved</span>
+                  </div>
+                )}
+                {saveStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="hidden xl:inline">{saveError || 'Save failed'}</span>
+                  </div>
+                )}
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Configure your dashboard layout
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="grid-columns">Grid Columns</Label>
+                          <select
+                            id="grid-columns"
+                            value={gridColumns}
+                            onChange={(e) => {
+                              setGridColumns(Number(e.target.value));
+                              saveDashboard();
+                            }}
+                            className="col-span-2 px-3 py-2 border rounded-md"
+                          >
+                            <option value={12}>12 Columns</option>
+                            <option value={14}>14 Columns</option>
+                            <option value={16}>16 Columns</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
 
-              <Button onClick={saveDashboard} size="sm" variant="outline">
-                <Save className="w-4 h-4 mr-2" />
-                Save
-              </Button>
-
-              {/* Preview button */}
-              {onPreview && (
-                <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
-                  {isNavigating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Eye className="w-4 h-4 mr-2" />
-                  )}
-                  {isNavigating ? 'Switching...' : 'Preview'}
+                <Button onClick={saveDashboard} size="sm" variant="outline">
+                  <Save className="w-4 h-4 mr-2" />
+                  <span className="hidden lg:inline">Save</span>
                 </Button>
-              )}
+
+                {/* Preview button */}
+                {onPreview && (
+                  <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
+                    {isNavigating ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Eye className="w-4 h-4 mr-2" />
+                    )}
+                    <span className="hidden lg:inline">
+                      {isNavigating ? 'Switching...' : 'Preview'}
+                    </span>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Dashboard Canvas */}
         <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4">
-          <GridLayout
+          <ResponsiveGridLayout
             className="layout"
-            layout={Array.isArray(state.layout) ? state.layout : []}
-            cols={gridColumns}
+            layouts={state.layouts || generateResponsiveLayouts(state.layout)}
+            breakpoints={BREAKPOINTS}
+            cols={COLS}
             rowHeight={30}
             width={containerWidth}
             onLayoutChange={handleLayoutChange}
+            onBreakpointChange={handleBreakpointChange}
             onResizeStart={handleResizeStart}
             onResizeStop={handleResizeStop}
             draggableHandle=".drag-handle"
             compactType={null}
             preventCollision={true}
             allowOverlap={false}
+            margin={[10, 10]}
           >
             {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
               <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
@@ -1218,7 +1518,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <div className="p-4 h-full">{renderComponent(item.i)}</div>
               </div>
             ))}
-          </GridLayout>
+          </ResponsiveGridLayout>
         </div>
 
         {/* Chart Selector Modal */}
