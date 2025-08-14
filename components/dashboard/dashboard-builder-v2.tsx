@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useRouter } from 'next/navigation';
-import GridLayout from 'react-grid-layout';
+import GridLayout, { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -115,6 +115,62 @@ interface DashboardLayout {
   maxH?: number;
 }
 
+// Define responsive breakpoints and column configurations
+const BREAKPOINTS = {
+  lg: 1200,
+  md: 996,
+  sm: 768,
+  xs: 480,
+  xxs: 0,
+};
+
+const COLS = {
+  lg: 12,
+  md: 10,
+  sm: 6,
+  xs: 4,
+  xxs: 2,
+};
+
+// Screen size configurations for targeted design
+const SCREEN_SIZES = {
+  desktop: {
+    name: 'Desktop',
+    width: 1200,
+    height: 800,
+    cols: 12,
+    breakpoint: 'lg',
+  },
+  tablet: {
+    name: 'Tablet',
+    width: 768,
+    height: 1024,
+    cols: 6,
+    breakpoint: 'sm',
+  },
+  mobile: {
+    name: 'Mobile',
+    width: 375,
+    height: 667,
+    cols: 2,
+    breakpoint: 'xxs',
+  },
+  a4: {
+    name: 'A4 Print',
+    width: 794,
+    height: 1123,
+    cols: 8,
+    breakpoint: 'md',
+  },
+};
+
+type ScreenSizeKey = keyof typeof SCREEN_SIZES;
+
+// Type for responsive layouts
+type ResponsiveLayouts = {
+  [key: string]: DashboardLayout[];
+};
+
 interface DashboardComponent {
   id: string;
   type: DashboardComponentType;
@@ -123,6 +179,7 @@ interface DashboardComponent {
 
 interface DashboardState {
   layout: DashboardLayout[];
+  layouts?: ResponsiveLayouts;
   components: Record<string, DashboardComponent>;
   filters: DashboardFilterConfig[];
 }
@@ -145,6 +202,81 @@ interface DashboardBuilderV2Ref {
   cleanup: () => Promise<void>;
 }
 
+// Helper function to generate responsive layouts from base layout
+function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
+  const layouts: ResponsiveLayouts = {};
+
+  console.log('Generating responsive layouts for', layout.length, 'items');
+
+  // For each breakpoint, adjust the layout
+  Object.keys(COLS).forEach((breakpoint) => {
+    const cols = COLS[breakpoint as keyof typeof COLS];
+    console.log(`Generating layout for ${breakpoint} with ${cols} columns`);
+
+    // Sort items by their original position (top to bottom, left to right)
+    const sortedItems = [...layout].sort((a, b) => {
+      if (a.y === b.y) return a.x - b.x;
+      return a.y - b.y;
+    });
+
+    let currentY = 0;
+
+    layouts[breakpoint] = sortedItems.map((item, index) => {
+      let newW, newX, newY;
+
+      // For very small screens (mobile), stack everything vertically
+      if (breakpoint === 'xxs' || breakpoint === 'xs') {
+        newW = cols; // Use all available columns (full width)
+        newX = 0; // Always start at left edge
+        newY = currentY; // Stack vertically
+        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
+
+        console.log(
+          `Mobile layout for item ${item.i}: w=${newW}, x=${newX}, y=${newY}, cols=${cols}`
+        );
+      } else if (breakpoint === 'sm') {
+        // For tablets, try 2 columns or stack
+        const canFitTwo = cols >= 6;
+        if (canFitTwo && item.w <= cols / 2) {
+          newW = Math.floor(cols / 2); // Half width
+          newX = (index % 2) * newW; // Alternate left/right
+          newY = Math.floor(index / 2) * Math.max(item.h, 4); // Row positioning
+        } else {
+          newW = cols; // Full width
+          newX = 0;
+          newY = index * Math.max(item.h, 4); // Stack vertically
+        }
+      } else if (breakpoint === 'md') {
+        // Scale proportionally for medium screens
+        const scaleFactor = cols / 12;
+        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
+        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
+        newY = Math.max(0, Math.floor(item.y * scaleFactor));
+      } else {
+        // Large screens - keep original layout but ensure bounds
+        newW = Math.min(item.w, cols);
+        newX = Math.max(0, Math.min(item.x, cols - newW));
+        newY = Math.max(0, item.y);
+      }
+
+      const result = {
+        ...item,
+        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
+        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
+        y: Math.max(0, newY), // Ensure non-negative Y
+        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
+        maxW: cols, // Max width is all columns
+      };
+
+      console.log(`Item ${item.i} ${breakpoint}:`, result);
+      return result;
+    });
+  });
+
+  console.log('Generated responsive layouts:', layouts);
+  return layouts;
+}
+
 export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBuilderV2Props>(
   function DashboardBuilderV2(
     { dashboardId, initialData, isNewDashboard, onBack, onPreview, isNavigating },
@@ -157,6 +289,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       ? initialData.layout_config
       : [];
     const initialComponents = initialData?.components || {};
+
+    // Load responsive layouts if available, otherwise they'll be generated later
+    const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
     // Load filters from backend (without creating components - they're already in components)
     const initialFilters = Array.isArray(initialData?.filters)
@@ -176,15 +311,27 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const mergedComponents = initialComponents;
     const mergedLayout = initialLayout;
 
+    // Use saved responsive layouts if available, otherwise generate them
+    const initialLayouts = initialResponsiveLayouts || generateResponsiveLayouts(mergedLayout);
+
     // State management with undo/redo
     const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
       {
         layout: mergedLayout,
+        layouts: initialLayouts,
         components: mergedComponents,
         filters: initialFilters,
       },
       20
     );
+
+    // Get initial target screen size from initialData, default to desktop
+    const initialTargetScreenSize: ScreenSizeKey =
+      (initialData?.target_screen_size as ScreenSizeKey) || 'desktop';
+
+    // Target screen size state (separate from undo/redo state)
+    const [targetScreenSize, setTargetScreenSize] =
+      useState<ScreenSizeKey>(initialTargetScreenSize);
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
@@ -209,52 +356,44 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
-    const [gridColumns, setGridColumns] = useState(initialData?.grid_columns || 12);
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
-    const [containerWidth, setContainerWidth] = useState(1200);
+    const [containerWidth, setContainerWidth] = useState(
+      SCREEN_SIZES[targetScreenSize]?.width || 1200
+    );
 
-    // Ref for the canvas container to measure its width
+    // Ref for the canvas container
     const canvasRef = useRef<HTMLDivElement>(null);
+
+    // Get current screen size config
+    const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
 
     // Debounced state for auto-save (keep original 5-second delay for responsive auto-save)
     const debouncedState = useDebounce(state, 5000);
 
-    // Measure container width and update on resize
+    // Update container width when target screen size changes
     useEffect(() => {
-      let lastWidth = 0;
+      const newWidth = SCREEN_SIZES[targetScreenSize].width;
+      setContainerWidth(newWidth);
+      console.log('Container width updated to:', newWidth, 'for screen size:', targetScreenSize);
+    }, [targetScreenSize]);
 
-      const updateWidth = () => {
-        if (canvasRef.current) {
-          const rect = canvasRef.current.getBoundingClientRect();
-          const newWidth = Math.max(rect.width - 32, 800); // Subtract padding, minimum 800px
-
-          // Only update if width has changed significantly (prevent infinite loops)
-          if (Math.abs(newWidth - lastWidth) > 10) {
-            lastWidth = newWidth;
-            setContainerWidth(newWidth);
+    // Save target screen size changes (separate from auto-save to avoid conflicts)
+    useEffect(() => {
+      // Only save if this is not the initial render and we have a dashboard ID
+      if (dashboardId && targetScreenSize !== initialTargetScreenSize) {
+        const timeoutId = setTimeout(async () => {
+          try {
+            console.log('Saving target screen size change:', targetScreenSize);
+            await saveDashboard();
+          } catch (error) {
+            console.error('Error saving target screen size:', error);
           }
-        }
-      };
+        }, 500); // Longer delay to ensure it doesn't conflict with other saves
 
-      // Initial measurement with delay to ensure DOM is ready
-      const timer = setTimeout(updateWidth, 100);
-
-      // Update on window resize with debouncing
-      let resizeTimeout: NodeJS.Timeout;
-      const debouncedResize = () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(updateWidth, 150);
-      };
-
-      window.addEventListener('resize', debouncedResize);
-
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(resizeTimeout);
-        window.removeEventListener('resize', debouncedResize);
-      };
-    }, []);
+        return () => clearTimeout(timeoutId);
+      }
+    }, [targetScreenSize, dashboardId]); // Keep the dependency but add initial value check
 
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
@@ -459,7 +598,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         await apiPut(`/api/dashboards/${dashboardId}/`, {
           title,
           description,
-          grid_columns: gridColumns,
+          grid_columns: SCREEN_SIZES[targetScreenSize].cols,
+          target_screen_size: targetScreenSize,
           layout_config: state.layout, // This has filter positions
           components: state.components, // This has filter references (filterId)
           filters: backendFilters, // This has filter configurations
@@ -520,28 +660,36 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
     );
 
-    // Handle layout changes
-    const handleLayoutChange = (newLayout: GridLayout.Layout[]) => {
+    // Handle layout changes for responsive grid
+    const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
+      // Update both the current layout and all responsive layouts
       setState({
         ...state,
-        layout: newLayout,
+        layout: currentLayout,
+        layouts: allLayouts,
       });
+    };
+
+    // Handle breakpoint changes
+    const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
+    const handleBreakpointChange = (newBreakpoint: string) => {
+      setCurrentBreakpoint(newBreakpoint);
     };
 
     // Handle resize start
     const handleResizeStart = (
-      layout: GridLayout.Layout[],
-      oldItem: GridLayout.Layout,
-      newItem: GridLayout.Layout
+      layout: DashboardLayout[],
+      oldItem: DashboardLayout,
+      newItem: DashboardLayout
     ) => {
       setResizingItems(new Set([...resizingItems, newItem.i]));
     };
 
     // Handle resize stop
     const handleResizeStop = (
-      layout: GridLayout.Layout[],
-      oldItem: GridLayout.Layout,
-      newItem: GridLayout.Layout
+      layout: DashboardLayout[],
+      oldItem: DashboardLayout,
+      newItem: DashboardLayout
     ) => {
       const newResizingItems = new Set(resizingItems);
       newResizingItems.delete(newItem.i);
@@ -594,8 +742,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minH: 4,
         };
 
+        const newLayout = [...state.layout, newLayoutItem];
+        const newLayouts = generateResponsiveLayouts(newLayout);
+
         setState({
-          layout: [...state.layout, newLayoutItem],
+          layout: newLayout,
+          layouts: newLayouts,
           components: {
             ...state.components,
             [newComponent.id]: newComponent,
@@ -640,8 +792,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         minH: 2,
       };
 
+      const newLayout = [...state.layout, newLayoutItem];
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
       setState({
-        layout: [...state.layout, newLayoutItem],
+        layout: newLayout,
+        layouts: newLayouts,
         components: {
           ...state.components,
           [newComponent.id]: newComponent,
@@ -663,8 +819,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         newFilters = state.filters.filter((filter) => filter.id !== filterId);
       }
 
+      const newLayout = state.layout.filter((item) => item.i !== componentId);
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
       setState({
-        layout: state.layout.filter((item) => item.i !== componentId),
+        layout: newLayout,
+        layouts: newLayouts,
         components: newComponents,
         filters: newFilters,
       });
@@ -800,8 +960,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         };
 
         // Update local state
+        const newLayout = [...state.layout, newLayoutItem];
+        const newLayouts = generateResponsiveLayouts(newLayout);
+
         setState({
-          layout: [...state.layout, newLayoutItem],
+          layout: newLayout,
+          layouts: newLayouts,
           components: {
             ...state.components,
             [filterComponentId]: newComponent,
@@ -830,8 +994,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const newComponents = { ...state.components };
         delete newComponents[componentId];
 
+        const newLayout = state.layout.filter((item) => item.i !== componentId);
+        const newLayouts = generateResponsiveLayouts(newLayout);
+
         setState({
-          layout: state.layout.filter((item) => item.i !== componentId),
+          layout: newLayout,
+          layouts: newLayouts,
           components: newComponents,
           filters: state.filters.filter((filter) => filter.id !== filterId),
         });
@@ -877,7 +1045,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Find next available position for new component
     const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
       const layout = state.layout || [];
-      const maxCols = gridColumns;
+      const maxCols = currentScreenConfig.cols;
 
       // Create a grid to track occupied spaces
       const occupiedGrid: boolean[][] = [];
@@ -1017,208 +1185,449 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     return (
       <div className="dashboard-builder h-full flex flex-col">
-        {/* Merged Header with Title and Toolbar */}
-        <div className="border-b px-6 py-3 bg-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Back button */}
-              {onBack && (
-                <Button variant="ghost" size="sm" onClick={onBack}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-              )}
+        {/* Responsive Header with Title and Toolbar */}
+        <div className="border-b bg-white">
+          {/* Mobile Header */}
+          <div className="lg:hidden">
+            {/* Mobile Top Row - Title and Essential Actions */}
+            <div className="px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {onBack && (
+                  <Button variant="ghost" size="sm" onClick={onBack} className="p-1 flex-shrink-0">
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                )}
 
-              <div className="h-6 w-px bg-gray-300" />
-
-              {/* Title editing */}
-              {isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Dashboard title..."
-                    className="text-lg font-semibold"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                {isEditingTitle ? (
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Dashboard title..."
+                      className="text-sm font-semibold h-8 flex-1"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingTitle(false);
+                          saveDashboard();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="p-1 h-8 flex-shrink-0"
+                      onClick={() => {
                         setIsEditingTitle(false);
                         saveDashboard();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsEditingTitle(false);
-                      saveDashboard();
-                    }}
+                      }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
+                    onClick={() => setIsEditingTitle(true)}
                   >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  <h1 className="text-lg font-semibold">{title}</h1>
-                  <Edit2 className="w-4 h-4 text-gray-400" />
-                </div>
-              )}
+                    <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
+                      {title}
+                    </h1>
+                    <Edit2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  </div>
+                )}
+              </div>
 
-              <div className="h-6 w-px bg-gray-300" />
-
-              <Button onClick={() => setShowChartSelector(true)} size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Chart
-              </Button>
-
-              <Button onClick={addTextComponent} size="sm" variant="outline">
-                <Type className="w-4 h-4 mr-2" />
-                Add Text
-              </Button>
-
-              <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
-                <Filter className="w-4 h-4 mr-2" />
-                Add Filter
-              </Button>
-
-              <div className="ml-2 flex gap-1">
-                <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
-                  <Undo className="w-4 h-4" />
+              {/* Mobile Quick Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button onClick={saveDashboard} size="sm" variant="ghost" className="p-1.5">
+                  <Save className="w-4 h-4" />
                 </Button>
+                {onPreview && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onPreview}
+                    className="p-1.5"
+                    disabled={isNavigating}
+                  >
+                    {isNavigating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="ghost" className="p-1.5">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Choose the target screen size for your dashboard design
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="target-screen-mobile">Screen Size</Label>
+                          <select
+                            id="target-screen-mobile"
+                            value={targetScreenSize}
+                            onChange={(e) => {
+                              const newScreenSize = e.target.value as ScreenSizeKey;
+                              setTargetScreenSize(newScreenSize);
+                            }}
+                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
+                          >
+                            <option value="desktop">
+                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
+                            </option>
+                            <option value="tablet">
+                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
+                            </option>
+                            <option value="mobile">
+                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
+                            </option>
+                            <option value="a4">
+                              {SCREEN_SIZES.a4.name} ({SCREEN_SIZES.a4.width}px)
+                            </option>
+                          </select>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Canvas: {SCREEN_SIZES[targetScreenSize].width} ×{' '}
+                          {SCREEN_SIZES[targetScreenSize].height}px
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
 
-                <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
-                  <Redo className="w-4 h-4" />
+            {/* Mobile Bottom Row - Component Actions */}
+            <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
+              <Button
+                onClick={() => setShowChartSelector(true)}
+                size="sm"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Chart
+              </Button>
+              <Button
+                onClick={addTextComponent}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Type className="w-3 h-3 mr-1" />
+                Text
+              </Button>
+              <Button
+                onClick={() => setShowFilterModal(true)}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Filter className="w-3 h-3 mr-1" />
+                Filter
+              </Button>
+              <div className="flex gap-1 ml-auto flex-shrink-0">
+                <Button
+                  onClick={undo}
+                  disabled={!canUndo}
+                  size="sm"
+                  variant="ghost"
+                  className="p-1 h-8"
+                >
+                  <Undo className="w-3 h-3" />
+                </Button>
+                <Button
+                  onClick={redo}
+                  disabled={!canRedo}
+                  size="sm"
+                  variant="ghost"
+                  className="p-1 h-8"
+                >
+                  <Redo className="w-3 h-3" />
                 </Button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Lock Status */}
-              {isLocked ? (
-                <div className="flex items-center gap-1 text-sm text-green-600">
-                  <Lock className="w-4 h-4" />
-                  <span className="hidden lg:inline">Locked for editing</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-sm text-yellow-600">
-                  <Unlock className="w-4 h-4" />
-                  <span className="hidden lg:inline">Not locked</span>
-                </div>
-              )}
+            {/* Mobile Status Bar */}
+            {(isLocked || saveStatus !== 'idle') && (
+              <div className="px-4 pb-2 flex items-center justify-between text-xs">
+                {isLocked && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <Lock className="w-3 h-3" />
+                    <span>Locked</span>
+                  </div>
+                )}
+                {saveStatus === 'saving' && (
+                  <div className="flex items-center gap-1 text-gray-500">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Saving...</span>
+                  </div>
+                )}
+                {saveStatus === 'saved' && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <Check className="w-3 h-3" />
+                    <span>Saved</span>
+                  </div>
+                )}
+                {saveStatus === 'error' && (
+                  <div className="flex items-center gap-1 text-red-600">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>Error</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-              <div className="h-6 w-px bg-gray-300 mx-1" />
-
-              {/* Save Status Indicator */}
-              {saveStatus === 'saving' && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="hidden lg:inline">Saving...</span>
-                </div>
-              )}
-              {saveStatus === 'saved' && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <Check className="w-4 h-4" />
-                  <span className="hidden lg:inline">Saved</span>
-                </div>
-              )}
-              {saveStatus === 'error' && (
-                <div className="flex items-center gap-2 text-sm text-red-600">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="hidden lg:inline">{saveError || 'Save failed'}</span>
-                </div>
-              )}
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    <Settings className="w-4 h-4" />
+          {/* Desktop Header */}
+          <div className="hidden lg:block px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Back button */}
+                {onBack && (
+                  <Button variant="ghost" size="sm" onClick={onBack}>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium leading-none">Dashboard Settings</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Configure your dashboard layout
-                      </p>
-                    </div>
-                    <div className="grid gap-2">
-                      <div className="grid grid-cols-3 items-center gap-4">
-                        <Label htmlFor="grid-columns">Grid Columns</Label>
-                        <select
-                          id="grid-columns"
-                          value={gridColumns}
-                          onChange={(e) => {
-                            setGridColumns(Number(e.target.value));
-                            saveDashboard();
-                          }}
-                          className="col-span-2 px-3 py-2 border rounded-md"
-                        >
-                          <option value={12}>12 Columns</option>
-                          <option value={14}>14 Columns</option>
-                          <option value={16}>16 Columns</option>
-                        </select>
+                )}
+
+                <div className="h-6 w-px bg-gray-300" />
+
+                {/* Title editing */}
+                {isEditingTitle ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Dashboard title..."
+                      className="text-lg font-semibold"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingTitle(false);
+                          saveDashboard();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setIsEditingTitle(false);
+                        saveDashboard();
+                      }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
+                    onClick={() => setIsEditingTitle(true)}
+                  >
+                    <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
+                    <Edit2 className="w-4 h-4 text-gray-400" />
+                  </div>
+                )}
+
+                <div className="h-6 w-px bg-gray-300" />
+
+                <Button onClick={() => setShowChartSelector(true)} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Chart
+                </Button>
+
+                <Button onClick={addTextComponent} size="sm" variant="outline">
+                  <Type className="w-4 h-4 mr-2" />
+                  Add Text
+                </Button>
+
+                <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Add Filter
+                </Button>
+
+                <div className="ml-2 flex gap-1">
+                  <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
+                    <Undo className="w-4 h-4" />
+                  </Button>
+
+                  <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
+                    <Redo className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Lock Status */}
+                {isLocked ? (
+                  <div className="flex items-center gap-1 text-sm text-green-600">
+                    <Lock className="w-4 h-4" />
+                    <span className="hidden xl:inline">Locked for editing</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-sm text-yellow-600">
+                    <Unlock className="w-4 h-4" />
+                    <span className="hidden xl:inline">Not locked</span>
+                  </div>
+                )}
+
+                <div className="h-6 w-px bg-gray-300 mx-1" />
+
+                {/* Save Status Indicator */}
+                {saveStatus === 'saving' && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="hidden xl:inline">Saving...</span>
+                  </div>
+                )}
+                {saveStatus === 'saved' && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="w-4 h-4" />
+                    <span className="hidden xl:inline">Saved</span>
+                  </div>
+                )}
+                {saveStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="hidden xl:inline">{saveError || 'Save failed'}</span>
+                  </div>
+                )}
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Choose the target screen size for your dashboard design
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="grid grid-cols-3 items-center gap-4">
+                          <Label htmlFor="target-screen-desktop">Screen Size</Label>
+                          <select
+                            id="target-screen-desktop"
+                            value={targetScreenSize}
+                            onChange={(e) => {
+                              const newScreenSize = e.target.value as ScreenSizeKey;
+                              setTargetScreenSize(newScreenSize);
+                            }}
+                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
+                          >
+                            <option value="desktop">
+                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
+                            </option>
+                            <option value="tablet">
+                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
+                            </option>
+                            <option value="mobile">
+                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
+                            </option>
+                            <option value="a4">
+                              {SCREEN_SIZES.a4.name} ({SCREEN_SIZES.a4.width}px)
+                            </option>
+                          </select>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Canvas will resize to {SCREEN_SIZES[targetScreenSize].width} ×{' '}
+                          {SCREEN_SIZES[targetScreenSize].height}px
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
 
-              <Button onClick={saveDashboard} size="sm" variant="outline">
-                <Save className="w-4 h-4 mr-2" />
-                Save
-              </Button>
-
-              {/* Preview button */}
-              {onPreview && (
-                <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
-                  {isNavigating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Eye className="w-4 h-4 mr-2" />
-                  )}
-                  {isNavigating ? 'Switching...' : 'Preview'}
+                <Button onClick={saveDashboard} size="sm" variant="outline">
+                  <Save className="w-4 h-4 mr-2" />
+                  <span className="hidden lg:inline">Save</span>
                 </Button>
-              )}
+
+                {/* Preview button */}
+                {onPreview && (
+                  <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
+                    {isNavigating ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Eye className="w-4 h-4 mr-2" />
+                    )}
+                    <span className="hidden lg:inline">
+                      {isNavigating ? 'Switching...' : 'Preview'}
+                    </span>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Dashboard Canvas */}
-        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4">
-          <GridLayout
-            className="layout"
-            layout={Array.isArray(state.layout) ? state.layout : []}
-            cols={gridColumns}
-            rowHeight={30}
-            width={containerWidth}
-            onLayoutChange={handleLayoutChange}
-            onResizeStart={handleResizeStart}
-            onResizeStop={handleResizeStop}
-            draggableHandle=".drag-handle"
-            compactType={null}
-            preventCollision={true}
-            allowOverlap={false}
+        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0">
+          {/* Canvas container with exact screen dimensions */}
+          <div
+            className="mx-auto bg-white shadow-lg rounded-lg border"
+            style={{
+              width: currentScreenConfig.width,
+              minHeight: Math.max(currentScreenConfig.height, 400),
+              maxWidth: '100%',
+              position: 'relative',
+            }}
           >
-            {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-              <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
-                  <Grip className="w-4 h-4 text-gray-400" />
+            {/* Screen size indicator */}
+            <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
+              {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height})
+            </div>
+
+            <GridLayout
+              className="layout"
+              layout={state.layout}
+              cols={currentScreenConfig.cols}
+              rowHeight={30}
+              width={containerWidth}
+              onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+              onResizeStart={handleResizeStart}
+              onResizeStop={handleResizeStop}
+              draggableHandle=".drag-handle"
+              compactType={null}
+              preventCollision={false}
+              allowOverlap={false}
+              margin={[4, 4]}
+              containerPadding={[4, 4]}
+              autoSize={true}
+              verticalCompact={false}
+            >
+              {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
+                <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
+                  <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
+                    <Grip className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <button
+                    onClick={() => removeComponent(item.i)}
+                    className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <div className="p-4 h-full">{renderComponent(item.i)}</div>
                 </div>
-                <button
-                  onClick={() => removeComponent(item.i)}
-                  className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
-                >
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-                <div className="p-4 h-full">{renderComponent(item.i)}</div>
-              </div>
-            ))}
-          </GridLayout>
+              ))}
+            </GridLayout>
+          </div>
         </div>
 
         {/* Chart Selector Modal */}

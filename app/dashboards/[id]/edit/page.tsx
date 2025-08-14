@@ -92,6 +92,7 @@ export default function EditDashboardPage() {
     title: 'Sales Dashboard',
     description: 'Monthly sales performance metrics',
     grid_columns: 12,
+    target_screen_size: 'desktop', // Add target_screen_size to mock data
     layout_config: [
       { i: 'chart-1', x: 0, y: 0, w: 6, h: 4 },
       { i: 'text-1', x: 6, y: 0, w: 6, h: 2 },
