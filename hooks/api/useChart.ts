@@ -154,7 +154,7 @@ export interface Region {
 export interface RegionGeoJSON {
   id: number;
   region_id: number;
-  version_name: string;
+  name: string;
   description: string | null;
   is_default: boolean;
   properties_key: string;

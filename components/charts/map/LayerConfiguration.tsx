@@ -277,7 +277,7 @@ function LayerCard({
                   {geojsons?.map((geojson: any) => (
                     <SelectItem key={geojson.id} value={geojson.id.toString()}>
                       <div className="flex items-center justify-between w-full">
-                        <span>{geojson.version_name}</span>
+                        <span>{geojson.name}</span>
                         {geojson.is_default && (
                           <Badge variant="outline" className="ml-2">
                             Default

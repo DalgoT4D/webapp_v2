@@ -639,7 +639,7 @@ function LayerCard({
                 );
                 onUpdate({
                   geojson_id: parseInt(value),
-                  geojson_name: selectedGeojson?.version_name,
+                  geojson_name: selectedGeojson?.name,
                 });
               }}
             >
@@ -650,7 +650,7 @@ function LayerCard({
                 {geojsons?.map((geojson: any) => (
                   <SelectItem key={geojson.id} value={geojson.id.toString()}>
                     <div className="flex items-center justify-between w-full">
-                      <span>{geojson.version_name}</span>
+                      <span>{geojson.name}</span>
                       {geojson.is_default && (
                         <Badge variant="outline" className="ml-2">
                           Default
