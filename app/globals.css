@@ -7,6 +7,8 @@
 .react-grid-layout {
   position: relative;
   transition: height 200ms ease;
+  min-height: min-content;
+  width: 100% !important;
 }
 
 .react-grid-item {
@@ -59,9 +61,27 @@
 
 /* Mobile Responsive Adjustments */
 @media (max-width: 768px) {
+  .react-grid-layout {
+    /* Ensure grid doesn't overflow on mobile */
+    overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
   .react-grid-item {
     /* Ensure items are properly sized on mobile */
     font-size: 14px;
+    box-sizing: border-box !important;
+    /* Ensure items don't overflow the container */
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  
+  .dashboard-item {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
   
   .dashboard-item .drag-handle {
@@ -73,7 +93,9 @@
   .dashboard-item canvas,
   .dashboard-item svg {
     max-width: 100% !important;
+    width: 100% !important;
     height: auto !important;
+    box-sizing: border-box !important;
   }
   
   /* Ensure text content is readable */
@@ -82,6 +104,8 @@
   .dashboard-item div {
     word-break: break-word;
     overflow-wrap: break-word;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
   
   /* Adjust padding for mobile */
@@ -89,11 +113,49 @@
     padding: 8px !important;
   }
   
-  /* Hide non-essential elements on very small screens */
+  /* Mobile specific grid fixes */
   @media (max-width: 480px) {
+    .react-grid-layout {
+      /* Force single column on very small screens */
+      min-width: 100% !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+    
+    .react-grid-item {
+      /* Ensure full width on mobile and prevent overflow */
+      width: 100% !important;
+      max-width: 100% !important;
+      position: relative !important;
+      transform: none !important;
+      left: 0 !important;
+      right: 0 !important;
+      margin-bottom: 8px !important;
+      box-sizing: border-box !important;
+    }
+    
+    .dashboard-item {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+    }
+    
     .dashboard-item .text-xs,
     .dashboard-item .text-sm {
       font-size: 12px !important;
+    }
+    
+    /* Force all chart containers to respect mobile boundaries */
+    .dashboard-item .echarts-for-react,
+    .dashboard-item .recharts-responsive-container,
+    .dashboard-item .nivo-container,
+    .dashboard-item canvas,
+    .dashboard-item svg {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
     }
   }
 }

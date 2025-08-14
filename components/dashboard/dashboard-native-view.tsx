@@ -57,6 +57,38 @@ const BREAKPOINTS = {
   xxs: 0,
 };
 
+// Screen size configurations (same as builder)
+const SCREEN_SIZES = {
+  desktop: {
+    name: 'Desktop',
+    width: 1200,
+    height: 800,
+    cols: 12,
+    breakpoint: 'lg',
+  },
+  tablet: {
+    name: 'Tablet',
+    width: 768,
+    height: 1024,
+    cols: 6,
+    breakpoint: 'sm',
+  },
+  mobile: {
+    name: 'Mobile',
+    width: 375,
+    height: 667,
+    cols: 2,
+    breakpoint: 'xxs',
+  },
+  a4: {
+    name: 'A4 Print',
+    width: 794,
+    height: 1123,
+    cols: 8,
+    breakpoint: 'md',
+  },
+};
+
 const COLS = {
   lg: 12,
   md: 10,
@@ -65,47 +97,91 @@ const COLS = {
   xxs: 2,
 };
 
+type ScreenSizeKey = keyof typeof SCREEN_SIZES;
+
+// Get current viewport screen size category
+function getCurrentScreenSize(): ScreenSizeKey {
+  if (typeof window === 'undefined') return 'desktop';
+
+  const width = window.innerWidth;
+  if (width >= 1200) return 'desktop';
+  if (width >= 768) return 'tablet';
+  if (width >= 480) return 'tablet'; // Large mobile treated as tablet
+  return 'mobile';
+}
+
 // Helper function to generate responsive layouts from base layout
 function generateResponsiveLayouts(layout: any[]): any {
   const layouts: any = {};
 
+  console.log('Generating responsive layouts for preview with', layout.length, 'items');
+
   // For each breakpoint, adjust the layout
   Object.keys(COLS).forEach((breakpoint) => {
     const cols = COLS[breakpoint as keyof typeof COLS];
+    console.log(`Generating preview layout for ${breakpoint} with ${cols} columns`);
 
-    layouts[breakpoint] = layout.map((item) => {
-      // Calculate responsive dimensions based on breakpoint
-      let newW = item.w;
-      let newX = item.x;
+    // Sort items by their original position (top to bottom, left to right)
+    const sortedItems = [...layout].sort((a, b) => {
+      if (a.y === b.y) return a.x - b.x;
+      return a.y - b.y;
+    });
 
-      // For smaller screens, make items wider and stack them
-      if (breakpoint === 'xxs') {
-        newW = 2; // Full width on mobile
-        newX = 0; // Stack vertically
-      } else if (breakpoint === 'xs') {
-        newW = Math.min(4, item.w * 2); // Double width or max
-        newX = 0; // Stack vertically
+    let currentY = 0;
+
+    layouts[breakpoint] = sortedItems.map((item, index) => {
+      let newW, newX, newY;
+
+      // For very small screens (mobile), stack everything vertically
+      if (breakpoint === 'xxs' || breakpoint === 'xs') {
+        newW = cols; // Use all available columns (full width)
+        newX = 0; // Always start at left edge
+        newY = currentY; // Stack vertically
+        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
+
+        console.log(
+          `Mobile preview layout for item ${item.i}: w=${newW}, x=${newX}, y=${newY}, cols=${cols}`
+        );
       } else if (breakpoint === 'sm') {
-        newW = Math.min(6, Math.ceil(item.w * 1.5)); // 1.5x width
-        newX = Math.min(item.x, cols - newW); // Prevent overflow
+        // For tablets, try 2 columns or stack
+        const canFitTwo = cols >= 6;
+        if (canFitTwo && item.w <= cols / 2) {
+          newW = Math.floor(cols / 2); // Half width
+          newX = (index % 2) * newW; // Alternate left/right
+          newY = Math.floor(index / 2) * Math.max(item.h, 4); // Row positioning
+        } else {
+          newW = cols; // Full width
+          newX = 0;
+          newY = index * Math.max(item.h, 4); // Stack vertically
+        }
       } else if (breakpoint === 'md') {
         // Scale proportionally for medium screens
         const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.floor(item.w * scaleFactor));
-        newX = Math.min(Math.floor(item.x * scaleFactor), cols - newW);
+        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
+        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
+        newY = Math.max(0, Math.floor(item.y * scaleFactor));
+      } else {
+        // Large screens - keep original layout but ensure bounds
+        newW = Math.min(item.w, cols);
+        newX = Math.max(0, Math.min(item.x, cols - newW));
+        newY = Math.max(0, item.y);
       }
 
-      return {
+      const result = {
         ...item,
-        w: newW,
-        x: newX,
-        // Maintain minimum dimensions for usability
-        minW: breakpoint === 'xxs' ? 2 : breakpoint === 'xs' ? 2 : item.minW || 2,
-        maxW: cols,
+        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
+        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
+        y: Math.max(0, newY), // Ensure non-negative Y
+        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
+        maxW: cols, // Max width is all columns
       };
+
+      console.log(`Preview item ${item.i} ${breakpoint}:`, result);
+      return result;
     });
   });
 
+  console.log('Generated preview responsive layouts:', layouts);
   return layouts;
 }
 
@@ -194,41 +270,46 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   // Check if dashboard is locked by another user
   const isLockedByOther = isLocked && lockedBy && lockedBy !== currentUser?.email;
 
-  // Measure container width and update on resize (same logic as edit mode)
+  // Get target screen size and current screen size
+  const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
+  const [currentScreenSize, setCurrentScreenSize] = useState<ScreenSizeKey>('desktop');
+
+  // Check if current screen matches target screen size
+  const screenSizeMatches = currentScreenSize === targetScreenSize;
+
+  // Update current screen size on resize
   useEffect(() => {
-    let lastWidth = 0;
-
-    const updateWidth = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const newWidth = Math.max(rect.width - 32, 800); // Subtract padding for margins, minimum 800px
-
-        // Only update if width has changed significantly (prevent infinite loops)
-        if (Math.abs(newWidth - lastWidth) > 10) {
-          lastWidth = newWidth;
-          setContainerWidth(newWidth);
-        }
-      }
+    const updateScreenSize = () => {
+      const newScreenSize = getCurrentScreenSize();
+      setCurrentScreenSize(newScreenSize);
     };
 
-    // Initial measurement with delay to ensure DOM is ready
-    const timer = setTimeout(updateWidth, 100);
+    // Initial measurement
+    updateScreenSize();
 
     // Update on window resize with debouncing
     let resizeTimeout: NodeJS.Timeout;
     const debouncedResize = () => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(updateWidth, 150);
+      resizeTimeout = setTimeout(updateScreenSize, 150);
     };
 
     window.addEventListener('resize', debouncedResize);
 
     return () => {
-      clearTimeout(timer);
       clearTimeout(resizeTimeout);
       window.removeEventListener('resize', debouncedResize);
     };
   }, []);
+
+  // Set container width based on current viewport for responsive preview
+  useEffect(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const newWidth = Math.max(rect.width - 32, 800);
+      setContainerWidth(newWidth);
+    }
+  }, [currentScreenSize]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
@@ -586,9 +667,20 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             </Button>
             {canEdit && !isLockedByOther && (
               <>
-                <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
+                <Button
+                  onClick={screenSizeMatches ? handleEdit : undefined}
+                  size="sm"
+                  className="flex-shrink-0 h-8 text-xs"
+                  variant={screenSizeMatches ? 'default' : 'outline'}
+                  disabled={!screenSizeMatches}
+                  title={
+                    !screenSizeMatches
+                      ? `This dashboard was designed for ${SCREEN_SIZES[targetScreenSize].name} (${SCREEN_SIZES[targetScreenSize].width}px). Switch to ${SCREEN_SIZES[targetScreenSize].name} screen size to edit.`
+                      : undefined
+                  }
+                >
                   <Edit className="w-3 h-3 mr-1" />
-                  Edit
+                  {screenSizeMatches ? 'Edit' : 'Edit*'}
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -713,9 +805,19 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
               {canEdit && !isLockedByOther && (
                 <>
-                  <Button onClick={handleEdit} size="sm">
+                  <Button
+                    onClick={screenSizeMatches ? handleEdit : undefined}
+                    size="sm"
+                    variant={screenSizeMatches ? 'default' : 'outline'}
+                    disabled={!screenSizeMatches}
+                    title={
+                      !screenSizeMatches
+                        ? `This dashboard was designed for ${SCREEN_SIZES[targetScreenSize].name} (${SCREEN_SIZES[targetScreenSize].width}px). Switch to ${SCREEN_SIZES[targetScreenSize].name} screen size to edit.`
+                        : undefined
+                    }
+                  >
                     <Edit className="w-4 h-4 mr-2" />
-                    Edit Dashboard
+                    {screenSizeMatches ? 'Edit Dashboard' : 'Edit Dashboard*'}
                   </Button>
 
                   <AlertDialog>
@@ -753,8 +855,25 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
         </div>
       </div>
 
+      {/* Screen Size Mismatch Warning */}
+      {!screenSizeMatches && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mx-4 mt-2">
+          <div className="flex items-center">
+            <div className="ml-3">
+              <p className="text-sm text-amber-800">
+                <strong>Screen Size Notice:</strong> This dashboard was designed for{' '}
+                {SCREEN_SIZES[targetScreenSize].name} screens (
+                {SCREEN_SIZES[targetScreenSize].width}px). You're currently viewing on{' '}
+                {SCREEN_SIZES[currentScreenSize].name}. The layout may not appear as intended.
+                {canEdit && 'Editing is disabled until you switch to the target screen size.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Dashboard Content */}
-      <div ref={containerRef} className="flex-1 overflow-auto p-4">
+      <div ref={containerRef} className="flex-1 overflow-auto p-4 min-w-0">
         <div className="w-full">
           <ResponsiveGridLayout
             className="dashboard-grid"
@@ -770,8 +889,19 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             isResizable={false}
             compactType={null}
             preventCollision={false}
-            margin={[10, 10]}
-            onBreakpointChange={(newBreakpoint: string) => setCurrentBreakpoint(newBreakpoint)}
+            margin={[4, 4]}
+            containerPadding={[4, 4]}
+            autoSize={true}
+            verticalCompact={false}
+            onBreakpointChange={(newBreakpoint: string) => {
+              console.log(
+                'Preview breakpoint changed to:',
+                newBreakpoint,
+                'Container width:',
+                containerWidth
+              );
+              setCurrentBreakpoint(newBreakpoint);
+            }}
           >
             {(dashboard.layout_config || []).map((layoutItem: any) => (
               <div key={layoutItem.i} className="dashboard-item">

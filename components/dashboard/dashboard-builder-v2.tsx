@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useRouter } from 'next/navigation';
-import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import GridLayout, { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -132,6 +132,40 @@ const COLS = {
   xxs: 2,
 };
 
+// Screen size configurations for targeted design
+const SCREEN_SIZES = {
+  desktop: {
+    name: 'Desktop',
+    width: 1200,
+    height: 800,
+    cols: 12,
+    breakpoint: 'lg',
+  },
+  tablet: {
+    name: 'Tablet',
+    width: 768,
+    height: 1024,
+    cols: 6,
+    breakpoint: 'sm',
+  },
+  mobile: {
+    name: 'Mobile',
+    width: 375,
+    height: 667,
+    cols: 2,
+    breakpoint: 'xxs',
+  },
+  a4: {
+    name: 'A4 Print',
+    width: 794,
+    height: 1123,
+    cols: 8,
+    breakpoint: 'md',
+  },
+};
+
+type ScreenSizeKey = keyof typeof SCREEN_SIZES;
+
 // Type for responsive layouts
 type ResponsiveLayouts = {
   [key: string]: DashboardLayout[];
@@ -172,43 +206,74 @@ interface DashboardBuilderV2Ref {
 function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
   const layouts: ResponsiveLayouts = {};
 
+  console.log('Generating responsive layouts for', layout.length, 'items');
+
   // For each breakpoint, adjust the layout
   Object.keys(COLS).forEach((breakpoint) => {
     const cols = COLS[breakpoint as keyof typeof COLS];
+    console.log(`Generating layout for ${breakpoint} with ${cols} columns`);
 
-    layouts[breakpoint] = layout.map((item) => {
-      // Calculate responsive dimensions based on breakpoint
-      let newW = item.w;
-      let newX = item.x;
+    // Sort items by their original position (top to bottom, left to right)
+    const sortedItems = [...layout].sort((a, b) => {
+      if (a.y === b.y) return a.x - b.x;
+      return a.y - b.y;
+    });
 
-      // For smaller screens, make items wider and stack them
-      if (breakpoint === 'xxs') {
-        newW = 2; // Full width on mobile
-        newX = 0; // Stack vertically
-      } else if (breakpoint === 'xs') {
-        newW = Math.min(4, item.w * 2); // Double width or max
-        newX = 0; // Stack vertically
+    let currentY = 0;
+
+    layouts[breakpoint] = sortedItems.map((item, index) => {
+      let newW, newX, newY;
+
+      // For very small screens (mobile), stack everything vertically
+      if (breakpoint === 'xxs' || breakpoint === 'xs') {
+        newW = cols; // Use all available columns (full width)
+        newX = 0; // Always start at left edge
+        newY = currentY; // Stack vertically
+        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
+
+        console.log(
+          `Mobile layout for item ${item.i}: w=${newW}, x=${newX}, y=${newY}, cols=${cols}`
+        );
       } else if (breakpoint === 'sm') {
-        newW = Math.min(6, Math.ceil(item.w * 1.5)); // 1.5x width
-        newX = Math.min(item.x, cols - newW); // Prevent overflow
+        // For tablets, try 2 columns or stack
+        const canFitTwo = cols >= 6;
+        if (canFitTwo && item.w <= cols / 2) {
+          newW = Math.floor(cols / 2); // Half width
+          newX = (index % 2) * newW; // Alternate left/right
+          newY = Math.floor(index / 2) * Math.max(item.h, 4); // Row positioning
+        } else {
+          newW = cols; // Full width
+          newX = 0;
+          newY = index * Math.max(item.h, 4); // Stack vertically
+        }
       } else if (breakpoint === 'md') {
         // Scale proportionally for medium screens
         const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.floor(item.w * scaleFactor));
-        newX = Math.min(Math.floor(item.x * scaleFactor), cols - newW);
+        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
+        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
+        newY = Math.max(0, Math.floor(item.y * scaleFactor));
+      } else {
+        // Large screens - keep original layout but ensure bounds
+        newW = Math.min(item.w, cols);
+        newX = Math.max(0, Math.min(item.x, cols - newW));
+        newY = Math.max(0, item.y);
       }
 
-      return {
+      const result = {
         ...item,
-        w: newW,
-        x: newX,
-        // Maintain minimum dimensions for usability
-        minW: breakpoint === 'xxs' ? 2 : breakpoint === 'xs' ? 2 : item.minW || 2,
-        maxW: cols,
+        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
+        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
+        y: Math.max(0, newY), // Ensure non-negative Y
+        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
+        maxW: cols, // Max width is all columns
       };
+
+      console.log(`Item ${item.i} ${breakpoint}:`, result);
+      return result;
     });
   });
 
+  console.log('Generated responsive layouts:', layouts);
   return layouts;
 }
 
@@ -260,6 +325,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       20
     );
 
+    // Get initial target screen size from initialData, default to desktop
+    const initialTargetScreenSize: ScreenSizeKey =
+      (initialData?.target_screen_size as ScreenSizeKey) || 'desktop';
+
+    // Target screen size state (separate from undo/redo state)
+    const [targetScreenSize, setTargetScreenSize] =
+      useState<ScreenSizeKey>(initialTargetScreenSize);
+
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
     const [showFilterModal, setShowFilterModal] = useState(false);
@@ -283,52 +356,44 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
-    const [gridColumns, setGridColumns] = useState(initialData?.grid_columns || 12);
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
-    const [containerWidth, setContainerWidth] = useState(1200);
+    const [containerWidth, setContainerWidth] = useState(
+      SCREEN_SIZES[targetScreenSize]?.width || 1200
+    );
 
-    // Ref for the canvas container to measure its width
+    // Ref for the canvas container
     const canvasRef = useRef<HTMLDivElement>(null);
+
+    // Get current screen size config
+    const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
 
     // Debounced state for auto-save (keep original 5-second delay for responsive auto-save)
     const debouncedState = useDebounce(state, 5000);
 
-    // Measure container width and update on resize
+    // Update container width when target screen size changes
     useEffect(() => {
-      let lastWidth = 0;
+      const newWidth = SCREEN_SIZES[targetScreenSize].width;
+      setContainerWidth(newWidth);
+      console.log('Container width updated to:', newWidth, 'for screen size:', targetScreenSize);
+    }, [targetScreenSize]);
 
-      const updateWidth = () => {
-        if (canvasRef.current) {
-          const rect = canvasRef.current.getBoundingClientRect();
-          const newWidth = Math.max(rect.width - 32, 800); // Subtract padding, minimum 800px
-
-          // Only update if width has changed significantly (prevent infinite loops)
-          if (Math.abs(newWidth - lastWidth) > 10) {
-            lastWidth = newWidth;
-            setContainerWidth(newWidth);
+    // Save target screen size changes (separate from auto-save to avoid conflicts)
+    useEffect(() => {
+      // Only save if this is not the initial render and we have a dashboard ID
+      if (dashboardId && targetScreenSize !== initialTargetScreenSize) {
+        const timeoutId = setTimeout(async () => {
+          try {
+            console.log('Saving target screen size change:', targetScreenSize);
+            await saveDashboard();
+          } catch (error) {
+            console.error('Error saving target screen size:', error);
           }
-        }
-      };
+        }, 500); // Longer delay to ensure it doesn't conflict with other saves
 
-      // Initial measurement with delay to ensure DOM is ready
-      const timer = setTimeout(updateWidth, 100);
-
-      // Update on window resize with debouncing
-      let resizeTimeout: NodeJS.Timeout;
-      const debouncedResize = () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(updateWidth, 150);
-      };
-
-      window.addEventListener('resize', debouncedResize);
-
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(resizeTimeout);
-        window.removeEventListener('resize', debouncedResize);
-      };
-    }, []);
+        return () => clearTimeout(timeoutId);
+      }
+    }, [targetScreenSize, dashboardId]); // Keep the dependency but add initial value check
 
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
@@ -533,7 +598,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         await apiPut(`/api/dashboards/${dashboardId}/`, {
           title,
           description,
-          grid_columns: gridColumns,
+          grid_columns: SCREEN_SIZES[targetScreenSize].cols,
+          target_screen_size: targetScreenSize,
           layout_config: state.layout, // This has filter positions
           components: state.components, // This has filter references (filterId)
           filters: backendFilters, // This has filter configurations
@@ -979,7 +1045,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Find next available position for new component
     const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
       const layout = state.layout || [];
-      const maxCols = gridColumns;
+      const maxCols = currentScreenConfig.cols;
 
       // Create a grid to track occupied spaces
       const occupiedGrid: boolean[][] = [];
@@ -1203,25 +1269,38 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       <div className="space-y-2">
                         <h4 className="font-medium leading-none">Dashboard Settings</h4>
                         <p className="text-sm text-muted-foreground">
-                          Configure your dashboard layout
+                          Choose the target screen size for your dashboard design
                         </p>
                       </div>
                       <div className="grid gap-2">
                         <div className="grid grid-cols-3 items-center gap-4">
-                          <Label htmlFor="grid-columns">Grid Columns</Label>
+                          <Label htmlFor="target-screen-mobile">Screen Size</Label>
                           <select
-                            id="grid-columns"
-                            value={gridColumns}
+                            id="target-screen-mobile"
+                            value={targetScreenSize}
                             onChange={(e) => {
-                              setGridColumns(Number(e.target.value));
-                              saveDashboard();
+                              const newScreenSize = e.target.value as ScreenSizeKey;
+                              setTargetScreenSize(newScreenSize);
                             }}
-                            className="col-span-2 px-3 py-2 border rounded-md"
+                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
                           >
-                            <option value={12}>12 Columns</option>
-                            <option value={14}>14 Columns</option>
-                            <option value={16}>16 Columns</option>
+                            <option value="desktop">
+                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
+                            </option>
+                            <option value="tablet">
+                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
+                            </option>
+                            <option value="mobile">
+                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
+                            </option>
+                            <option value="a4">
+                              {SCREEN_SIZES.a4.name} ({SCREEN_SIZES.a4.width}px)
+                            </option>
                           </select>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Canvas: {SCREEN_SIZES[targetScreenSize].width} ×{' '}
+                          {SCREEN_SIZES[targetScreenSize].height}px
                         </div>
                       </div>
                     </div>
@@ -1437,25 +1516,38 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       <div className="space-y-2">
                         <h4 className="font-medium leading-none">Dashboard Settings</h4>
                         <p className="text-sm text-muted-foreground">
-                          Configure your dashboard layout
+                          Choose the target screen size for your dashboard design
                         </p>
                       </div>
                       <div className="grid gap-2">
                         <div className="grid grid-cols-3 items-center gap-4">
-                          <Label htmlFor="grid-columns">Grid Columns</Label>
+                          <Label htmlFor="target-screen-desktop">Screen Size</Label>
                           <select
-                            id="grid-columns"
-                            value={gridColumns}
+                            id="target-screen-desktop"
+                            value={targetScreenSize}
                             onChange={(e) => {
-                              setGridColumns(Number(e.target.value));
-                              saveDashboard();
+                              const newScreenSize = e.target.value as ScreenSizeKey;
+                              setTargetScreenSize(newScreenSize);
                             }}
-                            className="col-span-2 px-3 py-2 border rounded-md"
+                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
                           >
-                            <option value={12}>12 Columns</option>
-                            <option value={14}>14 Columns</option>
-                            <option value={16}>16 Columns</option>
+                            <option value="desktop">
+                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
+                            </option>
+                            <option value="tablet">
+                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
+                            </option>
+                            <option value="mobile">
+                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
+                            </option>
+                            <option value="a4">
+                              {SCREEN_SIZES.a4.name} ({SCREEN_SIZES.a4.width}px)
+                            </option>
                           </select>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Canvas will resize to {SCREEN_SIZES[targetScreenSize].width} ×{' '}
+                          {SCREEN_SIZES[targetScreenSize].height}px
                         </div>
                       </div>
                     </div>
@@ -1486,39 +1578,56 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         </div>
 
         {/* Dashboard Canvas */}
-        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4">
-          <ResponsiveGridLayout
-            className="layout"
-            layouts={state.layouts || generateResponsiveLayouts(state.layout)}
-            breakpoints={BREAKPOINTS}
-            cols={COLS}
-            rowHeight={30}
-            width={containerWidth}
-            onLayoutChange={handleLayoutChange}
-            onBreakpointChange={handleBreakpointChange}
-            onResizeStart={handleResizeStart}
-            onResizeStop={handleResizeStop}
-            draggableHandle=".drag-handle"
-            compactType={null}
-            preventCollision={true}
-            allowOverlap={false}
-            margin={[10, 10]}
+        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0">
+          {/* Canvas container with exact screen dimensions */}
+          <div
+            className="mx-auto bg-white shadow-lg rounded-lg border"
+            style={{
+              width: currentScreenConfig.width,
+              minHeight: Math.max(currentScreenConfig.height, 400),
+              maxWidth: '100%',
+              position: 'relative',
+            }}
           >
-            {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-              <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
-                  <Grip className="w-4 h-4 text-gray-400" />
+            {/* Screen size indicator */}
+            <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
+              {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height})
+            </div>
+
+            <GridLayout
+              className="layout"
+              layout={state.layout}
+              cols={currentScreenConfig.cols}
+              rowHeight={30}
+              width={containerWidth}
+              onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+              onResizeStart={handleResizeStart}
+              onResizeStop={handleResizeStop}
+              draggableHandle=".drag-handle"
+              compactType={null}
+              preventCollision={false}
+              allowOverlap={false}
+              margin={[4, 4]}
+              containerPadding={[4, 4]}
+              autoSize={true}
+              verticalCompact={false}
+            >
+              {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
+                <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
+                  <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
+                    <Grip className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <button
+                    onClick={() => removeComponent(item.i)}
+                    className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <div className="p-4 h-full">{renderComponent(item.i)}</div>
                 </div>
-                <button
-                  onClick={() => removeComponent(item.i)}
-                  className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
-                >
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-                <div className="p-4 h-full">{renderComponent(item.i)}</div>
-              </div>
-            ))}
-          </ResponsiveGridLayout>
+              ))}
+            </GridLayout>
+          </div>
         </div>
 
         {/* Chart Selector Modal */}

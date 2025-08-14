@@ -7,6 +7,7 @@ export interface Dashboard {
   description?: string;
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
+  target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
   layout_config: any;
   responsive_layouts?: any; // Optional responsive layouts for different breakpoints
   components: any;
