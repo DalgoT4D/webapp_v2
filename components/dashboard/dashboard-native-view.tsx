@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import {
+  Responsive as ResponsiveGridLayout,
+  WidthProvider as GridLayoutWidthProvider,
+} from 'react-grid-layout';
+const GridLayout = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +24,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   ArrowLeft,
   Edit,
@@ -110,11 +121,17 @@ function getCurrentScreenSize(): ScreenSizeKey {
   return 'mobile';
 }
 
-// Helper function to generate responsive layouts from base layout
-function generateResponsiveLayouts(layout: any[]): any {
+// Helper function to generate responsive layouts with preview screen size focus
+function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: ScreenSizeKey): any {
   const layouts: any = {};
 
-  console.log('Generating responsive layouts for preview with', layout.length, 'items');
+  console.log(
+    'Generating responsive layouts for preview with',
+    layout.length,
+    'items',
+    'focused on',
+    previewScreenSize
+  );
 
   // For each breakpoint, adjust the layout
   Object.keys(COLS).forEach((breakpoint) => {
@@ -241,7 +258,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   const [containerWidth, setContainerWidth] = useState(1200);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
 
-  // Ref for the dashboard container to measure its width
+  // Ref for the dashboard container
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -270,12 +287,30 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   // Check if dashboard is locked by another user
   const isLockedByOther = isLocked && lockedBy && lockedBy !== currentUser?.email;
 
-  // Get target screen size and current screen size
+  // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
+
+  // Preview screen size state (independent of target screen size)
+  const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey>(targetScreenSize);
   const [currentScreenSize, setCurrentScreenSize] = useState<ScreenSizeKey>('desktop');
 
-  // Check if current screen matches target screen size
-  const screenSizeMatches = currentScreenSize === targetScreenSize;
+  // Check if current screen matches target screen size for edit restrictions
+  // Also allow editing if preview screen size matches target (user is previewing in target size)
+  const screenSizeMatches =
+    currentScreenSize === targetScreenSize || previewScreenSize === targetScreenSize;
+
+  // Update preview screen size when dashboard loads
+  useEffect(() => {
+    if (dashboard?.target_screen_size) {
+      setPreviewScreenSize(dashboard.target_screen_size as ScreenSizeKey);
+    }
+  }, [dashboard?.target_screen_size]);
+
+  // Set container width to match the preview screen size exactly (for responsive behavior within canvas)
+  useEffect(() => {
+    const previewConfig = SCREEN_SIZES[previewScreenSize];
+    setContainerWidth(previewConfig.width);
+  }, [previewScreenSize]);
 
   // Update current screen size on resize
   useEffect(() => {
@@ -301,15 +336,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
       window.removeEventListener('resize', debouncedResize);
     };
   }, []);
-
-  // Set container width based on current viewport for responsive preview
-  useEffect(() => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      const newWidth = Math.max(rect.width - 32, 800);
-      setContainerWidth(newWidth);
-    }
-  }, [currentScreenSize]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
@@ -855,87 +881,157 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
         </div>
       </div>
 
-      {/* Screen Size Mismatch Warning */}
-      {!screenSizeMatches && (
-        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mx-4 mt-2">
-          <div className="flex items-center">
+      {/* Preview Mode Controls */}
+      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mx-4 mt-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <div className="ml-3">
-              <p className="text-sm text-amber-800">
-                <strong>Screen Size Notice:</strong> This dashboard was designed for{' '}
-                {SCREEN_SIZES[targetScreenSize].name} screens (
-                {SCREEN_SIZES[targetScreenSize].width}px). You're currently viewing on{' '}
-                {SCREEN_SIZES[currentScreenSize].name}. The layout may not appear as intended.
-                {canEdit && 'Editing is disabled until you switch to the target screen size.'}
+              <p className="text-sm text-blue-800">
+                <strong>Preview Mode:</strong> Designed for{' '}
+                <span className="font-semibold">{SCREEN_SIZES[targetScreenSize].name}</span> (
+                {SCREEN_SIZES[targetScreenSize].width}px)
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-blue-700">Preview as:</span>
+              <Select
+                value={previewScreenSize}
+                onValueChange={(value: ScreenSizeKey) => setPreviewScreenSize(value)}
+              >
+                <SelectTrigger className="w-32 h-8 text-xs bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SCREEN_SIZES).map(([key, config]) => (
+                    <SelectItem key={key} value={key} className="text-xs">
+                      {config.name}
+                      {key === targetScreenSize && (
+                        <span className="ml-1 text-blue-600 font-medium">*</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Dashboard Content */}
-      <div ref={containerRef} className="flex-1 overflow-auto p-4 min-w-0">
-        <div className="w-full">
-          <ResponsiveGridLayout
-            className="dashboard-grid"
-            layouts={
-              dashboard.responsive_layouts ||
-              generateResponsiveLayouts(dashboard.layout_config || [])
-            }
-            breakpoints={BREAKPOINTS}
-            cols={COLS}
-            rowHeight={30}
-            width={containerWidth}
-            isDraggable={false}
-            isResizable={false}
-            compactType={null}
-            preventCollision={false}
-            margin={[4, 4]}
-            containerPadding={[4, 4]}
-            autoSize={true}
-            verticalCompact={false}
-            onBreakpointChange={(newBreakpoint: string) => {
-              console.log(
-                'Preview breakpoint changed to:',
-                newBreakpoint,
-                'Container width:',
-                containerWidth
-              );
-              setCurrentBreakpoint(newBreakpoint);
-            }}
-          >
-            {(dashboard.layout_config || []).map((layoutItem: any) => (
-              <div key={layoutItem.i} className="dashboard-item">
-                <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
-                  <CardContent className="p-4 h-full overflow-auto">
-                    {renderComponent(layoutItem.i)}
-                  </CardContent>
-                </Card>
-              </div>
-            ))}
-          </ResponsiveGridLayout>
+          {/* Edit restriction warning */}
+          {!screenSizeMatches && canEdit && (
+            <div className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+              Editing disabled - switch to {SCREEN_SIZES[targetScreenSize].name} screen or select{' '}
+              {SCREEN_SIZES[targetScreenSize].name} preview to edit
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Custom styles for view mode */}
+      {/* Dashboard Content - Fixed Canvas Like Edit Mode */}
+      <div className="flex-1 overflow-auto p-6 min-w-0">
+        <div className="flex justify-center">
+          <div
+            className="dashboard-canvas bg-white border-2 border-gray-200 shadow-lg relative"
+            style={{
+              width: SCREEN_SIZES[previewScreenSize].width,
+              minHeight: SCREEN_SIZES[previewScreenSize].height,
+              maxWidth: '100%',
+            }}
+          >
+            {/* Canvas Header */}
+            <div className="absolute -top-8 left-0 text-xs text-gray-500 font-medium">
+              {SCREEN_SIZES[previewScreenSize].name} Canvas ({SCREEN_SIZES[previewScreenSize].width}{' '}
+              × {SCREEN_SIZES[previewScreenSize].height}px)
+            </div>
+
+            <ResponsiveGridLayout
+              className="dashboard-grid"
+              layouts={
+                dashboard.responsive_layouts ||
+                generateResponsiveLayoutsForPreview(
+                  dashboard.layout_config || [],
+                  previewScreenSize
+                )
+              }
+              breakpoints={BREAKPOINTS}
+              cols={COLS}
+              rowHeight={30}
+              width={SCREEN_SIZES[previewScreenSize].width}
+              isDraggable={false}
+              isResizable={false}
+              compactType={null}
+              preventCollision={false}
+              margin={[4, 4]}
+              containerPadding={[4, 4]}
+              autoSize={true}
+              verticalCompact={false}
+              onBreakpointChange={(newBreakpoint: string) => {
+                console.log(
+                  'Preview breakpoint changed to:',
+                  newBreakpoint,
+                  'Preview screen size:',
+                  previewScreenSize
+                );
+                setCurrentBreakpoint(newBreakpoint);
+              }}
+            >
+              {(dashboard.layout_config || []).map((layoutItem: any) => (
+                <div key={layoutItem.i} className="dashboard-item">
+                  <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <CardContent className="p-4 h-full overflow-auto">
+                      {renderComponent(layoutItem.i)}
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </ResponsiveGridLayout>
+          </div>
+        </div>
+      </div>
+
+      {/* Custom styles for preview mode canvas */}
       <style jsx global>{`
-        .dashboard-grid {
+        .dashboard-canvas {
           position: relative;
+          border-radius: 8px;
+          overflow: hidden;
         }
 
-        .dashboard-item {
+        .dashboard-canvas .dashboard-grid {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+
+        .dashboard-canvas .dashboard-item {
           transition: transform 0.2s ease;
+          cursor: default;
         }
 
-        .dashboard-item:hover {
+        .dashboard-canvas .dashboard-item:hover {
           z-index: 10;
         }
 
-        .react-grid-item {
+        .dashboard-canvas .react-grid-item {
           transition: none !important;
         }
 
-        .react-grid-item.react-grid-placeholder {
+        .dashboard-canvas .react-grid-item.react-grid-placeholder {
           display: none !important;
+        }
+
+        /* Canvas border animations */
+        .dashboard-canvas {
+          animation: canvasAppear 0.3s ease-out;
+        }
+
+        @keyframes canvasAppear {
+          from {
+            opacity: 0;
+            transform: scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
       `}</style>
     </div>
