@@ -27,6 +27,16 @@ export interface ChartCreate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Map-specific fields
+    geographic_column?: string;
+    value_column?: string;
+    selected_geojson_id?: number;
+    layers?: Array<{
+      id: string;
+      level: number;
+      name?: string;
+      geojson_id?: number;
+    }>;
     customizations?: Record<string, any>;
   };
 }
@@ -46,6 +56,16 @@ export interface ChartUpdate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Map-specific fields
+    geographic_column?: string;
+    value_column?: string;
+    selected_geojson_id?: number;
+    layers?: Array<{
+      id: string;
+      level: number;
+      name?: string;
+      geojson_id?: number;
+    }>;
     customizations?: Record<string, any>;
   };
 }
@@ -65,6 +85,11 @@ export interface ChartDataPayload {
   aggregate_col?: string;
   aggregate_func?: string;
   extra_dimension?: string;
+
+  // Map-specific fields
+  geographic_column?: string;
+  value_column?: string;
+  selected_geojson_id?: number;
 
   // Customizations
   customizations?: Record<string, any>;
@@ -89,9 +114,10 @@ export interface DataPreviewResponse {
 }
 
 export interface TableColumn {
-  column_name: string;
+  name: string;
   data_type: string;
-  is_nullable: boolean;
+  column_name?: string; // For backward compatibility
+  is_nullable?: boolean;
   column_default?: string;
 }
 
@@ -110,5 +136,29 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
   aggregate_column?: string;
   aggregate_function?: string;
   extra_dimension_column?: string;
+  // Map-specific fields
+  geographic_column?: string;
+  value_column?: string;
+  selected_geojson_id?: number;
+  country_code?: string;
+  layer_level?: number;
   customizations?: Record<string, any>;
+  // Additional fields used in map configuration
+  layers?: Array<{
+    id: string;
+    level: number;
+    name?: string;
+    geojson_id?: number;
+  }>;
+  geojsonPreviewPayload?: {
+    geojsonId: number;
+  };
+  dataOverlayPayload?: {
+    schema_name: string;
+    table_name: string;
+    geographic_column: string;
+    value_column: string;
+    aggregate_function: string;
+    selected_geojson_id: number;
+  };
 };
