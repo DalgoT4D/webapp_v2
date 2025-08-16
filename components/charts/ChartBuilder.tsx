@@ -13,6 +13,7 @@ import { DataPreview } from './DataPreview';
 import { MapDataConfiguration } from './map/MapDataConfiguration';
 import { MapCustomizations } from './map/MapCustomizations';
 import { MapPreview } from './map/MapPreview';
+import { GeoJSONUploadModal } from './map/GeoJSONUploadModal';
 import {
   useChartData,
   useChartDataPreview,
@@ -24,6 +25,7 @@ import {
 } from '@/hooks/api/useChart';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { debounce } from 'lodash';
+import { Upload } from 'lucide-react';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -108,6 +110,7 @@ export function ChartBuilder({
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Build payload for chart data
   const chartDataPayload: ChartDataPayload | null =
@@ -391,6 +394,25 @@ export function ChartBuilder({
             />
           </div>
 
+          {/* GeoJSON Upload Section - Show for map charts */}
+          {formData.chart_type === 'map' && (
+            <div className="pt-6 mt-6 border-t">
+              <h3 className="text-lg font-semibold mb-4">Upload Custom GeoJSON</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Upload your own GeoJSON files to use custom geographic boundaries for your maps.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsUploadModalOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Upload GeoJSON
+              </Button>
+            </div>
+          )}
+
           {/* Step 2: Data Configuration */}
           <div
             className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
@@ -469,6 +491,18 @@ export function ChartBuilder({
           </TabsContent>
         </Tabs>
       </Card>
+
+      {/* GeoJSON Upload Modal */}
+      <GeoJSONUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={() => {
+          // The SWR cache will automatically revalidate
+          // Force revalidation to refresh available GeoJSONs
+          window.location.reload(); // Simple approach, could be optimized with SWR mutate
+        }}
+        countryCode={formData.country_code || 'IND'}
+      />
     </div>
   );
 }
