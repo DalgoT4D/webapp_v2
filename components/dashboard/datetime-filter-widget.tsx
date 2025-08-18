@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -66,16 +66,6 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
     <div className="space-y-2 p-4 bg-white rounded-lg border">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">{filter.name}</label>
-        {hasValue && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilter}
-            className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">

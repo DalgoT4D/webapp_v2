@@ -47,8 +47,7 @@ import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
 import { FilterElement } from './filter-element';
-import { HorizontalFiltersBar } from './horizontal-filters-bar';
-import { VerticalFiltersSidebar } from './vertical-filters-sidebar';
+import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -330,8 +329,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       20
     );
 
-    // Independent filter state (outside undo/redo)
-    const [filters, setFilters] = useState<DashboardFilterConfig[]>(initialFilters);
+    // Applied filters state - only updates when filters are applied (causes chart re-renders)
+    const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
+
+    console.log(
+      '🏗️ DashboardBuilder rendering - canvas may re-render only if appliedFilters changed'
+    );
 
     // Get initial target screen size from initialData, default to desktop
     const initialTargetScreenSize: ScreenSizeKey =
@@ -374,10 +377,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [filterLayout, setFilterLayout] = useState<'vertical' | 'horizontal'>(
       (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
     );
-
-    // Applied filters state
-    const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
-    const [isApplyingFilters, setIsApplyingFilters] = useState(false);
 
     // Ref for the canvas container
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -831,12 +830,43 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       });
     };
 
-    // Handle filter changes
-    const handleFilterChange = (filterId: string, value: any) => {
-      setAppliedFilters((prev) => ({
-        ...prev,
-        [filterId]: value,
-      }));
+    // Handle when filters are applied (causes chart re-renders)
+    const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
+      console.log('📊 ========== DASHBOARD BUILDER FILTERS APPLIED ==========');
+      console.log(
+        '📊 handleFiltersApplied called in DashboardBuilder with:',
+        JSON.stringify(newAppliedFilters, null, 2)
+      );
+      console.log('📊 Previous appliedFilters state:', JSON.stringify(appliedFilters, null, 2));
+
+      setAppliedFilters(newAppliedFilters);
+
+      console.log(
+        '📊 Applied filters updated - charts will re-render:',
+        JSON.stringify(newAppliedFilters, null, 2)
+      );
+      console.log(
+        '📊 Number of chart components that will receive new filters:',
+        Object.keys(state.components).filter(
+          (id) => state.components[id].type === DashboardComponentType.CHART
+        ).length
+      );
+
+      // Add a timeout to check the state after it's been updated
+      setTimeout(() => {
+        console.log(
+          '📊 Applied filters state after setState (from timeout):',
+          JSON.stringify(appliedFilters, null, 2)
+        );
+      }, 100);
+
+      console.log('📊 ========== DASHBOARD BUILDER FILTERS APPLIED END ==========');
+    };
+
+    // Handle when filters are cleared
+    const handleFiltersCleared = () => {
+      setAppliedFilters({});
+      console.log('🧽 Applied filters cleared - charts will re-render');
     };
 
     // Handle filter layout changes
@@ -873,27 +903,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             updateData
           );
 
-          // Update the filter in the filters array with fresh data from API
-          const updatedFilters = filters.map((filter) =>
-            String(filter.id) === String(filterId)
-              ? ({
-                  id: updatedFilterFromAPI.id,
-                  name: updatedFilterFromAPI.name,
-                  schema_name: updatedFilterFromAPI.schema_name,
-                  table_name: updatedFilterFromAPI.table_name,
-                  column_name: updatedFilterFromAPI.column_name,
-                  filter_type: updatedFilterFromAPI.filter_type,
-                  settings: updatedFilterFromAPI.settings,
-                } as any) // Using API response type
-              : filter
-          );
-
-          // Update filters independently (not part of undo/redo)
-          setFilters(updatedFilters);
+          // Note: Filter components will handle their own state updates
 
           console.log('Filter updated successfully');
           setSelectedFilterForEdit(null);
           setShowFilterModal(false);
+
+          // Refresh dashboard data to update filter list
+          if (dashboardId) {
+            const { mutate } = await import('swr');
+            mutate(`/api/dashboards/${dashboardId}/`);
+          }
         } catch (error) {
           console.error('Error updating filter:', error);
         }
@@ -925,28 +945,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           h: 3,
         });
 
-        // Update filter state independently (not part of undo/redo)
-        setFilters([...filters, filterConfig]);
+        // Note: Filter components will handle their own state updates
 
         console.log('Filter created successfully:', newFilterFromAPI);
         setShowFilterModal(false);
+
+        // Refresh dashboard data to update filter list
+        if (dashboardId) {
+          const { mutate } = await import('swr');
+          mutate(`/api/dashboards/${dashboardId}/`);
+        }
       } catch (error: any) {
         console.error('Failed to create filter:', error.message || 'Please try again');
         // Could add error handling/notification here
       }
     };
 
-    // Remove filter
+    // Remove filter - note: filter state is now managed by filter components
     const removeFilter = async (filterId: string) => {
       if (!dashboardId) return;
 
       try {
         // Call backend API to delete the filter
         await deleteDashboardFilter(dashboardId, parseInt(filterId));
+        console.log('Filter deleted successfully');
 
-        // Remove from local state only after successful API call
-        const updatedFilters = filters.filter((filter) => filter.id !== filterId);
-        setFilters(updatedFilters);
+        // Refresh dashboard data to update filter list
+        const { mutate } = await import('swr');
+        mutate(`/api/dashboards/${dashboardId}/`);
       } catch (error: any) {
         console.error('Failed to delete filter:', error.message || 'Please try again');
         // Could add error handling/notification here
@@ -974,25 +1000,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setShowFilterModal(true);
     };
 
-    // Apply all filters
-    const handleApplyFilters = async () => {
-      setIsApplyingFilters(true);
-      try {
-        // Here you would typically send the applied filters to your charts/data sources
-        console.log('Applying filters:', appliedFilters);
-
-        // Simulate API call or data refresh
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // You could trigger a refresh of chart data here
-        // For now, just log the action
-        console.log('Filters applied successfully');
-      } catch (error) {
-        console.error('Error applying filters:', error);
-      } finally {
-        setIsApplyingFilters(false);
-      }
-    };
+    // Note: Apply filters functionality is now handled by individual filter components
 
     // Clear all filters
     const handleClearAllFilters = () => {
@@ -1000,9 +1008,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       console.log('All filters cleared');
     };
 
-    // Reorder filters
+    // Reorder filters - note: filter state is now managed by filter components
     const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
-      setFilters(newOrder);
+      // Filter components handle their own reordering
       console.log(
         'Filters reordered:',
         newOrder.map((f) => f.name)
@@ -1108,6 +1116,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               chartId={component.config.chartId}
               config={component.config}
               isResizing={resizingItems.has(componentId)}
+              appliedFilters={appliedFilters}
             />
           );
 
@@ -1558,60 +1567,30 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         </div>
         {/* Horizontal Filters Bar */}
         {filterLayout === 'horizontal' && (
-          <HorizontalFiltersBar
-            filters={filters.map(
-              (f) =>
-                ({
-                  id: f.id.toString(),
-                  name: f.name,
-                  schema_name: f.schema_name,
-                  table_name: f.table_name,
-                  column_name: f.column_name,
-                  filter_type: f.filter_type,
-                  settings: f.settings,
-                  position: { x: 0, y: 0, w: 4, h: 3 }, // dummy position since not used
-                }) as DashboardFilterConfig
-            )}
-            appliedFilters={appliedFilters}
-            onFilterChange={handleFilterChange}
+          <UnifiedFiltersPanel
+            initialFilters={initialFilters}
+            dashboardId={dashboardId!}
             isEditMode={true}
-            onRemove={removeFilter}
+            layout="horizontal"
             onAddFilter={() => setShowFilterModal(true)}
             onEditFilter={handleEditFilter}
-            onApplyFilters={handleApplyFilters}
-            onClearAll={handleClearAllFilters}
-            onReorderFilters={handleReorderFilters}
-            isApplyingFilters={isApplyingFilters}
+            onFiltersApplied={handleFiltersApplied}
+            onFiltersCleared={handleFiltersCleared}
           />
         )}
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Vertical Filters Sidebar */}
           {filterLayout === 'vertical' && (
-            <VerticalFiltersSidebar
-              filters={filters.map(
-                (f) =>
-                  ({
-                    id: f.id.toString(),
-                    name: f.name,
-                    schema_name: f.schema_name,
-                    table_name: f.table_name,
-                    column_name: f.column_name,
-                    filter_type: f.filter_type,
-                    settings: f.settings,
-                    position: { x: 0, y: 0, w: 4, h: 3 }, // dummy position since not used
-                  }) as DashboardFilterConfig
-              )}
-              appliedFilters={appliedFilters}
-              onFilterChange={handleFilterChange}
+            <UnifiedFiltersPanel
+              initialFilters={initialFilters}
+              dashboardId={dashboardId!}
               isEditMode={true}
-              onRemove={removeFilter}
+              layout="vertical"
               onAddFilter={() => setShowFilterModal(true)}
               onEditFilter={handleEditFilter}
-              onApplyFilters={handleApplyFilters}
-              onClearAll={handleClearAllFilters}
-              onReorderFilters={handleReorderFilters}
-              isApplyingFilters={isApplyingFilters}
+              onFiltersApplied={handleFiltersApplied}
+              onFiltersCleared={handleFiltersCleared}
             />
           )}
 

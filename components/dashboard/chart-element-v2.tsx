@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle } from 'lucide-react';
-import { useChart, useChartData } from '@/hooks/api/useCharts';
+import { useChart } from '@/hooks/api/useCharts';
+import useSWR from 'swr';
+import { apiGet } from '@/lib/api';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart } from 'echarts/charts';
 import {
@@ -38,6 +40,7 @@ interface ChartElementV2Props {
   onUpdate: (config: any) => void;
   isResizing?: boolean;
   isEditMode?: boolean;
+  appliedFilters?: Record<string, any>;
 }
 
 export function ChartElementV2({
@@ -47,29 +50,87 @@ export function ChartElementV2({
   onUpdate,
   isResizing,
   isEditMode = true,
+  appliedFilters = {},
 }: ChartElementV2Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: chart, isLoading: chartLoading, isError: chartError } = useChart(chartId);
-  // Try to use chart data endpoint, but it might not exist
-  const { data: chartData, isLoading: dataLoading, isError: dataError } = useChartData(chartId);
+
+  // Create a unique identifier for when filters change to trigger data refetch
+  const filterHash = useMemo(() => JSON.stringify(appliedFilters), [appliedFilters]);
+
+  // Build query params with filters
+  const queryParams = new URLSearchParams();
+  if (Object.keys(appliedFilters).length > 0) {
+    queryParams.append('dashboard_filters', JSON.stringify(appliedFilters));
+  }
+
+  const apiUrl = `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  // Debug logging for API URL generation
+  console.log(`🔍 ChartElementV2 ${chartId} - API URL:`, apiUrl);
+  console.log(`🔍 ChartElementV2 ${chartId} - appliedFilters:`, appliedFilters);
+
+  // Fetch chart data with filters
+  const {
+    data: chartData,
+    isLoading: dataLoading,
+    error: dataError,
+    mutate: mutateChartData,
+  } = useSWR(apiUrl, apiGet, {
+    revalidateOnFocus: false,
+    refreshInterval: 0, // Disable auto-refresh
+    onSuccess: (data) => {
+      console.log(
+        '✅ Chart data fetched successfully for chart',
+        chartId,
+        'with filters:',
+        appliedFilters,
+        'API URL:',
+        apiUrl
+      );
+    },
+    onError: (error) => {
+      console.error(
+        '❌ Error fetching chart data for chart',
+        chartId,
+        'with filters:',
+        appliedFilters,
+        'API URL:',
+        apiUrl,
+        'Error:',
+        error
+      );
+    },
+  });
 
   // Compute derived state
   const isLoading = chartLoading || dataLoading;
   const isError = chartError || dataError;
 
+  // Force refetch when filters change
+  useEffect(() => {
+    if (Object.keys(appliedFilters).length > 0) {
+      console.log(
+        `🔄 ChartElementV2 ${chartId} - Filters changed, forcing refetch:`,
+        appliedFilters
+      );
+      mutateChartData();
+    }
+  }, [appliedFilters, mutateChartData, chartId]);
+
   // Debug logging
   useEffect(() => {
-    console.log(`ChartElementV2 ${chartId} - Chart metadata:`, chart);
-    console.log(`ChartElementV2 ${chartId} - Chart data:`, chartData);
-    // Note: render_config no longer used - charts always fetch fresh config from /data endpoint
+    console.log(`📊 ChartElementV2 ${chartId} - Chart metadata:`, chart);
+    console.log(`📊 ChartElementV2 ${chartId} - Chart data:`, chartData);
+    console.log(`📊 ChartElementV2 ${chartId} - Applied filters:`, appliedFilters);
     console.log(
-      `ChartElementV2 ${chartId} - echarts_config available:`,
+      `📊 ChartElementV2 ${chartId} - echarts_config available:`,
       chartData?.echarts_config ? 'yes' : 'no'
     );
-  }, [chart, chartData, chartId]);
+  }, [chart, chartData, chartId, appliedFilters]);
 
   // Initialize chart instance once
   useEffect(() => {
@@ -132,7 +193,7 @@ export function ChartElementV2({
     } else if (!chartConfig && !isLoading) {
       console.warn(`No chart config available for chart ${chartId}`);
     }
-  }, [chartData, chart, chartId, isLoading]); // Update when either data source changes
+  }, [chartData, chart, chartId, isLoading, filterHash]); // Update when data or filters change
 
   // Handle window resize and container resize - separate from chart data changes
   useEffect(() => {

@@ -6,6 +6,7 @@ import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-fi
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Plus, Filter as FilterIcon, RotateCcw, Check } from 'lucide-react';
+import { deleteDashboardFilter } from '@/hooks/api/useDashboards';
 import {
   DndContext,
   closestCenter,
@@ -25,23 +26,19 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 interface VerticalFiltersSidebarProps {
-  filters: DashboardFilterConfig[];
-  onFilterChange: (filterId: string, value: any) => void;
-  appliedFilters: AppliedFilters;
+  initialFilters: DashboardFilterConfig[];
+  dashboardId: number;
   isEditMode?: boolean;
-  onRemove?: (filterId: string) => void;
   onAddFilter?: () => void;
   onEditFilter?: (filter: DashboardFilterConfig) => void;
-  onApplyFilters?: () => void;
-  onClearAll?: () => void;
-  onReorderFilters?: (newOrder: DashboardFilterConfig[]) => void;
-  isApplyingFilters?: boolean;
+  onFiltersApplied?: (appliedFilters: AppliedFilters) => void;
+  onFiltersCleared?: () => void;
 }
 
 // Sortable filter item component
 interface SortableFilterItemProps {
   filter: DashboardFilterConfig;
-  appliedFilters: AppliedFilters;
+  currentFilterValues: Record<string, any>;
   onFilterChange: (filterId: string, value: any) => void;
   onRemove?: (filterId: string) => void;
   onEdit?: (filter: DashboardFilterConfig) => void;
@@ -50,7 +47,7 @@ interface SortableFilterItemProps {
 
 function SortableFilterItem({
   filter,
-  appliedFilters,
+  currentFilterValues,
   onFilterChange,
   onRemove,
   onEdit,
@@ -78,7 +75,7 @@ function SortableFilterItem({
     >
       <FilterElement
         filter={filter}
-        value={appliedFilters[filter.id]}
+        value={currentFilterValues[filter.id]}
         onChange={onFilterChange}
         onRemove={isEditMode ? () => onRemove?.(filter.id) : undefined}
         onEdit={isEditMode ? () => onEdit?.(filter) : undefined}
@@ -92,18 +89,70 @@ function SortableFilterItem({
 }
 
 export function VerticalFiltersSidebar({
-  filters,
-  onFilterChange,
-  appliedFilters,
+  initialFilters,
+  dashboardId,
   isEditMode = false,
-  onRemove,
   onAddFilter,
   onEditFilter,
-  onApplyFilters,
-  onClearAll,
-  onReorderFilters,
-  isApplyingFilters = false,
+  onFiltersApplied,
+  onFiltersCleared,
 }: VerticalFiltersSidebarProps) {
+  // Internal state - changes here don't affect parent component
+  const [filters, setFilters] = useState<DashboardFilterConfig[]>(initialFilters);
+  const [currentFilterValues, setCurrentFilterValues] = useState<Record<string, any>>({});
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+
+  console.log('🔧 VerticalFiltersSidebar rendering (filter changes only)');
+
+  // Handle filter value changes (internal only - no parent re-render)
+  const handleFilterChange = (filterId: string, value: any) => {
+    setCurrentFilterValues((prev) => ({
+      ...prev,
+      [filterId]: value,
+    }));
+  };
+
+  // Handle filter removal (internal state management)
+  const handleRemoveFilter = async (filterId: string) => {
+    try {
+      await deleteDashboardFilter(dashboardId, parseInt(filterId));
+      setFilters((prev) => prev.filter((filter) => filter.id !== filterId));
+      setCurrentFilterValues((prev) => {
+        const updated = { ...prev };
+        delete updated[filterId];
+        return updated;
+      });
+    } catch (error: any) {
+      console.error('Failed to delete filter:', error.message || 'Please try again');
+    }
+  };
+
+  // Handle filter reordering (internal state only)
+  const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
+    setFilters(newOrder);
+  };
+
+  // Apply filters - notify parent (this will cause chart re-renders)
+  const handleApplyFilters = async () => {
+    setIsApplyingFilters(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
+      onFiltersApplied?.(currentFilterValues);
+      console.log('🚀 Filters applied - charts will now re-render');
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
+      setIsApplyingFilters(false);
+    }
+  };
+
+  // Clear all filters
+  const handleClearAllFilters = () => {
+    setCurrentFilterValues({});
+    onFiltersCleared?.();
+    console.log('🧹 All filters cleared');
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -118,12 +167,12 @@ export function VerticalFiltersSidebar({
       const oldIndex = filters.findIndex((filter) => filter.id === active.id);
       const newIndex = filters.findIndex((filter) => filter.id === over.id);
       const newOrder = arrayMove(filters, oldIndex, newIndex);
-      onReorderFilters?.(newOrder);
+      handleReorderFilters(newOrder);
     }
   };
 
   // Check if any filters have values
-  const hasActiveFilters = Object.values(appliedFilters).some(
+  const hasActiveFilters = Object.values(currentFilterValues).some(
     (value) =>
       value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true)
   );
@@ -177,7 +226,7 @@ export function VerticalFiltersSidebar({
         {/* Action buttons - always show in header */}
         <div className="flex gap-2 mt-3">
           <Button
-            onClick={onApplyFilters}
+            onClick={handleApplyFilters}
             size="sm"
             className="flex-1 h-8"
             disabled={isApplyingFilters}
@@ -190,7 +239,7 @@ export function VerticalFiltersSidebar({
             Apply
           </Button>
           <Button
-            onClick={onClearAll}
+            onClick={handleClearAllFilters}
             size="sm"
             variant="outline"
             className="h-8"
@@ -218,9 +267,9 @@ export function VerticalFiltersSidebar({
                   <SortableFilterItem
                     key={filter.id}
                     filter={filter}
-                    appliedFilters={appliedFilters}
-                    onFilterChange={onFilterChange}
-                    onRemove={onRemove}
+                    currentFilterValues={currentFilterValues}
+                    onFilterChange={handleFilterChange}
+                    onRemove={handleRemoveFilter}
                     onEdit={onEditFilter}
                     isEditMode={isEditMode}
                   />

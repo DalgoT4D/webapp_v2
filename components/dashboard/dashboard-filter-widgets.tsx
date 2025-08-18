@@ -57,6 +57,18 @@ function ValueFilterWidget({
     Array.isArray(value) ? value : value ? [value] : []
   );
 
+  // Sync selectedValues when value prop changes (for default values)
+  useEffect(() => {
+    const newValues = Array.isArray(value) ? value : value ? [value] : [];
+    if (JSON.stringify(selectedValues) !== JSON.stringify(newValues)) {
+      console.log(
+        `🔄 ValueFilterWidget (${filter.id}) - value prop changed, syncing selectedValues:`,
+        newValues
+      );
+      setSelectedValues(newValues);
+    }
+  }, [value, selectedValues, filter.id]);
+
   // Fetch available options dynamically from the API
   const {
     data: filterOptions,
@@ -90,6 +102,12 @@ function ValueFilterWidget({
   );
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
+    console.log(`🎛️ ValueFilterWidget (${filter.id}) - handleSelectionChange:`, {
+      optionValue,
+      isChecked,
+      currentSelectedValues: selectedValues,
+    });
+
     let newSelection: string[];
 
     if (valueFilter.settings.can_select_multiple) {
@@ -103,16 +121,18 @@ function ValueFilterWidget({
       setOpen(false);
     }
 
-    console.log('New selection:', newSelection);
-    setSelectedValues(newSelection);
-    onChange(
-      filter.id,
+    const finalValue =
       newSelection.length === 0
         ? null
         : valueFilter.settings.can_select_multiple
           ? newSelection
-          : newSelection[0]
-    );
+          : newSelection[0];
+
+    console.log(`🎛️ ValueFilterWidget (${filter.id}) - New selection:`, newSelection);
+    console.log(`🎛️ ValueFilterWidget (${filter.id}) - Final value being sent:`, finalValue);
+
+    setSelectedValues(newSelection);
+    onChange(filter.id, finalValue);
   };
 
   const handleClear = () => {
@@ -289,14 +309,6 @@ function ValueFilterWidget({
               </Badge>
             )}
           </div>
-        )}
-
-        {/* Clear button */}
-        {selectedValues.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleClear} className="h-6 text-xs mt-2">
-            <RotateCcw className="w-3 h-3 mr-1" />
-            Clear
-          </Button>
         )}
       </div>
     </div>
@@ -514,12 +526,6 @@ function NumericalFilterWidget({
             </div>
           </>
         )}
-
-        {/* Reset button */}
-        <Button variant="ghost" size="sm" onClick={handleReset} className="w-full h-6 text-xs">
-          <RotateCcw className="w-3 h-3 mr-1" />
-          Reset
-        </Button>
       </div>
     </div>
   );
