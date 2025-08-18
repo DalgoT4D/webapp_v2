@@ -174,33 +174,31 @@ export function VerticalFiltersSidebar({
           </p>
         </div>
 
-        {/* Action buttons for non-edit mode (preview/view) */}
-        {!isEditMode && (
-          <div className="flex gap-2 mt-3">
-            <Button
-              onClick={onApplyFilters}
-              size="sm"
-              className="flex-1 h-8"
-              disabled={isApplyingFilters}
-            >
-              {isApplyingFilters ? (
-                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
-              ) : (
-                <Check className="w-3 h-3 mr-1" />
-              )}
-              Apply
-            </Button>
-            <Button
-              onClick={onClearAll}
-              size="sm"
-              variant="outline"
-              className="h-8"
-              disabled={!hasActiveFilters || isApplyingFilters}
-            >
-              <RotateCcw className="w-3 h-3" />
-            </Button>
-          </div>
-        )}
+        {/* Action buttons - always show in header */}
+        <div className="flex gap-2 mt-3">
+          <Button
+            onClick={onApplyFilters}
+            size="sm"
+            className="flex-1 h-8"
+            disabled={isApplyingFilters}
+          >
+            {isApplyingFilters ? (
+              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+            ) : (
+              <Check className="w-3 h-3 mr-1" />
+            )}
+            Apply
+          </Button>
+          <Button
+            onClick={onClearAll}
+            size="sm"
+            variant="outline"
+            className="h-8"
+            disabled={!hasActiveFilters || isApplyingFilters}
+          >
+            <RotateCcw className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
 
       {/* Filters List */}
@@ -232,35 +230,6 @@ export function VerticalFiltersSidebar({
           </DndContext>
         </div>
       </div>
-
-      {/* Action buttons for edit mode */}
-      {isEditMode && (
-        <div className="p-4 border-t border-gray-100 flex-shrink-0">
-          <div className="flex gap-2">
-            <Button
-              onClick={onApplyFilters}
-              size="sm"
-              className="flex-1"
-              disabled={isApplyingFilters}
-            >
-              {isApplyingFilters ? (
-                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
-              ) : (
-                <Check className="w-3 h-3 mr-1" />
-              )}
-              Apply Filters
-            </Button>
-            <Button
-              onClick={onClearAll}
-              size="sm"
-              variant="outline"
-              disabled={!hasActiveFilters || isApplyingFilters}
-            >
-              <RotateCcw className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
