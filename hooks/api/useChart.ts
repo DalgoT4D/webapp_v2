@@ -213,6 +213,17 @@ export function useAvailableLayers(layerType: string = 'country') {
   return useSWR<LayerOption[]>(`/api/charts/available-layers/?layer_type=${layerType}`, apiGet);
 }
 
+// Get region hierarchy by fetching all available region types for a country
+export function useRegionHierarchy(countryCode: string = 'IND') {
+  // First, get all regions without specifying type to see what types are available
+  return useSWR(`/api/charts/regions/?country_code=${countryCode}`, apiGet);
+}
+
+// Get the next layer type by looking at child regions of a specific parent
+export function useNextLayerType(parentRegionId: number | null) {
+  return useSWR(parentRegionId ? `/api/charts/regions/${parentRegionId}/children/` : null, apiGet);
+}
+
 // Fetch map data separately (for data overlay on existing GeoJSON)
 export function useMapDataOverlay(
   payload: {

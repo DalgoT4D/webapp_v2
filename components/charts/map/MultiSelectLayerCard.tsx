@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import { useChildRegions, useRegionGeoJSONs } from '@/hooks/api/useChart';
+import { useChildRegions, useRegionGeoJSONs, useRegionHierarchy } from '@/hooks/api/useChart';
 
 interface SelectedRegion {
   region_id: number;
@@ -58,6 +58,10 @@ export function MultiSelectLayerCard({
 }: MultiSelectLayerCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // Fetch region hierarchy for dynamic titles
+  const countryCode = formData.country_code || 'IND';
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
+
   // Filter out columns that are already used in previous layers
   const getAvailableColumns = () => {
     if (!columns) return [];
@@ -97,7 +101,7 @@ export function MultiSelectLayerCard({
   // Fetch available regions (states, districts, etc.)
   const { data: availableRegions } = useChildRegions(parentRegionId, !!parentRegionId);
 
-  const layerTitle = getLayerTitle(index);
+  const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
   const selectedRegions = layer.selected_regions || [];
 
   // Handle region selection (checkbox)
@@ -297,6 +301,16 @@ function RegionSelectionItem({
   // Fetch GeoJSONs for this specific region
   const { data: geojsons } = useRegionGeoJSONs(isSelected ? region.id : null);
 
+  // Auto-select default GeoJSON when region is selected and geojsons are available
+  useEffect(() => {
+    if (isSelected && geojsons && !selectedRegion?.geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onGeoJSONSelect(region.id, defaultGeojson.id, defaultGeojson.name);
+      }
+    }
+  }, [isSelected, geojsons, selectedRegion?.geojson_id, region.id, onGeoJSONSelect]);
+
   const canViewRegion = canView && isSelected && selectedRegion?.geojson_id;
 
   return (
@@ -326,45 +340,61 @@ function RegionSelectionItem({
           </Button>
         )}
       </div>
-
-      {/* GeoJSON Selection for selected region */}
-      {isSelected && (
-        <div className="ml-6">
-          <Label className="text-xs text-muted-foreground">GeoJSON Version:</Label>
-          <Select
-            value={selectedRegion?.geojson_id?.toString() || ''}
-            onValueChange={(value) => {
-              const geojson = geojsons?.find((g: any) => g.id.toString() === value);
-              if (geojson) {
-                onGeoJSONSelect(region.id, geojson.id, geojson.name);
-              }
-            }}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="Select GeoJSON" />
-            </SelectTrigger>
-            <SelectContent>
-              {geojsons?.map((geojson: any) => (
-                <SelectItem key={geojson.id} value={geojson.id.toString()}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{geojson.name}</span>
-                    {geojson.is_default && (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        Default
-                      </Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
     </div>
   );
 }
 
-function getLayerTitle(index: number): string {
-  const titles = ['Country/State', 'District/County', 'Ward/Block', 'Sub-Ward'];
+function getLayerTitle(
+  index: number,
+  regionHierarchy?: any[],
+  countryCode: string = 'IND'
+): string {
+  // Layer 1 is always "Country"
+  if (index === 0) {
+    return 'Country';
+  }
+
+  // For Layer 2, we want the first level children (e.g., States for India)
+  if (index === 1 && regionHierarchy && regionHierarchy.length > 0) {
+    // Find the country region first
+    const countryRegion = regionHierarchy.find((region: any) => region.type === 'country');
+
+    if (countryRegion) {
+      // Find direct children of the country
+      const stateRegions = regionHierarchy.filter(
+        (region: any) => region.parent_id === countryRegion.id
+      );
+
+      if (stateRegions.length > 0) {
+        const regionType = stateRegions[0].type;
+        return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+      }
+    }
+
+    // Fallback: Look for regions that have a parent but are not country
+    const firstLevelRegions = regionHierarchy.filter(
+      (region: any) => region.type !== 'country' && region.parent_id
+    );
+
+    if (firstLevelRegions.length > 0) {
+      // Group by type and pick the most common one (likely the state level)
+      const typeCount = firstLevelRegions.reduce((acc: any, region: any) => {
+        acc[region.type] = (acc[region.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      const mostCommonType = Object.keys(typeCount).reduce((a, b) =>
+        typeCount[a] > typeCount[b] ? a : b
+      );
+
+      return mostCommonType.charAt(0).toUpperCase() + mostCommonType.slice(1) + 's';
+    }
+  }
+
+  // For Layer 3+, would need more complex logic based on selected parent regions
+  // For now, use fallback
+
+  // Fallback when no hierarchy data is available
+  const titles = ['Country', 'States', 'Districts', 'Wards'];
   return titles[index] || `Layer ${index + 1}`;
 }

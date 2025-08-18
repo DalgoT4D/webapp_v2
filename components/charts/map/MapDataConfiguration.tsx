@@ -23,6 +23,7 @@ import {
   useChildRegions,
   useRegionGeoJSONs,
   useAvailableLayers,
+  useRegionHierarchy,
 } from '@/hooks/api/useChart';
 import { MultiSelectLayerCard } from './MultiSelectLayerCard';
 
@@ -55,6 +56,10 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
   const { data: schemas } = useSchemas();
   const { data: tables } = useTables(formData.schema_name || null);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
+
+  // Fetch region hierarchy to build dynamic layer structure
+  const countryCode = formData.country_code || 'IND';
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
 
   // Handler functions
   const handleSchemaChange = (schema_name: string) => {
@@ -217,6 +222,39 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
       handleViewLayer(0);
     }
   }, [formData.layers, formData.aggregate_column, formData.aggregate_func]);
+
+  // Re-render map when any data configuration changes
+  useEffect(() => {
+    const layers = formData.layers || [];
+    const firstLayer = layers[0];
+
+    // Only re-render if we're currently viewing a layer and have basic config
+    if (viewingLayer !== null && formData.schema_name && formData.table_name) {
+      console.log('Map re-render triggered by data change:', {
+        viewingLayer,
+        schema: formData.schema_name,
+        table: formData.table_name,
+        aggregateCol: formData.aggregate_column,
+        aggregateFunc: formData.aggregate_function || formData.aggregate_func,
+        geoCol: firstLayer?.geographic_column,
+      });
+
+      // Re-trigger the current layer view to pick up new data configuration
+      handleViewLayer(viewingLayer);
+    }
+  }, [
+    // Data source changes - these should always trigger re-render
+    formData.schema_name,
+    formData.table_name,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    formData.aggregate_func,
+    // Layer configuration changes
+    formData.layers?.[0]?.geographic_column,
+    formData.layers?.[0]?.geojson_id,
+    // Any layer changes in general
+    JSON.stringify(formData.layers),
+  ]);
 
   // Filter numeric columns for aggregate column selection
   const numericColumns = (columns || [])
@@ -417,13 +455,19 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
                   );
                 })}
 
-                {/* Add Layer Button */}
-                <div className="pt-4 border-t">
-                  <Button onClick={addLayer} variant="outline" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Layer
-                  </Button>
-                </div>
+                {/* Add Layer Button - Show if we have fewer than 4 layers */}
+                {layers.length < 4 && (
+                  <div className="pt-4 border-t">
+                    <Button
+                      onClick={addLayer}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Layer
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -463,6 +507,9 @@ function LayerCard({
 }: LayerCardProps) {
   const countryCode = formData.country_code || 'IND';
 
+  // Get region hierarchy from parent component
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
+
   // Filter out columns that are already used in previous layers
   const getAvailableColumns = () => {
     if (!columns) return [];
@@ -491,7 +538,7 @@ function LayerCard({
   const { data: availableCountries } = useAvailableLayers('country');
 
   // Get regions based on layer level
-  const { data: regions } = useRegions(countryCode, getRegionTypeForLevel(index));
+  const { data: regions } = useRegions(countryCode, getRegionTypeForLevel(index, regionHierarchy));
 
   // For Layer 2+, we need to determine the parent region to get child regions and GeoJSONs
   const parentLayer = index > 0 ? (formData.layers || [])[index - 1] : null;
@@ -525,9 +572,22 @@ function LayerCard({
 
   const { data: geojsons } = useRegionGeoJSONs(geojsonRegionId);
 
+  // Auto-select default GeoJSON when geographic column is selected and geojsons are available
+  useEffect(() => {
+    if (layer.geographic_column && geojsons && !layer.geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onUpdate({
+          geojson_id: defaultGeojson.id,
+          geojson_name: defaultGeojson.name,
+        });
+      }
+    }
+  }, [layer.geographic_column, geojsons, layer.geojson_id, onUpdate]);
+
   // Determine which regions to show in the dropdown
   const availableRegions = index === 0 ? regions : childRegions;
-  const layerTitle = getLayerTitle(index);
+  const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
   const canView = layer.geographic_column && layer.geojson_id;
 
   return (
@@ -540,7 +600,7 @@ function LayerCard({
             </Badge>
             <CardTitle className="text-base">{layerTitle}</CardTitle>
           </div>
-          {canView && (
+          {canView && !isFirstLayer && (
             <Button
               variant="ghost"
               size="sm"
@@ -621,49 +681,6 @@ function LayerCard({
           </Select>
         </div>
 
-        {/* GeoJSON Selection - Show after geographic column is selected */}
-        {layer.geographic_column && (
-          <div>
-            <Label>Select GeoJSON</Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              Custom or Default.{' '}
-              {isFirstLayer
-                ? 'At this point, display an India map with states but no data configured.'
-                : ''}
-            </p>
-            <Select
-              value={layer.geojson_id?.toString() || ''}
-              onValueChange={(value) => {
-                const selectedGeojson = (geojsons || []).find(
-                  (g: any) => g.id.toString() === value
-                );
-                onUpdate({
-                  geojson_id: parseInt(value),
-                  geojson_name: selectedGeojson?.name,
-                });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select GeoJSON version" />
-              </SelectTrigger>
-              <SelectContent>
-                {geojsons?.map((geojson: any) => (
-                  <SelectItem key={geojson.id} value={geojson.id.toString()}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{geojson.name}</span>
-                      {geojson.is_default && (
-                        <Badge variant="outline" className="ml-2">
-                          Default
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
         {/* Region Selection for subsequent layers */}
         {!isFirstLayer && layer.geographic_column && (
           <div>
@@ -707,11 +724,6 @@ function LayerCard({
               Column: {layer.geographic_column}
             </Badge>
           )}
-          {layer.geojson_name && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700">
-              GeoJSON: {layer.geojson_name}
-            </Badge>
-          )}
           {layer.region_name && (
             <Badge variant="outline" className="bg-purple-50 text-purple-700">
               Region: {layer.region_name}
@@ -723,12 +735,71 @@ function LayerCard({
   );
 }
 
-function getLayerTitle(index: number): string {
-  const titles = ['Country/State', 'District/County', 'Ward/Block', 'Sub-Ward'];
+function getLayerTitle(
+  index: number,
+  regionHierarchy?: any[],
+  countryCode: string = 'IND'
+): string {
+  // Layer 1 is always "Country"
+  if (index === 0) {
+    return 'Country';
+  }
+
+  // For Layer 2, we want the first level children (e.g., States for India)
+  if (index === 1 && regionHierarchy && regionHierarchy.length > 0) {
+    // Find the country region first
+    const countryRegion = regionHierarchy.find((region: any) => region.type === 'country');
+
+    if (countryRegion) {
+      // Find direct children of the country
+      const stateRegions = regionHierarchy.filter(
+        (region: any) => region.parent_id === countryRegion.id
+      );
+
+      if (stateRegions.length > 0) {
+        const regionType = stateRegions[0].type;
+        return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+      }
+    }
+
+    // Fallback: Look for regions that have a parent but are not country
+    const firstLevelRegions = regionHierarchy.filter(
+      (region: any) => region.type !== 'country' && region.parent_id
+    );
+
+    if (firstLevelRegions.length > 0) {
+      // Group by type and pick the most common one (likely the state level)
+      const typeCount = firstLevelRegions.reduce((acc: any, region: any) => {
+        acc[region.type] = (acc[region.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      const mostCommonType = Object.keys(typeCount).reduce((a, b) =>
+        typeCount[a] > typeCount[b] ? a : b
+      );
+
+      return mostCommonType.charAt(0).toUpperCase() + mostCommonType.slice(1) + 's';
+    }
+  }
+
+  // For Layer 3+, would need more complex logic based on selected parent regions
+  // For now, use fallback
+
+  // Fallback when no hierarchy data is available
+  const titles = ['Country', 'States', 'Districts', 'Wards'];
   return titles[index] || `Layer ${index + 1}`;
 }
 
-function getRegionTypeForLevel(level: number): string | undefined {
+function getRegionTypeForLevel(level: number, regionHierarchy?: any[]): string | undefined {
+  if (regionHierarchy && regionHierarchy.length > 0) {
+    // Build hierarchy from region data - group by type and get unique types
+    const regionTypes = Array.from(new Set(regionHierarchy.map((region: any) => region.type)));
+
+    // Return the region type for the requested level
+    return regionTypes[level];
+  }
+
+  // Fallback to static types when no hierarchy data is available
   const types = [undefined, 'state', 'district', 'ward'];
   return types[level];
 }
