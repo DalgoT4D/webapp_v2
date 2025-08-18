@@ -174,3 +174,8 @@ export async function createDashboardFilter(
 ): Promise<DashboardFilter> {
   return apiPost(`/api/dashboards/${dashboardId}/filters/`, data);
 }
+
+export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {
+  // Use the backend duplicate endpoint that handles all the copying server-side
+  return await apiPost(`/api/dashboards/${dashboardId}/duplicate/`, {});
+}
