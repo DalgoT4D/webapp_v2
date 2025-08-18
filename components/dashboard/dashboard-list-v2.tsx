@@ -53,8 +53,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { useDashboards, deleteDashboard } from '@/hooks/api/useDashboards';
+import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { DashboardThumbnail } from './dashboard-thumbnail';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -78,8 +79,10 @@ export function DashboardListV2() {
   const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
 
   const { toast } = useToast();
+  const router = useRouter();
 
   // Get current user info for permission checks
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
@@ -144,16 +147,34 @@ export function DashboardListV2() {
     [mutate, toast]
   );
 
-  // Handle dashboard duplication (placeholder)
+  // Handle dashboard duplication
   const handleDuplicateDashboard = useCallback(
-    (dashboardId: number, dashboardTitle: string) => {
-      toast({
-        title: 'Coming soon',
-        description: 'Dashboard duplication will be available soon.',
-        variant: 'default',
-      });
+    async (dashboardId: number, dashboardTitle: string) => {
+      setIsDuplicating(dashboardId);
+
+      try {
+        const newDashboard = await duplicateDashboard(dashboardId);
+
+        // Refresh the dashboard list
+        await mutate();
+
+        toast({
+          title: 'Dashboard duplicated',
+          description: `"${dashboardTitle}" has been duplicated as "${newDashboard.title}".`,
+          variant: 'default',
+        });
+      } catch (error: any) {
+        console.error('Error duplicating dashboard:', error);
+        toast({
+          title: 'Duplication failed',
+          description: error.message || 'Failed to duplicate the dashboard. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsDuplicating(null);
+      }
     },
-    [toast]
+    [mutate, toast, router]
   );
 
   // Handle dashboard download (placeholder)
@@ -210,9 +231,19 @@ export function DashboardListV2() {
                   )
                 }
                 className="cursor-pointer"
+                disabled={isDuplicating === dashboard.id}
               >
-                <Copy className="w-4 h-4 mr-2" />
-                Duplicate
+                {isDuplicating === dashboard.id ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                    Duplicating...
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Duplicate
+                  </>
+                )}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
@@ -455,9 +486,19 @@ export function DashboardListV2() {
                       )
                     }
                     className="cursor-pointer"
+                    disabled={isDuplicating === dashboard.id}
                   >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Duplicate
+                    {isDuplicating === dashboard.id ? (
+                      <>
+                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                        Duplicating...
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Duplicate
+                      </>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
