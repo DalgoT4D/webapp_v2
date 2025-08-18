@@ -67,7 +67,7 @@ export function DashboardListV2() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
   const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   const { toast } = useToast();
