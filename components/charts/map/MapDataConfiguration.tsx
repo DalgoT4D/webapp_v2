@@ -525,6 +525,19 @@ function LayerCard({
 
   const { data: geojsons } = useRegionGeoJSONs(geojsonRegionId);
 
+  // Auto-select default GeoJSON when geographic column is selected and geojsons are available
+  useEffect(() => {
+    if (layer.geographic_column && geojsons && !layer.geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onUpdate({
+          geojson_id: defaultGeojson.id,
+          geojson_name: defaultGeojson.name,
+        });
+      }
+    }
+  }, [layer.geographic_column, geojsons, layer.geojson_id, onUpdate]);
+
   // Determine which regions to show in the dropdown
   const availableRegions = index === 0 ? regions : childRegions;
   const layerTitle = getLayerTitle(index);
@@ -620,49 +633,6 @@ function LayerCard({
             </SelectContent>
           </Select>
         </div>
-
-        {/* GeoJSON Selection - Show after geographic column is selected */}
-        {layer.geographic_column && (
-          <div>
-            <Label>Select GeoJSON</Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              Custom or Default.{' '}
-              {isFirstLayer
-                ? 'At this point, display an India map with states but no data configured.'
-                : ''}
-            </p>
-            <Select
-              value={layer.geojson_id?.toString() || ''}
-              onValueChange={(value) => {
-                const selectedGeojson = (geojsons || []).find(
-                  (g: any) => g.id.toString() === value
-                );
-                onUpdate({
-                  geojson_id: parseInt(value),
-                  geojson_name: selectedGeojson?.name,
-                });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select GeoJSON version" />
-              </SelectTrigger>
-              <SelectContent>
-                {geojsons?.map((geojson: any) => (
-                  <SelectItem key={geojson.id} value={geojson.id.toString()}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{geojson.name}</span>
-                      {geojson.is_default && (
-                        <Badge variant="outline" className="ml-2">
-                          Default
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
 
         {/* Region Selection for subsequent layers */}
         {!isFirstLayer && layer.geographic_column && (

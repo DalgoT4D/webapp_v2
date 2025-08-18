@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -297,6 +297,16 @@ function RegionSelectionItem({
   // Fetch GeoJSONs for this specific region
   const { data: geojsons } = useRegionGeoJSONs(isSelected ? region.id : null);
 
+  // Auto-select default GeoJSON when region is selected and geojsons are available
+  useEffect(() => {
+    if (isSelected && geojsons && !selectedRegion?.geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onGeoJSONSelect(region.id, defaultGeojson.id, defaultGeojson.name);
+      }
+    }
+  }, [isSelected, geojsons, selectedRegion?.geojson_id, region.id, onGeoJSONSelect]);
+
   const canViewRegion = canView && isSelected && selectedRegion?.geojson_id;
 
   return (
@@ -326,40 +336,6 @@ function RegionSelectionItem({
           </Button>
         )}
       </div>
-
-      {/* GeoJSON Selection for selected region */}
-      {isSelected && (
-        <div className="ml-6">
-          <Label className="text-xs text-muted-foreground">GeoJSON Version:</Label>
-          <Select
-            value={selectedRegion?.geojson_id?.toString() || ''}
-            onValueChange={(value) => {
-              const geojson = geojsons?.find((g: any) => g.id.toString() === value);
-              if (geojson) {
-                onGeoJSONSelect(region.id, geojson.id, geojson.name);
-              }
-            }}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="Select GeoJSON" />
-            </SelectTrigger>
-            <SelectContent>
-              {geojsons?.map((geojson: any) => (
-                <SelectItem key={geojson.id} value={geojson.id.toString()}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{geojson.name}</span>
-                    {geojson.is_default && (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        Default
-                      </Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
     </div>
   );
 }
