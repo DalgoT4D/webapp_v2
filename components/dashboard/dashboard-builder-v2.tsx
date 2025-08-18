@@ -1186,9 +1186,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     return (
-      <div className="dashboard-builder h-full flex flex-col">
-        {/* Responsive Header with Title and Toolbar */}
-        <div className="border-b bg-white">
+      <div className="dashboard-builder h-screen flex flex-col overflow-hidden">
+        {/* Fixed Header with Title and Toolbar */}
+        <div className="border-b bg-white flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
             {/* Mobile Top Row - Title and Essential Actions */}
@@ -1579,8 +1579,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           </div>
         </div>
 
-        {/* Dashboard Canvas */}
-        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0">
+        {/* Dashboard Canvas - Scrollable Area */}
+        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0 h-0">
           {/* Canvas container with exact screen dimensions */}
           <div
             className="mx-auto bg-white shadow-lg rounded-lg border"

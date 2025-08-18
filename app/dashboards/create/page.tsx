@@ -119,29 +119,14 @@ export default function CreateDashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b px-6 py-3 bg-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboards
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        <DashboardBuilderV2
-          ref={dashboardBuilderRef}
-          dashboardId={dashboardId}
-          initialData={dashboardData}
-          isNewDashboard={true}
-          onBack={handleBackNavigation}
-          onPreview={handlePreviewMode}
-          isNavigating={isNavigating}
-        />
-      </div>
-    </div>
+    <DashboardBuilderV2
+      ref={dashboardBuilderRef}
+      dashboardId={dashboardId}
+      initialData={dashboardData}
+      isNewDashboard={true}
+      onBack={handleBackNavigation}
+      onPreview={handlePreviewMode}
+      isNavigating={isNavigating}
+    />
   );
 }

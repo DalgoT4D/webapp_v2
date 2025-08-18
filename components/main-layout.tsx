@@ -456,10 +456,22 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
         {/* SECTION 3: MAIN CONTENT AREA - Remaining Width */}
         <main className="flex-1 overflow-hidden bg-background">
-          {/* Page Container - Fixed Width of Remaining Space */}
-          <div className="h-full w-full overflow-auto">
-            {/* Consistent Inner Padding Container */}
-            <div className="p-6 h-full">
+          {/* Page Container - Dashboard pages handle their own scrolling */}
+          <div
+            className={cn(
+              'h-full w-full',
+              // Only add scrolling for non-dashboard pages
+              !pathname.includes('/dashboards') && 'overflow-auto'
+            )}
+          >
+            {/* Consistent Inner Padding Container - No padding for dashboard pages */}
+            <div
+              className={cn(
+                'h-full',
+                // Only add padding for non-dashboard pages
+                !pathname.includes('/dashboards') && 'p-6'
+              )}
+            >
               {/* Content Area */}
               <div className="h-full w-full">{children}</div>
             </div>

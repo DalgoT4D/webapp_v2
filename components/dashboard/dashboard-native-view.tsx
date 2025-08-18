@@ -289,28 +289,15 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
   // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
-
-  // Preview screen size state (independent of target screen size)
-  const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey>(targetScreenSize);
   const [currentScreenSize, setCurrentScreenSize] = useState<ScreenSizeKey>('desktop');
 
-  // Check if current screen matches target screen size for edit restrictions
-  // Also allow editing if preview screen size matches target (user is previewing in target size)
-  const screenSizeMatches =
-    currentScreenSize === targetScreenSize || previewScreenSize === targetScreenSize;
+  // Allow editing in preview mode without any conditions
 
-  // Update preview screen size when dashboard loads
+  // Set container width to match the target screen size exactly
   useEffect(() => {
-    if (dashboard?.target_screen_size) {
-      setPreviewScreenSize(dashboard.target_screen_size as ScreenSizeKey);
-    }
-  }, [dashboard?.target_screen_size]);
-
-  // Set container width to match the preview screen size exactly (for responsive behavior within canvas)
-  useEffect(() => {
-    const previewConfig = SCREEN_SIZES[previewScreenSize];
-    setContainerWidth(previewConfig.width);
-  }, [previewScreenSize]);
+    const targetConfig = SCREEN_SIZES[targetScreenSize];
+    setContainerWidth(targetConfig.width);
+  }, [targetScreenSize]);
 
   // Update current screen size on resize
   useEffect(() => {
@@ -575,12 +562,12 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
+      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-4 w-96" />
         </div>
-        <div className="flex-1 p-6">
+        <div className="flex-1 overflow-auto p-6 h-0">
           <div className="grid grid-cols-12 gap-4">
             <Skeleton className="col-span-6 h-64" />
             <Skeleton className="col-span-6 h-64" />
@@ -614,9 +601,14 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   }
 
   return (
-    <div className={cn('h-screen flex flex-col bg-gray-50', isFullscreen && 'fixed inset-0 z-50')}>
-      {/* Responsive Header */}
-      <div className="bg-white border-b shadow-sm">
+    <div
+      className={cn(
+        'h-screen flex flex-col bg-gray-50 overflow-hidden',
+        isFullscreen && 'fixed inset-0 z-50'
+      )}
+    >
+      {/* Fixed Header */}
+      <div className="bg-white border-b shadow-sm flex-shrink-0">
         {/* Mobile Header */}
         <div className="lg:hidden">
           {/* Mobile Top Row */}
@@ -693,20 +685,9 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             </Button>
             {canEdit && !isLockedByOther && (
               <>
-                <Button
-                  onClick={screenSizeMatches ? handleEdit : undefined}
-                  size="sm"
-                  className="flex-shrink-0 h-8 text-xs"
-                  variant={screenSizeMatches ? 'default' : 'outline'}
-                  disabled={!screenSizeMatches}
-                  title={
-                    !screenSizeMatches
-                      ? `This dashboard was designed for ${SCREEN_SIZES[targetScreenSize].name} (${SCREEN_SIZES[targetScreenSize].width}px). Switch to ${SCREEN_SIZES[targetScreenSize].name} screen size to edit.`
-                      : undefined
-                  }
-                >
+                <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
                   <Edit className="w-3 h-3 mr-1" />
-                  {screenSizeMatches ? 'Edit' : 'Edit*'}
+                  Edit
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -831,19 +812,9 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
               {canEdit && !isLockedByOther && (
                 <>
-                  <Button
-                    onClick={screenSizeMatches ? handleEdit : undefined}
-                    size="sm"
-                    variant={screenSizeMatches ? 'default' : 'outline'}
-                    disabled={!screenSizeMatches}
-                    title={
-                      !screenSizeMatches
-                        ? `This dashboard was designed for ${SCREEN_SIZES[targetScreenSize].name} (${SCREEN_SIZES[targetScreenSize].width}px). Switch to ${SCREEN_SIZES[targetScreenSize].name} screen size to edit.`
-                        : undefined
-                    }
-                  >
+                  <Button onClick={handleEdit} size="sm">
                     <Edit className="w-4 h-4 mr-2" />
-                    {screenSizeMatches ? 'Edit Dashboard' : 'Edit Dashboard*'}
+                    Edit Dashboard
                   </Button>
 
                   <AlertDialog>
@@ -892,69 +863,37 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                 {SCREEN_SIZES[targetScreenSize].width}px)
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-blue-700">Preview as:</span>
-              <Select
-                value={previewScreenSize}
-                onValueChange={(value: ScreenSizeKey) => setPreviewScreenSize(value)}
-              >
-                <SelectTrigger className="w-32 h-8 text-xs bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(SCREEN_SIZES).map(([key, config]) => (
-                    <SelectItem key={key} value={key} className="text-xs">
-                      {config.name}
-                      {key === targetScreenSize && (
-                        <span className="ml-1 text-blue-600 font-medium">*</span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
-
-          {/* Edit restriction warning */}
-          {!screenSizeMatches && canEdit && (
-            <div className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
-              Editing disabled - switch to {SCREEN_SIZES[targetScreenSize].name} screen or select{' '}
-              {SCREEN_SIZES[targetScreenSize].name} preview to edit
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Dashboard Content - Fixed Canvas Like Edit Mode */}
-      <div className="flex-1 overflow-auto p-6 min-w-0">
+      {/* Dashboard Content - Scrollable Canvas Area */}
+      <div className="flex-1 overflow-auto p-6 min-w-0 h-0">
         <div className="flex justify-center">
           <div
             className="dashboard-canvas bg-white border-2 border-gray-200 shadow-lg relative"
             style={{
-              width: SCREEN_SIZES[previewScreenSize].width,
-              minHeight: SCREEN_SIZES[previewScreenSize].height,
+              width: SCREEN_SIZES[targetScreenSize].width,
+              minHeight: SCREEN_SIZES[targetScreenSize].height,
               maxWidth: '100%',
             }}
           >
             {/* Canvas Header */}
             <div className="absolute -top-8 left-0 text-xs text-gray-500 font-medium">
-              {SCREEN_SIZES[previewScreenSize].name} Canvas ({SCREEN_SIZES[previewScreenSize].width}{' '}
-              × {SCREEN_SIZES[previewScreenSize].height}px)
+              {SCREEN_SIZES[targetScreenSize].name} Canvas ({SCREEN_SIZES[targetScreenSize].width} ×{' '}
+              {SCREEN_SIZES[targetScreenSize].height}px)
             </div>
 
             <ResponsiveGridLayout
               className="dashboard-grid"
               layouts={
                 dashboard.responsive_layouts ||
-                generateResponsiveLayoutsForPreview(
-                  dashboard.layout_config || [],
-                  previewScreenSize
-                )
+                generateResponsiveLayoutsForPreview(dashboard.layout_config || [], targetScreenSize)
               }
               breakpoints={BREAKPOINTS}
               cols={COLS}
               rowHeight={30}
-              width={SCREEN_SIZES[previewScreenSize].width}
+              width={SCREEN_SIZES[targetScreenSize].width}
               isDraggable={false}
               isResizable={false}
               compactType={null}
@@ -976,7 +915,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
               {(dashboard.layout_config || []).map((layoutItem: any) => (
                 <div key={layoutItem.i} className="dashboard-item">
                   <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
-                    <CardContent className="p-4 h-full overflow-auto">
+                    <CardContent className="p-4 h-full">
                       {renderComponent(layoutItem.i)}
                     </CardContent>
                   </Card>

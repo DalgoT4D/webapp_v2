@@ -216,21 +216,17 @@ export default function EditDashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <DashboardBuilderV2
-          ref={dashboardBuilderRef}
-          dashboardId={dashboardId}
-          initialData={dashboardData}
-          dashboardLockInfo={{
-            isLocked: dashboard?.is_locked || false,
-            lockedBy: dashboard?.locked_by,
-          }}
-          onBack={handleBackNavigation}
-          onPreview={handlePreviewMode}
-          isNavigating={isNavigating}
-        />
-      </div>
-    </div>
+    <DashboardBuilderV2
+      ref={dashboardBuilderRef}
+      dashboardId={dashboardId}
+      initialData={dashboardData}
+      dashboardLockInfo={{
+        isLocked: dashboard?.is_locked || false,
+        lockedBy: dashboard?.locked_by,
+      }}
+      onBack={handleBackNavigation}
+      onPreview={handlePreviewMode}
+      isNavigating={isNavigating}
+    />
   );
 }
