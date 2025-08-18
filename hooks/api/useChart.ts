@@ -213,6 +213,11 @@ export function useAvailableLayers(layerType: string = 'country') {
   return useSWR<LayerOption[]>(`/api/charts/available-layers/?layer_type=${layerType}`, apiGet);
 }
 
+// Fetch layer hierarchy for a specific country to get dynamic layer titles
+export function useLayerHierarchy(countryCode: string = 'IND') {
+  return useSWR(`/api/charts/layer-hierarchy/?country_code=${countryCode}`, apiGet);
+}
+
 // Fetch map data separately (for data overlay on existing GeoJSON)
 export function useMapDataOverlay(
   payload: {

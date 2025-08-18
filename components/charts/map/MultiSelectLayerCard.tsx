@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import { useChildRegions, useRegionGeoJSONs } from '@/hooks/api/useChart';
+import { useChildRegions, useRegionGeoJSONs, useLayerHierarchy } from '@/hooks/api/useChart';
 
 interface SelectedRegion {
   region_id: number;
@@ -58,6 +58,10 @@ export function MultiSelectLayerCard({
 }: MultiSelectLayerCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // Fetch layer hierarchy for dynamic titles
+  const countryCode = formData.country_code || 'IND';
+  const { data: layerHierarchy } = useLayerHierarchy(countryCode);
+
   // Filter out columns that are already used in previous layers
   const getAvailableColumns = () => {
     if (!columns) return [];
@@ -97,7 +101,7 @@ export function MultiSelectLayerCard({
   // Fetch available regions (states, districts, etc.)
   const { data: availableRegions } = useChildRegions(parentRegionId, !!parentRegionId);
 
-  const layerTitle = getLayerTitle(index);
+  const layerTitle = getLayerTitle(index, layerHierarchy);
   const selectedRegions = layer.selected_regions || [];
 
   // Handle region selection (checkbox)
@@ -340,7 +344,16 @@ function RegionSelectionItem({
   );
 }
 
-function getLayerTitle(index: number): string {
+function getLayerTitle(index: number, layerHierarchy?: any[]): string {
+  if (layerHierarchy && layerHierarchy.length > index) {
+    const layerInfo = layerHierarchy[index];
+    const regionType = layerInfo.type;
+
+    // Capitalize and pluralize the region type from database
+    return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+  }
+
+  // Fallback to static titles when no hierarchy data is available
   const titles = ['Country/State', 'District/County', 'Ward/Block', 'Sub-Ward'];
   return titles[index] || `Layer ${index + 1}`;
 }

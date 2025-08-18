@@ -23,6 +23,7 @@ import {
   useChildRegions,
   useRegionGeoJSONs,
   useAvailableLayers,
+  useLayerHierarchy,
 } from '@/hooks/api/useChart';
 import { MultiSelectLayerCard } from './MultiSelectLayerCard';
 
@@ -55,6 +56,10 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
   const { data: schemas } = useSchemas();
   const { data: tables } = useTables(formData.schema_name || null);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
+
+  // Fetch layer hierarchy to determine max available layers
+  const countryCode = formData.country_code || 'IND';
+  const { data: layerHierarchy } = useLayerHierarchy(countryCode);
 
   // Handler functions
   const handleSchemaChange = (schema_name: string) => {
@@ -417,13 +422,19 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
                   );
                 })}
 
-                {/* Add Layer Button */}
-                <div className="pt-4 border-t">
-                  <Button onClick={addLayer} variant="outline" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Layer
-                  </Button>
-                </div>
+                {/* Add Layer Button - Show if we have fewer than 4 layers */}
+                {layers.length < 4 && (
+                  <div className="pt-4 border-t">
+                    <Button
+                      onClick={addLayer}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Layer
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -462,6 +473,9 @@ function LayerCard({
   columns,
 }: LayerCardProps) {
   const countryCode = formData.country_code || 'IND';
+
+  // Fetch layer hierarchy for dynamic titles
+  const { data: layerHierarchy } = useLayerHierarchy(countryCode);
 
   // Filter out columns that are already used in previous layers
   const getAvailableColumns = () => {
@@ -540,7 +554,7 @@ function LayerCard({
 
   // Determine which regions to show in the dropdown
   const availableRegions = index === 0 ? regions : childRegions;
-  const layerTitle = getLayerTitle(index);
+  const layerTitle = getLayerTitle(index, layerHierarchy);
   const canView = layer.geographic_column && layer.geojson_id;
 
   return (
@@ -553,7 +567,7 @@ function LayerCard({
             </Badge>
             <CardTitle className="text-base">{layerTitle}</CardTitle>
           </div>
-          {canView && (
+          {canView && !isFirstLayer && (
             <Button
               variant="ghost"
               size="sm"
@@ -677,11 +691,6 @@ function LayerCard({
               Column: {layer.geographic_column}
             </Badge>
           )}
-          {layer.geojson_name && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700">
-              GeoJSON: {layer.geojson_name}
-            </Badge>
-          )}
           {layer.region_name && (
             <Badge variant="outline" className="bg-purple-50 text-purple-700">
               Region: {layer.region_name}
@@ -693,7 +702,16 @@ function LayerCard({
   );
 }
 
-function getLayerTitle(index: number): string {
+function getLayerTitle(index: number, layerHierarchy?: any[]): string {
+  if (layerHierarchy && layerHierarchy.length > index) {
+    const layerInfo = layerHierarchy[index];
+    const regionType = layerInfo.type;
+
+    // Capitalize and pluralize the region type from database
+    return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+  }
+
+  // Fallback to static titles when no hierarchy data is available
   const titles = ['Country/State', 'District/County', 'Ward/Block', 'Sub-Ward'];
   return titles[index] || `Layer ${index + 1}`;
 }
