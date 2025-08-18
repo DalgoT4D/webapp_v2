@@ -23,7 +23,7 @@ import {
   useChildRegions,
   useRegionGeoJSONs,
   useAvailableLayers,
-  useLayerHierarchy,
+  useRegionHierarchy,
 } from '@/hooks/api/useChart';
 import { MultiSelectLayerCard } from './MultiSelectLayerCard';
 
@@ -57,9 +57,9 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
   const { data: tables } = useTables(formData.schema_name || null);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  // Fetch layer hierarchy to determine max available layers
+  // Fetch region hierarchy to build dynamic layer structure
   const countryCode = formData.country_code || 'IND';
-  const { data: layerHierarchy } = useLayerHierarchy(countryCode);
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
 
   // Handler functions
   const handleSchemaChange = (schema_name: string) => {
@@ -474,8 +474,8 @@ function LayerCard({
 }: LayerCardProps) {
   const countryCode = formData.country_code || 'IND';
 
-  // Fetch layer hierarchy for dynamic titles
-  const { data: layerHierarchy } = useLayerHierarchy(countryCode);
+  // Get region hierarchy from parent component
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
 
   // Filter out columns that are already used in previous layers
   const getAvailableColumns = () => {
@@ -505,7 +505,7 @@ function LayerCard({
   const { data: availableCountries } = useAvailableLayers('country');
 
   // Get regions based on layer level
-  const { data: regions } = useRegions(countryCode, getRegionTypeForLevel(index));
+  const { data: regions } = useRegions(countryCode, getRegionTypeForLevel(index, regionHierarchy));
 
   // For Layer 2+, we need to determine the parent region to get child regions and GeoJSONs
   const parentLayer = index > 0 ? (formData.layers || [])[index - 1] : null;
@@ -554,7 +554,7 @@ function LayerCard({
 
   // Determine which regions to show in the dropdown
   const availableRegions = index === 0 ? regions : childRegions;
-  const layerTitle = getLayerTitle(index, layerHierarchy);
+  const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
   const canView = layer.geographic_column && layer.geojson_id;
 
   return (
@@ -702,21 +702,71 @@ function LayerCard({
   );
 }
 
-function getLayerTitle(index: number, layerHierarchy?: any[]): string {
-  if (layerHierarchy && layerHierarchy.length > index) {
-    const layerInfo = layerHierarchy[index];
-    const regionType = layerInfo.type;
-
-    // Capitalize and pluralize the region type from database
-    return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+function getLayerTitle(
+  index: number,
+  regionHierarchy?: any[],
+  countryCode: string = 'IND'
+): string {
+  // Layer 1 is always "Country"
+  if (index === 0) {
+    return 'Country';
   }
 
-  // Fallback to static titles when no hierarchy data is available
-  const titles = ['Country/State', 'District/County', 'Ward/Block', 'Sub-Ward'];
+  // For Layer 2, we want the first level children (e.g., States for India)
+  if (index === 1 && regionHierarchy && regionHierarchy.length > 0) {
+    // Find the country region first
+    const countryRegion = regionHierarchy.find((region: any) => region.type === 'country');
+
+    if (countryRegion) {
+      // Find direct children of the country
+      const stateRegions = regionHierarchy.filter(
+        (region: any) => region.parent_id === countryRegion.id
+      );
+
+      if (stateRegions.length > 0) {
+        const regionType = stateRegions[0].type;
+        return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+      }
+    }
+
+    // Fallback: Look for regions that have a parent but are not country
+    const firstLevelRegions = regionHierarchy.filter(
+      (region: any) => region.type !== 'country' && region.parent_id
+    );
+
+    if (firstLevelRegions.length > 0) {
+      // Group by type and pick the most common one (likely the state level)
+      const typeCount = firstLevelRegions.reduce((acc: any, region: any) => {
+        acc[region.type] = (acc[region.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      const mostCommonType = Object.keys(typeCount).reduce((a, b) =>
+        typeCount[a] > typeCount[b] ? a : b
+      );
+
+      return mostCommonType.charAt(0).toUpperCase() + mostCommonType.slice(1) + 's';
+    }
+  }
+
+  // For Layer 3+, would need more complex logic based on selected parent regions
+  // For now, use fallback
+
+  // Fallback when no hierarchy data is available
+  const titles = ['Country', 'States', 'Districts', 'Wards'];
   return titles[index] || `Layer ${index + 1}`;
 }
 
-function getRegionTypeForLevel(level: number): string | undefined {
+function getRegionTypeForLevel(level: number, regionHierarchy?: any[]): string | undefined {
+  if (regionHierarchy && regionHierarchy.length > 0) {
+    // Build hierarchy from region data - group by type and get unique types
+    const regionTypes = Array.from(new Set(regionHierarchy.map((region: any) => region.type)));
+
+    // Return the region type for the requested level
+    return regionTypes[level];
+  }
+
+  // Fallback to static types when no hierarchy data is available
   const types = [undefined, 'state', 'district', 'ward'];
   return types[level];
 }
