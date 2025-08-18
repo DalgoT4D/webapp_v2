@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import {
+import GridLayoutLib, {
   Responsive as ResponsiveGridLayout,
   WidthProvider as GridLayoutWidthProvider,
 } from 'react-grid-layout';
-const GridLayout = GridLayoutWidthProvider(ResponsiveGridLayout);
+const GridLayout = GridLayoutLib;
+const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -852,21 +853,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
         </div>
       </div>
 
-      {/* Preview Mode Controls */}
-      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mx-4 mt-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="ml-3">
-              <p className="text-sm text-blue-800">
-                <strong>Preview Mode:</strong> Designed for{' '}
-                <span className="font-semibold">{SCREEN_SIZES[targetScreenSize].name}</span> (
-                {SCREEN_SIZES[targetScreenSize].width}px)
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Dashboard Content - Scrollable Canvas Area */}
       <div className="flex-1 overflow-auto p-6 min-w-0 h-0">
         <div className="flex justify-center">
@@ -884,44 +870,79 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
               {SCREEN_SIZES[targetScreenSize].height}px)
             </div>
 
-            <ResponsiveGridLayout
-              className="dashboard-grid"
-              layouts={
-                dashboard.responsive_layouts ||
-                generateResponsiveLayoutsForPreview(dashboard.layout_config || [], targetScreenSize)
-              }
-              breakpoints={BREAKPOINTS}
-              cols={COLS}
-              rowHeight={30}
-              width={SCREEN_SIZES[targetScreenSize].width}
-              isDraggable={false}
-              isResizable={false}
-              compactType={null}
-              preventCollision={false}
-              margin={[4, 4]}
-              containerPadding={[4, 4]}
-              autoSize={true}
-              verticalCompact={false}
-              onBreakpointChange={(newBreakpoint: string) => {
-                console.log(
-                  'Preview breakpoint changed to:',
-                  newBreakpoint,
-                  'Preview screen size:',
-                  previewScreenSize
-                );
-                setCurrentBreakpoint(newBreakpoint);
-              }}
-            >
-              {(dashboard.layout_config || []).map((layoutItem: any) => (
-                <div key={layoutItem.i} className="dashboard-item">
-                  <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
-                    <CardContent className="p-4 h-full">
-                      {renderComponent(layoutItem.i)}
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
-            </ResponsiveGridLayout>
+            {/* Conditional Grid Layout: Use simple GridLayout for target screen size, ResponsiveGridLayout for others */}
+            {currentScreenSize === targetScreenSize ? (
+              // Target screen size - use exact same layout as edit mode
+              <GridLayout
+                className="dashboard-grid"
+                layout={dashboard.layout_config || []}
+                cols={SCREEN_SIZES[targetScreenSize].cols}
+                rowHeight={30}
+                width={SCREEN_SIZES[targetScreenSize].width}
+                isDraggable={false}
+                isResizable={false}
+                compactType={null}
+                preventCollision={true}
+                allowOverlap={false}
+                margin={[4, 4]}
+                containerPadding={[4, 4]}
+                autoSize={true}
+                verticalCompact={false}
+              >
+                {(dashboard.layout_config || []).map((layoutItem: any) => (
+                  <div key={layoutItem.i} className="dashboard-item">
+                    <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
+                      <CardContent className="p-4 h-full">
+                        {renderComponent(layoutItem.i)}
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </GridLayout>
+            ) : (
+              // Different screen size - use responsive layout
+              <ResponsiveGrid
+                className="dashboard-grid"
+                layouts={
+                  dashboard.responsive_layouts ||
+                  generateResponsiveLayoutsForPreview(
+                    dashboard.layout_config || [],
+                    targetScreenSize
+                  )
+                }
+                breakpoints={BREAKPOINTS}
+                cols={COLS}
+                rowHeight={30}
+                width={SCREEN_SIZES[targetScreenSize].width}
+                isDraggable={false}
+                isResizable={false}
+                compactType={null}
+                preventCollision={false}
+                margin={[4, 4]}
+                containerPadding={[4, 4]}
+                autoSize={true}
+                verticalCompact={false}
+                onBreakpointChange={(newBreakpoint: string) => {
+                  console.log(
+                    'Preview breakpoint changed to:',
+                    newBreakpoint,
+                    'Current screen size:',
+                    currentScreenSize
+                  );
+                  setCurrentBreakpoint(newBreakpoint);
+                }}
+              >
+                {(dashboard.layout_config || []).map((layoutItem: any) => (
+                  <div key={layoutItem.i} className="dashboard-item">
+                    <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
+                      <CardContent className="p-4 h-full">
+                        {renderComponent(layoutItem.i)}
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </ResponsiveGrid>
+            )}
           </div>
         </div>
       </div>
