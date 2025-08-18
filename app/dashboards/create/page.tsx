@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { createDashboard } from '@/hooks/api/useDashboards';
@@ -14,6 +14,10 @@ export default function CreateDashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  // Ref to access dashboard builder cleanup function
+  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
 
   // Ensure component is mounted before running client-side code
   useEffect(() => {
@@ -58,6 +62,39 @@ export default function CreateDashboardPage() {
     initDashboard();
   }, [mounted, isCreating, dashboardId, router]);
 
+  // Handle navigation back to dashboard list
+  const handleBackNavigation = async () => {
+    // Call cleanup function if available
+    if (dashboardBuilderRef.current?.cleanup) {
+      await dashboardBuilderRef.current.cleanup();
+    }
+
+    // Navigate to dashboard list
+    router.push('/dashboards');
+  };
+
+  // Handle navigation to preview mode
+  const handlePreviewMode = async () => {
+    if (!dashboardId) return;
+
+    setIsNavigating(true);
+
+    try {
+      // Call cleanup function if available (this will save changes first)
+      if (dashboardBuilderRef.current?.cleanup) {
+        console.log('Saving changes and cleaning up before preview mode...');
+        await dashboardBuilderRef.current.cleanup();
+        console.log('Cleanup completed, navigating to preview mode...');
+      }
+
+      // Navigate to preview mode
+      router.push(`/dashboards/${dashboardId}`);
+    } catch (error) {
+      console.error('Error navigating to preview mode:', error);
+      setIsNavigating(false);
+    }
+  };
+
   // Show loading state during SSR and while creating
   if (!mounted || isCreating) {
     return (
@@ -86,21 +123,23 @@ export default function CreateDashboardPage() {
       <div className="border-b px-6 py-3 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/dashboards">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboards
-              </Button>
-            </Link>
+            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboards
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-hidden">
         <DashboardBuilderV2
+          ref={dashboardBuilderRef}
           dashboardId={dashboardId}
           initialData={dashboardData}
           isNewDashboard={true}
+          onBack={handleBackNavigation}
+          onPreview={handlePreviewMode}
+          isNavigating={isNavigating}
         />
       </div>
     </div>
