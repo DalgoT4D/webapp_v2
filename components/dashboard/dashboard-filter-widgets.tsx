@@ -150,7 +150,7 @@ function ValueFilterWidget({
         'w-full rounded-lg',
         isEditMode
           ? 'bg-white border p-3 shadow-sm'
-          : 'bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-4 shadow-md',
+          : 'bg-white border border-gray-200 p-4 shadow-sm',
         className
       )}
     >
@@ -159,7 +159,7 @@ function ValueFilterWidget({
           <span
             className={cn(
               'font-medium truncate',
-              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-blue-900'
+              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-gray-900'
             )}
           >
             {filter.name || filter.column_name || 'Filter'}
@@ -167,10 +167,8 @@ function ValueFilterWidget({
         </div>
         {selectedValues.length > 0 && (
           <Badge
-            variant={isEditMode ? 'secondary' : 'default'}
-            className={cn(
-              isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2 bg-blue-100 text-blue-800'
-            )}
+            variant={isEditMode ? 'secondary' : 'secondary'}
+            className={cn(isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2')}
           >
             {selectedValues.length}
           </Badge>
@@ -206,9 +204,7 @@ function ValueFilterWidget({
                 aria-expanded={open}
                 className={cn(
                   'w-full justify-between',
-                  isEditMode
-                    ? 'h-8 text-xs'
-                    : 'h-10 text-sm bg-white hover:bg-blue-50 border-blue-200'
+                  isEditMode ? 'h-8 text-xs' : 'h-10 text-sm'
                 )}
                 size={isEditMode ? 'sm' : 'default'}
               >
@@ -274,9 +270,7 @@ function ValueFilterWidget({
             value={selectedValues[0] || ''}
             onValueChange={(val) => handleSelectionChange(val, true)}
           >
-            <SelectTrigger
-              className={cn(isEditMode ? 'h-8' : 'h-10 bg-white hover:bg-blue-50 border-blue-200')}
-            >
+            <SelectTrigger className={cn(isEditMode ? 'h-8' : 'h-10')}>
               <SelectValue placeholder={isEditMode ? 'Select...' : 'Choose option...'} />
             </SelectTrigger>
             <SelectContent>
@@ -434,7 +428,7 @@ function NumericalFilterWidget({
         'w-full rounded-lg',
         isEditMode
           ? 'bg-white border p-3 shadow-sm'
-          : 'bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 p-4 shadow-md',
+          : 'bg-white border border-gray-200 p-4 shadow-sm',
         className
       )}
     >
@@ -443,17 +437,15 @@ function NumericalFilterWidget({
           <span
             className={cn(
               'font-medium truncate',
-              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-green-900'
+              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-gray-900'
             )}
           >
             {filter.name}
           </span>
         </div>
         <Badge
-          variant={isEditMode ? 'secondary' : 'default'}
-          className={cn(
-            isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2 bg-green-100 text-green-800'
-          )}
+          variant={isEditMode ? 'secondary' : 'secondary'}
+          className={cn(isEditMode ? 'text-xs h-4 px-1.5' : 'text-xs h-5 px-2')}
         >
           Range • {uiMode === NumericalFilterUIMode.SLIDER ? 'Slider' : 'Input'}
         </Badge>

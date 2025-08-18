@@ -871,9 +871,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle filter layout changes
     const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
+      console.log('🔄 Filter layout changing from', filterLayout, 'to', newLayout);
       setFilterLayout(newLayout);
       // Auto-save the layout preference
-      saveDashboard({ filter_layout: newLayout });
+      console.log('💾 Saving filter layout:', newLayout);
+      saveDashboard({ filter_layout: newLayout })
+        .then(() => {
+          console.log('✅ Filter layout saved successfully');
+        })
+        .catch((error) => {
+          console.error('❌ Failed to save filter layout:', error);
+        });
     };
 
     // Add filter
