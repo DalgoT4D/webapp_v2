@@ -26,6 +26,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Search,
   Grid,
   List,
@@ -41,6 +48,8 @@ import {
   Lock,
   Trash2,
   MoreHorizontal,
+  Copy,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -135,6 +144,30 @@ export function DashboardListV2() {
     [mutate, toast]
   );
 
+  // Handle dashboard duplication (placeholder)
+  const handleDuplicateDashboard = useCallback(
+    (dashboardId: number, dashboardTitle: string) => {
+      toast({
+        title: 'Coming soon',
+        description: 'Dashboard duplication will be available soon.',
+        variant: 'default',
+      });
+    },
+    [toast]
+  );
+
+  // Handle dashboard download (placeholder)
+  const handleDownloadDashboard = useCallback(
+    (dashboardId: number, dashboardTitle: string) => {
+      toast({
+        title: 'Coming soon',
+        description: 'Dashboard download will be available soon.',
+        variant: 'default',
+      });
+    },
+    [toast]
+  );
+
   // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
@@ -156,43 +189,80 @@ export function DashboardListV2() {
           !dashboard.is_published && 'opacity-75'
         )}
       >
-        {/* Delete Button - appears on hover */}
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+        {/* Action Menu - always visible */}
+        <div className="absolute top-2 right-2 z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                variant="destructive"
+                variant="outline"
                 size="icon"
-                className="h-8 w-8"
-                disabled={isDeleting === dashboard.id}
+                className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
               >
-                <Trash2 className="w-4 h-4" />
+                <MoreHorizontal className="w-4 h-4 text-gray-700" />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete "{dashboard.title || dashboard.dashboard_title}"?
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() =>
-                    handleDeleteDashboard(
-                      dashboard.id,
-                      dashboard.title || dashboard.dashboard_title
-                    )
-                  }
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={() =>
+                  handleDuplicateDashboard(
+                    dashboard.id,
+                    dashboard.title || dashboard.dashboard_title
+                  )
+                }
+                className="cursor-pointer"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  handleDownloadDashboard(
+                    dashboard.id,
+                    dashboard.title || dashboard.dashboard_title
+                  )
+                }
+                className="cursor-pointer"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete "
+                      {dashboard.title || dashboard.dashboard_title}"? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() =>
+                        handleDeleteDashboard(
+                          dashboard.id,
+                          dashboard.title || dashboard.dashboard_title
+                        )
+                      }
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Clickable content area */}
@@ -364,43 +434,81 @@ export function DashboardListV2() {
               )}
             </Link>
 
-            {/* Delete button */}
+            {/* Action Menu */}
             <div className="flex items-center gap-2 ml-4">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    disabled={isDeleting === dashboard.id}
+                    className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <MoreHorizontal className="w-4 h-4 text-gray-700" />
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete "
-                      {dashboard.title || dashboard.dashboard_title}"? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        handleDeleteDashboard(
-                          dashboard.id,
-                          dashboard.title || dashboard.dashboard_title
-                        )
-                      }
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleDuplicateDashboard(
+                        dashboard.id,
+                        dashboard.title || dashboard.dashboard_title
+                      )
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleDownloadDashboard(
+                        dashboard.id,
+                        dashboard.title || dashboard.dashboard_title
+                      )
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "
+                          {dashboard.title || dashboard.dashboard_title}"? This action cannot be
+                          undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() =>
+                            handleDeleteDashboard(
+                              dashboard.id,
+                              dashboard.title || dashboard.dashboard_title
+                            )
+                          }
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardContent>
