@@ -223,6 +223,39 @@ export function MapDataConfiguration({ formData, onFormDataChange }: MapDataConf
     }
   }, [formData.layers, formData.aggregate_column, formData.aggregate_func]);
 
+  // Re-render map when any data configuration changes
+  useEffect(() => {
+    const layers = formData.layers || [];
+    const firstLayer = layers[0];
+
+    // Only re-render if we're currently viewing a layer and have basic config
+    if (viewingLayer !== null && formData.schema_name && formData.table_name) {
+      console.log('Map re-render triggered by data change:', {
+        viewingLayer,
+        schema: formData.schema_name,
+        table: formData.table_name,
+        aggregateCol: formData.aggregate_column,
+        aggregateFunc: formData.aggregate_function || formData.aggregate_func,
+        geoCol: firstLayer?.geographic_column,
+      });
+
+      // Re-trigger the current layer view to pick up new data configuration
+      handleViewLayer(viewingLayer);
+    }
+  }, [
+    // Data source changes - these should always trigger re-render
+    formData.schema_name,
+    formData.table_name,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    formData.aggregate_func,
+    // Layer configuration changes
+    formData.layers?.[0]?.geographic_column,
+    formData.layers?.[0]?.geojson_id,
+    // Any layer changes in general
+    JSON.stringify(formData.layers),
+  ]);
+
   // Filter numeric columns for aggregate column selection
   const numericColumns = (columns || [])
     .filter((col) =>
