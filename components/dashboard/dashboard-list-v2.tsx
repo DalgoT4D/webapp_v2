@@ -48,6 +48,7 @@ import {
   Lock,
   Trash2,
   MoreHorizontal,
+  MoreVertical,
   Copy,
   Download,
 } from 'lucide-react';
@@ -219,7 +220,7 @@ export function DashboardListV2() {
                 size="icon"
                 className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
               >
-                <MoreHorizontal className="w-4 h-4 text-gray-700" />
+                <MoreVertical className="w-4 h-4 text-gray-700" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
