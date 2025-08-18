@@ -1,18 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Edit2 } from 'lucide-react';
+import { X, Edit2, GripVertical } from 'lucide-react';
 import { DashboardFilterWidget } from './dashboard-filter-widgets';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 
 interface FilterElementProps {
   filter: DashboardFilterConfig;
-  onRemove: () => void;
+  onRemove?: () => void;
   onUpdate?: (filter: DashboardFilterConfig) => void;
   onEdit?: () => void;
   isEditMode?: boolean;
   value?: any;
   onChange?: (filterId: string, value: any) => void;
+  showTitle?: boolean;
+  compact?: boolean;
+  dragHandleProps?: any; // DnD Kit listeners for drag handle
 }
 
 export function FilterElement({
@@ -23,6 +26,9 @@ export function FilterElement({
   isEditMode = true,
   value,
   onChange,
+  showTitle = true,
+  compact = false,
+  dragHandleProps,
 }: FilterElementProps) {
   const [localValue, setLocalValue] = useState<any>(value || null);
 
@@ -34,8 +40,20 @@ export function FilterElement({
   };
 
   return (
-    <div className="h-full w-full relative">
-      {isEditMode && (
+    <div className={`w-full relative ${compact ? '' : 'h-full'}`}>
+      {/* Drag handle for reordering (only in edit mode) */}
+      {isEditMode && dragHandleProps && (
+        <div
+          {...dragHandleProps}
+          className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-white border border-gray-200 rounded shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
+          title="Drag to reorder"
+        >
+          <GripVertical className="w-3 h-3 text-gray-500" />
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {isEditMode && (onRemove || onEdit) && (
         <div className="absolute -top-2 -right-2 z-10 flex gap-1">
           {onEdit && (
             <button
@@ -46,13 +64,15 @@ export function FilterElement({
               <Edit2 className="w-3 h-3 text-gray-600 hover:text-blue-600" />
             </button>
           )}
-          <button
-            onClick={onRemove}
-            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
-            title="Remove filter"
-          >
-            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
-          </button>
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+              title="Remove filter"
+            >
+              <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+            </button>
+          )}
         </div>
       )}
 
@@ -60,8 +80,10 @@ export function FilterElement({
         filter={filter}
         value={localValue}
         onChange={handleChange}
-        className="h-full"
+        className={compact ? '' : 'h-full'}
         isEditMode={isEditMode}
+        showTitle={showTitle}
+        compact={compact}
       />
     </div>
   );

@@ -38,6 +38,8 @@ interface FilterWidgetProps {
   onChange: (filterId: string, value: any) => void;
   className?: string;
   isEditMode?: boolean;
+  showTitle?: boolean;
+  compact?: boolean;
 }
 
 // Value Filter Widget (Dropdown/Multi-select)

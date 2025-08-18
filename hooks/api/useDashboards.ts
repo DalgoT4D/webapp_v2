@@ -175,6 +175,13 @@ export async function createDashboardFilter(
   return apiPost(`/api/dashboards/${dashboardId}/filters/`, data);
 }
 
+export async function deleteDashboardFilter(
+  dashboardId: number,
+  filterId: number
+): Promise<{ success: boolean }> {
+  return apiDelete(`/api/dashboards/${dashboardId}/filters/${filterId}/`);
+}
+
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {
   // Use the backend duplicate endpoint that handles all the copying server-side
   return await apiPost(`/api/dashboards/${dashboardId}/duplicate/`, {});
