@@ -123,8 +123,6 @@ export function ChartElementV2({
         // Only initialize if container has dimensions
         if (width > 0 && height > 0) {
           chartInstance.current = echarts.init(chartRef.current);
-        } else {
-          console.warn(`Chart container for ${chartId} has no dimensions, delaying initialization`);
         }
       }
     }, 50);
@@ -166,8 +164,6 @@ export function ChartElementV2({
           chartInstance.current.resize();
         }
       }, 100);
-    } else if (!chartConfig && !isLoading) {
-      console.warn(`No chart config available for chart ${chartId}`);
     }
   }, [chartData, chart, chartId, isLoading, filterHash]); // Update when data or filters change
 

@@ -48,10 +48,7 @@ export function FilterElement({
   const handleChange = (filterId: string, newValue: any) => {
     setLocalValue(newValue);
     if (onChange) {
-      console.log(`🎯 FilterElement calling onChange callback for ${filterId}`);
       onChange(filterId, newValue);
-    } else {
-      console.log(`⚠️ FilterElement NO onChange callback for ${filterId}`);
     }
   };
 
