@@ -26,6 +26,15 @@ export function ChartCustomizations({
   onChange,
   disabled,
 }: ChartCustomizationsProps) {
+  // Safety check for undefined formData
+  if (!formData) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p>Please configure chart data first</p>
+      </div>
+    );
+  }
+
   const customizations = formData.customizations || {};
 
   const updateCustomization = (key: string, value: any) => {

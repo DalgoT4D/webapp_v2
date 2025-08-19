@@ -1,0 +1,849 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MapPin, Table, Plus, Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import {
+  useColumns,
+  useRegions,
+  useChildRegions,
+  useRegionGeoJSONs,
+  useAvailableLayers,
+  useRegionHierarchy,
+} from '@/hooks/api/useChart';
+import type { ChartBuilderFormData } from '@/types/charts';
+
+interface SelectedRegion {
+  region_id: number;
+  region_name: string;
+  geojson_id?: number;
+  geojson_name?: string;
+}
+
+interface Layer {
+  id: string;
+  level: number;
+  geographic_column?: string;
+  region_id?: number;
+  geojson_id?: number;
+  region_name?: string;
+  geojson_name?: string;
+  selected_regions?: SelectedRegion[];
+}
+
+interface MapDataConfigurationV3Props {
+  formData: ChartBuilderFormData;
+  onFormDataChange: (updates: Partial<ChartBuilderFormData>) => void;
+  disabled?: boolean;
+}
+
+const AGGREGATE_FUNCTIONS = [
+  { value: 'sum', label: 'Sum' },
+  { value: 'avg', label: 'Average' },
+  { value: 'count', label: 'Count' },
+  { value: 'min', label: 'Minimum' },
+  { value: 'max', label: 'Maximum' },
+  { value: 'count_distinct', label: 'Count Distinct' },
+];
+
+export function MapDataConfigurationV3({
+  formData,
+  onFormDataChange,
+  disabled,
+}: MapDataConfigurationV3Props) {
+  const [viewingLayer, setViewingLayer] = useState<number | null>(null);
+  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
+
+  // Filter columns by type
+  const normalizedColumns =
+    columns?.map((col) => ({
+      column_name: col.column_name || col.name,
+      data_type: col.data_type,
+    })) || [];
+
+  const numericColumns = normalizedColumns.filter((col) =>
+    ['integer', 'bigint', 'numeric', 'double precision', 'real', 'float', 'decimal'].includes(
+      col.data_type.toLowerCase()
+    )
+  );
+
+  const allColumns = normalizedColumns;
+
+  // Fetch region hierarchy for dynamic layer structure
+  const countryCode = formData.country_code || 'IND';
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
+
+  // Create default first layer
+  const createDefaultLayer = (): Layer => ({
+    id: '0',
+    level: 0,
+    geographic_column: undefined,
+    region_id: undefined,
+    geojson_id: undefined,
+  });
+
+  // Initialize layers if not present
+  const layers: Layer[] = formData.layers || [createDefaultLayer()];
+
+  const updateLayer = (layerId: string, updates: Partial<Layer>) => {
+    const newLayers = layers.map((layer) =>
+      layer.id === layerId ? { ...layer, ...updates } : layer
+    );
+
+    // For first layer, also update the main form fields for backward compatibility
+    if (layerId === '0') {
+      const firstLayer = newLayers[0];
+      onFormDataChange({
+        ...formData,
+        layers: newLayers,
+        geographic_column: firstLayer.geographic_column,
+        selected_geojson_id: firstLayer.geojson_id,
+        value_column: formData.aggregate_column || formData.value_column,
+        aggregate_function: formData.aggregate_function,
+      });
+    } else {
+      onFormDataChange({
+        ...formData,
+        layers: newLayers,
+      });
+    }
+  };
+
+  const addLayer = () => {
+    const newLayer: Layer = {
+      id: Date.now().toString(),
+      level: layers.length,
+      geographic_column: undefined,
+    };
+
+    onFormDataChange({
+      ...formData,
+      layers: [...layers, newLayer],
+    });
+  };
+
+  const removeLayer = (layerId: string) => {
+    const newLayers = layers.filter((layer) => layer.id !== layerId);
+    // Re-index the levels
+    newLayers.forEach((layer, index) => {
+      layer.level = index;
+    });
+
+    onFormDataChange({
+      ...formData,
+      layers: newLayers,
+    });
+  };
+
+  const handleViewLayer = (layerIndex: number) => {
+    const layer = layers[layerIndex];
+
+    if (layerIndex === 0) {
+      if (!layer.geographic_column || !layer.geojson_id) return;
+
+      // Build separate payloads for GeoJSON and data overlay
+      const geojsonPayload = {
+        geojsonId: layer.geojson_id,
+      };
+
+      const dataOverlayPayload = {
+        schema_name: formData.schema_name,
+        table_name: formData.table_name,
+        geographic_column: layer.geographic_column,
+        value_column: formData.aggregate_column || formData.value_column,
+        aggregate_function: formData.aggregate_function,
+        selected_geojson_id: layer.geojson_id,
+      };
+
+      // Trigger separated fetching preview
+      onFormDataChange({
+        ...formData,
+        geojsonPreviewPayload: geojsonPayload,
+        dataOverlayPayload: dataOverlayPayload,
+        viewingLayer: layerIndex,
+      } as any);
+
+      setViewingLayer(layerIndex);
+    }
+  };
+
+  const handleViewRegion = (layerIndex: number, regionId: number, payloads?: any) => {
+    // Handle view for multi-select layers
+    if (payloads) {
+      onFormDataChange({
+        ...formData,
+        geojsonPreviewPayload: payloads.geojsonPayload,
+        dataOverlayPayload: payloads.dataOverlayPayload,
+        viewingLayer: layerIndex,
+        selectedRegionForPreview: payloads.selectedRegion,
+      } as any);
+    }
+    setViewingLayer(layerIndex);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Chart Type - Show readonly */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Chart Type</Label>
+        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
+          <MapPin className="h-5 w-5 text-blue-600" />
+          <span className="font-medium">Map</span>
+        </div>
+      </div>
+
+      {/* Data Source - Show readonly */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Data Source</Label>
+        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
+          <Table className="h-5 w-5 text-gray-600" />
+          <span className="font-mono text-sm">
+            {formData.schema_name}.{formData.table_name}
+          </span>
+        </div>
+      </div>
+
+      {/* Value Column */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Value Column</Label>
+        <Select
+          value={formData.value_column || formData.aggregate_column}
+          onValueChange={(value) =>
+            onFormDataChange({
+              value_column: value,
+              aggregate_column: value,
+            })
+          }
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue placeholder="Select value column" />
+          </SelectTrigger>
+          <SelectContent>
+            {numericColumns.map((col) => (
+              <SelectItem key={col.column_name} value={col.column_name}>
+                {col.column_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Aggregate Function */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Aggregate Function</Label>
+        <Select
+          value={formData.aggregate_function}
+          onValueChange={(value) => onFormDataChange({ aggregate_function: value })}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue placeholder="Select aggregate function" />
+          </SelectTrigger>
+          <SelectContent>
+            {AGGREGATE_FUNCTIONS.map((func) => (
+              <SelectItem key={func.value} value={func.value}>
+                {func.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Map Layers Configuration */}
+      {formData.aggregate_column && formData.aggregate_function && (
+        <div className="space-y-4 pt-4 border-t">
+          <div>
+            <Label className="text-sm font-medium text-gray-900">Map Layers</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure geographic layers for visualization and drill-down functionality
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {layers.map((layer, index) => (
+              <LayerCard
+                key={layer.id}
+                layer={layer}
+                index={index}
+                formData={formData}
+                onUpdate={(updates) => updateLayer(layer.id, updates)}
+                onView={() => handleViewLayer(index)}
+                onViewRegion={(regionId, payloads) => handleViewRegion(index, regionId, payloads)}
+                isFirstLayer={index === 0}
+                columns={allColumns}
+                onRemove={index === 0 ? undefined : () => removeLayer(layer.id)}
+                onFormDataChange={onFormDataChange}
+              />
+            ))}
+
+            {/* Add Layer Button - Show if we have fewer than 4 layers */}
+            {layers.length < 4 && (
+              <Button
+                onClick={addLayer}
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={disabled}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Layer
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface LayerCardProps {
+  layer: Layer;
+  index: number;
+  formData: ChartBuilderFormData;
+  onUpdate: (updates: Partial<Layer>) => void;
+  onView: () => void;
+  onViewRegion: (regionId: number, payloads?: any) => void;
+  isFirstLayer: boolean;
+  columns: any[];
+  onRemove?: () => void;
+  onFormDataChange: (updates: Partial<ChartBuilderFormData>) => void;
+}
+
+function LayerCard({
+  layer,
+  index,
+  formData,
+  onUpdate,
+  onView,
+  onViewRegion,
+  isFirstLayer,
+  columns,
+  onRemove,
+  onFormDataChange,
+}: LayerCardProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const countryCode = formData.country_code || 'IND';
+
+  // Get region hierarchy from parent component
+  const { data: regionHierarchy } = useRegionHierarchy(countryCode);
+
+  // Get available countries dynamically
+  const { data: availableCountries } = useAvailableLayers('country');
+
+  // Get regions based on layer level
+  const { data: regions } = useRegions(countryCode, getRegionTypeForLevel(index, regionHierarchy));
+
+  // For Layer 2+, determine the parent region to get child regions and GeoJSONs
+  const parentLayer = index > 0 ? (formData.layers || [])[index - 1] : null;
+
+  let parentRegionId = null;
+  if (index === 1 && (parentLayer as any)?.geographic_column && !(parentLayer as any)?.region_id) {
+    // Layer 2 case: parent is country level, so show states
+    parentRegionId = 1; // India country ID
+  } else if ((parentLayer as any)?.region_id) {
+    // Layer 3+ case: parent has a specific region selected
+    parentRegionId = (parentLayer as any).region_id;
+  }
+
+  // For Layer 2+, get child regions from the parent region
+  const { data: childRegions } = useChildRegions(parentRegionId, index > 0 && !!parentRegionId);
+
+  // Determine which region ID to use for fetching GeoJSONs
+  let geojsonRegionId = null;
+  if (isFirstLayer) {
+    // For first layer, use India country region (id: 1)
+    geojsonRegionId = regions?.find((r: any) => r.type === 'country')?.id || 1;
+  } else {
+    // For Layer 2+, if user has selected a region, use that region ID
+    if (layer.region_id) {
+      geojsonRegionId = layer.region_id;
+    }
+  }
+
+  const { data: geojsons } = useRegionGeoJSONs(geojsonRegionId);
+
+  // Auto-select default GeoJSON when geographic column is selected and geojsons are available
+  useEffect(() => {
+    if (isFirstLayer && layer.geographic_column && geojsons && !layer.geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onUpdate({
+          geojson_id: defaultGeojson.id,
+          geojson_name: defaultGeojson.name,
+        });
+      }
+    }
+  }, [layer.geographic_column, geojsons, layer.geojson_id, onUpdate, isFirstLayer]);
+
+  // Auto-render map when Layer 1 is configured
+  useEffect(() => {
+    if (
+      isFirstLayer &&
+      layer.geographic_column &&
+      layer.geojson_id &&
+      formData.aggregate_column &&
+      formData.aggregate_function
+    ) {
+      // Check if we haven't already set these payloads to avoid infinite loop
+      const hasValidPayloads =
+        formData.geojsonPreviewPayload?.geojsonId === layer.geojson_id &&
+        formData.dataOverlayPayload?.geographic_column === layer.geographic_column &&
+        (formData as any).viewingLayer === 0;
+
+      if (!hasValidPayloads) {
+        // Build separate payloads for GeoJSON and data overlay
+        const geojsonPayload = {
+          geojsonId: layer.geojson_id,
+        };
+
+        const dataOverlayPayload = {
+          schema_name: formData.schema_name,
+          table_name: formData.table_name,
+          geographic_column: layer.geographic_column,
+          value_column: formData.aggregate_column || formData.value_column,
+          aggregate_function: formData.aggregate_function,
+          selected_geojson_id: layer.geojson_id,
+        };
+
+        // Trigger separated fetching preview automatically
+        onFormDataChange({
+          ...formData,
+          geojsonPreviewPayload: geojsonPayload,
+          dataOverlayPayload: dataOverlayPayload,
+          viewingLayer: 0,
+        } as any);
+      }
+    }
+  }, [
+    layer.geographic_column,
+    layer.geojson_id,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    isFirstLayer,
+  ]);
+
+  // Determine which regions to show in the dropdown/checkboxes
+  const availableRegions = index === 0 ? regions : childRegions;
+  const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
+  const canView =
+    !isFirstLayer && layer.geographic_column && (layer.selected_regions?.length || 0) > 0;
+
+  // Filter out columns that are already used in previous layers
+  const getAvailableColumns = () => {
+    if (!columns) return [];
+
+    const usedColumns = new Set<string>();
+
+    // Add columns used in previous layers
+    const layers = formData.layers || [];
+    for (let i = 0; i < index; i++) {
+      const previousLayer = layers[i];
+      if ((previousLayer as any)?.geographic_column) {
+        usedColumns.add((previousLayer as any).geographic_column);
+      }
+    }
+
+    // Filter out used columns
+    return columns.filter((column) => {
+      const columnName = column.column_name;
+      return !usedColumns.has(columnName);
+    });
+  };
+
+  const availableColumns = getAvailableColumns();
+  const selectedRegions = layer.selected_regions || [];
+
+  // Handle region selection (checkbox)
+  const handleRegionToggle = (region: any, checked: boolean) => {
+    let newSelectedRegions: SelectedRegion[];
+
+    if (checked) {
+      // Add region to selection
+      newSelectedRegions = [
+        ...selectedRegions,
+        {
+          region_id: region.id,
+          region_name: region.display_name,
+        },
+      ];
+    } else {
+      // Remove region from selection
+      newSelectedRegions = selectedRegions.filter((r) => r.region_id !== region.id);
+    }
+
+    onUpdate({
+      selected_regions: newSelectedRegions,
+    });
+  };
+
+  // Handle GeoJSON selection for a specific region
+  const handleGeoJSONSelect = (regionId: number, geojsonId: number, geojsonName: string) => {
+    const newSelectedRegions = selectedRegions.map((region) =>
+      region.region_id === regionId
+        ? { ...region, geojson_id: geojsonId, geojson_name: geojsonName }
+        : region
+    );
+
+    onUpdate({
+      selected_regions: newSelectedRegions,
+    });
+  };
+
+  // Handle view button click for a specific region (multi-select layers)
+  const handleViewRegionClick = (regionId: number) => {
+    const region = selectedRegions.find((r) => r.region_id === regionId);
+    if (!layer.geographic_column || !region?.geojson_id) return;
+
+    // Build separate payloads for this specific region
+    const geojsonPayload = {
+      geojsonId: region.geojson_id,
+    };
+
+    const dataOverlayPayload = {
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+      geographic_column: layer.geographic_column,
+      value_column: formData.aggregate_column || formData.value_column,
+      aggregate_func: formData.aggregate_function,
+    };
+
+    // Pass the payloads to parent for preview
+    onViewRegion(regionId, {
+      geojsonPayload,
+      dataOverlayPayload,
+      selectedRegion: region,
+    });
+  };
+
+  return (
+    <Card
+      className={`${isFirstLayer ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-gray-300'}`}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge variant={isFirstLayer ? 'default' : 'secondary'}>
+              {isFirstLayer ? 'First Layer' : `Layer ${index + 1}`}
+            </Badge>
+            <span className="text-sm font-medium">{layerTitle}</span>
+            {!isFirstLayer && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="h-6 w-6 p-0"
+              >
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {!isFirstLayer && (
+              <Badge variant="outline" className="text-xs">
+                {selectedRegions.length} selected
+              </Badge>
+            )}
+            {canView && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onView}
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+              >
+                <Eye className="h-4 w-4" />
+                View
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                className="h-7 px-2 text-red-600 hover:text-red-700"
+                title="Remove layer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      {(isFirstLayer || isExpanded) && (
+        <CardContent className="space-y-3 pt-0">
+          {/* First layer shows country selection */}
+          {isFirstLayer && (
+            <div className="space-y-2">
+              <Label>Select Country</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Choose the country for your map visualization
+              </p>
+              <Select
+                value={countryCode}
+                onValueChange={(value) => {
+                  // Update form data with new country and reset region/geojson selections
+                  onUpdate({ region_id: undefined, geojson_id: undefined });
+                  onFormDataChange({
+                    ...formData,
+                    country_code: value,
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(availableCountries || []).map((country: any) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Geographic Column Selection */}
+          <div className="space-y-2">
+            <Label>Geographic Column</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Select the column that contains {layerTitle.toLowerCase()} names from your data
+            </p>
+            <Select
+              value={layer.geographic_column || ''}
+              onValueChange={(value) =>
+                onUpdate({
+                  geographic_column: value,
+                  region_id: undefined,
+                  geojson_id: undefined,
+                  selected_regions: [], // Reset selections when column changes
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={`Select ${layerTitle.toLowerCase()} column`} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableColumns.map((column) => {
+                  const columnName = column.column_name;
+                  return (
+                    <SelectItem key={columnName} value={columnName}>
+                      {columnName} ({column.data_type})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Multi-Region Selection for Layer 2+ */}
+          {!isFirstLayer && layer.geographic_column && (
+            <div className="space-y-2">
+              <Label>Select {layerTitle}s</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                {index === 1
+                  ? 'e.g., Maharashtra. The user can select multiple states, but each state must be configured with its own GeoJSON.'
+                  : 'Choose multiple regions to visualize. Each will have its own map.'}
+              </p>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {availableRegions?.map((region: any) => (
+                  <RegionSelectionItem
+                    key={region.id}
+                    region={region}
+                    isSelected={selectedRegions.some((r) => r.region_id === region.id)}
+                    selectedRegion={selectedRegions.find((r) => r.region_id === region.id)}
+                    onToggle={handleRegionToggle}
+                    onGeoJSONSelect={handleGeoJSONSelect}
+                    onView={handleViewRegionClick}
+                    canView={!!layer.geographic_column}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Status Display for multi-select layers */}
+          {!isFirstLayer && selectedRegions.length > 0 && (
+            <div className="pt-2 border-t">
+              <Label className="text-sm font-medium mb-2 block">Selected Regions:</Label>
+              <div className="flex flex-wrap gap-1">
+                {selectedRegions.map((region) => (
+                  <Badge
+                    key={region.region_id}
+                    variant={region.geojson_id ? 'default' : 'outline'}
+                    className="text-xs"
+                  >
+                    {region.region_name}
+                    {region.geojson_name && ` (${region.geojson_name})`}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Status Display for primary layer */}
+          {isFirstLayer && (
+            <div className="flex flex-wrap gap-1">
+              {layer.geographic_column && (
+                <Badge variant="outline" className="bg-green-50 text-green-700">
+                  Column: {layer.geographic_column}
+                </Badge>
+              )}
+              {layer.geojson_name && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                  GeoJSON: {layer.geojson_name}
+                </Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// Individual region selection component with checkboxes
+function RegionSelectionItem({
+  region,
+  isSelected,
+  selectedRegion,
+  onToggle,
+  onGeoJSONSelect,
+  onView,
+  canView,
+}: {
+  region: any;
+  isSelected: boolean;
+  selectedRegion?: SelectedRegion;
+  onToggle: (region: any, checked: boolean) => void;
+  onGeoJSONSelect: (regionId: number, geojsonId: number, geojsonName: string) => void;
+  onView: (regionId: number) => void;
+  canView: boolean;
+}) {
+  // Fetch GeoJSONs for this specific region
+  const { data: geojsons } = useRegionGeoJSONs(isSelected ? region.id : null);
+
+  // Auto-select default GeoJSON when region is selected and geojsons are available
+  useEffect(() => {
+    if (isSelected && geojsons && !selectedRegion?.geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onGeoJSONSelect(region.id, defaultGeojson.id, defaultGeojson.name);
+      }
+    }
+  }, [isSelected, geojsons, selectedRegion?.geojson_id, region.id, onGeoJSONSelect]);
+
+  const canViewRegion = canView && isSelected && selectedRegion?.geojson_id;
+
+  return (
+    <div className="border rounded-lg p-2 space-y-2">
+      {/* Region Checkbox */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id={`region-${region.id}`}
+            checked={isSelected}
+            onCheckedChange={(checked) => onToggle(region, !!checked)}
+          />
+          <Label htmlFor={`region-${region.id}`} className="text-sm font-medium cursor-pointer">
+            {region.display_name}
+          </Label>
+        </div>
+
+        {canViewRegion && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onView(region.id)}
+            className="h-6 px-2 text-green-600 hover:text-green-700"
+          >
+            <Eye className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getLayerTitle(
+  index: number,
+  regionHierarchy?: any[],
+  countryCode: string = 'IND'
+): string {
+  // Layer 1 is always "Country"
+  if (index === 0) {
+    return 'Country';
+  }
+
+  // For Layer 2, we want the first level children (e.g., States for India)
+  if (index === 1 && regionHierarchy && regionHierarchy.length > 0) {
+    // Find the country region first
+    const countryRegion = regionHierarchy.find((region: any) => region.type === 'country');
+
+    if (countryRegion) {
+      // Find direct children of the country
+      const stateRegions = regionHierarchy.filter(
+        (region: any) => region.parent_id === countryRegion.id
+      );
+
+      if (stateRegions.length > 0) {
+        const regionType = stateRegions[0].type;
+        return regionType.charAt(0).toUpperCase() + regionType.slice(1) + 's';
+      }
+    }
+
+    // Fallback: Look for regions that have a parent but are not country
+    const firstLevelRegions = regionHierarchy.filter(
+      (region: any) => region.type !== 'country' && region.parent_id
+    );
+
+    if (firstLevelRegions.length > 0) {
+      // Group by type and pick the most common one (likely the state level)
+      const typeCount = firstLevelRegions.reduce((acc: any, region: any) => {
+        acc[region.type] = (acc[region.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      const mostCommonType = Object.keys(typeCount).reduce((a, b) =>
+        typeCount[a] > typeCount[b] ? a : b
+      );
+
+      return mostCommonType.charAt(0).toUpperCase() + mostCommonType.slice(1) + 's';
+    }
+  }
+
+  // Fallback when no hierarchy data is available
+  const titles = ['Country', 'States', 'Districts', 'Wards'];
+  return titles[index] || `Layer ${index + 1}`;
+}
+
+function getRegionTypeForLevel(level: number, regionHierarchy?: any[]): string | undefined {
+  if (regionHierarchy && regionHierarchy.length > 0) {
+    // Build hierarchy from region data - group by type and get unique types
+    const regionTypes = Array.from(new Set(regionHierarchy.map((region: any) => region.type)));
+
+    // Return the region type for the requested level
+    return regionTypes[level];
+  }
+
+  // Fallback to static types when no hierarchy data is available
+  const types = [undefined, 'state', 'district', 'ward'];
+  return types[level];
+}
