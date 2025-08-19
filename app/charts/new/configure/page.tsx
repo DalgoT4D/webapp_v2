@@ -366,125 +366,135 @@ function ConfigureChartPageContent() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex h-[calc(100vh-80px)]">
-        {/* Left Panel - 30% */}
-        <div className="w-[30%] bg-white border-r">
-          <Tabs defaultValue="configuration" className="h-full">
-            <div className="border-b px-6">
-              <TabsList className="grid w-full grid-cols-2 bg-transparent p-0">
-                <TabsTrigger
-                  value="configuration"
-                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                >
-                  Data Configuration
-                </TabsTrigger>
-                <TabsTrigger
-                  value="styling"
-                  className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                >
-                  Chart Styling
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="configuration" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
-              <div className="p-4">
-                {formData.chart_type === 'map' ? (
-                  <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
-                ) : (
-                  <ChartDataConfigurationV3
-                    formData={formData}
-                    onChange={handleFormChange}
-                    disabled={false}
-                  />
-                )}
+      {/* Main Content Area with 2rem margin container */}
+      <div className="p-8 h-[calc(100vh-144px)]">
+        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Left Panel - 30% */}
+          <div className="w-[30%] border-r">
+            <Tabs defaultValue="configuration" className="h-full">
+              <div className="border-b px-6">
+                <TabsList className="grid w-full grid-cols-2 bg-transparent p-0">
+                  <TabsTrigger
+                    value="configuration"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
+                  >
+                    Data Configuration
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="styling"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
+                  >
+                    Chart Styling
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </TabsContent>
 
-            <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
-              <div className="p-4">
-                {formData.chart_type === 'map' ? (
-                  <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                ) : (
-                  <ChartCustomizations
-                    chartType={formData.chart_type || 'bar'}
-                    formData={formData}
-                    onChange={handleFormChange}
-                  />
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Right Panel - 70% */}
-        <div className="w-[70%] bg-white">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-            <div className="border-b px-6">
-              <TabsList className="grid w-fit grid-cols-2 bg-transparent p-0">
-                <TabsTrigger
-                  value="chart"
-                  className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
-                >
-                  CHART
-                </TabsTrigger>
-                <TabsTrigger
-                  value="data"
-                  className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
-                >
-                  DATA
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="chart" className="mt-0 h-[calc(100%-49px)] p-4">
-              <div className="w-full h-full pb-32">
-                {formData.chart_type === 'map' ? (
-                  <div className="w-full h-full">
-                    <MapPreview
-                      geojsonData={geojsonData?.geojson_data}
-                      geojsonLoading={geojsonLoading}
-                      geojsonError={geojsonError}
-                      mapData={mapDataOverlay?.data}
-                      mapDataLoading={mapDataLoading}
-                      mapDataError={mapDataError}
-                      title={formData.title}
-                      valueColumn={formData.aggregate_column}
+              <TabsContent
+                value="configuration"
+                className="mt-0 h-[calc(100%-49px)] overflow-y-auto"
+              >
+                <div className="p-4">
+                  {formData.chart_type === 'map' ? (
+                    <MapDataConfigurationV3
+                      formData={formData}
+                      onFormDataChange={handleFormChange}
                     />
-                  </div>
-                ) : (
-                  <div className="w-full h-full">
-                    <ChartPreview
-                      config={chartData?.echarts_config}
-                      isLoading={chartLoading}
-                      error={chartError}
+                  ) : (
+                    <ChartDataConfigurationV3
+                      formData={formData}
+                      onChange={handleFormChange}
+                      disabled={false}
                     />
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+                  )}
+                </div>
+              </TabsContent>
 
-            <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] p-4">
-              <DataPreview
-                data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                columns={dataPreview?.columns || []}
-                columnTypes={dataPreview?.column_types || {}}
-                isLoading={previewLoading}
-                error={previewError}
-                pagination={
-                  dataPreview
-                    ? {
-                        page: dataPreview.page,
-                        pageSize: dataPreview.page_size,
-                        total: dataPreview.total_rows,
-                        onPageChange: setDataPreviewPage,
-                      }
-                    : undefined
-                }
-              />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <div className="p-4">
+                  {formData.chart_type === 'map' ? (
+                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+                  ) : (
+                    <ChartCustomizations
+                      chartType={formData.chart_type || 'bar'}
+                      formData={formData}
+                      onChange={handleFormChange}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Right Panel - 70% */}
+          <div className="w-[70%]">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+              <div className="border-b px-6">
+                <TabsList className="grid w-fit grid-cols-2 bg-transparent p-0">
+                  <TabsTrigger
+                    value="chart"
+                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
+                  >
+                    CHART
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="data"
+                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
+                  >
+                    DATA
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="chart" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <div className="p-4 h-full">
+                  {formData.chart_type === 'map' ? (
+                    <div className="w-full h-full">
+                      <MapPreview
+                        geojsonData={geojsonData?.geojson_data}
+                        geojsonLoading={geojsonLoading}
+                        geojsonError={geojsonError}
+                        mapData={mapDataOverlay?.data}
+                        mapDataLoading={mapDataLoading}
+                        mapDataError={mapDataError}
+                        title={formData.title}
+                        valueColumn={formData.aggregate_column}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full">
+                      <ChartPreview
+                        config={chartData?.echarts_config}
+                        isLoading={chartLoading}
+                        error={chartError}
+                      />
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <div className="p-4">
+                  <DataPreview
+                    data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                    columns={dataPreview?.columns || []}
+                    columnTypes={dataPreview?.column_types || {}}
+                    isLoading={previewLoading}
+                    error={previewError}
+                    pagination={
+                      dataPreview
+                        ? {
+                            page: dataPreview.page,
+                            pageSize: dataPreview.page_size,
+                            total: dataPreview.total_rows,
+                            onPageChange: setDataPreviewPage,
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
     </div>
