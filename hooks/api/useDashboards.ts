@@ -8,6 +8,7 @@ export interface Dashboard {
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
   target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
+  filter_layout?: 'vertical' | 'horizontal'; // Filter layout position
   layout_config: any;
   responsive_layouts?: any; // Optional responsive layouts for different breakpoints
   components: any;
@@ -173,6 +174,13 @@ export async function createDashboardFilter(
   }
 ): Promise<DashboardFilter> {
   return apiPost(`/api/dashboards/${dashboardId}/filters/`, data);
+}
+
+export async function deleteDashboardFilter(
+  dashboardId: number,
+  filterId: number
+): Promise<{ success: boolean }> {
+  return apiDelete(`/api/dashboards/${dashboardId}/filters/${filterId}/`);
 }
 
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {

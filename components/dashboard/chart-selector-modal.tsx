@@ -28,7 +28,6 @@ export function ChartSelectorModal({
     // Prevent selection if chart is already added
     if (excludedChartIds.includes(chartId)) {
       // Could show a toast message here in the future
-      console.log(`Chart ${chartId} is already added to the dashboard`);
       return;
     }
 

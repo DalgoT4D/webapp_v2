@@ -49,7 +49,6 @@ export default function CreateDashboardPage() {
         });
 
         // Simple notification instead of toast
-        console.log('Dashboard created successfully');
       } catch (error: any) {
         console.error('Failed to create dashboard:', error);
         // Redirect back to dashboard list on error
@@ -82,9 +81,7 @@ export default function CreateDashboardPage() {
     try {
       // Call cleanup function if available (this will save changes first)
       if (dashboardBuilderRef.current?.cleanup) {
-        console.log('Saving changes and cleaning up before preview mode...');
         await dashboardBuilderRef.current.cleanup();
-        console.log('Cleanup completed, navigating to preview mode...');
       }
 
       // Navigate to preview mode
@@ -119,29 +116,14 @@ export default function CreateDashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b px-6 py-3 bg-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboards
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        <DashboardBuilderV2
-          ref={dashboardBuilderRef}
-          dashboardId={dashboardId}
-          initialData={dashboardData}
-          isNewDashboard={true}
-          onBack={handleBackNavigation}
-          onPreview={handlePreviewMode}
-          isNavigating={isNavigating}
-        />
-      </div>
-    </div>
+    <DashboardBuilderV2
+      ref={dashboardBuilderRef}
+      dashboardId={dashboardId}
+      initialData={dashboardData}
+      isNewDashboard={true}
+      onBack={handleBackNavigation}
+      onPreview={handlePreviewMode}
+      isNavigating={isNavigating}
+    />
   );
 }

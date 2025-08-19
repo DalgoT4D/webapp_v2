@@ -73,9 +73,7 @@ export default function EditDashboardPage() {
     try {
       // Call cleanup function if available (this will save changes first)
       if (dashboardBuilderRef.current?.cleanup) {
-        console.log('Saving changes and cleaning up before preview mode...');
         await dashboardBuilderRef.current.cleanup();
-        console.log('Cleanup completed, navigating to preview mode...');
       }
 
       // Navigate to preview mode
@@ -216,21 +214,17 @@ export default function EditDashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <DashboardBuilderV2
-          ref={dashboardBuilderRef}
-          dashboardId={dashboardId}
-          initialData={dashboardData}
-          dashboardLockInfo={{
-            isLocked: dashboard?.is_locked || false,
-            lockedBy: dashboard?.locked_by,
-          }}
-          onBack={handleBackNavigation}
-          onPreview={handlePreviewMode}
-          isNavigating={isNavigating}
-        />
-      </div>
-    </div>
+    <DashboardBuilderV2
+      ref={dashboardBuilderRef}
+      dashboardId={dashboardId}
+      initialData={dashboardData}
+      dashboardLockInfo={{
+        isLocked: dashboard?.is_locked || false,
+        lockedBy: dashboard?.locked_by,
+      }}
+      onBack={handleBackNavigation}
+      onPreview={handlePreviewMode}
+      isNavigating={isNavigating}
+    />
   );
 }

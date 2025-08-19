@@ -571,122 +571,124 @@ export function DashboardListV2() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Dashboards</h2>
-          <p className="text-muted-foreground">Create and manage your data dashboards</p>
-        </div>
+    <div className="container mx-auto p-6">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboards</h1>
+            <p className="text-muted-foreground mt-1">Create and manage your data dashboards</p>
+          </div>
 
-        <Link href="/dashboards/create">
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Create Dashboard
-          </Button>
-        </Link>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search dashboards..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="pl-10"
-          />
-        </div>
-
-        <Select value={dashboardType} onValueChange={(value: any) => setDashboardType(value)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="native">Native Only</SelectItem>
-            <SelectItem value="superset">Superset Only</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={publishFilter} onValueChange={(value: any) => setPublishFilter(value)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div className="flex gap-1">
-          <Button
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Content */}
-      {isLoading ? (
-        <div
-          className={cn(
-            viewMode === 'grid'
-              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-              : 'space-y-2'
-          )}
-        >
-          {[...Array(8)].map((_, i) => (
-            <Card key={i}>
-              <div className="h-48 bg-muted animate-pulse" />
-              <CardHeader>
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-3 w-full mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-3 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : dashboards && dashboards.length > 0 ? (
-        <div
-          className={cn(
-            viewMode === 'grid'
-              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-              : 'space-y-2'
-          )}
-        >
-          {dashboards.map((dashboard) =>
-            viewMode === 'grid' ? renderDashboardCard(dashboard) : renderDashboardList(dashboard)
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center h-64 gap-4">
-          <Layout className="w-12 h-12 text-muted-foreground" />
-          <p className="text-muted-foreground">
-            {searchQuery ? 'No dashboards found' : 'No dashboards yet'}
-          </p>
           <Link href="/dashboards/create">
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Create your first dashboard
+              Create Dashboard
             </Button>
           </Link>
         </div>
-      )}
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search dashboards..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="pl-10"
+            />
+          </div>
+
+          <Select value={dashboardType} onValueChange={(value: any) => setDashboardType(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="native">Native Only</SelectItem>
+              <SelectItem value="superset">Superset Only</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={publishFilter} onValueChange={(value: any) => setPublishFilter(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex gap-1">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Content */}
+        {isLoading ? (
+          <div
+            className={cn(
+              viewMode === 'grid'
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                : 'space-y-2'
+            )}
+          >
+            {[...Array(8)].map((_, i) => (
+              <Card key={i}>
+                <div className="h-48 bg-muted animate-pulse" />
+                <CardHeader>
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-3 w-full mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-3 w-1/2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : dashboards && dashboards.length > 0 ? (
+          <div
+            className={cn(
+              viewMode === 'grid'
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                : 'space-y-2'
+            )}
+          >
+            {dashboards.map((dashboard) =>
+              viewMode === 'grid' ? renderDashboardCard(dashboard) : renderDashboardList(dashboard)
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 gap-4">
+            <Layout className="w-12 h-12 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {searchQuery ? 'No dashboards found' : 'No dashboards yet'}
+            </p>
+            <Link href="/dashboards/create">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Create your first dashboard
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

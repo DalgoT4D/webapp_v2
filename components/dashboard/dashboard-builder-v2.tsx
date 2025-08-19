@@ -11,11 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
   refreshDashboardLock,
   updateDashboardFilter,
   createDashboardFilter,
+  deleteDashboardFilter,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
 import {
@@ -36,6 +38,8 @@ import {
   Filter,
   ArrowLeft,
   Eye,
+  PanelLeft,
+  PanelTop,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -43,6 +47,7 @@ import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
 import { FilterElement } from './filter-element';
+import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -181,7 +186,7 @@ interface DashboardState {
   layout: DashboardLayout[];
   layouts?: ResponsiveLayouts;
   components: Record<string, DashboardComponent>;
-  filters: DashboardFilterConfig[];
+  // filters removed - now managed independently outside undo/redo
 }
 
 interface DashboardBuilderV2Props {
@@ -206,12 +211,9 @@ interface DashboardBuilderV2Ref {
 function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
   const layouts: ResponsiveLayouts = {};
 
-  console.log('Generating responsive layouts for', layout.length, 'items');
-
   // For each breakpoint, adjust the layout
   Object.keys(COLS).forEach((breakpoint) => {
     const cols = COLS[breakpoint as keyof typeof COLS];
-    console.log(`Generating layout for ${breakpoint} with ${cols} columns`);
 
     // Sort items by their original position (top to bottom, left to right)
     const sortedItems = [...layout].sort((a, b) => {
@@ -230,10 +232,6 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
         newX = 0; // Always start at left edge
         newY = currentY; // Stack vertically
         currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-
-        console.log(
-          `Mobile layout for item ${item.i}: w=${newW}, x=${newX}, y=${newY}, cols=${cols}`
-        );
       } else if (breakpoint === 'sm') {
         // For tablets, try 2 columns or stack
         const canFitTwo = cols >= 6;
@@ -268,12 +266,10 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
         maxW: cols, // Max width is all columns
       };
 
-      console.log(`Item ${item.i} ${breakpoint}:`, result);
       return result;
     });
   });
 
-  console.log('Generated responsive layouts:', layouts);
   return layouts;
 }
 
@@ -314,16 +310,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Use saved responsive layouts if available, otherwise generate them
     const initialLayouts = initialResponsiveLayouts || generateResponsiveLayouts(mergedLayout);
 
-    // State management with undo/redo
+    // State management with undo/redo (canvas only - no filters)
     const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
       {
         layout: mergedLayout,
         layouts: initialLayouts,
         components: mergedComponents,
-        filters: initialFilters,
       },
       20
     );
+
+    // Applied filters state - only updates when filters are applied (causes chart re-renders)
+    const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
 
     // Get initial target screen size from initialData, default to desktop
     const initialTargetScreenSize: ScreenSizeKey =
@@ -362,6 +360,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       SCREEN_SIZES[targetScreenSize]?.width || 1200
     );
 
+    // Filter layout state
+    const [filterLayout, setFilterLayout] = useState<'vertical' | 'horizontal'>(
+      (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
+    );
+
     // Ref for the canvas container
     const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -375,7 +378,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     useEffect(() => {
       const newWidth = SCREEN_SIZES[targetScreenSize].width;
       setContainerWidth(newWidth);
-      console.log('Container width updated to:', newWidth, 'for screen size:', targetScreenSize);
     }, [targetScreenSize]);
 
     // Save target screen size changes (separate from auto-save to avoid conflicts)
@@ -384,7 +386,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       if (dashboardId && targetScreenSize !== initialTargetScreenSize) {
         const timeoutId = setTimeout(async () => {
           try {
-            console.log('Saving target screen size change:', targetScreenSize);
             await saveDashboard();
           } catch (error) {
             console.error('Error saving target screen size:', error);
@@ -574,7 +575,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     // Save dashboard
-    const saveDashboard = async () => {
+    const saveDashboard = async (overrides: any = {}) => {
       if (!dashboardId) return;
 
       setIsSaving(true);
@@ -582,30 +583,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setSaveError(null);
 
       try {
-        // Prepare filters without position data (position is in layout_config)
-        const backendFilters = state.filters.map((filter) => ({
-          id: filter.id,
-          name: filter.name,
-          filter_type: filter.filter_type,
-          schema_name: filter.schema_name,
-          table_name: filter.table_name,
-          column_name: filter.column_name,
-          settings: {
-            ...filter.settings,
-            // Don't include position or name in settings
-          },
-          order: 0,
-        }));
+        // Filters are no longer included in dashboard PUT payload - managed via separate endpoints
 
-        await apiPut(`/api/dashboards/${dashboardId}/`, {
+        // Create safe serializable payload (filters removed - managed independently)
+        const payload = {
           title,
           description,
           grid_columns: SCREEN_SIZES[targetScreenSize].cols,
           target_screen_size: targetScreenSize,
-          layout_config: state.layout, // This has filter positions
-          components: state.components, // This has filter references (filterId)
-          filters: backendFilters, // This has filter configurations
-        });
+          filter_layout: filterLayout,
+          layout_config: JSON.parse(JSON.stringify(state.layout)), // Safe deep clone
+          components: JSON.parse(JSON.stringify(state.components)), // Safe deep clone
+          // filters removed - managed via separate API endpoints
+          ...overrides, // Apply any overrides passed to the function
+        };
+
+        await apiPut(`/api/dashboards/${dashboardId}/`, payload);
 
         setSaveStatus('saved');
         // Reset save status after 3 seconds
@@ -636,7 +629,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           if (dashboardId) {
             try {
               await saveDashboard();
-              console.log('Dashboard saved before cleanup');
             } catch (error) {
               console.error('Error saving dashboard before cleanup:', error);
             }
@@ -701,13 +693,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Add chart component
     const handleChartSelected = async (chartId: number) => {
       try {
-        console.log('Adding chart with ID:', chartId);
         // Fetch chart details - for now, use mock data
         let chartDetails;
         try {
           chartDetails = await apiGet(`/api/charts/${chartId}/`);
         } catch (error) {
-          console.log('Failed to fetch chart, using mock data');
           // Use mock data if API fails
           chartDetails = {
             id: chartId,
@@ -754,14 +744,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             ...state.components,
             [newComponent.id]: newComponent,
           },
-          filters: state.filters,
         });
       } catch (error: any) {
         console.error('Failed to add chart:', error.message || 'Please try again');
       }
     };
-
-    console.log(state);
 
     // Add text component
     const addTextComponent = () => {
@@ -804,22 +791,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           ...state.components,
           [newComponent.id]: newComponent,
         },
-        filters: state.filters,
       });
     };
 
     // Remove component
     const removeComponent = (componentId: string) => {
-      const component = state.components[componentId];
       const newComponents = { ...state.components };
       delete newComponents[componentId];
-
-      // If it's a filter component, also remove from filters array
-      let newFilters = state.filters;
-      if (component && component.type === DashboardComponentType.FILTER) {
-        const filterId = component.config.filterId; // Use filterId reference
-        newFilters = state.filters.filter((filter) => filter.id !== filterId);
-      }
 
       const newLayout = state.layout.filter((item) => item.i !== componentId);
       const newLayouts = generateResponsiveLayouts(newLayout);
@@ -828,7 +806,26 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         layout: newLayout,
         layouts: newLayouts,
         components: newComponents,
-        filters: newFilters,
+        // filters removed - managed independently outside undo/redo
+      });
+    };
+
+    // Handle when filters are applied (causes chart re-renders)
+    const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
+      setAppliedFilters(newAppliedFilters);
+    };
+
+    // Handle when filters are cleared
+    const handleFiltersCleared = () => {
+      setAppliedFilters({});
+    };
+
+    // Handle filter layout changes
+    const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
+      setFilterLayout(newLayout);
+      // Auto-save the layout preference
+      saveDashboard({ filter_layout: newLayout }).catch((error) => {
+        console.error('❌ Failed to save filter layout:', error);
       });
     };
 
@@ -859,49 +856,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             updateData
           );
 
-          // Update the filter in the filters array with fresh data from API
-          const updatedFilters = state.filters.map((filter) =>
-            String(filter.id) === String(filterId)
-              ? ({
-                  id: updatedFilterFromAPI.id,
-                  name: updatedFilterFromAPI.name,
-                  schema_name: updatedFilterFromAPI.schema_name,
-                  table_name: updatedFilterFromAPI.table_name,
-                  column_name: updatedFilterFromAPI.column_name,
-                  filter_type: updatedFilterFromAPI.filter_type,
-                  settings: updatedFilterFromAPI.settings,
-                } as any) // Using API response type
-              : filter
-          );
+          // Note: Filter components will handle their own state updates
 
-          // Find the component that references this filter and update its name
-          const updatedComponents = { ...state.components };
-          const componentId = Object.keys(updatedComponents).find(
-            (id) =>
-              updatedComponents[id].type === DashboardComponentType.FILTER &&
-              updatedComponents[id].config.filterId === filterId
-          );
-
-          if (componentId) {
-            updatedComponents[componentId] = {
-              ...updatedComponents[componentId],
-              config: {
-                ...updatedComponents[componentId].config,
-                name: updatedFilterFromAPI.name,
-              },
-            };
-          }
-
-          // Update state with all preserved data
-          setState({
-            ...state,
-            filters: updatedFilters,
-            components: updatedComponents,
-          });
-
-          console.log('Filter updated successfully');
           setSelectedFilterForEdit(null);
           setShowFilterModal(false);
+
+          // Refresh dashboard data to update filter list
+          if (dashboardId) {
+            const { mutate } = await import('swr');
+            mutate(`/api/dashboards/${dashboardId}/`);
+          }
         } catch (error) {
           console.error('Error updating filter:', error);
         }
@@ -925,93 +889,77 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           settings: filterPayload.settings,
         });
 
-        // Find the best available position for the new filter
-        const position = findAvailablePosition(3, 3);
-
-        // Create filter component ID using the filter ID from API response
-        const filterComponentId = `filter-${newFilterFromAPI.id}`;
-
-        // Convert API response to frontend config format
+        // Convert API response to frontend config format (no position needed)
         const filterConfig = convertFilterToConfig(newFilterFromAPI, {
-          x: position.x,
-          y: position.y,
-          w: 3,
+          x: 0,
+          y: 0,
+          w: 4,
           h: 3,
         });
 
-        // Create the filter component (with reference to filter ID)
-        const newComponent: DashboardComponent = {
-          id: filterComponentId,
-          type: DashboardComponentType.FILTER,
-          config: {
-            filterId: newFilterFromAPI.id, // Just store the filter ID reference
-            name: filterConfig.name, // Store name for quick access
-          },
-        };
+        // Note: Filter components will handle their own state updates
 
-        // Create the layout item (position stored here)
-        const newLayoutItem: DashboardLayout = {
-          i: filterComponentId,
-          x: position.x,
-          y: position.y,
-          w: 3,
-          h: 3,
-          minW: 2,
-          maxW: 6,
-          minH: 2,
-        };
+        setShowFilterModal(false);
 
-        // Update local state
-        const newLayout = [...state.layout, newLayoutItem];
-        const newLayouts = generateResponsiveLayouts(newLayout);
-
-        setState({
-          layout: newLayout,
-          layouts: newLayouts,
-          components: {
-            ...state.components,
-            [filterComponentId]: newComponent,
-          },
-          filters: [...state.filters, filterConfig],
-        });
-
-        console.log('Filter created successfully:', newFilterFromAPI);
+        // Refresh dashboard data to update filter list
+        if (dashboardId) {
+          const { mutate } = await import('swr');
+          mutate(`/api/dashboards/${dashboardId}/`);
+        }
       } catch (error: any) {
         console.error('Failed to create filter:', error.message || 'Please try again');
         // Could add error handling/notification here
       }
     };
 
-    // Remove filter
-    const removeFilter = (filterId: string) => {
-      // Find the component ID that contains this filter (using filterId reference)
-      const componentId = Object.keys(state.components).find(
-        (id) =>
-          state.components[id].type === DashboardComponentType.FILTER &&
-          state.components[id].config.filterId === filterId
-      );
+    // Remove filter - note: filter state is now managed by filter components
+    const removeFilter = async (filterId: string) => {
+      if (!dashboardId) return;
 
-      if (componentId) {
-        // Remove from components and layout
-        const newComponents = { ...state.components };
-        delete newComponents[componentId];
+      try {
+        // Call backend API to delete the filter
+        await deleteDashboardFilter(dashboardId, parseInt(filterId));
 
-        const newLayout = state.layout.filter((item) => item.i !== componentId);
-        const newLayouts = generateResponsiveLayouts(newLayout);
-
-        setState({
-          layout: newLayout,
-          layouts: newLayouts,
-          components: newComponents,
-          filters: state.filters.filter((filter) => filter.id !== filterId),
-        });
-      } else {
-        // Just remove from filters array if not found in components
-        setState({
-          ...state,
-          filters: state.filters.filter((filter) => filter.id !== filterId),
-        });
+        // Refresh dashboard data to update filter list
+        const { mutate } = await import('swr');
+        mutate(`/api/dashboards/${dashboardId}/`);
+      } catch (error: any) {
+        console.error('Failed to delete filter:', error.message || 'Please try again');
+        // Could add error handling/notification here
       }
+    };
+
+    // Edit filter
+    const handleEditFilter = (filter: DashboardFilterConfig) => {
+      // Convert DashboardFilterConfig back to DashboardFilter format for editing
+      const filterForEdit: DashboardFilter = {
+        id: parseInt(filter.id),
+        dashboard_id: dashboardId!,
+        name: filter.name,
+        filter_type: filter.filter_type,
+        schema_name: filter.schema_name,
+        table_name: filter.table_name,
+        column_name: filter.column_name,
+        settings: filter.settings,
+        order: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setSelectedFilterForEdit(filterForEdit);
+      setShowFilterModal(true);
+    };
+
+    // Note: Apply filters functionality is now handled by individual filter components
+
+    // Clear all filters
+    const handleClearAllFilters = () => {
+      setAppliedFilters({});
+    };
+
+    // Reorder filters - note: filter state is now managed by filter components
+    const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
+      // Filter components handle their own reordering
     };
 
     // Get chart IDs that are already added to the dashboard
@@ -1113,72 +1061,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               chartId={component.config.chartId}
               config={component.config}
               isResizing={resizingItems.has(componentId)}
+              appliedFilters={appliedFilters}
             />
           );
 
         case DashboardComponentType.TEXT:
           return <UnifiedTextElement {...commonProps} config={component.config} />;
 
-        case DashboardComponentType.FILTER:
-          // Get the actual filter data from state.filters using the filterId
-          const filterId = component.config.filterId;
-          const filterData = state.filters.find((f) => String(f.id) === String(filterId));
-
-          if (!filterData) {
-            console.error(`Filter with id ${filterId} not found`);
-            return null;
-          }
-
-          return (
-            <FilterElement
-              filter={filterData}
-              onRemove={commonProps.onRemove}
-              onUpdate={(updatedFilter) => {
-                // Update both the filter data and the component with preserved state
-                const updatedFilters = state.filters.map((filter) =>
-                  String(filter.id) === String(filterId)
-                    ? ({ ...filter, ...updatedFilter } as DashboardFilterConfig)
-                    : filter
-                );
-
-                const updatedComponents = {
-                  ...state.components,
-                  [componentId]: {
-                    ...component,
-                    config: {
-                      ...component.config,
-                      name: updatedFilter.name,
-                    },
-                  },
-                };
-
-                setState({
-                  ...state,
-                  filters: updatedFilters,
-                  components: updatedComponents,
-                });
-              }}
-              onEdit={() => {
-                // Convert DashboardFilterConfig back to format expected by modal
-                const filterForEdit: DashboardFilter = {
-                  id: parseInt(filterData.id),
-                  dashboard_id: dashboardId || 0,
-                  name: filterData.name,
-                  filter_type: filterData.filter_type,
-                  schema_name: filterData.schema_name,
-                  table_name: filterData.table_name,
-                  column_name: filterData.column_name,
-                  settings: filterData.settings,
-                  order: 0,
-                  created_at: '',
-                  updated_at: '',
-                };
-                setSelectedFilterForEdit(filterForEdit);
-                setShowFilterModal(true);
-              }}
-              isEditMode={true}
-            />
-          );
+        // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
 
         default:
           return null;
@@ -1186,9 +1076,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     return (
-      <div className="dashboard-builder h-full flex flex-col">
-        {/* Responsive Header with Title and Toolbar */}
-        <div className="border-b bg-white">
+      <div className="dashboard-builder h-screen flex flex-col overflow-hidden">
+        {/* Fixed Header with Title and Toolbar */}
+        <div className="border-b bg-white flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
             {/* Mobile Top Row - Title and Essential Actions */}
@@ -1242,7 +1132,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               {/* Mobile Quick Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Button onClick={saveDashboard} size="sm" variant="ghost" className="p-1.5">
+                <Button onClick={() => saveDashboard()} size="sm" variant="ghost" className="p-1.5">
                   <Save className="w-4 h-4" />
                 </Button>
                 {onPreview && (
@@ -1274,6 +1164,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           Choose the target screen size for your dashboard design
                         </p>
                       </div>
+
+                      {/* Filter Layout Setting */}
+                      <div className="grid gap-2">
+                        <Label className="text-sm font-medium">Filter Layout</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={filterLayout}
+                          onValueChange={(value) =>
+                            value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
+                          }
+                          className="grid grid-cols-2 gap-2"
+                        >
+                          <ToggleGroupItem value="vertical" className="text-xs">
+                            <PanelLeft className="w-3 h-3 mr-1" />
+                            Vertical
+                          </ToggleGroupItem>
+                          <ToggleGroupItem value="horizontal" className="text-xs">
+                            <PanelTop className="w-3 h-3 mr-1" />
+                            Horizontal
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                        <div className="text-xs text-muted-foreground">
+                          {filterLayout === 'vertical'
+                            ? 'Filters appear in a sidebar on the left'
+                            : 'Filters appear in a horizontal bar above the canvas'}
+                        </div>
+                      </div>
+
                       <div className="grid gap-2">
                         <div className="grid grid-cols-3 items-center gap-4">
                           <Label htmlFor="target-screen-mobile">Screen Size</Label>
@@ -1329,15 +1247,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               >
                 <Type className="w-3 h-3 mr-1" />
                 Text
-              </Button>
-              <Button
-                onClick={() => setShowFilterModal(true)}
-                size="sm"
-                variant="outline"
-                className="flex-shrink-0 h-8 text-xs"
-              >
-                <Filter className="w-3 h-3 mr-1" />
-                Filter
               </Button>
               <div className="flex gap-1 ml-auto flex-shrink-0">
                 <Button
@@ -1455,11 +1364,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   Add Text
                 </Button>
 
-                <Button onClick={() => setShowFilterModal(true)} size="sm" variant="outline">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Add Filter
-                </Button>
-
                 <div className="ml-2 flex gap-1">
                   <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
                     <Undo className="w-4 h-4" />
@@ -1521,6 +1425,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           Choose the target screen size for your dashboard design
                         </p>
                       </div>
+
+                      {/* Filter Layout Setting */}
+                      <div className="grid gap-2">
+                        <Label className="text-sm font-medium">Filter Layout</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={filterLayout}
+                          onValueChange={(value) =>
+                            value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
+                          }
+                          className="grid grid-cols-2 gap-2"
+                        >
+                          <ToggleGroupItem value="vertical" className="text-xs">
+                            <PanelLeft className="w-4 h-4 mr-2" />
+                            Vertical
+                          </ToggleGroupItem>
+                          <ToggleGroupItem value="horizontal" className="text-xs">
+                            <PanelTop className="w-4 h-4 mr-2" />
+                            Horizontal
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                        <div className="text-xs text-muted-foreground">
+                          {filterLayout === 'vertical'
+                            ? 'Filters appear in a sidebar on the left'
+                            : 'Filters appear in a horizontal bar above the canvas'}
+                        </div>
+                      </div>
+
                       <div className="grid gap-2">
                         <div className="grid grid-cols-3 items-center gap-4">
                           <Label htmlFor="target-screen-desktop">Screen Size</Label>
@@ -1556,7 +1488,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </PopoverContent>
                 </Popover>
 
-                <Button onClick={saveDashboard} size="sm" variant="outline">
+                <Button onClick={() => saveDashboard()} size="sm" variant="outline">
                   <Save className="w-4 h-4 mr-2" />
                   <span className="hidden lg:inline">Save</span>
                 </Button>
@@ -1578,60 +1510,90 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             </div>
           </div>
         </div>
+        {/* Horizontal Filters Bar */}
+        {filterLayout === 'horizontal' && (
+          <UnifiedFiltersPanel
+            initialFilters={initialFilters}
+            dashboardId={dashboardId!}
+            isEditMode={true}
+            layout="horizontal"
+            onAddFilter={() => setShowFilterModal(true)}
+            onEditFilter={handleEditFilter}
+            onFiltersApplied={handleFiltersApplied}
+            onFiltersCleared={handleFiltersCleared}
+          />
+        )}
+        {/* Main Content Area */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Vertical Filters Sidebar */}
+          {filterLayout === 'vertical' && (
+            <UnifiedFiltersPanel
+              initialFilters={initialFilters}
+              dashboardId={dashboardId!}
+              isEditMode={true}
+              layout="vertical"
+              onAddFilter={() => setShowFilterModal(true)}
+              onEditFilter={handleEditFilter}
+              onFiltersApplied={handleFiltersApplied}
+              onFiltersCleared={handleFiltersCleared}
+            />
+          )}
 
-        {/* Dashboard Canvas */}
-        <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0">
-          {/* Canvas container with exact screen dimensions */}
-          <div
-            className="mx-auto bg-white shadow-lg rounded-lg border"
-            style={{
-              width: currentScreenConfig.width,
-              minHeight: Math.max(currentScreenConfig.height, 400),
-              maxWidth: '100%',
-              position: 'relative',
-            }}
-          >
-            {/* Screen size indicator */}
-            <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
-              {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height})
-            </div>
-
-            <GridLayout
-              className="layout"
-              layout={state.layout}
-              cols={currentScreenConfig.cols}
-              rowHeight={30}
-              width={containerWidth}
-              onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
-              onResizeStart={handleResizeStart}
-              onResizeStop={handleResizeStop}
-              draggableHandle=".drag-handle"
-              compactType={null}
-              preventCollision={true}
-              allowOverlap={false}
-              margin={[4, 4]}
-              containerPadding={[4, 4]}
-              autoSize={true}
-              verticalCompact={false}
+          {/* Dashboard Canvas - Scrollable Area */}
+          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0">
+            {/* Canvas container with exact screen dimensions */}
+            <div
+              className="mx-auto bg-white shadow-lg rounded-lg border"
+              style={{
+                width: currentScreenConfig.width,
+                minHeight: Math.max(currentScreenConfig.height, 400),
+                maxWidth: '100%',
+                position: 'relative',
+              }}
             >
-              {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-                <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                  <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
-                    <Grip className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <button
-                    onClick={() => removeComponent(item.i)}
-                    className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
-                  >
-                    <X className="w-4 h-4 text-gray-400" />
-                  </button>
-                  <div className="p-4 h-full">{renderComponent(item.i)}</div>
-                </div>
-              ))}
-            </GridLayout>
-          </div>
-        </div>
+              {/* Screen size indicator */}
+              <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
+                {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height}
+                )
+              </div>
 
+              <GridLayout
+                className="layout"
+                layout={state.layout}
+                cols={currentScreenConfig.cols}
+                rowHeight={30}
+                width={containerWidth}
+                onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+                onResizeStart={handleResizeStart}
+                onResizeStop={handleResizeStop}
+                draggableHandle=".drag-handle"
+                compactType={null}
+                preventCollision={true}
+                allowOverlap={false}
+                margin={[4, 4]}
+                containerPadding={[4, 4]}
+                autoSize={true}
+                verticalCompact={false}
+              >
+                {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
+                  <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
+                    <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
+                      <Grip className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <button
+                      onClick={() => removeComponent(item.i)}
+                      className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                    <div className="p-4 h-full">{renderComponent(item.i)}</div>
+                  </div>
+                ))}
+              </GridLayout>
+            </div>
+          </div>
+        </div>{' '}
+        {/* Close Main Content Area */}
         {/* Chart Selector Modal */}
         <ChartSelectorModal
           open={showChartSelector}
@@ -1639,7 +1601,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onSelect={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
         />
-
         {/* Filter Config Modal */}
         <FilterConfigModal
           open={showFilterModal}
