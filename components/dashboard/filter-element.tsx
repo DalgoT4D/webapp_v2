@@ -37,15 +37,11 @@ export function FilterElement({
   // Sync localValue when value prop changes (for default values)
   useEffect(() => {
     if (value !== localValue) {
-      console.log(
-        `🔄 FilterElement (${filter.id}) - value prop changed from ${localValue} to ${value}`
-      );
       setLocalValue(value);
     }
   }, [value, localValue, filter.id]);
 
   const handleChange = (filterId: string, newValue: any) => {
-    console.log(`🎯 FilterElement handleChange - filterId: ${filterId}, newValue:`, newValue);
     setLocalValue(newValue);
     if (onChange) {
       console.log(`🎯 FilterElement calling onChange callback for ${filterId}`);

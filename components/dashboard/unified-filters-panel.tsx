@@ -130,35 +130,17 @@ export function UnifiedFiltersPanel({
 }: UnifiedFiltersPanelProps) {
   // Helper function to extract default values from filters
   const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
-    console.log('📝 ========== GET DEFAULT FILTER VALUES START ==========');
-    console.log(
-      '📝 Extracting default values from filters:',
-      filters.map((f) => ({ id: f.id, name: f.name, type: f.filter_type }))
-    );
-
     const defaultValues: Record<string, any> = {};
 
     filters.forEach((filter) => {
-      console.log(
-        `📝 Processing filter ${filter.id} (${filter.name}) of type ${filter.filter_type}`
-      );
-
       // Check for default values based on filter type
       if (filter.filter_type === 'value') {
         const valueFilter = filter as any;
-        console.log(`📝 Value filter ${filter.id} settings:`, valueFilter.settings);
         if (valueFilter.settings?.has_default_value && valueFilter.settings?.default_value) {
           defaultValues[String(filter.id)] = valueFilter.settings.default_value;
-          console.log(
-            `📝 Added default value for ${filter.id}:`,
-            valueFilter.settings.default_value
-          );
-        } else {
-          console.log(`📝 No default value for value filter ${filter.id}`);
         }
       } else if (filter.filter_type === 'numerical') {
         const numFilter = filter as any;
-        console.log(`📝 Numerical filter ${filter.id} settings:`, numFilter.settings);
         if (
           numFilter.settings?.default_min !== undefined ||
           numFilter.settings?.default_max !== undefined
@@ -167,33 +149,18 @@ export function UnifiedFiltersPanel({
             min: numFilter.settings.default_min,
             max: numFilter.settings.default_max,
           };
-          console.log(`📝 Added default range for ${filter.id}:`, defaultValues[String(filter.id)]);
-        } else {
-          console.log(`📝 No default range for numerical filter ${filter.id}`);
         }
       } else if (filter.filter_type === 'datetime') {
         const dateFilter = filter as any;
-        console.log(`📝 DateTime filter ${filter.id} settings:`, dateFilter.settings);
         if (dateFilter.settings?.default_start_date || dateFilter.settings?.default_end_date) {
           defaultValues[String(filter.id)] = {
             start_date: dateFilter.settings.default_start_date,
             end_date: dateFilter.settings.default_end_date,
           };
-          console.log(
-            `📝 Added default date range for ${filter.id}:`,
-            defaultValues[String(filter.id)]
-          );
-        } else {
-          console.log(`📝 No default date range for datetime filter ${filter.id}`);
         }
       }
     });
 
-    console.log(
-      '📝 Final default filter values extracted:',
-      JSON.stringify(defaultValues, null, 2)
-    );
-    console.log('📝 ========== GET DEFAULT FILTER VALUES END ==========');
     return defaultValues;
   }, []);
 
@@ -206,73 +173,41 @@ export function UnifiedFiltersPanel({
 
   // Sync filters when initialFilters change (when filters are added/deleted externally)
   useEffect(() => {
-    console.log('🔄 ========== INITIAL FILTERS SYNC START ==========');
-    console.log('🔄 UnifiedFiltersPanel - initialFilters changed, syncing:', initialFilters);
-    console.log('🔄 Current filters before sync:', filters);
-    console.log(
-      '🔄 Current filter values before sync:',
-      JSON.stringify(currentFilterValues, null, 2)
-    );
-
     setFilters(initialFilters);
 
     // Update filter values: keep existing values, add defaults for new filters, remove old ones
     setCurrentFilterValues((prev) => {
-      console.log('🔄 setCurrentFilterValues called - prev values:', JSON.stringify(prev, null, 2));
-
       const newValues = { ...prev };
       const existingFilterIds = initialFilters.map((f) => String(f.id)); // Convert to strings to match object keys
-
-      console.log('🔄 Existing filter IDs from initialFilters:', existingFilterIds);
 
       // Remove values for filters that no longer exist
       Object.keys(newValues).forEach((filterId) => {
         if (!existingFilterIds.includes(filterId)) {
-          console.log(`🔄 Removing value for deleted filter ${filterId}`);
           delete newValues[filterId];
-        } else {
-          console.log(`🔄 Keeping value for existing filter ${filterId}`);
         }
       });
 
       // Add default values for new filters that don't have values yet
       const defaultValues = getDefaultFilterValues(initialFilters);
-      console.log('🔄 Default values from initialFilters:', JSON.stringify(defaultValues, null, 2));
 
       Object.keys(defaultValues).forEach((filterId) => {
         const stringFilterId = String(filterId); // Ensure consistent string comparison
         if (!(stringFilterId in newValues)) {
-          console.log(
-            `🔄 Adding default value for new filter ${stringFilterId}:`,
-            defaultValues[filterId]
-          );
           newValues[stringFilterId] = defaultValues[filterId];
-        } else {
-          console.log(
-            `🔄 Filter ${stringFilterId} already has value, keeping:`,
-            newValues[stringFilterId]
-          );
         }
       });
-
-      console.log('🔄 Final new values to be set:', JSON.stringify(newValues, null, 2));
-      console.log('🔄 ========== INITIAL FILTERS SYNC END ==========');
 
       return newValues;
     });
   }, [initialFilters, getDefaultFilterValues]);
 
-  console.log(`🔧 UnifiedFiltersPanel (${layout}) rendering - filter changes only`);
-
   // Handle filter value changes (internal only - no parent re-render)
   const handleFilterChange = (filterId: string, value: any) => {
-    console.log('🎛️ Filter value changed - filterId:', filterId, 'value:', value);
     setCurrentFilterValues((prev) => {
       const updated = {
         ...prev,
         [filterId]: value,
       };
-      console.log('🎛️ Updated currentFilterValues:', updated);
       return updated;
     });
   };
@@ -299,47 +234,22 @@ export function UnifiedFiltersPanel({
 
   // Apply filters - notify parent (this will cause chart re-renders)
   const handleApplyFilters = async () => {
-    console.log('🔧 ========== APPLY FILTERS START ==========');
-    console.log(
-      '🔧 All filters:',
-      filters.map((f) => ({ id: f.id, name: f.name, type: f.filter_type }))
-    );
-    console.log(
-      '🔧 Current filter values BEFORE processing:',
-      JSON.stringify(currentFilterValues, null, 2)
-    );
-    console.log('🔧 Number of filters:', filters.length);
-    console.log('🔧 Number of filter values:', Object.keys(currentFilterValues).length);
-    console.log('🔧 onFiltersApplied callback exists:', !!onFiltersApplied);
-
     // Make sure all filters have values (use null if not set)
     const appliedFilters: Record<string, any> = {};
     filters.forEach((filter) => {
-      console.log(`🔧 Processing filter ${filter.id} (${filter.name})`);
       if (filter.id in currentFilterValues) {
         const filterValue = currentFilterValues[filter.id];
         appliedFilters[filter.id] = filterValue;
-        console.log(`✅ Filter ${filter.id} has value:`, filterValue);
       } else {
         // Filter has no value set, include it as null
         appliedFilters[filter.id] = null;
-        console.log(`⚠️ Filter "${filter.name}" (${filter.id}) has no value set, using null`);
       }
     });
-
-    console.log('🔧 Applied filters AFTER processing:', JSON.stringify(appliedFilters, null, 2));
 
     setIsApplyingFilters(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
-
-      console.log(
-        '🚀 About to call onFiltersApplied with:',
-        JSON.stringify(appliedFilters, null, 2)
-      );
       onFiltersApplied?.(appliedFilters);
-      console.log('🚀 Filters applied - charts should now re-render');
-      console.log('🔧 ========== APPLY FILTERS END ==========');
     } catch (error) {
       console.error('Error applying filters:', error);
     } finally {
@@ -351,7 +261,6 @@ export function UnifiedFiltersPanel({
   const handleClearAllFilters = () => {
     setCurrentFilterValues({});
     onFiltersCleared?.();
-    console.log('🧹 All filters cleared');
   };
 
   const sensors = useSensors(

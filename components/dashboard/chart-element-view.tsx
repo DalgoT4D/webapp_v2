@@ -85,45 +85,22 @@ export function ChartElementView({
     revalidateOnFocus: false,
     refreshInterval: 0, // Disable auto-refresh
     onSuccess: (data) => {
-      console.log(
-        'Chart data fetched successfully for',
-        chartId,
-        'with filters',
-        dashboardFilters,
-        data
-      );
+      // Chart data fetched successfully
     },
     onError: (error) => {
-      console.error(
-        'Error fetching chart data for',
-        chartId,
-        'with filters',
-        dashboardFilters,
-        error
-      );
+      console.error('Error fetching chart data:', error);
     },
   });
 
   // Initialize and update chart
   useEffect(() => {
-    console.log('Chart effect triggered for chart', chartId, {
-      hasChartRef: !!chartRef.current,
-      hasChartInstance: !!chartInstance.current,
-      hasChartData: !!chartData,
-      hasEchartsConfig: !!chartData?.echarts_config,
-      filterHash,
-      previousFilterHash: previousFilterHash.current,
-    });
-
     if (!chartRef.current) {
-      console.log('No chart ref available');
       return undefined;
     }
 
     // Check if filters changed and we need to recreate the chart instance
     const filtersChanged = previousFilterHash.current !== filterHash;
     if (filtersChanged && chartInstance.current && chartData?.echarts_config) {
-      console.log('Recreating chart instance due to filter change for chart', chartId);
       chartInstance.current.dispose();
       chartInstance.current = null;
       previousFilterHash.current = filterHash;
@@ -131,12 +108,10 @@ export function ChartElementView({
 
     // Initialize chart instance if it doesn't exist
     if (!chartInstance.current) {
-      console.log('Creating new chart instance for chart', chartId);
       try {
         chartInstance.current = echarts.init(chartRef.current, null, {
           renderer: 'canvas',
         });
-        console.log('Chart instance created:', !!chartInstance.current);
       } catch (error) {
         console.error('Failed to create chart instance:', error);
         return undefined;
@@ -145,11 +120,9 @@ export function ChartElementView({
 
     // Only proceed with config if we have valid echarts_config
     if (!chartData?.echarts_config) {
-      console.log('No echarts config available for chart', chartId, 'chartData:', chartData);
       // Clear chart but don't dispose instance
       if (chartInstance.current) {
         chartInstance.current.clear();
-        console.log('Chart cleared due to no config');
       }
       return undefined;
     }
@@ -203,9 +176,6 @@ export function ChartElementView({
 
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
-    console.log('Chart DOM dimensions:', rect);
-
-    console.log('Setting chart option for chart', chartId, 'with config:', styledConfig);
 
     try {
       // Use notMerge: true on first render after filter change, false otherwise
@@ -214,7 +184,6 @@ export function ChartElementView({
 
       // Ensure the chart is properly sized after setting options
       chartInstance.current.resize();
-      console.log('Chart option set and resized for chart', chartId);
     } catch (error) {
       console.error('Error setting chart option for chart', chartId, error);
     }
@@ -241,7 +210,6 @@ export function ChartElementView({
 
   // Re-fetch data when filters change
   useEffect(() => {
-    console.log('Dashboard filters changed, re-fetching data for chart', chartId, dashboardFilters);
     mutate();
   }, [dashboardFilters, mutate, chartId]);
 

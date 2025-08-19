@@ -170,8 +170,6 @@ export function FilterConfigModal({
       const dataToUse = mode === 'edit' ? filterData : initialData;
 
       if (dataToUse) {
-        console.log('FilterConfigModal - Initializing with data:', dataToUse);
-
         setName(dataToUse.name || '');
         setSchemaName(dataToUse.schema_name || '');
         setTableName(dataToUse.table_name || '');
@@ -246,9 +244,6 @@ export function FilterConfigModal({
 
       if (selectedColumn?.recommended_filter_type) {
         setFilterType(selectedColumn.recommended_filter_type as DashboardFilterType);
-        console.log(
-          `Auto-detected filter type: ${selectedColumn.recommended_filter_type} for column ${columnName} (${selectedColumn.data_type})`
-        );
       } else if (selectedColumn?.data_type) {
         // Fallback to local detection if backend doesn't provide recommended_filter_type
         const dataType = selectedColumn.data_type.toLowerCase();

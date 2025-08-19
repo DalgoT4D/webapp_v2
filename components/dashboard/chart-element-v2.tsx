@@ -70,8 +70,6 @@ export function ChartElementV2({
   const apiUrl = `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
   // Debug logging for API URL generation
-  console.log(`🔍 ChartElementV2 ${chartId} - API URL:`, apiUrl);
-  console.log(`🔍 ChartElementV2 ${chartId} - appliedFilters:`, appliedFilters);
 
   // Fetch chart data with filters
   const {
@@ -83,14 +81,7 @@ export function ChartElementV2({
     revalidateOnFocus: false,
     refreshInterval: 0, // Disable auto-refresh
     onSuccess: (data) => {
-      console.log(
-        '✅ Chart data fetched successfully for chart',
-        chartId,
-        'with filters:',
-        appliedFilters,
-        'API URL:',
-        apiUrl
-      );
+      // Chart data fetched successfully
     },
     onError: (error) => {
       console.error(
@@ -113,23 +104,13 @@ export function ChartElementV2({
   // Force refetch when filters change
   useEffect(() => {
     if (Object.keys(appliedFilters).length > 0) {
-      console.log(
-        `🔄 ChartElementV2 ${chartId} - Filters changed, forcing refetch:`,
-        appliedFilters
-      );
       mutateChartData();
     }
   }, [appliedFilters, mutateChartData, chartId]);
 
   // Debug logging
   useEffect(() => {
-    console.log(`📊 ChartElementV2 ${chartId} - Chart metadata:`, chart);
-    console.log(`📊 ChartElementV2 ${chartId} - Chart data:`, chartData);
-    console.log(`📊 ChartElementV2 ${chartId} - Applied filters:`, appliedFilters);
-    console.log(
-      `📊 ChartElementV2 ${chartId} - echarts_config available:`,
-      chartData?.echarts_config ? 'yes' : 'no'
-    );
+    // Chart config availability check
   }, [chart, chartData, chartId, appliedFilters]);
 
   // Initialize chart instance once
@@ -141,7 +122,6 @@ export function ChartElementV2({
 
         // Only initialize if container has dimensions
         if (width > 0 && height > 0) {
-          console.log(`Initializing ECharts instance for chart ${chartId} (${width}x${height})`);
           chartInstance.current = echarts.init(chartRef.current);
         } else {
           console.warn(`Chart container for ${chartId} has no dimensions, delaying initialization`);
@@ -153,7 +133,6 @@ export function ChartElementV2({
     return () => {
       clearTimeout(initTimer);
       if (chartInstance.current) {
-        console.log(`Disposing ECharts instance for chart ${chartId}`);
         chartInstance.current.dispose();
         chartInstance.current = null;
       }
@@ -169,14 +148,11 @@ export function ChartElementV2({
     if (!chartInstance.current && chartRef.current && chartConfig) {
       const { width, height } = chartRef.current.getBoundingClientRect();
       if (width > 0 && height > 0) {
-        console.log(`Late initialization of ECharts for chart ${chartId}`);
         chartInstance.current = echarts.init(chartRef.current);
       }
     }
 
     if (chartInstance.current && chartConfig) {
-      console.log(`Updating chart ${chartId} with config:`, chartConfig);
-
       // Set chart option with animation disabled for better performance
       chartInstance.current.setOption(chartConfig, {
         notMerge: true,
@@ -209,7 +185,6 @@ export function ChartElementV2({
         // Debounce resize calls
         resizeTimeoutId = setTimeout(() => {
           if (chartInstance.current) {
-            console.log('Window resize - resizing chart instance');
             chartInstance.current.resize();
           }
         }, 100);
@@ -245,8 +220,6 @@ export function ChartElementV2({
             // Debounce rapid resize events
             resizeTimeoutId = setTimeout(() => {
               if (chartInstance.current) {
-                console.log('ResizeObserver triggered, resizing chart to:', width, 'x', height);
-
                 // Force explicit resize with dimensions for all chart types
                 chartInstance.current.resize({
                   width: Math.floor(width),
@@ -283,7 +256,6 @@ export function ChartElementV2({
       resizeTimeoutRef.current = setTimeout(() => {
         if (chartInstance.current && chartRef.current) {
           const { width, height } = chartRef.current.getBoundingClientRect();
-          console.log('Final resize after drag stop:', width, 'x', height);
           chartInstance.current.resize({
             width: Math.floor(width),
             height: Math.floor(height),

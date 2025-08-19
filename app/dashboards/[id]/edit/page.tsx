@@ -73,9 +73,7 @@ export default function EditDashboardPage() {
     try {
       // Call cleanup function if available (this will save changes first)
       if (dashboardBuilderRef.current?.cleanup) {
-        console.log('Saving changes and cleaning up before preview mode...');
         await dashboardBuilderRef.current.cleanup();
-        console.log('Cleanup completed, navigating to preview mode...');
       }
 
       // Navigate to preview mode

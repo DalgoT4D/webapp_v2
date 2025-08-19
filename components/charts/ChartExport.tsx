@@ -94,7 +94,6 @@ export default function ChartExport({
       const response = await exportChart({ chart_id: chartId, format: selectedFormat });
 
       // For now, just log the response
-      console.log('Export response:', response);
 
       // TODO: Implement server-side export for other formats
       alert(`Export to ${selectedFormat.toUpperCase()} will be implemented soon!`);

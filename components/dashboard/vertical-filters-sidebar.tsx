@@ -102,8 +102,6 @@ export function VerticalFiltersSidebar({
   const [currentFilterValues, setCurrentFilterValues] = useState<Record<string, any>>({});
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
 
-  console.log('🔧 VerticalFiltersSidebar rendering (filter changes only)');
-
   // Handle filter value changes (internal only - no parent re-render)
   const handleFilterChange = (filterId: string, value: any) => {
     setCurrentFilterValues((prev) => ({
@@ -138,7 +136,6 @@ export function VerticalFiltersSidebar({
     try {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
       onFiltersApplied?.(currentFilterValues);
-      console.log('🚀 Filters applied - charts will now re-render');
     } catch (error) {
       console.error('Error applying filters:', error);
     } finally {
@@ -150,7 +147,6 @@ export function VerticalFiltersSidebar({
   const handleClearAllFilters = () => {
     setCurrentFilterValues({});
     onFiltersCleared?.();
-    console.log('🧹 All filters cleared');
   };
 
   const sensors = useSensors(

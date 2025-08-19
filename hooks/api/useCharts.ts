@@ -23,7 +23,6 @@ export function useCharts(params?: UseChartsParams) {
   const { data, error, mutate } = useSWR<Chart[]>('/api/charts/', async (url: string) => {
     try {
       const response = await apiGet(url);
-      console.log('Charts API response:', response);
       return response;
     } catch (err) {
       console.error('Error fetching charts:', err);

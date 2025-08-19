@@ -211,12 +211,9 @@ interface DashboardBuilderV2Ref {
 function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
   const layouts: ResponsiveLayouts = {};
 
-  console.log('Generating responsive layouts for', layout.length, 'items');
-
   // For each breakpoint, adjust the layout
   Object.keys(COLS).forEach((breakpoint) => {
     const cols = COLS[breakpoint as keyof typeof COLS];
-    console.log(`Generating layout for ${breakpoint} with ${cols} columns`);
 
     // Sort items by their original position (top to bottom, left to right)
     const sortedItems = [...layout].sort((a, b) => {
@@ -235,10 +232,6 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
         newX = 0; // Always start at left edge
         newY = currentY; // Stack vertically
         currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-
-        console.log(
-          `Mobile layout for item ${item.i}: w=${newW}, x=${newX}, y=${newY}, cols=${cols}`
-        );
       } else if (breakpoint === 'sm') {
         // For tablets, try 2 columns or stack
         const canFitTwo = cols >= 6;
@@ -273,12 +266,10 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
         maxW: cols, // Max width is all columns
       };
 
-      console.log(`Item ${item.i} ${breakpoint}:`, result);
       return result;
     });
   });
 
-  console.log('Generated responsive layouts:', layouts);
   return layouts;
 }
 
@@ -331,10 +322,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Applied filters state - only updates when filters are applied (causes chart re-renders)
     const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
-
-    console.log(
-      '🏗️ DashboardBuilder rendering - canvas may re-render only if appliedFilters changed'
-    );
 
     // Get initial target screen size from initialData, default to desktop
     const initialTargetScreenSize: ScreenSizeKey =
@@ -391,7 +378,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     useEffect(() => {
       const newWidth = SCREEN_SIZES[targetScreenSize].width;
       setContainerWidth(newWidth);
-      console.log('Container width updated to:', newWidth, 'for screen size:', targetScreenSize);
     }, [targetScreenSize]);
 
     // Save target screen size changes (separate from auto-save to avoid conflicts)
@@ -400,7 +386,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       if (dashboardId && targetScreenSize !== initialTargetScreenSize) {
         const timeoutId = setTimeout(async () => {
           try {
-            console.log('Saving target screen size change:', targetScreenSize);
             await saveDashboard();
           } catch (error) {
             console.error('Error saving target screen size:', error);
@@ -644,7 +629,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           if (dashboardId) {
             try {
               await saveDashboard();
-              console.log('Dashboard saved before cleanup');
             } catch (error) {
               console.error('Error saving dashboard before cleanup:', error);
             }
@@ -709,13 +693,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Add chart component
     const handleChartSelected = async (chartId: number) => {
       try {
-        console.log('Adding chart with ID:', chartId);
         // Fetch chart details - for now, use mock data
         let chartDetails;
         try {
           chartDetails = await apiGet(`/api/charts/${chartId}/`);
         } catch (error) {
-          console.log('Failed to fetch chart, using mock data');
           // Use mock data if API fails
           chartDetails = {
             id: chartId,
@@ -767,8 +749,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         console.error('Failed to add chart:', error.message || 'Please try again');
       }
     };
-
-    console.log(state);
 
     // Add text component
     const addTextComponent = () => {
@@ -832,56 +812,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle when filters are applied (causes chart re-renders)
     const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
-      console.log('📊 ========== DASHBOARD BUILDER FILTERS APPLIED ==========');
-      console.log(
-        '📊 handleFiltersApplied called in DashboardBuilder with:',
-        JSON.stringify(newAppliedFilters, null, 2)
-      );
-      console.log('📊 Previous appliedFilters state:', JSON.stringify(appliedFilters, null, 2));
-
       setAppliedFilters(newAppliedFilters);
-
-      console.log(
-        '📊 Applied filters updated - charts will re-render:',
-        JSON.stringify(newAppliedFilters, null, 2)
-      );
-      console.log(
-        '📊 Number of chart components that will receive new filters:',
-        Object.keys(state.components).filter(
-          (id) => state.components[id].type === DashboardComponentType.CHART
-        ).length
-      );
-
-      // Add a timeout to check the state after it's been updated
-      setTimeout(() => {
-        console.log(
-          '📊 Applied filters state after setState (from timeout):',
-          JSON.stringify(appliedFilters, null, 2)
-        );
-      }, 100);
-
-      console.log('📊 ========== DASHBOARD BUILDER FILTERS APPLIED END ==========');
     };
 
     // Handle when filters are cleared
     const handleFiltersCleared = () => {
       setAppliedFilters({});
-      console.log('🧽 Applied filters cleared - charts will re-render');
     };
 
     // Handle filter layout changes
     const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
-      console.log('🔄 Filter layout changing from', filterLayout, 'to', newLayout);
       setFilterLayout(newLayout);
       // Auto-save the layout preference
-      console.log('💾 Saving filter layout:', newLayout);
-      saveDashboard({ filter_layout: newLayout })
-        .then(() => {
-          console.log('✅ Filter layout saved successfully');
-        })
-        .catch((error) => {
-          console.error('❌ Failed to save filter layout:', error);
-        });
+      saveDashboard({ filter_layout: newLayout }).catch((error) => {
+        console.error('❌ Failed to save filter layout:', error);
+      });
     };
 
     // Add filter
@@ -913,7 +858,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
           // Note: Filter components will handle their own state updates
 
-          console.log('Filter updated successfully');
           setSelectedFilterForEdit(null);
           setShowFilterModal(false);
 
@@ -955,7 +899,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         // Note: Filter components will handle their own state updates
 
-        console.log('Filter created successfully:', newFilterFromAPI);
         setShowFilterModal(false);
 
         // Refresh dashboard data to update filter list
@@ -976,7 +919,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       try {
         // Call backend API to delete the filter
         await deleteDashboardFilter(dashboardId, parseInt(filterId));
-        console.log('Filter deleted successfully');
 
         // Refresh dashboard data to update filter list
         const { mutate } = await import('swr');
@@ -1013,16 +955,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Clear all filters
     const handleClearAllFilters = () => {
       setAppliedFilters({});
-      console.log('All filters cleared');
     };
 
     // Reorder filters - note: filter state is now managed by filter components
     const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
       // Filter components handle their own reordering
-      console.log(
-        'Filters reordered:',
-        newOrder.map((f) => f.name)
-      );
     };
 
     // Get chart IDs that are already added to the dashboard

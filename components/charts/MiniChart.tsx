@@ -54,14 +54,11 @@ export function MiniChart({
       // Import apiGet dynamically to avoid circular dependencies
       import('@/lib/api').then(({ apiGet }) => {
         // Fetch fresh chart config from data endpoint
-        console.log(`MiniChart ${chartId} - Fetching from /data endpoint`);
         apiGet(`/api/charts/${chartId}/data/`)
           .then((data) => {
             if (data?.echarts_config) {
-              console.log(`MiniChart ${chartId} - Using echarts_config from data endpoint`);
               setChartData(data.echarts_config);
             } else {
-              console.log(`MiniChart ${chartId} - No data available, using mock`);
               setChartData(getMockConfig(chartId));
             }
           })

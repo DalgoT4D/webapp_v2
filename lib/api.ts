@@ -12,7 +12,6 @@ let refreshPromise: Promise<string | null> = Promise.resolve(null);
 function getAuthToken() {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('authToken');
-    console.log('Auth token present:', !!token);
     return token || undefined;
   }
   return undefined;
@@ -41,8 +40,6 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   try {
-    console.log('Attempting to refresh token...');
-
     const response = await fetch(`${API_BASE_URL}/api/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,7 +51,6 @@ async function refreshAccessToken(): Promise<string | null> {
 
       // If refresh token is invalid (401, 403), clear it
       if (response.status === 401 || response.status === 403) {
-        console.log('Refresh token is invalid, clearing tokens');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('authToken');
       }
@@ -75,7 +71,6 @@ async function refreshAccessToken(): Promise<string | null> {
         store.setToken(newAccessToken);
       }
 
-      console.log('Token refreshed successfully');
       return newAccessToken;
     }
 
@@ -100,8 +95,6 @@ function getHeaders() {
 }
 
 function handleAuthFailure() {
-  console.log('Authentication failed, logging out user');
-
   if (typeof window !== 'undefined') {
     // Clear all auth-related data
     localStorage.removeItem('authToken');
@@ -126,20 +119,11 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
     ...getHeaders(),
   };
 
-  console.log('API Fetch:', {
-    url,
-    method: options.method,
-    headers,
-    retryCount,
-  });
-
   try {
     const response = await fetch(url, { ...options, headers });
 
     // Handle 401 Unauthorized - attempt to refresh token and retry once
     if (response.status === 401 && retryCount === 0) {
-      console.log('Received 401, attempting token refresh...');
-
       // Prevent multiple simultaneous refresh attempts
       if (!isRefreshing) {
         isRefreshing = true;
@@ -151,7 +135,6 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       const newToken = await refreshPromise;
 
       if (newToken) {
-        console.log('Token refreshed, retrying original request...');
         // Retry the original request with the new token
         return apiFetch(path, options, retryCount + 1);
       } else {
@@ -178,14 +161,6 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       console.error('Non-JSON response:', text);
       data = { error: `Server returned non-JSON response: ${text.substring(0, 100)}...` };
     }
-
-    console.log('API Response:', {
-      status: response.status,
-      ok: response.ok,
-      contentType,
-      data,
-      retryCount,
-    });
 
     if (!response.ok) {
       // Log full error details
@@ -236,12 +211,6 @@ export function apiGet(path: string, options: RequestInit = {}) {
 
 // Helper for POST requests
 export function apiPost(path: string, body: any, options: RequestInit = {}) {
-  console.log('API POST Request:', {
-    path,
-    body,
-    headers: getHeaders(),
-  });
-
   return apiFetch(path, {
     ...options,
     method: 'POST',

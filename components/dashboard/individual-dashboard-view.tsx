@@ -89,7 +89,6 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
     try {
       await navigator.clipboard.writeText(window.location.href);
       // TODO: Show success toast
-      console.log('Dashboard link copied to clipboard');
     } catch (err) {
       console.error('Failed to copy link:', err);
     }

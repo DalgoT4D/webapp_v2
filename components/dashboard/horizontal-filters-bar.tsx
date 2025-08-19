@@ -98,8 +98,6 @@ export function HorizontalFiltersBar({
   const [currentFilterValues, setCurrentFilterValues] = useState<Record<string, any>>({});
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
 
-  console.log('🔧 HorizontalFiltersBar rendering (filter changes only)');
-
   // Handle filter value changes (internal only - no parent re-render)
   const handleFilterChange = (filterId: string, value: any) => {
     setCurrentFilterValues((prev) => ({
@@ -134,7 +132,6 @@ export function HorizontalFiltersBar({
     try {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
       onFiltersApplied?.(currentFilterValues);
-      console.log('🚀 Filters applied - charts will now re-render');
     } catch (error) {
       console.error('Error applying filters:', error);
     } finally {
@@ -146,7 +143,6 @@ export function HorizontalFiltersBar({
   const handleClearAllFilters = () => {
     setCurrentFilterValues({});
     onFiltersCleared?.();
-    console.log('🧹 All filters cleared');
   };
   const sensors = useSensors(
     useSensor(PointerSensor),

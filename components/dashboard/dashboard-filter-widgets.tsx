@@ -61,10 +61,6 @@ function ValueFilterWidget({
   useEffect(() => {
     const newValues = Array.isArray(value) ? value : value ? [value] : [];
     if (JSON.stringify(selectedValues) !== JSON.stringify(newValues)) {
-      console.log(
-        `🔄 ValueFilterWidget (${filter.id}) - value prop changed, syncing selectedValues:`,
-        newValues
-      );
       setSelectedValues(newValues);
     }
   }, [value, selectedValues, filter.id]);
@@ -84,7 +80,6 @@ function ValueFilterWidget({
 
   // Ensure settings exists with default values
   if (!valueFilter.settings) {
-    console.warn('Filter settings missing, using defaults');
     valueFilter.settings = {
       has_default_value: false,
       can_select_multiple: false,
@@ -102,12 +97,6 @@ function ValueFilterWidget({
   );
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
-    console.log(`🎛️ ValueFilterWidget (${filter.id}) - handleSelectionChange:`, {
-      optionValue,
-      isChecked,
-      currentSelectedValues: selectedValues,
-    });
-
     let newSelection: string[];
 
     if (valueFilter.settings.can_select_multiple) {
@@ -127,9 +116,6 @@ function ValueFilterWidget({
         : valueFilter.settings.can_select_multiple
           ? newSelection
           : newSelection[0];
-
-    console.log(`🎛️ ValueFilterWidget (${filter.id}) - New selection:`, newSelection);
-    console.log(`🎛️ ValueFilterWidget (${filter.id}) - Final value being sent:`, finalValue);
 
     setSelectedValues(newSelection);
     onChange(filter.id, finalValue);
@@ -321,7 +307,6 @@ function NumericalFilterWidget({
 
   // Ensure settings exists with default values
   if (!numericalFilter.settings) {
-    console.warn('Numerical filter settings missing, using defaults');
     numericalFilter.settings = {
       ui_mode: NumericalFilterUIMode.SLIDER,
     };

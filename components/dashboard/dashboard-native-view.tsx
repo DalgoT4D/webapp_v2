@@ -127,18 +127,9 @@ function getCurrentScreenSize(): ScreenSizeKey {
 function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: ScreenSizeKey): any {
   const layouts: any = {};
 
-  console.log(
-    'Generating responsive layouts for preview with',
-    layout.length,
-    'items',
-    'focused on',
-    previewScreenSize
-  );
-
   // For each breakpoint, adjust the layout
   Object.keys(COLS).forEach((breakpoint) => {
     const cols = COLS[breakpoint as keyof typeof COLS];
-    console.log(`Generating preview layout for ${breakpoint} with ${cols} columns`);
 
     // Sort items by their original position (top to bottom, left to right)
     const sortedItems = [...layout].sort((a, b) => {
@@ -157,10 +148,6 @@ function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: S
         newX = 0; // Always start at left edge
         newY = currentY; // Stack vertically
         currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-
-        console.log(
-          `Mobile preview layout for item ${item.i}: w=${newW}, x=${newX}, y=${newY}, cols=${cols}`
-        );
       } else if (breakpoint === 'sm') {
         // For tablets, try 2 columns or stack
         const canFitTwo = cols >= 6;
@@ -195,12 +182,10 @@ function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: S
         maxW: cols, // Max width is all columns
       };
 
-      console.log(`Preview item ${item.i} ${breakpoint}:`, result);
       return result;
     });
   });
 
-  console.log('Generated preview responsive layouts:', layouts);
   return layouts;
 }
 
@@ -295,12 +280,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
   // Get filter layout from dashboard data (same as edit mode)
   const filterLayout = (dashboard?.filter_layout as 'vertical' | 'horizontal') || 'vertical';
-  console.log(
-    '📊 Dashboard filter_layout from API:',
-    dashboard?.filter_layout,
-    '→ Using:',
-    filterLayout
-  );
 
   // Convert dashboard filters to DashboardFilterConfig format for UnifiedFiltersPanel
   const dashboardFilters: DashboardFilterConfig[] = useMemo(() => {
@@ -365,7 +344,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
     try {
       await navigator.clipboard.writeText(window.location.href);
       // TODO: Show toast notification
-      console.log('Dashboard link copied to clipboard');
     } catch (err) {
       console.error('Failed to copy link:', err);
     }
@@ -388,13 +366,11 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
   // Handle filters applied from UnifiedFiltersPanel
   const handleFiltersApplied = (appliedFilters: AppliedFilters) => {
-    console.log('📊 Filters applied in preview mode:', appliedFilters);
     setSelectedFilters(appliedFilters);
   };
 
   // Handle filters cleared from UnifiedFiltersPanel
   const handleFiltersCleared = () => {
-    console.log('🧹 Filters cleared in preview mode');
     setSelectedFilters({});
   };
 
@@ -544,14 +520,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
 
         // First try to find in dashboard.filters array
         let filterData = dashboard?.filters?.find((f: any) => {
-          console.log(
-            'Comparing filter:',
-            f.id,
-            'with filterId:',
-            filterId,
-            'Match?',
-            f.id === filterId
-          );
           // Convert both to numbers for comparison since one might be string
           return Number(f.id) === Number(filterId);
         });
@@ -994,12 +962,6 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                   autoSize={true}
                   verticalCompact={false}
                   onBreakpointChange={(newBreakpoint: string) => {
-                    console.log(
-                      'Preview breakpoint changed to:',
-                      newBreakpoint,
-                      'Current screen size:',
-                      currentScreenSize
-                    );
                     setCurrentBreakpoint(newBreakpoint);
                   }}
                 >
