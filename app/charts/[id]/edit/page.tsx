@@ -1,15 +1,102 @@
 'use client';
 
+import { useState, useEffect, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useChart, useUpdateChart } from '@/hooks/api/useChart';
-import { ChartBuilder } from '@/components/charts/ChartBuilder';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { ChevronLeft, Database } from 'lucide-react';
+import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
+import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
+import { ChartPreview } from '@/components/charts/ChartPreview';
+import { DataPreview } from '@/components/charts/DataPreview';
+import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
+import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
+import { MapPreview } from '@/components/charts/map/MapPreview';
+import {
+  useChart,
+  useUpdateChart,
+  useChartData,
+  useChartDataPreview,
+  useGeoJSONData,
+  useMapDataOverlay,
+} from '@/hooks/api/useChart';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import type { ChartCreate, ChartUpdate, ChartBuilderFormData } from '@/types/charts';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import type {
+  ChartCreate,
+  ChartUpdate,
+  ChartBuilderFormData,
+  ChartDataPayload,
+} from '@/types/charts';
 
-export default function EditChartPage() {
+// Default customizations for each chart type
+function getDefaultCustomizations(chartType: string): Record<string, any> {
+  switch (chartType) {
+    case 'bar':
+      return {
+        orientation: 'vertical',
+        showDataLabels: false,
+        dataLabelPosition: 'top',
+        stacked: false,
+        showTooltip: true,
+        showLegend: true,
+        xAxisTitle: '',
+        yAxisTitle: '',
+        xAxisLabelRotation: 'horizontal',
+        yAxisLabelRotation: 'horizontal',
+      };
+    case 'pie':
+      return {
+        chartStyle: 'donut',
+        labelFormat: 'percentage',
+        showDataLabels: true,
+        dataLabelPosition: 'outside',
+        showTooltip: true,
+        showLegend: true,
+        legendPosition: 'right',
+      };
+    case 'line':
+      return {
+        lineStyle: 'smooth',
+        showDataPoints: true,
+        showTooltip: true,
+        showLegend: true,
+        showDataLabels: false,
+        dataLabelPosition: 'top',
+        xAxisTitle: '',
+        yAxisTitle: '',
+        xAxisLabelRotation: 'horizontal',
+        yAxisLabelRotation: 'horizontal',
+      };
+    case 'number':
+      return {
+        numberSize: 'medium',
+        subtitle: '',
+        numberFormat: 'default',
+        decimalPlaces: 0,
+        numberPrefix: '',
+        numberSuffix: '',
+      };
+    case 'map':
+      return {
+        colorScheme: 'Blues',
+        showTooltip: true,
+        showLegend: true,
+        nullValueLabel: 'No Data',
+        title: '',
+      };
+    default:
+      return {};
+  }
+}
+
+function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
   const chartId = Number(params.id);
@@ -17,9 +104,231 @@ export default function EditChartPage() {
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const { trigger: updateChart, isMutating } = useUpdateChart();
 
-  const handleSave = async (chartData: ChartCreate) => {
+  // Initialize form data with chart data when loaded
+  const [formData, setFormData] = useState<ChartBuilderFormData>({
+    title: '',
+    chart_type: 'bar',
+    computation_type: 'aggregated',
+    customizations: getDefaultCustomizations('bar'),
+    aggregate_function: 'sum',
+  });
+
+  const [activeTab, setActiveTab] = useState('chart');
+  const [dataPreviewPage, setDataPreviewPage] = useState(1);
+
+  // Update form data when chart loads
+  useEffect(() => {
+    if (chart) {
+      const initialData: ChartBuilderFormData = {
+        title: chart.title,
+        description: chart.description,
+        chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+        computation_type: chart.computation_type as 'raw' | 'aggregated',
+        schema_name: chart.schema_name,
+        table_name: chart.table_name,
+        x_axis_column: chart.extra_config?.x_axis_column,
+        y_axis_column: chart.extra_config?.y_axis_column,
+        dimension_column: chart.extra_config?.dimension_column,
+        aggregate_column: chart.extra_config?.aggregate_column,
+        aggregate_function: chart.extra_config?.aggregate_function,
+        extra_dimension_column: chart.extra_config?.extra_dimension_column,
+        geographic_column: chart.extra_config?.geographic_column,
+        value_column: chart.extra_config?.value_column,
+        selected_geojson_id: chart.extra_config?.selected_geojson_id,
+        layers:
+          chart.extra_config?.layers ||
+          (chart.chart_type === 'map'
+            ? [
+                {
+                  id: '0',
+                  level: 0,
+                  geographic_column: chart.extra_config?.geographic_column,
+                  geojson_id: chart.extra_config?.selected_geojson_id,
+                },
+              ]
+            : undefined),
+        customizations:
+          chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
+      };
+      setFormData(initialData);
+    }
+  }, [chart]);
+
+  // Check if form data is complete enough to generate chart data
+  const isChartDataReady = () => {
+    if (!formData.schema_name || !formData.table_name || !formData.chart_type) {
+      return false;
+    }
+
+    if (formData.chart_type === 'number') {
+      return !!(
+        formData.aggregate_function &&
+        (formData.aggregate_function === 'count' || formData.aggregate_column)
+      );
+    }
+
+    if (formData.chart_type === 'map') {
+      return !!(
+        formData.geographic_column &&
+        formData.value_column &&
+        formData.aggregate_function &&
+        formData.selected_geojson_id
+      );
+    }
+
+    if (formData.computation_type === 'raw') {
+      return !!(formData.x_axis_column && formData.y_axis_column);
+    } else {
+      return !!(
+        formData.dimension_column &&
+        formData.aggregate_function &&
+        (formData.aggregate_function === 'count' || formData.aggregate_column)
+      );
+    }
+  };
+
+  // Build payload for chart data
+  const chartDataPayload: ChartDataPayload | null = isChartDataReady()
+    ? {
+        chart_type: formData.chart_type!,
+        computation_type: formData.computation_type!,
+        schema_name: formData.schema_name!,
+        table_name: formData.table_name!,
+        ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
+        ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
+        ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
+        ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
+        ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
+        ...(formData.extra_dimension_column && {
+          extra_dimension: formData.extra_dimension_column,
+        }),
+        ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
+        ...(formData.value_column && { value_column: formData.value_column }),
+        ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
+        ...(formData.chart_type === 'map' &&
+          formData.layers?.[0]?.geojson_id && {
+            selected_geojson_id: formData.layers[0].geojson_id,
+          }),
+        ...(formData.chart_type === 'map' && {
+          ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
+          ...((formData.aggregate_column || formData.value_column) && {
+            aggregate_col: formData.aggregate_column || formData.value_column,
+          }),
+        }),
+        customizations: formData.customizations,
+      }
+    : null;
+
+  // Fetch chart data
+  const {
+    data: chartData,
+    error: chartDataError,
+    isLoading: chartDataLoading,
+  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
+
+  // Fetch GeoJSON data for maps
+  const {
+    data: geojsonData,
+    error: geojsonError,
+    isLoading: geojsonLoading,
+  } = useGeoJSONData(
+    formData.chart_type === 'map' && formData.geojsonPreviewPayload?.geojsonId
+      ? formData.geojsonPreviewPayload.geojsonId
+      : null
+  );
+
+  // Fetch map data overlay
+  const {
+    data: mapDataOverlay,
+    error: mapDataError,
+    isLoading: mapDataLoading,
+  } = useMapDataOverlay(
+    formData.chart_type === 'map' && formData.dataOverlayPayload
+      ? formData.dataOverlayPayload
+      : null
+  );
+
+  // Fetch data preview
+  const {
+    data: dataPreview,
+    error: previewError,
+    isLoading: previewLoading,
+  } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
+
+  const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
+    setFormData((prev) => ({ ...prev, ...updates }));
+  };
+
+  const isFormValid = () => {
+    if (!formData.title || !formData.chart_type || !formData.schema_name || !formData.table_name) {
+      return false;
+    }
+
+    if (formData.chart_type === 'number') {
+      const needsAggregateColumn = formData.aggregate_function !== 'count';
+      return !!(
+        formData.aggregate_function &&
+        (!needsAggregateColumn || formData.aggregate_column)
+      );
+    }
+
+    if (formData.chart_type === 'map') {
+      return !!(
+        formData.geographic_column &&
+        formData.value_column &&
+        formData.aggregate_function &&
+        formData.selected_geojson_id
+      );
+    }
+
+    if (formData.computation_type === 'raw') {
+      return !!(formData.x_axis_column && formData.y_axis_column);
+    } else {
+      const needsAggregateColumn = formData.aggregate_function !== 'count';
+      return !!(
+        formData.dimension_column &&
+        formData.aggregate_function &&
+        (!needsAggregateColumn || formData.aggregate_column)
+      );
+    }
+  };
+
+  const handleSave = async () => {
+    if (!isFormValid()) {
+      return;
+    }
+
+    let selectedGeojsonId = formData.selected_geojson_id;
+    if (formData.chart_type === 'map' && formData.layers && formData.layers.length > 0) {
+      const firstLayer = formData.layers[0];
+      if (firstLayer.geojson_id) {
+        selectedGeojsonId = firstLayer.geojson_id;
+      }
+    }
+
+    const chartData: ChartCreate = {
+      title: formData.title!,
+      description: formData.description,
+      chart_type: formData.chart_type!,
+      computation_type: formData.computation_type!,
+      schema_name: formData.schema_name!,
+      table_name: formData.table_name!,
+      extra_config: {
+        x_axis_column: formData.x_axis_column,
+        y_axis_column: formData.y_axis_column,
+        dimension_column: formData.dimension_column,
+        aggregate_column: formData.aggregate_column,
+        aggregate_function: formData.aggregate_function,
+        extra_dimension_column: formData.extra_dimension_column,
+        geographic_column: formData.geographic_column,
+        value_column: formData.value_column,
+        selected_geojson_id: selectedGeojsonId,
+        layers: formData.layers,
+        customizations: formData.customizations,
+      },
+    };
+
     try {
-      // Convert ChartCreate to ChartUpdate format
       const updateData: ChartUpdate = {
         title: chartData.title,
         description: chartData.description,
@@ -48,10 +357,15 @@ export default function EditChartPage() {
 
   if (chartLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b px-6 py-4">
           <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-[600px] w-full" />
+        </div>
+        <div className="p-8 h-[calc(100vh-144px)]">
+          <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+            <Skeleton className="w-[30%] h-full" />
+            <Skeleton className="w-[70%] h-full" />
+          </div>
         </div>
       </div>
     );
@@ -59,63 +373,211 @@ export default function EditChartPage() {
 
   if (chartError || !chart) {
     return (
-      <div className="container mx-auto p-6">
-        <Alert className="max-w-2xl mx-auto">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {chartError ? 'Failed to load chart' : 'Chart not found'}
-          </AlertDescription>
-        </Alert>
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b px-6 py-4">
+          <h1 className="text-xl font-semibold">Edit Chart</h1>
+        </div>
+        <div className="p-8">
+          <Alert className="max-w-2xl mx-auto">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {chartError ? 'Failed to load chart' : 'Chart not found'}
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }
 
-  // Convert Chart to ChartCreate format for ChartBuilder
-  const initialData: ChartBuilderFormData = {
-    title: chart.title,
-    description: chart.description,
-    chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'map',
-    computation_type: chart.computation_type as 'raw' | 'aggregated',
-    schema_name: chart.schema_name,
-    table_name: chart.table_name,
-    // Flatten extra_config for ChartBuilder's internal state
-    x_axis_column: chart.extra_config?.x_axis_column,
-    y_axis_column: chart.extra_config?.y_axis_column,
-    dimension_column: chart.extra_config?.dimension_column,
-    aggregate_column: chart.extra_config?.aggregate_column,
-    aggregate_function: chart.extra_config?.aggregate_function,
-    extra_dimension_column: chart.extra_config?.extra_dimension_column,
-    // Map-specific fields
-    geographic_column: chart.extra_config?.geographic_column,
-    value_column: chart.extra_config?.value_column,
-    selected_geojson_id: chart.extra_config?.selected_geojson_id,
-    // Restore layers configuration if available
-    layers:
-      chart.extra_config?.layers ||
-      (chart.chart_type === 'map'
-        ? [
-            {
-              id: '0',
-              level: 0,
-              geographic_column: chart.extra_config?.geographic_column,
-              geojson_id: chart.extra_config?.selected_geojson_id,
-            },
-          ]
-        : undefined),
-    customizations: chart.extra_config?.customizations || {},
-  };
-
   return (
-    <div className="container mx-auto p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Edit Chart</h1>
-        <ChartBuilder
-          onSave={handleSave}
-          onCancel={handleCancel}
-          isSaving={isMutating}
-          initialData={initialData}
-        />
+    <div className="min-h-screen bg-gray-50">
+      {/* Single Header with Everything */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Link href="/charts" className="hover:text-foreground transition-colors">
+                CHARTS
+              </Link>
+              <span>/</span>
+              <Link href={`/charts/${chartId}`} className="hover:text-foreground transition-colors">
+                {chart.title}
+              </Link>
+              <span>/</span>
+              <span className="text-foreground font-medium">EDIT</span>
+            </div>
+
+            <Link href={`/charts/${chartId}`}>
+              <Button variant="ghost" size="icon">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Input
+              value={formData.title}
+              onChange={(e) => handleFormChange({ title: e.target.value })}
+              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[250px]"
+              placeholder="Untitled Chart"
+            />
+            <Input
+              placeholder="Brief description"
+              value={formData.description || ''}
+              onChange={(e) => handleFormChange({ description: e.target.value })}
+              className="w-80 border border-gray-200 shadow-sm px-4 py-2 h-11"
+            />
+            <Button
+              onClick={handleSave}
+              disabled={!isFormValid() || isMutating}
+              className="px-8 h-11"
+            >
+              {isMutating ? 'Saving...' : 'Update Chart'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area with 2rem margin container */}
+      <div className="p-8 h-[calc(100vh-144px)]">
+        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Left Panel - 30% */}
+          <div className="w-[30%] border-r">
+            <Tabs defaultValue="configuration" className="h-full">
+              <div className="border-b px-6">
+                <TabsList className="grid w-full grid-cols-2 bg-transparent p-0">
+                  <TabsTrigger
+                    value="configuration"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
+                  >
+                    Data Configuration
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="styling"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
+                  >
+                    Chart Styling
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent
+                value="configuration"
+                className="mt-0 h-[calc(100%-49px)] overflow-y-auto"
+              >
+                <div className="p-4">
+                  {formData.chart_type === 'map' ? (
+                    <MapDataConfigurationV3
+                      formData={formData}
+                      onFormDataChange={handleFormChange}
+                    />
+                  ) : (
+                    <ChartDataConfigurationV3
+                      formData={formData}
+                      onChange={handleFormChange}
+                      disabled={false}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <div className="p-4">
+                  {formData.chart_type === 'map' ? (
+                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+                  ) : (
+                    <ChartCustomizations
+                      chartType={formData.chart_type || 'bar'}
+                      formData={formData}
+                      onChange={handleFormChange}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Right Panel - 70% */}
+          <div className="w-[70%]">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+              <div className="border-b px-6">
+                <TabsList className="grid w-fit grid-cols-2 bg-transparent p-0">
+                  <TabsTrigger
+                    value="chart"
+                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
+                  >
+                    CHART
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="data"
+                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
+                  >
+                    DATA
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="chart" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <div className="p-4 h-full">
+                  {formData.chart_type === 'map' ? (
+                    <div className="w-full h-full">
+                      <MapPreview
+                        geojsonData={geojsonData?.geojson_data}
+                        geojsonLoading={geojsonLoading}
+                        geojsonError={geojsonError}
+                        mapData={mapDataOverlay?.data}
+                        mapDataLoading={mapDataLoading}
+                        mapDataError={mapDataError}
+                        title={formData.title}
+                        valueColumn={formData.aggregate_column}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full">
+                      <ChartPreview
+                        config={chartData?.echarts_config}
+                        isLoading={chartDataLoading}
+                        error={chartDataError}
+                      />
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <div className="p-4">
+                  <DataPreview
+                    data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                    columns={dataPreview?.columns || []}
+                    columnTypes={dataPreview?.column_types || {}}
+                    isLoading={previewLoading}
+                    error={previewError}
+                    pagination={
+                      dataPreview
+                        ? {
+                            page: dataPreview.page,
+                            pageSize: dataPreview.page_size,
+                            total: dataPreview.total_rows,
+                            onPageChange: setDataPreviewPage,
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function EditChartPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EditChartPageContent />
+    </Suspense>
   );
 }
