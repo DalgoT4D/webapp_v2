@@ -471,7 +471,7 @@ export default function ChartsPage() {
                 : 'space-y-2'
             )}
           >
-            {filteredCharts.map((chart) =>
+            {filteredCharts.map((chart: any) =>
               viewMode === 'grid' ? renderChartCard(chart) : renderChartList(chart)
             )}
           </div>

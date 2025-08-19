@@ -162,7 +162,8 @@ export function MapDataConfigurationV3({
         table_name: formData.table_name,
         geographic_column: layer.geographic_column,
         value_column: formData.aggregate_column || formData.value_column,
-        aggregate_func: formData.aggregate_function,
+        aggregate_function: formData.aggregate_function,
+        selected_geojson_id: layer.geojson_id,
       };
 
       // Trigger separated fetching preview
@@ -171,7 +172,7 @@ export function MapDataConfigurationV3({
         geojsonPreviewPayload: geojsonPayload,
         dataOverlayPayload: dataOverlayPayload,
         viewingLayer: layerIndex,
-      });
+      } as any);
 
       setViewingLayer(layerIndex);
     }
@@ -186,7 +187,7 @@ export function MapDataConfigurationV3({
         dataOverlayPayload: payloads.dataOverlayPayload,
         viewingLayer: layerIndex,
         selectedRegionForPreview: payloads.selectedRegion,
-      });
+      } as any);
     }
     setViewingLayer(layerIndex);
   };
@@ -348,12 +349,12 @@ function LayerCard({
   const parentLayer = index > 0 ? (formData.layers || [])[index - 1] : null;
 
   let parentRegionId = null;
-  if (index === 1 && parentLayer?.geographic_column && !parentLayer?.region_id) {
+  if (index === 1 && (parentLayer as any)?.geographic_column && !(parentLayer as any)?.region_id) {
     // Layer 2 case: parent is country level, so show states
     parentRegionId = 1; // India country ID
-  } else if (parentLayer?.region_id) {
+  } else if ((parentLayer as any)?.region_id) {
     // Layer 3+ case: parent has a specific region selected
-    parentRegionId = parentLayer.region_id;
+    parentRegionId = (parentLayer as any).region_id;
   }
 
   // For Layer 2+, get child regions from the parent region
@@ -399,7 +400,7 @@ function LayerCard({
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === layer.geojson_id &&
         formData.dataOverlayPayload?.geographic_column === layer.geographic_column &&
-        formData.viewingLayer === 0;
+        (formData as any).viewingLayer === 0;
 
       if (!hasValidPayloads) {
         // Build separate payloads for GeoJSON and data overlay
@@ -412,7 +413,8 @@ function LayerCard({
           table_name: formData.table_name,
           geographic_column: layer.geographic_column,
           value_column: formData.aggregate_column || formData.value_column,
-          aggregate_func: formData.aggregate_function,
+          aggregate_function: formData.aggregate_function,
+          selected_geojson_id: layer.geojson_id,
         };
 
         // Trigger separated fetching preview automatically
@@ -421,7 +423,7 @@ function LayerCard({
           geojsonPreviewPayload: geojsonPayload,
           dataOverlayPayload: dataOverlayPayload,
           viewingLayer: 0,
-        });
+        } as any);
       }
     }
   }, [
@@ -448,8 +450,8 @@ function LayerCard({
     const layers = formData.layers || [];
     for (let i = 0; i < index; i++) {
       const previousLayer = layers[i];
-      if (previousLayer?.geographic_column) {
-        usedColumns.add(previousLayer.geographic_column);
+      if ((previousLayer as any)?.geographic_column) {
+        usedColumns.add((previousLayer as any).geographic_column);
       }
     }
 
