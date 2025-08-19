@@ -51,6 +51,7 @@ import {
   MoreVertical,
   Copy,
   Download,
+  Share2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -58,6 +59,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { DashboardThumbnail } from './dashboard-thumbnail';
+import { ShareModal } from './ShareModal';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -81,6 +83,8 @@ export function DashboardListV2() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -190,6 +194,23 @@ export function DashboardListV2() {
     [toast]
   );
 
+  // Handle share dashboard
+  const handleShareDashboard = useCallback((dashboard: any) => {
+    setSelectedDashboard(dashboard);
+    setShareModalOpen(true);
+  }, []);
+
+  // Handle share modal close
+  const handleShareModalClose = useCallback(() => {
+    setShareModalOpen(false);
+    setSelectedDashboard(null);
+  }, []);
+
+  // Handle dashboard update after sharing changes
+  const handleDashboardUpdate = useCallback(() => {
+    mutate(); // Refresh the dashboard list
+  }, [mutate]);
+
   // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
@@ -224,6 +245,14 @@ export function DashboardListV2() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={() => handleShareDashboard(dashboard)}
+                className="cursor-pointer"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() =>
                   handleDuplicateDashboard(
@@ -480,6 +509,14 @@ export function DashboardListV2() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem
+                    onClick={() => handleShareDashboard(dashboard)}
+                    className="cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
                     onClick={() =>
                       handleDuplicateDashboard(
                         dashboard.id,
@@ -689,6 +726,16 @@ export function DashboardListV2() {
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      {selectedDashboard && (
+        <ShareModal
+          dashboard={selectedDashboard}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+          onUpdate={handleDashboardUpdate}
+        />
+      )}
     </div>
   );
 }

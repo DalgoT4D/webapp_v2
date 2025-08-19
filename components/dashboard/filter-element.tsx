@@ -17,6 +17,8 @@ interface FilterElementProps {
   showTitle?: boolean;
   compact?: boolean;
   dragHandleProps?: any; // DnD Kit listeners for drag handle
+  isPublicMode?: boolean;
+  publicToken?: string;
 }
 
 export function FilterElement({
@@ -31,6 +33,8 @@ export function FilterElement({
   showTitle = true,
   compact = false,
   dragHandleProps,
+  isPublicMode = false,
+  publicToken,
 }: FilterElementProps) {
   const [localValue, setLocalValue] = useState<any>(value || null);
 
@@ -126,6 +130,8 @@ export function FilterElement({
         isEditMode={isEditMode}
         showTitle={showTitle}
         compact={compact}
+        isPublicMode={isPublicMode}
+        publicToken={publicToken}
       />
     </div>
   );

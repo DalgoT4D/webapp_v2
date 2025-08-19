@@ -59,6 +59,7 @@ import {
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
+import { ShareModal } from './ShareModal';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 
 // Define responsive breakpoints and column configurations (same as builder)
@@ -234,9 +235,17 @@ function convertFilterToConfig(
 
 interface DashboardNativeViewProps {
   dashboardId: number;
+  isPublicMode?: boolean;
+  publicToken?: string;
+  dashboardData?: any; // Pre-fetched dashboard data for public mode
 }
 
-export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
+export function DashboardNativeView({
+  dashboardId,
+  isPublicMode = false,
+  publicToken,
+  dashboardData,
+}: DashboardNativeViewProps) {
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -244,6 +253,7 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Ref for the dashboard container
   const containerRef = useRef<HTMLDivElement>(null);
@@ -254,8 +264,20 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const currentUser = getCurrentOrgUser();
 
-  // Fetch dashboard data
-  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
+  // Fetch dashboard data (skip API call if we have pre-fetched data for public mode)
+  const {
+    data: dashboardFromApi,
+    isLoading: apiIsLoading,
+    isError: apiIsError,
+    mutate,
+  } = useDashboard(isPublicMode && dashboardData ? null : dashboardId);
+
+  // Use pre-fetched data for public mode, otherwise use API data
+  const dashboard = isPublicMode && dashboardData ? dashboardData : dashboardFromApi;
+
+  // Override loading and error states for public mode when we have pre-fetched data
+  const isLoading = isPublicMode && dashboardData ? false : apiIsLoading;
+  const isError = isPublicMode && dashboardData ? false : apiIsError;
 
   // Check if user can edit (creator or admin)
   const canEdit = useMemo(() => {
@@ -340,13 +362,18 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
   };
 
   // Handle share
-  const handleShare = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      // TODO: Show toast notification
-    } catch (err) {
-      console.error('Failed to copy link:', err);
-    }
+  const handleShare = () => {
+    setShareModalOpen(true);
+  };
+
+  // Handle share modal close
+  const handleShareModalClose = () => {
+    setShareModalOpen(false);
+  };
+
+  // Handle dashboard update after sharing changes
+  const handleDashboardUpdate = () => {
+    mutate(); // Refresh the dashboard data
   };
 
   // Handle refresh
@@ -421,6 +448,8 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
               dashboardFilters={selectedFilters}
               viewMode={true}
               className="h-full"
+              isPublicMode={isPublicMode}
+              publicToken={publicToken}
             />
           </div>
         );
@@ -673,57 +702,60 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
           </div>
 
           {/* Mobile Action Row */}
-          <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShare}
-              className="flex-shrink-0 h-8 text-xs"
-            >
-              <Share2 className="w-3 h-3 mr-1" />
-              Share
-            </Button>
-            {canEdit && !isLockedByOther && (
-              <>
-                <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
-                  <Edit className="w-3 h-3 mr-1" />
-                  Edit
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={isDeleting}
-                      className="flex-shrink-0 h-8 text-xs"
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Delete
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete "{dashboard?.title}"? This action cannot be
-                        undone and will permanently remove all dashboard content and configuration.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          {!isPublicMode && (
+            <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Share2 className="w-3 h-3 mr-1" />
+                Share
+              </Button>
+              {canEdit && !isLockedByOther && (
+                <>
+                  <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         disabled={isDeleting}
+                        className="flex-shrink-0 h-8 text-xs"
                       >
-                        {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            )}
-          </div>
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{dashboard?.title}"? This action cannot
+                          be undone and will permanently remove all dashboard content and
+                          configuration.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Mobile Metadata Row */}
           <div className="px-4 pb-2 flex items-center gap-4 text-xs text-gray-500 border-t pt-2">
@@ -802,49 +834,53 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                 <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
               </Button>
 
-              <Button variant="outline" size="sm" onClick={handleShare}>
-                <Share2 className="w-4 h-4" />
-              </Button>
-
               <Button variant="outline" size="sm" onClick={toggleFullscreen}>
                 <Maximize2 className="w-4 h-4" />
               </Button>
 
-              {canEdit && !isLockedByOther && (
+              {!isPublicMode && (
                 <>
-                  <Button onClick={handleEdit} size="sm">
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Dashboard
+                  <Button variant="outline" size="sm" onClick={handleShare}>
+                    <Share2 className="w-4 h-4" />
                   </Button>
 
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={isDeleting}>
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
+                  {canEdit && !isLockedByOther && (
+                    <>
+                      <Button onClick={handleEdit} size="sm">
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Dashboard
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{dashboard?.title}"? This action cannot
-                          be undone and will permanently remove all dashboard content and
-                          configuration.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" disabled={isDeleting}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{dashboard?.title}"? This action
+                              cannot be undone and will permanently remove all dashboard content and
+                              configuration.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleDelete}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -860,6 +896,8 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
           layout="horizontal"
           onFiltersApplied={handleFiltersApplied}
           onFiltersCleared={handleFiltersCleared}
+          isPublicMode={isPublicMode}
+          publicToken={publicToken}
         />
       )}
       {/* Main Content Area */}
@@ -873,6 +911,8 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
+            isPublicMode={isPublicMode}
+            publicToken={publicToken}
           />
         )}
 
@@ -893,18 +933,12 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
                 × {SCREEN_SIZES[targetScreenSize].height}px)
               </div>
 
-              {/* Debug Info */}
+              {/* Show empty state if no layout config */}
               {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <p className="text-lg mb-2">No Dashboard Components</p>
                   <p className="text-sm">
-                    Layout config:{' '}
-                    {dashboard?.layout_config ? dashboard.layout_config.length : 'undefined'} items
-                  </p>
-                  <p className="text-sm">
-                    Components:{' '}
-                    {dashboard?.components ? Object.keys(dashboard.components).length : 'undefined'}{' '}
-                    items
+                    This dashboard doesn't have any components configured yet.
                   </p>
                 </div>
               ) : null}
@@ -1028,6 +1062,15 @@ export function DashboardNativeView({ dashboardId }: DashboardNativeViewProps) {
           }
         }
       `}</style>
+      {/* Share Modal */}
+      {dashboard && !isPublicMode && (
+        <ShareModal
+          dashboard={dashboard}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+          onUpdate={handleDashboardUpdate}
+        />
+      )}
     </div>
   );
 }

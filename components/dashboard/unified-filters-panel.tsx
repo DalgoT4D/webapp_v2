@@ -35,6 +35,8 @@ interface UnifiedFiltersPanelProps {
   onEditFilter?: (filter: DashboardFilterConfig) => void;
   onFiltersApplied?: (appliedFilters: AppliedFilters) => void;
   onFiltersCleared?: () => void;
+  isPublicMode?: boolean;
+  publicToken?: string;
 }
 
 // Unified sortable filter item component
@@ -46,6 +48,8 @@ interface SortableFilterItemProps {
   onEdit?: (filter: DashboardFilterConfig) => void;
   isEditMode?: boolean;
   layout: 'vertical' | 'horizontal';
+  isPublicMode?: boolean;
+  publicToken?: string;
 }
 
 function SortableFilterItem({
@@ -56,6 +60,8 @@ function SortableFilterItem({
   onEdit,
   isEditMode = false,
   layout,
+  isPublicMode = false,
+  publicToken,
 }: SortableFilterItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: filter.id,
@@ -82,6 +88,8 @@ function SortableFilterItem({
           onChange={onFilterChange}
           onRemove={isEditMode ? () => onRemove?.(filter.id) : undefined}
           onEdit={isEditMode ? () => onEdit?.(filter) : undefined}
+          isPublicMode={isPublicMode}
+          publicToken={publicToken}
           isEditMode={isEditMode}
           showTitle={true}
           compact={true}
@@ -113,6 +121,8 @@ function SortableFilterItem({
         showTitle={true}
         compact={false}
         dragHandleProps={isEditMode ? listeners : undefined}
+        isPublicMode={isPublicMode}
+        publicToken={publicToken}
       />
     </div>
   );
@@ -127,6 +137,8 @@ export function UnifiedFiltersPanel({
   onEditFilter,
   onFiltersApplied,
   onFiltersCleared,
+  isPublicMode = false,
+  publicToken,
 }: UnifiedFiltersPanelProps) {
   // Helper function to extract default values from filters
   const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
@@ -388,6 +400,8 @@ export function UnifiedFiltersPanel({
                     onEdit={onEditFilter}
                     isEditMode={isEditMode}
                     layout={layout}
+                    isPublicMode={isPublicMode}
+                    publicToken={publicToken}
                   />
                 ))}
               </div>
@@ -470,6 +484,8 @@ export function UnifiedFiltersPanel({
                     onEdit={onEditFilter}
                     isEditMode={isEditMode}
                     layout={layout}
+                    isPublicMode={isPublicMode}
+                    publicToken={publicToken}
                   />
                 ))}
               </div>

@@ -14,7 +14,10 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
-  const isPublicRoute = publicRoutes.includes(pathname);
+  const isPublicRoute =
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith('/public/dashboard/') ||
+    pathname.startsWith('/share/dashboard/');
 
   if (isPublicRoute) {
     // Public routes (login, signup, etc.) - no auth guard or main layout
