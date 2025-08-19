@@ -51,6 +51,8 @@ interface ChartElementViewProps {
   dashboardFilters?: Record<string, any>;
   viewMode?: boolean;
   className?: string;
+  isPublicMode?: boolean;
+  publicToken?: string; // Required when isPublicMode=true
 }
 
 export function ChartElementView({
@@ -58,6 +60,8 @@ export function ChartElementView({
   dashboardFilters = {},
   viewMode = true,
   className,
+  isPublicMode = false,
+  publicToken,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -73,7 +77,22 @@ export function ChartElementView({
     queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
   }
 
-  const apiUrl = `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  // Use public API endpoint if in public mode, otherwise use regular API
+  const apiUrl =
+    isPublicMode && publicToken
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+      : `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  // Custom fetcher for public mode
+  const fetcher = isPublicMode
+    ? async (url: string) => {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+        );
+        if (!response.ok) throw new Error('Failed to fetch chart data');
+        return response.json();
+      }
+    : apiGet;
 
   // Fetch chart data with filters
   const {
@@ -81,7 +100,7 @@ export function ChartElementView({
     isLoading,
     error: isError,
     mutate,
-  } = useSWR(apiUrl, apiGet, {
+  } = useSWR(apiUrl, fetcher, {
     revalidateOnFocus: false,
     refreshInterval: 0, // Disable auto-refresh
     onSuccess: (data) => {

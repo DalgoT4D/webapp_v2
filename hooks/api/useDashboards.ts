@@ -22,6 +22,13 @@ export interface Dashboard {
   created_at: string;
   updated_at: string;
   filters: DashboardFilter[];
+  // Sharing fields
+  is_public: boolean;
+  public_share_token?: string;
+  public_shared_at?: string;
+  public_disabled_at?: string;
+  public_access_count: number;
+  last_public_accessed?: string;
 }
 
 export interface DashboardFilter {
@@ -186,4 +193,36 @@ export async function deleteDashboardFilter(
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {
   // Use the backend duplicate endpoint that handles all the copying server-side
   return await apiPost(`/api/dashboards/${dashboardId}/duplicate/`, {});
+}
+
+// Dashboard sharing functions
+export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
+  return apiPut(`/api/dashboards/${dashboardId}/share/`, data);
+}
+
+export async function getDashboardSharingStatus(dashboardId: number) {
+  return apiGet(`/api/dashboards/${dashboardId}/share/`);
+}
+
+export function usePublicDashboard(token: string) {
+  const { data, error, mutate } = useSWR(
+    token ? `/api/v1/public/dashboards/${token}/` : null,
+    async (url: string) => {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
+      const fullUrl = `${backendUrl}${url}`;
+
+      const response = await fetch(fullUrl);
+      if (!response.ok) throw new Error('Dashboard not found');
+      const data = await response.json();
+
+      return data;
+    }
+  );
+
+  return {
+    dashboard: data,
+    isLoading: !error && !data,
+    isError: error,
+    mutate,
+  };
 }

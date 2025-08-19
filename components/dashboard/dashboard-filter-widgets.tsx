@@ -40,6 +40,8 @@ interface FilterWidgetProps {
   isEditMode?: boolean;
   showTitle?: boolean;
   compact?: boolean;
+  isPublicMode?: boolean;
+  publicToken?: string;
 }
 
 // Value Filter Widget (Dropdown/Multi-select)
@@ -49,6 +51,8 @@ function ValueFilterWidget({
   onChange,
   className,
   isEditMode = false,
+  isPublicMode = false,
+  publicToken,
 }: FilterWidgetProps) {
   const valueFilter = filter as ValueFilterConfig;
   const [open, setOpen] = useState(false);
@@ -65,18 +69,32 @@ function ValueFilterWidget({
     }
   }, [value, selectedValues, filter.id]);
 
+  // Build API URL based on public mode - now both use the preview endpoint format
+  const apiUrl =
+    filter.schema_name && filter.table_name && filter.column_name
+      ? isPublicMode && publicToken
+        ? `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
+        : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
+      : null;
+
+  // Custom fetcher for public mode
+  const fetcher = isPublicMode
+    ? async (url: string) => {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+        );
+        if (!response.ok) throw new Error('Failed to fetch filter options');
+        const data = await response.json();
+        return data; // Return full response object
+      }
+    : (url: string) => apiGet(url);
+
   // Fetch available options dynamically from the API
   const {
     data: filterOptions,
     error: filterOptionsError,
     isLoading: filterOptionsLoading,
-  } = useSWR(
-    filter.schema_name && filter.table_name && filter.column_name
-      ? `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
-      : null,
-    (url: string) => apiGet(url),
-    { revalidateOnFocus: false }
-  );
+  } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
 
   // Ensure settings exists with default values
   if (!valueFilter.settings) {
@@ -302,6 +320,8 @@ function NumericalFilterWidget({
   onChange,
   className,
   isEditMode = false,
+  isPublicMode = false,
+  publicToken,
 }: FilterWidgetProps) {
   const numericalFilter = filter as NumericalFilterConfig;
 
@@ -315,18 +335,32 @@ function NumericalFilterWidget({
   // Default ui_mode to SLIDER if not specified
   const uiMode = numericalFilter.settings.ui_mode || NumericalFilterUIMode.SLIDER;
 
+  // Build API URL based on public mode for numerical stats - now both use the preview endpoint format
+  const numericalApiUrl =
+    filter.schema_name && filter.table_name && filter.column_name
+      ? isPublicMode && publicToken
+        ? `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
+        : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
+      : null;
+
+  // Custom fetcher for numerical filter in public mode
+  const numericalFetcher = isPublicMode
+    ? async (url: string) => {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+        );
+        if (!response.ok) throw new Error('Failed to fetch numerical stats');
+        const data = await response.json();
+        return data; // Return full response object
+      }
+    : (url: string) => apiGet(url);
+
   // Fetch numerical stats dynamically from the API
   const {
     data: numericalStats,
     error: numericalStatsError,
     isLoading: numericalStatsLoading,
-  } = useSWR(
-    filter.schema_name && filter.table_name && filter.column_name
-      ? `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-      : null,
-    (url: string) => apiGet(url),
-    { revalidateOnFocus: false }
-  );
+  } = useSWR(numericalApiUrl, numericalFetcher, { revalidateOnFocus: false });
 
   // Use fetched values or fallbacks
   const minValue = numericalStats?.stats?.min_value ?? 0;
