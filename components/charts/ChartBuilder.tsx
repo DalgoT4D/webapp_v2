@@ -5,12 +5,12 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartTypeSelector } from './ChartTypeSelector';
-import { ChartDataConfigurationV2 } from './ChartDataConfigurationV2';
+import { ChartDataConfigurationV3 } from './ChartDataConfigurationV3';
 import { ChartCustomizations } from './ChartCustomizations';
 import { WorkInProgress } from './WorkInProgress';
 import { ChartPreview } from './ChartPreview';
 import { DataPreview } from './DataPreview';
-import { MapDataConfiguration } from './map/MapDataConfiguration';
+import { MapDataConfigurationV3 } from './map/MapDataConfigurationV3';
 import { MapCustomizations } from './map/MapCustomizations';
 import { MapPreview } from './map/MapPreview';
 import {
@@ -397,9 +397,9 @@ export function ChartBuilder({
           >
             <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
             {formData.chart_type === 'map' ? (
-              <MapDataConfiguration formData={formData} onFormDataChange={handleFormChange} />
+              <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
             ) : (
-              <ChartDataConfigurationV2
+              <ChartDataConfigurationV3
                 formData={formData}
                 onChange={handleFormChange}
                 disabled={!formData.chart_type}

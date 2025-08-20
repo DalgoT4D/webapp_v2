@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,25 +15,16 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import {
-  useChart,
-  useUpdateChart,
   useChartData,
   useChartDataPreview,
+  useCreateChart,
   useGeoJSONData,
   useMapDataOverlay,
 } from '@/hooks/api/useChart';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import type {
-  ChartCreate,
-  ChartUpdate,
-  ChartBuilderFormData,
-  ChartDataPayload,
-} from '@/types/charts';
+import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -96,63 +87,51 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
   }
 }
 
-function EditChartPageContent() {
-  const params = useParams();
+// Generate default chart name
+function generateDefaultChartName(chartType: string, table: string): string {
+  const timestamp = new Date().toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const typeNames = {
+    bar: 'Bar chart',
+    line: 'Line chart',
+    pie: 'Pie chart',
+    number: 'Number card',
+    map: 'Map chart',
+  };
+
+  return `${typeNames[chartType as keyof typeof typeNames] || 'Chart'} - ${table} ${timestamp}`;
+}
+
+function ConfigureChartPageContent() {
   const router = useRouter();
-  const chartId = Number(params.id);
+  const searchParams = useSearchParams();
+  const { trigger: createChart, isMutating } = useCreateChart();
 
-  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
-  const { trigger: updateChart, isMutating } = useUpdateChart();
+  // Get parameters from URL
+  const schema = searchParams.get('schema') || '';
+  const table = searchParams.get('table') || '';
+  const chartType = searchParams.get('type') || 'bar';
 
-  // Initialize form data with chart data when loaded
+  // Initialize form data
   const [formData, setFormData] = useState<ChartBuilderFormData>({
-    title: '',
-    chart_type: 'bar',
+    title: generateDefaultChartName(chartType, table),
+    chart_type: chartType as ChartBuilderFormData['chart_type'],
+    schema_name: schema,
+    table_name: table,
     computation_type: 'aggregated',
-    customizations: getDefaultCustomizations('bar'),
+    customizations: getDefaultCustomizations(chartType),
+    // Set default aggregate function to prevent API errors
     aggregate_function: 'sum',
   });
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
-
-  // Update form data when chart loads
-  useEffect(() => {
-    if (chart) {
-      const initialData: ChartBuilderFormData = {
-        title: chart.title,
-        description: chart.description,
-        chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
-        computation_type: chart.computation_type as 'raw' | 'aggregated',
-        schema_name: chart.schema_name,
-        table_name: chart.table_name,
-        x_axis_column: chart.extra_config?.x_axis_column,
-        y_axis_column: chart.extra_config?.y_axis_column,
-        dimension_column: chart.extra_config?.dimension_column,
-        aggregate_column: chart.extra_config?.aggregate_column,
-        aggregate_function: chart.extra_config?.aggregate_function,
-        extra_dimension_column: chart.extra_config?.extra_dimension_column,
-        geographic_column: chart.extra_config?.geographic_column,
-        value_column: chart.extra_config?.value_column,
-        selected_geojson_id: chart.extra_config?.selected_geojson_id,
-        layers:
-          chart.extra_config?.layers ||
-          (chart.chart_type === 'map'
-            ? [
-                {
-                  id: '0',
-                  level: 0,
-                  geographic_column: chart.extra_config?.geographic_column,
-                  geojson_id: chart.extra_config?.selected_geojson_id,
-                },
-              ]
-            : undefined),
-        customizations:
-          chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
-      };
-      setFormData(initialData);
-    }
-  }, [chart]);
 
   // Check if form data is complete enough to generate chart data
   const isChartDataReady = () => {
@@ -222,8 +201,8 @@ function EditChartPageContent() {
   // Fetch chart data
   const {
     data: chartData,
-    error: chartDataError,
-    isLoading: chartDataLoading,
+    error: chartError,
+    isLoading: chartLoading,
   } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
 
   // Fetch GeoJSON data for maps
@@ -329,65 +308,17 @@ function EditChartPageContent() {
     };
 
     try {
-      const updateData: ChartUpdate = {
-        title: chartData.title,
-        description: chartData.description,
-        chart_type: chartData.chart_type,
-        computation_type: chartData.computation_type,
-        schema_name: chartData.schema_name,
-        table_name: chartData.table_name,
-        extra_config: chartData.extra_config,
-      };
-
-      await updateChart({
-        id: chartId,
-        data: updateData,
-      });
-
-      toast.success('Chart updated successfully');
-      router.push(`/charts/${chartId}`);
+      const result = await createChart(chartData);
+      toast.success('Chart created successfully');
+      router.push(`/charts/${result.id}`);
     } catch {
-      toast.error('Failed to update chart');
+      toast.error('Failed to create chart');
     }
   };
 
   const handleCancel = () => {
-    router.push(`/charts/${chartId}`);
+    router.push('/charts');
   };
-
-  if (chartLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
-          <Skeleton className="h-8 w-64" />
-        </div>
-        <div className="p-8 h-[calc(100vh-144px)]">
-          <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-            <Skeleton className="w-[30%] h-full" />
-            <Skeleton className="w-[70%] h-full" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (chartError || !chart) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
-          <h1 className="text-xl font-semibold">Edit Chart</h1>
-        </div>
-        <div className="p-8">
-          <Alert className="max-w-2xl mx-auto">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {chartError ? 'Failed to load chart' : 'Chart not found'}
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -401,14 +332,10 @@ function EditChartPageContent() {
                 CHARTS
               </Link>
               <span>/</span>
-              <Link href={`/charts/${chartId}`} className="hover:text-foreground transition-colors">
-                {chart.title}
-              </Link>
-              <span>/</span>
-              <span className="text-foreground font-medium">EDIT</span>
+              <span className="text-foreground font-medium">CREATE CHART</span>
             </div>
 
-            <Link href={`/charts/${chartId}`}>
+            <Link href="/charts/new">
               <Button variant="ghost" size="icon">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -433,7 +360,7 @@ function EditChartPageContent() {
               disabled={!isFormValid() || isMutating}
               className="px-8 h-11"
             >
-              {isMutating ? 'Saving...' : 'Update Chart'}
+              {isMutating ? 'Saving...' : 'Save Chart'}
             </Button>
           </div>
         </div>
@@ -537,8 +464,8 @@ function EditChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         config={chartData?.echarts_config}
-                        isLoading={chartDataLoading}
-                        error={chartDataError}
+                        isLoading={chartLoading}
+                        error={chartError}
                       />
                     </div>
                   )}
@@ -574,10 +501,10 @@ function EditChartPageContent() {
   );
 }
 
-export default function EditChartPage() {
+export default function ConfigureChartPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <EditChartPageContent />
+      <ConfigureChartPageContent />
     </Suspense>
   );
 }

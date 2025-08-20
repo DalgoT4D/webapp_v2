@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
+import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
   Chart,
@@ -91,6 +92,67 @@ export function useSchemas() {
 
 export function useTables(schema: string | null) {
   return useSWR<any[]>(schema ? `/api/warehouse/tables/${schema}` : null, apiGet);
+}
+
+// Hook to get all tables from all schemas - proper hook that doesn't violate rules
+export function useAllSchemaTables() {
+  const { data: schemas, isLoading: schemasLoading, error: schemasError } = useSchemas();
+
+  const [allTables, setAllTables] = useState<
+    Array<{ schema_name: string; table_name: string; full_name: string }>
+  >([]);
+  const [isLoadingTables, setIsLoadingTables] = useState(false);
+
+  useEffect(() => {
+    if (!schemas || schemas.length === 0) {
+      setAllTables([]);
+      return;
+    }
+
+    async function fetchAllTables() {
+      setIsLoadingTables(true);
+      try {
+        const allTablesData: Array<{ schema_name: string; table_name: string; full_name: string }> =
+          [];
+
+        // Fetch tables for each schema (schemas is an array of strings)
+        for (const schemaName of schemas) {
+          try {
+            const tables = await apiGet(`/api/warehouse/tables/${schemaName}`);
+            if (tables && Array.isArray(tables)) {
+              tables.forEach((table: any) => {
+                // Handle both string and object formats (like existing components do)
+                const tableName = typeof table === 'string' ? table : table.table_name;
+                if (tableName) {
+                  allTablesData.push({
+                    schema_name: schemaName,
+                    table_name: tableName,
+                    full_name: `${schemaName}.${tableName}`,
+                  });
+                }
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching tables for schema ${schemaName}:`, error);
+          }
+        }
+
+        setAllTables(allTablesData);
+      } catch (error) {
+        console.error('Error fetching all tables:', error);
+      } finally {
+        setIsLoadingTables(false);
+      }
+    }
+
+    fetchAllTables();
+  }, [schemas]);
+
+  return {
+    data: allTables,
+    isLoading: schemasLoading || isLoadingTables,
+    error: schemasError,
+  };
 }
 
 export function useColumns(schema: string | null, table: string | null) {
