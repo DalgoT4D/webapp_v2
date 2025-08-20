@@ -49,6 +49,7 @@ import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
+import { DashboardExport } from './DashboardExport';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -1136,6 +1137,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Button onClick={() => saveDashboard()} size="sm" variant="ghost" className="p-1.5">
                   <Save className="w-4 h-4" />
                 </Button>
+                <DashboardExport
+                  dashboardTitle={title || 'Dashboard'}
+                  canvasSelector=".dashboard-canvas"
+                  variant="icon"
+                  className="p-1.5"
+                />
                 {onPreview && (
                   <Button
                     variant="ghost"
@@ -1494,6 +1501,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   <span className="hidden lg:inline">Save</span>
                 </Button>
 
+                <DashboardExport
+                  dashboardTitle={title || 'Dashboard'}
+                  canvasSelector=".dashboard-canvas"
+                  variant="dropdown"
+                />
+
                 {/* Preview button */}
                 {onPreview && (
                   <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
@@ -1549,7 +1562,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
             {/* Canvas container with exact screen dimensions */}
             <div
-              className="mx-auto bg-white shadow-lg rounded-lg border"
+              className="dashboard-canvas mx-auto bg-white shadow-lg rounded-lg border"
               style={{
                 width: currentScreenConfig.width,
                 minHeight: Math.max(currentScreenConfig.height, 400),

@@ -60,6 +60,7 @@ import {
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from './ShareModal';
+import { DashboardExport } from './DashboardExport';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 
 // Define responsive breakpoints and column configurations (same as builder)
@@ -714,6 +715,12 @@ export function DashboardNativeView({
                 <Share2 className="w-3 h-3 mr-1" />
                 Share
               </Button>
+              <DashboardExport
+                dashboardTitle={dashboard.title || 'Dashboard'}
+                canvasSelector=".dashboard-canvas"
+                variant="icon"
+                className="flex-shrink-0"
+              />
               {canEdit && !isLockedByOther && (
                 <>
                   <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
@@ -844,6 +851,12 @@ export function DashboardNativeView({
                   <Button variant="outline" size="sm" onClick={handleShare}>
                     <Share2 className="w-4 h-4" />
                   </Button>
+
+                  <DashboardExport
+                    dashboardTitle={dashboard.title || 'Dashboard'}
+                    canvasSelector=".dashboard-canvas"
+                    variant="dropdown"
+                  />
 
                   {canEdit && !isLockedByOther && (
                     <>
