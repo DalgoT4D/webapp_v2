@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
+import { ChartTitleEditor } from './chart-title-editor';
+import { resolveChartTitle, type ChartTitleConfig } from '@/lib/chart-title-utils';
 import * as echarts from 'echarts/core';
 import {
   BarChart,
@@ -53,6 +55,7 @@ interface ChartElementViewProps {
   className?: string;
   isPublicMode?: boolean;
   publicToken?: string; // Required when isPublicMode=true
+  config?: ChartTitleConfig; // For dashboard title configuration
 }
 
 export function ChartElementView({
@@ -62,6 +65,7 @@ export function ChartElementView({
   className,
   isPublicMode = false,
   publicToken,
+  config = {},
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -102,7 +106,20 @@ export function ChartElementView({
     mutate,
   } = useSWR(apiUrl, fetcher, {
     revalidateOnFocus: false,
+    revalidateOnReconnect: false,
     refreshInterval: 0, // Disable auto-refresh
+    // Don't retry on 404 errors
+    onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+      // Never retry on 404
+      if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+        return;
+      }
+      // Only retry up to 3 times for other errors
+      if (retryCount >= 3) return;
+
+      // Retry after 1 second
+      setTimeout(() => revalidate({ retryCount }), 1000);
+    },
     onSuccess: (data) => {
       // Chart data fetched successfully
     },
@@ -110,6 +127,32 @@ export function ChartElementView({
       console.error('Error fetching chart data:', error);
     },
   });
+
+  // Fetch chart metadata for title resolution (not needed in public mode)
+  const { data: chartMetadata, error: metadataError } = useSWR(
+    !isPublicMode ? `/api/charts/${chartId}` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0,
+      // Don't retry on 404 errors
+      onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+        // Never retry on 404
+        if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+          return;
+        }
+        // Only retry up to 3 times for other errors
+        if (retryCount >= 3) return;
+
+        // Retry after 1 second
+        setTimeout(() => revalidate({ retryCount }), 1000);
+      },
+    }
+  );
+
+  // Get the actual error message
+  const errorMessage = metadataError?.message || isError?.message || 'Failed to load chart';
 
   // Initialize and update chart
   useEffect(() => {
@@ -149,6 +192,11 @@ export function ChartElementView({
     // Apply beautiful theme and styling
     const styledConfig = {
       ...chartData.echarts_config,
+      // Disable ECharts internal title since we use HTML titles
+      title: {
+        ...chartData.echarts_config.title,
+        show: false,
+      },
       animation: true,
       animationDuration: 500,
       animationEasing: 'cubicOut',
@@ -166,7 +214,7 @@ export function ChartElementView({
         '#f97316', // orange-500
       ],
       grid: {
-        top: '15%',
+        top: '10%', // Reduced from 15% since we have HTML title
         left: '3%',
         right: '4%',
         bottom: '10%',
@@ -287,7 +335,8 @@ export function ChartElementView({
       <div className={cn('h-full flex items-center justify-center p-4', className)}>
         <div className="text-center">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Failed to load chart</p>
+          <p className="text-sm font-medium text-gray-900">Chart Error</p>
+          <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
           <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-2">
             <RefreshCw className="h-3 w-3 mr-1" />
             Retry
@@ -300,7 +349,7 @@ export function ChartElementView({
   return (
     <div
       className={cn(
-        'h-full relative group',
+        'h-full relative group flex flex-col',
         className,
         isFullscreen && 'fixed inset-0 z-50 bg-white'
       )}
@@ -340,12 +389,20 @@ export function ChartElementView({
         </div>
       )}
 
-      {/* Chart title is now handled by ECharts config */}
+      {/* Chart Title - HTML title for better styling and interaction */}
+      <div className="px-2 pt-2">
+        <ChartTitleEditor
+          chartData={chartMetadata}
+          config={config}
+          onTitleChange={() => {}} // Read-only in view mode
+          isEditMode={false}
+        />
+      </div>
 
       {/* Chart container */}
       <div
         ref={chartRef}
-        className="w-full h-full min-h-[200px]"
+        className="w-full flex-1 min-h-[200px]"
         style={{ padding: viewMode ? '8px' : '0' }}
       />
     </div>

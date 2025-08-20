@@ -51,12 +51,28 @@ export function useCharts(params?: UseChartsParams) {
 }
 
 export function useChart(id: number) {
-  const { data, error, mutate } = useSWR<Chart>(id ? `/api/charts/${id}/` : null, apiGet);
+  const { data, error, mutate } = useSWR<Chart>(id ? `/api/charts/${id}/` : null, apiGet, {
+    // Don't retry on 404 errors
+    onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+      // Never retry on 404
+      if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+        return;
+      }
+      // Only retry up to 3 times for other errors
+      if (retryCount >= 3) return;
+
+      // Retry after 1 second
+      setTimeout(() => revalidate({ retryCount }), 1000);
+    },
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
 
   return {
     data: data,
     isLoading: !error && !data,
     isError: error,
+    error: error,
     mutate,
   };
 }
@@ -75,6 +91,30 @@ export function useChartData(id: number) {
   return {
     data: data,
     isLoading: !error && !data && id !== null,
+    isError: error,
+    mutate,
+  };
+}
+
+export interface ChartDashboard {
+  id: number;
+  title: string;
+  dashboard_type: string;
+}
+
+export function useChartDashboards(chartId: number) {
+  const { data, error, mutate } = useSWR<ChartDashboard[]>(
+    chartId ? `/api/charts/${chartId}/dashboards/` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
+  );
+
+  return {
+    data: data || [],
+    isLoading: !error && !data && !!chartId,
     isError: error,
     mutate,
   };

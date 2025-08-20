@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
   refreshDashboardLock,
@@ -1524,7 +1525,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           />
         )}
         {/* Main Content Area */}
-        <div className="flex-1 flex overflow-hidden">
+        <div
+          className={cn(
+            'flex-1 flex overflow-hidden',
+            filterLayout === 'vertical' ? 'flex-col md:flex-row' : ''
+          )}
+        >
           {/* Vertical Filters Sidebar */}
           {filterLayout === 'vertical' && (
             <UnifiedFiltersPanel
@@ -1540,7 +1546,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           )}
 
           {/* Dashboard Canvas - Scrollable Area */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 min-w-0">
+          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
             {/* Canvas container with exact screen dimensions */}
             <div
               className="mx-auto bg-white shadow-lg rounded-lg border"

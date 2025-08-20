@@ -5,7 +5,7 @@ import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Plus, Filter as FilterIcon, RotateCcw, Check } from 'lucide-react';
+import { Plus, Filter as FilterIcon, RotateCcw, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { deleteDashboardFilter } from '@/hooks/api/useDashboards';
 import {
   DndContext,
@@ -37,6 +37,7 @@ interface UnifiedFiltersPanelProps {
   onFiltersCleared?: () => void;
   isPublicMode?: boolean;
   publicToken?: string;
+  defaultCollapsed?: boolean;
 }
 
 // Unified sortable filter item component
@@ -139,6 +140,7 @@ export function UnifiedFiltersPanel({
   onFiltersCleared,
   isPublicMode = false,
   publicToken,
+  defaultCollapsed = false,
 }: UnifiedFiltersPanelProps) {
   // Helper function to extract default values from filters
   const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
@@ -182,6 +184,7 @@ export function UnifiedFiltersPanel({
     getDefaultFilterValues(initialFilters)
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   // Sync filters when initialFilters change (when filters are added/deleted externally)
   useEffect(() => {
@@ -299,11 +302,20 @@ export function UnifiedFiltersPanel({
       value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true)
   );
 
+  // Toggle collapse state
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
+  // For vertical layout, we maintain vertical behavior but change container positioning on mobile
+  // For horizontal layout, we keep horizontal behavior
+  const effectiveLayout = layout;
+
   if (!filters || filters.length === 0) {
     if (isEditMode) {
       const emptyStateClass =
         layout === 'vertical'
-          ? 'w-80 border-r border-gray-200 bg-white flex-shrink-0'
+          ? 'w-full md:w-80 border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 shadow-sm md:shadow-none'
           : 'border-b border-gray-200 bg-white p-4';
 
       return (
@@ -414,11 +426,24 @@ export function UnifiedFiltersPanel({
 
   // Vertical layout
   return (
-    <div className="w-80 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
+    <div className="w-full md:w-80 border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col shadow-sm md:shadow-none">
       {/* Header */}
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+            <button
+              onClick={toggleCollapse}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              aria-label={isCollapsed ? 'Expand filters' : 'Collapse filters'}
+            >
+              {isCollapsed ? (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+          </div>
           {isEditMode && (
             <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
               <Plus className="w-3 h-3 mr-1" />
@@ -461,38 +486,44 @@ export function UnifiedFiltersPanel({
         </div>
       </div>
 
-      {/* Filters List */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={filters.map((f) => f.id)}
-              strategy={verticalListSortingStrategy}
+      {/* Filters List - Collapsible */}
+      {!isCollapsed && (
+        <div className="flex-1 overflow-y-auto md:overflow-y-auto">
+          <div className="p-4 pb-6 md:pb-4">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="space-y-4">
-                {filters.map((filter) => (
-                  <SortableFilterItem
-                    key={filter.id}
-                    filter={filter}
-                    currentFilterValues={currentFilterValues}
-                    onFilterChange={handleFilterChange}
-                    onRemove={handleRemoveFilter}
-                    onEdit={onEditFilter}
-                    isEditMode={isEditMode}
-                    layout={layout}
-                    isPublicMode={isPublicMode}
-                    publicToken={publicToken}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+              <SortableContext
+                items={filters.map((f) => f.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {filters.map((filter) => (
+                    <SortableFilterItem
+                      key={filter.id}
+                      filter={filter}
+                      currentFilterValues={currentFilterValues}
+                      onFilterChange={handleFilterChange}
+                      onRemove={handleRemoveFilter}
+                      onEdit={onEditFilter}
+                      isEditMode={isEditMode}
+                      layout={effectiveLayout}
+                      isPublicMode={isPublicMode}
+                      publicToken={publicToken}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            {/* Mobile section separator */}
+            <div className="block md:hidden mt-4 pt-4 border-t border-gray-200">
+              <div className="text-center text-xs text-gray-500 font-medium">Dashboard Content</div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

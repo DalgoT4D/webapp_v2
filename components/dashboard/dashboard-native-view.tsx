@@ -450,6 +450,7 @@ export function DashboardNativeView({
               className="h-full"
               isPublicMode={isPublicMode}
               publicToken={publicToken}
+              config={component.config}
             />
           </div>
         );
@@ -901,7 +902,12 @@ export function DashboardNativeView({
         />
       )}
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div
+        className={cn(
+          'flex-1 flex overflow-hidden',
+          filterLayout === 'vertical' ? 'flex-col md:flex-row' : ''
+        )}
+      >
         {/* Vertical Filters Sidebar */}
         {filterLayout === 'vertical' && dashboardFilters.length > 0 && (
           <UnifiedFiltersPanel
@@ -917,7 +923,7 @@ export function DashboardNativeView({
         )}
 
         {/* Dashboard Content - Scrollable Canvas Area */}
-        <div className="flex-1 overflow-auto p-6 min-w-0 bg-gray-50">
+        <div className="flex-1 overflow-auto p-4 md:p-6 min-w-0 bg-gray-50">
           <div className="flex justify-center">
             <div
               className="dashboard-canvas bg-white border border-gray-300 shadow-lg relative z-10"

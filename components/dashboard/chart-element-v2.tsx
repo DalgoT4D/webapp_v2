@@ -7,6 +7,8 @@ import { X, AlertCircle } from 'lucide-react';
 import { useChart } from '@/hooks/api/useCharts';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
+import { ChartTitleEditor } from './chart-title-editor';
+import type { ChartTitleConfig } from '@/lib/chart-title-utils';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart } from 'echarts/charts';
 import {
@@ -35,9 +37,9 @@ echarts.use([
 
 interface ChartElementV2Props {
   chartId: number;
-  config: any;
+  config: any & ChartTitleConfig;
   onRemove: () => void;
-  onUpdate: (config: any) => void;
+  onUpdate: (config: any & ChartTitleConfig) => void;
   isResizing?: boolean;
   isEditMode?: boolean;
   appliedFilters?: Record<string, any>;
@@ -56,7 +58,20 @@ export function ChartElementV2({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: chart, isLoading: chartLoading, isError: chartError } = useChart(chartId);
+  const {
+    data: chart,
+    isLoading: chartLoading,
+    isError: chartError,
+    error: chartFetchError,
+  } = useChart(chartId);
+
+  // Handle title configuration updates
+  const handleTitleChange = (titleConfig: ChartTitleConfig) => {
+    onUpdate({
+      ...config,
+      ...titleConfig,
+    });
+  };
 
   // Create a unique identifier for when filters change to trigger data refetch
   const filterHash = useMemo(() => JSON.stringify(appliedFilters), [appliedFilters]);
@@ -79,7 +94,20 @@ export function ChartElementV2({
     mutate: mutateChartData,
   } = useSWR(apiUrl, apiGet, {
     revalidateOnFocus: false,
+    revalidateOnReconnect: false,
     refreshInterval: 0, // Disable auto-refresh
+    // Don't retry on 404 errors
+    onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+      // Never retry on 404
+      if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+        return;
+      }
+      // Only retry up to 3 times for other errors
+      if (retryCount >= 3) return;
+
+      // Retry after 1 second
+      setTimeout(() => revalidate({ retryCount }), 1000);
+    },
     onSuccess: (data) => {
       // Chart data fetched successfully
     },
@@ -100,6 +128,9 @@ export function ChartElementV2({
   // Compute derived state
   const isLoading = chartLoading || dataLoading;
   const isError = chartError || dataError;
+
+  // Get the actual error message
+  const errorMessage = chartFetchError?.message || dataError?.message || 'Failed to load chart';
 
   // Force refetch when filters change
   useEffect(() => {
@@ -151,8 +182,17 @@ export function ChartElementV2({
     }
 
     if (chartInstance.current && chartConfig) {
+      // Disable ECharts internal title since we use HTML titles
+      const modifiedConfig = {
+        ...chartConfig,
+        title: {
+          ...chartConfig.title,
+          show: false, // Disable ECharts built-in title
+        },
+      };
+
       // Set chart option with animation disabled for better performance
-      chartInstance.current.setOption(chartConfig, {
+      chartInstance.current.setOption(modifiedConfig, {
         notMerge: true,
         lazyUpdate: false,
         silent: false,
@@ -281,8 +321,18 @@ export function ChartElementV2({
         </div>
       )}
       <Card className="h-full flex flex-col">
-        <CardContent className="p-0 flex-1">
-          <div className="h-full min-h-[200px]">
+        <CardContent className="p-4 flex-1 flex flex-col">
+          {/* Chart Title Editor */}
+          <ChartTitleEditor
+            chartData={chart}
+            config={config}
+            onTitleChange={handleTitleChange}
+            isEditMode={isEditMode}
+            className="flex-shrink-0"
+          />
+
+          {/* Chart Content */}
+          <div className="flex-1 min-h-[200px]">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -292,12 +342,10 @@ export function ChartElementV2({
               </div>
             ) : isError ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
+                <div className="text-center p-4">
                   <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                  <p className="text-sm text-destructive">Failed to load chart</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Please check your data connection
-                  </p>
+                  <p className="text-sm text-destructive">Chart Error</p>
+                  <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
                 </div>
               </div>
             ) : (
