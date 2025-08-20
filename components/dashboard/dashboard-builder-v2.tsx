@@ -1124,9 +1124,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
                     onClick={() => setIsEditingTitle(true)}
                   >
-                    <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
-                      {title}
-                    </h1>
+                    <div className="flex-1 min-w-0">
+                      <h1 className="text-sm font-semibold truncate dashboard-header-title">
+                        {title}
+                      </h1>
+                      <div className="text-xs text-gray-400 italic -mt-0.5">
+                        {currentScreenConfig.name} ({currentScreenConfig.width} ×{' '}
+                        {currentScreenConfig.height})
+                      </div>
+                    </div>
                     <Edit2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
                   </div>
                 )}
@@ -1355,7 +1361,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
                     onClick={() => setIsEditingTitle(true)}
                   >
-                    <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
+                    <div>
+                      <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
+                      <div className="text-xs text-gray-400 italic -mt-1">
+                        {currentScreenConfig.name} ({currentScreenConfig.width} ×{' '}
+                        {currentScreenConfig.height})
+                      </div>
+                    </div>
                     <Edit2 className="w-4 h-4 text-gray-400" />
                   </div>
                 )}
@@ -1562,18 +1574,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
             {/* Canvas container with exact screen dimensions */}
             <div
-              className="dashboard-canvas mx-auto bg-white shadow-lg rounded-lg border"
+              className="dashboard-canvas mx-auto bg-white shadow-lg rounded-lg border-2 border-dashed border-blue-200"
               style={{
                 width: currentScreenConfig.width,
                 minHeight: Math.max(currentScreenConfig.height, 400),
                 maxWidth: '100%',
                 position: 'relative',
+                overflow: 'hidden', // Ensure elements cannot visually overflow
               }}
             >
-              {/* Screen size indicator */}
-              <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
-                {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height}
-                )
+              {/* Canvas boundary indicator */}
+              <div className="absolute inset-0 pointer-events-none z-0">
+                <div className="absolute inset-1 border border-blue-100 rounded opacity-50" />
+                <div className="absolute top-1 left-1 text-xs text-blue-400 bg-blue-50 px-2 py-1 rounded-sm shadow-sm">
+                  Canvas Boundary
+                </div>
               </div>
 
               <GridLayout
@@ -1582,9 +1597,54 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 cols={currentScreenConfig.cols}
                 rowHeight={30}
                 width={containerWidth}
-                onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+                onLayoutChange={(newLayout) => {
+                  // Enforce boundary restrictions before saving layout
+                  const boundedLayout = newLayout.map((item) => ({
+                    ...item,
+                    // Ensure X position stays within bounds
+                    x: Math.max(0, Math.min(item.x, currentScreenConfig.cols - item.w)),
+                    // Ensure Y position is not negative
+                    y: Math.max(0, item.y),
+                    // Ensure width doesn't exceed available columns
+                    w: Math.max(1, Math.min(item.w, currentScreenConfig.cols - item.x)),
+                    // Ensure minimum dimensions
+                    h: Math.max(1, item.h),
+                  }));
+                  handleLayoutChange(boundedLayout, state.layouts || {});
+                }}
                 onResizeStart={handleResizeStart}
-                onResizeStop={handleResizeStop}
+                onResizeStop={(layout, oldItem, newItem, placeholder, e, element) => {
+                  // Additional boundary check on resize
+                  const maxX = currentScreenConfig.cols - newItem.w;
+                  if (newItem.x > maxX) {
+                    newItem.x = maxX;
+                  }
+                  if (newItem.x < 0) {
+                    newItem.x = 0;
+                  }
+                  if (newItem.y < 0) {
+                    newItem.y = 0;
+                  }
+                  handleResizeStop(layout, oldItem, newItem, placeholder, e, element);
+                }}
+                onDragStop={(layout, oldItem, newItem, placeholder, e, element) => {
+                  // Additional boundary check on drag
+                  const maxX = currentScreenConfig.cols - newItem.w;
+                  if (newItem.x > maxX) {
+                    newItem.x = maxX;
+                  }
+                  if (newItem.x < 0) {
+                    newItem.x = 0;
+                  }
+                  if (newItem.y < 0) {
+                    newItem.y = 0;
+                  }
+                  // Update the layout with corrected position
+                  const correctedLayout = layout.map((item) =>
+                    item.i === newItem.i ? newItem : item
+                  );
+                  handleLayoutChange(correctedLayout, state.layouts || {});
+                }}
                 draggableHandle=".drag-handle"
                 compactType={null}
                 preventCollision={true}
@@ -1593,17 +1653,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 containerPadding={[4, 4]}
                 autoSize={true}
                 verticalCompact={false}
+                isBounded={true}
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-                  <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                    <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
+                  <div
+                    key={item.i}
+                    className="dashboard-item bg-white rounded-lg shadow-sm border relative z-10"
+                  >
+                    <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-20 bg-white shadow-sm">
                       <Grip className="w-4 h-4 text-gray-400" />
                     </div>
                     <button
                       onClick={() => removeComponent(item.i)}
-                      className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
+                      className="absolute top-2 right-2 p-1 hover:bg-red-50 hover:text-red-600 rounded z-20 bg-white shadow-sm transition-colors"
+                      title="Remove component"
                     >
-                      <X className="w-4 h-4 text-gray-400" />
+                      <X className="w-4 h-4 text-gray-400 hover:text-red-600" />
                     </button>
                     <div className="p-4 h-full">{renderComponent(item.i)}</div>
                   </div>
