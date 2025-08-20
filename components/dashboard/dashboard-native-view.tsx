@@ -450,6 +450,7 @@ export function DashboardNativeView({
               className="h-full"
               isPublicMode={isPublicMode}
               publicToken={publicToken}
+              config={component.config}
             />
           </div>
         );
