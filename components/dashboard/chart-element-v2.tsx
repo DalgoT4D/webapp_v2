@@ -58,7 +58,12 @@ export function ChartElementV2({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: chart, isLoading: chartLoading, isError: chartError } = useChart(chartId);
+  const {
+    data: chart,
+    isLoading: chartLoading,
+    isError: chartError,
+    error: chartFetchError,
+  } = useChart(chartId);
 
   // Handle title configuration updates
   const handleTitleChange = (titleConfig: ChartTitleConfig) => {
@@ -89,7 +94,20 @@ export function ChartElementV2({
     mutate: mutateChartData,
   } = useSWR(apiUrl, apiGet, {
     revalidateOnFocus: false,
+    revalidateOnReconnect: false,
     refreshInterval: 0, // Disable auto-refresh
+    // Don't retry on 404 errors
+    onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+      // Never retry on 404
+      if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+        return;
+      }
+      // Only retry up to 3 times for other errors
+      if (retryCount >= 3) return;
+
+      // Retry after 1 second
+      setTimeout(() => revalidate({ retryCount }), 1000);
+    },
     onSuccess: (data) => {
       // Chart data fetched successfully
     },
@@ -110,6 +128,9 @@ export function ChartElementV2({
   // Compute derived state
   const isLoading = chartLoading || dataLoading;
   const isError = chartError || dataError;
+
+  // Get the actual error message
+  const errorMessage = chartFetchError?.message || dataError?.message || 'Failed to load chart';
 
   // Force refetch when filters change
   useEffect(() => {
@@ -321,12 +342,10 @@ export function ChartElementV2({
               </div>
             ) : isError ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
+                <div className="text-center p-4">
                   <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                  <p className="text-sm text-destructive">Failed to load chart</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Please check your data connection
-                  </p>
+                  <p className="text-sm text-destructive">Chart Error</p>
+                  <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
                 </div>
               </div>
             ) : (

@@ -19,7 +19,9 @@ import {
   Hash,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCharts, useDeleteChart } from '@/hooks/api/useChart';
+import { useCharts, type Chart } from '@/hooks/api/useCharts';
+import { useDeleteChart } from '@/hooks/api/useChart';
+import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,21 +41,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+// AlertDialog imports removed - now using ChartDeleteDialog component
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { Chart } from '@/types/charts';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -84,7 +75,7 @@ export default function ChartsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
-  const { data: charts, isLoading, error, mutate } = useCharts();
+  const { data: charts, isLoading, isError, mutate } = useCharts();
   const { trigger: deleteChart } = useDeleteChart();
 
   // Debounce search input
@@ -185,34 +176,20 @@ export default function ChartsPage() {
                 Download
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem
-                    className="cursor-pointer text-destructive focus:text-destructive"
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <Trash className="w-4 h-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Chart</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete "{chart.title}"? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleDeleteChart(chart.id, chart.title)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isDeleting === chart.id ? 'Deleting...' : 'Delete'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <ChartDeleteDialog
+                chartId={chart.id}
+                chartTitle={chart.title}
+                onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                isDeleting={isDeleting === chart.id}
+              >
+                <DropdownMenuItem
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <Trash className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </ChartDeleteDialog>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -329,35 +306,20 @@ export default function ChartsPage() {
                     Download
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Chart</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{chart.title}"? This action cannot be
-                          undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDeleteChart(chart.id, chart.title)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          {isDeleting === chart.id ? 'Deleting...' : 'Delete'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <ChartDeleteDialog
+                    chartId={chart.id}
+                    chartTitle={chart.title}
+                    onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                    isDeleting={isDeleting === chart.id}
+                  >
+                    <DropdownMenuItem
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      <Trash className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </ChartDeleteDialog>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -367,7 +329,7 @@ export default function ChartsPage() {
     );
   };
 
-  if (error) {
+  if (isError) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <AlertCircle className="w-12 h-12 text-destructive" />
