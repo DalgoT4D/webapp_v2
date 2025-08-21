@@ -47,7 +47,7 @@ const chartLabels = {
 };
 
 // Component for searchable value input
-function SearchableValueInput({
+const SearchableValueInput = React.memo(function SearchableValueInput({
   schema,
   table,
   column,
@@ -220,7 +220,7 @@ function SearchableValueInput({
       className="h-8 flex-1"
     />
   );
-}
+});
 
 export function ChartDataConfigurationV3({
   formData,
