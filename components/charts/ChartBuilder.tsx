@@ -7,6 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartTypeSelector } from './ChartTypeSelector';
 import { ChartDataConfigurationV3 } from './ChartDataConfigurationV3';
 import { ChartCustomizations } from './ChartCustomizations';
+import { ChartFiltersConfiguration } from './ChartFiltersConfiguration';
+import { ChartPaginationConfiguration } from './ChartPaginationConfiguration';
+import { ChartSortConfiguration } from './ChartSortConfiguration';
 import { WorkInProgress } from './WorkInProgress';
 import { ChartPreview } from './ChartPreview';
 import { DataPreview } from './DataPreview';
@@ -260,6 +263,10 @@ export function ChartBuilder({
         // Store the layers configuration for multi-layer maps
         layers: formData.layers,
         customizations: formData.customizations,
+        // Chart-level filters, pagination, and sorting
+        filters: formData.filters,
+        pagination: formData.pagination,
+        sort: formData.sort,
       },
     };
 
@@ -406,6 +413,57 @@ export function ChartBuilder({
               />
             )}
           </div>
+
+          {/* Step 3: Advanced Configuration - Show when chart type and data source are selected */}
+          {formData.chart_type && formData.schema_name && formData.table_name && (
+            <div className="space-y-6 pt-8 border-t">
+              <h3 className="text-lg font-semibold">3. Advanced Options</h3>
+              <p className="text-sm text-gray-600">
+                Configure additional chart behavior and data processing options.
+              </p>
+
+              {/* Filters Configuration */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Data Filters</h4>
+                <p className="text-xs text-gray-500">
+                  Add conditions to limit which data appears in your chart
+                </p>
+                <ChartFiltersConfiguration
+                  formData={formData}
+                  columns={columns}
+                  onChange={handleFormChange}
+                  disabled={!formData.chart_type || !columns}
+                />
+              </div>
+
+              {/* Pagination Configuration */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Pagination</h4>
+                <p className="text-xs text-gray-500">
+                  Control how many data points are shown at once
+                </p>
+                <ChartPaginationConfiguration
+                  formData={formData}
+                  onChange={handleFormChange}
+                  disabled={!formData.chart_type}
+                />
+              </div>
+
+              {/* Sort Configuration */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Data Sorting</h4>
+                <p className="text-xs text-gray-500">
+                  Set the order in which data appears in your chart
+                </p>
+                <ChartSortConfiguration
+                  formData={formData}
+                  columns={columns}
+                  onChange={handleFormChange}
+                  disabled={!formData.chart_type || !columns}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 mt-8 border-t">

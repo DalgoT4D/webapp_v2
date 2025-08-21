@@ -162,6 +162,21 @@ export function useColumns(schema: string | null, table: string | null) {
   );
 }
 
+export function useColumnValues(
+  schema: string | null,
+  table: string | null,
+  column: string | null
+) {
+  return useSWR<string[]>(
+    schema && table && column ? `/api/warehouse/column-values/${schema}/${table}/${column}` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 300000, // 5 minutes cache
+    }
+  );
+}
+
 // Re-export types for convenience
 export type { ChartDataPayload, ChartCreate as ChartCreatePayload } from '@/types/charts';
 

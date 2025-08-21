@@ -149,6 +149,9 @@ function EditChartPageContent() {
             : undefined),
         customizations:
           chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
+        filters: chart.extra_config?.filters || [],
+        pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
+        sort: chart.extra_config?.sort || [],
       };
       setFormData(initialData);
     }
@@ -216,6 +219,11 @@ function EditChartPageContent() {
           }),
         }),
         customizations: formData.customizations,
+        extra_config: {
+          filters: formData.filters,
+          pagination: formData.pagination,
+          sort: formData.sort,
+        },
       }
     : null;
 
@@ -325,6 +333,9 @@ function EditChartPageContent() {
         selected_geojson_id: selectedGeojsonId,
         layers: formData.layers,
         customizations: formData.customizations,
+        filters: formData.filters,
+        pagination: formData.pagination,
+        sort: formData.sort,
       },
     };
 
