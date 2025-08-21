@@ -1,3 +1,37 @@
+// Chart filter configuration
+export interface ChartFilter {
+  column: string;
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'greater_than'
+    | 'less_than'
+    | 'greater_than_equal'
+    | 'less_than_equal'
+    | 'like'
+    | 'like_case_insensitive'
+    | 'contains'
+    | 'not_contains'
+    | 'in'
+    | 'not_in'
+    | 'is_null'
+    | 'is_not_null';
+  value: any;
+  data_type?: string;
+}
+
+// Chart pagination configuration
+export interface ChartPagination {
+  enabled: boolean;
+  page_size: number;
+}
+
+// Chart sort configuration
+export interface ChartSort {
+  column: string;
+  direction: 'asc' | 'desc';
+}
+
 export interface Chart {
   id: number;
   title: string;
@@ -38,6 +72,10 @@ export interface ChartCreate {
       geojson_id?: number;
     }>;
     customizations?: Record<string, any>;
+    // Chart-level filters, pagination and sorting
+    filters?: ChartFilter[];
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
   };
 }
 
@@ -67,6 +105,10 @@ export interface ChartUpdate {
       geojson_id?: number;
     }>;
     customizations?: Record<string, any>;
+    // Chart-level filters, pagination and sorting
+    filters?: ChartFilter[];
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
   };
 }
 
@@ -93,6 +135,13 @@ export interface ChartDataPayload {
 
   // Customizations
   customizations?: Record<string, any>;
+
+  // Chart-level configuration
+  extra_config?: {
+    filters?: ChartFilter[];
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
+  };
 
   // Pagination
   offset?: number;
@@ -143,6 +192,10 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
   country_code?: string;
   layer_level?: number;
   customizations?: Record<string, any>;
+  // Chart-level filters, pagination and sorting
+  filters?: ChartFilter[];
+  pagination?: ChartPagination;
+  sort?: ChartSort[];
   // Additional fields used in map configuration
   layers?: Array<{
     id: string;

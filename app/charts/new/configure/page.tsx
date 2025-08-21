@@ -195,6 +195,11 @@ function ConfigureChartPageContent() {
           }),
         }),
         customizations: formData.customizations,
+        extra_config: {
+          filters: formData.filters,
+          pagination: formData.pagination,
+          sort: formData.sort,
+        },
       }
     : null;
 
@@ -304,6 +309,9 @@ function ConfigureChartPageContent() {
         selected_geojson_id: selectedGeojsonId,
         layers: formData.layers,
         customizations: formData.customizations,
+        filters: formData.filters,
+        pagination: formData.pagination,
+        sort: formData.sort,
       },
     };
 
