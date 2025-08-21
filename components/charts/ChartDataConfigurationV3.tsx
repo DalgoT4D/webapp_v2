@@ -85,7 +85,7 @@ function SearchableValueInput({
   const columnValues = React.useMemo(() => {
     if (!previewData?.data || !column) return null;
 
-    const distinctValues = new Set();
+    const distinctValues = new Set<string>();
     previewData.data.forEach((row: any) => {
       const value = row[column];
       if (value !== null && value !== undefined && String(value).trim() !== '') {
