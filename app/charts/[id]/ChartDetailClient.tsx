@@ -143,7 +143,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           geographic_column: activeGeographicColumn,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
           aggregate_function: chart.extra_config.aggregate_function || 'sum',
-          filters: filters,
+          filters: filters, // Drill-down filters
+          chart_filters: chart.extra_config.filters || [], // Chart-level filters
         }
       : null;
 

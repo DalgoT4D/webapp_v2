@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,7 @@ import {
   useRegionGeoJSONs,
   useAvailableLayers,
   useRegionHierarchy,
+  useChartDataPreview,
 } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
 
@@ -56,6 +58,180 @@ const AGGREGATE_FUNCTIONS = [
   { value: 'max', label: 'Maximum' },
   { value: 'count_distinct', label: 'Count Distinct' },
 ];
+
+// Component for searchable value input - same as in ChartDataConfigurationV3
+function SearchableValueInput({
+  schema,
+  table,
+  column,
+  operator,
+  value,
+  onChange,
+  disabled,
+}: {
+  schema?: string;
+  table?: string;
+  column: string;
+  operator: string;
+  value: any;
+  onChange: (value: any) => void;
+  disabled?: boolean;
+}) {
+  // Get column values from preview data instead of separate API call
+  const { data: previewData } = useChartDataPreview(
+    schema && table
+      ? {
+          chart_type: 'bar',
+          computation_type: 'raw',
+          schema_name: schema,
+          table_name: table,
+          x_axis: column,
+          y_axis: column,
+        }
+      : null,
+    1,
+    500 // Get more rows to have better distinct values
+  );
+
+  // Extract distinct values from preview data
+  const columnValues = React.useMemo(() => {
+    if (!previewData?.data || !column) return null;
+
+    const distinctValues = new Set();
+    previewData.data.forEach((row: any) => {
+      const value = row[column];
+      if (value !== null && value !== undefined && String(value).trim() !== '') {
+        distinctValues.add(String(value));
+      }
+    });
+
+    return Array.from(distinctValues).sort();
+  }, [previewData, column]);
+
+  // For null checks, no value input needed
+  if (operator === 'is_null' || operator === 'is_not_null') {
+    return null;
+  }
+
+  // For 'in' and 'not_in' operators, show multiselect dropdown if we have column values
+  if (operator === 'in' || operator === 'not_in') {
+    if (columnValues && columnValues.length > 0) {
+      const selectedValues = Array.isArray(value)
+        ? value
+        : value
+          ? value.split(',').map((v: string) => v.trim())
+          : [];
+
+      return (
+        <div className="h-8 flex-1">
+          <Select
+            value={selectedValues.length > 0 ? selectedValues.join(',') : ''}
+            onValueChange={(selectedValue) => {
+              const currentSelected = selectedValues.includes(selectedValue)
+                ? selectedValues.filter((v: string) => v !== selectedValue)
+                : [...selectedValues, selectedValue];
+              onChange(currentSelected.join(', '));
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue
+                placeholder={
+                  selectedValues.length > 0 ? `${selectedValues.length} selected` : 'Select values'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {columnValues
+                .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+                .slice(0, 100)
+                .map((val) => (
+                  <SelectItem key={val} value={val.toString()}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedValues.includes(val.toString())}
+                        readOnly
+                        className="w-4 h-4"
+                      />
+                      {val}
+                    </div>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    } else {
+      // Fallback to text input for in/not_in when no column values
+      return (
+        <Input
+          type="text"
+          placeholder="value1, value2, value3"
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="h-8 flex-1"
+        />
+      );
+    }
+  }
+
+  // If we have column values, show searchable dropdown
+  if (columnValues && columnValues.length > 0) {
+    return (
+      <Select
+        value={value || ''}
+        onValueChange={(selectedValue) => onChange(selectedValue)}
+        disabled={disabled}
+      >
+        <SelectTrigger className="h-8 flex-1">
+          <SelectValue placeholder="Select or type value" />
+        </SelectTrigger>
+        <SelectContent>
+          <div className="p-2">
+            <Input
+              type="text"
+              placeholder="Type to search..."
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="h-8 mb-2"
+            />
+          </div>
+          {columnValues
+            .filter(
+              (val) =>
+                val !== null &&
+                val !== undefined &&
+                val.toString().trim() !== '' &&
+                val
+                  .toString()
+                  .toLowerCase()
+                  .includes((value || '').toString().toLowerCase())
+            )
+            .slice(0, 100)
+            .map((val) => (
+              <SelectItem key={val} value={val.toString()}>
+                {val}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Fallback to regular input
+  return (
+    <Input
+      type="text"
+      placeholder="Enter value"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="h-8 flex-1"
+    />
+  );
+}
 
 export function MapDataConfigurationV3({
   formData,
@@ -257,6 +433,178 @@ export function MapDataConfigurationV3({
                 {func.label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Filters Section */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
+        <div className="space-y-2">
+          {(formData.filters || []).map((filter, index) => (
+            <div key={index} className="flex gap-2 items-center">
+              <Select
+                value={filter.column}
+                onValueChange={(value) => {
+                  const newFilters = [...(formData.filters || [])];
+                  newFilters[index] = { ...filter, column: value };
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              >
+                <SelectTrigger className="h-8 flex-1">
+                  <SelectValue placeholder="Column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allColumns.map((col) => (
+                    <SelectItem key={col.column_name} value={col.column_name}>
+                      {col.column_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filter.operator}
+                onValueChange={(value) => {
+                  const newFilters = [...(formData.filters || [])];
+                  newFilters[index] = { ...filter, operator: value as any };
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              >
+                <SelectTrigger className="h-8 w-32">
+                  <SelectValue placeholder="Operator" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="equals">Equals</SelectItem>
+                  <SelectItem value="not_equals">Not equals</SelectItem>
+                  <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
+                  <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
+                  <SelectItem value="less_than">Less than (&lt;)</SelectItem>
+                  <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
+                  <SelectItem value="like">Like</SelectItem>
+                  <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
+                  <SelectItem value="in">In</SelectItem>
+                  <SelectItem value="not_in">Not in</SelectItem>
+                  <SelectItem value="is_null">Is null</SelectItem>
+                  <SelectItem value="is_not_null">Is not null</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <SearchableValueInput
+                schema={formData.schema_name}
+                table={formData.table_name}
+                column={filter.column}
+                operator={filter.operator}
+                value={filter.value}
+                onChange={(value) => {
+                  const newFilters = [...(formData.filters || [])];
+                  newFilters[index] = { ...filter, value };
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              />
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => {
+                  const newFilters = (formData.filters || []).filter((_, i) => i !== index);
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              >
+                ✕
+              </Button>
+            </div>
+          ))}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const newFilters = [
+                ...(formData.filters || []),
+                { column: '', operator: 'equals' as any, value: '' },
+              ];
+              onFormDataChange({ filters: newFilters });
+            }}
+            disabled={disabled}
+            className="w-full"
+          >
+            + Add Filter
+          </Button>
+        </div>
+      </div>
+
+      {/* Pagination Section */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+        <Select
+          value={
+            formData.pagination?.enabled
+              ? (formData.pagination?.page_size || 50).toString()
+              : '__none__'
+          }
+          onValueChange={(value) => {
+            if (value === '__none__') {
+              onFormDataChange({ pagination: { enabled: false, page_size: 50 } });
+            } else {
+              onFormDataChange({
+                pagination: {
+                  enabled: true,
+                  page_size: parseInt(value),
+                },
+              });
+            }
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-8 w-full">
+            <SelectValue placeholder="Select pagination" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No pagination</SelectItem>
+            <SelectItem value="20">20 items</SelectItem>
+            <SelectItem value="50">50 items</SelectItem>
+            <SelectItem value="100">100 items</SelectItem>
+            <SelectItem value="200">200 items</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Sort Section */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Sort Metric</Label>
+        <Select
+          value={
+            formData.sort && formData.sort.length > 0 ? formData.sort[0].direction : '__none__'
+          }
+          onValueChange={(value) => {
+            if (value === '__none__') {
+              onFormDataChange({ sort: [] });
+            } else {
+              // Sort by the aggregate/value column for maps
+              const sortColumn = formData.aggregate_column;
+
+              if (sortColumn) {
+                onFormDataChange({
+                  sort: [{ column: sortColumn, direction: value as 'asc' | 'desc' }],
+                });
+              }
+            }
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-8 w-full">
+            <SelectValue placeholder="Select sort order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            <SelectItem value="asc">Asc</SelectItem>
+            <SelectItem value="desc">Desc</SelectItem>
           </SelectContent>
         </Select>
       </div>
