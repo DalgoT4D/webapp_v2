@@ -23,7 +23,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
-import { useDeleteChart, useBulkDeleteCharts, useChartExport } from '@/hooks/api/useChart';
+import type { ChartCreate } from '@/types/charts';
+import {
+  useDeleteChart,
+  useBulkDeleteCharts,
+  useChartExport,
+  useCreateChart,
+} from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { Button } from '@/components/ui/button';
@@ -78,6 +84,7 @@ export default function ChartsPage() {
   );
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   // Multi-select state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
@@ -87,6 +94,7 @@ export default function ChartsPage() {
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: exportChart } = useChartExport();
+  const { trigger: createChart } = useCreateChart();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -141,9 +149,123 @@ export default function ChartsPage() {
     [deleteChart, mutate]
   );
 
-  const handleDuplicateChart = useCallback((chartId: number, chartTitle: string) => {
-    toast.success('Chart duplication will be available soon');
-  }, []);
+  const generateDuplicateTitle = useCallback(
+    (originalTitle: string, existingTitles: string[]): string => {
+      let baseName = originalTitle;
+      let copyNumber = 1;
+
+      // Check if the title already has "Copy of" prefix
+      if (originalTitle.startsWith('Copy of ')) {
+        baseName = originalTitle;
+      } else {
+        baseName = `Copy of ${originalTitle}`;
+      }
+
+      let newTitle = baseName;
+
+      // Find next available number if duplicates exist
+      while (existingTitles.includes(newTitle)) {
+        copyNumber++;
+        if (originalTitle.startsWith('Copy of ')) {
+          // Handle existing copies - extract base and add number
+          const match = originalTitle.match(/^Copy of (.+?)( \((\d+)\))?$/);
+          if (match) {
+            const baseTitle = match[1];
+            newTitle = `Copy of ${baseTitle} (${copyNumber})`;
+          } else {
+            newTitle = `${originalTitle} (${copyNumber})`;
+          }
+        } else {
+          newTitle = `Copy of ${originalTitle} (${copyNumber})`;
+        }
+      }
+
+      return newTitle;
+    },
+    []
+  );
+
+  const handleDuplicateChart = useCallback(
+    async (chartId: number, chartTitle: string) => {
+      console.log('=== DUPLICATE BUTTON CLICKED ===');
+      console.log('Chart ID:', chartId);
+      console.log('Chart Title:', chartTitle);
+
+      if (!charts) {
+        console.log('ERROR: Charts data not loaded');
+        toast.error('Charts data not loaded');
+        return;
+      }
+
+      setIsDuplicating(chartId);
+      console.log('Set duplicating state for chart:', chartId);
+
+      try {
+        // Find the original chart
+        const originalChart = charts.find((chart: Chart) => chart.id === chartId);
+        if (!originalChart) {
+          console.log('ERROR: Original chart not found');
+          toast.error('Chart not found');
+          return;
+        }
+
+        console.log('✓ Original chart found:', {
+          id: originalChart.id,
+          title: originalChart.title,
+          chart_type: originalChart.chart_type,
+          schema_name: originalChart.schema_name,
+          table_name: originalChart.table_name,
+        });
+
+        // Generate duplicate title
+        const existingTitles = charts.map((chart: Chart) => chart.title);
+        const duplicateTitle = generateDuplicateTitle(originalChart.title, existingTitles);
+
+        console.log('✓ Generated duplicate title:', duplicateTitle);
+
+        // Create duplicate chart data
+        const duplicateChartData: ChartCreate = {
+          title: duplicateTitle,
+          description: originalChart.description
+            ? `Copy of ${originalChart.description}`
+            : undefined,
+          chart_type: originalChart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+          computation_type: originalChart.computation_type as 'raw' | 'aggregated',
+          schema_name: originalChart.schema_name,
+          table_name: originalChart.table_name,
+          extra_config: originalChart.extra_config || {},
+        };
+
+        console.log('✓ Duplicate chart data prepared:', duplicateChartData);
+        console.log('🚀 Calling createChart API...');
+
+        const result = await createChart(duplicateChartData);
+
+        console.log('✅ API call successful! Result:', result);
+
+        // Refresh the charts list
+        console.log('🔄 Refreshing charts list...');
+        await mutate();
+
+        console.log('✅ Charts list refreshed successfully');
+        toast.success(`Chart "${duplicateTitle}" created successfully!`);
+      } catch (error: any) {
+        console.log('❌ ERROR in duplicate process:', error);
+        console.log('Error details:', {
+          message: error?.message,
+          status: error?.status,
+          info: error?.info,
+        });
+
+        const errorMessage = error?.message || 'Unknown error occurred';
+        toast.error(`Failed to duplicate chart: ${errorMessage}`);
+      } finally {
+        console.log('🏁 Duplicate process finished, clearing loading state');
+        setIsDuplicating(null);
+      }
+    },
+    [charts, createChart, mutate, generateDuplicateTitle]
+  );
 
   // Multi-select functions
   const enterSelectionMode = useCallback(() => {
@@ -266,8 +388,13 @@ export default function ChartsPage() {
               <DropdownMenuItem
                 onClick={() => handleDuplicateChart(chart.id, chart.title)}
                 className="cursor-pointer"
+                disabled={isDuplicating === chart.id}
               >
-                <Copy className="w-4 h-4 mr-2" />
+                {isDuplicating === chart.id ? (
+                  <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Copy className="w-4 h-4 mr-2" />
+                )}
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -435,8 +562,13 @@ export default function ChartsPage() {
                     <DropdownMenuItem
                       onClick={() => handleDuplicateChart(chart.id, chart.title)}
                       className="cursor-pointer"
+                      disabled={isDuplicating === chart.id}
                     >
-                      <Copy className="w-4 h-4 mr-2" />
+                      {isDuplicating === chart.id ? (
+                        <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
                       Duplicate
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
