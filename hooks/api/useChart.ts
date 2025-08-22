@@ -84,11 +84,7 @@ export function useChartDataPreview(
 export function useChartExport() {
   return useSWRMutation(
     '/api/charts/export/',
-    (url: string, { arg }: { arg: { chart_id: number; format: string } }) =>
-      apiPost(url, {
-        ...arg,
-        responseType: arg.format === 'png' ? 'blob' : 'json',
-      })
+    (url: string, { arg }: { arg: { chart_id: number; format: string } }) => apiPost(url, arg)
   );
 }
 

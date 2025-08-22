@@ -23,8 +23,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
-import { useDeleteChart, useBulkDeleteCharts } from '@/hooks/api/useChart';
+import { useDeleteChart, useBulkDeleteCharts, useChartExport } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
+import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,6 +86,7 @@ export default function ChartsPage() {
   const { data: charts, isLoading, isError, mutate } = useCharts();
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
+  const { trigger: exportChart } = useChartExport();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -141,10 +143,6 @@ export default function ChartsPage() {
 
   const handleDuplicateChart = useCallback((chartId: number, chartTitle: string) => {
     toast.success('Chart duplication will be available soon');
-  }, []);
-
-  const handleDownloadChart = useCallback((chartId: number, chartTitle: string) => {
-    toast.success('Chart download will be available soon');
   }, []);
 
   // Multi-select functions
@@ -271,13 +269,6 @@ export default function ChartsPage() {
               >
                 <Copy className="w-4 h-4 mr-2" />
                 Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleDownloadChart(chart.id, chart.title)}
-                className="cursor-pointer"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <ChartDeleteDialog
@@ -447,13 +438,6 @@ export default function ChartsPage() {
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDownloadChart(chart.id, chart.title)}
-                      className="cursor-pointer"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <ChartDeleteDialog

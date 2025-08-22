@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   useChart,
   useChartData,
@@ -13,10 +13,12 @@ import { ChartPreview } from '@/components/charts/ChartPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Download, Edit } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import type { ChartDataPayload } from '@/types/charts';
+import * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
   chartId: number;
@@ -154,10 +156,17 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     isLoading: mapDataLoading,
   } = useMapDataOverlay(mapDataOverlayPayload);
 
-  const handleExport = () => {
-    // TODO: Implement chart export functionality
-    toast.info('Export functionality coming soon');
-  };
+  // Chart refs for export
+  const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
+  const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
+  const chartContentRef = useRef<HTMLDivElement>(null);
+
+  // Update chart element ref when content is rendered
+  useEffect(() => {
+    if (chartContentRef.current) {
+      setChartElement(chartContentRef.current);
+    }
+  }, [chart, chartData, mapDataOverlay]);
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -265,10 +274,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               Edit Chart
             </Button>
           </Link>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <ChartExportDropdown
+            chartTitle={chart.title}
+            chartElement={chartElement}
+            chartInstance={chartInstance}
+          />
         </div>
       </div>
 
@@ -279,7 +289,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             <CardHeader>
               <CardTitle>Chart Preview</CardTitle>
             </CardHeader>
-            <CardContent className="h-[calc(100%-5rem)]">
+            <CardContent className="h-[calc(100%-5rem)]" ref={chartContentRef}>
               {chart?.chart_type === 'map' ? (
                 <MapPreview
                   geojsonData={geojsonData?.geojson_data}
@@ -300,6 +310,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   config={chartData?.echarts_config}
                   isLoading={dataLoading}
                   error={dataError}
+                  onChartReady={setChartInstance}
                 />
               )}
             </CardContent>
