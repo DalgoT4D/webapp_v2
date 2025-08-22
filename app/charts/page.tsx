@@ -17,10 +17,13 @@ import {
   AlertCircle,
   MapPin,
   Hash,
+  CheckSquare,
+  Square,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
-import { useDeleteChart } from '@/hooks/api/useChart';
+import { useDeleteChart, useBulkDeleteCharts } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,9 +77,14 @@ export default function ChartsPage() {
   );
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  // Multi-select state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const { data: charts, isLoading, isError, mutate } = useCharts();
   const { trigger: deleteChart } = useDeleteChart();
+  const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -139,6 +147,78 @@ export default function ChartsPage() {
     toast.success('Chart download will be available soon');
   }, []);
 
+  // Multi-select functions
+  const enterSelectionMode = useCallback(() => {
+    setIsSelectionMode(true);
+    setSelectedCharts(new Set());
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setIsSelectionMode(false);
+    setSelectedCharts(new Set());
+  }, []);
+
+  const toggleChartSelection = useCallback((chartId: number) => {
+    setSelectedCharts((prev) => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(chartId)) {
+        newSelection.delete(chartId);
+      } else {
+        newSelection.add(chartId);
+      }
+      return newSelection;
+    });
+  }, []);
+
+  const selectAllCharts = useCallback(() => {
+    const allChartIds = new Set(filteredCharts.map((chart) => chart.id));
+    setSelectedCharts(allChartIds);
+  }, [filteredCharts]);
+
+  const deselectAllCharts = useCallback(() => {
+    setSelectedCharts(new Set());
+  }, []);
+
+  // Bulk delete function
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedCharts.size === 0) return;
+
+    const chartTitles = filteredCharts
+      .filter((chart) => selectedCharts.has(chart.id))
+      .map((chart) => chart.title);
+
+    const confirmMessage =
+      selectedCharts.size === 1
+        ? `Are you sure you want to delete "${chartTitles[0]}"?`
+        : `Are you sure you want to delete ${selectedCharts.size} charts?\n\nCharts to delete:\n${chartTitles.map((title) => `• ${title}`).join('\n')}`;
+
+    if (!confirm(confirmMessage)) return;
+
+    setIsBulkDeleting(true);
+
+    try {
+      // Try bulk delete first, fall back to individual deletes if bulk API doesn't exist
+      try {
+        await bulkDeleteCharts(Array.from(selectedCharts));
+      } catch (bulkError) {
+        // Fallback to individual deletions
+        const deletePromises = Array.from(selectedCharts).map((chartId) => deleteChart(chartId));
+        await Promise.all(deletePromises);
+      }
+
+      await mutate();
+      toast.success(
+        `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`
+      );
+      exitSelectionMode();
+    } catch (error) {
+      console.error('Error deleting charts:', error);
+      toast.error('Failed to delete some charts. Please try again.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }, [selectedCharts, filteredCharts, bulkDeleteCharts, deleteChart, mutate, exitSelectionMode]);
+
   // Render chart card (grid view)
   const renderChartCard = (chart: Chart) => {
     const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
@@ -146,10 +226,29 @@ export default function ChartsPage() {
     return (
       <Card
         key={chart.id}
-        className="transition-all duration-200 hover:shadow-md h-full relative group"
+        className={cn(
+          'transition-all duration-200 hover:shadow-md h-full relative group',
+          isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
+        )}
       >
+        {/* Checkbox for selection mode */}
+        {isSelectionMode && (
+          <div className="absolute top-2 left-2 z-10">
+            <button
+              onClick={() => toggleChartSelection(chart.id)}
+              className="p-1 bg-white rounded border border-gray-300 hover:bg-gray-50"
+            >
+              {selectedCharts.has(chart.id) ? (
+                <CheckSquare className="w-4 h-4 text-blue-600" />
+              ) : (
+                <Square className="w-4 h-4 text-gray-400" />
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Action Menu */}
-        <div className="absolute top-2 right-2 z-10">
+        <div className={cn('absolute top-2 right-2 z-10', isSelectionMode && 'hidden')}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -161,6 +260,11 @@ export default function ChartsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
+                <CheckSquare className="w-4 h-4 mr-2" />
+                Select
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => handleDuplicateChart(chart.id, chart.title)}
                 className="cursor-pointer"
@@ -195,8 +299,18 @@ export default function ChartsPage() {
         </div>
 
         {/* Clickable content area */}
-        <Link href={`/charts/${chart.id}`}>
-          <div className="cursor-pointer">
+        <Link href={isSelectionMode ? '#' : `/charts/${chart.id}`}>
+          <div
+            className={cn(!isSelectionMode && 'cursor-pointer')}
+            onClick={
+              isSelectionMode
+                ? (e) => {
+                    e.preventDefault();
+                    toggleChartSelection(chart.id);
+                  }
+                : undefined
+            }
+          >
             {/* Thumbnail */}
             <div className="relative h-48 bg-muted overflow-hidden">
               <div className="flex items-center justify-center h-full">
@@ -245,13 +359,43 @@ export default function ChartsPage() {
     const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
 
     return (
-      <Card key={chart.id} className="transition-all duration-200 hover:shadow-sm">
+      <Card
+        key={chart.id}
+        className={cn(
+          'transition-all duration-200 hover:shadow-sm',
+          isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
+        )}
+      >
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
+            {/* Checkbox for selection mode */}
+            {isSelectionMode && (
+              <div className="mr-4">
+                <button
+                  onClick={() => toggleChartSelection(chart.id)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  {selectedCharts.has(chart.id) ? (
+                    <CheckSquare className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <Square className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Clickable main content */}
             <Link
-              href={`/charts/${chart.id}`}
-              className="flex items-center gap-4 flex-1 cursor-pointer"
+              href={isSelectionMode ? '#' : `/charts/${chart.id}`}
+              className={cn('flex items-center gap-4 flex-1', !isSelectionMode && 'cursor-pointer')}
+              onClick={
+                isSelectionMode
+                  ? (e) => {
+                      e.preventDefault();
+                      toggleChartSelection(chart.id);
+                    }
+                  : undefined
+              }
             >
               <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
                 <IconComponent className="w-8 h-8 text-muted-foreground" />
@@ -279,50 +423,57 @@ export default function ChartsPage() {
             </Link>
 
             {/* Action Menu */}
-            <div className="flex items-center gap-2 ml-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                  >
-                    <MoreVertical className="w-4 h-4 text-gray-700" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => handleDuplicateChart(chart.id, chart.title)}
-                    className="cursor-pointer"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDownloadChart(chart.id, chart.title)}
-                    className="cursor-pointer"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <ChartDeleteDialog
-                    chartId={chart.id}
-                    chartTitle={chart.title}
-                    onConfirm={() => handleDeleteChart(chart.id, chart.title)}
-                    isDeleting={isDeleting === chart.id}
-                  >
-                    <DropdownMenuItem
-                      className="cursor-pointer text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
+            {!isSelectionMode && (
+              <div className="flex items-center gap-2 ml-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                     >
-                      <Trash className="w-4 h-4 mr-2" />
-                      Delete
+                      <MoreVertical className="w-4 h-4 text-gray-700" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
+                      <CheckSquare className="w-4 h-4 mr-2" />
+                      Select
                     </DropdownMenuItem>
-                  </ChartDeleteDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDuplicateChart(chart.id, chart.title)}
+                      className="cursor-pointer"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDownloadChart(chart.id, chart.title)}
+                      className="cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <ChartDeleteDialog
+                      chartId={chart.id}
+                      chartTitle={chart.title}
+                      onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                      isDeleting={isDeleting === chart.id}
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <Trash className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </ChartDeleteDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -358,6 +509,59 @@ export default function ChartsPage() {
             </Button>
           </Link>
         </div>
+
+        {/* Selection Bar */}
+        {isSelectionMode && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exitSelectionMode}
+                  className="p-1 hover:bg-blue-100 rounded"
+                  title="Exit selection mode"
+                >
+                  <X className="w-4 h-4 text-blue-600" />
+                </button>
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedCharts.size} of {filteredCharts.length} charts selected
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllCharts}
+                  disabled={selectedCharts.size === filteredCharts.length}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deselectAllCharts}
+                  disabled={selectedCharts.size === 0}
+                >
+                  Deselect All
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={selectedCharts.size === 0 || isBulkDeleting}
+            >
+              {isBulkDeleting ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              ) : (
+                <Trash className="w-4 h-4 mr-2" />
+              )}
+              Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
+            </Button>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">

@@ -25,6 +25,9 @@ const updateChart = (url: string, { arg }: { arg: { id: number; data: ChartUpdat
 
 const deleteChart = (url: string, { arg }: { arg: number }) => apiDelete(`${url}${arg}/`);
 
+const bulkDeleteCharts = (url: string, { arg }: { arg: number[] }) =>
+  apiPost(`${url}bulk-delete/`, { chart_ids: arg });
+
 // Hooks
 export function useCharts() {
   return useSWR('/api/charts/', chartsFetcher);
@@ -44,6 +47,10 @@ export function useUpdateChart() {
 
 export function useDeleteChart() {
   return useSWRMutation('/api/charts/', deleteChart);
+}
+
+export function useBulkDeleteCharts() {
+  return useSWRMutation('/api/charts/', bulkDeleteCharts);
 }
 
 export function useChartData(payload: ChartDataPayload | null) {

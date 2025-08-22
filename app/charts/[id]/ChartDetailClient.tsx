@@ -272,9 +272,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart Preview - 2/3 width */}
-        <div className="lg:col-span-2">
+      <div>
+        {/* Chart Preview - Full width */}
+        <div>
           <Card className="h-[600px]">
             <CardHeader>
               <CardTitle>Chart Preview</CardTitle>
@@ -302,59 +302,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   error={dataError}
                 />
               )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Settings - 1/3 width */}
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-1">Title</h3>
-                  <p className="text-sm">{chart.title}</p>
-                </div>
-
-                {chart.description && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground mb-1">
-                      Description
-                    </h3>
-                    <p className="text-sm">{chart.description}</p>
-                  </div>
-                )}
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="capitalize">{chart.chart_type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Data:</span>
-                    <span className="capitalize">{chart.computation_type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Created:</span>
-                    <span>{new Date(chart.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Updated:</span>
-                    <span>{new Date(chart.updated_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Schema:</span>
-                    <span>{chart.schema_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Table:</span>
-                    <span>{chart.table_name}</span>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
