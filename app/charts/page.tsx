@@ -7,13 +7,11 @@ import {
   PieChart,
   LineChart,
   MoreVertical,
-  Edit,
   Trash,
   Search,
   Grid,
   List,
   Copy,
-  Download,
   AlertCircle,
   MapPin,
   Hash,
@@ -24,14 +22,9 @@ import {
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import type { ChartCreate } from '@/types/charts';
-import {
-  useDeleteChart,
-  useBulkDeleteCharts,
-  useChartExport,
-  useCreateChart,
-} from '@/hooks/api/useChart';
+import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
-import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
+import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -93,7 +86,6 @@ export default function ChartsPage() {
   const { data: charts, isLoading, isError, mutate } = useCharts();
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
-  const { trigger: exportChart } = useChartExport();
   const { trigger: createChart } = useCreateChart();
 
   // Debounce search input
@@ -397,6 +389,11 @@ export default function ChartsPage() {
                 )}
                 Duplicate
               </DropdownMenuItem>
+              <ChartExportDropdownForList
+                chartId={chart.id}
+                chartTitle={chart.title}
+                chartType={chart.chart_type}
+              />
               <DropdownMenuSeparator />
               <ChartDeleteDialog
                 chartId={chart.id}
@@ -571,6 +568,11 @@ export default function ChartsPage() {
                       )}
                       Duplicate
                     </DropdownMenuItem>
+                    <ChartExportDropdownForList
+                      chartId={chart.id}
+                      chartTitle={chart.title}
+                      chartType={chart.chart_type}
+                    />
                     <DropdownMenuSeparator />
                     <ChartDeleteDialog
                       chartId={chart.id}
