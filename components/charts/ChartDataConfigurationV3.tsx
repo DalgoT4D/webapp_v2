@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-react';
 import { useSchemas, useTables, useColumns, useChartDataPreview } from '@/hooks/api/useChart';
+import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 interface ChartDataConfigurationV3Props {
@@ -36,14 +37,6 @@ const chartIcons = {
   pie: PieChart,
   number: Hash,
   map: MapPin,
-};
-
-const chartLabels = {
-  bar: 'Bar Chart',
-  line: 'Line Chart',
-  pie: 'Pie Chart',
-  number: 'Number',
-  map: 'Map',
 };
 
 // Component for searchable value input
@@ -244,20 +237,81 @@ export function ChartDataConfigurationV3({
 
   const allColumns = normalizedColumns;
 
-  const IconComponent = chartIcons[formData.chart_type as keyof typeof chartIcons] || BarChart3;
+  // Handle chart type changes with field cleanup
+  const handleChartTypeChange = (newChartType: string) => {
+    // Fields to preserve across all chart types
+    const preservedFields = {
+      title: formData.title,
+      description: formData.description,
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+      chart_type: newChartType as 'bar' | 'line' | 'pie' | 'number' | 'map',
+    };
+
+    // Chart type specific field handling
+    let specificFields = {};
+
+    switch (newChartType) {
+      case 'number':
+        // Big number only needs aggregate column and function
+        specificFields = {
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          // Clear fields not needed for number charts
+          x_axis_column: null,
+          y_axis_column: null,
+          dimension_column: null,
+          extra_dimension_column: null,
+        };
+        break;
+
+      case 'pie':
+        // Pie charts need dimension and aggregate
+        specificFields = {
+          dimension_column: formData.dimension_column,
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          // Clear x/y axis for pie charts
+          x_axis_column: null,
+          y_axis_column: null,
+          extra_dimension_column: null,
+        };
+        break;
+
+      case 'bar':
+      case 'line':
+        // Bar and line charts can use most fields
+        specificFields = {
+          x_axis_column: formData.x_axis_column,
+          y_axis_column: formData.y_axis_column,
+          dimension_column: formData.dimension_column,
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          extra_dimension_column: formData.extra_dimension_column,
+        };
+        break;
+    }
+
+    // Apply the changes
+    onChange({
+      ...preservedFields,
+      ...specificFields,
+      // Preserve other settings like filters, customizations, etc.
+      filters: formData.filters,
+      customizations: formData.customizations,
+      sort: formData.sort,
+      pagination: formData.pagination,
+    });
+  };
 
   return (
     <div className="space-y-4">
-      {/* Chart Type - Show readonly */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Chart Type</Label>
-        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
-          <IconComponent className="h-5 w-5 text-blue-600" />
-          <span className="font-medium">
-            {chartLabels[formData.chart_type as keyof typeof chartLabels] || formData.chart_type}
-          </span>
-        </div>
-      </div>
+      {/* Chart Type Selector - Interactive */}
+      <ChartTypeSelector
+        value={formData.chart_type}
+        onChange={handleChartTypeChange}
+        disabled={disabled}
+      />
 
       {/* Data Source - Show readonly */}
       <div className="space-y-2">
