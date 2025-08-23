@@ -15,6 +15,7 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
+import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
 import {
   useChart,
   useUpdateChart,
@@ -122,6 +123,8 @@ function EditChartPageContent() {
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [isExitingAfterSave, setIsExitingAfterSave] = useState(false);
   const [unsavedChangesDialog, setUnsavedChangesDialog] = useState({
     open: false,
     onConfirm: () => {},
@@ -175,27 +178,6 @@ function EditChartPageContent() {
     if (!originalFormData) return false;
     return !deepEqual(formData, originalFormData);
   }, [formData, originalFormData]);
-
-  // Unsaved changes confirmation
-  const confirmNavigation = useCallback(
-    (navigationFn: () => void) => {
-      if (hasUnsavedChanges) {
-        setUnsavedChangesDialog({
-          open: true,
-          onConfirm: () => {
-            setUnsavedChangesDialog((prev) => ({ ...prev, open: false }));
-            navigationFn();
-          },
-          onCancel: () => {
-            setUnsavedChangesDialog((prev) => ({ ...prev, open: false }));
-          },
-        });
-      } else {
-        navigationFn();
-      }
-    },
-    [hasUnsavedChanges]
-  );
 
   const navigateWithoutWarning = useCallback(
     (url: string) => {
@@ -430,7 +412,14 @@ function EditChartPageContent() {
       setOriginalFormData({ ...formData });
 
       toast.success('Chart updated successfully');
-      navigateWithoutWarning(`/charts/${chartId}`);
+
+      // Navigate based on context - if exiting after save, go to charts list
+      if (isExitingAfterSave) {
+        setIsExitingAfterSave(false);
+        navigateWithoutWarning('/charts');
+      } else {
+        navigateWithoutWarning(`/charts/${chartId}`);
+      }
     } catch {
       toast.error('Failed to update chart');
     }
@@ -452,7 +441,14 @@ function EditChartPageContent() {
       const result = await createChart(newChartData);
 
       toast.success(`New chart "${newTitle}" created successfully!`);
-      navigateWithoutWarning(`/charts/${result.id}`);
+
+      // Navigate based on context - if exiting after save, go to charts list
+      if (isExitingAfterSave) {
+        setIsExitingAfterSave(false);
+        navigateWithoutWarning('/charts');
+      } else {
+        navigateWithoutWarning(`/charts/${result.id}`);
+      }
     } catch {
       toast.error('Failed to create new chart');
     }
@@ -463,13 +459,38 @@ function EditChartPageContent() {
     if (!isFormValid()) {
       return;
     }
+    // Make sure we're not in exit mode when using regular save
+    setIsExitingAfterSave(false);
     setShowSaveDialog(true);
   };
 
   const handleCancel = () => {
-    confirmNavigation(() => {
+    if (hasUnsavedChanges) {
+      setShowExitDialog(true);
+    } else {
       router.push(`/charts/${chartId}`);
-    });
+    }
+  };
+
+  // Handle exit dialog actions
+  const handleSaveAndLeave = () => {
+    if (!isFormValid()) {
+      return;
+    }
+    // Mark that we're exiting after save
+    setIsExitingAfterSave(true);
+    // Close exit dialog and show save options dialog
+    setShowExitDialog(false);
+    setShowSaveDialog(true);
+  };
+
+  const handleLeaveWithoutSaving = () => {
+    setShowExitDialog(false);
+    router.push(`/charts/${chartId}`);
+  };
+
+  const handleStayOnPage = () => {
+    setShowExitDialog(false);
   };
 
   if (chartLoading) {
@@ -543,13 +564,23 @@ function EditChartPageContent() {
               onChange={(e) => handleFormChange({ description: e.target.value })}
               className="w-80 border border-gray-200 shadow-sm px-4 py-2 h-11"
             />
-            <Button
-              onClick={handleSave}
-              disabled={!isFormValid() || isMutating || isCreating}
-              className="px-8 h-11"
-            >
-              {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isMutating || isCreating}
+                className="px-8 h-11"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={!isFormValid() || isMutating || isCreating}
+                className="px-8 h-11"
+              >
+                {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -696,7 +727,17 @@ function EditChartPageContent() {
         isLoading={isMutating || isCreating}
       />
 
-      {/* Unsaved Changes Dialog */}
+      {/* Exit Dialog - Save, Leave, or Stay */}
+      <UnsavedChangesExitDialog
+        open={showExitDialog}
+        onOpenChange={setShowExitDialog}
+        onSave={handleSaveAndLeave}
+        onLeave={handleLeaveWithoutSaving}
+        onStay={handleStayOnPage}
+        isSaving={isMutating}
+      />
+
+      {/* Unsaved Changes Dialog (for browser navigation) */}
       <ConfirmationDialog
         open={unsavedChangesDialog.open}
         onOpenChange={(open) => setUnsavedChangesDialog((prev) => ({ ...prev, open }))}
