@@ -25,6 +25,7 @@ import type { ChartCreate } from '@/types/charts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
+import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,6 +88,7 @@ export default function ChartsPage() {
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
+  const { confirm, DialogComponent } = useConfirmationDialog();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -301,10 +303,18 @@ export default function ChartsPage() {
 
     const confirmMessage =
       selectedCharts.size === 1
-        ? `Are you sure you want to delete "${chartTitles[0]}"?`
-        : `Are you sure you want to delete ${selectedCharts.size} charts?\n\nCharts to delete:\n${chartTitles.map((title) => `• ${title}`).join('\n')}`;
+        ? `This will permanently delete "${chartTitles[0]}". This action cannot be undone.`
+        : `This will permanently delete ${selectedCharts.size} charts. This action cannot be undone.\n\nCharts to delete:\n${chartTitles.map((title) => `• ${title}`).join('\n')}`;
 
-    if (!confirm(confirmMessage)) return;
+    const confirmed = await confirm({
+      title: `Delete ${selectedCharts.size === 1 ? 'Chart' : 'Charts'}`,
+      description: confirmMessage,
+      confirmText: 'Delete',
+      type: 'warning',
+      onConfirm: () => {},
+    });
+
+    if (!confirmed) return;
 
     setIsBulkDeleting(true);
 
@@ -774,6 +784,7 @@ export default function ChartsPage() {
           </div>
         )}
       </div>
+      <DialogComponent />
     </div>
   );
 }

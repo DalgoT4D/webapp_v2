@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,9 +14,11 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
+import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
 import {
   useChart,
   useUpdateChart,
+  useCreateChart,
   useChartData,
   useChartDataPreview,
   useGeoJSONData,
@@ -28,6 +30,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { deepEqual } from '@/lib/form-utils';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -103,6 +107,7 @@ function EditChartPageContent() {
 
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const { trigger: updateChart, isMutating } = useUpdateChart();
+  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
   // Initialize form data with chart data when loaded
   const [formData, setFormData] = useState<ChartBuilderFormData>({
@@ -115,6 +120,13 @@ function EditChartPageContent() {
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [unsavedChangesDialog, setUnsavedChangesDialog] = useState({
+    open: false,
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   // Update form data when chart loads
   useEffect(() => {
@@ -154,8 +166,62 @@ function EditChartPageContent() {
         sort: chart.extra_config?.sort || [],
       };
       setFormData(initialData);
+      setOriginalFormData(initialData);
     }
   }, [chart]);
+
+  // Check for unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalFormData) return false;
+    return !deepEqual(formData, originalFormData);
+  }, [formData, originalFormData]);
+
+  // Unsaved changes confirmation
+  const confirmNavigation = useCallback(
+    (navigationFn: () => void) => {
+      if (hasUnsavedChanges) {
+        setUnsavedChangesDialog({
+          open: true,
+          onConfirm: () => {
+            setUnsavedChangesDialog((prev) => ({ ...prev, open: false }));
+            navigationFn();
+          },
+          onCancel: () => {
+            setUnsavedChangesDialog((prev) => ({ ...prev, open: false }));
+          },
+        });
+      } else {
+        navigationFn();
+      }
+    },
+    [hasUnsavedChanges]
+  );
+
+  const navigateWithoutWarning = useCallback(
+    (url: string) => {
+      setOriginalFormData({ ...formData }); // Mark as saved
+      router.push(url);
+    },
+    [router, formData]
+  );
+
+  // Handle browser navigation (refresh, close tab, external links)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+      return undefined;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Check if form data is complete enough to generate chart data
   const isChartDataReady = () => {
@@ -301,11 +367,8 @@ function EditChartPageContent() {
     }
   };
 
-  const handleSave = async () => {
-    if (!isFormValid()) {
-      return;
-    }
-
+  // Helper to build chart data from form
+  const buildChartData = (): ChartCreate => {
     let selectedGeojsonId = formData.selected_geojson_id;
     if (formData.chart_type === 'map' && formData.layers && formData.layers.length > 0) {
       const firstLayer = formData.layers[0];
@@ -314,7 +377,7 @@ function EditChartPageContent() {
       }
     }
 
-    const chartData: ChartCreate = {
+    return {
       title: formData.title!,
       description: formData.description,
       chart_type: formData.chart_type!,
@@ -338,8 +401,16 @@ function EditChartPageContent() {
         sort: formData.sort,
       },
     };
+  };
+
+  // Handle updating existing chart
+  const handleUpdateExisting = async () => {
+    if (!isFormValid()) {
+      return;
+    }
 
     try {
+      const chartData = buildChartData();
       const updateData: ChartUpdate = {
         title: chartData.title,
         description: chartData.description,
@@ -355,15 +426,50 @@ function EditChartPageContent() {
         data: updateData,
       });
 
+      // Update original data to reflect saved state
+      setOriginalFormData({ ...formData });
+
       toast.success('Chart updated successfully');
-      router.push(`/charts/${chartId}`);
+      navigateWithoutWarning(`/charts/${chartId}`);
     } catch {
       toast.error('Failed to update chart');
     }
   };
 
+  // Handle saving as new chart
+  const handleSaveAsNew = async (newTitle: string) => {
+    if (!isFormValid()) {
+      return;
+    }
+
+    try {
+      const chartData = buildChartData();
+      const newChartData: ChartCreate = {
+        ...chartData,
+        title: newTitle,
+      };
+
+      const result = await createChart(newChartData);
+
+      toast.success(`New chart "${newTitle}" created successfully!`);
+      navigateWithoutWarning(`/charts/${result.id}`);
+    } catch {
+      toast.error('Failed to create new chart');
+    }
+  };
+
+  // Show save options dialog
+  const handleSave = () => {
+    if (!isFormValid()) {
+      return;
+    }
+    setShowSaveDialog(true);
+  };
+
   const handleCancel = () => {
-    router.push(`/charts/${chartId}`);
+    confirmNavigation(() => {
+      router.push(`/charts/${chartId}`);
+    });
   };
 
   if (chartLoading) {
@@ -419,11 +525,9 @@ function EditChartPageContent() {
               <span className="text-foreground font-medium">EDIT</span>
             </div>
 
-            <Link href={`/charts/${chartId}`}>
-              <Button variant="ghost" size="icon">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Button variant="ghost" size="icon" onClick={handleCancel}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
           </div>
 
           <div className="flex items-center gap-4">
@@ -441,10 +545,10 @@ function EditChartPageContent() {
             />
             <Button
               onClick={handleSave}
-              disabled={!isFormValid() || isMutating}
+              disabled={!isFormValid() || isMutating || isCreating}
               className="px-8 h-11"
             >
-              {isMutating ? 'Saving...' : 'Update Chart'}
+              {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
             </Button>
           </div>
         </div>
@@ -581,6 +685,29 @@ function EditChartPageContent() {
           </div>
         </div>
       </div>
+
+      {/* Save Options Dialog */}
+      <SaveOptionsDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        originalTitle={chart?.title || ''}
+        onSaveExisting={handleUpdateExisting}
+        onSaveAsNew={handleSaveAsNew}
+        isLoading={isMutating || isCreating}
+      />
+
+      {/* Unsaved Changes Dialog */}
+      <ConfirmationDialog
+        open={unsavedChangesDialog.open}
+        onOpenChange={(open) => setUnsavedChangesDialog((prev) => ({ ...prev, open }))}
+        title="Unsaved Changes"
+        description="You have unsaved changes. Are you sure you want to leave without saving?"
+        confirmText="Leave Without Saving"
+        cancelText="Cancel"
+        type="warning"
+        onConfirm={unsavedChangesDialog.onConfirm}
+        onCancel={unsavedChangesDialog.onCancel}
+      />
     </div>
   );
 }
