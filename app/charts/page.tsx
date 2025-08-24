@@ -18,6 +18,9 @@ import {
   CheckSquare,
   Square,
   X,
+  ChevronLeft,
+  ChevronRight,
+  Table,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
@@ -68,14 +71,15 @@ const chartIcons = {
   line: LineChart,
   map: MapPin,
   number: Hash,
+  table: Table,
 };
 
 export default function ChartsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [chartType, setChartType] = useState<'all' | 'bar' | 'line' | 'pie' | 'number' | 'map'>(
-    'all'
-  );
+  const [chartType, setChartType] = useState<
+    'all' | 'bar' | 'line' | 'pie' | 'number' | 'map' | 'table'
+  >('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
@@ -83,8 +87,25 @@ export default function ChartsPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const { data: charts, isLoading, isError, mutate } = useCharts();
+  const {
+    data: charts,
+    total,
+    page,
+    pageSize: currentPageSize,
+    totalPages,
+    isLoading,
+    isError,
+    mutate,
+  } = useCharts({
+    page: currentPage,
+    pageSize,
+    search: debouncedSearchQuery,
+    chartType,
+  });
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
@@ -104,26 +125,14 @@ export default function ChartsPage() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setSearchQuery(value);
+      setCurrentPage(1); // Reset to first page when searching
       debouncedSearch(value);
     },
     [debouncedSearch]
   );
 
-  // Filter charts based on search and type
-  const filteredCharts = useMemo(() => {
-    if (!charts) return [];
-
-    return charts.filter((chart: Chart) => {
-      const matchesSearch =
-        debouncedSearchQuery === '' ||
-        chart.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-        chart.description?.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
-
-      const matchesType = chartType === 'all' || chart.chart_type === chartType;
-
-      return matchesSearch && matchesType;
-    });
-  }, [charts, debouncedSearchQuery, chartType]);
+  // Filtered charts are now handled by the API
+  const filteredCharts = charts || [];
 
   const handleDeleteChart = useCallback(
     async (chartId: number, chartTitle: string) => {
@@ -223,7 +232,13 @@ export default function ChartsPage() {
           description: originalChart.description
             ? `Copy of ${originalChart.description}`
             : undefined,
-          chart_type: originalChart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+          chart_type: originalChart.chart_type as
+            | 'bar'
+            | 'pie'
+            | 'line'
+            | 'number'
+            | 'map'
+            | 'table',
           computation_type: originalChart.computation_type as 'raw' | 'aggregated',
           schema_name: originalChart.schema_name,
           table_name: originalChart.table_name,
@@ -703,7 +718,13 @@ export default function ChartsPage() {
             />
           </div>
 
-          <Select value={chartType} onValueChange={(value: any) => setChartType(value)}>
+          <Select
+            value={chartType}
+            onValueChange={(value: any) => {
+              setChartType(value);
+              setCurrentPage(1); // Reset to first page when filter changes
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -714,6 +735,7 @@ export default function ChartsPage() {
               <SelectItem value="pie">Pie Charts</SelectItem>
               <SelectItem value="number">Number Cards</SelectItem>
               <SelectItem value="map">Maps</SelectItem>
+              <SelectItem value="table">Tables</SelectItem>
             </SelectContent>
           </Select>
 
@@ -781,6 +803,85 @@ export default function ChartsPage() {
                 Create your first chart
               </Button>
             </Link>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1} to{' '}
+              {Math.min(currentPage * pageSize, total)} of {total} charts
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(parseInt(value));
+                    setCurrentPage(1); // Reset to first page when page size changes
+                  }}
+                >
+                  <SelectTrigger className="w-20 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-sm">
+                  Page {currentPage} of {totalPages}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
