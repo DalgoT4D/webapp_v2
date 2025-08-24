@@ -10,13 +10,15 @@ import { apiGet } from '@/lib/api';
 import { ChartTitleEditor } from './chart-title-editor';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
 import * as echarts from 'echarts/core';
-import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart } from 'echarts/charts';
+import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
   LegendComponent,
   DatasetComponent,
+  VisualMapComponent,
+  GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -27,11 +29,14 @@ echarts.use([
   PieChart,
   GaugeChart,
   ScatterChart,
+  MapChart,
   TitleComponent,
   TooltipComponent,
   GridComponent,
   LegendComponent,
   DatasetComponent,
+  VisualMapComponent,
+  GeoComponent,
   CanvasRenderer,
 ]);
 
@@ -171,7 +176,7 @@ export function ChartElementV2({
   // Update chart data separately
   useEffect(() => {
     // Use fresh echarts_config from data endpoint (no more render_config fallback)
-    const chartConfig = chartData?.echarts_config;
+    let chartConfig = chartData?.echarts_config;
 
     // If we have data but no chart instance yet, try to initialize
     if (!chartInstance.current && chartRef.current && chartConfig) {
@@ -182,6 +187,21 @@ export function ChartElementV2({
     }
 
     if (chartInstance.current && chartConfig) {
+      // Handle map charts - register GeoJSON data if available
+      if (chart?.chart_type === 'map' && chartData?.data?.geojson) {
+        const mapName = `map_${chartId}_${Date.now()}`;
+        echarts.registerMap(mapName, chartData.data.geojson);
+
+        // Update map series to use registered map name - create a copy to avoid mutation
+        chartConfig = {
+          ...chartConfig,
+          series: chartConfig.series?.map((series: any) => ({
+            ...series,
+            map: mapName,
+          })),
+        };
+      }
+
       // Disable ECharts internal title since we use HTML titles
       const modifiedConfig = {
         ...chartConfig,

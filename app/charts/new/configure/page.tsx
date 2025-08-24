@@ -163,9 +163,9 @@ function ConfigureChartPageContent() {
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
-      // For bar/line charts with multiple metrics
+      // For bar/line/table charts with multiple metrics
       if (
-        ['bar', 'line'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'table'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {
@@ -330,9 +330,9 @@ function ConfigureChartPageContent() {
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
-      // For bar/line charts with multiple metrics
+      // For bar/line/table charts with multiple metrics
       if (
-        ['bar', 'line'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'table'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {

@@ -18,6 +18,7 @@ import {
   GaugeChart,
   ScatterChart,
   HeatmapChart,
+  MapChart,
 } from 'echarts/charts';
 import {
   TitleComponent,
@@ -27,6 +28,8 @@ import {
   DatasetComponent,
   ToolboxComponent,
   DataZoomComponent,
+  VisualMapComponent,
+  GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -38,6 +41,7 @@ echarts.use([
   GaugeChart,
   ScatterChart,
   HeatmapChart,
+  MapChart,
   TitleComponent,
   TooltipComponent,
   GridComponent,
@@ -45,6 +49,8 @@ echarts.use([
   DatasetComponent,
   ToolboxComponent,
   DataZoomComponent,
+  VisualMapComponent,
+  GeoComponent,
   CanvasRenderer,
 ]);
 
@@ -189,9 +195,25 @@ export function ChartElementView({
       return undefined;
     }
 
+    // Handle map charts - register GeoJSON data if available
+    let baseConfig = chartData.echarts_config;
+    if (chartMetadata?.chart_type === 'map' && chartData?.data?.geojson) {
+      const mapName = `map_${chartId}_${Date.now()}`;
+      echarts.registerMap(mapName, chartData.data.geojson);
+
+      // Update map series to use registered map name
+      baseConfig = {
+        ...baseConfig,
+        series: baseConfig.series?.map((series: any) => ({
+          ...series,
+          map: mapName,
+        })),
+      };
+    }
+
     // Apply beautiful theme and styling
     const styledConfig = {
-      ...chartData.echarts_config,
+      ...baseConfig,
       // Disable ECharts internal title since we use HTML titles
       title: {
         ...chartData.echarts_config.title,
