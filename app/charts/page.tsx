@@ -452,33 +452,33 @@ export default function ChartsPage() {
             }
           >
             {/* Thumbnail */}
-            <div className="relative h-48 bg-muted overflow-hidden">
+            <div className="relative h-32 bg-muted overflow-hidden">
               <div className="flex items-center justify-center h-full">
-                <IconComponent className="w-16 h-16 text-muted-foreground" />
+                <IconComponent className="w-10 h-10 text-muted-foreground" />
               </div>
 
               {/* Type badge */}
-              <Badge variant="default" className="absolute top-2 left-2 capitalize">
+              <Badge variant="default" className="absolute top-1 left-1 capitalize text-xs">
                 {chart.chart_type}
               </Badge>
             </div>
 
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2 p-3">
               <div className="flex items-start justify-between">
                 <div className="space-y-1 flex-1">
-                  <CardTitle className="text-base line-clamp-1">{chart.title}</CardTitle>
-                  <CardDescription className="text-xs line-clamp-2">
+                  <CardTitle className="text-sm line-clamp-1">{chart.title}</CardTitle>
+                  <CardDescription className="text-xs line-clamp-1">
                     {chart.description || 'No description'}
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
 
-            <CardContent className="pt-0">
-              <div className="space-y-2 text-xs text-muted-foreground">
+            <CardContent className="pt-0 p-3">
+              <div className="space-y-1 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between">
                   <span>Source:</span>
-                  <span className="font-mono">
+                  <span className="font-mono text-xs truncate">
                     {chart.schema_name}.{chart.table_name}
                   </span>
                 </div>
@@ -636,10 +636,11 @@ export default function ChartsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <div className="fixed top-0 right-0 bottom-0 left-64 flex flex-col bg-gray-50">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 border-b bg-white p-6 shadow-sm">
+        {/* Title Section */}
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">Charts</h1>
             <p className="text-muted-foreground mt-1">Create and manage your data visualizations</p>
@@ -756,59 +757,67 @@ export default function ChartsPage() {
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Content */}
-        {isLoading ? (
-          <div
-            className={cn(
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                : 'space-y-2'
-            )}
-          >
-            {[...Array(8)].map((_, i) => (
-              <Card key={i}>
-                <div className="h-48 bg-muted animate-pulse" />
-                <CardHeader>
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3 w-full mt-2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-3 w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredCharts.length > 0 ? (
-          <div
-            className={cn(
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                : 'space-y-2'
-            )}
-          >
-            {filteredCharts.map((chart: any) =>
-              viewMode === 'grid' ? renderChartCard(chart) : renderChartList(chart)
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
-            <BarChart2 className="w-12 h-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {searchQuery || chartType !== 'all' ? 'No charts found' : 'No charts yet'}
-            </p>
-            <Link href="/charts/new">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Create your first chart
-              </Button>
-            </Link>
-          </div>
-        )}
+      {/* Scrollable Content - Only the charts list scrolls */}
+      <div className="flex-1 overflow-hidden px-6">
+        <div className="h-full overflow-y-auto">
+          {isLoading ? (
+            <div
+              className={cn(
+                'py-6',
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3'
+                  : 'space-y-2'
+              )}
+            >
+              {[...Array(8)].map((_, i) => (
+                <Card key={i}>
+                  <div className="h-36 bg-muted animate-pulse" />
+                  <CardHeader>
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-full mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-3 w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredCharts.length > 0 ? (
+            <div
+              className={cn(
+                'py-6',
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3'
+                  : 'space-y-2'
+              )}
+            >
+              {filteredCharts.map((chart: any) =>
+                viewMode === 'grid' ? renderChartCard(chart) : renderChartList(chart)
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <BarChart2 className="w-12 h-12 text-muted-foreground" />
+              <p className="text-muted-foreground">
+                {searchQuery || chartType !== 'all' ? 'No charts found' : 'No charts yet'}
+              </p>
+              <Link href="/charts/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create your first chart
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6">
+      {/* Fixed Pagination Footer */}
+      {totalPages > 1 && (
+        <div className="flex-shrink-0 border-t bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {(currentPage - 1) * pageSize + 1} to{' '}
               {Math.min(currentPage * pageSize, total)} of {total} charts
@@ -883,8 +892,8 @@ export default function ChartsPage() {
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
       <DialogComponent />
     </div>
   );
