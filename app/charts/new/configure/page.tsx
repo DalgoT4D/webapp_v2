@@ -163,6 +163,22 @@ function ConfigureChartPageContent() {
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line charts with multiple metrics
+      if (
+        ['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
+      // For single metric charts
       return !!(
         formData.dimension_column &&
         formData.aggregate_function &&
@@ -186,6 +202,8 @@ function ConfigureChartPageContent() {
         ...(formData.extra_dimension_column && {
           extra_dimension: formData.extra_dimension_column,
         }),
+        // Multiple metrics for bar/line charts
+        ...(formData.metrics && { metrics: formData.metrics }),
         ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
         ...(formData.value_column && { value_column: formData.value_column }),
         ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
@@ -207,6 +225,13 @@ function ConfigureChartPageContent() {
         },
       }
     : null;
+
+  // Debug logging
+  console.log('Chart Configuration Debug:', {
+    isChartDataReady: isChartDataReady(),
+    formData,
+    chartDataPayload,
+  });
 
   // Fetch chart data
   const {
@@ -305,6 +330,22 @@ function ConfigureChartPageContent() {
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line charts with multiple metrics
+      if (
+        ['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
+      // Legacy single metric approach
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.dimension_column &&
@@ -349,6 +390,8 @@ function ConfigureChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        // Include metrics for multiple metrics support
+        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
     };
 

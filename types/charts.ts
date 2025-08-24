@@ -1,3 +1,10 @@
+// Chart metric configuration for multiple metrics on bar/line charts
+export interface ChartMetric {
+  column: string;
+  aggregation: string; // SUM, COUNT, AVG, MAX, MIN, etc.
+  alias?: string; // Display name for the metric
+}
+
 // Chart filter configuration
 export interface ChartFilter {
   column: string;
@@ -61,6 +68,8 @@ export interface ChartCreate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Multiple metrics for bar/line charts
+    metrics?: ChartMetric[];
     // Map-specific fields
     geographic_column?: string;
     value_column?: string;
@@ -105,6 +114,8 @@ export interface ChartUpdate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Multiple metrics for bar/line charts
+    metrics?: ChartMetric[];
     // Map-specific fields
     geographic_column?: string;
     value_column?: string;
@@ -149,6 +160,9 @@ export interface ChartDataPayload {
   aggregate_col?: string;
   aggregate_func?: string;
   extra_dimension?: string;
+
+  // Multiple metrics for bar/line charts
+  metrics?: ChartMetric[];
 
   // Map-specific fields
   geographic_column?: string;
@@ -207,6 +221,8 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
   aggregate_column?: string;
   aggregate_function?: string;
   extra_dimension_column?: string;
+  // Multiple metrics for bar/line charts
+  metrics?: ChartMetric[];
   // Map-specific fields
   geographic_column?: string;
   value_column?: string;

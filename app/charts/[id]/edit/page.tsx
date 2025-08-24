@@ -151,6 +151,7 @@ function EditChartPageContent() {
         aggregate_column: chart.extra_config?.aggregate_column,
         aggregate_function: chart.extra_config?.aggregate_function,
         extra_dimension_column: chart.extra_config?.extra_dimension_column,
+        metrics: chart.extra_config?.metrics,
         geographic_column: chart.extra_config?.geographic_column,
         value_column: chart.extra_config?.value_column,
         selected_geojson_id: chart.extra_config?.selected_geojson_id,
@@ -238,6 +239,22 @@ function EditChartPageContent() {
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line charts with multiple metrics
+      if (
+        ['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
+      // Legacy single metric approach
       return !!(
         formData.dimension_column &&
         formData.aggregate_function &&
@@ -275,6 +292,8 @@ function EditChartPageContent() {
           }),
         }),
         customizations: formData.customizations,
+        // Include metrics for multiple metrics support
+        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         extra_config: {
           filters: formData.filters,
           pagination: formData.pagination,
@@ -380,6 +399,22 @@ function EditChartPageContent() {
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line charts with multiple metrics
+      if (
+        ['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
+      // Legacy single metric approach
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.dimension_column &&
@@ -421,6 +456,8 @@ function EditChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        // Include metrics for multiple metrics support
+        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
     };
   };

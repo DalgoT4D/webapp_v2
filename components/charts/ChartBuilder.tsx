@@ -135,6 +135,8 @@ export function ChartBuilder({
           aggregate_col: formData.aggregate_column,
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
+          // Multiple metrics for bar/line charts
+          metrics: formData.metrics,
           // Map-specific fields - also populate dimension_col for map charts
           geographic_column: formData.geographic_column,
           value_column: formData.value_column,
@@ -151,6 +153,14 @@ export function ChartBuilder({
           customizations: formData.customizations,
         }
       : null;
+
+  // Debug logging
+  console.log('ChartBuilder Debug:', {
+    formData,
+    chartDataPayload,
+    hasSchemaAndTable: !!(formData.schema_name && formData.table_name),
+    metricsLength: formData.metrics?.length || 0,
+  });
 
   // Fetch chart data - use different hooks for maps, tables, vs regular charts
   const {
@@ -246,6 +256,21 @@ export function ChartBuilder({
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line charts with multiple metrics
+      if (
+        ['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
       // For aggregated charts, allow count function without aggregate column
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
@@ -285,6 +310,8 @@ export function ChartBuilder({
         aggregate_column: formData.aggregate_column,
         aggregate_function: formData.aggregate_function,
         extra_dimension_column: formData.extra_dimension_column,
+        // Multiple metrics for bar/line charts
+        metrics: formData.metrics,
         // Map-specific fields - maintain backward compatibility
         geographic_column: formData.geographic_column,
         value_column: formData.value_column,
@@ -352,6 +379,22 @@ export function ChartBuilder({
               ? 'current'
               : 'pending';
         } else {
+          // For bar/line charts with multiple metrics
+          if (
+            ['bar', 'line'].includes(formData.chart_type || '') &&
+            formData.metrics &&
+            formData.metrics.length > 0
+          ) {
+            const hasValidMetrics = formData.metrics.every(
+              (metric) =>
+                metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            );
+            const hasRequiredFields =
+              hasBasicConfig && formData.dimension_column && hasValidMetrics;
+            return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
+          }
+
           // For aggregated data, allow count function without aggregate column
           const needsAggregateColumn = formData.aggregate_function !== 'count';
           const hasRequiredFields =

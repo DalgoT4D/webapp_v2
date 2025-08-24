@@ -76,6 +76,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           aggregate_col: chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
         }),
         customizations: chart.extra_config?.customizations || {},
+        // Include metrics for multiple metrics support
+        metrics: chart.extra_config?.metrics,
         extra_config: {
           filters: chart.extra_config?.filters,
           pagination: chart.extra_config?.pagination,
