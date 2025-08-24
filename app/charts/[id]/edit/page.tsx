@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, Database } from 'lucide-react';
+import { ChevronLeft, Database, BarChart3 } from 'lucide-react';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -24,6 +24,9 @@ import {
   useChartDataPreview,
   useGeoJSONData,
   useMapDataOverlay,
+  useRawTableData,
+  useTableCount,
+  useColumns,
 } from '@/hooks/api/useChart';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -120,7 +123,8 @@ function EditChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
-  const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [rawDataPage, setRawDataPage] = useState(1);
+  const [rawDataPageSize, setRawDataPageSize] = useState(50);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -137,7 +141,7 @@ function EditChartPageContent() {
       const initialData: ChartBuilderFormData = {
         title: chart.title,
         description: chart.description,
-        chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+        chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table',
         computation_type: chart.computation_type as 'raw' | 'aggregated',
         schema_name: chart.schema_name,
         table_name: chart.table_name,
@@ -227,6 +231,10 @@ function EditChartPageContent() {
       );
     }
 
+    if (formData.chart_type === 'table') {
+      return true; // Table charts just need basic schema/table selection
+    }
+
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
@@ -280,7 +288,9 @@ function EditChartPageContent() {
     data: chartData,
     error: chartDataError,
     isLoading: chartDataLoading,
-  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
+  } = useChartData(
+    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
+  );
 
   // Fetch GeoJSON data for maps
   const {
@@ -309,10 +319,36 @@ function EditChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
+  } = useChartDataPreview(chartDataPayload, 1, 50);
+
+  // Fetch raw table data
+  const {
+    data: rawTableData,
+    error: rawDataError,
+    isLoading: rawDataLoading,
+  } = useRawTableData(
+    formData.schema_name || null,
+    formData.table_name || null,
+    rawDataPage,
+    rawDataPageSize
+  );
+
+  // Get table count for raw data pagination
+  const { data: tableCount } = useTableCount(
+    formData.schema_name || null,
+    formData.table_name || null
+  );
+
+  // Get all columns for raw data
+  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleRawDataPageSizeChange = (newPageSize: number) => {
+    setRawDataPageSize(newPageSize);
+    setRawDataPage(1); // Reset to first page when page size changes
   };
 
   const isFormValid = () => {
@@ -335,6 +371,10 @@ function EditChartPageContent() {
         formData.aggregate_function &&
         formData.selected_geojson_id
       );
+    }
+
+    if (formData.chart_type === 'table') {
+      return true; // Table charts only need basic fields (title, chart_type, schema, table)
     }
 
     if (formData.computation_type === 'raw') {
@@ -592,19 +632,23 @@ function EditChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
               <div className="border-b px-6">
-                <TabsList className="grid w-full grid-cols-2 bg-transparent p-0">
+                <TabsList
+                  className={`grid w-full bg-transparent p-0 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                >
                   <TabsTrigger
                     value="configuration"
                     className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
                   >
                     Data Configuration
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="styling"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                  >
-                    Chart Styling
-                  </TabsTrigger>
+                  {formData.chart_type !== 'table' && (
+                    <TabsTrigger
+                      value="styling"
+                      className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
+                    >
+                      Chart Styling
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </div>
 
@@ -628,19 +672,21 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
-                <div className="p-4">
-                  {formData.chart_type === 'map' ? (
-                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                  ) : (
-                    <ChartCustomizations
-                      chartType={formData.chart_type || 'bar'}
-                      formData={formData}
-                      onChange={handleFormChange}
-                    />
-                  )}
-                </div>
-              </TabsContent>
+              {formData.chart_type !== 'table' && (
+                <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                  <div className="p-4">
+                    {formData.chart_type === 'map' ? (
+                      <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+                    ) : (
+                      <ChartCustomizations
+                        chartType={formData.chart_type || 'bar'}
+                        formData={formData}
+                        onChange={handleFormChange}
+                      />
+                    )}
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </div>
 
@@ -679,6 +725,16 @@ function EditChartPageContent() {
                         valueColumn={formData.aggregate_column}
                       />
                     </div>
+                  ) : formData.chart_type === 'table' ? (
+                    <div className="w-full h-full">
+                      <DataPreview
+                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                        columns={dataPreview?.columns || []}
+                        columnTypes={dataPreview?.column_types || {}}
+                        isLoading={previewLoading}
+                        error={previewError}
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full">
                       <ChartPreview
@@ -693,23 +749,53 @@ function EditChartPageContent() {
 
               <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
                 <div className="p-4">
-                  <DataPreview
-                    data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                    columns={dataPreview?.columns || []}
-                    columnTypes={dataPreview?.column_types || {}}
-                    isLoading={previewLoading}
-                    error={previewError}
-                    pagination={
-                      dataPreview
-                        ? {
-                            page: dataPreview.page,
-                            pageSize: dataPreview.page_size,
-                            total: dataPreview.total_rows,
-                            onPageChange: setDataPreviewPage,
-                          }
-                        : undefined
-                    }
-                  />
+                  <Tabs defaultValue="chart-data" className="h-full flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
+                      <TabsTrigger value="raw-data" className="flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        Raw Data
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="chart-data" className="flex-1 mt-6">
+                      <DataPreview
+                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                        columns={dataPreview?.columns || []}
+                        columnTypes={dataPreview?.column_types || {}}
+                        isLoading={previewLoading}
+                        error={previewError}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="raw-data" className="flex-1 mt-6">
+                      <DataPreview
+                        data={Array.isArray(rawTableData) ? rawTableData : []}
+                        columns={
+                          rawTableData && rawTableData.length > 0
+                            ? Object.keys(rawTableData[0])
+                            : []
+                        }
+                        columnTypes={{}}
+                        isLoading={rawDataLoading}
+                        error={rawDataError}
+                        pagination={
+                          tableCount
+                            ? {
+                                page: rawDataPage,
+                                pageSize: rawDataPageSize,
+                                total: tableCount.total_rows || 0,
+                                onPageChange: setRawDataPage,
+                                onPageSizeChange: handleRawDataPageSizeChange,
+                              }
+                            : undefined
+                        }
+                      />
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </TabsContent>
             </Tabs>

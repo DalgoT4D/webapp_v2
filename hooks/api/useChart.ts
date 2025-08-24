@@ -180,6 +180,29 @@ export function useColumnValues(
   );
 }
 
+// Raw table data hooks
+export function useRawTableData(
+  schema: string | null,
+  table: string | null,
+  page: number = 1,
+  pageSize: number = 50
+) {
+  return useSWR(
+    schema && table
+      ? `/api/warehouse/table_data/${schema}/${table}?page=${page}&limit=${pageSize}`
+      : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000, // Cache for 1 minute
+    }
+  );
+}
+
+export function useTableCount(schema: string | null, table: string | null) {
+  return useSWR(schema && table ? `/api/warehouse/table_count/${schema}/${table}` : null, apiGet);
+}
+
 // Re-export types for convenience
 export type { ChartDataPayload, ChartCreate as ChartCreatePayload } from '@/types/charts';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart2, LineChart } from 'lucide-react';
+import { BarChart2, LineChart, Table } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ChartTypeSelectorProps {
@@ -22,6 +22,12 @@ const chartTypes = [
     description: 'Display trends over time',
     icon: LineChart,
   },
+  {
+    id: 'table',
+    name: 'Table',
+    description: 'Display data in rows and columns',
+    icon: Table,
+  },
 ];
 
 export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTypeSelectorProps) {
@@ -34,7 +40,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
         <p className="text-xs text-gray-500">Choose how to visualize your data</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {chartTypes.map((type) => {
           const Icon = type.icon;
           const isSelected = selectedType === type.id;

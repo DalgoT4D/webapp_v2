@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-react';
-import { useSchemas, useTables, useColumns, useChartDataPreview } from '@/hooks/api/useChart';
+import { useSchemas, useTables, useColumns, useColumnValues } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import type { ChartBuilderFormData } from '@/types/charts';
 
@@ -57,37 +57,8 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   onChange: (value: any) => void;
   disabled?: boolean;
 }) {
-  // Get column values from preview data instead of separate API call
-  // This avoids authentication issues and uses existing data
-  const { data: previewData } = useChartDataPreview(
-    schema && table
-      ? {
-          chart_type: 'bar',
-          computation_type: 'raw',
-          schema_name: schema,
-          table_name: table,
-          x_axis: column,
-          y_axis: column,
-        }
-      : null,
-    1,
-    500 // Get more rows to have better distinct values
-  );
-
-  // Extract distinct values from preview data
-  const columnValues = React.useMemo(() => {
-    if (!previewData?.data || !column) return null;
-
-    const distinctValues = new Set<string>();
-    previewData.data.forEach((row: any) => {
-      const value = row[column];
-      if (value !== null && value !== undefined && String(value).trim() !== '') {
-        distinctValues.add(String(value));
-      }
-    });
-
-    return Array.from(distinctValues).sort();
-  }, [previewData, column]);
+  // Get column values using the warehouse API
+  const { data: columnValues } = useColumnValues(schema || null, table || null, column || null);
 
   // For null checks, no value input needed
   if (operator === 'is_null' || operator === 'is_not_null') {

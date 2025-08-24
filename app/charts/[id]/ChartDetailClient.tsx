@@ -4,12 +4,14 @@ import { useState, useRef, useEffect } from 'react';
 import {
   useChart,
   useChartData,
+  useChartDataPreview,
   useGeoJSONData,
   useMapDataOverlay,
   useChildRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
+import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,7 +89,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     data: chartData,
     error: dataError,
     isLoading: dataLoading,
-  } = useChartData(chart?.chart_type !== 'map' ? chartDataPayload : null);
+  } = useChartData(
+    chart?.chart_type !== 'map' && chart?.chart_type !== 'table' ? chartDataPayload : null
+  );
+
+  // For table charts, use data preview API
+  const {
+    data: tableData,
+    error: tableError,
+    isLoading: tableLoading,
+  } = useChartDataPreview(chart?.chart_type === 'table' ? chartDataPayload : null, 1, 50);
 
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
@@ -304,6 +315,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   drillDownPath={drillDownPath}
                   onDrillUp={handleDrillUp}
                   onDrillHome={handleDrillHome}
+                />
+              ) : chart?.chart_type === 'table' ? (
+                <DataPreview
+                  data={Array.isArray(tableData?.data) ? tableData.data : []}
+                  columns={tableData?.columns || []}
+                  columnTypes={tableData?.column_types || {}}
+                  isLoading={tableLoading}
+                  error={tableError}
                 />
               ) : (
                 <ChartPreview

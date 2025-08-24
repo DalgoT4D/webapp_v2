@@ -36,7 +36,7 @@ export interface Chart {
   id: number;
   title: string;
   description?: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -50,7 +50,7 @@ export interface Chart {
 export interface ChartCreate {
   title: string;
   description?: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -71,6 +71,17 @@ export interface ChartCreate {
       name?: string;
       geojson_id?: number;
     }>;
+    // Table-specific fields
+    table_columns?: string[];
+    column_formatting?: Record<
+      string,
+      {
+        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        precision?: number;
+        prefix?: string;
+        suffix?: string;
+      }
+    >;
     customizations?: Record<string, any>;
     // Chart-level filters, pagination and sorting
     filters?: ChartFilter[];
@@ -82,7 +93,7 @@ export interface ChartCreate {
 export interface ChartUpdate {
   title?: string;
   description?: string;
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type?: 'raw' | 'aggregated';
   schema_name?: string;
   table_name?: string;
@@ -104,6 +115,17 @@ export interface ChartUpdate {
       name?: string;
       geojson_id?: number;
     }>;
+    // Table-specific fields
+    table_columns?: string[];
+    column_formatting?: Record<
+      string,
+      {
+        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        precision?: number;
+        prefix?: string;
+        suffix?: string;
+      }
+    >;
     customizations?: Record<string, any>;
     // Chart-level filters, pagination and sorting
     filters?: ChartFilter[];
@@ -178,7 +200,7 @@ export interface TableInfo {
 
 // Extended ChartCreate type for internal ChartBuilder state
 export type ChartBuilderFormData = Partial<ChartCreate> & {
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   x_axis_column?: string;
   y_axis_column?: string;
   dimension_column?: string;
@@ -191,6 +213,17 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
   selected_geojson_id?: number;
   country_code?: string;
   layer_level?: number;
+  // Table-specific fields
+  table_columns?: string[];
+  column_formatting?: Record<
+    string,
+    {
+      type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+      precision?: number;
+      prefix?: string;
+      suffix?: string;
+    }
+  >;
   customizations?: Record<string, any>;
   // Chart-level filters, pagination and sorting
   filters?: ChartFilter[];
