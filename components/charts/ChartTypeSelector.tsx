@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart2, LineChart, Table } from 'lucide-react';
+import { BarChart2, LineChart, Table, PieChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ChartTypeSelectorProps {
@@ -23,6 +23,12 @@ const chartTypes = [
     icon: LineChart,
   },
   {
+    id: 'pie',
+    name: 'Pie Chart',
+    description: 'Show proportions of a whole',
+    icon: PieChart,
+  },
+  {
     id: 'table',
     name: 'Table',
     description: 'Display data in rows and columns',
@@ -40,7 +46,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
         <p className="text-xs text-gray-500">Choose how to visualize your data</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {chartTypes.map((type) => {
           const Icon = type.icon;
           const isSelected = selectedType === type.id;
