@@ -12,8 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-react';
-import { useSchemas, useTables, useColumns, useChartDataPreview } from '@/hooks/api/useChart';
-import type { ChartBuilderFormData } from '@/types/charts';
+import { useSchemas, useTables, useColumns, useColumnValues } from '@/hooks/api/useChart';
+import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
+import { MetricsSelector } from '@/components/charts/MetricsSelector';
+import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
@@ -38,16 +40,8 @@ const chartIcons = {
   map: MapPin,
 };
 
-const chartLabels = {
-  bar: 'Bar Chart',
-  line: 'Line Chart',
-  pie: 'Pie Chart',
-  number: 'Number',
-  map: 'Map',
-};
-
 // Component for searchable value input
-function SearchableValueInput({
+const SearchableValueInput = React.memo(function SearchableValueInput({
   schema,
   table,
   column,
@@ -64,37 +58,8 @@ function SearchableValueInput({
   onChange: (value: any) => void;
   disabled?: boolean;
 }) {
-  // Get column values from preview data instead of separate API call
-  // This avoids authentication issues and uses existing data
-  const { data: previewData } = useChartDataPreview(
-    schema && table
-      ? {
-          chart_type: 'bar',
-          computation_type: 'raw',
-          schema_name: schema,
-          table_name: table,
-          x_axis: column,
-          y_axis: column,
-        }
-      : null,
-    1,
-    500 // Get more rows to have better distinct values
-  );
-
-  // Extract distinct values from preview data
-  const columnValues = React.useMemo(() => {
-    if (!previewData?.data || !column) return null;
-
-    const distinctValues = new Set<string>();
-    previewData.data.forEach((row: any) => {
-      const value = row[column];
-      if (value !== null && value !== undefined && String(value).trim() !== '') {
-        distinctValues.add(String(value));
-      }
-    });
-
-    return Array.from(distinctValues).sort();
-  }, [previewData, column]);
+  // Get column values using the warehouse API
+  const { data: columnValues } = useColumnValues(schema || null, table || null, column || null);
 
   // For null checks, no value input needed
   if (operator === 'is_null' || operator === 'is_not_null') {
@@ -220,7 +185,7 @@ function SearchableValueInput({
       className="h-8 flex-1"
     />
   );
-}
+});
 
 export function ChartDataConfigurationV3({
   formData,
@@ -244,20 +209,85 @@ export function ChartDataConfigurationV3({
 
   const allColumns = normalizedColumns;
 
-  const IconComponent = chartIcons[formData.chart_type as keyof typeof chartIcons] || BarChart3;
+  // Handle chart type changes with field cleanup
+  const handleChartTypeChange = (newChartType: string) => {
+    // Fields to preserve across all chart types
+    const preservedFields = {
+      title: formData.title,
+      description: formData.description,
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+      chart_type: newChartType as 'bar' | 'line' | 'pie' | 'number' | 'map',
+    };
+
+    // Chart type specific field handling
+    let specificFields = {};
+
+    switch (newChartType) {
+      case 'number':
+        // Big number only needs aggregate column and function
+        specificFields = {
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          // Clear fields not needed for number charts
+          x_axis_column: null,
+          y_axis_column: null,
+          dimension_column: null,
+          extra_dimension_column: null,
+          metrics: null,
+        };
+        break;
+
+      case 'pie':
+        // Pie charts can use dimension, metrics, and extra dimension like bar/line charts
+        specificFields = {
+          x_axis_column: formData.x_axis_column,
+          y_axis_column: null, // No Y-axis for pie charts
+          dimension_column: formData.dimension_column,
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          extra_dimension_column: formData.extra_dimension_column,
+          metrics: formData.metrics,
+          computation_type: formData.computation_type || 'aggregated',
+        };
+        break;
+
+      case 'bar':
+      case 'line':
+        // Bar and line charts can use most fields and metrics, default to aggregated
+        specificFields = {
+          x_axis_column: formData.x_axis_column,
+          y_axis_column: formData.y_axis_column,
+          dimension_column: formData.dimension_column,
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          extra_dimension_column: formData.extra_dimension_column,
+          metrics: formData.metrics,
+          computation_type: formData.computation_type || 'aggregated',
+        };
+        break;
+    }
+
+    // Apply the changes
+    onChange({
+      ...preservedFields,
+      ...specificFields,
+      // Preserve other settings like filters, customizations, etc.
+      filters: formData.filters,
+      customizations: formData.customizations,
+      sort: formData.sort,
+      pagination: formData.pagination,
+    });
+  };
 
   return (
     <div className="space-y-4">
-      {/* Chart Type - Show readonly */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Chart Type</Label>
-        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
-          <IconComponent className="h-5 w-5 text-blue-600" />
-          <span className="font-medium">
-            {chartLabels[formData.chart_type as keyof typeof chartLabels] || formData.chart_type}
-          </span>
-        </div>
-      </div>
+      {/* Chart Type Selector - Interactive */}
+      <ChartTypeSelector
+        value={formData.chart_type}
+        onChange={handleChartTypeChange}
+        disabled={disabled}
+      />
 
       {/* Data Source - Show readonly */}
       <div className="space-y-2">
@@ -270,10 +300,36 @@ export function ChartDataConfigurationV3({
         </div>
       </div>
 
-      {/* X Axis */}
+      {/* Computation Type - For bar/line/table charts */}
+      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-gray-900">Data Type</Label>
+          <Select
+            value={formData.computation_type || 'aggregated'}
+            onValueChange={(value) => onChange({ computation_type: value as 'raw' | 'aggregated' })}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-10 w-full">
+              <SelectValue placeholder="Select data type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="raw">Raw Data</SelectItem>
+              <SelectItem value="aggregated">Aggregated Data</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* X Axis / Dimension */}
       {formData.chart_type !== 'number' && formData.chart_type !== 'map' && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">X Axis</Label>
+          <Label className="text-sm font-medium text-gray-900">
+            {formData.chart_type === 'table'
+              ? 'Group By Column'
+              : formData.chart_type === 'pie'
+                ? 'Dimension'
+                : 'X Axis'}
+          </Label>
           <Select
             value={formData.dimension_column || formData.x_axis_column}
             onValueChange={(value) => {
@@ -299,34 +355,49 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Y Axis */}
-      {formData.chart_type !== 'number' && formData.chart_type !== 'map' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
-          <Select
-            value={formData.aggregate_column || formData.y_axis_column}
-            onValueChange={(value) => {
-              if (formData.computation_type === 'raw') {
-                onChange({ y_axis_column: value });
-              } else {
-                onChange({ aggregate_column: value });
-              }
-            }}
+      {/* Y Axis - For Raw Data or Single Metric Charts */}
+      {formData.chart_type !== 'number' &&
+        formData.chart_type !== 'map' &&
+        (formData.computation_type === 'raw' ||
+          (formData.computation_type === 'aggregated' &&
+            !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || ''))) && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
+            <Select
+              value={formData.aggregate_column || formData.y_axis_column}
+              onValueChange={(value) => {
+                if (formData.computation_type === 'raw') {
+                  onChange({ y_axis_column: value });
+                } else {
+                  onChange({ aggregate_column: value });
+                }
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder="Select Y axis column" />
+              </SelectTrigger>
+              <SelectContent>
+                {(formData.computation_type === 'raw' ? allColumns : numericColumns).map((col) => (
+                  <SelectItem key={col.column_name} value={col.column_name}>
+                    {col.column_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+      {/* Multiple Metrics for Bar, Line, Pie, and Table Charts */}
+      {['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
+        formData.computation_type === 'aggregated' && (
+          <MetricsSelector
+            metrics={formData.metrics || []}
+            onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
+            columns={normalizedColumns}
             disabled={disabled}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select Y axis column" />
-            </SelectTrigger>
-            <SelectContent>
-              {(formData.computation_type === 'raw' ? allColumns : numericColumns).map((col) => (
-                <SelectItem key={col.column_name} value={col.column_name}>
-                  {col.column_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+          />
+        )}
 
       {/* For number charts */}
       {formData.chart_type === 'number' && (
@@ -351,31 +422,33 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Aggregate Function */}
-      {formData.chart_type !== 'map' && formData.computation_type !== 'raw' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Aggregate Function</Label>
-          <Select
-            value={formData.aggregate_function}
-            onValueChange={(value) => onChange({ aggregate_function: value })}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select aggregate function" />
-            </SelectTrigger>
-            <SelectContent>
-              {AGGREGATE_FUNCTIONS.map((func) => (
-                <SelectItem key={func.value} value={func.value}>
-                  {func.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Aggregate Function - For single metric charts only */}
+      {formData.chart_type !== 'map' &&
+        formData.computation_type !== 'raw' &&
+        !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Aggregate Function</Label>
+            <Select
+              value={formData.aggregate_function}
+              onValueChange={(value) => onChange({ aggregate_function: value })}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder="Select aggregate function" />
+              </SelectTrigger>
+              <SelectContent>
+                {AGGREGATE_FUNCTIONS.map((func) => (
+                  <SelectItem key={func.value} value={func.value}>
+                    {func.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
       {/* Extra Dimension - for stacked/grouped charts */}
-      {['bar', 'line'].includes(formData.chart_type || '') && (
+      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Select
@@ -556,11 +629,20 @@ export function ChartDataConfigurationV3({
               if (value === '__none__') {
                 onChange({ sort: [] });
               } else {
-                // Sort by the y-axis/metric column
-                const sortColumn =
-                  formData.computation_type === 'raw'
-                    ? formData.y_axis_column
-                    : formData.aggregate_column;
+                // Sort by the appropriate column based on chart type and computation
+                let sortColumn: string | undefined;
+
+                if (formData.computation_type === 'raw') {
+                  sortColumn = formData.y_axis_column;
+                } else {
+                  // For aggregated data with multiple metrics, use the first metric column
+                  if (formData.metrics && formData.metrics.length > 0) {
+                    sortColumn = formData.metrics[0].column || formData.dimension_column;
+                  } else {
+                    // Legacy single metric approach
+                    sortColumn = formData.aggregate_column;
+                  }
+                }
 
                 if (sortColumn) {
                   onChange({ sort: [{ column: sortColumn, direction: value as 'asc' | 'desc' }] });

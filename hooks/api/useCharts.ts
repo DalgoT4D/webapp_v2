@@ -15,12 +15,34 @@ export interface Chart {
   updated_at: string;
 }
 
+export interface ChartListResponse {
+  data: Chart[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 interface UseChartsParams {
+  page?: number;
+  pageSize?: number;
   search?: string;
+  chartType?: string;
 }
 
 export function useCharts(params?: UseChartsParams) {
-  const { data, error, mutate } = useSWR<Chart[]>('/api/charts/', async (url: string) => {
+  // Build query parameters
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('page_size', params.pageSize.toString());
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.chartType && params.chartType !== 'all')
+    queryParams.append('chart_type', params.chartType);
+
+  const queryString = queryParams.toString();
+  const url = queryString ? `/api/charts/?${queryString}` : '/api/charts/';
+
+  const { data, error, mutate } = useSWR<ChartListResponse>(url, async (url: string) => {
     try {
       const response = await apiGet(url);
       return response;
@@ -30,20 +52,12 @@ export function useCharts(params?: UseChartsParams) {
     }
   });
 
-  // Filter charts based on search
-  const filteredCharts =
-    data && params?.search
-      ? data.filter(
-          (chart) =>
-            chart.title.toLowerCase().includes(params.search!.toLowerCase()) ||
-            chart.chart_type.toLowerCase().includes(params.search!.toLowerCase()) ||
-            chart.schema_name.toLowerCase().includes(params.search!.toLowerCase()) ||
-            chart.table_name.toLowerCase().includes(params.search!.toLowerCase())
-        )
-      : data;
-
   return {
-    data: filteredCharts,
+    data: data?.data || [],
+    total: data?.total || 0,
+    page: data?.page || 1,
+    pageSize: data?.page_size || 10,
+    totalPages: data?.total_pages || 1,
     isLoading: !error && !data,
     isError: error,
     mutate,

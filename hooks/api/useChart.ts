@@ -25,6 +25,9 @@ const updateChart = (url: string, { arg }: { arg: { id: number; data: ChartUpdat
 
 const deleteChart = (url: string, { arg }: { arg: number }) => apiDelete(`${url}${arg}/`);
 
+const bulkDeleteCharts = (url: string, { arg }: { arg: number[] }) =>
+  apiPost(`${url}bulk-delete/`, { chart_ids: arg });
+
 // Hooks
 export function useCharts() {
   return useSWR('/api/charts/', chartsFetcher);
@@ -44,6 +47,10 @@ export function useUpdateChart() {
 
 export function useDeleteChart() {
   return useSWRMutation('/api/charts/', deleteChart);
+}
+
+export function useBulkDeleteCharts() {
+  return useSWRMutation('/api/charts/', bulkDeleteCharts);
 }
 
 export function useChartData(payload: ChartDataPayload | null) {
@@ -77,11 +84,7 @@ export function useChartDataPreview(
 export function useChartExport() {
   return useSWRMutation(
     '/api/charts/export/',
-    (url: string, { arg }: { arg: { chart_id: number; format: string } }) =>
-      apiPost(url, {
-        ...arg,
-        responseType: arg.format === 'png' ? 'blob' : 'json',
-      })
+    (url: string, { arg }: { arg: { chart_id: number; format: string } }) => apiPost(url, arg)
   );
 }
 
@@ -175,6 +178,29 @@ export function useColumnValues(
       dedupingInterval: 300000, // 5 minutes cache
     }
   );
+}
+
+// Raw table data hooks
+export function useRawTableData(
+  schema: string | null,
+  table: string | null,
+  page: number = 1,
+  pageSize: number = 50
+) {
+  return useSWR(
+    schema && table
+      ? `/api/warehouse/table_data/${schema}/${table}?page=${page}&limit=${pageSize}`
+      : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000, // Cache for 1 minute
+    }
+  );
+}
+
+export function useTableCount(schema: string | null, table: string | null) {
+  return useSWR(schema && table ? `/api/warehouse/table_count/${schema}/${table}` : null, apiGet);
 }
 
 // Re-export types for convenience

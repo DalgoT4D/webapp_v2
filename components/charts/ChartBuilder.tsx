@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Database, BarChart3 } from 'lucide-react';
 import { ChartTypeSelector } from './ChartTypeSelector';
 import { ChartDataConfigurationV3 } from './ChartDataConfigurationV3';
 import { ChartCustomizations } from './ChartCustomizations';
@@ -11,6 +12,7 @@ import { ChartFiltersConfiguration } from './ChartFiltersConfiguration';
 import { ChartPaginationConfiguration } from './ChartPaginationConfiguration';
 import { ChartSortConfiguration } from './ChartSortConfiguration';
 import { WorkInProgress } from './WorkInProgress';
+import { SimpleTableConfiguration } from './SimpleTableConfiguration';
 import { ChartPreview } from './ChartPreview';
 import { DataPreview } from './DataPreview';
 import { MapDataConfigurationV3 } from './map/MapDataConfigurationV3';
@@ -24,6 +26,8 @@ import {
   useMapData,
   useGeoJSONData,
   useMapDataOverlay,
+  useRawTableData,
+  useTableCount,
 } from '@/hooks/api/useChart';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { debounce } from 'lodash';
@@ -84,6 +88,10 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         nullValueLabel: 'No Data',
         title: '',
       };
+    case 'table':
+      return {
+        // No complex customizations for tables - keep it simple
+      };
     default:
       return {};
   }
@@ -111,13 +119,14 @@ export function ChartBuilder({
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [rawDataPage, setRawDataPage] = useState(1);
 
   // Build payload for chart data
   const chartDataPayload: ChartDataPayload | null =
     formData.schema_name && formData.table_name
       ? {
-          chart_type: formData.chart_type!,
-          computation_type: formData.computation_type!,
+          chart_type: formData.chart_type === 'table' ? 'bar' : formData.chart_type!,
+          computation_type: formData.computation_type || 'aggregated',
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           x_axis: formData.x_axis_column,
@@ -126,6 +135,8 @@ export function ChartBuilder({
           aggregate_col: formData.aggregate_column,
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
+          // Multiple metrics for bar/line charts
+          metrics: formData.metrics,
           // Map-specific fields - also populate dimension_col for map charts
           geographic_column: formData.geographic_column,
           value_column: formData.value_column,
@@ -143,12 +154,22 @@ export function ChartBuilder({
         }
       : null;
 
-  // Fetch chart data - use different hooks for maps vs regular charts
+  // Debug logging
+  console.log('ChartBuilder Debug:', {
+    formData,
+    chartDataPayload,
+    hasSchemaAndTable: !!(formData.schema_name && formData.table_name),
+    metricsLength: formData.metrics?.length || 0,
+  });
+
+  // Fetch chart data - use different hooks for maps, tables, vs regular charts
   const {
     data: chartData,
     error: chartError,
     isLoading: chartLoading,
-  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
+  } = useChartData(
+    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
+  );
 
   // Fetch GeoJSON data separately for map charts
   const {
@@ -172,12 +193,25 @@ export function ChartBuilder({
       : null
   );
 
-  // Fetch data preview
+  // Fetch data preview (used by both charts and tables)
   const {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
   } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
+
+  // Fetch raw table data
+  const {
+    data: rawTableData,
+    error: rawDataError,
+    isLoading: rawDataLoading,
+  } = useRawTableData(formData.schema_name || null, formData.table_name || null, rawDataPage, 50);
+
+  // Get table count for raw data pagination
+  const { data: tableCount } = useTableCount(
+    formData.schema_name || null,
+    formData.table_name || null
+  );
 
   // Fetch warehouse data for map configuration
   const { data: tables } = useTables(formData.schema_name);
@@ -214,9 +248,29 @@ export function ChartBuilder({
       );
     }
 
+    // Special validation for table charts
+    if (formData.chart_type === 'table') {
+      return !!(formData.schema_name && formData.table_name && formData.title);
+    }
+
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line/pie charts with multiple metrics
+      if (
+        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
       // For aggregated charts, allow count function without aggregate column
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
@@ -256,12 +310,16 @@ export function ChartBuilder({
         aggregate_column: formData.aggregate_column,
         aggregate_function: formData.aggregate_function,
         extra_dimension_column: formData.extra_dimension_column,
+        // Multiple metrics for bar/line charts
+        metrics: formData.metrics,
         // Map-specific fields - maintain backward compatibility
         geographic_column: formData.geographic_column,
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
         // Store the layers configuration for multi-layer maps
         layers: formData.layers,
+        // Table-specific fields
+        table_columns: formData.table_columns,
         customizations: formData.customizations,
         // Chart-level filters, pagination, and sorting
         filters: formData.filters,
@@ -297,6 +355,13 @@ export function ChartBuilder({
           return hasMapConfig ? 'complete' : 'current';
         }
 
+        // Special handling for table charts
+        if (formData.chart_type === 'table') {
+          const hasTableConfig = formData.schema_name && formData.table_name && formData.title;
+
+          return hasTableConfig ? 'complete' : 'current';
+        }
+
         const hasBasicConfig = formData.schema_name && formData.table_name && formData.title;
 
         if (formData.chart_type === 'number') {
@@ -314,6 +379,22 @@ export function ChartBuilder({
               ? 'current'
               : 'pending';
         } else {
+          // For bar/line/pie charts with multiple metrics
+          if (
+            ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
+            formData.metrics &&
+            formData.metrics.length > 0
+          ) {
+            const hasValidMetrics = formData.metrics.every(
+              (metric) =>
+                metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            );
+            const hasRequiredFields =
+              hasBasicConfig && formData.dimension_column && hasValidMetrics;
+            return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
+          }
+
           // For aggregated data, allow count function without aggregate column
           const needsAggregateColumn = formData.aggregate_function !== 'count';
           const hasRequiredFields =
@@ -356,6 +437,9 @@ export function ChartBuilder({
                   // Maps always use aggregation
                   updates.computation_type = 'aggregated';
                   // Don't set default aggregate function - let user select
+                } else if (newChartType === 'table') {
+                  // Tables use raw data by default
+                  updates.computation_type = 'raw';
                 } else {
                   // For bar/line/pie, preserve existing computation_type
                   // If no existing value, default to aggregated
@@ -405,6 +489,24 @@ export function ChartBuilder({
             <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
             {formData.chart_type === 'map' ? (
               <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
+            ) : formData.chart_type === 'table' ? (
+              <div className="space-y-6">
+                {/* Basic configuration using the same as other chart types */}
+                <ChartDataConfigurationV3
+                  formData={formData}
+                  onChange={handleFormChange}
+                  disabled={!formData.chart_type}
+                />
+
+                {/* Table-specific column configuration */}
+                {formData.schema_name && formData.table_name && (
+                  <SimpleTableConfiguration
+                    availableColumns={columns?.map((col) => col.name) || []}
+                    selectedColumns={formData.table_columns || []}
+                    onColumnsChange={(table_columns) => handleFormChange({ table_columns })}
+                  />
+                )}
+              </div>
             ) : (
               <ChartDataConfigurationV3
                 formData={formData}
@@ -497,6 +599,24 @@ export function ChartBuilder({
                 title={formData.title}
                 valueColumn={formData.aggregate_column}
               />
+            ) : formData.chart_type === 'table' ? (
+              <DataPreview
+                data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                columns={formData.table_columns || dataPreview?.columns || []}
+                columnTypes={dataPreview?.column_types || {}}
+                isLoading={previewLoading}
+                error={previewError}
+                pagination={
+                  dataPreview
+                    ? {
+                        page: dataPreview.page,
+                        pageSize: dataPreview.page_size,
+                        total: dataPreview.total_rows,
+                        onPageChange: setDataPreviewPage,
+                      }
+                    : undefined
+                }
+              />
             ) : (
               <ChartPreview
                 config={chartData?.echarts_config}
@@ -507,23 +627,62 @@ export function ChartBuilder({
           </TabsContent>
 
           <TabsContent value="data" className="h-[calc(100%-3rem)]">
-            <DataPreview
-              data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-              columns={dataPreview?.columns || []}
-              columnTypes={dataPreview?.column_types || {}}
-              isLoading={previewLoading}
-              error={previewError}
-              pagination={
-                dataPreview
-                  ? {
-                      page: dataPreview.page,
-                      pageSize: dataPreview.page_size,
-                      total: dataPreview.total_rows,
-                      onPageChange: setDataPreviewPage,
-                    }
-                  : undefined
-              }
-            />
+            <Tabs defaultValue="chart-data" className="h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Chart Data
+                </TabsTrigger>
+                <TabsTrigger value="raw-data" className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Raw Data
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="chart-data" className="flex-1 mt-6">
+                <DataPreview
+                  data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                  columns={dataPreview?.columns || []}
+                  columnTypes={dataPreview?.column_types || {}}
+                  isLoading={previewLoading}
+                  error={previewError}
+                  pagination={
+                    dataPreview
+                      ? {
+                          page: dataPreview.page,
+                          pageSize: dataPreview.page_size,
+                          total: dataPreview.total_rows,
+                          onPageChange: setDataPreviewPage,
+                        }
+                      : undefined
+                  }
+                />
+              </TabsContent>
+
+              <TabsContent value="raw-data" className="flex-1 mt-6">
+                <DataPreview
+                  data={Array.isArray(rawTableData) ? rawTableData : []}
+                  columns={
+                    columns
+                      ? columns.map((col: any) => (typeof col === 'string' ? col : col.column_name))
+                      : []
+                  }
+                  columnTypes={{}}
+                  isLoading={rawDataLoading}
+                  error={rawDataError}
+                  pagination={
+                    tableCount && rawTableData?.length > 0
+                      ? {
+                          page: rawDataPage,
+                          pageSize: 50,
+                          total: tableCount.total_rows || 0,
+                          onPageChange: setRawDataPage,
+                        }
+                      : undefined
+                  }
+                />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </Card>

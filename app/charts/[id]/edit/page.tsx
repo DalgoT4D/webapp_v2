@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, Database } from 'lucide-react';
+import { ChevronLeft, Database, BarChart3 } from 'lucide-react';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -14,13 +14,19 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
+import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
+import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
 import {
   useChart,
   useUpdateChart,
+  useCreateChart,
   useChartData,
   useChartDataPreview,
   useGeoJSONData,
   useMapDataOverlay,
+  useRawTableData,
+  useTableCount,
+  useColumns,
 } from '@/hooks/api/useChart';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +34,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { deepEqual } from '@/lib/form-utils';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -103,6 +111,7 @@ function EditChartPageContent() {
 
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const { trigger: updateChart, isMutating } = useUpdateChart();
+  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
   // Initialize form data with chart data when loaded
   const [formData, setFormData] = useState<ChartBuilderFormData>({
@@ -114,7 +123,17 @@ function EditChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
-  const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [rawDataPage, setRawDataPage] = useState(1);
+  const [rawDataPageSize, setRawDataPageSize] = useState(50);
+  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [isExitingAfterSave, setIsExitingAfterSave] = useState(false);
+  const [unsavedChangesDialog, setUnsavedChangesDialog] = useState({
+    open: false,
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   // Update form data when chart loads
   useEffect(() => {
@@ -122,7 +141,7 @@ function EditChartPageContent() {
       const initialData: ChartBuilderFormData = {
         title: chart.title,
         description: chart.description,
-        chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map',
+        chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table',
         computation_type: chart.computation_type as 'raw' | 'aggregated',
         schema_name: chart.schema_name,
         table_name: chart.table_name,
@@ -132,6 +151,7 @@ function EditChartPageContent() {
         aggregate_column: chart.extra_config?.aggregate_column,
         aggregate_function: chart.extra_config?.aggregate_function,
         extra_dimension_column: chart.extra_config?.extra_dimension_column,
+        metrics: chart.extra_config?.metrics,
         geographic_column: chart.extra_config?.geographic_column,
         value_column: chart.extra_config?.value_column,
         selected_geojson_id: chart.extra_config?.selected_geojson_id,
@@ -154,8 +174,41 @@ function EditChartPageContent() {
         sort: chart.extra_config?.sort || [],
       };
       setFormData(initialData);
+      setOriginalFormData(initialData);
     }
   }, [chart]);
+
+  // Check for unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalFormData) return false;
+    return !deepEqual(formData, originalFormData);
+  }, [formData, originalFormData]);
+
+  const navigateWithoutWarning = useCallback(
+    (url: string) => {
+      setOriginalFormData({ ...formData }); // Mark as saved
+      router.push(url);
+    },
+    [router, formData]
+  );
+
+  // Handle browser navigation (refresh, close tab, external links)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+      return undefined;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Check if form data is complete enough to generate chart data
   const isChartDataReady = () => {
@@ -179,9 +232,29 @@ function EditChartPageContent() {
       );
     }
 
+    if (formData.chart_type === 'table') {
+      return true; // Table charts just need basic schema/table selection
+    }
+
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line/table charts with multiple metrics
+      if (
+        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
+      // Legacy single metric approach
       return !!(
         formData.dimension_column &&
         formData.aggregate_function &&
@@ -219,6 +292,8 @@ function EditChartPageContent() {
           }),
         }),
         customizations: formData.customizations,
+        // Include metrics for multiple metrics support
+        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         extra_config: {
           filters: formData.filters,
           pagination: formData.pagination,
@@ -232,7 +307,9 @@ function EditChartPageContent() {
     data: chartData,
     error: chartDataError,
     isLoading: chartDataLoading,
-  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
+  } = useChartData(
+    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
+  );
 
   // Fetch GeoJSON data for maps
   const {
@@ -261,10 +338,36 @@ function EditChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
+  } = useChartDataPreview(chartDataPayload, 1, 50);
+
+  // Fetch raw table data
+  const {
+    data: rawTableData,
+    error: rawDataError,
+    isLoading: rawDataLoading,
+  } = useRawTableData(
+    formData.schema_name || null,
+    formData.table_name || null,
+    rawDataPage,
+    rawDataPageSize
+  );
+
+  // Get table count for raw data pagination
+  const { data: tableCount } = useTableCount(
+    formData.schema_name || null,
+    formData.table_name || null
+  );
+
+  // Get all columns for raw data
+  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleRawDataPageSizeChange = (newPageSize: number) => {
+    setRawDataPageSize(newPageSize);
+    setRawDataPage(1); // Reset to first page when page size changes
   };
 
   const isFormValid = () => {
@@ -289,9 +392,29 @@ function EditChartPageContent() {
       );
     }
 
+    if (formData.chart_type === 'table') {
+      return true; // Table charts only need basic fields (title, chart_type, schema, table)
+    }
+
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
+      // For bar/line/table charts with multiple metrics
+      if (
+        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
+        formData.metrics &&
+        formData.metrics.length > 0
+      ) {
+        return !!(
+          formData.dimension_column &&
+          formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          )
+        );
+      }
+
+      // Legacy single metric approach
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.dimension_column &&
@@ -301,11 +424,8 @@ function EditChartPageContent() {
     }
   };
 
-  const handleSave = async () => {
-    if (!isFormValid()) {
-      return;
-    }
-
+  // Helper to build chart data from form
+  const buildChartData = (): ChartCreate => {
     let selectedGeojsonId = formData.selected_geojson_id;
     if (formData.chart_type === 'map' && formData.layers && formData.layers.length > 0) {
       const firstLayer = formData.layers[0];
@@ -314,7 +434,7 @@ function EditChartPageContent() {
       }
     }
 
-    const chartData: ChartCreate = {
+    return {
       title: formData.title!,
       description: formData.description,
       chart_type: formData.chart_type!,
@@ -336,10 +456,20 @@ function EditChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        // Include metrics for multiple metrics support
+        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
     };
+  };
+
+  // Handle updating existing chart
+  const handleUpdateExisting = async () => {
+    if (!isFormValid()) {
+      return;
+    }
 
     try {
+      const chartData = buildChartData();
       const updateData: ChartUpdate = {
         title: chartData.title,
         description: chartData.description,
@@ -355,15 +485,89 @@ function EditChartPageContent() {
         data: updateData,
       });
 
+      // Update original data to reflect saved state
+      setOriginalFormData({ ...formData });
+
       toast.success('Chart updated successfully');
-      router.push(`/charts/${chartId}`);
+
+      // Navigate based on context - if exiting after save, go to charts list
+      if (isExitingAfterSave) {
+        setIsExitingAfterSave(false);
+        navigateWithoutWarning('/charts');
+      } else {
+        navigateWithoutWarning(`/charts/${chartId}`);
+      }
     } catch {
       toast.error('Failed to update chart');
     }
   };
 
+  // Handle saving as new chart
+  const handleSaveAsNew = async (newTitle: string) => {
+    if (!isFormValid()) {
+      return;
+    }
+
+    try {
+      const chartData = buildChartData();
+      const newChartData: ChartCreate = {
+        ...chartData,
+        title: newTitle,
+      };
+
+      const result = await createChart(newChartData);
+
+      toast.success(`New chart "${newTitle}" created successfully!`);
+
+      // Navigate based on context - if exiting after save, go to charts list
+      if (isExitingAfterSave) {
+        setIsExitingAfterSave(false);
+        navigateWithoutWarning('/charts');
+      } else {
+        navigateWithoutWarning(`/charts/${result.id}`);
+      }
+    } catch {
+      toast.error('Failed to create new chart');
+    }
+  };
+
+  // Show save options dialog
+  const handleSave = () => {
+    if (!isFormValid()) {
+      return;
+    }
+    // Make sure we're not in exit mode when using regular save
+    setIsExitingAfterSave(false);
+    setShowSaveDialog(true);
+  };
+
   const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      setShowExitDialog(true);
+    } else {
+      router.push(`/charts/${chartId}`);
+    }
+  };
+
+  // Handle exit dialog actions
+  const handleSaveAndLeave = () => {
+    if (!isFormValid()) {
+      return;
+    }
+    // Mark that we're exiting after save
+    setIsExitingAfterSave(true);
+    // Close exit dialog and show save options dialog
+    setShowExitDialog(false);
+    setShowSaveDialog(true);
+  };
+
+  const handleLeaveWithoutSaving = () => {
+    setShowExitDialog(false);
     router.push(`/charts/${chartId}`);
+  };
+
+  const handleStayOnPage = () => {
+    setShowExitDialog(false);
   };
 
   if (chartLoading) {
@@ -419,11 +623,9 @@ function EditChartPageContent() {
               <span className="text-foreground font-medium">EDIT</span>
             </div>
 
-            <Link href={`/charts/${chartId}`}>
-              <Button variant="ghost" size="icon">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Button variant="ghost" size="icon" onClick={handleCancel}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
           </div>
 
           <div className="flex items-center gap-4">
@@ -439,13 +641,23 @@ function EditChartPageContent() {
               onChange={(e) => handleFormChange({ description: e.target.value })}
               className="w-80 border border-gray-200 shadow-sm px-4 py-2 h-11"
             />
-            <Button
-              onClick={handleSave}
-              disabled={!isFormValid() || isMutating}
-              className="px-8 h-11"
-            >
-              {isMutating ? 'Saving...' : 'Update Chart'}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isMutating || isCreating}
+                className="px-8 h-11"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={!isFormValid() || isMutating || isCreating}
+                className="px-8 h-11"
+              >
+                {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -457,19 +669,23 @@ function EditChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
               <div className="border-b px-6">
-                <TabsList className="grid w-full grid-cols-2 bg-transparent p-0">
+                <TabsList
+                  className={`grid w-full bg-transparent p-0 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                >
                   <TabsTrigger
                     value="configuration"
                     className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
                   >
                     Data Configuration
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="styling"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                  >
-                    Chart Styling
-                  </TabsTrigger>
+                  {formData.chart_type !== 'table' && (
+                    <TabsTrigger
+                      value="styling"
+                      className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
+                    >
+                      Chart Styling
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </div>
 
@@ -493,19 +709,21 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
-                <div className="p-4">
-                  {formData.chart_type === 'map' ? (
-                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                  ) : (
-                    <ChartCustomizations
-                      chartType={formData.chart_type || 'bar'}
-                      formData={formData}
-                      onChange={handleFormChange}
-                    />
-                  )}
-                </div>
-              </TabsContent>
+              {formData.chart_type !== 'table' && (
+                <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                  <div className="p-4">
+                    {formData.chart_type === 'map' ? (
+                      <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+                    ) : (
+                      <ChartCustomizations
+                        chartType={formData.chart_type || 'bar'}
+                        formData={formData}
+                        onChange={handleFormChange}
+                      />
+                    )}
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </div>
 
@@ -544,6 +762,16 @@ function EditChartPageContent() {
                         valueColumn={formData.aggregate_column}
                       />
                     </div>
+                  ) : formData.chart_type === 'table' ? (
+                    <div className="w-full h-full">
+                      <DataPreview
+                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                        columns={dataPreview?.columns || []}
+                        columnTypes={dataPreview?.column_types || {}}
+                        isLoading={previewLoading}
+                        error={previewError}
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full">
                       <ChartPreview
@@ -558,29 +786,92 @@ function EditChartPageContent() {
 
               <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
                 <div className="p-4">
-                  <DataPreview
-                    data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                    columns={dataPreview?.columns || []}
-                    columnTypes={dataPreview?.column_types || {}}
-                    isLoading={previewLoading}
-                    error={previewError}
-                    pagination={
-                      dataPreview
-                        ? {
-                            page: dataPreview.page,
-                            pageSize: dataPreview.page_size,
-                            total: dataPreview.total_rows,
-                            onPageChange: setDataPreviewPage,
-                          }
-                        : undefined
-                    }
-                  />
+                  <Tabs defaultValue="chart-data" className="h-full flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
+                      <TabsTrigger value="raw-data" className="flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        Raw Data
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="chart-data" className="flex-1 mt-6">
+                      <DataPreview
+                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                        columns={dataPreview?.columns || []}
+                        columnTypes={dataPreview?.column_types || {}}
+                        isLoading={previewLoading}
+                        error={previewError}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="raw-data" className="flex-1 mt-6">
+                      <DataPreview
+                        data={Array.isArray(rawTableData) ? rawTableData : []}
+                        columns={
+                          rawTableData && rawTableData.length > 0
+                            ? Object.keys(rawTableData[0])
+                            : []
+                        }
+                        columnTypes={{}}
+                        isLoading={rawDataLoading}
+                        error={rawDataError}
+                        pagination={
+                          tableCount
+                            ? {
+                                page: rawDataPage,
+                                pageSize: rawDataPageSize,
+                                total: tableCount.total_rows || 0,
+                                onPageChange: setRawDataPage,
+                                onPageSizeChange: handleRawDataPageSizeChange,
+                              }
+                            : undefined
+                        }
+                      />
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </TabsContent>
             </Tabs>
           </div>
         </div>
       </div>
+
+      {/* Save Options Dialog */}
+      <SaveOptionsDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        originalTitle={chart?.title || ''}
+        onSaveExisting={handleUpdateExisting}
+        onSaveAsNew={handleSaveAsNew}
+        isLoading={isMutating || isCreating}
+      />
+
+      {/* Exit Dialog - Save, Leave, or Stay */}
+      <UnsavedChangesExitDialog
+        open={showExitDialog}
+        onOpenChange={setShowExitDialog}
+        onSave={handleSaveAndLeave}
+        onLeave={handleLeaveWithoutSaving}
+        onStay={handleStayOnPage}
+        isSaving={isMutating}
+      />
+
+      {/* Unsaved Changes Dialog (for browser navigation) */}
+      <ConfirmationDialog
+        open={unsavedChangesDialog.open}
+        onOpenChange={(open) => setUnsavedChangesDialog((prev) => ({ ...prev, open }))}
+        title="Unsaved Changes"
+        description="You have unsaved changes. Are you sure you want to leave without saving?"
+        confirmText="Leave Without Saving"
+        cancelText="Cancel"
+        type="warning"
+        onConfirm={unsavedChangesDialog.onConfirm}
+        onCancel={unsavedChangesDialog.onCancel}
+      />
     </div>
   );
 }

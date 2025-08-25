@@ -1,3 +1,10 @@
+// Chart metric configuration for multiple metrics on bar/line charts
+export interface ChartMetric {
+  column: string;
+  aggregation: string; // SUM, COUNT, AVG, MAX, MIN, etc.
+  alias?: string; // Display name for the metric
+}
+
 // Chart filter configuration
 export interface ChartFilter {
   column: string;
@@ -36,7 +43,7 @@ export interface Chart {
   id: number;
   title: string;
   description?: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -50,7 +57,7 @@ export interface Chart {
 export interface ChartCreate {
   title: string;
   description?: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -61,6 +68,8 @@ export interface ChartCreate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Multiple metrics for bar/line charts
+    metrics?: ChartMetric[];
     // Map-specific fields
     geographic_column?: string;
     value_column?: string;
@@ -71,6 +80,17 @@ export interface ChartCreate {
       name?: string;
       geojson_id?: number;
     }>;
+    // Table-specific fields
+    table_columns?: string[];
+    column_formatting?: Record<
+      string,
+      {
+        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        precision?: number;
+        prefix?: string;
+        suffix?: string;
+      }
+    >;
     customizations?: Record<string, any>;
     // Chart-level filters, pagination and sorting
     filters?: ChartFilter[];
@@ -82,7 +102,7 @@ export interface ChartCreate {
 export interface ChartUpdate {
   title?: string;
   description?: string;
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type?: 'raw' | 'aggregated';
   schema_name?: string;
   table_name?: string;
@@ -94,6 +114,8 @@ export interface ChartUpdate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Multiple metrics for bar/line charts
+    metrics?: ChartMetric[];
     // Map-specific fields
     geographic_column?: string;
     value_column?: string;
@@ -104,6 +126,17 @@ export interface ChartUpdate {
       name?: string;
       geojson_id?: number;
     }>;
+    // Table-specific fields
+    table_columns?: string[];
+    column_formatting?: Record<
+      string,
+      {
+        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        precision?: number;
+        prefix?: string;
+        suffix?: string;
+      }
+    >;
     customizations?: Record<string, any>;
     // Chart-level filters, pagination and sorting
     filters?: ChartFilter[];
@@ -128,6 +161,9 @@ export interface ChartDataPayload {
   aggregate_func?: string;
   extra_dimension?: string;
 
+  // Multiple metrics for bar/line charts
+  metrics?: ChartMetric[];
+
   // Map-specific fields
   geographic_column?: string;
   value_column?: string;
@@ -142,6 +178,12 @@ export interface ChartDataPayload {
     pagination?: ChartPagination;
     sort?: ChartSort[];
   };
+
+  // Dashboard filters
+  dashboard_filters?: Array<{
+    filter_id: string;
+    value: any;
+  }>;
 
   // Pagination
   offset?: number;
@@ -178,19 +220,32 @@ export interface TableInfo {
 
 // Extended ChartCreate type for internal ChartBuilder state
 export type ChartBuilderFormData = Partial<ChartCreate> & {
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   x_axis_column?: string;
   y_axis_column?: string;
   dimension_column?: string;
   aggregate_column?: string;
   aggregate_function?: string;
   extra_dimension_column?: string;
+  // Multiple metrics for bar/line charts
+  metrics?: ChartMetric[];
   // Map-specific fields
   geographic_column?: string;
   value_column?: string;
   selected_geojson_id?: number;
   country_code?: string;
   layer_level?: number;
+  // Table-specific fields
+  table_columns?: string[];
+  column_formatting?: Record<
+    string,
+    {
+      type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+      precision?: number;
+      prefix?: string;
+      suffix?: string;
+    }
+  >;
   customizations?: Record<string, any>;
   // Chart-level filters, pagination and sorting
   filters?: ChartFilter[];
