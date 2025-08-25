@@ -179,6 +179,12 @@ export interface ChartDataPayload {
     sort?: ChartSort[];
   };
 
+  // Dashboard filters
+  dashboard_filters?: Array<{
+    filter_id: string;
+    value: any;
+  }>;
+
   // Pagination
   offset?: number;
   limit?: number;

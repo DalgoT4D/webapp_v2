@@ -19,6 +19,7 @@ interface MetricsSelectorProps {
   onChange: (metrics: ChartMetric[]) => void;
   columns: Array<{ column_name: string; data_type: string }>;
   disabled?: boolean;
+  chartType?: string;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -30,7 +31,37 @@ const AGGREGATE_FUNCTIONS = [
   { value: 'count_distinct', label: 'Count Distinct' },
 ];
 
-export function MetricsSelector({ metrics, onChange, columns, disabled }: MetricsSelectorProps) {
+export function MetricsSelector({
+  metrics,
+  onChange,
+  columns,
+  disabled,
+  chartType = 'bar',
+}: MetricsSelectorProps) {
+  // Get chart-type-specific labels
+  const getLabels = () => {
+    switch (chartType) {
+      case 'pie':
+        return {
+          column: 'Dimension',
+          function: 'Metric',
+          alias: 'Display Name',
+          title: 'Configure Pie Chart Metrics',
+          subtitle: 'Select dimensions and their metrics for the pie chart',
+        };
+      default:
+        return {
+          column: 'Column',
+          function: 'Function',
+          alias: 'Display Name',
+          title: 'Configure Chart Metrics',
+          subtitle: 'Select columns and their aggregation functions',
+        };
+    }
+  };
+
+  const labels = getLabels();
+
   // Filter to numeric columns for most aggregations
   const numericColumns = columns.filter((col) =>
     ['integer', 'bigint', 'numeric', 'double precision', 'real', 'float', 'decimal'].includes(
@@ -107,7 +138,7 @@ export function MetricsSelector({ metrics, onChange, columns, disabled }: Metric
               <div className="flex-1 grid grid-cols-2 gap-2">
                 {/* Column Selection */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">Column</Label>
+                  <Label className="text-xs text-gray-600">{labels.column}</Label>
                   <Select
                     value={metric.column || ''}
                     onValueChange={(value) =>
@@ -130,7 +161,7 @@ export function MetricsSelector({ metrics, onChange, columns, disabled }: Metric
 
                 {/* Aggregation Function */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">Function</Label>
+                  <Label className="text-xs text-gray-600">{labels.function}</Label>
                   <Select
                     value={metric.aggregation}
                     onValueChange={(value) => updateMetric(index, { aggregation: value })}
@@ -164,7 +195,7 @@ export function MetricsSelector({ metrics, onChange, columns, disabled }: Metric
 
             {/* Display Name (Alias) */}
             <div className="space-y-1">
-              <Label className="text-xs text-gray-600">Display Name</Label>
+              <Label className="text-xs text-gray-600">{labels.alias}</Label>
               <Input
                 type="text"
                 placeholder="Auto-generated display name"

@@ -165,7 +165,7 @@ function ConfigureChartPageContent() {
     } else {
       // For bar/line/table charts with multiple metrics
       if (
-        ['bar', 'line', 'table'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {
@@ -332,7 +332,7 @@ function ConfigureChartPageContent() {
     } else {
       // For bar/line/table charts with multiple metrics
       if (
-        ['bar', 'line', 'table'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {

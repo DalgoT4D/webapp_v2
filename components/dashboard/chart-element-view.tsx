@@ -7,9 +7,13 @@ import { AlertCircle, RefreshCw, Maximize2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
+import { useChart } from '@/hooks/api/useCharts';
+import { useChartDataPreview } from '@/hooks/api/useChart';
 import { ChartTitleEditor } from './chart-title-editor';
+import { DataPreview } from '@/components/charts/DataPreview';
 import { resolveChartTitle, type ChartTitleConfig } from '@/lib/chart-title-utils';
+import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import {
   BarChart,
@@ -76,6 +80,14 @@ export function ChartElementView({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fetch chart metadata to determine chart type
+  const {
+    data: chart,
+    isLoading: chartLoading,
+    isError: chartError,
+    error: chartFetchError,
+  } = useChart(chartId);
 
   // Create a unique identifier for when filters change to trigger instance recreation
   const filterHash = useMemo(() => JSON.stringify(dashboardFilters), [dashboardFilters]);
@@ -157,8 +169,48 @@ export function ChartElementView({
     }
   );
 
+  // For table charts, also fetch raw data using data preview API
+  const chartDataPayload: ChartDataPayload | null =
+    chart?.chart_type === 'table' && chart
+      ? {
+          chart_type: chart.chart_type,
+          computation_type: chart.computation_type as 'raw' | 'aggregated',
+          schema_name: chart.schema_name,
+          table_name: chart.table_name,
+          x_axis: chart.extra_config?.x_axis_column,
+          y_axis: chart.extra_config?.y_axis_column,
+          dimension_col: chart.extra_config?.dimension_column,
+          aggregate_col: chart.extra_config?.aggregate_column,
+          aggregate_func: chart.extra_config?.aggregate_function || 'sum',
+          extra_dimension: chart.extra_config?.extra_dimension_column,
+          metrics: chart.extra_config?.metrics,
+          extra_config: {
+            filters: chart.extra_config?.filters,
+            pagination: chart.extra_config?.pagination,
+            sort: chart.extra_config?.sort,
+          },
+          // Include dashboard filters in the payload
+          dashboard_filters:
+            Object.keys(dashboardFilters).length > 0
+              ? Object.entries(dashboardFilters).map(([filterId, value]) => ({
+                  filter_id: filterId,
+                  value: value,
+                }))
+              : undefined,
+        }
+      : null;
+
+  const {
+    data: tableData,
+    error: tableError,
+    isLoading: tableLoading,
+  } = useChartDataPreview(chartDataPayload, 1, 50);
+
   // Get the actual error message
-  const errorMessage = metadataError?.message || isError?.message || 'Failed to load chart';
+  const errorMessage =
+    metadataError?.message ||
+    (chart?.chart_type === 'table' ? tableError?.message : isError?.message) ||
+    'Failed to load chart';
 
   // Initialize and update chart
   useEffect(() => {
@@ -342,7 +394,7 @@ export function ChartElementView({
     }
   };
 
-  if (isLoading) {
+  if (isLoading || chartLoading || (chart?.chart_type === 'table' && tableLoading)) {
     return (
       <div className={cn('h-full flex items-center justify-center', className)}>
         <div className="w-full h-full min-h-[200px] p-4">
@@ -352,7 +404,12 @@ export function ChartElementView({
     );
   }
 
-  if (isError || !chartData) {
+  if (
+    isError ||
+    chartError ||
+    (chart?.chart_type === 'table' && tableError) ||
+    (chart?.chart_type !== 'table' && !chartData)
+  ) {
     return (
       <div className={cn('h-full flex items-center justify-center p-4', className)}>
         <div className="text-center">
@@ -422,11 +479,23 @@ export function ChartElementView({
       </div>
 
       {/* Chart container */}
-      <div
-        ref={chartRef}
-        className="w-full flex-1 min-h-[200px]"
-        style={{ padding: viewMode ? '8px' : '0' }}
-      />
+      {chart?.chart_type === 'table' ? (
+        <div className="w-full flex-1 min-h-[200px] p-2">
+          <DataPreview
+            data={Array.isArray(tableData?.data) ? tableData.data : []}
+            columns={tableData?.columns || []}
+            columnTypes={tableData?.column_types || {}}
+            isLoading={tableLoading}
+            error={tableError}
+          />
+        </div>
+      ) : (
+        <div
+          ref={chartRef}
+          className="w-full flex-1 min-h-[200px]"
+          style={{ padding: viewMode ? '8px' : '0' }}
+        />
+      )}
     </div>
   );
 }

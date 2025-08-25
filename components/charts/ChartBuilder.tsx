@@ -126,7 +126,7 @@ export function ChartBuilder({
     formData.schema_name && formData.table_name
       ? {
           chart_type: formData.chart_type === 'table' ? 'bar' : formData.chart_type!,
-          computation_type: formData.computation_type!,
+          computation_type: formData.computation_type || 'aggregated',
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           x_axis: formData.x_axis_column,
@@ -256,9 +256,9 @@ export function ChartBuilder({
     if (formData.computation_type === 'raw') {
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
-      // For bar/line charts with multiple metrics
+      // For bar/line/pie charts with multiple metrics
       if (
-        ['bar', 'line'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {
@@ -379,9 +379,9 @@ export function ChartBuilder({
               ? 'current'
               : 'pending';
         } else {
-          // For bar/line charts with multiple metrics
+          // For bar/line/pie charts with multiple metrics
           if (
-            ['bar', 'line'].includes(formData.chart_type || '') &&
+            ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
             formData.metrics &&
             formData.metrics.length > 0
           ) {

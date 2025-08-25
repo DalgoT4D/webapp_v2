@@ -239,16 +239,16 @@ export function ChartDataConfigurationV3({
         break;
 
       case 'pie':
-        // Pie charts need dimension and aggregate
+        // Pie charts can use dimension, metrics, and extra dimension like bar/line charts
         specificFields = {
+          x_axis_column: formData.x_axis_column,
+          y_axis_column: null, // No Y-axis for pie charts
           dimension_column: formData.dimension_column,
           aggregate_column: formData.aggregate_column,
           aggregate_function: formData.aggregate_function,
-          // Clear x/y axis for pie charts
-          x_axis_column: null,
-          y_axis_column: null,
-          extra_dimension_column: null,
-          metrics: null,
+          extra_dimension_column: formData.extra_dimension_column,
+          metrics: formData.metrics,
+          computation_type: formData.computation_type || 'aggregated',
         };
         break;
 
@@ -324,7 +324,11 @@ export function ChartDataConfigurationV3({
       {formData.chart_type !== 'number' && formData.chart_type !== 'map' && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">
-            {formData.chart_type === 'table' ? 'Group By Column' : 'X Axis'}
+            {formData.chart_type === 'table'
+              ? 'Group By Column'
+              : formData.chart_type === 'pie'
+                ? 'Dimension'
+                : 'X Axis'}
           </Label>
           <Select
             value={formData.dimension_column || formData.x_axis_column}
@@ -356,7 +360,7 @@ export function ChartDataConfigurationV3({
         formData.chart_type !== 'map' &&
         (formData.computation_type === 'raw' ||
           (formData.computation_type === 'aggregated' &&
-            !['bar', 'line', 'table'].includes(formData.chart_type || ''))) && (
+            !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || ''))) && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
             <Select
@@ -384,8 +388,8 @@ export function ChartDataConfigurationV3({
           </div>
         )}
 
-      {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') &&
+      {/* Multiple Metrics for Bar, Line, Pie, and Table Charts */}
+      {['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
         formData.computation_type === 'aggregated' && (
           <MetricsSelector
             metrics={formData.metrics || []}
@@ -421,7 +425,7 @@ export function ChartDataConfigurationV3({
       {/* Aggregate Function - For single metric charts only */}
       {formData.chart_type !== 'map' &&
         formData.computation_type !== 'raw' &&
-        !['bar', 'line', 'table'].includes(formData.chart_type || '') && (
+        !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Aggregate Function</Label>
             <Select
@@ -444,7 +448,7 @@ export function ChartDataConfigurationV3({
         )}
 
       {/* Extra Dimension - for stacked/grouped charts */}
-      {['bar', 'line'].includes(formData.chart_type || '') && (
+      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Select

@@ -5,10 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle } from 'lucide-react';
 import { useChart } from '@/hooks/api/useCharts';
+import { useChartDataPreview } from '@/hooks/api/useChart';
 import useSWR from 'swr';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import { ChartTitleEditor } from './chart-title-editor';
+import { DataPreview } from '@/components/charts/DataPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
+import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
 import {
@@ -130,12 +133,52 @@ export function ChartElementV2({
     },
   });
 
+  // For table charts, also fetch raw data using data preview API
+  const chartDataPayload: ChartDataPayload | null =
+    chart?.chart_type === 'table' && chart
+      ? {
+          chart_type: chart.chart_type,
+          computation_type: chart.computation_type as 'raw' | 'aggregated',
+          schema_name: chart.schema_name,
+          table_name: chart.table_name,
+          x_axis: chart.extra_config?.x_axis_column,
+          y_axis: chart.extra_config?.y_axis_column,
+          dimension_col: chart.extra_config?.dimension_column,
+          aggregate_col: chart.extra_config?.aggregate_column,
+          aggregate_func: chart.extra_config?.aggregate_function || 'sum',
+          extra_dimension: chart.extra_config?.extra_dimension_column,
+          metrics: chart.extra_config?.metrics,
+          extra_config: {
+            filters: chart.extra_config?.filters,
+            pagination: chart.extra_config?.pagination,
+            sort: chart.extra_config?.sort,
+          },
+          // Include dashboard filters in the payload
+          dashboard_filters:
+            Object.keys(appliedFilters).length > 0
+              ? Object.entries(appliedFilters).map(([filterId, value]) => ({
+                  filter_id: filterId,
+                  value: value,
+                }))
+              : undefined,
+        }
+      : null;
+
+  const {
+    data: tableData,
+    error: tableError,
+    isLoading: tableLoading,
+  } = useChartDataPreview(chartDataPayload, 1, 50);
+
   // Compute derived state
-  const isLoading = chartLoading || dataLoading;
-  const isError = chartError || dataError;
+  const isLoading = chartLoading || (chart?.chart_type === 'table' ? tableLoading : dataLoading);
+  const isError = chartError || (chart?.chart_type === 'table' ? tableError : dataError);
 
   // Get the actual error message
-  const errorMessage = chartFetchError?.message || dataError?.message || 'Failed to load chart';
+  const errorMessage =
+    chartFetchError?.message ||
+    (chart?.chart_type === 'table' ? tableError?.message : dataError?.message) ||
+    'Failed to load chart';
 
   // Force refetch when filters change
   useEffect(() => {
@@ -368,6 +411,14 @@ export function ChartElementV2({
                   <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
                 </div>
               </div>
+            ) : chart?.chart_type === 'table' ? (
+              <DataPreview
+                data={Array.isArray(tableData?.data) ? tableData.data : []}
+                columns={tableData?.columns || []}
+                columnTypes={tableData?.column_types || {}}
+                isLoading={tableLoading}
+                error={tableError}
+              />
             ) : (
               <div ref={chartRef} className="w-full h-full" />
             )}
