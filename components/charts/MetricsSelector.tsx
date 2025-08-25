@@ -20,6 +20,7 @@ interface MetricsSelectorProps {
   columns: Array<{ column_name: string; data_type: string }>;
   disabled?: boolean;
   chartType?: string;
+  maxMetrics?: number;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -37,6 +38,7 @@ export function MetricsSelector({
   columns,
   disabled,
   chartType = 'bar',
+  maxMetrics,
 }: MetricsSelectorProps) {
   // Get chart-type-specific labels
   const getLabels = () => {
@@ -208,17 +210,19 @@ export function MetricsSelector({
           </div>
         ))}
 
-        {/* Add Metric Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addMetric}
-          disabled={disabled}
-          className="w-full h-8 border-dashed text-sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Another Metric
-        </Button>
+        {/* Add Metric Button - only show if under maxMetrics limit */}
+        {(!maxMetrics || metrics.length < maxMetrics) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addMetric}
+            disabled={disabled}
+            className="w-full h-8 border-dashed text-sm"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {maxMetrics === 1 ? 'Add Metric' : 'Add Another Metric'}
+          </Button>
+        )}
       </div>
     </div>
   );

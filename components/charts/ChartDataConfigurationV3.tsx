@@ -226,6 +226,7 @@ export function ChartDataConfigurationV3({
     switch (newChartType) {
       case 'number':
         // Big number only needs aggregate column and function
+        // Limit metrics to only the first one (single metric)
         specificFields = {
           aggregate_column: formData.aggregate_column,
           aggregate_function: formData.aggregate_function,
@@ -234,12 +235,13 @@ export function ChartDataConfigurationV3({
           y_axis_column: null,
           dimension_column: null,
           extra_dimension_column: null,
-          metrics: null,
+          metrics: formData.metrics && formData.metrics.length > 0 ? [formData.metrics[0]] : [],
         };
         break;
 
       case 'pie':
         // Pie charts can use dimension, metrics, and extra dimension like bar/line charts
+        // But limit metrics to only the first one (single metric)
         specificFields = {
           x_axis_column: formData.x_axis_column,
           y_axis_column: null, // No Y-axis for pie charts
@@ -247,7 +249,10 @@ export function ChartDataConfigurationV3({
           aggregate_column: formData.aggregate_column,
           aggregate_function: formData.aggregate_function,
           extra_dimension_column: formData.extra_dimension_column,
-          metrics: formData.metrics,
+          metrics:
+            formData.metrics && formData.metrics.length > 0
+              ? [formData.metrics[0]]
+              : formData.metrics,
           computation_type: formData.computation_type || 'aggregated',
         };
         break;
@@ -388,64 +393,49 @@ export function ChartDataConfigurationV3({
           </div>
         )}
 
-      {/* Multiple Metrics for Bar, Line, Pie, and Table Charts */}
-      {['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
+      {/* Multiple Metrics for Bar, Line, and Table Charts */}
+      {['bar', 'line', 'table'].includes(formData.chart_type || '') &&
         formData.computation_type === 'aggregated' && (
           <MetricsSelector
             metrics={formData.metrics || []}
             onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
             columns={normalizedColumns}
             disabled={disabled}
+            chartType={formData.chart_type}
           />
         )}
 
-      {/* For number charts */}
-      {formData.chart_type === 'number' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Metric Column</Label>
-          <Select
-            value={formData.aggregate_column}
-            onValueChange={(value) => onChange({ aggregate_column: value })}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select metric column" />
-            </SelectTrigger>
-            <SelectContent>
-              {numericColumns.map((col) => (
-                <SelectItem key={col.column_name} value={col.column_name}>
-                  {col.column_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Single Metric for Pie Charts */}
+      {formData.chart_type === 'pie' && formData.computation_type === 'aggregated' && (
+        <MetricsSelector
+          metrics={formData.metrics || []}
+          onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
+          columns={normalizedColumns}
+          disabled={disabled}
+          chartType="pie"
+          maxMetrics={1}
+        />
       )}
 
-      {/* Aggregate Function - For single metric charts only */}
-      {formData.chart_type !== 'map' &&
-        formData.computation_type !== 'raw' &&
-        !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Aggregate Function</Label>
-            <Select
-              value={formData.aggregate_function}
-              onValueChange={(value) => onChange({ aggregate_function: value })}
-              disabled={disabled}
-            >
-              <SelectTrigger className="h-10 w-full">
-                <SelectValue placeholder="Select aggregate function" />
-              </SelectTrigger>
-              <SelectContent>
-                {AGGREGATE_FUNCTIONS.map((func) => (
-                  <SelectItem key={func.value} value={func.value}>
-                    {func.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      {/* For number charts - use MetricsSelector with single metric */}
+      {formData.chart_type === 'number' && (
+        <MetricsSelector
+          metrics={formData.metrics || []}
+          onChange={(metrics: ChartMetric[]) => {
+            // Map metrics to legacy fields for compatibility
+            const metric = metrics[0];
+            onChange({
+              metrics,
+              aggregate_column: metric?.column,
+              aggregate_function: metric?.aggregation,
+            });
+          }}
+          columns={normalizedColumns}
+          disabled={disabled}
+          chartType="number"
+          maxMetrics={1}
+        />
+      )}
 
       {/* Extra Dimension - for stacked/grouped charts */}
       {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
@@ -580,7 +570,7 @@ export function ChartDataConfigurationV3({
       )}
 
       {/* Pagination Section */}
-      {formData.chart_type !== 'map' && (
+      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Pagination</Label>
           <Select
@@ -618,7 +608,7 @@ export function ChartDataConfigurationV3({
       )}
 
       {/* Sort Section */}
-      {formData.chart_type !== 'map' && (
+      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Sort Metric</Label>
           <Select

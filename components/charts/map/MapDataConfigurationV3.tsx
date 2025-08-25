@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MapPin, Table, Plus, Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import {
   useColumns,
   useRegions,
@@ -24,7 +25,7 @@ import {
   useRegionHierarchy,
   useChartDataPreview,
 } from '@/hooks/api/useChart';
-import type { ChartBuilderFormData } from '@/types/charts';
+import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 interface SelectedRegion {
   region_id: number;
@@ -390,52 +391,24 @@ export function MapDataConfigurationV3({
         </div>
       </div>
 
-      {/* Value Column */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Value Column</Label>
-        <Select
-          value={formData.value_column || formData.aggregate_column}
-          onValueChange={(value) =>
-            onFormDataChange({
-              value_column: value,
-              aggregate_column: value,
-            })
-          }
-          disabled={disabled}
-        >
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Select value column" />
-          </SelectTrigger>
-          <SelectContent>
-            {numericColumns.map((col) => (
-              <SelectItem key={col.column_name} value={col.column_name}>
-                {col.column_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Aggregate Function */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Aggregate Function</Label>
-        <Select
-          value={formData.aggregate_function}
-          onValueChange={(value) => onFormDataChange({ aggregate_function: value })}
-          disabled={disabled}
-        >
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Select aggregate function" />
-          </SelectTrigger>
-          <SelectContent>
-            {AGGREGATE_FUNCTIONS.map((func) => (
-              <SelectItem key={func.value} value={func.value}>
-                {func.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Metrics - use MetricsSelector with single metric */}
+      <MetricsSelector
+        metrics={formData.metrics || []}
+        onChange={(metrics: ChartMetric[]) => {
+          // Map metrics to legacy fields for compatibility
+          const metric = metrics[0];
+          onFormDataChange({
+            metrics,
+            value_column: metric?.column,
+            aggregate_column: metric?.column,
+            aggregate_function: metric?.aggregation,
+          });
+        }}
+        columns={normalizedColumns}
+        disabled={disabled}
+        chartType="map"
+        maxMetrics={1}
+      />
 
       {/* Filters Section */}
       <div className="space-y-2">
