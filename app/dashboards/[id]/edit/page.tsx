@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
@@ -20,6 +21,9 @@ export default function EditDashboardPage() {
   // Get current user info
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const currentUser = getCurrentOrgUser();
+
+  // Get user permissions
+  const { hasPermission } = useUserPermissions();
 
   const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
 
@@ -107,6 +111,27 @@ export default function EditDashboardPage() {
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has edit permissions
+  if (!hasPermission('can_edit_dashboards')) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">
+            You don't have permission to edit dashboards.
+          </p>
+          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboards
+          </Button>
         </div>
       </div>
     );
