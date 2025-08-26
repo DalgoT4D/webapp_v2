@@ -1,6 +1,6 @@
+import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
   Chart,
@@ -97,64 +97,35 @@ export function useTables(schema: string | null) {
   return useSWR<any[]>(schema ? `/api/warehouse/tables/${schema}` : null, apiGet);
 }
 
-// Hook to get all tables from all schemas - proper hook that doesn't violate rules
+// Hook to get all tables from all schemas using optimized sync_tables API
 export function useAllSchemaTables() {
-  const { data: schemas, isLoading: schemasLoading, error: schemasError } = useSchemas();
+  const {
+    data: syncTablesData,
+    isLoading,
+    error,
+  } = useSWR('/api/warehouse/sync_tables', apiGet, {
+    dedupingInterval: 300000, // 5 minute cache
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
 
-  const [allTables, setAllTables] = useState<
-    Array<{ schema_name: string; table_name: string; full_name: string }>
-  >([]);
-  const [isLoadingTables, setIsLoadingTables] = useState(false);
-
-  useEffect(() => {
-    if (!schemas || schemas.length === 0) {
-      setAllTables([]);
-      return;
+  // Transform sync_tables API response to match existing format exactly
+  const allTables = React.useMemo(() => {
+    if (!syncTablesData || !Array.isArray(syncTablesData)) {
+      return [];
     }
 
-    async function fetchAllTables() {
-      setIsLoadingTables(true);
-      try {
-        const allTablesData: Array<{ schema_name: string; table_name: string; full_name: string }> =
-          [];
-
-        // Fetch tables for each schema (schemas is an array of strings)
-        for (const schemaName of schemas) {
-          try {
-            const tables = await apiGet(`/api/warehouse/tables/${schemaName}`);
-            if (tables && Array.isArray(tables)) {
-              tables.forEach((table: any) => {
-                // Handle both string and object formats (like existing components do)
-                const tableName = typeof table === 'string' ? table : table.table_name;
-                if (tableName) {
-                  allTablesData.push({
-                    schema_name: schemaName,
-                    table_name: tableName,
-                    full_name: `${schemaName}.${tableName}`,
-                  });
-                }
-              });
-            }
-          } catch (error) {
-            console.error(`Error fetching tables for schema ${schemaName}:`, error);
-          }
-        }
-
-        setAllTables(allTablesData);
-      } catch (error) {
-        console.error('Error fetching all tables:', error);
-      } finally {
-        setIsLoadingTables(false);
-      }
-    }
-
-    fetchAllTables();
-  }, [schemas]);
+    return syncTablesData.map((item: any) => ({
+      schema_name: item.schema,
+      table_name: item.input_name,
+      full_name: `${item.schema}.${item.input_name}`, // Format: "schema.table"
+    }));
+  }, [syncTablesData]);
 
   return {
     data: allTables,
-    isLoading: schemasLoading || isLoadingTables,
-    error: schemasError,
+    isLoading,
+    error,
   };
 }
 
