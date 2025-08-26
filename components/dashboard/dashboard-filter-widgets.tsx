@@ -554,9 +554,7 @@ export function DashboardFilterWidget(props: FilterWidgetProps) {
   } else if (props.filter.filter_type === DashboardFilterType.NUMERICAL) {
     return <NumericalFilterWidget {...props} />;
   } else if (props.filter.filter_type === DashboardFilterType.DATETIME) {
-    return (
-      <DateTimeFilterWidget filter={props.filter} value={props.value} onChange={props.onChange} />
-    );
+    return <DateTimeFilterWidget {...props} />;
   }
 
   return <div>Unknown filter type: {(props.filter as any).filter_type}</div>;
