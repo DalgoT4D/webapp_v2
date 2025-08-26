@@ -15,7 +15,6 @@ import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-reac
 import { useColumns, useColumnValues } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
-import { DatasetSelector } from './DatasetSelector';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 interface ChartDataConfigurationV3Props {

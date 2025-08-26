@@ -1,2 +1,3 @@
-// Export the DashboardType that other components are importing
+// Dashboard Types
+
 export type DashboardType = 'implementation' | 'impact' | 'funder' | 'usage';
