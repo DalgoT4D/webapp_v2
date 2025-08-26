@@ -6,12 +6,17 @@ export interface Org {
   viz_url: string;
 }
 
+export interface Permission {
+  slug: string;
+  name: string;
+}
+
 export interface OrgUser {
   email: string;
   org: Org;
   active: boolean;
   new_role_slug: string;
-  permissions: string[];
+  permissions: Permission[];
 }
 
 interface AuthState {

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-react';
-import { useSchemas, useTables, useColumns, useColumnValues } from '@/hooks/api/useChart';
+import { useColumns, useColumnValues } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';

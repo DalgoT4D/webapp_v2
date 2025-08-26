@@ -62,6 +62,7 @@ import { DashboardThumbnail } from './dashboard-thumbnail';
 import { ShareModal } from './ShareModal';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/stores/authStore';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -92,6 +93,9 @@ export function DashboardListV2() {
   // Get current user info for permission checks
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const currentUser = getCurrentOrgUser();
+
+  // Get user permissions
+  const { hasPermission } = useUserPermissions();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -232,99 +236,118 @@ export function DashboardListV2() {
           !dashboard.is_published && 'opacity-75'
         )}
       >
-        {/* Action Menu - always visible */}
-        <div className="absolute top-2 right-2 z-10">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-              >
-                <MoreVertical className="w-4 h-4 text-gray-700" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={() => handleShareDashboard(dashboard)}
-                className="cursor-pointer"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() =>
-                  handleDuplicateDashboard(
-                    dashboard.id,
-                    dashboard.title || dashboard.dashboard_title
-                  )
-                }
-                className="cursor-pointer"
-                disabled={isDuplicating === dashboard.id}
-              >
-                {isDuplicating === dashboard.id ? (
+        {/* Action Menu - only render if user has any dashboard permissions */}
+        {(hasPermission('can_share_dashboards') ||
+          hasPermission('can_create_dashboards') ||
+          hasPermission('can_edit_dashboards') ||
+          hasPermission('can_delete_dashboards') ||
+          hasPermission('can_view_dashboards')) && (
+          <div className="absolute top-2 right-2 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-700" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {hasPermission('can_share_dashboards') && (
                   <>
-                    <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                    Duplicating...
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Duplicate
+                    <DropdownMenuItem
+                      onClick={() => handleShareDashboard(dashboard)}
+                      className="cursor-pointer"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                   </>
                 )}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  handleDownloadDashboard(
-                    dashboard.id,
-                    dashboard.title || dashboard.dashboard_title
-                  )
-                }
-                className="cursor-pointer"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+                {hasPermission('can_create_dashboards') && (
                   <DropdownMenuItem
-                    className="cursor-pointer text-destructive focus:text-destructive"
-                    onSelect={(e) => e.preventDefault()}
+                    onClick={() =>
+                      handleDuplicateDashboard(
+                        dashboard.id,
+                        dashboard.title || dashboard.dashboard_title
+                      )
+                    }
+                    className="cursor-pointer"
+                    disabled={isDuplicating === dashboard.id}
                   >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
+                    {isDuplicating === dashboard.id ? (
+                      <>
+                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                        Duplicating...
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Duplicate
+                      </>
+                    )}
                   </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete "
-                      {dashboard.title || dashboard.dashboard_title}"? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        handleDeleteDashboard(
-                          dashboard.id,
-                          dashboard.title || dashboard.dashboard_title
-                        )
-                      }
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                )}
+                {hasPermission('can_view_dashboards') && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleDownloadDashboard(
+                        dashboard.id,
+                        dashboard.title || dashboard.dashboard_title
+                      )
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </DropdownMenuItem>
+                )}
+                {hasPermission('can_delete_dashboards') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "
+                            {dashboard.title || dashboard.dashboard_title}"? This action cannot be
+                            undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() =>
+                              handleDeleteDashboard(
+                                dashboard.id,
+                                dashboard.title || dashboard.dashboard_title
+                              )
+                            }
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
         {/* Clickable content area */}
         <Link href={getNavigationUrl()}>
@@ -495,100 +518,118 @@ export function DashboardListV2() {
               )}
             </Link>
 
-            {/* Action Menu */}
-            <div className="flex items-center gap-2 ml-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                  >
-                    <MoreHorizontal className="w-4 h-4 text-gray-700" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => handleShareDashboard(dashboard)}
-                    className="cursor-pointer"
-                  >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDuplicateDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
-                    }
-                    className="cursor-pointer"
-                    disabled={isDuplicating === dashboard.id}
-                  >
-                    {isDuplicating === dashboard.id ? (
+            {/* Action Menu - only render if user has any dashboard permissions */}
+            {(hasPermission('can_share_dashboards') ||
+              hasPermission('can_create_dashboards') ||
+              hasPermission('can_edit_dashboards') ||
+              hasPermission('can_delete_dashboards') ||
+              hasPermission('can_view_dashboards')) && (
+              <div className="flex items-center gap-2 ml-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    >
+                      <MoreHorizontal className="w-4 h-4 text-gray-700" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {hasPermission('can_share_dashboards') && (
                       <>
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                        Duplicating...
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Duplicate
+                        <DropdownMenuItem
+                          onClick={() => handleShareDashboard(dashboard)}
+                          className="cursor-pointer"
+                        >
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                       </>
                     )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDownloadDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
-                    }
-                    className="cursor-pointer"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                    {hasPermission('can_create_dashboards') && (
                       <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                        onSelect={(e) => e.preventDefault()}
+                        onClick={() =>
+                          handleDuplicateDashboard(
+                            dashboard.id,
+                            dashboard.title || dashboard.dashboard_title
+                          )
+                        }
+                        className="cursor-pointer"
+                        disabled={isDuplicating === dashboard.id}
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
+                        {isDuplicating === dashboard.id ? (
+                          <>
+                            <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                            Duplicating...
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Duplicate
+                          </>
+                        )}
                       </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "
-                          {dashboard.title || dashboard.dashboard_title}"? This action cannot be
-                          undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() =>
-                            handleDeleteDashboard(
-                              dashboard.id,
-                              dashboard.title || dashboard.dashboard_title
-                            )
-                          }
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                    )}
+                    {hasPermission('can_view_dashboards') && (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          handleDownloadDashboard(
+                            dashboard.id,
+                            dashboard.title || dashboard.dashboard_title
+                          )
+                        }
+                        className="cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download
+                      </DropdownMenuItem>
+                    )}
+                    {hasPermission('can_delete_dashboards') && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "
+                                {dashboard.title || dashboard.dashboard_title}"? This action cannot
+                                be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() =>
+                                  handleDeleteDashboard(
+                                    dashboard.id,
+                                    dashboard.title || dashboard.dashboard_title
+                                  )
+                                }
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -617,12 +658,14 @@ export function DashboardListV2() {
             <p className="text-muted-foreground mt-1">Create and manage your data dashboards</p>
           </div>
 
-          <Link href="/dashboards/create">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Dashboard
-            </Button>
-          </Link>
+          {hasPermission('can_create_dashboards') && (
+            <Link href="/dashboards/create">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Dashboard
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Filters */}
