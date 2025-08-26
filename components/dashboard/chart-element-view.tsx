@@ -81,13 +81,13 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Fetch chart metadata to determine chart type
+  // Fetch chart metadata to determine chart type (only in authenticated mode)
   const {
     data: chart,
     isLoading: chartLoading,
     isError: chartError,
     error: chartFetchError,
-  } = useChart(chartId);
+  } = useChart(isPublicMode ? null : chartId);
 
   // Create a unique identifier for when filters change to trigger instance recreation
   const filterHash = useMemo(() => JSON.stringify(dashboardFilters), [dashboardFilters]);
@@ -102,7 +102,7 @@ export function ChartElementView({
   // Use public API endpoint if in public mode, otherwise use regular API
   const apiUrl =
     isPublicMode && publicToken
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
       : `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
   // Custom fetcher for public mode
@@ -111,8 +111,11 @@ export function ChartElementView({
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
         );
-        if (!response.ok) throw new Error('Failed to fetch chart data');
-        return response.json();
+        if (!response.ok) {
+          throw new Error('Failed to fetch chart data');
+        }
+        const data = await response.json();
+        return data;
       }
     : apiGet;
 
@@ -169,9 +172,22 @@ export function ChartElementView({
     }
   );
 
+  // Determine chart type - use metadata if available, otherwise infer from chart data
+  const isTableChart = useMemo(() => {
+    if (chart) {
+      return chart.chart_type === 'table';
+    }
+    // In public mode, infer from chart data structure
+    if (chartData) {
+      // Table charts typically don't have echarts_config but have raw data
+      return !chartData.echarts_config && (chartData.data || chartData.columns);
+    }
+    return false;
+  }, [chart, chartData]);
+
   // For table charts, also fetch raw data using data preview API
   const chartDataPayload: ChartDataPayload | null =
-    chart?.chart_type === 'table' && chart
+    isTableChart && chart
       ? {
           chart_type: chart.chart_type,
           computation_type: chart.computation_type as 'raw' | 'aggregated',
@@ -200,16 +216,58 @@ export function ChartElementView({
         }
       : null;
 
+  // For table charts, fetch data with public API support
+  const tableApiUrl =
+    chartDataPayload && isTableChart
+      ? isPublicMode && publicToken
+        ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview`
+        : `/api/charts/chart-data-preview/`
+      : null;
+
+  const tableFetcher =
+    chartDataPayload && isTableChart
+      ? isPublicMode
+        ? async (url: string) => {
+            const enrichedPayload = {
+              ...chartDataPayload,
+              offset: 0,
+              limit: 50,
+            };
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(enrichedPayload),
+              }
+            );
+            if (!response.ok) throw new Error('Failed to fetch table data');
+            return response.json();
+          }
+        : ([url, data]: [string, any]) => {
+            const enrichedPayload = { ...data, offset: 0, limit: 50 };
+            return apiPost(url, enrichedPayload);
+          }
+      : null;
+
   const {
     data: tableData,
     error: tableError,
     isLoading: tableLoading,
-  } = useChartDataPreview(chartDataPayload, 1, 50);
+  } = useSWR(
+    tableApiUrl && chartDataPayload ? [tableApiUrl, chartDataPayload] : null,
+    tableFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0,
+    }
+  );
 
   // Get the actual error message
   const errorMessage =
     metadataError?.message ||
-    (chart?.chart_type === 'table' ? tableError?.message : isError?.message) ||
+    (isTableChart ? tableError?.message : isError?.message) ||
     'Failed to load chart';
 
   // Initialize and update chart
@@ -249,7 +307,11 @@ export function ChartElementView({
 
     // Handle map charts - register GeoJSON data if available
     let baseConfig = chartData.echarts_config;
-    if (chartMetadata?.chart_type === 'map' && chartData?.data?.geojson) {
+    const isMapChart =
+      chartMetadata?.chart_type === 'map' ||
+      (chartData?.data?.geojson && baseConfig?.series?.some((s: any) => s.type === 'map'));
+
+    if (isMapChart && chartData?.data?.geojson) {
       const mapName = `map_${chartId}_${Date.now()}`;
       echarts.registerMap(mapName, chartData.data.geojson);
 
@@ -321,6 +383,7 @@ export function ChartElementView({
     try {
       // Use notMerge: true on first render after filter change, false otherwise
       const notMerge = filtersChanged || !chartInstance.current.getOption();
+
       chartInstance.current.setOption(styledConfig, notMerge);
 
       // Ensure the chart is properly sized after setting options
@@ -347,6 +410,20 @@ export function ChartElementView({
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
     };
+  }, [chartData]);
+
+  // Separate effect to handle DOM mounting timing issues
+  useEffect(() => {
+    if (chartData?.echarts_config && !chartRef.current) {
+      // Retry after a short delay if DOM element isn't ready yet
+      const timeout = setTimeout(() => {
+        if (chartRef.current) {
+          // Trigger the main useEffect by updating a dependency
+          setIsFullscreen((prev) => prev); // This will cause a re-render without changing state
+        }
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
   }, [chartData]);
 
   // Re-fetch data when filters change
@@ -394,7 +471,7 @@ export function ChartElementView({
     }
   };
 
-  if (isLoading || chartLoading || (chart?.chart_type === 'table' && tableLoading)) {
+  if (isLoading || (!isPublicMode && chartLoading) || (isTableChart && tableLoading)) {
     return (
       <div className={cn('h-full flex items-center justify-center', className)}>
         <div className="w-full h-full min-h-[200px] p-4">
@@ -404,12 +481,7 @@ export function ChartElementView({
     );
   }
 
-  if (
-    isError ||
-    chartError ||
-    (chart?.chart_type === 'table' && tableError) ||
-    (chart?.chart_type !== 'table' && !chartData)
-  ) {
+  if (isError || chartError || (isTableChart && tableError) || (!isTableChart && !chartData)) {
     return (
       <div className={cn('h-full flex items-center justify-center p-4', className)}>
         <div className="text-center">
@@ -479,7 +551,7 @@ export function ChartElementView({
       </div>
 
       {/* Chart container */}
-      {chart?.chart_type === 'table' ? (
+      {isTableChart ? (
         <div className="w-full flex-1 min-h-[200px] p-2">
           <DataPreview
             data={Array.isArray(tableData?.data) ? tableData.data : []}

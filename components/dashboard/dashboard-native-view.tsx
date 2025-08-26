@@ -260,9 +260,9 @@ export function DashboardNativeView({
 
   const { toast } = useToast();
 
-  // Get current user info for permission checks
+  // Get current user info for permission checks (skip in public mode)
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const currentUser = getCurrentOrgUser();
+  const currentUser = isPublicMode ? null : getCurrentOrgUser();
 
   // Fetch dashboard data (skip API call if we have pre-fetched data for public mode)
   const {
@@ -279,15 +279,15 @@ export function DashboardNativeView({
   const isLoading = isPublicMode && dashboardData ? false : apiIsLoading;
   const isError = isPublicMode && dashboardData ? false : apiIsError;
 
-  // Check if user can edit (creator or admin)
+  // Check if user can edit (creator or admin) - disabled in public mode
   const canEdit = useMemo(() => {
-    if (!dashboard || !currentUser) return false;
+    if (isPublicMode || !dashboard || !currentUser) return false;
     return (
       dashboard.created_by === currentUser.email ||
       currentUser.new_role_slug === 'admin' ||
       currentUser.new_role_slug === 'super-admin'
     );
-  }, [dashboard, currentUser]);
+  }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked
   const isLocked = dashboard?.is_locked || false;
@@ -581,6 +581,8 @@ export function DashboardNativeView({
               isEditMode={false}
               value={selectedFilters[normalizedFilter.id]}
               onChange={handleFilterChange}
+              isPublicMode={isPublicMode}
+              publicToken={publicToken}
             />
           </div>
         );

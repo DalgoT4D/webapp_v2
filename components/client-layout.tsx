@@ -19,6 +19,16 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname.startsWith('/public/dashboard/') ||
     pathname.startsWith('/share/dashboard/');
 
+  // Always bypass auth for public dashboard routes
+  if (pathname.startsWith('/share/dashboard/') || pathname.startsWith('/public/dashboard/')) {
+    return (
+      <>
+        {children}
+        <Toaster richColors position="top-right" />
+      </>
+    );
+  }
+
   if (isPublicRoute) {
     // Public routes (login, signup, etc.) - no auth guard or main layout
     return (

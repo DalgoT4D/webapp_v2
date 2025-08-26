@@ -96,6 +96,16 @@ function getHeaders() {
 
 function handleAuthFailure() {
   if (typeof window !== 'undefined') {
+    // Don't redirect if we're on a public dashboard page
+    const currentPath = window.location.pathname;
+    if (
+      currentPath.startsWith('/share/dashboard/') ||
+      currentPath.startsWith('/public/dashboard/')
+    ) {
+      console.log('[handleAuthFailure] Ignoring auth failure on public dashboard');
+      return;
+    }
+
     // Clear all auth-related data
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
@@ -114,6 +124,7 @@ function handleAuthFailure() {
 
 async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+
   const headers: HeadersInit = {
     ...(options.headers || {}),
     ...getHeaders(),
