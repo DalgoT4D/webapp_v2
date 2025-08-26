@@ -21,6 +21,7 @@ import {
   LineChart,
   Hash,
   MapPin,
+  Table,
   Database,
   Search,
   ChevronDown,
@@ -70,6 +71,14 @@ const chartTypes = [
     icon: MapPin,
     color: 'text-red-600',
     bgColor: 'bg-red-50',
+  },
+  {
+    id: 'table',
+    name: 'Table',
+    description: 'Display data in rows and columns',
+    icon: Table,
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
   },
 ];
 

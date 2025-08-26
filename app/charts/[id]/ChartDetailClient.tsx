@@ -1,22 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   useChart,
   useChartData,
+  useChartDataPreview,
   useGeoJSONData,
   useMapDataOverlay,
   useChildRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
+import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Download, Edit } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import type { ChartDataPayload } from '@/types/charts';
+import * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
   chartId: number;
@@ -72,6 +76,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           aggregate_col: chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
         }),
         customizations: chart.extra_config?.customizations || {},
+        // Include metrics for multiple metrics support
+        metrics: chart.extra_config?.metrics,
+        extra_config: {
+          filters: chart.extra_config?.filters,
+          pagination: chart.extra_config?.pagination,
+          sort: chart.extra_config?.sort,
+        },
       }
     : null;
 
@@ -80,7 +91,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     data: chartData,
     error: dataError,
     isLoading: dataLoading,
-  } = useChartData(chart?.chart_type !== 'map' ? chartDataPayload : null);
+  } = useChartData(
+    chart?.chart_type !== 'map' && chart?.chart_type !== 'table' ? chartDataPayload : null
+  );
+
+  // For table charts, use data preview API
+  const {
+    data: tableData,
+    error: tableError,
+    isLoading: tableLoading,
+  } = useChartDataPreview(chart?.chart_type === 'table' ? chartDataPayload : null, 1, 50);
 
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
@@ -138,7 +158,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           geographic_column: activeGeographicColumn,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
           aggregate_function: chart.extra_config.aggregate_function || 'sum',
-          filters: filters,
+          filters: filters, // Drill-down filters
+          chart_filters: chart.extra_config.filters || [], // Chart-level filters
         }
       : null;
 
@@ -148,10 +169,17 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     isLoading: mapDataLoading,
   } = useMapDataOverlay(mapDataOverlayPayload);
 
-  const handleExport = () => {
-    // TODO: Implement chart export functionality
-    toast.info('Export functionality coming soon');
-  };
+  // Chart refs for export
+  const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
+  const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
+  const chartContentRef = useRef<HTMLDivElement>(null);
+
+  // Update chart element ref when content is rendered
+  useEffect(() => {
+    if (chartContentRef.current) {
+      setChartElement(chartContentRef.current);
+    }
+  }, [chart, chartData, mapDataOverlay]);
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -259,21 +287,22 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               Edit Chart
             </Button>
           </Link>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <ChartExportDropdown
+            chartTitle={chart.title}
+            chartElement={chartElement}
+            chartInstance={chartInstance}
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart Preview - 2/3 width */}
-        <div className="lg:col-span-2">
+      <div>
+        {/* Chart Preview - Full width */}
+        <div>
           <Card className="h-[600px]">
             <CardHeader>
               <CardTitle>Chart Preview</CardTitle>
             </CardHeader>
-            <CardContent className="h-[calc(100%-5rem)]">
+            <CardContent className="h-[calc(100%-5rem)]" ref={chartContentRef}>
               {chart?.chart_type === 'map' ? (
                 <MapPreview
                   geojsonData={geojsonData?.geojson_data}
@@ -289,66 +318,22 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   onDrillUp={handleDrillUp}
                   onDrillHome={handleDrillHome}
                 />
+              ) : chart?.chart_type === 'table' ? (
+                <DataPreview
+                  data={Array.isArray(tableData?.data) ? tableData.data : []}
+                  columns={tableData?.columns || []}
+                  columnTypes={tableData?.column_types || {}}
+                  isLoading={tableLoading}
+                  error={tableError}
+                />
               ) : (
                 <ChartPreview
                   config={chartData?.echarts_config}
                   isLoading={dataLoading}
                   error={dataError}
+                  onChartReady={setChartInstance}
                 />
               )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Settings - 1/3 width */}
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-1">Title</h3>
-                  <p className="text-sm">{chart.title}</p>
-                </div>
-
-                {chart.description && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground mb-1">
-                      Description
-                    </h3>
-                    <p className="text-sm">{chart.description}</p>
-                  </div>
-                )}
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="capitalize">{chart.chart_type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Data:</span>
-                    <span className="capitalize">{chart.computation_type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Created:</span>
-                    <span>{new Date(chart.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Updated:</span>
-                    <span>{new Date(chart.updated_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Schema:</span>
-                    <span>{chart.schema_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Table:</span>
-                    <span>{chart.table_name}</span>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

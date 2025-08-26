@@ -4,15 +4,27 @@ import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TableChart } from './TableChart';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
   isLoading?: boolean;
   error?: any;
   onChartReady?: (chart: echarts.ECharts) => void;
+  chartType?: string;
+  tableData?: Record<string, any>[];
+  onTableSort?: (column: string, direction: 'asc' | 'desc') => void;
 }
 
-export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPreviewProps) {
+export function ChartPreview({
+  config,
+  isLoading,
+  error,
+  onChartReady,
+  chartType,
+  tableData,
+  onTableSort,
+}: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -91,7 +103,7 @@ export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPr
     );
   }
 
-  if (!config) {
+  if (!config && chartType !== 'table') {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -103,5 +115,11 @@ export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPr
     );
   }
 
+  // Render table chart
+  if (chartType === 'table') {
+    return <TableChart data={tableData} config={config} onSort={onTableSort} />;
+  }
+
+  // Render ECharts-based charts
   return <div ref={chartRef} className="w-full h-full" />;
 }
