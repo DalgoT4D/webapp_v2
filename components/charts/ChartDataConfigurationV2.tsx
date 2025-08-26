@@ -14,8 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { BarChart3, Table } from 'lucide-react';
-import { useSchemas, useTables, useColumns } from '@/hooks/api/useChart';
+import { useColumns } from '@/hooks/api/useChart';
 import { ChartCustomizations } from './ChartCustomizations';
+import { DatasetSelector } from './DatasetSelector';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 interface ChartDataConfigurationProps {
@@ -38,8 +39,6 @@ export function ChartDataConfigurationV2({
   onChange,
   disabled,
 }: ChartDataConfigurationProps) {
-  const { data: schemas } = useSchemas();
-  const { data: tables } = useTables(formData.schema_name || null);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
@@ -57,21 +56,9 @@ export function ChartDataConfigurationV2({
 
   const allColumns = normalizedColumns;
 
-  const handleSchemaChange = (schema_name: string) => {
-    onChange({
-      schema_name,
-      table_name: undefined,
-      x_axis_column: undefined,
-      y_axis_column: undefined,
-      dimension_column: undefined,
-      aggregate_column: undefined,
-      aggregate_function: undefined,
-      extra_dimension_column: undefined,
-    });
-  };
-
-  const handleTableChange = (table_name: string) => {
+  const handleDatasetChange = (schema_name: string, table_name: string) => {
     const updates: any = {
+      schema_name,
       table_name,
       x_axis_column: undefined,
       y_axis_column: undefined,
@@ -135,50 +122,13 @@ export function ChartDataConfigurationV2({
           </div>
         </div>
 
-        {/* Schema Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="schema">Schema</Label>
-          <Select
-            value={formData.schema_name}
-            onValueChange={handleSchemaChange}
-            disabled={disabled}
-          >
-            <SelectTrigger id="schema">
-              <SelectValue placeholder="Select a schema" />
-            </SelectTrigger>
-            <SelectContent>
-              {schemas?.map((schema: string) => (
-                <SelectItem key={schema} value={schema}>
-                  {schema}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Table Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="table">Table</Label>
-          <Select
-            value={formData.table_name}
-            onValueChange={handleTableChange}
-            disabled={disabled || !formData.schema_name}
-          >
-            <SelectTrigger id="table">
-              <SelectValue placeholder="Select a table" />
-            </SelectTrigger>
-            <SelectContent>
-              {tables?.map((table: any) => {
-                const tableName = typeof table === 'string' ? table : table.table_name;
-                return (
-                  <SelectItem key={tableName} value={tableName}>
-                    {tableName}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Dataset Selection */}
+        <DatasetSelector
+          schema_name={formData.schema_name}
+          table_name={formData.table_name}
+          onDatasetChange={handleDatasetChange}
+          disabled={disabled}
+        />
 
         {/* Data Type Selection - Hide for number charts as they're always aggregated */}
         {formData.table_name && formData.chart_type !== 'number' && (
