@@ -29,6 +29,7 @@ import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,6 +111,9 @@ export default function ChartsPage() {
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
   const { confirm, DialogComponent } = useConfirmationDialog();
+
+  // Get user permissions
+  const { hasPermission } = useUserPermissions();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -384,59 +388,74 @@ export default function ChartsPage() {
           </div>
         )}
 
-        {/* Action Menu */}
-        <div className={cn('absolute top-2 right-2 z-10', isSelectionMode && 'hidden')}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-              >
-                <MoreVertical className="w-4 h-4 text-gray-700" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
-                <CheckSquare className="w-4 h-4 mr-2" />
-                Select
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleDuplicateChart(chart.id, chart.title)}
-                className="cursor-pointer"
-                disabled={isDuplicating === chart.id}
-              >
-                {isDuplicating === chart.id ? (
-                  <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Copy className="w-4 h-4 mr-2" />
-                )}
-                Duplicate
-              </DropdownMenuItem>
-              <ChartExportDropdownForList
-                chartId={chart.id}
-                chartTitle={chart.title}
-                chartType={chart.chart_type}
-              />
-              <DropdownMenuSeparator />
-              <ChartDeleteDialog
-                chartId={chart.id}
-                chartTitle={chart.title}
-                onConfirm={() => handleDeleteChart(chart.id, chart.title)}
-                isDeleting={isDeleting === chart.id}
-              >
-                <DropdownMenuItem
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                  onSelect={(e) => e.preventDefault()}
+        {/* Action Menu - only render if user has any chart permissions */}
+        {(hasPermission('can_create_charts') ||
+          hasPermission('can_edit_charts') ||
+          hasPermission('can_delete_charts') ||
+          hasPermission('can_view_charts')) && (
+          <div className={cn('absolute top-2 right-2 z-10', isSelectionMode && 'hidden')}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
                 >
-                  <Trash className="w-4 h-4 mr-2" />
-                  Delete
+                  <MoreVertical className="w-4 h-4 text-gray-700" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
+                  <CheckSquare className="w-4 h-4 mr-2" />
+                  Select
                 </DropdownMenuItem>
-              </ChartDeleteDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                {hasPermission('can_create_charts') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDuplicateChart(chart.id, chart.title)}
+                      className="cursor-pointer"
+                      disabled={isDuplicating === chart.id}
+                    >
+                      {isDuplicating === chart.id ? (
+                        <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
+                      Duplicate
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {hasPermission('can_view_charts') && (
+                  <ChartExportDropdownForList
+                    chartId={chart.id}
+                    chartTitle={chart.title}
+                    chartType={chart.chart_type}
+                  />
+                )}
+                {hasPermission('can_delete_charts') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <ChartDeleteDialog
+                      chartId={chart.id}
+                      chartTitle={chart.title}
+                      onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                      isDeleting={isDeleting === chart.id}
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <Trash className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </ChartDeleteDialog>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
         {/* Clickable content area */}
         <Link href={isSelectionMode ? '#' : `/charts/${chart.id}`}>
@@ -580,39 +599,49 @@ export default function ChartsPage() {
                       <CheckSquare className="w-4 h-4 mr-2" />
                       Select
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDuplicateChart(chart.id, chart.title)}
-                      className="cursor-pointer"
-                      disabled={isDuplicating === chart.id}
-                    >
-                      {isDuplicating === chart.id ? (
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2" />
-                      )}
-                      Duplicate
-                    </DropdownMenuItem>
-                    <ChartExportDropdownForList
-                      chartId={chart.id}
-                      chartTitle={chart.title}
-                      chartType={chart.chart_type}
-                    />
-                    <DropdownMenuSeparator />
-                    <ChartDeleteDialog
-                      chartId={chart.id}
-                      chartTitle={chart.title}
-                      onConfirm={() => handleDeleteChart(chart.id, chart.title)}
-                      isDeleting={isDeleting === chart.id}
-                    >
-                      <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </ChartDeleteDialog>
+                    {hasPermission('can_create_charts') && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDuplicateChart(chart.id, chart.title)}
+                          className="cursor-pointer"
+                          disabled={isDuplicating === chart.id}
+                        >
+                          {isDuplicating === chart.id ? (
+                            <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Copy className="w-4 h-4 mr-2" />
+                          )}
+                          Duplicate
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {hasPermission('can_view_charts') && (
+                      <ChartExportDropdownForList
+                        chartId={chart.id}
+                        chartTitle={chart.title}
+                        chartType={chart.chart_type}
+                      />
+                    )}
+                    {hasPermission('can_delete_charts') && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <ChartDeleteDialog
+                          chartId={chart.id}
+                          chartTitle={chart.title}
+                          onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                          isDeleting={isDeleting === chart.id}
+                        >
+                          <DropdownMenuItem
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Trash className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </ChartDeleteDialog>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -646,12 +675,14 @@ export default function ChartsPage() {
             <p className="text-muted-foreground mt-1">Create and manage your data visualizations</p>
           </div>
 
-          <Link href="/charts/new">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Chart
-            </Button>
-          </Link>
+          {hasPermission('can_create_charts') && (
+            <Link href="/charts/new">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Chart
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Selection Bar */}
@@ -691,19 +722,21 @@ export default function ChartsPage() {
               </div>
             </div>
 
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleBulkDelete}
-              disabled={selectedCharts.size === 0 || isBulkDeleting}
-            >
-              {isBulkDeleting ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              ) : (
-                <Trash className="w-4 h-4 mr-2" />
-              )}
-              Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
-            </Button>
+            {hasPermission('can_delete_charts') && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={selectedCharts.size === 0 || isBulkDeleting}
+              >
+                {isBulkDeleting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                ) : (
+                  <Trash className="w-4 h-4 mr-2" />
+                )}
+                Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
+              </Button>
+            )}
           </div>
         )}
 
@@ -803,12 +836,14 @@ export default function ChartsPage() {
               <p className="text-muted-foreground">
                 {searchQuery || chartType !== 'all' ? 'No charts found' : 'No charts yet'}
               </p>
-              <Link href="/charts/new">
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create your first chart
-                </Button>
-              </Link>
+              {hasPermission('can_create_charts') && (
+                <Link href="/charts/new">
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create your first chart
+                  </Button>
+                </Link>
+              )}
             </div>
           )}
         </div>
