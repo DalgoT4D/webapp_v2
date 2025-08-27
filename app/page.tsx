@@ -147,13 +147,10 @@ export default function Home() {
     })
   );
 
-  // Auto-redirect to dashboards after 3 seconds (optional)
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     router.push('/dashboards')
-  //   }, 3000)
-  //   return () => clearTimeout(timer)
-  // }, [router])
+  // Auto-redirect to Impact at a Glance
+  useEffect(() => {
+    router.replace('/impact-at-a-glance');
+  }, [router]);
 
   // Chart data
   const barChartOption = {

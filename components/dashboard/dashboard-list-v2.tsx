@@ -52,6 +52,9 @@ import {
   Copy,
   Download,
   Share2,
+  Star,
+  StarOff,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -63,6 +66,7 @@ import { ShareModal } from './ShareModal';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { useLandingPage } from '@/hooks/api/useLandingPage';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -96,6 +100,14 @@ export function DashboardListV2() {
 
   // Get user permissions
   const { hasPermission } = useUserPermissions();
+
+  // Landing page functionality
+  const {
+    setPersonalLanding,
+    removePersonalLanding,
+    setOrgDefault,
+    isLoading: landingPageLoading,
+  } = useLandingPage();
 
   // Debounce search input
   const debouncedSearch = useMemo(
@@ -215,6 +227,28 @@ export function DashboardListV2() {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
 
+  // Landing page handlers
+  const handleSetPersonalLanding = useCallback(
+    async (dashboardId: number) => {
+      await setPersonalLanding(dashboardId);
+      mutate(); // Refresh the dashboard list to update indicators
+    },
+    [setPersonalLanding, mutate]
+  );
+
+  const handleRemovePersonalLanding = useCallback(async () => {
+    await removePersonalLanding();
+    mutate(); // Refresh the dashboard list to update indicators
+  }, [removePersonalLanding, mutate]);
+
+  const handleSetOrgDefault = useCallback(
+    async (dashboardId: number) => {
+      await setOrgDefault(dashboardId);
+      mutate(); // Refresh the dashboard list to update indicators
+    },
+    [setOrgDefault, mutate]
+  );
+
   // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
@@ -222,6 +256,11 @@ export function DashboardListV2() {
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
+
+    // Landing page status for this dashboard
+    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
+    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
+    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
 
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
@@ -419,15 +458,38 @@ export function DashboardListV2() {
                 </div>
               </div>
 
-              {dashboard.is_published ? (
-                <Badge variant="outline" className="mt-2 text-xs">
-                  Published
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="mt-2 text-xs">
-                  Draft
-                </Badge>
-              )}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {dashboard.is_published ? (
+                  <Badge variant="outline" className="text-xs">
+                    Published
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-xs">
+                    Draft
+                  </Badge>
+                )}
+
+                {/* Landing page badges */}
+                {isPersonalLanding && (
+                  <Badge
+                    variant="default"
+                    className="text-xs bg-blue-100 text-blue-800 border-blue-200"
+                  >
+                    <Star className="w-3 h-3 mr-1 fill-current" />
+                    My Landing Page
+                  </Badge>
+                )}
+
+                {isOrgDefault && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-green-50 text-green-700 border-green-200"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    Org Default
+                  </Badge>
+                )}
+              </div>
 
               {isLocked && dashboard.locked_by && (
                 <p
@@ -545,9 +607,57 @@ export function DashboardListV2() {
                           <Share2 className="w-4 h-4 mr-2" />
                           Share
                         </DropdownMenuItem>
+                      </>
+                    )}
+
+                    {/* Landing page controls */}
+                    {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
+                          Landing Page
+                        </div>
+
+                        {/* Personal landing page controls */}
+                        {hasPermission('can_view_dashboards') && (
+                          <>
+                            {isPersonalLanding ? (
+                              <DropdownMenuItem
+                                onClick={() => handleRemovePersonalLanding()}
+                                disabled={landingPageLoading}
+                                className="cursor-pointer"
+                              >
+                                <StarOff className="w-4 h-4 mr-2" />
+                                Remove as my landing page
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => handleSetPersonalLanding(dashboard.id)}
+                                disabled={landingPageLoading}
+                                className="cursor-pointer"
+                              >
+                                <Star className="w-4 h-4 mr-2" />
+                                Set as my landing page
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+
+                        {/* Org default controls for admins */}
+                        {canManageOrgDefault && (
+                          <DropdownMenuItem
+                            onClick={() => handleSetOrgDefault(dashboard.id)}
+                            disabled={landingPageLoading || isOrgDefault}
+                            className="cursor-pointer"
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                       </>
                     )}
+
                     {hasPermission('can_create_dashboards') && (
                       <DropdownMenuItem
                         onClick={() =>
