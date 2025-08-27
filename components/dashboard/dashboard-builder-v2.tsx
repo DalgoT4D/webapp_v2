@@ -1573,7 +1573,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
             {/* Canvas container with viewport-based responsiveness */}
             <div
-              className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive"
+              className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
               style={{
                 width: '100%',
                 maxWidth: `min(${currentScreenConfig.width}px, 100vw - 2rem)`,
