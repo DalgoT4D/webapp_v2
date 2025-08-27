@@ -415,14 +415,182 @@
 .dashboard-item {
   transition: box-shadow 0.2s ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
 }
 
 .dashboard-item:hover {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
+.dashboard-item > div {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Ensure charts resize smoothly */
 .dashboard-item canvas,
 .dashboard-item svg {
   transition: none !important; /* Prevent chart animations during resize */
+}
+
+/* Enhanced chart container responsiveness - viewport aware */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Ensure container scales with viewport changes */
+  contain: layout size style;
+}
+
+.chart-container canvas,
+.chart-container svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  min-height: 0;
+  min-width: 0;
+  object-fit: contain;
+  /* Force scaling when container changes */
+  transform-origin: top left;
+}
+
+/* Multi-directional resize handles styling */
+.dashboard-builder .react-grid-item > .react-resizable-handle {
+  position: absolute;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  background-position: center;
+}
+
+/* Individual resize handle positions and styling */
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: se-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-sw {
+  bottom: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: sw-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-ne {
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: ne-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-nw {
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nw-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-n {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 10px;
+  cursor: n-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 10px;
+  cursor: s-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 20px;
+  cursor: e-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-w {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 20px;
+  cursor: w-resize;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
+}
+
+
+/* Improve resize handle visibility during browser zoom */
+.dashboard-builder .react-grid-item > .react-resizable-handle {
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.dashboard-builder .react-grid-item:hover > .react-resizable-handle {
+  opacity: 1;
+}
+
+/* Ensure proper scaling for all chart content */
+.dashboard-item {
+  contain: layout size style;
+}
+
+
+/* Responsive dashboard canvas */
+.dashboard-canvas-responsive {
+  /* Use viewport-based sizing to naturally handle zoom */
+  box-sizing: border-box;
+}
+
+/* Ensure grid layout is responsive */
+.dashboard-builder .react-grid-layout {
+  width: 100% !important;
+  position: relative;
+}
+
+/* Make grid items truly responsive */
+.dashboard-builder .react-grid-item {
+  /* Constrain items to never overflow their containers */
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Smooth transitions for resize operations */
+.dashboard-builder .react-grid-item.resizing .chart-container {
+  pointer-events: none;
+}
+
+.dashboard-builder .react-grid-item.resizing .chart-container canvas,
+.dashboard-builder .react-grid-item.resizing .chart-container svg {
+  transition: none !important;
 }
