@@ -98,13 +98,6 @@ const SCREEN_SIZES = {
     cols: 2,
     breakpoint: 'xxs',
   },
-  a4: {
-    name: 'A4 Print',
-    width: 794,
-    height: 650,
-    cols: 12,
-    breakpoint: 'lg',
-  },
 };
 
 const COLS = {
@@ -741,12 +734,6 @@ export function DashboardNativeView({
                     Mobile (375px)
                   </div>
                 </SelectItem>
-                <SelectItem value="a4">
-                  <div className="flex items-center">
-                    <FileText className="w-4 h-4 mr-2" />
-                    A4 Print (794px)
-                  </div>
-                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -915,12 +902,6 @@ export function DashboardNativeView({
                       Mobile
                     </div>
                   </SelectItem>
-                  <SelectItem value="a4">
-                    <div className="flex items-center">
-                      <FileText className="w-4 h-4 mr-2" />
-                      A4 Print
-                    </div>
-                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1067,8 +1048,8 @@ export function DashboardNativeView({
                 isResizable={false}
                 compactType={null}
                 preventCollision={false}
-                margin={effectiveScreenSize === 'a4' ? [1, 1] : [4, 4]}
-                containerPadding={effectiveScreenSize === 'a4' ? [1, 1] : [4, 4]}
+                margin={[4, 4]}
+                containerPadding={[4, 4]}
                 autoSize={true}
                 verticalCompact={false}
                 onBreakpointChange={(newBreakpoint: string) => {
@@ -1101,8 +1082,8 @@ export function DashboardNativeView({
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
-                margin={effectiveScreenSize === 'a4' ? [1, 1] : [4, 4]}
-                containerPadding={effectiveScreenSize === 'a4' ? [1, 1] : [4, 4]}
+                margin={[4, 4]}
+                containerPadding={[4, 4]}
                 autoSize={true}
                 verticalCompact={false}
               >
@@ -1134,26 +1115,6 @@ export function DashboardNativeView({
           width: 100% !important;
           height: 100%;
         }
-
-        /* A4 Specific Fixes */
-        ${effectiveScreenSize === 'a4'
-          ? `
-          .dashboard-canvas .react-grid-layout {
-            width: 100% !important;
-          }
-          
-          .dashboard-canvas .react-grid-item {
-            width: 100% !important;
-            box-sizing: border-box !important;
-          }
-          
-          .dashboard-canvas {
-            width: 100% !important;
-            max-width: ${effectiveScreenConfig.width}px !important;
-            margin: 0 auto !important;
-          }
-        `
-          : ''}
 
         .dashboard-canvas .dashboard-item {
           transition: transform 0.2s ease;
