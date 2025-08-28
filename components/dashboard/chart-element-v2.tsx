@@ -319,13 +319,31 @@ export function ChartElementV2({
             // Debounce rapid resize events
             resizeTimeoutId = setTimeout(() => {
               if (chartInstance.current) {
-                // Force explicit resize with dimensions for all chart types
+                // Constrain dimensions to ensure chart fits within bounds
+                const maxWidth = Math.floor(width);
+                const maxHeight = Math.floor(height);
+
+                // Force explicit resize with constrained dimensions
                 chartInstance.current.resize({
-                  width: Math.floor(width),
-                  height: Math.floor(height),
+                  width: maxWidth,
+                  height: maxHeight,
                 });
+
+                // Force chart to redraw and refit content
+                const currentOption = chartInstance.current.getOption();
+                chartInstance.current.setOption(currentOption, {
+                  notMerge: false,
+                  lazyUpdate: false,
+                });
+
+                // Additional resize call to ensure proper fitting
+                setTimeout(() => {
+                  if (chartInstance.current) {
+                    chartInstance.current.resize();
+                  }
+                }, 50);
               }
-            }, 150);
+            }, 50); // Even faster response for browser zoom
           }
         }
       });
@@ -383,8 +401,8 @@ export function ChartElementV2({
           </button>
         </div>
       )}
-      <Card className="h-full flex flex-col">
-        <CardContent className="p-4 flex-1 flex flex-col">
+      <Card className="h-full w-full flex flex-col">
+        <CardContent className="p-4 flex-1 flex flex-col min-h-0">
           {/* Chart Title Editor */}
           <ChartTitleEditor
             chartData={chart}
@@ -395,7 +413,7 @@ export function ChartElementV2({
           />
 
           {/* Chart Content */}
-          <div className="flex-1 min-h-[200px]">
+          <div className="flex-1 w-full h-full">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -420,7 +438,7 @@ export function ChartElementV2({
                 error={tableError}
               />
             ) : (
-              <div ref={chartRef} className="w-full h-full" />
+              <div ref={chartRef} className="w-full h-full chart-container" />
             )}
           </div>
         </CardContent>

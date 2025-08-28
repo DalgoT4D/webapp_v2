@@ -360,6 +360,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [containerWidth, setContainerWidth] = useState(
       SCREEN_SIZES[targetScreenSize]?.width || 1200
     );
+    const [actualContainerWidth, setActualContainerWidth] = useState(
+      SCREEN_SIZES[targetScreenSize]?.width || 1200
+    );
 
     // Filter layout state
     const [filterLayout, setFilterLayout] = useState<'vertical' | 'horizontal'>(
@@ -379,7 +382,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     useEffect(() => {
       const newWidth = SCREEN_SIZES[targetScreenSize].width;
       setContainerWidth(newWidth);
+      setActualContainerWidth(newWidth);
     }, [targetScreenSize]);
+
+    // Observe canvas container for responsive width
+    useEffect(() => {
+      if (!canvasRef.current) return;
+
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width } = entry.contentRect;
+          // Use the smaller of the target screen size or actual container width
+          const responsiveWidth = Math.min(containerWidth, width - 32); // Account for padding
+          setActualContainerWidth(responsiveWidth);
+        }
+      });
+
+      resizeObserver.observe(canvasRef.current);
+
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }, [containerWidth]);
 
     // Save target screen size changes (separate from auto-save to avoid conflicts)
     useEffect(() => {
@@ -1545,15 +1569,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           )}
 
-          {/* Dashboard Canvas - Scrollable Area */}
+          {/* Dashboard Canvas - Responsive Container */}
           <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
-            {/* Canvas container with exact screen dimensions */}
+            {/* Canvas container with viewport-based responsiveness */}
             <div
-              className="mx-auto bg-white shadow-lg rounded-lg border"
+              className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
               style={{
-                width: currentScreenConfig.width,
+                width: '100%',
+                maxWidth: `min(${currentScreenConfig.width}px, 100vw - 2rem)`,
                 minHeight: Math.max(currentScreenConfig.height, 400),
-                maxWidth: '100%',
                 position: 'relative',
               }}
             >
@@ -1568,7 +1592,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 layout={state.layout}
                 cols={currentScreenConfig.cols}
                 rowHeight={30}
-                width={containerWidth}
+                width={actualContainerWidth} // Responsive width
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onResizeStart={handleResizeStart}
                 onResizeStop={handleResizeStop}
@@ -1580,6 +1604,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 containerPadding={[4, 4]}
                 autoSize={true}
                 verticalCompact={false}
+                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
                   <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
@@ -1592,7 +1617,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     >
                       <X className="w-4 h-4 text-gray-400" />
                     </button>
-                    <div className="p-4 h-full">{renderComponent(item.i)}</div>
+                    <div className="p-4 flex-1 flex flex-col min-h-0">
+                      {renderComponent(item.i)}
+                    </div>
                   </div>
                 ))}
               </GridLayout>
