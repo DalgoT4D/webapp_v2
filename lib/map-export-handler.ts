@@ -63,7 +63,13 @@ export class MapExportHandler {
             table_name: chart.table_name,
             geographic_column: activeGeographicColumn,
             value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-            aggregate_function: chart.extra_config.aggregate_function || 'sum',
+            metrics: [
+              {
+                column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
+                aggregation: chart.extra_config.aggregate_function || 'sum',
+                alias: 'value',
+              },
+            ],
             filters: {}, // No drill-down filters for export
             chart_filters: chart.extra_config.filters || [],
           };

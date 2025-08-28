@@ -155,7 +155,7 @@ export function MultiSelectLayerCard({
       table_name: formData.table_name,
       geographic_column: layer.geographic_column,
       value_column: formData.aggregate_column,
-      aggregate_func: formData.aggregate_func,
+      aggregate_function: formData.aggregate_function || formData.aggregate_func,
     };
 
     // Pass the payloads to parent for preview

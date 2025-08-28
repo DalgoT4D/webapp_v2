@@ -307,9 +307,36 @@ export function useMapDataOverlay(
     value_column: string;
     aggregate_function: string;
     filters?: Record<string, any>;
+    chart_filters?: any[];
   } | null
 ) {
-  return useSWR(payload ? ['/api/charts/map-data-overlay/', payload] : null, ([url, data]) =>
-    apiPost(url, data)
+  // Transform payload to match backend requirements
+  const transformedPayload =
+    payload &&
+    payload.schema_name &&
+    payload.table_name &&
+    payload.geographic_column &&
+    payload.value_column &&
+    payload.aggregate_function
+      ? {
+          schema_name: payload.schema_name,
+          table_name: payload.table_name,
+          geographic_column: payload.geographic_column,
+          value_column: payload.value_column,
+          metrics: [
+            {
+              column: payload.value_column,
+              aggregation: payload.aggregate_function,
+              alias: 'value',
+            },
+          ],
+          filters: payload.filters || {},
+          chart_filters: payload.chart_filters || [],
+        }
+      : null;
+
+  return useSWR(
+    transformedPayload ? ['/api/charts/map-data-overlay/', transformedPayload] : null,
+    ([url, data]) => apiPost(url, data)
   );
 }

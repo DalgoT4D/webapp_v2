@@ -43,6 +43,9 @@ interface MapPreviewProps {
   drillDownPath?: DrillDownLevel[];
   onDrillUp?: (level: number) => void;
   onDrillHome?: () => void;
+
+  // UI options
+  showBreadcrumbs?: boolean;
 }
 
 export function MapPreview({
@@ -67,6 +70,9 @@ export function MapPreview({
   drillDownPath = [],
   onDrillUp,
   onDrillHome,
+
+  // UI options
+  showBreadcrumbs = true,
 }: MapPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -319,7 +325,7 @@ export function MapPreview({
 
   return (
     <div className="w-full h-full relative">
-      <BreadcrumbNavigation />
+      {showBreadcrumbs && <BreadcrumbNavigation />}
       <div
         ref={chartRef}
         className="w-full h-full min-h-[500px]"
