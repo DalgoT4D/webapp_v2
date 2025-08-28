@@ -161,13 +161,6 @@ const SCREEN_SIZES = {
     cols: 2,
     breakpoint: 'xxs',
   },
-  a4: {
-    name: 'A4 Print',
-    width: 794,
-    height: 1123,
-    cols: 8,
-    breakpoint: 'md',
-  },
 };
 
 type ScreenSizeKey = keyof typeof SCREEN_SIZES;
@@ -1238,9 +1231,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             <option value="mobile">
                               {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
                             </option>
-                            <option value="a4">
-                              {SCREEN_SIZES.a4.name} ({SCREEN_SIZES.a4.width}px)
-                            </option>
                           </select>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
@@ -1498,9 +1488,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             </option>
                             <option value="mobile">
                               {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
-                            </option>
-                            <option value="a4">
-                              {SCREEN_SIZES.a4.name} ({SCREEN_SIZES.a4.width}px)
                             </option>
                           </select>
                         </div>
