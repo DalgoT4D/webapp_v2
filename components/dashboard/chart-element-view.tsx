@@ -15,6 +15,11 @@ import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { resolveChartTitle, type ChartTitleConfig } from '@/lib/chart-title-utils';
+import {
+  resolveDashboardFilters,
+  formatAsChartFilters,
+  type DashboardFilterConfig,
+} from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import {
@@ -63,6 +68,15 @@ echarts.use([
 interface ChartElementViewProps {
   chartId: number;
   dashboardFilters?: Record<string, any>;
+  dashboardFilterConfigs?: Array<{
+    id: string;
+    name: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    filter_type: 'value' | 'numerical' | 'datetime';
+    settings?: any;
+  }>; // Dashboard filter configurations for resolution
   viewMode?: boolean;
   className?: string;
   isPublicMode?: boolean;
@@ -85,6 +99,7 @@ interface DrillDownLevel {
 export function ChartElementView({
   chartId,
   dashboardFilters = {},
+  dashboardFilterConfigs = [],
   viewMode = true,
   className,
   isPublicMode = false,
@@ -103,6 +118,14 @@ export function ChartElementView({
     isError: chartError,
     error: chartFetchError,
   } = useChart(isPublicMode ? null : chartId);
+
+  // Resolve dashboard filters to complete column information for maps and tables
+  const resolvedDashboardFilters = useMemo(() => {
+    if (Object.keys(dashboardFilters).length === 0 || dashboardFilterConfigs.length === 0) {
+      return [];
+    }
+    return resolveDashboardFilters(dashboardFilters, dashboardFilterConfigs);
+  }, [dashboardFilters, dashboardFilterConfigs]);
 
   // Create a unique identifier for when filters change to trigger instance recreation
   const filterHash = useMemo(() => JSON.stringify(dashboardFilters), [dashboardFilters]);
@@ -218,18 +241,14 @@ export function ChartElementView({
           extra_dimension: chart.extra_config?.extra_dimension_column,
           metrics: chart.extra_config?.metrics,
           extra_config: {
-            filters: chart.extra_config?.filters,
+            filters: [
+              ...(chart.extra_config?.filters || []),
+              ...formatAsChartFilters(resolvedDashboardFilters),
+            ],
             pagination: chart.extra_config?.pagination,
             sort: chart.extra_config?.sort,
           },
-          // Include dashboard filters in the payload
-          dashboard_filters:
-            Object.keys(dashboardFilters).length > 0
-              ? Object.entries(dashboardFilters).map(([filterId, value]) => ({
-                  filter_id: filterId,
-                  value: value,
-                }))
-              : undefined,
+          // Remove dashboard_filters since we're using filters in extra_config now
         }
       : null;
 
@@ -275,8 +294,8 @@ export function ChartElementView({
     });
   }
 
-  const mapDataOverlayPayload =
-    chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
+  const mapDataOverlayPayload = useMemo(() => {
+    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
@@ -284,9 +303,31 @@ export function ChartElementView({
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
           aggregate_function: chart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
-          chart_filters: chart.extra_config.filters || [], // Chart-level filters
+          chart_filters: [
+            ...(chart.extra_config.filters || []), // Chart-level filters
+            ...formatAsChartFilters(resolvedDashboardFilters), // Resolved dashboard filters
+          ],
+          // Remove the old dashboard_filters format since we're using chart_filters now
+          // Include full extra_config for pagination, sorting, and other features
+          extra_config: {
+            filters: [
+              ...(chart.extra_config.filters || []),
+              ...formatAsChartFilters(resolvedDashboardFilters),
+            ],
+            pagination: chart.extra_config.pagination,
+            sort: chart.extra_config.sort,
+          },
         }
       : null;
+  }, [
+    chart?.chart_type,
+    chart?.schema_name,
+    chart?.table_name,
+    chart?.extra_config,
+    activeGeographicColumn,
+    filters,
+    resolvedDashboardFilters, // Updated: Use resolved filters instead of raw dashboardFilters
+  ]);
 
   // Fetch GeoJSON data based on active geojson ID
 
@@ -301,6 +342,7 @@ export function ChartElementView({
     data: mapDataOverlay,
     error: mapError,
     isLoading: mapLoading,
+    mutate: mutateMapData,
   } = useMapDataOverlay(mapDataOverlayPayload);
 
   // Get the actual error message
@@ -562,6 +604,13 @@ export function ChartElementView({
   useEffect(() => {
     mutate();
   }, [dashboardFilters, mutate, chartId]);
+
+  // Re-fetch map data when filters change (same behavior as regular charts)
+  useEffect(() => {
+    if (isMapChart && mutateMapData) {
+      mutateMapData();
+    }
+  }, [dashboardFilters, mutateMapData, chartId, isMapChart]);
 
   // Cleanup on unmount and when chartId changes
   useEffect(() => {

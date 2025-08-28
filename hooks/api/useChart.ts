@@ -308,6 +308,12 @@ export function useMapDataOverlay(
     aggregate_function: string;
     filters?: Record<string, any>;
     chart_filters?: any[];
+    dashboard_filters?: Array<{ filter_id: string; value: any }>;
+    extra_config?: {
+      filters?: any[];
+      pagination?: any;
+      sort?: any[];
+    };
   } | null
 ) {
   // Transform payload to match backend requirements
@@ -332,11 +338,41 @@ export function useMapDataOverlay(
           ],
           filters: payload.filters || {},
           chart_filters: payload.chart_filters || [],
+          // Remove dashboard_filters since they're now included in chart_filters
+          extra_config: {
+            ...payload.extra_config,
+            filters: payload.chart_filters || payload.extra_config?.filters || [],
+          },
         }
       : null;
 
+  // Create a simple, stable key similar to regular charts for better filter change detection
+  // Use a hash-based approach like regular charts do with query parameters
+  const filterHash = transformedPayload
+    ? JSON.stringify({
+        chart_filters: transformedPayload.chart_filters || [],
+        filters: transformedPayload.filters || {},
+        extra_config: transformedPayload.extra_config || {},
+      })
+    : '';
+
+  const swrKey = transformedPayload
+    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
+    : null;
+
   return useSWR(
-    transformedPayload ? ['/api/charts/map-data-overlay/', transformedPayload] : null,
-    ([url, data]) => apiPost(url, data)
+    swrKey,
+    (url: string) => {
+      // Extract the payload from URL params for the API call
+      const urlParams = new URLSearchParams(url.split('?')[1]);
+      const payloadParam = urlParams.get('payload');
+      const payload = payloadParam ? JSON.parse(decodeURIComponent(payloadParam)) : null;
+      return apiPost('/api/charts/map-data-overlay/', payload);
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 2000, // Same 2s dedupe interval as regular charts
+    }
   );
 }

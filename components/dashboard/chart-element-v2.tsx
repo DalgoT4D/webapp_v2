@@ -154,8 +154,8 @@ export function ChartElementV2({
     });
   }
 
-  const mapDataOverlayPayload =
-    chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
+  const mapDataOverlayPayload = useMemo(() => {
+    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
@@ -164,8 +164,30 @@ export function ChartElementV2({
           aggregate_function: chart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
           chart_filters: chart.extra_config.filters || [], // Chart-level filters
+          dashboard_filters:
+            Object.keys(appliedFilters).length > 0
+              ? Object.entries(appliedFilters).map(([filterId, value]) => ({
+                  filter_id: filterId,
+                  value: value,
+                }))
+              : undefined,
+          // Include full extra_config for pagination, sorting, and other features
+          extra_config: {
+            filters: chart.extra_config.filters || [],
+            pagination: chart.extra_config.pagination,
+            sort: chart.extra_config.sort,
+          },
         }
       : null;
+  }, [
+    chart?.chart_type,
+    chart?.schema_name,
+    chart?.table_name,
+    chart?.extra_config,
+    activeGeographicColumn,
+    filters,
+    appliedFilters, // Critical: Include appliedFilters as dependency
+  ]);
 
   // Debug logging for map payload
   useEffect(() => {
@@ -187,6 +209,7 @@ export function ChartElementV2({
     data: mapDataOverlay,
     error: mapError,
     isLoading: mapLoading,
+    mutate: mutateMapData,
   } = useMapDataOverlay(mapDataOverlayPayload);
 
   // Debug logging for API URL generation
@@ -377,6 +400,13 @@ export function ChartElementV2({
       mutateChartData();
     }
   }, [appliedFilters, mutateChartData, chartId]);
+
+  // Force refetch for map data when filters change (same behavior as regular charts)
+  useEffect(() => {
+    if (isMapChart && Object.keys(appliedFilters).length > 0 && mutateMapData) {
+      mutateMapData();
+    }
+  }, [appliedFilters, mutateMapData, chartId, isMapChart]);
 
   // Debug logging
   useEffect(() => {
