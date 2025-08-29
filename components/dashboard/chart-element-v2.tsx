@@ -79,7 +79,11 @@ export function ChartElementV2({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Create a stable chart instance identifier to prevent state bleeding
+  const chartInstanceId = useRef(`chart-${chartId}-${Date.now()}`).current;
 
   const {
     data: chart,
@@ -177,6 +181,7 @@ export function ChartElementV2({
             pagination: chart.extra_config.pagination,
             sort: chart.extra_config.sort,
           },
+          chart_id: chartId, // Add chart ID for cache isolation
         }
       : null;
   }, [
@@ -187,6 +192,7 @@ export function ChartElementV2({
     activeGeographicColumn,
     filters,
     appliedFilters, // Critical: Include appliedFilters as dependency
+    chartId, // Add chartId as dependency for cache isolation
   ]);
 
   // Debug logging for map payload
@@ -319,6 +325,12 @@ export function ChartElementV2({
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
+    console.log(
+      `[${chartInstanceId}] Region clicked:`,
+      regionName,
+      'Current drill path:',
+      drillDownPath
+    );
     if (!chart?.extra_config?.layers || chart.chart_type !== 'map') return;
 
     const nextLevel = currentLevel + 1;
@@ -377,7 +389,9 @@ export function ChartElementV2({
       ],
     };
 
-    setDrillDownPath([...drillDownPath, newLevel]);
+    const newPath = [...drillDownPath, newLevel];
+    console.log(`[${chartInstanceId}] Drill down to:`, newPath);
+    setDrillDownPath(newPath);
   };
 
   // Handle drill up to a specific level

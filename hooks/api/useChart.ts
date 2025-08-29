@@ -314,6 +314,7 @@ export function useMapDataOverlay(
       pagination?: any;
       sort?: any[];
     };
+    chart_id?: number; // Add chart ID for cache isolation
   } | null
 ) {
   // Transform payload to match backend requirements
@@ -357,7 +358,7 @@ export function useMapDataOverlay(
     : '';
 
   const swrKey = transformedPayload
-    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
+    ? `/api/charts/map-data-overlay/?chart_id=${payload?.chart_id || 'unknown'}&payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
     : null;
 
   return useSWR(

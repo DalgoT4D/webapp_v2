@@ -84,13 +84,16 @@ export function MapPreview({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Create a unique map name per component instance to prevent ECharts global registration conflicts
+  const uniqueMapName = useRef(`customMap-${Date.now()}-${Math.random()}`).current;
+
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
     if (!chartRef.current) return;
 
     try {
       let chartConfig;
-      let mapName = 'customMap';
+      let mapName = uniqueMapName; // Use stable unique map name
 
       // Check if we have GeoJSON data to render
       if (geojsonData) {
@@ -190,14 +193,7 @@ export function MapPreview({
       chartInstance.current = echarts.init(chartRef.current);
       chartInstance.current.setOption(chartConfig);
 
-      // Add click event listener for drill-down
-      if (onRegionClick) {
-        chartInstance.current.on('click', (params: any) => {
-          if (params.componentType === 'geo' || params.componentType === 'series') {
-            onRegionClick(params.name, params.data);
-          }
-        });
-      }
+      // Click event listener will be added separately to avoid re-initialization
 
       if (onChartReady) {
         onChartReady(chartInstance.current);
@@ -205,12 +201,34 @@ export function MapPreview({
     } catch (err) {
       console.error('Error initializing map chart:', err);
     }
-  }, [geojsonData, mapData, title, valueColumn, config, onChartReady, onRegionClick]);
+  }, [geojsonData, mapData, title, valueColumn, config, onChartReady]);
 
   // Initialize chart when data changes
   useEffect(() => {
     initializeMapChart();
   }, [initializeMapChart]);
+
+  // Handle click event listener separately to prevent re-initialization during resize
+  useEffect(() => {
+    if (!chartInstance.current || !onRegionClick) return;
+
+    const handleClick = (params: any) => {
+      if (params.componentType === 'geo' || params.componentType === 'series') {
+        onRegionClick(params.name, params.data);
+      }
+    };
+
+    // Remove any existing click listeners
+    chartInstance.current.off('click');
+    // Add new click listener
+    chartInstance.current.on('click', handleClick);
+
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.off('click');
+      }
+    };
+  }, [onRegionClick]); // Only re-run when onRegionClick changes
 
   // Handle window resize with debouncing - separate from chart data changes
   useEffect(() => {
