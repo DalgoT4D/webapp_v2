@@ -249,11 +249,13 @@ export function DashboardNativeView({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [containerWidth, setContainerWidth] = useState(1200);
+  const [actualContainerWidth, setActualContainerWidth] = useState(1200);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
 
   // Ref for the dashboard container
+  const dashboardContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -320,6 +322,7 @@ export function DashboardNativeView({
   useEffect(() => {
     const effectiveConfig = SCREEN_SIZES[effectiveScreenSize];
     setContainerWidth(effectiveConfig.width);
+    setActualContainerWidth(effectiveConfig.width);
   }, [effectiveScreenSize]);
 
   // Update current screen size on resize
@@ -346,6 +349,26 @@ export function DashboardNativeView({
       window.removeEventListener('resize', debouncedResize);
     };
   }, []);
+
+  // Observe dashboard container for responsive width (same as edit page)
+  useEffect(() => {
+    if (!dashboardContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width } = entry.contentRect;
+        // Use full available container width - let charts fill all available space
+        const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
+        setActualContainerWidth(responsiveWidth);
+      }
+    });
+
+    resizeObserver.observe(dashboardContainerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [containerWidth]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
@@ -995,10 +1018,11 @@ export function DashboardNativeView({
           style={{ paddingBottom: '60px' }}
         >
           <div
+            ref={dashboardContainerRef}
             className="dashboard-canvas bg-white border border-gray-300 shadow-lg relative z-10"
             style={{
               width: '100%',
-              maxWidth: `${effectiveScreenConfig.width}px`,
+              maxWidth: `min(${effectiveScreenConfig.width}px, 100vw - 2rem)`,
               minHeight: effectiveScreenConfig.height,
               margin: '0 auto 40px auto',
               display: 'flex',
@@ -1074,7 +1098,7 @@ export function DashboardNativeView({
                 layout={dashboard.layout_config || []}
                 cols={effectiveScreenConfig.cols}
                 rowHeight={30}
-                width={effectiveScreenConfig.width}
+                width={actualContainerWidth}
                 style={{
                   width: '100% !important',
                 }}

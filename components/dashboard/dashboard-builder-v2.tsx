@@ -362,8 +362,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
     );
 
-    // Ref for the canvas container
+    // Ref for the canvas container (gray area)
     const canvasRef = useRef<HTMLDivElement>(null);
+    // Ref for the white dashboard container (actual boundary)
+    const dashboardContainerRef = useRef<HTMLDivElement>(null);
 
     // Get current screen size config
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
@@ -378,20 +380,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setActualContainerWidth(newWidth);
     }, [targetScreenSize]);
 
-    // Observe canvas container for responsive width
+    // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
-      if (!canvasRef.current) return;
+      if (!dashboardContainerRef.current) return;
 
       const resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const { width } = entry.contentRect;
-          // Use the smaller of the target screen size or actual container width
-          const responsiveWidth = Math.min(containerWidth, width - 32); // Account for padding
+          // Use full available WHITE container width - let charts fill all available space
+          const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
           setActualContainerWidth(responsiveWidth);
         }
       });
 
-      resizeObserver.observe(canvasRef.current);
+      resizeObserver.observe(dashboardContainerRef.current);
 
       return () => {
         resizeObserver.disconnect();
@@ -1560,6 +1562,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
             {/* Canvas container with viewport-based responsiveness */}
             <div
+              ref={dashboardContainerRef}
               className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
               style={{
                 width: '100%',
@@ -1568,18 +1571,31 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 position: 'relative',
               }}
             >
-              {/* Screen size indicator */}
+              {/* Screen size and grid info indicator */}
               <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
-                {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height}
-                )
+                <div>
+                  {currentScreenConfig.name} ({currentScreenConfig.width}×
+                  {currentScreenConfig.height})
+                </div>
+                <div>Configured cols: {currentScreenConfig.cols}</div>
+                <div>
+                  Grid width: {actualContainerWidth}px (should use {currentScreenConfig.cols} cols)
+                </div>
+                <div>
+                  Actual col width: {Math.floor(actualContainerWidth / currentScreenConfig.cols)}px
+                </div>
+                <div>
+                  Fixed col width:{' '}
+                  {Math.floor(currentScreenConfig.width / currentScreenConfig.cols)}px
+                </div>
               </div>
 
               <GridLayout
-                className="layout"
+                className="layout relative z-10"
                 layout={state.layout}
-                cols={currentScreenConfig.cols}
+                cols={currentScreenConfig.cols} // Always exactly 12 columns (or 6 for tablet, 2 for mobile)
                 rowHeight={30}
-                width={actualContainerWidth} // Responsive width
+                width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onResizeStart={handleResizeStart}
                 onResizeStop={handleResizeStop}
