@@ -88,6 +88,7 @@ export default function NewChartPage() {
   const [selectedSchema, setSelectedSchema] = useState<string>('');
   const [selectedChartType, setSelectedChartType] = useState<string>('');
   const [searchTable, setSearchTable] = useState<string>('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
   // Use the new hook that properly handles all schemas/tables
   const { data: allTables, isLoading: isLoadingTables, error } = useAllSchemaTables();
@@ -126,6 +127,7 @@ export default function NewChartPage() {
     setSelectedSchema(schema);
     setSelectedTable(table);
     setSearchTable(''); // Clear search after selection
+    setIsDropdownOpen(false); // Close dropdown after selection
   };
 
   const handleCancel = () => {
@@ -158,39 +160,47 @@ export default function NewChartPage() {
           </div>
 
           <div className="space-y-4">
-            {/* Table Selection with Integrated Search Dropdown */}
+            {/* Table Selection with Custom Search Dropdown */}
             <div>
               <label className="block text-sm font-medium mb-2">Table</label>
-              <Select
-                value={selectedTable ? `${selectedSchema}.${selectedTable}` : ''}
-                onValueChange={handleTableSelect}
-                disabled={isLoadingTables}
-              >
-                <SelectTrigger className="h-14 w-full max-w-lg">
-                  <div className="flex items-center gap-2 w-full">
-                    <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                    <SelectValue
-                      placeholder={
-                        isLoadingTables ? 'Loading tables...' : 'Search and select a table...'
+              <div className="relative max-w-lg">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
+                  <Input
+                    placeholder={
+                      isLoadingTables ? 'Loading tables...' : 'Search and select a table...'
+                    }
+                    value={
+                      selectedTable && selectedSchema
+                        ? `${selectedSchema}.${selectedTable}`
+                        : searchTable
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSearchTable(value);
+                      setIsDropdownOpen(true);
+                      // Clear selection when user starts typing
+                      if (selectedTable) {
+                        setSelectedTable('');
+                        setSelectedSchema('');
                       }
-                      className="text-base"
-                    />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="max-h-80 w-full min-w-[500px]">
-                  <div className="sticky top-0 bg-background border-b p-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input
-                        placeholder="Type to search tables..."
-                        value={searchTable}
-                        onChange={(e) => setSearchTable(e.target.value)}
-                        className="pl-10 h-9 text-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-auto">
+                    }}
+                    className="pl-10 h-10 text-base"
+                    disabled={isLoadingTables}
+                    onFocus={() => {
+                      setIsDropdownOpen(true);
+                    }}
+                    onBlur={() => {
+                      // Delay closing to allow clicking on dropdown items
+                      setTimeout(() => setIsDropdownOpen(false), 150);
+                    }}
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                </div>
+
+                {/* Dropdown Results */}
+                {isDropdownOpen && !selectedTable && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto">
                     {isLoadingTables ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">
                         Loading tables from all schemas...
@@ -201,17 +211,19 @@ export default function NewChartPage() {
                       </div>
                     ) : (
                       filteredTables.map((table) => (
-                        <SelectItem key={table.full_name} value={table.full_name}>
-                          <div className="flex items-center gap-2">
-                            <Database className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            <span className="font-mono text-sm">{table.full_name}</span>
-                          </div>
-                        </SelectItem>
+                        <div
+                          key={table.full_name}
+                          className="flex items-center gap-2 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          onClick={() => handleTableSelect(table.full_name)}
+                        >
+                          <Database className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-mono text-sm">{table.full_name}</span>
+                        </div>
                       ))
                     )}
                   </div>
-                </SelectContent>
-              </Select>
+                )}
+              </div>
             </div>
           </div>
         </div>

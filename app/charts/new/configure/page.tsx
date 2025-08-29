@@ -460,21 +460,17 @@ function ConfigureChartPageContent() {
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
-              <div className="border-b px-6">
+              <div className="px-4">
                 <TabsList
-                  className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'} bg-transparent p-0`}
+                  className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
                 >
-                  <TabsTrigger
-                    value="configuration"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                  >
+                  <TabsTrigger value="configuration" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-5" />
                     Data Configuration
                   </TabsTrigger>
                   {formData.chart_type !== 'table' && (
-                    <TabsTrigger
-                      value="styling"
-                      className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                    >
+                    <TabsTrigger value="styling" className="flex items-center gap-2">
+                      <Database className="h-4 w-5" />
                       Chart Styling
                     </TabsTrigger>
                   )}
@@ -483,7 +479,7 @@ function ConfigureChartPageContent() {
 
               <TabsContent
                 value="configuration"
-                className="mt-0 h-[calc(100%-49px)] overflow-y-auto"
+                className="mt-6 h-[calc(100%-73px)] overflow-y-auto"
               >
                 <div className="p-4">
                   {formData.chart_type === 'map' ? (
@@ -508,7 +504,7 @@ function ConfigureChartPageContent() {
               </TabsContent>
 
               {formData.chart_type !== 'table' && (
-                <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <TabsContent value="styling" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
                   <div className="p-4">
                     {formData.chart_type === 'map' ? (
                       <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
@@ -528,24 +524,20 @@ function ConfigureChartPageContent() {
           {/* Right Panel - 70% */}
           <div className="w-[70%]">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-              <div className="border-b px-6">
-                <TabsList className="grid w-fit grid-cols-2 bg-transparent p-0">
-                  <TabsTrigger
-                    value="chart"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
-                  >
+              <div className="px-4">
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="chart" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
                     CHART
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="data"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
-                  >
+                  <TabsTrigger value="data" className="flex items-center gap-2">
+                    <Database className="h-4 w-4" />
                     DATA
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <TabsContent value="chart" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+              <TabsContent value="chart" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4 h-full">
                   {formData.chart_type === 'map' ? (
                     <div className="w-full h-full">
@@ -582,7 +574,7 @@ function ConfigureChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+              <TabsContent value="data" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4">
                   <Tabs defaultValue="chart-data" className="h-full flex flex-col">
                     <TabsList className="grid w-full grid-cols-2">
