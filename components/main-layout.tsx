@@ -167,56 +167,6 @@ const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
   return flattened;
 };
 
-// Profile component for sidebar footer
-function Profile({ isCollapsed }: { isCollapsed: boolean }) {
-  const { currentOrg, getCurrentOrgUser } = useAuthStore();
-  const currentUser = getCurrentOrgUser();
-  const userInitials = currentUser?.email
-    ? currentUser.email
-        .split('@')[0]
-        .split('.')
-        .map((part) => part.charAt(0).toUpperCase())
-        .join('')
-        .slice(0, 2)
-    : 'U';
-
-  if (isCollapsed) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center justify-center p-3 rounded-lg bg-muted/20">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">{userInitials}</span>
-              </div>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="ml-2">
-            <div className="text-sm">
-              <p className="font-medium">{currentOrg?.name || 'Organization'}</p>
-              <p className="text-muted-foreground">{currentUser?.new_role_slug || 'User'}</p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/20">
-      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-sm font-medium text-primary">{userInitials}</span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{currentOrg?.name || 'Organization'}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {currentUser?.new_role_slug || 'User'}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // Collapsed navigation item component
 function CollapsedNavItem({ item }: { item: NavItemType }) {
   return (
@@ -420,8 +370,53 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Sidebar Footer */}
-          <div className="p-4 border-t">
-            <Profile isCollapsed={isSidebarCollapsed} />
+          <div className="p-4 border-t space-y-2">
+            {/* Footer Links */}
+            <div className="space-y-1">
+              <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                <div
+                  className={cn(
+                    'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
+                    isSidebarCollapsed && 'justify-center'
+                  )}
+                >
+                  {!isSidebarCollapsed && <span>Documentation</span>}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    fill="currentColor"
+                    className="flex-shrink-0"
+                  >
+                    <path d="M0 0h24v24H0z" fill="none" />
+                    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                  </svg>
+                </div>
+              </Link>
+
+              <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                <div
+                  className={cn(
+                    'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
+                    isSidebarCollapsed && 'justify-center'
+                  )}
+                >
+                  {!isSidebarCollapsed && <span>Privacy Policy</span>}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    fill="currentColor"
+                    className="flex-shrink-0"
+                  >
+                    <path d="M0 0h24v24H0z" fill="none" />
+                    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                  </svg>
+                </div>
+              </Link>
+            </div>
           </div>
         </aside>
 
@@ -446,8 +441,43 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 ))}
               </div>
 
-              <div className="p-4 border-t">
-                <Profile isCollapsed={false} />
+              <div className="p-4 border-t space-y-2">
+                {/* Footer Links */}
+                <div className="space-y-1">
+                  <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                      <span>Documentation</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        fill="currentColor"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                      </svg>
+                    </div>
+                  </Link>
+
+                  <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                      <span>Privacy Policy</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        fill="currentColor"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                      </svg>
+                    </div>
+                  </Link>
+                </div>
               </div>
             </div>
           </SheetContent>
