@@ -121,7 +121,7 @@ export function MetricsSelector({
           size="sm"
           onClick={addMetric}
           disabled={disabled}
-          className="w-full h-10 border-dashed"
+          className="w-full h-8 border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Metric
@@ -217,7 +217,7 @@ export function MetricsSelector({
             size="sm"
             onClick={addMetric}
             disabled={disabled}
-            className="w-full h-8 border-dashed text-sm"
+            className="w-full h-8 border-dashed text-sm bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
           >
             <Plus className="h-4 w-4 mr-2" />
             {maxMetrics === 1 ? 'Add Metric' : 'Add Another Metric'}
