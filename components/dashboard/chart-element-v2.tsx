@@ -717,6 +717,7 @@ export function ChartElementV2({
                 onDrillUp={handleDrillUp}
                 onDrillHome={handleDrillHome}
                 showBreadcrumbs={false}
+                isResizing={isResizing}
               />
             ) : (
               <div ref={chartRef} className="w-full h-full chart-container" />

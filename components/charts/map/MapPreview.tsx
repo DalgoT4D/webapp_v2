@@ -46,6 +46,9 @@ interface MapPreviewProps {
 
   // UI options
   showBreadcrumbs?: boolean;
+
+  // Dashboard integration
+  isResizing?: boolean;
 }
 
 export function MapPreview({
@@ -73,9 +76,13 @@ export function MapPreview({
 
   // UI options
   showBreadcrumbs = true,
+
+  // Dashboard integration
+  isResizing = false,
 }: MapPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
@@ -200,20 +207,128 @@ export function MapPreview({
     }
   }, [geojsonData, mapData, title, valueColumn, config, onChartReady, onRegionClick]);
 
+  // Initialize chart when data changes
   useEffect(() => {
     initializeMapChart();
+  }, [initializeMapChart]);
 
-    // Handle resize
+  // Handle window resize with debouncing - separate from chart data changes
+  useEffect(() => {
+    let resizeTimeoutId: NodeJS.Timeout | null = null;
+
     const handleResize = () => {
-      chartInstance.current?.resize();
+      if (chartInstance.current) {
+        // Clear any pending resize
+        if (resizeTimeoutId) {
+          clearTimeout(resizeTimeoutId);
+        }
+
+        // Debounce resize calls
+        resizeTimeoutId = setTimeout(() => {
+          if (chartInstance.current) {
+            chartInstance.current.resize();
+          }
+        }, 100);
+      }
     };
 
+    // Handle window resize
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (resizeTimeoutId) {
+        clearTimeout(resizeTimeoutId);
+      }
     };
-  }, [initializeMapChart]);
+  }, []); // No dependencies to avoid infinite loops
+
+  // Handle container resize using ResizeObserver - separate effect
+  useEffect(() => {
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeTimeoutId: NodeJS.Timeout | null = null;
+
+    if (chartRef.current && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver((entries) => {
+        // Clear any pending resize
+        if (resizeTimeoutId) {
+          clearTimeout(resizeTimeoutId);
+        }
+
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0) {
+            // Debounce rapid resize events
+            resizeTimeoutId = setTimeout(() => {
+              if (chartInstance.current) {
+                // Constrain dimensions to ensure chart fits within bounds
+                const maxWidth = Math.floor(width);
+                const maxHeight = Math.floor(height);
+
+                // Force explicit resize with constrained dimensions
+                chartInstance.current.resize({
+                  width: maxWidth,
+                  height: maxHeight,
+                });
+
+                // Force chart to redraw and refit content
+                const currentOption = chartInstance.current.getOption();
+                chartInstance.current.setOption(currentOption, {
+                  notMerge: false,
+                  lazyUpdate: false,
+                });
+
+                // Additional resize call to ensure proper fitting
+                setTimeout(() => {
+                  if (chartInstance.current) {
+                    chartInstance.current.resize();
+                  }
+                }, 50);
+              }
+            }, 50); // Even faster response for browser zoom
+          }
+        }
+      });
+
+      resizeObserver.observe(chartRef.current);
+    }
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (resizeTimeoutId) {
+        clearTimeout(resizeTimeoutId);
+      }
+    };
+  }, []); // No dependencies to avoid re-creating observer
+
+  // Handle resize when isResizing prop changes (dashboard resize)
+  useEffect(() => {
+    if (!isResizing && chartInstance.current && chartRef.current) {
+      // Clear any pending resize
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+
+      // Perform final resize after drag/resize stops
+      resizeTimeoutRef.current = setTimeout(() => {
+        if (chartInstance.current && chartRef.current) {
+          const { width, height } = chartRef.current.getBoundingClientRect();
+          chartInstance.current.resize({
+            width: Math.floor(width),
+            height: Math.floor(height),
+          });
+        }
+      }, 300); // Slightly longer delay for final resize
+    }
+
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+    };
+  }, [isResizing]);
 
   useEffect(() => {
     // Cleanup on unmount
@@ -326,11 +441,7 @@ export function MapPreview({
   return (
     <div className="w-full h-full relative">
       {showBreadcrumbs && <BreadcrumbNavigation />}
-      <div
-        ref={chartRef}
-        className="w-full h-full min-h-[500px]"
-        style={{ width: '100%', height: '100%', minHeight: '500px' }}
-      />
+      <div ref={chartRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
 
       {/* Data loading overlay */}
       {showDataLoadingOverlay && (
