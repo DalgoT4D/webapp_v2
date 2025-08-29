@@ -1,18 +1,25 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, RefreshCw, Maximize2, Download } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Download, ArrowLeft, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost } from '@/lib/api';
 import { useChart } from '@/hooks/api/useCharts';
-import { useChartDataPreview } from '@/hooks/api/useChart';
+import { useChartDataPreview, useMapDataOverlay, useGeoJSONData } from '@/hooks/api/useChart';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { MapPreview } from '@/components/charts/map/MapPreview';
 import { resolveChartTitle, type ChartTitleConfig } from '@/lib/chart-title-utils';
+import {
+  resolveDashboardFilters,
+  formatAsChartFilters,
+  type DashboardFilterConfig,
+} from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import {
@@ -61,6 +68,15 @@ echarts.use([
 interface ChartElementViewProps {
   chartId: number;
   dashboardFilters?: Record<string, any>;
+  dashboardFilterConfigs?: Array<{
+    id: string;
+    name: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    filter_type: 'value' | 'numerical' | 'datetime';
+    settings?: any;
+  }>; // Dashboard filter configurations for resolution
   viewMode?: boolean;
   className?: string;
   isPublicMode?: boolean;
@@ -68,9 +84,22 @@ interface ChartElementViewProps {
   config?: ChartTitleConfig; // For dashboard title configuration
 }
 
+interface DrillDownLevel {
+  level: number;
+  name: string;
+  geographic_column: string;
+  geojson_id: number;
+  region_id?: number;
+  parent_selections: Array<{
+    column: string;
+    value: string;
+  }>;
+}
+
 export function ChartElementView({
   chartId,
   dashboardFilters = {},
+  dashboardFilterConfigs = [],
   viewMode = true,
   className,
   isPublicMode = false,
@@ -80,6 +109,7 @@ export function ChartElementView({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
   // Fetch chart metadata to determine chart type (only in authenticated mode)
   const {
@@ -88,6 +118,14 @@ export function ChartElementView({
     isError: chartError,
     error: chartFetchError,
   } = useChart(isPublicMode ? null : chartId);
+
+  // Resolve dashboard filters to complete column information for maps and tables
+  const resolvedDashboardFilters = useMemo(() => {
+    if (Object.keys(dashboardFilters).length === 0 || dashboardFilterConfigs.length === 0) {
+      return [];
+    }
+    return resolveDashboardFilters(dashboardFilters, dashboardFilterConfigs);
+  }, [dashboardFilters, dashboardFilterConfigs]);
 
   // Create a unique identifier for when filters change to trigger instance recreation
   const filterHash = useMemo(() => JSON.stringify(dashboardFilters), [dashboardFilters]);
@@ -119,13 +157,16 @@ export function ChartElementView({
       }
     : apiGet;
 
-  // Fetch chart data with filters
+  // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
+  const shouldFetchChartData = chart
+    ? chart.chart_type !== 'map' && chart.chart_type !== 'table'
+    : true;
   const {
     data: chartData,
     isLoading,
     error: isError,
     mutate,
-  } = useSWR(apiUrl, fetcher, {
+  } = useSWR(shouldFetchChartData ? apiUrl : null, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     refreshInterval: 0, // Disable auto-refresh
@@ -172,18 +213,17 @@ export function ChartElementView({
     }
   );
 
-  // Determine chart type - use metadata if available, otherwise infer from chart data
-  const isTableChart = useMemo(() => {
-    if (chart) {
-      return chart.chart_type === 'table';
-    }
-    // In public mode, infer from chart data structure
-    if (chartData) {
-      // Table charts typically don't have echarts_config but have raw data
-      return !chartData.echarts_config && (chartData.data || chartData.columns);
-    }
-    return false;
-  }, [chart, chartData]);
+  // Determine chart type - use direct comparison like chart-element-v2
+  const isTableChart = chart?.chart_type === 'table';
+
+  const isMapChart = chart?.chart_type === 'map';
+
+  // Determine current level for drill-down
+  const currentLevel = drillDownPath.length;
+  const currentLayer =
+    chart?.chart_type === 'map' && chart?.extra_config?.layers
+      ? chart.extra_config.layers[currentLevel]
+      : null;
 
   // For table charts, also fetch raw data using data preview API
   const chartDataPayload: ChartDataPayload | null =
@@ -201,74 +241,196 @@ export function ChartElementView({
           extra_dimension: chart.extra_config?.extra_dimension_column,
           metrics: chart.extra_config?.metrics,
           extra_config: {
-            filters: chart.extra_config?.filters,
+            filters: [
+              ...(chart.extra_config?.filters || []),
+              ...formatAsChartFilters(resolvedDashboardFilters),
+            ],
             pagination: chart.extra_config?.pagination,
             sort: chart.extra_config?.sort,
           },
-          // Include dashboard filters in the payload
-          dashboard_filters:
-            Object.keys(dashboardFilters).length > 0
-              ? Object.entries(dashboardFilters).map(([filterId, value]) => ({
-                  filter_id: filterId,
-                  value: value,
-                }))
-              : undefined,
+          // Remove dashboard_filters since we're using filters in extra_config now
         }
       : null;
 
-  // For table charts, fetch data with public API support
-  const tableApiUrl =
-    chartDataPayload && isTableChart
-      ? isPublicMode && publicToken
-        ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview`
-        : `/api/charts/chart-data-preview/`
-      : null;
-
-  const tableFetcher =
-    chartDataPayload && isTableChart
-      ? isPublicMode
-        ? async (url: string) => {
-            const enrichedPayload = {
-              ...chartDataPayload,
-              offset: 0,
-              limit: 50,
-            };
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(enrichedPayload),
-              }
-            );
-            if (!response.ok) throw new Error('Failed to fetch table data');
-            return response.json();
-          }
-        : ([url, data]: [string, any]) => {
-            const enrichedPayload = { ...data, offset: 0, limit: 50 };
-            return apiPost(url, enrichedPayload);
-          }
-      : null;
-
+  // For table charts, use the same reliable approach as chart-element-v2
   const {
     data: tableData,
     error: tableError,
     isLoading: tableLoading,
-  } = useSWR(
-    tableApiUrl && chartDataPayload ? [tableApiUrl, chartDataPayload] : null,
-    tableFetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      refreshInterval: 0,
+  } = useChartDataPreview(chartDataPayload, 1, 50);
+
+  // For map charts, determine which geojson and data to fetch based on drill-down state
+  let activeGeojsonId = null;
+  let activeGeographicColumn = null;
+
+  if (chart?.chart_type === 'map') {
+    if (drillDownPath.length > 0) {
+      // We're in a drill-down state, use the geojson from the last drill-down level
+      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
+      activeGeojsonId = lastDrillDown.geojson_id;
+      activeGeographicColumn = lastDrillDown.geographic_column;
+    } else if (currentLayer) {
+      // Use current layer configuration (first layer)
+      activeGeojsonId = currentLayer.geojson_id;
+      activeGeographicColumn = currentLayer.geographic_column;
+    } else {
+      // Fallback to first layer or original configuration
+      const firstLayer = chart.extra_config?.layers?.[0];
+      activeGeojsonId = firstLayer?.geojson_id || chart.extra_config?.selected_geojson_id;
+      activeGeographicColumn =
+        firstLayer?.geographic_column || chart.extra_config?.geographic_column;
     }
-  );
+  }
+
+  // Build data overlay payload for map charts based on current level
+  // Include filters for drill-down selections - flatten all parent selections
+  const filters: Record<string, string> = {};
+  if (drillDownPath.length > 0) {
+    // Collect all parent selections from the drill-down path
+    drillDownPath.forEach((level) => {
+      level.parent_selections.forEach((selection) => {
+        filters[selection.column] = selection.value;
+      });
+    });
+  }
+
+  const mapDataOverlayPayload = useMemo(() => {
+    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
+      ? {
+          schema_name: chart.schema_name,
+          table_name: chart.table_name,
+          geographic_column: activeGeographicColumn,
+          value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
+          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          filters: filters, // Drill-down filters
+          chart_filters: [
+            ...(chart.extra_config.filters || []), // Chart-level filters
+            ...formatAsChartFilters(resolvedDashboardFilters), // Resolved dashboard filters
+          ],
+          // Remove the old dashboard_filters format since we're using chart_filters now
+          // Include full extra_config for pagination, sorting, and other features
+          extra_config: {
+            filters: [
+              ...(chart.extra_config.filters || []),
+              ...formatAsChartFilters(resolvedDashboardFilters),
+            ],
+            pagination: chart.extra_config.pagination,
+            sort: chart.extra_config.sort,
+          },
+        }
+      : null;
+  }, [
+    chart?.chart_type,
+    chart?.schema_name,
+    chart?.table_name,
+    chart?.extra_config,
+    activeGeographicColumn,
+    filters,
+    resolvedDashboardFilters, // Updated: Use resolved filters instead of raw dashboardFilters
+  ]);
+
+  // Fetch GeoJSON data based on active geojson ID
+
+  const {
+    data: geojsonData,
+    error: geojsonError,
+    isLoading: geojsonLoading,
+  } = useGeoJSONData(activeGeojsonId);
+
+  // Fetch map data using the working map-data-overlay endpoint
+  const {
+    data: mapDataOverlay,
+    error: mapError,
+    isLoading: mapLoading,
+    mutate: mutateMapData,
+  } = useMapDataOverlay(mapDataOverlayPayload);
 
   // Get the actual error message
   const errorMessage =
     metadataError?.message ||
-    (isTableChart ? tableError?.message : isError?.message) ||
+    (isTableChart
+      ? tableError?.message
+      : isMapChart
+        ? mapError?.message || geojsonError?.message
+        : isError?.message) ||
     'Failed to load chart';
+
+  // Handle region click for drill-down
+  const handleRegionClick = (regionName: string, regionData: any) => {
+    if (!chart?.extra_config?.layers || chart.chart_type !== 'map') return;
+
+    const nextLevel = currentLevel + 1;
+    const nextLayer = chart.extra_config.layers[nextLevel];
+
+    if (!nextLayer) {
+      // No next layer configured
+      toast.info('No further drill-down levels configured');
+      return;
+    }
+
+    // Validate drill-down is possible for the clicked region
+    let nextGeojsonId = nextLayer.geojson_id;
+    let regionSupported = true;
+    let validationMessage = '';
+
+    // If this layer has specific regions configured, check if clicked region is supported
+    if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
+      const matchingRegion = nextLayer.selected_regions.find(
+        (region: any) => region.region_name === regionName
+      );
+
+      if (!matchingRegion) {
+        regionSupported = false;
+        validationMessage = `Drill-down not available for "${regionName}". This region is not configured for the next level.`;
+      } else if (matchingRegion.geojson_id) {
+        nextGeojsonId = matchingRegion.geojson_id;
+      }
+    }
+
+    // Validate that we have a valid geojson_id
+    if (regionSupported && (!nextGeojsonId || nextGeojsonId === 0)) {
+      regionSupported = false;
+      validationMessage = `Drill-down not available for "${regionName}". Geographic data is not configured for this region.`;
+    }
+
+    // If region is not supported, show toast and exit
+    if (!regionSupported) {
+      toast.info(validationMessage);
+      return;
+    }
+
+    // Create new drill-down level
+    const newLevel: DrillDownLevel = {
+      level: nextLevel,
+      name: regionName,
+      geographic_column: nextLayer.geographic_column || '',
+      geojson_id: nextGeojsonId || 0,
+      region_id: nextLayer.region_id,
+      parent_selections: [
+        ...drillDownPath.flatMap((level) => level.parent_selections),
+        {
+          column: activeGeographicColumn || '',
+          value: regionName,
+        },
+      ],
+    };
+
+    setDrillDownPath([...drillDownPath, newLevel]);
+  };
+
+  // Handle drill up to a specific level
+  const handleDrillUp = (targetLevel: number) => {
+    if (targetLevel < 0) {
+      setDrillDownPath([]);
+    } else {
+      setDrillDownPath(drillDownPath.slice(0, targetLevel + 1));
+    }
+  };
+
+  // Handle drill to home (first level)
+  const handleDrillHome = () => {
+    setDrillDownPath([]);
+  };
 
   // Initialize and update chart
   useEffect(() => {
@@ -278,7 +440,18 @@ export function ChartElementView({
 
     // Check if filters changed and we need to recreate the chart instance
     const filtersChanged = previousFilterHash.current !== filterHash;
-    if (filtersChanged && chartInstance.current && chartData?.echarts_config) {
+
+    // Get the appropriate data source based on chart type
+    let activeChartData;
+
+    if (isMapChart) {
+      // Maps now use MapPreview component, skip manual ECharts creation
+      return undefined;
+    } else {
+      activeChartData = chartData;
+    }
+
+    if (filtersChanged && chartInstance.current && activeChartData?.echarts_config) {
       chartInstance.current.dispose();
       chartInstance.current = null;
       previousFilterHash.current = filterHash;
@@ -297,7 +470,7 @@ export function ChartElementView({
     }
 
     // Only proceed with config if we have valid echarts_config
-    if (!chartData?.echarts_config) {
+    if (!activeChartData?.echarts_config) {
       // Clear chart but don't dispose instance
       if (chartInstance.current) {
         chartInstance.current.clear();
@@ -305,32 +478,15 @@ export function ChartElementView({
       return undefined;
     }
 
-    // Handle map charts - register GeoJSON data if available
-    let baseConfig = chartData.echarts_config;
-    const isMapChart =
-      chartMetadata?.chart_type === 'map' ||
-      (chartData?.data?.geojson && baseConfig?.series?.some((s: any) => s.type === 'map'));
-
-    if (isMapChart && chartData?.data?.geojson) {
-      const mapName = `map_${chartId}_${Date.now()}`;
-      echarts.registerMap(mapName, chartData.data.geojson);
-
-      // Update map series to use registered map name
-      baseConfig = {
-        ...baseConfig,
-        series: baseConfig.series?.map((series: any) => ({
-          ...series,
-          map: mapName,
-        })),
-      };
-    }
+    // Get base config (already includes map registration for map charts)
+    let baseConfig = activeChartData.echarts_config;
 
     // Apply beautiful theme and styling
     const styledConfig = {
       ...baseConfig,
       // Disable ECharts internal title since we use HTML titles
       title: {
-        ...chartData.echarts_config.title,
+        ...activeChartData.echarts_config.title,
         show: false,
       },
       animation: true,
@@ -386,6 +542,11 @@ export function ChartElementView({
 
       chartInstance.current.setOption(styledConfig, notMerge);
 
+      // Click event listeners for non-map charts only (maps use MapPreview component)
+      if (!isMapChart) {
+        // Add any non-map click handlers here if needed
+      }
+
       // Ensure the chart is properly sized after setting options
       chartInstance.current.resize();
     } catch (error) {
@@ -410,11 +571,24 @@ export function ChartElementView({
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
     };
-  }, [chartData]);
+  }, [
+    chartData,
+    mapDataOverlay,
+    geojsonData,
+    isMapChart,
+    chartId,
+    filterHash,
+    drillDownPath,
+    handleRegionClick,
+  ]);
 
   // Separate effect to handle DOM mounting timing issues
   useEffect(() => {
-    if (chartData?.echarts_config && !chartRef.current) {
+    // For maps, we need both geojson and mapData to be ready
+    const hasMapData = isMapChart ? geojsonData?.geojson_data && mapDataOverlay : true;
+    const hasChartConfig = isMapChart ? hasMapData : chartData?.echarts_config;
+
+    if (hasChartConfig && !chartRef.current) {
       // Retry after a short delay if DOM element isn't ready yet
       const timeout = setTimeout(() => {
         if (chartRef.current) {
@@ -424,12 +598,19 @@ export function ChartElementView({
       }, 100);
       return () => clearTimeout(timeout);
     }
-  }, [chartData]);
+  }, [chartData, mapDataOverlay, geojsonData, isMapChart, drillDownPath]);
 
   // Re-fetch data when filters change
   useEffect(() => {
     mutate();
   }, [dashboardFilters, mutate, chartId]);
+
+  // Re-fetch map data when filters change (same behavior as regular charts)
+  useEffect(() => {
+    if (isMapChart && mutateMapData) {
+      mutateMapData();
+    }
+  }, [dashboardFilters, mutateMapData, chartId, isMapChart]);
 
   // Cleanup on unmount and when chartId changes
   useEffect(() => {
@@ -471,7 +652,12 @@ export function ChartElementView({
     }
   };
 
-  if (isLoading || (!isPublicMode && chartLoading) || (isTableChart && tableLoading)) {
+  if (
+    isLoading ||
+    (!isPublicMode && chartLoading) ||
+    (isTableChart && tableLoading) ||
+    (isMapChart && (mapLoading || geojsonLoading))
+  ) {
     return (
       <div className={cn('h-full flex items-center justify-center', className)}>
         <div className="w-full h-full min-h-[200px] p-4">
@@ -481,7 +667,14 @@ export function ChartElementView({
     );
   }
 
-  if (isError || chartError || (isTableChart && tableError) || (!isTableChart && !chartData)) {
+  if (
+    isError ||
+    chartError ||
+    (isTableChart && tableError) ||
+    (isMapChart && (mapError || geojsonError)) ||
+    (!isTableChart && !isMapChart && !chartData) ||
+    (isMapChart && (!mapDataOverlay || !geojsonData))
+  ) {
     return (
       <div className={cn('h-full flex items-center justify-center p-4', className)}>
         <div className="text-center">
@@ -550,6 +743,37 @@ export function ChartElementView({
         />
       </div>
 
+      {/* Drill-down navigation for maps */}
+      {isMapChart && drillDownPath.length > 0 && (
+        <div className="px-2 py-1 border-b border-gray-100">
+          <div className="flex items-center gap-1 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDrillHome}
+              className="h-6 px-2 text-xs"
+              title="Go to top level"
+            >
+              <Home className="h-3 w-3 mr-1" />
+              Home
+            </Button>
+            {drillDownPath.map((level, index) => (
+              <div key={index} className="flex items-center gap-1">
+                <span className="text-gray-400">/</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDrillUp(index - 1)}
+                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  {level.name}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Chart container */}
       {isTableChart ? (
         <div className="w-full flex-1 min-h-[200px] p-2">
@@ -559,6 +783,24 @@ export function ChartElementView({
             columnTypes={tableData?.column_types || {}}
             isLoading={tableLoading}
             error={tableError}
+          />
+        </div>
+      ) : isMapChart ? (
+        <div className="w-full flex-1 min-h-[200px]" style={{ padding: viewMode ? '8px' : '0' }}>
+          <MapPreview
+            geojsonData={geojsonData?.geojson_data}
+            geojsonLoading={geojsonLoading}
+            geojsonError={geojsonError}
+            mapData={mapDataOverlay?.data}
+            mapDataLoading={mapLoading}
+            mapDataError={mapError}
+            title=""
+            valueColumn={chart?.extra_config?.aggregate_column}
+            onRegionClick={handleRegionClick}
+            drillDownPath={drillDownPath}
+            onDrillUp={handleDrillUp}
+            onDrillHome={handleDrillHome}
+            showBreadcrumbs={false}
           />
         </div>
       ) : (

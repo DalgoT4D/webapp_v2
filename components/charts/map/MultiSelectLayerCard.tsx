@@ -13,8 +13,48 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { Eye, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react';
 import { useChildRegions, useRegionGeoJSONs, useRegionHierarchy } from '@/hooks/api/useChart';
+import { useCascadingFilters } from '../../../hooks/useCascadingFilters';
+import type { ChartBuilderFormData } from '@/types/charts';
+
+// Region data type
+interface Region {
+  id: number;
+  name: string;
+  display_name?: string;
+  type?: string;
+  parent_id?: number;
+}
+
+// GeoJSON data type
+interface GeoJSON {
+  id: number;
+  name: string;
+  is_default?: boolean;
+}
+
+// Column data type
+interface TableColumn {
+  name: string;
+  data_type: string;
+}
+
+// Payload types for onView callback
+interface ViewPayloads {
+  geojsonPayload: {
+    geojsonId: number;
+  };
+  dataOverlayPayload: {
+    schema_name: string;
+    table_name: string;
+    geographic_column: string;
+    value_column: string;
+    aggregate_function: string;
+    selected_geojson_id: number;
+  };
+  selectedRegion: SelectedRegion;
+}
 
 interface SelectedRegion {
   region_id: number;
@@ -33,18 +73,11 @@ interface Layer {
 interface MultiSelectLayerCardProps {
   layer: Layer;
   index: number;
-  formData: any;
+  formData: ChartBuilderFormData;
   onUpdate: (updates: Partial<Layer>) => void;
-  onView: (
-    regionId: number,
-    payloads?: {
-      geojsonPayload: any;
-      dataOverlayPayload: any;
-      selectedRegion: SelectedRegion;
-    }
-  ) => void;
+  onView: (regionId: number, payloads?: ViewPayloads) => void;
   onRemove: () => void;
-  columns: any[];
+  columns: TableColumn[];
 }
 
 export function MultiSelectLayerCard({
@@ -101,11 +134,31 @@ export function MultiSelectLayerCard({
   // Fetch available regions (states, districts, etc.)
   const { data: availableRegions } = useChildRegions(parentRegionId, !!parentRegionId);
 
+  // Apply cascading filters to available regions
+  const { filteredRegions, invalidSelections, hasFiltersApplied, filteredCount } =
+    useCascadingFilters(index, formData, availableRegions);
+
   const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
   const selectedRegions = layer.selected_regions || [];
 
+  // Auto-cleanup invalid selections when filters change
+  useEffect(() => {
+    if (invalidSelections.length > 0) {
+      const validSelections = selectedRegions.filter(
+        (selection) =>
+          !invalidSelections.some((invalid) => invalid.region_id === selection.region_id)
+      );
+
+      if (validSelections.length !== selectedRegions.length) {
+        onUpdate({
+          selected_regions: validSelections,
+        });
+      }
+    }
+  }, [invalidSelections, selectedRegions, onUpdate]);
+
   // Handle region selection (checkbox)
-  const handleRegionToggle = (region: any, checked: boolean) => {
+  const handleRegionToggle = (region: Region, checked: boolean) => {
     let newSelectedRegions: SelectedRegion[];
 
     if (checked) {
@@ -155,7 +208,15 @@ export function MultiSelectLayerCard({
       table_name: formData.table_name,
       geographic_column: layer.geographic_column,
       value_column: formData.aggregate_column,
-      aggregate_func: formData.aggregate_func,
+      aggregate_function: formData.aggregate_function || formData.aggregate_func,
+      // Include filters, pagination, and sorting for full functionality
+      filters: {}, // ✅ Empty dict for drill-down filters
+      chart_filters: formData.filters || [], // ✅ Array for chart-level filters
+      extra_config: {
+        filters: formData.filters || [],
+        pagination: formData.pagination,
+        sort: formData.sort,
+      },
     };
 
     // Pass the payloads to parent for preview
@@ -239,8 +300,19 @@ export function MultiSelectLayerCard({
                 map.
               </p>
 
+              {/* Filter status indicator */}
+              {hasFiltersApplied && filteredCount > 0 && (
+                <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-2 rounded-md mb-3">
+                  <Filter className="h-4 w-4" />
+                  <span>
+                    {filteredCount} {layerTitle.toLowerCase()}
+                    {filteredCount === 1 ? '' : 's'} filtered out
+                  </span>
+                </div>
+              )}
+
               <div className="space-y-3 max-h-60 overflow-y-auto">
-                {availableRegions?.map((region: any) => (
+                {filteredRegions?.map((region: Region) => (
                   <RegionSelectionItem
                     key={region.id}
                     region={region}
@@ -252,6 +324,12 @@ export function MultiSelectLayerCard({
                     canView={!!layer.geographic_column}
                   />
                 ))}
+
+                {filteredRegions?.length === 0 && availableRegions?.length > 0 && (
+                  <div className="text-sm text-gray-500 italic text-center py-4">
+                    All {layerTitle.toLowerCase()}s filtered out by current filters
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -290,10 +368,10 @@ function RegionSelectionItem({
   onView,
   canView,
 }: {
-  region: any;
+  region: Region;
   isSelected: boolean;
   selectedRegion?: SelectedRegion;
-  onToggle: (region: any, checked: boolean) => void;
+  onToggle: (region: Region, checked: boolean) => void;
   onGeoJSONSelect: (regionId: number, geojsonId: number, geojsonName: string) => void;
   onView: (regionId: number) => void;
   canView: boolean;
@@ -304,7 +382,7 @@ function RegionSelectionItem({
   // Auto-select default GeoJSON when region is selected and geojsons are available
   useEffect(() => {
     if (isSelected && geojsons && !selectedRegion?.geojson_id) {
-      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      const defaultGeojson = geojsons.find((g: GeoJSON) => g.is_default);
       if (defaultGeojson) {
         onGeoJSONSelect(region.id, defaultGeojson.id, defaultGeojson.name);
       }
@@ -346,7 +424,7 @@ function RegionSelectionItem({
 
 function getLayerTitle(
   index: number,
-  regionHierarchy?: any[],
+  regionHierarchy?: Region[],
   countryCode: string = 'IND'
 ): string {
   // Layer 1 is always "Country"
@@ -357,12 +435,12 @@ function getLayerTitle(
   // For Layer 2, we want the first level children (e.g., States for India)
   if (index === 1 && regionHierarchy && regionHierarchy.length > 0) {
     // Find the country region first
-    const countryRegion = regionHierarchy.find((region: any) => region.type === 'country');
+    const countryRegion = regionHierarchy.find((region: Region) => region.type === 'country');
 
     if (countryRegion) {
       // Find direct children of the country
       const stateRegions = regionHierarchy.filter(
-        (region: any) => region.parent_id === countryRegion.id
+        (region: Region) => region.parent_id === countryRegion.id
       );
 
       if (stateRegions.length > 0) {
@@ -373,12 +451,12 @@ function getLayerTitle(
 
     // Fallback: Look for regions that have a parent but are not country
     const firstLevelRegions = regionHierarchy.filter(
-      (region: any) => region.type !== 'country' && region.parent_id
+      (region: Region) => region.type !== 'country' && region.parent_id
     );
 
     if (firstLevelRegions.length > 0) {
       // Group by type and pick the most common one (likely the state level)
-      const typeCount = firstLevelRegions.reduce((acc: any, region: any) => {
+      const typeCount = firstLevelRegions.reduce((acc: Record<string, number>, region: Region) => {
         acc[region.type] = (acc[region.type] || 0) + 1;
         return acc;
       }, {});

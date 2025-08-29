@@ -448,6 +448,7 @@ export function DashboardNativeView({
             <ChartElementView
               chartId={component.config?.chartId}
               dashboardFilters={selectedFilters}
+              dashboardFilterConfigs={dashboardFilters}
               viewMode={true}
               className="h-full"
               isPublicMode={isPublicMode}
