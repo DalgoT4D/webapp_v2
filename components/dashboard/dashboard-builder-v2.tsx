@@ -372,9 +372,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     );
 
     // Effective filter layout (combines user choice with responsive logic)
-    const filterLayout = responsive.shouldUseResponsiveLayout
-      ? responsive.recommendedFilterLayout
-      : userFilterLayoutChoice;
+    // For desktop: always use vertical (sidebar), for mobile/tablet: use horizontal (top bar)
+    const filterLayout = responsive.isDesktop ? 'vertical' : 'horizontal';
 
     // Ref for the canvas container (gray area)
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -1208,24 +1207,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       <div className="grid gap-2">
                         <Label className="text-sm font-medium">
                           Filter Layout
-                          {responsive.shouldUseResponsiveLayout && (
-                            <span className="ml-2 text-xs text-blue-600 font-normal">
-                              (Auto: {responsive.currentBreakpoint})
-                            </span>
-                          )}
+                          <span className="ml-2 text-xs text-blue-600 font-normal">
+                            (Auto: {responsive.currentBreakpoint})
+                          </span>
                         </Label>
                         <ToggleGroup
                           type="single"
-                          value={
-                            responsive.shouldUseResponsiveLayout
-                              ? filterLayout
-                              : userFilterLayoutChoice
-                          }
+                          value={filterLayout}
                           onValueChange={(value) =>
                             value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
                           }
                           className="grid grid-cols-2 gap-2"
-                          disabled={responsive.shouldUseResponsiveLayout}
+                          disabled={true}
                         >
                           <ToggleGroupItem value="vertical" className="text-xs">
                             <PanelLeft className="w-3 h-3 mr-1" />
@@ -1237,16 +1230,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </ToggleGroupItem>
                         </ToggleGroup>
                         <div className="text-xs text-muted-foreground">
-                          {responsive.shouldUseResponsiveLayout ? (
-                            <span className="text-blue-600">
-                              Layout automatically set to '{filterLayout}' for{' '}
-                              {responsive.currentBreakpoint} screens to optimize chart visibility
-                            </span>
-                          ) : filterLayout === 'vertical' ? (
-                            'Filters appear in a sidebar on the left'
-                          ) : (
-                            'Filters appear in a horizontal bar above the canvas'
-                          )}
+                          <span className="text-blue-600">
+                            Layout automatically set to '{filterLayout}' for{' '}
+                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
+                            uses sidebar, mobile/tablet use top bar.
+                          </span>
                         </div>
                       </div>
 
@@ -1485,24 +1473,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       <div className="grid gap-2">
                         <Label className="text-sm font-medium">
                           Filter Layout
-                          {responsive.shouldUseResponsiveLayout && (
-                            <span className="ml-2 text-xs text-blue-600 font-normal">
-                              (Auto: {responsive.currentBreakpoint})
-                            </span>
-                          )}
+                          <span className="ml-2 text-xs text-blue-600 font-normal">
+                            (Auto: {responsive.currentBreakpoint})
+                          </span>
                         </Label>
                         <ToggleGroup
                           type="single"
-                          value={
-                            responsive.shouldUseResponsiveLayout
-                              ? filterLayout
-                              : userFilterLayoutChoice
-                          }
+                          value={filterLayout}
                           onValueChange={(value) =>
                             value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
                           }
                           className="grid grid-cols-2 gap-2"
-                          disabled={responsive.shouldUseResponsiveLayout}
+                          disabled={true}
                         >
                           <ToggleGroupItem value="vertical" className="text-xs">
                             <PanelLeft className="w-4 h-4 mr-2" />
@@ -1514,16 +1496,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </ToggleGroupItem>
                         </ToggleGroup>
                         <div className="text-xs text-muted-foreground">
-                          {responsive.shouldUseResponsiveLayout ? (
-                            <span className="text-blue-600">
-                              Layout automatically set to '{filterLayout}' for{' '}
-                              {responsive.currentBreakpoint} screens to optimize chart visibility
-                            </span>
-                          ) : filterLayout === 'vertical' ? (
-                            'Filters appear in a sidebar on the left'
-                          ) : (
-                            'Filters appear in a horizontal bar above the canvas'
-                          )}
+                          <span className="text-blue-600">
+                            Layout automatically set to '{filterLayout}' for{' '}
+                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
+                            uses sidebar, mobile/tablet use top bar.
+                          </span>
                         </div>
                       </div>
 

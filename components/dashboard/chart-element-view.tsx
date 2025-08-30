@@ -108,6 +108,7 @@ export function ChartElementView({
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
@@ -626,15 +627,23 @@ export function ChartElementView({
     mutate();
   };
 
+  // Handle map chart ready callback to capture the ECharts instance
+  const handleMapChartReady = (chart: echarts.ECharts) => {
+    mapChartInstance.current = chart;
+  };
+
   const handleDownload = () => {
-    if (chartInstance.current) {
-      const url = chartInstance.current.getDataURL({
+    // Use the appropriate chart instance based on chart type (maps and regular charts)
+    const activeChartInstance = isMapChart ? mapChartInstance.current : chartInstance.current;
+
+    if (activeChartInstance) {
+      const url = activeChartInstance.getDataURL({
         type: 'png',
         pixelRatio: 2,
         backgroundColor: '#fff',
       });
       const link = document.createElement('a');
-      link.download = `chart-${chartId}.png`;
+      link.download = `${isMapChart ? 'map' : 'chart'}-${chartId}.png`;
       link.href = url;
       link.click();
     }
@@ -711,15 +720,17 @@ export function ChartElementView({
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDownload}
-              className="h-7 w-7 p-0"
-              title="Download"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
+            {!isTableChart && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDownload}
+                className="h-7 w-7 p-0"
+                title="Download"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -776,7 +787,7 @@ export function ChartElementView({
 
       {/* Chart container */}
       {isTableChart ? (
-        <div className="w-full flex-1 min-h-[200px] p-2">
+        <div ref={chartRef} className="w-full flex-1 min-h-[200px] p-2">
           <DataPreview
             data={Array.isArray(tableData?.data) ? tableData.data : []}
             columns={tableData?.columns || []}
@@ -786,7 +797,11 @@ export function ChartElementView({
           />
         </div>
       ) : isMapChart ? (
-        <div className="w-full flex-1 min-h-[200px]" style={{ padding: viewMode ? '8px' : '0' }}>
+        <div
+          ref={chartRef}
+          className="w-full flex-1 min-h-[200px]"
+          style={{ padding: viewMode ? '8px' : '0' }}
+        >
           <MapPreview
             geojsonData={geojsonData?.geojson_data}
             geojsonLoading={geojsonLoading}
@@ -801,6 +816,7 @@ export function ChartElementView({
             onDrillUp={handleDrillUp}
             onDrillHome={handleDrillHome}
             showBreadcrumbs={false}
+            onChartReady={handleMapChartReady}
           />
         </div>
       ) : (
