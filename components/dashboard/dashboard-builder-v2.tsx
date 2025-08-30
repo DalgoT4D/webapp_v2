@@ -21,6 +21,7 @@ import {
   deleteDashboardFilter,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
   Plus,
   Undo,
@@ -362,10 +363,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       SCREEN_SIZES[targetScreenSize]?.width || 1200
     );
 
-    // Filter layout state
-    const [filterLayout, setFilterLayout] = useState<'vertical' | 'horizontal'>(
+    // Responsive layout hook
+    const responsive = useResponsiveLayout();
+
+    // Filter layout state with responsive behavior
+    const [userFilterLayoutChoice, setUserFilterLayoutChoice] = useState<'vertical' | 'horizontal'>(
       (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
     );
+
+    // Effective filter layout (combines user choice with responsive logic)
+    const filterLayout = responsive.shouldUseResponsiveLayout
+      ? responsive.recommendedFilterLayout
+      : userFilterLayoutChoice;
 
     // Ref for the canvas container (gray area)
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -851,8 +860,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle filter layout changes
     const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
-      setFilterLayout(newLayout);
-      // Auto-save the layout preference
+      setUserFilterLayoutChoice(newLayout);
+      // Auto-save the layout preference (only save user's choice, not responsive overrides)
       saveDashboard({ filter_layout: newLayout }).catch((error) => {
         console.error('❌ Failed to save filter layout:', error);
       });
@@ -1197,14 +1206,26 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                       {/* Filter Layout Setting */}
                       <div className="grid gap-2">
-                        <Label className="text-sm font-medium">Filter Layout</Label>
+                        <Label className="text-sm font-medium">
+                          Filter Layout
+                          {responsive.shouldUseResponsiveLayout && (
+                            <span className="ml-2 text-xs text-blue-600 font-normal">
+                              (Auto: {responsive.currentBreakpoint})
+                            </span>
+                          )}
+                        </Label>
                         <ToggleGroup
                           type="single"
-                          value={filterLayout}
+                          value={
+                            responsive.shouldUseResponsiveLayout
+                              ? filterLayout
+                              : userFilterLayoutChoice
+                          }
                           onValueChange={(value) =>
                             value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
                           }
                           className="grid grid-cols-2 gap-2"
+                          disabled={responsive.shouldUseResponsiveLayout}
                         >
                           <ToggleGroupItem value="vertical" className="text-xs">
                             <PanelLeft className="w-3 h-3 mr-1" />
@@ -1216,9 +1237,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </ToggleGroupItem>
                         </ToggleGroup>
                         <div className="text-xs text-muted-foreground">
-                          {filterLayout === 'vertical'
-                            ? 'Filters appear in a sidebar on the left'
-                            : 'Filters appear in a horizontal bar above the canvas'}
+                          {responsive.shouldUseResponsiveLayout ? (
+                            <span className="text-blue-600">
+                              Layout automatically set to '{filterLayout}' for{' '}
+                              {responsive.currentBreakpoint} screens to optimize chart visibility
+                            </span>
+                          ) : filterLayout === 'vertical' ? (
+                            'Filters appear in a sidebar on the left'
+                          ) : (
+                            'Filters appear in a horizontal bar above the canvas'
+                          )}
                         </div>
                       </div>
 
@@ -1455,14 +1483,26 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                       {/* Filter Layout Setting */}
                       <div className="grid gap-2">
-                        <Label className="text-sm font-medium">Filter Layout</Label>
+                        <Label className="text-sm font-medium">
+                          Filter Layout
+                          {responsive.shouldUseResponsiveLayout && (
+                            <span className="ml-2 text-xs text-blue-600 font-normal">
+                              (Auto: {responsive.currentBreakpoint})
+                            </span>
+                          )}
+                        </Label>
                         <ToggleGroup
                           type="single"
-                          value={filterLayout}
+                          value={
+                            responsive.shouldUseResponsiveLayout
+                              ? filterLayout
+                              : userFilterLayoutChoice
+                          }
                           onValueChange={(value) =>
                             value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
                           }
                           className="grid grid-cols-2 gap-2"
+                          disabled={responsive.shouldUseResponsiveLayout}
                         >
                           <ToggleGroupItem value="vertical" className="text-xs">
                             <PanelLeft className="w-4 h-4 mr-2" />
@@ -1474,9 +1514,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </ToggleGroupItem>
                         </ToggleGroup>
                         <div className="text-xs text-muted-foreground">
-                          {filterLayout === 'vertical'
-                            ? 'Filters appear in a sidebar on the left'
-                            : 'Filters appear in a horizontal bar above the canvas'}
+                          {responsive.shouldUseResponsiveLayout ? (
+                            <span className="text-blue-600">
+                              Layout automatically set to '{filterLayout}' for{' '}
+                              {responsive.currentBreakpoint} screens to optimize chart visibility
+                            </span>
+                          ) : filterLayout === 'vertical' ? (
+                            'Filters appear in a sidebar on the left'
+                          ) : (
+                            'Filters appear in a horizontal bar above the canvas'
+                          )}
                         </div>
                       </div>
 
