@@ -455,20 +455,20 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
         {/* SECTION 3: MAIN CONTENT AREA - Remaining Width */}
         <main className="flex-1 overflow-hidden bg-background">
-          {/* Page Container - Dashboard pages handle their own scrolling */}
+          {/* Page Container - Dashboard and chart edit pages handle their own scrolling */}
           <div
             className={cn(
               'h-full w-full',
-              // Only add scrolling for non-dashboard pages
-              !pathname.includes('/dashboards') && 'overflow-auto'
+              // Only add scrolling for pages that don't handle their own layout
+              !pathname.includes('/dashboards') && !pathname.includes('/edit') && 'overflow-auto'
             )}
           >
-            {/* Consistent Inner Padding Container - No padding for dashboard pages */}
+            {/* Consistent Inner Padding Container - No padding for dashboard and chart edit pages */}
             <div
               className={cn(
                 'h-full',
-                // Only add padding for non-dashboard pages
-                !pathname.includes('/dashboards') && 'p-6'
+                // Only add padding for regular pages
+                !pathname.includes('/dashboards') && !pathname.includes('/edit') && 'p-6'
               )}
             >
               {/* Content Area */}

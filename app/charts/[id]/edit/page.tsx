@@ -572,12 +572,12 @@ function EditChartPageContent() {
 
   if (chartLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
+      <div className="h-full flex flex-col overflow-hidden bg-gray-50">
+        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
           <Skeleton className="h-8 w-64" />
         </div>
-        <div className="p-8 h-[calc(100vh-144px)]">
-          <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="flex-1 flex overflow-hidden p-8">
+          <div className="flex w-full h-full bg-white rounded-lg shadow-sm border overflow-hidden">
             <Skeleton className="w-[30%] h-full" />
             <Skeleton className="w-[70%] h-full" />
           </div>
@@ -588,12 +588,12 @@ function EditChartPageContent() {
 
   if (chartError || !chart) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
+      <div className="h-full flex flex-col overflow-hidden bg-gray-50">
+        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
           <h1 className="text-xl font-semibold">Edit Chart</h1>
         </div>
-        <div className="p-8">
-          <Alert className="max-w-2xl mx-auto">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <Alert className="max-w-2xl">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {chartError ? 'Failed to load chart' : 'Chart not found'}
@@ -605,9 +605,9 @@ function EditChartPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Single Header with Everything */}
-      <div className="bg-white border-b px-6 py-4">
+    <div className="h-full flex flex-col overflow-hidden bg-gray-50">
+      {/* Header - Fixed Height */}
+      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Breadcrumb */}
@@ -662,13 +662,13 @@ function EditChartPageContent() {
         </div>
       </div>
 
-      {/* Main Content Area with 2rem margin container */}
-      <div className="p-8 h-[calc(100vh-144px)]">
-        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-          {/* Left Panel - 30% */}
-          <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
-              <div className="border-b px-6">
+      {/* Main Content Area - Takes Remaining Height */}
+      <div className="flex-1 flex overflow-hidden p-8">
+        <div className="flex w-full h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Left Panel - 30% with Overflow Control */}
+          <div className="w-[30%] border-r flex flex-col">
+            <Tabs defaultValue="configuration" className="h-full flex flex-col">
+              <div className="border-b px-6 flex-shrink-0">
                 <TabsList
                   className={`grid w-full bg-transparent p-0 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
                 >
@@ -689,10 +689,7 @@ function EditChartPageContent() {
                 </TabsList>
               </div>
 
-              <TabsContent
-                value="configuration"
-                className="mt-0 h-[calc(100%-49px)] overflow-y-auto"
-              >
+              <TabsContent value="configuration" className="mt-0 flex-1 overflow-y-auto">
                 <div className="p-4">
                   {formData.chart_type === 'map' ? (
                     <MapDataConfigurationV3
@@ -710,7 +707,7 @@ function EditChartPageContent() {
               </TabsContent>
 
               {formData.chart_type !== 'table' && (
-                <TabsContent value="styling" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+                <TabsContent value="styling" className="mt-0 flex-1 overflow-y-auto">
                   <div className="p-4">
                     {formData.chart_type === 'map' ? (
                       <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
@@ -727,10 +724,10 @@ function EditChartPageContent() {
             </Tabs>
           </div>
 
-          {/* Right Panel - 70% */}
-          <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-              <div className="border-b px-6">
+          {/* Right Panel - 70% with No Scroll */}
+          <div className="w-[70%] flex flex-col">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+              <div className="border-b px-6 flex-shrink-0">
                 <TabsList className="grid w-fit grid-cols-2 bg-transparent p-0">
                   <TabsTrigger
                     value="chart"
@@ -747,7 +744,7 @@ function EditChartPageContent() {
                 </TabsList>
               </div>
 
-              <TabsContent value="chart" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
+              <TabsContent value="chart" className="mt-0 flex-1 overflow-hidden">
                 <div className="p-4 h-full">
                   {formData.chart_type === 'map' ? (
                     <div className="w-full h-full">
@@ -763,7 +760,7 @@ function EditChartPageContent() {
                       />
                     </div>
                   ) : formData.chart_type === 'table' ? (
-                    <div className="w-full h-full">
+                    <div className="w-full h-full overflow-auto">
                       <DataPreview
                         data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                         columns={dataPreview?.columns || []}
@@ -784,10 +781,10 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="data" className="mt-0 h-[calc(100%-49px)] overflow-y-auto">
-                <div className="p-4">
+              <TabsContent value="data" className="mt-0 flex-1 overflow-hidden">
+                <div className="p-4 h-full">
                   <Tabs defaultValue="chart-data" className="h-full flex flex-col">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
                       <TabsTrigger value="chart-data" className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
                         Chart Data
@@ -798,7 +795,7 @@ function EditChartPageContent() {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="chart-data" className="flex-1 mt-6">
+                    <TabsContent value="chart-data" className="flex-1 mt-6 overflow-auto">
                       <DataPreview
                         data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                         columns={dataPreview?.columns || []}
@@ -808,7 +805,7 @@ function EditChartPageContent() {
                       />
                     </TabsContent>
 
-                    <TabsContent value="raw-data" className="flex-1 mt-6">
+                    <TabsContent value="raw-data" className="flex-1 mt-6 overflow-auto">
                       <DataPreview
                         data={Array.isArray(rawTableData) ? rawTableData : []}
                         columns={
