@@ -787,7 +787,7 @@ export function ChartElementView({
 
       {/* Chart container */}
       {isTableChart ? (
-        <div ref={chartRef} className="w-full flex-1 min-h-[200px] p-2">
+        <div className="w-full flex-1 min-h-[200px] p-2">
           <DataPreview
             data={Array.isArray(tableData?.data) ? tableData.data : []}
             columns={tableData?.columns || []}
