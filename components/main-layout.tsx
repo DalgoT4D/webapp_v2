@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { NEXT_PUBLIC_WEBAPP_ENVIRONMENT } from '@/constants/constants';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
   BarChart3,
   Database,
@@ -382,8 +383,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const responsive = useResponsiveLayout();
   const navItems = getNavItems(pathname);
   const flattenedNavItems = getFlattenedNavItems(navItems);
+
+  // Determine if sidebar should be shown based on screen size
+  const shouldShowDesktopSidebar = responsive.isDesktop;
+  const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background">
@@ -393,37 +399,44 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <Header
             onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             hideMenu={false}
-            onSidebarToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onSidebarToggle={
+              shouldShowDesktopSidebar
+                ? () => setIsSidebarCollapsed(!isSidebarCollapsed)
+                : undefined
+            }
             isSidebarCollapsed={isSidebarCollapsed}
+            responsive={responsive}
           />
         </div>
       </header>
 
       {/* CONTENT AREA: Remaining Height */}
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* SECTION 2: SIDEBAR - Fixed Width */}
-        <aside
-          className={cn(
-            'hidden md:flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
-            isSidebarCollapsed ? 'w-16' : 'w-64'
-          )}
-        >
-          {/* Sidebar Navigation */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {isSidebarCollapsed
-              ? // Collapsed: Show all items (including nested) as individual icons with tooltips
-                flattenedNavItems.map((item, index) => (
-                  <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
-                ))
-              : // Expanded: Show hierarchical structure
-                navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
-          </div>
+        {/* SECTION 2: SIDEBAR - Only show on desktop screens */}
+        {shouldShowDesktopSidebar && (
+          <aside
+            className={cn(
+              'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
+              isSidebarCollapsed ? 'w-16' : 'w-64'
+            )}
+          >
+            {/* Sidebar Navigation */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {isSidebarCollapsed
+                ? // Collapsed: Show all items (including nested) as individual icons with tooltips
+                  flattenedNavItems.map((item, index) => (
+                    <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
+                  ))
+                : // Expanded: Show hierarchical structure
+                  navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
+            </div>
 
-          {/* Sidebar Footer */}
-          <div className="p-4 border-t">
-            <Profile isCollapsed={isSidebarCollapsed} />
-          </div>
-        </aside>
+            {/* Sidebar Footer */}
+            <div className="p-4 border-t">
+              <Profile isCollapsed={isSidebarCollapsed} />
+            </div>
+          </aside>
+        )}
 
         {/* Mobile Sidebar */}
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
