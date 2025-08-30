@@ -4,11 +4,12 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, AlertCircle, Home } from 'lucide-react';
+import { X, AlertCircle, Home, Eye, Edit } from 'lucide-react';
 import { useChart } from '@/hooks/api/useCharts';
 import { useChartDataPreview, useMapDataOverlay, useGeoJSONData } from '@/hooks/api/useChart';
 import useSWR from 'swr';
 import { apiGet, apiPost } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
@@ -88,6 +89,18 @@ export function ChartElementV2({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Navigation
+  const router = useRouter();
+
+  // Navigation handler functions
+  const handleViewChart = () => {
+    router.push(`/charts/${chartId}`);
+  };
+
+  const handleEditChart = () => {
+    router.push(`/charts/${chartId}/edit`);
+  };
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -686,7 +699,21 @@ export function ChartElementV2({
   return (
     <div className="h-full w-full relative">
       {isEditMode && (
-        <div className="absolute -top-2 -right-2 z-10">
+        <div className="absolute -top-2 -right-2 z-10 flex gap-1">
+          <button
+            onClick={handleViewChart}
+            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+            title="View chart"
+          >
+            <Eye className="w-3 h-3 text-gray-600 hover:text-blue-600" />
+          </button>
+          <button
+            onClick={handleEditChart}
+            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+            title="Edit chart"
+          >
+            <Edit className="w-3 h-3 text-gray-600 hover:text-green-600" />
+          </button>
           <button
             onClick={onRemove}
             className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
