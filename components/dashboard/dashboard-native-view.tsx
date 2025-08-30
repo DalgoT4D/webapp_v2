@@ -64,6 +64,9 @@ import {
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from './ShareModal';
+import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
+import { ResponsiveFiltersSection } from './responsive-filters-section';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 
 // Define responsive breakpoints and column configurations (same as builder)
@@ -249,11 +252,13 @@ export function DashboardNativeView({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [containerWidth, setContainerWidth] = useState(1200);
+  const [actualContainerWidth, setActualContainerWidth] = useState(1200);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
 
   // Ref for the dashboard container
+  const dashboardContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -276,6 +281,9 @@ export function DashboardNativeView({
   // Override loading and error states for public mode when we have pre-fetched data
   const isLoading = isPublicMode && dashboardData ? false : apiIsLoading;
   const isError = isPublicMode && dashboardData ? false : apiIsError;
+
+  // Use responsive layout hook
+  const responsive = useResponsiveLayout();
 
   // Check if user can edit (creator or admin) - disabled in public mode
   const canEdit = useMemo(() => {
@@ -320,6 +328,7 @@ export function DashboardNativeView({
   useEffect(() => {
     const effectiveConfig = SCREEN_SIZES[effectiveScreenSize];
     setContainerWidth(effectiveConfig.width);
+    setActualContainerWidth(effectiveConfig.width);
   }, [effectiveScreenSize]);
 
   // Update current screen size on resize
@@ -346,6 +355,26 @@ export function DashboardNativeView({
       window.removeEventListener('resize', debouncedResize);
     };
   }, []);
+
+  // Observe dashboard container for responsive width (same as edit page)
+  useEffect(() => {
+    if (!dashboardContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width } = entry.contentRect;
+        // Use full available container width - let charts fill all available space
+        const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
+        setActualContainerWidth(responsiveWidth);
+      }
+    });
+
+    resizeObserver.observe(dashboardContainerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [containerWidth]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
@@ -402,6 +431,9 @@ export function DashboardNativeView({
   const handleFiltersCleared = () => {
     setSelectedFilters({});
   };
+
+  // Count applied filters for responsive component
+  const appliedFiltersCount = Object.keys(selectedFilters).length;
 
   const handleClearAllFilters = () => {
     setSelectedFilters({});
@@ -692,15 +724,6 @@ export function DashboardNativeView({
 
             {/* Mobile Quick Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-1.5"
-              >
-                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button>
               <Button variant="outline" size="sm" onClick={toggleFullscreen} className="p-1.5">
                 <Maximize2 className="w-4 h-4" />
               </Button>
@@ -739,59 +762,20 @@ export function DashboardNativeView({
             </Select>
           </div>
 
-          {/* Mobile Action Row */}
+          {/* Responsive Action Row */}
           {!isPublicMode && (
-            <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShare}
-                className="flex-shrink-0 h-8 text-xs"
-              >
-                <Share2 className="w-3 h-3 mr-1" />
-                Share
-              </Button>
-              {canEdit && !isLockedByOther && (
-                <>
-                  <Button onClick={handleEdit} size="sm" className="flex-shrink-0 h-8 text-xs">
-                    <Edit className="w-3 h-3 mr-1" />
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        disabled={isDeleting}
-                        className="flex-shrink-0 h-8 text-xs"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{dashboard?.title}"? This action cannot
-                          be undone and will permanently remove all dashboard content and
-                          configuration.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
+            <div className="px-4 pb-2">
+              <ResponsiveDashboardActions
+                onShare={handleShare}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onRefresh={handleRefresh}
+                canEdit={canEdit && !isLockedByOther}
+                isDeleting={isDeleting}
+                isRefreshing={isRefreshing}
+                dashboardTitle={dashboard?.title}
+                className="justify-end"
+              />
             </div>
           )}
 
@@ -868,10 +852,6 @@ export function DashboardNativeView({
               </div>
 
               {/* Action buttons */}
-              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
-                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button>
-
               <Button variant="outline" size="sm" onClick={toggleFullscreen}>
                 <Maximize2 className="w-4 h-4" />
               </Button>
@@ -907,76 +887,37 @@ export function DashboardNativeView({
               </Select>
 
               {!isPublicMode && (
-                <>
-                  <Button variant="outline" size="sm" onClick={handleShare}>
-                    <Share2 className="w-4 h-4" />
-                  </Button>
-
-                  {canEdit && !isLockedByOther && (
-                    <>
-                      <Button onClick={handleEdit} size="sm">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Dashboard
-                      </Button>
-
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm" disabled={isDeleting}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{dashboard?.title}"? This action
-                              cannot be undone and will permanently remove all dashboard content and
-                              configuration.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleDelete}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              disabled={isDeleting}
-                            >
-                              {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </>
-                  )}
-                </>
+                <ResponsiveDashboardActions
+                  onShare={handleShare}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onRefresh={handleRefresh}
+                  canEdit={canEdit && !isLockedByOther}
+                  isDeleting={isDeleting}
+                  isRefreshing={isRefreshing}
+                  dashboardTitle={dashboard?.title}
+                />
               )}
             </div>
           </div>
         </div>
       </div>
-      {/* Horizontal Filters Bar */}
-      {filterLayout === 'horizontal' && dashboardFilters.length > 0 && (
-        <UnifiedFiltersPanel
-          initialFilters={dashboardFilters}
-          dashboardId={dashboardId}
-          isEditMode={false}
-          layout="horizontal"
-          onFiltersApplied={handleFiltersApplied}
-          onFiltersCleared={handleFiltersCleared}
-          isPublicMode={isPublicMode}
-          publicToken={publicToken}
-        />
-      )}
+      {/* Mobile/Tablet Filters Section - Only show on non-desktop */}
+      <ResponsiveFiltersSection
+        dashboardFilters={dashboardFilters}
+        dashboardId={dashboardId}
+        isEditMode={false}
+        onFiltersApplied={handleFiltersApplied}
+        onFiltersCleared={handleFiltersCleared}
+        isPublicMode={isPublicMode}
+        publicToken={publicToken}
+        appliedFiltersCount={appliedFiltersCount}
+        className="px-4 pb-2"
+      />
       {/* Main Content Area */}
-      <div
-        className={cn(
-          'flex-1 flex overflow-hidden',
-          filterLayout === 'vertical' ? 'flex-col md:flex-row' : ''
-        )}
-      >
-        {/* Vertical Filters Sidebar */}
-        {filterLayout === 'vertical' && dashboardFilters.length > 0 && (
+      <div className="flex-1 flex overflow-hidden">
+        {/* Desktop Vertical Filters Sidebar - Only show on desktop */}
+        {responsive.isDesktop && dashboardFilters.length > 0 && (
           <UnifiedFiltersPanel
             initialFilters={dashboardFilters}
             dashboardId={dashboardId}
@@ -995,10 +936,11 @@ export function DashboardNativeView({
           style={{ paddingBottom: '60px' }}
         >
           <div
+            ref={dashboardContainerRef}
             className="dashboard-canvas bg-white border border-gray-300 shadow-lg relative z-10"
             style={{
               width: '100%',
-              maxWidth: `${effectiveScreenConfig.width}px`,
+              maxWidth: `min(${effectiveScreenConfig.width}px, 100vw - 2rem)`,
               minHeight: effectiveScreenConfig.height,
               margin: '0 auto 40px auto',
               display: 'flex',
@@ -1074,7 +1016,7 @@ export function DashboardNativeView({
                 layout={dashboard.layout_config || []}
                 cols={effectiveScreenConfig.cols}
                 rowHeight={30}
-                width={effectiveScreenConfig.width}
+                width={actualContainerWidth}
                 style={{
                   width: '100% !important',
                 }}
