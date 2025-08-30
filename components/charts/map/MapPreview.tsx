@@ -110,10 +110,25 @@ export function MapPreview({
           }));
         }
 
-        // Calculate min/max values for visualMap
+        // Calculate min/max values for color scaling
         const values = seriesData.map((item) => item.value).filter((v) => v != null);
         const minValue = values.length > 0 ? Math.min(...values) : 0;
         const maxValue = values.length > 0 ? Math.max(...values) : 100;
+
+        // Create custom color mapping for each data point to avoid visualMap issues
+        const colorScale = ['#1f77b4', '#aec7e8', '#ffbb78', '#ff7f0e', '#d62728'];
+        const enhancedSeriesData = seriesData.map((item) => {
+          const normalizedValue =
+            maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 0;
+          const colorIndex = Math.floor(normalizedValue * (colorScale.length - 1));
+          return {
+            name: item.name,
+            value: item.value,
+            itemStyle: {
+              areaColor: colorScale[colorIndex] || colorScale[0],
+            },
+          };
+        });
 
         // Create ECharts configuration
         chartConfig = {
@@ -132,30 +147,30 @@ export function MapPreview({
               return `${params.name}<br/>No data`;
             },
           },
-          visualMap:
-            mapData && mapData.length > 0
-              ? {
-                  min: minValue,
-                  max: maxValue,
-                  left: 'left',
-                  top: 'bottom',
-                  text: ['High', 'Low'],
-                  calculable: true,
-                  color: ['#1f77b4', '#aec7e8', '#ffbb78', '#ff7f0e', '#d62728'],
-                }
-              : undefined,
+          // Disable visualMap to prevent it from coloring ALL regions
+          // Instead, use individual itemStyle coloring for data regions only
           series: [
             {
               name: 'Map Data',
               type: 'map',
               mapType: mapName,
               roam: true,
+              // Configure how regions without data should appear (default styling)
+              itemStyle: {
+                areaColor: '#f5f5f5', // Light gray for regions without data
+                borderColor: '#333',
+                borderWidth: 0.5,
+              },
               emphasis: {
                 label: {
                   show: true,
                 },
+                itemStyle: {
+                  areaColor: '#37a2da',
+                },
               },
-              data: seriesData,
+              // Use enhanced data with individual colors to avoid global visualMap
+              data: enhancedSeriesData,
             },
           ],
         };
