@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, Map, ArrowLeft, Home } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -84,6 +84,40 @@ export function MapPreview({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Zoom state
+  const [currentZoom, setCurrentZoom] = useState(1);
+
+  // Zoom control functions using setOption
+  const handleZoomIn = useCallback(() => {
+    if (chartInstance.current) {
+      const newZoom = Math.min(currentZoom * 1.5, 10); // Max zoom 10x
+      setCurrentZoom(newZoom);
+
+      chartInstance.current.setOption({
+        series: [
+          {
+            zoom: newZoom,
+          },
+        ],
+      });
+    }
+  }, [currentZoom]);
+
+  const handleZoomOut = useCallback(() => {
+    if (chartInstance.current) {
+      const newZoom = Math.max(currentZoom / 1.5, 0.5); // Min zoom 0.5x
+      setCurrentZoom(newZoom);
+
+      chartInstance.current.setOption({
+        series: [
+          {
+            zoom: newZoom,
+          },
+        ],
+      });
+    }
+  }, [currentZoom]);
+
   // Create a unique map name per component instance to prevent ECharts global registration conflicts
   const uniqueMapName = useRef(`customMap-${Date.now()}-${Math.random()}`).current;
 
@@ -115,17 +149,20 @@ export function MapPreview({
         const minValue = values.length > 0 ? Math.min(...values) : 0;
         const maxValue = values.length > 0 ? Math.max(...values) : 100;
 
-        // Create custom color mapping for each data point to avoid visualMap issues
-        const colorScale = ['#1f77b4', '#aec7e8', '#ffbb78', '#ff7f0e', '#d62728'];
+        // Create uniform color with opacity-based mapping for each data point
+        const baseColor = '#1f77b4'; // Blue base color
         const enhancedSeriesData = seriesData.map((item) => {
           const normalizedValue =
             maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 0;
-          const colorIndex = Math.floor(normalizedValue * (colorScale.length - 1));
+          // Map to opacity range: 0.3 (min) to 1.0 (max) for better visibility
+          const opacity = 0.3 + normalizedValue * 0.7;
           return {
             name: item.name,
             value: item.value,
             itemStyle: {
-              areaColor: colorScale[colorIndex] || colorScale[0],
+              areaColor: `${baseColor}${Math.round(opacity * 255)
+                .toString(16)
+                .padStart(2, '0')}`,
             },
           };
         });
@@ -154,7 +191,7 @@ export function MapPreview({
               name: 'Map Data',
               type: 'map',
               mapType: mapName,
-              roam: true,
+              roam: 'move', // Allow pan but disable pinch zoom
               // Configure how regions without data should appear (default styling)
               itemStyle: {
                 areaColor: '#f5f5f5', // Light gray for regions without data
@@ -207,6 +244,32 @@ export function MapPreview({
       // Create new instance
       chartInstance.current = echarts.init(chartRef.current);
       chartInstance.current.setOption(chartConfig);
+
+      // Configure touch behavior - disable pinch zoom only
+      if (chartInstance.current && chartRef.current) {
+        const chartDom = chartRef.current;
+
+        // Disable default pinch zoom behaviors
+        chartDom.addEventListener(
+          'touchstart',
+          (e) => {
+            if (e.touches.length > 1) {
+              e.preventDefault(); // Prevent pinch zoom
+            }
+          },
+          { passive: false }
+        );
+
+        chartDom.addEventListener(
+          'touchmove',
+          (e) => {
+            if (e.touches.length > 1) {
+              e.preventDefault(); // Prevent pinch zoom
+            }
+          },
+          { passive: false }
+        );
+      }
 
       // Click event listener will be added separately to avoid re-initialization
 
@@ -475,6 +538,24 @@ export function MapPreview({
     <div className="w-full h-full relative">
       {showBreadcrumbs && <BreadcrumbNavigation />}
       <div ref={chartRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
+
+      {/* Custom Zoom Controls */}
+      <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">
+        <button
+          onClick={handleZoomIn}
+          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"
+          title="Zoom In"
+        >
+          +
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"
+          title="Zoom Out"
+        >
+          −
+        </button>
+      </div>
 
       {/* Data loading overlay */}
       {showDataLoadingOverlay && (
