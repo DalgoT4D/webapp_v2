@@ -296,6 +296,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         }))
       : [];
 
+    console.log('🎛️ Dashboard Builder - Initial Filters:', {
+      initialDataFilters: initialData?.filters,
+      processedFilters: initialFilters,
+    });
+
     // Don't create filter components - they should already be in initialComponents
     // Just use the components and layout as they are
     const mergedComponents = initialComponents;
@@ -832,6 +837,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle when filters are applied (causes chart re-renders)
     const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
+      console.log('🔄 Dashboard Builder - Filters Applied:', {
+        newAppliedFilters,
+        initialFilters,
+      });
       setAppliedFilters(newAppliedFilters);
     };
 
@@ -1082,6 +1091,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               config={component.config}
               isResizing={resizingItems.has(componentId)}
               appliedFilters={appliedFilters}
+              dashboardFilterConfigs={initialFilters}
             />
           );
 

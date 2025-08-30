@@ -13,6 +13,11 @@ import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
+import {
+  resolveDashboardFilters,
+  formatAsChartFilters,
+  type DashboardFilterConfig,
+} from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -53,6 +58,7 @@ interface ChartElementV2Props {
   isResizing?: boolean;
   isEditMode?: boolean;
   appliedFilters?: Record<string, any>;
+  dashboardFilterConfigs?: DashboardFilterConfig[];
 }
 
 interface DrillDownLevel {
@@ -75,12 +81,32 @@ export function ChartElementV2({
   isResizing,
   isEditMode = true,
   appliedFilters = {},
+  dashboardFilterConfigs = [],
 }: ChartElementV2Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Resolve dashboard filters to complete column information for maps and tables
+  const resolvedDashboardFilters = useMemo(() => {
+    console.log(`🔍 [Chart ${chartId}] Filter Resolution:`, {
+      appliedFilters,
+      dashboardFilterConfigs,
+      hasAppliedFilters: Object.keys(appliedFilters).length > 0,
+      hasFilterConfigs: dashboardFilterConfigs.length > 0,
+    });
+
+    if (Object.keys(appliedFilters).length === 0 || dashboardFilterConfigs.length === 0) {
+      console.log(`❌ [Chart ${chartId}] Skipping filter resolution - no filters or configs`);
+      return [];
+    }
+
+    const resolved = resolveDashboardFilters(appliedFilters, dashboardFilterConfigs);
+    console.log(`✅ [Chart ${chartId}] Resolved filters:`, resolved);
+    return resolved;
+  }, [appliedFilters, dashboardFilterConfigs, chartId]);
 
   // Create a stable chart instance identifier to prevent state bleeding
   const chartInstanceId = useRef(`chart-${chartId}-${Date.now()}`).current;
@@ -159,31 +185,36 @@ export function ChartElementV2({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
-    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
-      ? {
-          schema_name: chart.schema_name,
-          table_name: chart.table_name,
-          geographic_column: activeGeographicColumn,
-          value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
-          filters: filters, // Drill-down filters
-          chart_filters: chart.extra_config.filters || [], // Chart-level filters
-          dashboard_filters:
-            Object.keys(appliedFilters).length > 0
-              ? Object.entries(appliedFilters).map(([filterId, value]) => ({
-                  filter_id: filterId,
-                  value: value,
-                }))
-              : undefined,
-          // Include full extra_config for pagination, sorting, and other features
-          extra_config: {
-            filters: chart.extra_config.filters || [],
-            pagination: chart.extra_config.pagination,
-            sort: chart.extra_config.sort,
-          },
-          chart_id: chartId, // Add chart ID for cache isolation
-        }
-      : null;
+    if (chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn) {
+      const formattedFilters = formatAsChartFilters(resolvedDashboardFilters);
+      console.log(`🗺️ [Map ${chartId}] Building payload:`, {
+        resolvedDashboardFilters,
+        formattedFilters,
+        existingFilters: chart.extra_config.filters || [],
+      });
+
+      return {
+        schema_name: chart.schema_name,
+        table_name: chart.table_name,
+        geographic_column: activeGeographicColumn,
+        value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
+        aggregate_function: chart.extra_config.aggregate_function || 'sum',
+        filters: filters, // Drill-down filters
+        chart_filters: [
+          ...(chart.extra_config.filters || []), // Chart-level filters
+          ...formattedFilters, // Dashboard filters (resolved)
+        ],
+        // Remove dashboard_filters - now using chart_filters
+        // Include full extra_config for pagination, sorting, and other features
+        extra_config: {
+          filters: [...(chart.extra_config.filters || []), ...formattedFilters],
+          pagination: chart.extra_config.pagination,
+          sort: chart.extra_config.sort,
+        },
+        chart_id: chartId, // Add chart ID for cache isolation
+      };
+    }
+    return null;
   }, [
     chart?.chart_type,
     chart?.schema_name,
@@ -191,7 +222,7 @@ export function ChartElementV2({
     chart?.extra_config,
     activeGeographicColumn,
     filters,
-    appliedFilters, // Critical: Include appliedFilters as dependency
+    resolvedDashboardFilters, // Critical: Use resolved filters instead of raw appliedFilters
     chartId, // Add chartId as dependency for cache isolation
   ]);
 
@@ -220,8 +251,10 @@ export function ChartElementV2({
 
   // Debug logging for API URL generation
 
-  // Fetch chart data with filters (skip for map charts - they use map-data-overlay)
-  const shouldFetchChartData = chart ? chart.chart_type !== 'map' : true;
+  // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
+  const shouldFetchChartData = chart
+    ? chart.chart_type !== 'map' && chart.chart_type !== 'table'
+    : true;
   const {
     data: chartData,
     isLoading: dataLoading,
@@ -261,40 +294,43 @@ export function ChartElementV2({
   });
 
   // For table charts, also fetch raw data using data preview API
-  const chartDataPayload: ChartDataPayload | null =
-    chart?.chart_type === 'table' && chart
-      ? {
-          chart_type: chart.chart_type,
-          computation_type: chart.computation_type as 'raw' | 'aggregated',
-          schema_name: chart.schema_name,
-          table_name: chart.table_name,
-          x_axis: chart.extra_config?.x_axis_column,
-          y_axis: chart.extra_config?.y_axis_column,
-          dimension_col: chart.extra_config?.dimension_column,
-          aggregate_col: chart.extra_config?.aggregate_column,
-          aggregate_func: chart.extra_config?.aggregate_function || 'sum',
-          extra_dimension: chart.extra_config?.extra_dimension_column,
-          metrics: chart.extra_config?.metrics,
-          extra_config: {
-            filters: chart.extra_config?.filters,
-            pagination: chart.extra_config?.pagination,
-            sort: chart.extra_config?.sort,
-          },
-          // Include dashboard filters in the payload
-          dashboard_filters:
-            Object.keys(appliedFilters).length > 0
-              ? Object.entries(appliedFilters).map(([filterId, value]) => ({
-                  filter_id: filterId,
-                  value: value,
-                }))
-              : undefined,
-        }
-      : null;
+  const chartDataPayload: ChartDataPayload | null = useMemo(() => {
+    if (chart?.chart_type === 'table' && chart) {
+      const formattedFilters = formatAsChartFilters(resolvedDashboardFilters);
+      console.log(`📊 [Table ${chartId}] Building payload:`, {
+        resolvedDashboardFilters,
+        formattedFilters,
+        existingFilters: chart.extra_config?.filters || [],
+      });
+
+      return {
+        chart_type: chart.chart_type,
+        computation_type: chart.computation_type as 'raw' | 'aggregated',
+        schema_name: chart.schema_name,
+        table_name: chart.table_name,
+        x_axis: chart.extra_config?.x_axis_column,
+        y_axis: chart.extra_config?.y_axis_column,
+        dimension_col: chart.extra_config?.dimension_column,
+        aggregate_col: chart.extra_config?.aggregate_column,
+        aggregate_func: chart.extra_config?.aggregate_function || 'sum',
+        extra_dimension: chart.extra_config?.extra_dimension_column,
+        metrics: chart.extra_config?.metrics,
+        extra_config: {
+          filters: [...(chart.extra_config?.filters || []), ...formattedFilters],
+          pagination: chart.extra_config?.pagination,
+          sort: chart.extra_config?.sort,
+        },
+        // Remove dashboard_filters since we're using filters in extra_config now
+      };
+    }
+    return null;
+  }, [chart, resolvedDashboardFilters, chartId]);
 
   const {
     data: tableData,
     error: tableError,
     isLoading: tableLoading,
+    mutate: mutateTableData,
   } = useChartDataPreview(chartDataPayload, 1, 50);
 
   // Compute derived state
@@ -421,6 +457,17 @@ export function ChartElementV2({
       mutateMapData();
     }
   }, [appliedFilters, mutateMapData, chartId, isMapChart]);
+
+  // Force refetch for table data when filters change
+  useEffect(() => {
+    if (
+      chart?.chart_type === 'table' &&
+      Object.keys(appliedFilters).length > 0 &&
+      mutateTableData
+    ) {
+      mutateTableData();
+    }
+  }, [appliedFilters, mutateTableData, chartId, chart?.chart_type]);
 
   // Debug logging
   useEffect(() => {
