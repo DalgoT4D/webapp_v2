@@ -665,7 +665,7 @@ export default function ChartsPage() {
   }
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 left-64 flex flex-col bg-gray-50">
+    <div className="top-0 right-0 bottom-0 left-64 flex flex-col bg-gray-50">
       {/* Fixed Header */}
       <div className="flex-shrink-0 border-b bg-white p-6 shadow-sm">
         {/* Title Section */}

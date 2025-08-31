@@ -545,7 +545,7 @@ export function MapDataConfigurationV3({
               onFormDataChange({ filters: newFilters });
             }}
             disabled={disabled}
-            className="w-full"
+            className="w-full bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
           >
             + Add Filter
           </Button>
@@ -655,7 +655,7 @@ export function MapDataConfigurationV3({
                 onClick={addLayer}
                 variant="outline"
                 size="sm"
-                className="w-full"
+                className="w-full bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
                 disabled={disabled}
               >
                 <Plus className="h-4 w-4 mr-2" />
