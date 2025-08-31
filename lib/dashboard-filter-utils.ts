@@ -43,8 +43,14 @@ export function resolveDashboardFilters(
       return;
     }
 
-    // Find the filter configuration for this ID
-    const filterConfig = filterConfigs.find((config) => config.id === filterId);
+    // Find the filter configuration for this ID (handle string/number mismatch)
+    const filterConfig = filterConfigs.find((config) => {
+      return (
+        config.id === filterId ||
+        config.id === parseInt(filterId) ||
+        config.id.toString() === filterId
+      );
+    });
 
     if (!filterConfig) {
       console.warn(`Dashboard filter config not found for ID: ${filterId}`);

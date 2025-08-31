@@ -21,6 +21,7 @@ import {
   deleteDashboardFilter,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
   Plus,
   Undo,
@@ -296,6 +297,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         }))
       : [];
 
+    console.log('🎛️ Dashboard Builder - Initial Filters:', {
+      initialDataFilters: initialData?.filters,
+      processedFilters: initialFilters,
+    });
+
     // Don't create filter components - they should already be in initialComponents
     // Just use the components and layout as they are
     const mergedComponents = initialComponents;
@@ -357,13 +363,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       SCREEN_SIZES[targetScreenSize]?.width || 1200
     );
 
-    // Filter layout state
-    const [filterLayout, setFilterLayout] = useState<'vertical' | 'horizontal'>(
+    // Responsive layout hook
+    const responsive = useResponsiveLayout();
+
+    // Filter layout state with responsive behavior
+    const [userFilterLayoutChoice, setUserFilterLayoutChoice] = useState<'vertical' | 'horizontal'>(
       (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
     );
 
-    // Ref for the canvas container
+    // Effective filter layout (combines user choice with responsive logic)
+    // For desktop: always use vertical (sidebar), for mobile/tablet: use horizontal (top bar)
+    const filterLayout = responsive.isDesktop ? 'vertical' : 'horizontal';
+
+    // Ref for the canvas container (gray area)
     const canvasRef = useRef<HTMLDivElement>(null);
+    // Ref for the white dashboard container (actual boundary)
+    const dashboardContainerRef = useRef<HTMLDivElement>(null);
 
     // Get current screen size config
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
@@ -378,20 +393,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setActualContainerWidth(newWidth);
     }, [targetScreenSize]);
 
-    // Observe canvas container for responsive width
+    // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
-      if (!canvasRef.current) return;
+      if (!dashboardContainerRef.current) return;
 
       const resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const { width } = entry.contentRect;
-          // Use the smaller of the target screen size or actual container width
-          const responsiveWidth = Math.min(containerWidth, width - 32); // Account for padding
+          // Use full available WHITE container width - let charts fill all available space
+          const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
           setActualContainerWidth(responsiveWidth);
         }
       });
 
-      resizeObserver.observe(canvasRef.current);
+      resizeObserver.observe(dashboardContainerRef.current);
 
       return () => {
         resizeObserver.disconnect();
@@ -830,6 +845,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle when filters are applied (causes chart re-renders)
     const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
+      console.log('🔄 Dashboard Builder - Filters Applied:', {
+        newAppliedFilters,
+        initialFilters,
+      });
       setAppliedFilters(newAppliedFilters);
     };
 
@@ -840,8 +859,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle filter layout changes
     const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
-      setFilterLayout(newLayout);
-      // Auto-save the layout preference
+      setUserFilterLayoutChoice(newLayout);
+      // Auto-save the layout preference (only save user's choice, not responsive overrides)
       saveDashboard({ filter_layout: newLayout }).catch((error) => {
         console.error('❌ Failed to save filter layout:', error);
       });
@@ -1080,6 +1099,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               config={component.config}
               isResizing={resizingItems.has(componentId)}
               appliedFilters={appliedFilters}
+              dashboardFilterConfigs={initialFilters}
             />
           );
 
@@ -1185,7 +1205,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                       {/* Filter Layout Setting */}
                       <div className="grid gap-2">
-                        <Label className="text-sm font-medium">Filter Layout</Label>
+                        <Label className="text-sm font-medium">
+                          Filter Layout
+                          <span className="ml-2 text-xs text-blue-600 font-normal">
+                            (Auto: {responsive.currentBreakpoint})
+                          </span>
+                        </Label>
                         <ToggleGroup
                           type="single"
                           value={filterLayout}
@@ -1193,6 +1218,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
                           }
                           className="grid grid-cols-2 gap-2"
+                          disabled={true}
                         >
                           <ToggleGroupItem value="vertical" className="text-xs">
                             <PanelLeft className="w-3 h-3 mr-1" />
@@ -1204,9 +1230,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </ToggleGroupItem>
                         </ToggleGroup>
                         <div className="text-xs text-muted-foreground">
-                          {filterLayout === 'vertical'
-                            ? 'Filters appear in a sidebar on the left'
-                            : 'Filters appear in a horizontal bar above the canvas'}
+                          <span className="text-blue-600">
+                            Layout automatically set to '{filterLayout}' for{' '}
+                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
+                            uses sidebar, mobile/tablet use top bar.
+                          </span>
                         </div>
                       </div>
 
@@ -1443,7 +1471,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                       {/* Filter Layout Setting */}
                       <div className="grid gap-2">
-                        <Label className="text-sm font-medium">Filter Layout</Label>
+                        <Label className="text-sm font-medium">
+                          Filter Layout
+                          <span className="ml-2 text-xs text-blue-600 font-normal">
+                            (Auto: {responsive.currentBreakpoint})
+                          </span>
+                        </Label>
                         <ToggleGroup
                           type="single"
                           value={filterLayout}
@@ -1451,6 +1484,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
                           }
                           className="grid grid-cols-2 gap-2"
+                          disabled={true}
                         >
                           <ToggleGroupItem value="vertical" className="text-xs">
                             <PanelLeft className="w-4 h-4 mr-2" />
@@ -1462,9 +1496,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </ToggleGroupItem>
                         </ToggleGroup>
                         <div className="text-xs text-muted-foreground">
-                          {filterLayout === 'vertical'
-                            ? 'Filters appear in a sidebar on the left'
-                            : 'Filters appear in a horizontal bar above the canvas'}
+                          <span className="text-blue-600">
+                            Layout automatically set to '{filterLayout}' for{' '}
+                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
+                            uses sidebar, mobile/tablet use top bar.
+                          </span>
                         </div>
                       </div>
 
@@ -1560,6 +1596,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
             {/* Canvas container with viewport-based responsiveness */}
             <div
+              ref={dashboardContainerRef}
               className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
               style={{
                 width: '100%',
@@ -1568,18 +1605,31 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 position: 'relative',
               }}
             >
-              {/* Screen size indicator */}
+              {/* Screen size and grid info indicator */}
               <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
-                {currentScreenConfig.name} ({currentScreenConfig.width}×{currentScreenConfig.height}
-                )
+                <div>
+                  {currentScreenConfig.name} ({currentScreenConfig.width}×
+                  {currentScreenConfig.height})
+                </div>
+                <div>Configured cols: {currentScreenConfig.cols}</div>
+                <div>
+                  Grid width: {actualContainerWidth}px (should use {currentScreenConfig.cols} cols)
+                </div>
+                <div>
+                  Actual col width: {Math.floor(actualContainerWidth / currentScreenConfig.cols)}px
+                </div>
+                <div>
+                  Fixed col width:{' '}
+                  {Math.floor(currentScreenConfig.width / currentScreenConfig.cols)}px
+                </div>
               </div>
 
               <GridLayout
-                className="layout"
+                className="layout relative z-10"
                 layout={state.layout}
-                cols={currentScreenConfig.cols}
+                cols={currentScreenConfig.cols} // Always exactly 12 columns (or 6 for tablet, 2 for mobile)
                 rowHeight={30}
-                width={actualContainerWidth} // Responsive width
+                width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onResizeStart={handleResizeStart}
                 onResizeStop={handleResizeStop}

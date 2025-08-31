@@ -21,6 +21,7 @@ interface HeaderProps {
   hideMenu?: boolean;
   onSidebarToggle?: () => void;
   isSidebarCollapsed?: boolean;
+  responsive?: any;
 }
 
 export function Header({
@@ -28,6 +29,7 @@ export function Header({
   hideMenu = false,
   onSidebarToggle,
   isSidebarCollapsed = false,
+  responsive,
 }: HeaderProps) {
   const router = useRouter();
   const {
@@ -114,8 +116,8 @@ export function Header({
         )}
 
         {/* Mobile Menu Toggle */}
-        {!hideMenu && onMenuToggle && (
-          <Button variant="ghost" size="icon" onClick={onMenuToggle} className="md:hidden h-9 w-9">
+        {!hideMenu && onMenuToggle && responsive && !responsive.isDesktop && (
+          <Button variant="ghost" size="icon" onClick={onMenuToggle} className="h-9 w-9">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle menu</span>
           </Button>
