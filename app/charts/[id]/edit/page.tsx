@@ -767,6 +767,7 @@ function EditChartPageContent() {
                   ) : (
                     <div className="w-full h-full">
                       <ChartPreview
+                        key={`${formData.schema_name}-${formData.table_name}`}
                         config={chartData?.echarts_config}
                         isLoading={chartDataLoading}
                         error={chartDataError}

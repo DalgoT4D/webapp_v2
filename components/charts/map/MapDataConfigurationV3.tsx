@@ -14,8 +14,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MapPin, Table, Plus, Eye, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react';
+import {
+  MapPin,
+  Table,
+  Plus,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Filter,
+  Edit2,
+  Check,
+  X,
+} from 'lucide-react';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
+import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import {
   useColumns,
   useRegions,
@@ -83,6 +96,7 @@ interface Layer {
   region_name?: string;
   geojson_name?: string;
   selected_regions?: SelectedRegion[];
+  name?: string;
 }
 
 interface MapDataConfigurationV3Props {
@@ -114,8 +128,8 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   table?: string;
   column: string;
   operator: string;
-  value: string | number;
-  onChange: (value: string | number) => void;
+  value: any;
+  onChange: (value: any) => void;
   disabled?: boolean;
 }) {
   // Get column values from preview data instead of separate API call
@@ -160,7 +174,9 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
       const selectedValues = Array.isArray(value)
         ? value
         : value
-          ? value.split(',').map((v: string) => v.trim())
+          ? String(value)
+              .split(',')
+              .map((v: string) => v.trim())
           : [];
 
       return (
@@ -280,12 +296,13 @@ export function MapDataConfigurationV3({
   disabled,
 }: MapDataConfigurationV3Props) {
   const [viewingLayer, setViewingLayer] = useState<number | null>(null);
+  const [isEditingDataset, setIsEditingDataset] = useState(false);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
   const normalizedColumns =
     columns?.map((col) => ({
-      column_name: col.column_name || col.name,
+      name: col.column_name || col.name, // Use 'name' to match TableColumn interface
       data_type: col.data_type,
     })) || [];
 
@@ -296,6 +313,54 @@ export function MapDataConfigurationV3({
   );
 
   const allColumns = normalizedColumns;
+
+  // Handle dataset changes with complete form reset for maps
+  const handleDatasetChange = (schema_name: string, table_name: string) => {
+    // Prevent unnecessary resets if dataset hasn't actually changed
+    if (formData.schema_name === schema_name && formData.table_name === table_name) {
+      setIsEditingDataset(false);
+      return;
+    }
+
+    // Preserve only essential chart identity fields
+    const preservedFields = {
+      title: formData.title,
+      description: formData.description,
+      chart_type: formData.chart_type,
+      customizations: formData.customizations || {}, // Keep styling preferences
+    };
+
+    // Reset all map-specific fields to ensure compatibility with new dataset
+    onFormDataChange({
+      ...preservedFields,
+      schema_name,
+      table_name,
+      // Reset all column selections
+      geographic_column: undefined,
+      value_column: undefined,
+      aggregate_function: 'sum', // Default aggregate function
+      selected_geojson_id: undefined,
+      // Reset data configuration
+      metrics: [],
+      filters: [],
+      sort: [],
+      pagination: { enabled: false, page_size: 50 },
+      computation_type: 'aggregated',
+      // Reset map-specific fields
+      layers: undefined, // Will be recreated with default layer
+      geojsonPreviewPayload: undefined,
+      dataOverlayPayload: undefined,
+      country_code: 'IND', // Reset to default country
+    });
+
+    // Exit edit mode after successful change
+    setIsEditingDataset(false);
+  };
+
+  // Handle canceling dataset edit
+  const handleCancelDatasetEdit = () => {
+    setIsEditingDataset(false);
+  };
 
   // Fetch region hierarchy for dynamic layer structure
   const countryCode = formData.country_code || 'IND';
@@ -420,15 +485,51 @@ export function MapDataConfigurationV3({
         </div>
       </div>
 
-      {/* Data Source - Show readonly */}
+      {/* Data Source - Inline Edit Pattern */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-900">Data Source</Label>
-        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
-          <Table className="h-5 w-5 text-gray-600" />
-          <span className="font-mono text-sm">
-            {formData.schema_name}.{formData.table_name}
-          </span>
-        </div>
+        {!isEditingDataset ? (
+          // Read-only view with edit button
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full group hover:bg-gray-100 transition-colors">
+            <Table className="h-5 w-5 text-gray-600" />
+            <span className="font-mono text-sm flex-1">
+              {formData.schema_name}.{formData.table_name}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => setIsEditingDataset(true)}
+              disabled={disabled}
+            >
+              <Edit2 className="h-3 w-3 text-gray-500" />
+            </Button>
+          </div>
+        ) : (
+          // Edit mode with dataset selector
+          <div className="space-y-2">
+            <DatasetSelector
+              schema_name={formData.schema_name}
+              table_name={formData.table_name}
+              onDatasetChange={handleDatasetChange}
+              disabled={disabled}
+              className="w-full"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelDatasetEdit}
+                disabled={disabled}
+                className="h-7 px-2 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+              <span className="text-xs text-gray-500">Select a dataset to continue</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Metrics - use MetricsSelector with single metric */}
@@ -763,11 +864,15 @@ function LayerCard({
       const currentPaginationHash = JSON.stringify(formData.pagination || {});
       const currentSortHash = JSON.stringify(formData.sort || []);
 
-      const payloadFiltersHash = JSON.stringify(formData.dataOverlayPayload?.chart_filters || []);
-      const payloadPaginationHash = JSON.stringify(
-        formData.dataOverlayPayload?.extra_config?.pagination || {}
+      const payloadFiltersHash = JSON.stringify(
+        (formData.dataOverlayPayload as any)?.chart_filters || []
       );
-      const payloadSortHash = JSON.stringify(formData.dataOverlayPayload?.extra_config?.sort || []);
+      const payloadPaginationHash = JSON.stringify(
+        (formData.dataOverlayPayload as any)?.extra_config?.pagination || {}
+      );
+      const payloadSortHash = JSON.stringify(
+        (formData.dataOverlayPayload as any)?.extra_config?.sort || []
+      );
 
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === layer.geojson_id &&
@@ -871,7 +976,7 @@ function LayerCard({
 
     // Filter out used columns
     return columns.filter((column) => {
-      const columnName = column.column_name;
+      const columnName = column.name;
       return !usedColumns.has(columnName);
     });
   };
@@ -931,6 +1036,7 @@ function LayerCard({
       geographic_column: layer.geographic_column,
       value_column: formData.aggregate_column || formData.value_column,
       aggregate_function: formData.aggregate_function,
+      selected_geojson_id: region.geojson_id,
     };
 
     // Pass the payloads to parent for preview
@@ -1055,7 +1161,7 @@ function LayerCard({
               </SelectTrigger>
               <SelectContent>
                 {availableColumns.map((column) => {
-                  const columnName = column.column_name;
+                  const columnName = column.name;
                   return (
                     <SelectItem key={columnName} value={columnName}>
                       {columnName} ({column.data_type})

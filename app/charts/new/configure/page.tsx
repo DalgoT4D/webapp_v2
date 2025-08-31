@@ -565,6 +565,7 @@ function ConfigureChartPageContent() {
                   ) : (
                     <div className="w-full h-full">
                       <ChartPreview
+                        key={`${formData.schema_name}-${formData.table_name}`}
                         config={chartData?.echarts_config}
                         isLoading={chartLoading}
                         error={chartError}

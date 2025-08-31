@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -11,10 +11,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-react';
+import { BarChart3, Table, PieChart, LineChart, Hash, MapPin, Edit2, Check, X } from 'lucide-react';
 import { useColumns, useColumnValues } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
+import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 interface ChartDataConfigurationV3Props {
@@ -192,6 +193,7 @@ export function ChartDataConfigurationV3({
   onChange,
   disabled,
 }: ChartDataConfigurationV3Props) {
+  const [isEditingDataset, setIsEditingDataset] = useState(false);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
@@ -208,6 +210,58 @@ export function ChartDataConfigurationV3({
   );
 
   const allColumns = normalizedColumns;
+
+  // Handle dataset changes with complete form reset
+  const handleDatasetChange = (schema_name: string, table_name: string) => {
+    // Prevent unnecessary resets if dataset hasn't actually changed
+    if (formData.schema_name === schema_name && formData.table_name === table_name) {
+      setIsEditingDataset(false);
+      return;
+    }
+
+    // Preserve only essential chart identity fields
+    const preservedFields = {
+      title: formData.title,
+      description: formData.description,
+      chart_type: formData.chart_type,
+      customizations: formData.customizations || {}, // Keep styling preferences
+    };
+
+    // Reset all data-related fields to ensure compatibility with new dataset
+    onChange({
+      ...preservedFields,
+      schema_name,
+      table_name,
+      // Reset all column selections
+      x_axis_column: undefined,
+      y_axis_column: undefined,
+      dimension_column: undefined,
+      aggregate_column: undefined,
+      aggregate_function: 'sum', // Default aggregate function
+      extra_dimension_column: undefined,
+      geographic_column: undefined,
+      value_column: undefined,
+      selected_geojson_id: undefined,
+      // Reset data configuration
+      metrics: [],
+      filters: [],
+      sort: [],
+      pagination: { enabled: false, page_size: 50 },
+      computation_type: 'aggregated',
+      // Reset map-specific fields
+      layers: undefined,
+      geojsonPreviewPayload: undefined,
+      dataOverlayPayload: undefined,
+    });
+
+    // Exit edit mode after successful change
+    setIsEditingDataset(false);
+  };
+
+  // Handle canceling dataset edit
+  const handleCancelDatasetEdit = () => {
+    setIsEditingDataset(false);
+  };
 
   // Handle chart type changes with field cleanup
   const handleChartTypeChange = (newChartType: string) => {
@@ -294,15 +348,51 @@ export function ChartDataConfigurationV3({
         disabled={disabled}
       />
 
-      {/* Data Source - Show readonly */}
+      {/* Data Source - Inline Edit Pattern */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-900">Data Source</Label>
-        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
-          <Table className="h-5 w-5 text-gray-600" />
-          <span className="font-mono text-sm">
-            {formData.schema_name}.{formData.table_name}
-          </span>
-        </div>
+        {!isEditingDataset ? (
+          // Read-only view with edit button
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full group hover:bg-gray-100 transition-colors">
+            <Table className="h-5 w-5 text-gray-600" />
+            <span className="font-mono text-sm flex-1">
+              {formData.schema_name}.{formData.table_name}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => setIsEditingDataset(true)}
+              disabled={disabled}
+            >
+              <Edit2 className="h-3 w-3 text-gray-500" />
+            </Button>
+          </div>
+        ) : (
+          // Edit mode with dataset selector
+          <div className="space-y-2">
+            <DatasetSelector
+              schema_name={formData.schema_name}
+              table_name={formData.table_name}
+              onDatasetChange={handleDatasetChange}
+              disabled={disabled}
+              className="w-full"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelDatasetEdit}
+                disabled={disabled}
+                className="h-7 px-2 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+              <span className="text-xs text-gray-500">Select a dataset to continue</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Computation Type - For bar/line/table charts */}
