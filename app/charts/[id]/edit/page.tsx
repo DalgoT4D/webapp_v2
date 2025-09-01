@@ -662,34 +662,33 @@ function EditChartPageContent() {
         </div>
       </div>
 
-      {/* Main Content Area - Takes Remaining Height */}
-      <div className="flex-1 flex overflow-hidden p-8">
-        <div className="flex w-full h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-          {/* Left Panel - 30% with Overflow Control */}
-          <div className="w-[30%] border-r flex flex-col">
-            <Tabs defaultValue="configuration" className="h-full flex flex-col">
-              <div className="border-b px-6 flex-shrink-0">
+      {/* Main Content Area with 2rem margin container */}
+      <div className="p-8 h-[calc(100vh-144px)]">
+        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Left Panel - 30% */}
+          <div className="w-[30%] border-r">
+            <Tabs defaultValue="configuration" className="h-full">
+              <div className="px-4">
                 <TabsList
-                  className={`grid w-full bg-transparent p-0 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                  className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
                 >
-                  <TabsTrigger
-                    value="configuration"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                  >
+                  <TabsTrigger value="configuration" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-5" />
                     Data Configuration
                   </TabsTrigger>
                   {formData.chart_type !== 'table' && (
-                    <TabsTrigger
-                      value="styling"
-                      className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 py-3"
-                    >
+                    <TabsTrigger value="styling" className="flex items-center gap-2">
+                      <Database className="h-4 w-5" />
                       Chart Styling
                     </TabsTrigger>
                   )}
                 </TabsList>
               </div>
 
-              <TabsContent value="configuration" className="mt-0 flex-1 overflow-y-auto">
+              <TabsContent
+                value="configuration"
+                className="mt-6 h-[calc(100%-73px)] overflow-y-auto"
+              >
                 <div className="p-4">
                   {formData.chart_type === 'map' ? (
                     <MapDataConfigurationV3
@@ -724,27 +723,23 @@ function EditChartPageContent() {
             </Tabs>
           </div>
 
-          {/* Right Panel - 70% with No Scroll */}
-          <div className="w-[70%] flex flex-col">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <div className="border-b px-6 flex-shrink-0">
-                <TabsList className="grid w-fit grid-cols-2 bg-transparent p-0">
-                  <TabsTrigger
-                    value="chart"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
-                  >
+          {/* Right Panel - 70% */}
+          <div className="w-[70%]">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+              <div className="px-4">
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="chart" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
                     CHART
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="data"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-sm px-4 py-2 text-sm font-medium"
-                  >
+                  <TabsTrigger value="data" className="flex items-center gap-2">
+                    <Database className="h-4 w-4" />
                     DATA
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <TabsContent value="chart" className="mt-0 flex-1 overflow-hidden">
+              <TabsContent value="chart" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4 h-full">
                   {formData.chart_type === 'map' ? (
                     <div className="w-full h-full">
@@ -781,8 +776,8 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="data" className="mt-0 flex-1 overflow-hidden">
-                <div className="p-4 h-full">
+              <TabsContent value="data" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
+                <div className="p-4">
                   <Tabs defaultValue="chart-data" className="h-full flex flex-col">
                     <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
                       <TabsTrigger value="chart-data" className="flex items-center gap-2">

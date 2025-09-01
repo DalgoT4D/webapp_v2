@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, Map, ArrowLeft, Home } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -43,6 +43,12 @@ interface MapPreviewProps {
   drillDownPath?: DrillDownLevel[];
   onDrillUp?: (level: number) => void;
   onDrillHome?: () => void;
+
+  // UI options
+  showBreadcrumbs?: boolean;
+
+  // Dashboard integration
+  isResizing?: boolean;
 }
 
 export function MapPreview({
@@ -67,9 +73,53 @@ export function MapPreview({
   drillDownPath = [],
   onDrillUp,
   onDrillHome,
+
+  // UI options
+  showBreadcrumbs = true,
+
+  // Dashboard integration
+  isResizing = false,
 }: MapPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Zoom state
+  const [currentZoom, setCurrentZoom] = useState(1);
+
+  // Zoom control functions using setOption
+  const handleZoomIn = useCallback(() => {
+    if (chartInstance.current) {
+      const newZoom = Math.min(currentZoom * 1.5, 10); // Max zoom 10x
+      setCurrentZoom(newZoom);
+
+      chartInstance.current.setOption({
+        series: [
+          {
+            zoom: newZoom,
+          },
+        ],
+      });
+    }
+  }, [currentZoom]);
+
+  const handleZoomOut = useCallback(() => {
+    if (chartInstance.current) {
+      const newZoom = Math.max(currentZoom / 1.5, 0.5); // Min zoom 0.5x
+      setCurrentZoom(newZoom);
+
+      chartInstance.current.setOption({
+        series: [
+          {
+            zoom: newZoom,
+          },
+        ],
+      });
+    }
+  }, [currentZoom]);
+
+  // Create a unique map name per component instance to prevent ECharts global registration conflicts
+  const uniqueMapName = useRef(`customMap-${Date.now()}-${Math.random()}`).current;
 
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
@@ -77,7 +127,7 @@ export function MapPreview({
 
     try {
       let chartConfig;
-      let mapName = 'customMap';
+      let mapName = uniqueMapName; // Use stable unique map name
 
       // Check if we have GeoJSON data to render
       if (geojsonData) {
@@ -94,10 +144,28 @@ export function MapPreview({
           }));
         }
 
-        // Calculate min/max values for visualMap
+        // Calculate min/max values for color scaling
         const values = seriesData.map((item) => item.value).filter((v) => v != null);
         const minValue = values.length > 0 ? Math.min(...values) : 0;
         const maxValue = values.length > 0 ? Math.max(...values) : 100;
+
+        // Create uniform color with opacity-based mapping for each data point
+        const baseColor = '#1f77b4'; // Blue base color
+        const enhancedSeriesData = seriesData.map((item) => {
+          const normalizedValue =
+            maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 0;
+          // Map to opacity range: 0.3 (min) to 1.0 (max) for better visibility
+          const opacity = 0.3 + normalizedValue * 0.7;
+          return {
+            name: item.name,
+            value: item.value,
+            itemStyle: {
+              areaColor: `${baseColor}${Math.round(opacity * 255)
+                .toString(16)
+                .padStart(2, '0')}`,
+            },
+          };
+        });
 
         // Create ECharts configuration
         chartConfig = {
@@ -116,30 +184,30 @@ export function MapPreview({
               return `${params.name}<br/>No data`;
             },
           },
-          visualMap:
-            mapData && mapData.length > 0
-              ? {
-                  min: minValue,
-                  max: maxValue,
-                  left: 'left',
-                  top: 'bottom',
-                  text: ['High', 'Low'],
-                  calculable: true,
-                  color: ['#1f77b4', '#aec7e8', '#ffbb78', '#ff7f0e', '#d62728'],
-                }
-              : undefined,
+          // Disable visualMap to prevent it from coloring ALL regions
+          // Instead, use individual itemStyle coloring for data regions only
           series: [
             {
               name: 'Map Data',
               type: 'map',
               mapType: mapName,
-              roam: true,
+              roam: 'move', // Allow pan but disable pinch zoom
+              // Configure how regions without data should appear (default styling)
+              itemStyle: {
+                areaColor: '#f5f5f5', // Light gray for regions without data
+                borderColor: '#333',
+                borderWidth: 0.5,
+              },
               emphasis: {
                 label: {
                   show: true,
                 },
+                itemStyle: {
+                  areaColor: '#37a2da',
+                },
               },
-              data: seriesData,
+              // Use enhanced data with individual colors to avoid global visualMap
+              data: enhancedSeriesData,
             },
           ],
         };
@@ -177,14 +245,33 @@ export function MapPreview({
       chartInstance.current = echarts.init(chartRef.current);
       chartInstance.current.setOption(chartConfig);
 
-      // Add click event listener for drill-down
-      if (onRegionClick) {
-        chartInstance.current.on('click', (params: any) => {
-          if (params.componentType === 'geo' || params.componentType === 'series') {
-            onRegionClick(params.name, params.data);
-          }
-        });
+      // Configure touch behavior - disable pinch zoom only
+      if (chartInstance.current && chartRef.current) {
+        const chartDom = chartRef.current;
+
+        // Disable default pinch zoom behaviors
+        chartDom.addEventListener(
+          'touchstart',
+          (e) => {
+            if (e.touches.length > 1) {
+              e.preventDefault(); // Prevent pinch zoom
+            }
+          },
+          { passive: false }
+        );
+
+        chartDom.addEventListener(
+          'touchmove',
+          (e) => {
+            if (e.touches.length > 1) {
+              e.preventDefault(); // Prevent pinch zoom
+            }
+          },
+          { passive: false }
+        );
       }
+
+      // Click event listener will be added separately to avoid re-initialization
 
       if (onChartReady) {
         onChartReady(chartInstance.current);
@@ -192,22 +279,152 @@ export function MapPreview({
     } catch (err) {
       console.error('Error initializing map chart:', err);
     }
-  }, [geojsonData, mapData, title, valueColumn, config, onChartReady, onRegionClick]);
+  }, [geojsonData, mapData, title, valueColumn, config, onChartReady]);
 
+  // Initialize chart when data changes
   useEffect(() => {
     initializeMapChart();
+  }, [initializeMapChart]);
 
-    // Handle resize
-    const handleResize = () => {
-      chartInstance.current?.resize();
+  // Handle click event listener separately to prevent re-initialization during resize
+  useEffect(() => {
+    if (!chartInstance.current || !onRegionClick) return;
+
+    const handleClick = (params: any) => {
+      if (params.componentType === 'geo' || params.componentType === 'series') {
+        onRegionClick(params.name, params.data);
+      }
     };
 
+    // Remove any existing click listeners
+    chartInstance.current.off('click');
+    // Add new click listener
+    chartInstance.current.on('click', handleClick);
+
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.off('click');
+      }
+    };
+  }, [onRegionClick]); // Only re-run when onRegionClick changes
+
+  // Handle window resize with debouncing - separate from chart data changes
+  useEffect(() => {
+    let resizeTimeoutId: NodeJS.Timeout | null = null;
+
+    const handleResize = () => {
+      if (chartInstance.current) {
+        // Clear any pending resize
+        if (resizeTimeoutId) {
+          clearTimeout(resizeTimeoutId);
+        }
+
+        // Debounce resize calls
+        resizeTimeoutId = setTimeout(() => {
+          if (chartInstance.current) {
+            chartInstance.current.resize();
+          }
+        }, 100);
+      }
+    };
+
+    // Handle window resize
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (resizeTimeoutId) {
+        clearTimeout(resizeTimeoutId);
+      }
     };
-  }, [initializeMapChart]);
+  }, []); // No dependencies to avoid infinite loops
+
+  // Handle container resize using ResizeObserver - separate effect
+  useEffect(() => {
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeTimeoutId: NodeJS.Timeout | null = null;
+
+    if (chartRef.current && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver((entries) => {
+        // Clear any pending resize
+        if (resizeTimeoutId) {
+          clearTimeout(resizeTimeoutId);
+        }
+
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0) {
+            // Debounce rapid resize events
+            resizeTimeoutId = setTimeout(() => {
+              if (chartInstance.current) {
+                // Constrain dimensions to ensure chart fits within bounds
+                const maxWidth = Math.floor(width);
+                const maxHeight = Math.floor(height);
+
+                // Force explicit resize with constrained dimensions
+                chartInstance.current.resize({
+                  width: maxWidth,
+                  height: maxHeight,
+                });
+
+                // Force chart to redraw and refit content
+                const currentOption = chartInstance.current.getOption();
+                chartInstance.current.setOption(currentOption, {
+                  notMerge: false,
+                  lazyUpdate: false,
+                });
+
+                // Additional resize call to ensure proper fitting
+                setTimeout(() => {
+                  if (chartInstance.current) {
+                    chartInstance.current.resize();
+                  }
+                }, 50);
+              }
+            }, 50); // Even faster response for browser zoom
+          }
+        }
+      });
+
+      resizeObserver.observe(chartRef.current);
+    }
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (resizeTimeoutId) {
+        clearTimeout(resizeTimeoutId);
+      }
+    };
+  }, []); // No dependencies to avoid re-creating observer
+
+  // Handle resize when isResizing prop changes (dashboard resize)
+  useEffect(() => {
+    if (!isResizing && chartInstance.current && chartRef.current) {
+      // Clear any pending resize
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+
+      // Perform final resize after drag/resize stops
+      resizeTimeoutRef.current = setTimeout(() => {
+        if (chartInstance.current && chartRef.current) {
+          const { width, height } = chartRef.current.getBoundingClientRect();
+          chartInstance.current.resize({
+            width: Math.floor(width),
+            height: Math.floor(height),
+          });
+        }
+      }, 300); // Slightly longer delay for final resize
+    }
+
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+    };
+  }, [isResizing]);
 
   useEffect(() => {
     // Cleanup on unmount
@@ -319,12 +536,26 @@ export function MapPreview({
 
   return (
     <div className="w-full h-full relative">
-      <BreadcrumbNavigation />
-      <div
-        ref={chartRef}
-        className="w-full h-full min-h-[500px]"
-        style={{ width: '100%', height: '100%', minHeight: '500px' }}
-      />
+      {showBreadcrumbs && <BreadcrumbNavigation />}
+      <div ref={chartRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
+
+      {/* Custom Zoom Controls */}
+      <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">
+        <button
+          onClick={handleZoomIn}
+          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"
+          title="Zoom In"
+        >
+          +
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"
+          title="Zoom Out"
+        >
+          −
+        </button>
+      </div>
 
       {/* Data loading overlay */}
       {showDataLoadingOverlay && (

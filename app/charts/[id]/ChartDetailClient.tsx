@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   useChart,
   useChartData,
@@ -140,18 +140,21 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   // Build data overlay payload for map charts based on current level
   // Include filters for drill-down selections - flatten all parent selections
-  const filters: Record<string, string> = {};
-  if (drillDownPath.length > 0) {
-    // Collect all parent selections from the drill-down path
-    drillDownPath.forEach((level) => {
-      level.parent_selections.forEach((selection) => {
-        filters[selection.column] = selection.value;
+  const filters = useMemo(() => {
+    const filterObj: Record<string, string> = {};
+    if (drillDownPath.length > 0) {
+      // Collect all parent selections from the drill-down path
+      drillDownPath.forEach((level) => {
+        level.parent_selections.forEach((selection) => {
+          filterObj[selection.column] = selection.value;
+        });
       });
-    });
-  }
+    }
+    return filterObj;
+  }, [drillDownPath]);
 
-  const mapDataOverlayPayload =
-    chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
+  const mapDataOverlayPayload = useMemo(() => {
+    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
@@ -160,14 +163,70 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           aggregate_function: chart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
           chart_filters: chart.extra_config.filters || [], // Chart-level filters
+          // Include full extra_config for pagination, sorting, and other features
+          extra_config: {
+            filters: chart.extra_config.filters || [],
+            pagination: chart.extra_config.pagination,
+            sort: chart.extra_config.sort,
+          },
         }
       : null;
+  }, [
+    chart?.chart_type,
+    chart?.schema_name,
+    chart?.table_name,
+    chart?.extra_config,
+    activeGeographicColumn,
+    filters,
+  ]);
 
   const {
     data: mapDataOverlay,
     error: mapDataError,
     isLoading: mapDataLoading,
   } = useMapDataOverlay(mapDataOverlayPayload);
+
+  // Show toast notifications for filtered states when map shows empty state
+  useEffect(() => {
+    if (
+      chart?.chart_type === 'map' &&
+      chart.extra_config?.filters &&
+      chart.extra_config.filters.length > 0 &&
+      !geojsonData?.geojson_data &&
+      !geojsonLoading &&
+      !geojsonError
+    ) {
+      // Show toast for each applied filter
+      chart.extra_config.filters.forEach((filter: any, index: number) => {
+        const operatorText =
+          filter.operator === 'not equals' || filter.operator === '!=' ? 'excluded' : 'filtered';
+
+        setTimeout(() => {
+          toast.info(`🗺️ ${filter.value} ${operatorText} from map`, {
+            description: `Filter: ${filter.column} ${filter.operator} ${filter.value}`,
+            duration: 5000,
+            position: 'top-right',
+          });
+        }, index * 500); // Stagger toasts by 500ms
+      });
+
+      // Show additional helpful toast
+      setTimeout(
+        () => {
+          toast('💡 Configure drill-down layers to see filtered regions', {
+            description: "Click 'Edit Chart' to set up geographic layers",
+            duration: 7000,
+            position: 'top-right',
+            action: {
+              label: 'Edit Chart',
+              onClick: () => (window.location.href = `/charts/${chartId}/edit`),
+            },
+          });
+        },
+        chart.extra_config.filters.length * 500 + 1000
+      ); // Show after all filter toasts
+    }
+  }, [chart, geojsonData, geojsonLoading, geojsonError, chartId]);
 
   // Chart refs for export
   const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
@@ -190,24 +249,60 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
     if (!nextLayer) {
       // No next layer configured
-      toast.info('No further drill-down levels configured');
+      toast.info('🗺️ No further drill-down levels configured', {
+        description: 'Configure additional layers in edit mode to enable deeper drill-down',
+        position: 'top-right',
+      });
       return;
     }
 
-    // For Layer 2+, we need to find the right GeoJSON based on the clicked region
-    // For now, let's use the first configured GeoJSON in the next layer
-    // In a more sophisticated implementation, we'd look up the region mapping
+    // Check if the clicked region is configured in the next layer
     let nextGeojsonId = nextLayer.geojson_id;
+    let isRegionConfigured = false;
 
-    // If this is a multi-select layer (Layer 2+), try to find the right region's GeoJSON
     if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
       // Find the region that matches the clicked region name
       const matchingRegion = nextLayer.selected_regions.find(
         (region: SelectedRegion) => region.region_name === regionName
       );
+
       if (matchingRegion && matchingRegion.geojson_id) {
         nextGeojsonId = matchingRegion.geojson_id;
+        isRegionConfigured = true;
       }
+    } else if (nextLayer.geojson_id) {
+      // Single-select layer - check if this region is the configured one
+      isRegionConfigured = true; // For single-select, we assume it's configured
+    }
+
+    // If region is not configured, show toast and prevent drill-down
+    if (!isRegionConfigured) {
+      // Check if region is filtered out
+      const chartFilters = chart.extra_config?.filters || [];
+      const isFiltered = chartFilters.some(
+        (filter: any) =>
+          (filter.operator === 'not equals' || filter.operator === '!=') &&
+          filter.value === regionName
+      );
+
+      if (isFiltered) {
+        toast.warning(`🚫 ${regionName} excluded by filter`, {
+          description: `This region is filtered out and not available for drill-down`,
+          position: 'top-right',
+          duration: 4000,
+        });
+      } else {
+        toast.info(`🗺️ ${regionName} not configured for drill-down`, {
+          description: 'Configure this region in edit mode to enable drill-down',
+          position: 'top-right',
+          duration: 4000,
+          action: {
+            label: 'Edit Chart',
+            onClick: () => (window.location.href = `/charts/${chartId}/edit`),
+          },
+        });
+      }
+      return; // Prevent drill-down
     }
 
     // Create new drill-down level
