@@ -244,6 +244,8 @@ function EditChartPageContent() {
         filters: chart.extra_config?.filters || [],
         pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
         sort: chart.extra_config?.sort || [],
+        // ✅ FIX: Include geographic_hierarchy so DynamicLevelConfig can auto-fill
+        geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -546,7 +548,13 @@ function EditChartPageContent() {
         setDrillDownPath([newDrillDownLevel]);
       }
     },
-    [formData.geographic_hierarchy, formData.district_column, formData.geographic_column, states]
+    [
+      formData.geographic_hierarchy,
+      formData.district_column,
+      formData.geographic_column,
+      states,
+      drillDownPath,
+    ]
   );
 
   // Handle drill-up to a specific level (consistent with view mode)

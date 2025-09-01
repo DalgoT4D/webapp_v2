@@ -80,6 +80,25 @@ export function MapPreview({
   // Dashboard integration
   isResizing = false,
 }: MapPreviewProps) {
+  // 🔍 COMPREHENSIVE LOGGING: Component initialization
+  console.log('🗺️ [MAP-PREVIEW] Component initialized with props:', {
+    hasGeojsonData: !!geojsonData,
+    geojsonLoading,
+    geojsonError: !!geojsonError,
+    hasMapData: !!mapData,
+    mapDataCount: Array.isArray(mapData) ? mapData.length : 0,
+    mapDataLoading,
+    mapDataError: !!mapDataError,
+    title,
+    valueColumn,
+    hasDrillDownPath: drillDownPath.length > 0,
+    drillDownPathLength: drillDownPath.length,
+    hasOnRegionClick: !!onRegionClick,
+    hasOnDrillUp: !!onDrillUp,
+    hasOnDrillHome: !!onDrillHome,
+    showBreadcrumbs,
+    isResizing,
+  });
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -123,25 +142,59 @@ export function MapPreview({
 
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
-    if (!chartRef.current) return;
+    console.log('🚀 [MAP-PREVIEW] initializeMapChart called with data:', {
+      hasChartRef: !!chartRef.current,
+      hasGeojsonData: !!geojsonData,
+      hasMapData: !!mapData,
+      mapDataLength: Array.isArray(mapData) ? mapData.length : 0,
+      uniqueMapName,
+      title,
+      valueColumn,
+    });
+
+    if (!chartRef.current) {
+      console.warn('⚠️ [MAP-PREVIEW] chartRef.current is null, cannot initialize chart');
+      return;
+    }
 
     try {
       let chartConfig;
       let mapName = uniqueMapName; // Use stable unique map name
 
+      console.log('📊 [MAP-PREVIEW] Starting chart configuration with mapName:', mapName);
+
       // Check if we have GeoJSON data to render
       if (geojsonData) {
+        console.log('🗺️ [MAP-PREVIEW] GeoJSON data found, registering map:', {
+          mapName,
+          geojsonFeatures: geojsonData.features?.length || 0,
+          geojsonType: geojsonData.type,
+        });
+
         // Register the GeoJSON data
         echarts.registerMap(mapName, geojsonData);
+        console.log('✅ [MAP-PREVIEW] Map registered successfully with ECharts');
 
         // Create map series data
         let seriesData: any[] = [];
         if (mapData && mapData.length > 0) {
+          console.log('📊 [MAP-PREVIEW] Creating series data from mapData:', {
+            mapDataLength: mapData.length,
+            sampleData: mapData.slice(0, 3),
+          });
+
           // We have data to overlay on the map
           seriesData = mapData.map((item) => ({
             name: item.name,
             value: item.value,
           }));
+
+          console.log('📈 [MAP-PREVIEW] Series data created:', {
+            seriesLength: seriesData.length,
+            sampleSeries: seriesData.slice(0, 3),
+          });
+        } else {
+          console.log('⚠️ [MAP-PREVIEW] No mapData available for series creation');
         }
 
         // Calculate min/max values for color scaling
@@ -288,7 +341,9 @@ export function MapPreview({
 
   // Handle click event listener separately to prevent re-initialization during resize
   useEffect(() => {
-    if (!chartInstance.current || !onRegionClick) return undefined;
+    if (!chartInstance.current || !onRegionClick) {
+      return undefined;
+    }
 
     const handleClick = (params: any) => {
       if (params.componentType === 'geo' || params.componentType === 'series') {
@@ -298,6 +353,7 @@ export function MapPreview({
 
     // Remove any existing click listeners
     chartInstance.current.off('click');
+
     // Add new click listener
     chartInstance.current.on('click', handleClick);
 
@@ -306,7 +362,7 @@ export function MapPreview({
         chartInstance.current.off('click');
       }
     };
-  }, [onRegionClick]); // Only re-run when onRegionClick changes
+  }, [onRegionClick, geojsonData, mapData]); // Re-run when chart data changes (which triggers chart re-initialization)
 
   // Handle window resize with debouncing - separate from chart data changes
   useEffect(() => {

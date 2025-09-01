@@ -21,16 +21,41 @@ interface DynamicLevelConfigProps {
 }
 
 export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigProps) {
+  // 🔍 COMPREHENSIVE LOGGING: Component initialization
+  console.log('🏗️ [DYNAMIC-LEVEL-CONFIG] Component initialized:', {
+    schema_name: formData.schema_name,
+    table_name: formData.table_name,
+    geographic_column: formData.geographic_column,
+    district_column: formData.district_column,
+    drill_down_enabled: formData.drill_down_enabled,
+    geographic_hierarchy: formData.geographic_hierarchy,
+    hasGeographicColumn: !!formData.geographic_column,
+  });
+
   // Fetch available columns
   const { data: columns = [] } = useColumns(formData.schema_name || '', formData.table_name || '');
 
   // Fetch available region types from backend
   const { data: regionTypes = [], isLoading: regionTypesLoading } = useAvailableRegionTypes('IND');
 
+  // 🔍 LOG: Data fetching status
+  console.log('📋 [DYNAMIC-LEVEL-CONFIG] Data fetching status:', {
+    columnsCount: columns.length,
+    regionTypesCount: regionTypes.length,
+    regionTypesLoading,
+    sampleColumns: columns.slice(0, 3),
+    sampleRegionTypes: regionTypes.slice(0, 3),
+  });
+
   // Note: Removed auto-clearing useEffect as it was interfering with drill-down functionality
 
   // Show component only if we have a geographic column selected
-  if (!formData.geographic_column) return null;
+  if (!formData.geographic_column) {
+    console.log('⚠️ [DYNAMIC-LEVEL-CONFIG] No geographic column selected, hiding component');
+    return null;
+  }
+
+  console.log('✅ [DYNAMIC-LEVEL-CONFIG] Geographic column found, showing drill-down config');
 
   // Get available columns (all types, exclude already used columns)
   const getAvailableColumns = (excludeColumns: string[]) => {
@@ -111,9 +136,32 @@ export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigPro
   ];
 
   const updateLevel = (levelIndex: number, column: string) => {
+    console.log('🔧 [DYNAMIC-LEVEL-CONFIG] updateLevel called:', {
+      levelIndex,
+      column,
+      regionHierarchyLength: regionHierarchy.length,
+      currentLevelsLength: currentLevels.length,
+      formDataGeographicHierarchy: formData.geographic_hierarchy,
+    });
+
     // levelIndex corresponds to drill-down levels, so we need to add 1 to get the correct hierarchy position
     const regionType = regionHierarchy[levelIndex + 1];
-    if (!regionType) return;
+
+    console.log('🏗️ [DYNAMIC-LEVEL-CONFIG] Region type for level:', {
+      levelIndex,
+      regionType,
+      regionHierarchy: regionHierarchy,
+    });
+
+    if (!regionType) {
+      console.warn(
+        '⚠️ [DYNAMIC-LEVEL-CONFIG] No region type found for levelIndex:',
+        levelIndex + 1
+      );
+      return;
+    }
+
+    console.log('📝 [DYNAMIC-LEVEL-CONFIG] Creating drill-down level configuration');
 
     // Create base hierarchy using the actual first level from the hierarchy
     const baseRegionType = regionHierarchy[0] || 'region';
@@ -159,11 +207,21 @@ export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigPro
       }
     }
 
-    onChange({
+    const updateData = {
       geographic_hierarchy: baseHierarchy,
       // Legacy support
       district_column: baseHierarchy.drill_down_levels[0]?.column || undefined,
+    };
+
+    console.log('🚀 [DYNAMIC-LEVEL-CONFIG] Calling onChange with updated hierarchy:', {
+      baseHierarchy,
+      district_column: updateData.district_column,
+      drill_down_levels_count: baseHierarchy.drill_down_levels.length,
     });
+
+    onChange(updateData);
+
+    console.log('✅ [DYNAMIC-LEVEL-CONFIG] onChange called successfully');
   };
 
   const shouldShowLevel = (levelIndex: number) => {

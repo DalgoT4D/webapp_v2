@@ -100,6 +100,20 @@ export function CountryLevelConfig({
 
   // Auto-generate preview when all required fields are configured
   useEffect(() => {
+    console.log('🔍 [COUNTRY-LEVEL-CONFIG] Checking auto-generate conditions:', {
+      geographic_column: formData.geographic_column,
+      selected_geojson_id: formData.selected_geojson_id,
+      aggregate_column: formData.aggregate_column,
+      aggregate_function: formData.aggregate_function,
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+      filters: formData.filters,
+      current_payloads: {
+        geojsonPreviewPayload: formData.geojsonPreviewPayload,
+        dataOverlayPayload: formData.dataOverlayPayload,
+      },
+    });
+
     if (
       formData.geographic_column &&
       formData.selected_geojson_id &&
@@ -117,6 +131,21 @@ export function CountryLevelConfig({
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
         currentFiltersHash === payloadFiltersHash;
 
+      console.log('🔄 [COUNTRY-LEVEL-CONFIG] Payload validation check:', {
+        hasValidPayloads,
+        reasons: {
+          geojson_id_match:
+            formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id,
+          geographic_column_match:
+            formData.dataOverlayPayload?.geographic_column === formData.geographic_column,
+          filters_match: currentFiltersHash === payloadFiltersHash,
+        },
+        current_geojson_id: formData.geojsonPreviewPayload?.geojsonId,
+        expected_geojson_id: formData.selected_geojson_id,
+        current_geographic_column: formData.dataOverlayPayload?.geographic_column,
+        expected_geographic_column: formData.geographic_column,
+      });
+
       if (!hasValidPayloads) {
         const geojsonPayload = {
           geojsonId: formData.selected_geojson_id,
@@ -133,11 +162,22 @@ export function CountryLevelConfig({
           chart_filters: formData.filters || [],
         };
 
+        console.log('🚀 [COUNTRY-LEVEL-CONFIG] Auto-generating payloads:', {
+          geojsonPayload,
+          dataOverlayPayload,
+        });
+
         onFormDataChange({
           geojsonPreviewPayload: geojsonPayload,
           dataOverlayPayload: dataOverlayPayload,
         });
+
+        console.log('✅ [COUNTRY-LEVEL-CONFIG] Payloads generated and sent to parent');
+      } else {
+        console.log('⏭️ [COUNTRY-LEVEL-CONFIG] Payloads are valid, skipping generation');
       }
+    } else {
+      console.log('❌ [COUNTRY-LEVEL-CONFIG] Required conditions not met for payload generation');
     }
   }, [
     formData.geographic_column,
@@ -146,8 +186,10 @@ export function CountryLevelConfig({
     formData.aggregate_function,
     formData.schema_name,
     formData.table_name,
-    formData.filters,
-    onFormDataChange,
+    JSON.stringify(formData.filters || []), // FIX #4: Stable dependency for filters
+    JSON.stringify(formData.geojsonPreviewPayload || {}), // Add current payloads as dependencies
+    JSON.stringify(formData.dataOverlayPayload || {}),
+    // FIX #4: Remove onFormDataChange from dependencies - it changes on every render
   ]);
 
   return (
