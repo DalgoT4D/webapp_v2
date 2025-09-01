@@ -288,7 +288,7 @@ export function MapPreview({
 
   // Handle click event listener separately to prevent re-initialization during resize
   useEffect(() => {
-    if (!chartInstance.current || !onRegionClick) return;
+    if (!chartInstance.current || !onRegionClick) return undefined;
 
     const handleClick = (params: any) => {
       if (params.componentType === 'geo' || params.componentType === 'series') {

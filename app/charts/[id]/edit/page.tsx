@@ -27,6 +27,9 @@ import {
   useRawTableData,
   useTableCount,
   useColumns,
+  useRegions,
+  useChildRegions,
+  useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -135,9 +138,67 @@ function EditChartPageContent() {
     onCancel: () => {},
   });
 
+  // Drill-down state for map preview
+  const [drillDownPath, setDrillDownPath] = useState<
+    Array<{
+      level: number;
+      name: string;
+      geographic_column: string;
+      parent_selections: Array<{
+        column: string;
+        value: string;
+      }>;
+      region_id?: number; // Additional field for our use
+    }>
+  >([]);
+
+  // Helper to convert layers structure back to simplified fields for UI
+  const convertLayersToSimplified = (layers: any[]) => {
+    if (!layers || layers.length === 0) {
+      return {};
+    }
+
+    const simplified: any = {};
+
+    // Level 0: Geographic column (states/counties/provinces)
+    if (layers[0]?.geographic_column) {
+      simplified.geographic_column = layers[0].geographic_column;
+      simplified.selected_geojson_id = layers[0].geojson_id;
+    }
+
+    // Level 1+: Additional drill-down levels
+    const levelMappings = [
+      { level: 1, field: 'district_column' },
+      { level: 2, field: 'ward_column' },
+      { level: 3, field: 'subward_column' },
+    ];
+
+    levelMappings.forEach((mapping) => {
+      const layer = layers.find((l) => l.level === mapping.level);
+      if (layer?.geographic_column) {
+        simplified[mapping.field] = layer.geographic_column;
+      }
+    });
+
+    // Set drill_down_enabled if we have any additional levels
+    simplified.drill_down_enabled = layers.length > 1;
+
+    console.log('🔄 Converting layers to simplified for edit:', {
+      layers: layers.length,
+      simplified,
+    });
+
+    return simplified;
+  };
+
   // Update form data when chart loads
   useEffect(() => {
     if (chart) {
+      // Convert layers to simplified fields if they exist
+      const simplifiedFromLayers = chart.extra_config?.layers
+        ? convertLayersToSimplified(chart.extra_config.layers)
+        : {};
+
       const initialData: ChartBuilderFormData = {
         title: chart.title,
         description: chart.description,
@@ -152,9 +213,20 @@ function EditChartPageContent() {
         aggregate_function: chart.extra_config?.aggregate_function,
         extra_dimension_column: chart.extra_config?.extra_dimension_column,
         metrics: chart.extra_config?.metrics,
-        geographic_column: chart.extra_config?.geographic_column,
+        // Use converted simplified fields, fallback to direct extra_config values
+        geographic_column:
+          simplifiedFromLayers.geographic_column || chart.extra_config?.geographic_column,
         value_column: chart.extra_config?.value_column,
-        selected_geojson_id: chart.extra_config?.selected_geojson_id,
+        selected_geojson_id:
+          simplifiedFromLayers.selected_geojson_id || chart.extra_config?.selected_geojson_id,
+        // Simplified map drill-down fields
+        district_column:
+          simplifiedFromLayers.district_column || chart.extra_config?.district_column,
+        ward_column: simplifiedFromLayers.ward_column || chart.extra_config?.ward_column,
+        subward_column: simplifiedFromLayers.subward_column || chart.extra_config?.subward_column,
+        drill_down_enabled:
+          simplifiedFromLayers.drill_down_enabled || chart.extra_config?.drill_down_enabled,
+        country_code: chart.extra_config?.country_code || 'IND',
         layers:
           chart.extra_config?.layers ||
           (chart.chart_type === 'map'
@@ -311,27 +383,101 @@ function EditChartPageContent() {
     formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
   );
 
-  // Fetch GeoJSON data for maps
+  // Drill-down functionality for maps - fetch regions
+  const countryCode = 'IND'; // TODO: make this dynamic based on selected geojson
+  const { data: states } = useRegions(countryCode, 'state');
+  const { data: districts } = useChildRegions(
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
+    drillDownPath.length > 0
+  );
+  const { data: regionGeojsons } = useRegionGeoJSONs(
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
+  );
+
+  // Dynamic GeoJSON ID based on drill-down state
+  const activeGeojsonId = useMemo(() => {
+    if (formData.chart_type !== 'map') return null;
+
+    // If we're in drill-down mode and have region geojsons, use the first one
+    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
+      return regionGeojsons[0].id;
+    }
+
+    // Otherwise use the base geojson
+    return formData.geojsonPreviewPayload?.geojsonId || null;
+  }, [
+    formData.chart_type,
+    formData.geojsonPreviewPayload?.geojsonId,
+    drillDownPath.length,
+    regionGeojsons,
+  ]);
+
+  // Dynamic map data overlay payload with drill-down filters
+  // Build map data overlay payload similar to view component (stable approach)
+  const activeDataOverlayPayload = useMemo(() => {
+    if (formData.chart_type !== 'map' || !formData.schema_name || !formData.table_name) return null;
+
+    // Build filters from drill-down path
+    const filters: Record<string, string> = {};
+    if (drillDownPath.length > 0) {
+      drillDownPath.forEach((level) => {
+        level.parent_selections.forEach((selection) => {
+          filters[selection.column] = selection.value;
+        });
+      });
+    }
+
+    // Determine active geographic column (drill-down or base)
+    let activeGeographicColumn = formData.geographic_column;
+    if (drillDownPath.length > 0) {
+      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels?.length > 0;
+      const drillDownColumn = hasDynamicDrillDown
+        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
+        : formData.district_column;
+
+      if (drillDownColumn) {
+        activeGeographicColumn = drillDownColumn;
+      }
+    }
+
+    return activeGeographicColumn
+      ? {
+          schema_name: formData.schema_name,
+          table_name: formData.table_name,
+          geographic_column: activeGeographicColumn,
+          value_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function || 'sum',
+          filters: filters,
+          chart_filters: [] as any[],
+          chart_id: chartId ? parseInt(String(chartId)) : undefined,
+        }
+      : null;
+  }, [
+    formData.chart_type,
+    formData.schema_name,
+    formData.table_name,
+    formData.geographic_column,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    formData.geographic_hierarchy,
+    formData.district_column,
+    drillDownPath,
+    chartId,
+  ]);
+
+  // Fetch GeoJSON data for maps (dynamic based on drill-down state)
   const {
     data: geojsonData,
     error: geojsonError,
     isLoading: geojsonLoading,
-  } = useGeoJSONData(
-    formData.chart_type === 'map' && formData.geojsonPreviewPayload?.geojsonId
-      ? formData.geojsonPreviewPayload.geojsonId
-      : null
-  );
+  } = useGeoJSONData(activeGeojsonId);
 
-  // Fetch map data overlay
+  // Fetch map data overlay (dynamic based on drill-down state)
   const {
     data: mapDataOverlay,
     error: mapDataError,
     isLoading: mapDataLoading,
-  } = useMapDataOverlay(
-    formData.chart_type === 'map' && formData.dataOverlayPayload
-      ? formData.dataOverlayPayload
-      : null
-  );
+  } = useMapDataOverlay(activeDataOverlayPayload);
 
   // Fetch data preview
   const {
@@ -357,6 +503,65 @@ function EditChartPageContent() {
     formData.schema_name || null,
     formData.table_name || null
   );
+
+  // Handle drill-down region click
+  const handleRegionClick = useCallback(
+    (regionName: string, regionData: any) => {
+      // Check if drill-down is available - support both dynamic and legacy systems
+      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels.length > 0;
+      const hasLegacyDrillDown = formData.district_column;
+
+      if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
+        return;
+      }
+
+      // Determine drill-down column based on system type
+      const drillDownColumn = hasDynamicDrillDown
+        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
+        : formData.district_column;
+
+      if (!drillDownColumn) {
+        return;
+      }
+
+      // Find the region that was clicked
+      const clickedRegion = states?.find(
+        (state: any) => state.name === regionName || state.display_name === regionName
+      );
+
+      if (clickedRegion) {
+        const newDrillDownLevel = {
+          level: 1,
+          name: regionName,
+          geographic_column: drillDownColumn,
+          parent_selections: [
+            {
+              column: formData.geographic_column || '',
+              value: regionName,
+            },
+          ],
+          region_id: clickedRegion.id,
+        };
+
+        setDrillDownPath([newDrillDownLevel]);
+      }
+    },
+    [formData.geographic_hierarchy, formData.district_column, formData.geographic_column, states]
+  );
+
+  // Handle drill-up to a specific level (consistent with view mode)
+  const handleDrillUp = useCallback((targetLevel: number) => {
+    if (targetLevel < 0) {
+      setDrillDownPath([]);
+    } else {
+      setDrillDownPath((prev) => prev.slice(0, targetLevel + 1));
+    }
+  }, []);
+
+  // Handle drill to home (going back to country level)
+  const handleDrillHome = useCallback(() => {
+    setDrillDownPath([]);
+  }, []);
 
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
@@ -424,13 +629,71 @@ function EditChartPageContent() {
     }
   };
 
+  // Helper to convert simplified drill-down selections to layers structure (same as ChartBuilder)
+  const convertSimplifiedToLayers = (formData: ChartBuilderFormData) => {
+    const layers = [];
+    let layerIndex = 0;
+
+    // Level 0: Always include the main geographic column (states/counties/provinces)
+    if (formData.geographic_column) {
+      layers.push({
+        id: layerIndex.toString(),
+        level: layerIndex,
+        geographic_column: formData.geographic_column,
+        geojson_id: formData.selected_geojson_id,
+        selected_regions: [] as any[], // Allow all regions by default
+      });
+      layerIndex++;
+    }
+
+    // Level 1+: Add additional levels based on simplified fields
+    const additionalLevels = [
+      { field: 'district_column', name: 'District Level' },
+      { field: 'ward_column', name: 'Ward Level' },
+      { field: 'subward_column', name: 'Sub-Ward Level' },
+      // Future: can add more levels here easily
+    ];
+
+    additionalLevels.forEach((level) => {
+      if ((formData as any)[level.field] && (formData as any)[level.field].trim() !== '') {
+        layers.push({
+          id: layerIndex.toString(),
+          level: layerIndex,
+          geographic_column: (formData as any)[level.field],
+          selected_regions: [], // Allow all regions for drill-down
+          parent_selections: [], // Will be populated during drill-down
+        });
+        layerIndex++;
+      }
+    });
+
+    return layers.length > 0 ? layers : undefined;
+  };
+
   // Helper to build chart data from form
   const buildChartData = (): ChartCreate => {
+    // For map charts, process layers and simplified drill-down
     let selectedGeojsonId = formData.selected_geojson_id;
-    if (formData.chart_type === 'map' && formData.layers && formData.layers.length > 0) {
-      const firstLayer = formData.layers[0];
-      if (firstLayer.geojson_id) {
-        selectedGeojsonId = firstLayer.geojson_id;
+    let layersToSave = formData.layers;
+
+    if (formData.chart_type === 'map') {
+      // Check if we have simplified drill-down fields to convert
+      const hasSimplifiedFields =
+        formData.geographic_column &&
+        (formData.district_column || formData.ward_column || formData.subward_column);
+
+      if (hasSimplifiedFields) {
+        console.log('🔄 Converting simplified drill-down to layers structure in edit mode');
+        layersToSave = convertSimplifiedToLayers(formData);
+        console.log('✅ Generated layers for save:', layersToSave);
+      }
+
+      // Backward compatibility: set selectedGeojsonId from first layer
+      if (layersToSave && layersToSave.length > 0) {
+        const firstLayer = layersToSave[0];
+        if (firstLayer.geojson_id) {
+          selectedGeojsonId = firstLayer.geojson_id;
+        }
       }
     }
 
@@ -451,7 +714,12 @@ function EditChartPageContent() {
         geographic_column: formData.geographic_column,
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
-        layers: formData.layers,
+        layers: layersToSave,
+        // Simplified drill-down fields
+        district_column: formData.district_column,
+        ward_column: formData.ward_column,
+        subward_column: formData.subward_column,
+        drill_down_enabled: formData.drill_down_enabled,
         customizations: formData.customizations,
         filters: formData.filters,
         pagination: formData.pagination,
@@ -752,6 +1020,10 @@ function EditChartPageContent() {
                         mapDataError={mapDataError}
                         title={formData.title}
                         valueColumn={formData.aggregate_column}
+                        onRegionClick={handleRegionClick}
+                        drillDownPath={drillDownPath}
+                        onDrillUp={handleDrillUp}
+                        onDrillHome={handleDrillHome}
                       />
                     </div>
                   ) : formData.chart_type === 'table' ? (

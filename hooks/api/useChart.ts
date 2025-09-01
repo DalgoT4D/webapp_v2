@@ -264,6 +264,16 @@ export function useRegionGeoJSONs(regionId: number | null | undefined) {
   );
 }
 
+// New hook for region hierarchy
+const regionHierarchyFetcher = (url: string) => apiGet(url);
+
+export function useRegionHierarchy(countryCode: string = 'IND') {
+  return useSWR(
+    countryCode ? `/api/charts/hierarchy/?country=${countryCode}` : null,
+    regionHierarchyFetcher
+  );
+}
+
 export function useMapData(payload: ChartDataPayload | null) {
   return useSWR(
     payload ? ['/api/charts/map-data/', payload] : null,
@@ -288,7 +298,7 @@ export function useAvailableLayers(layerType: string = 'country') {
 }
 
 // Get region hierarchy by fetching all available region types for a country
-export function useRegionHierarchy(countryCode: string = 'IND') {
+export function useAvailableRegionTypes(countryCode: string = 'IND') {
   // First, get all regions without specifying type to see what types are available
   return useSWR(`/api/charts/regions/?country_code=${countryCode}`, apiGet);
 }

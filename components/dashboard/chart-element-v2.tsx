@@ -380,7 +380,21 @@ export function ChartElementV2({
       'Current drill path:',
       drillDownPath
     );
-    if (!chart?.extra_config?.layers || chart.chart_type !== 'map') return;
+    if (chart.chart_type !== 'map') return;
+
+    // Check for simplified drill-down configuration (new system)
+    if (chart?.extra_config?.district_column && currentLevel === 0) {
+      // New simplified system: district column configured, drill from state to district
+      toast.success(`Drilling down to districts in ${regionName}`);
+      setDrillDownPath([{ region_name: regionName, region_id: regionId || regionName }]);
+      return;
+    }
+
+    // Fallback to legacy layers system
+    if (!chart?.extra_config?.layers) {
+      toast.info('No further drill-down levels configured');
+      return;
+    }
 
     const nextLevel = currentLevel + 1;
     const nextLayer = chart.extra_config.layers[nextLevel];
