@@ -728,6 +728,8 @@ function EditChartPageContent() {
         ward_column: formData.ward_column,
         subward_column: formData.subward_column,
         drill_down_enabled: formData.drill_down_enabled,
+        // Include geographic_hierarchy to preserve drill-down configuration
+        geographic_hierarchy: formData.geographic_hierarchy,
         customizations: formData.customizations,
         filters: formData.filters,
         pagination: formData.pagination,

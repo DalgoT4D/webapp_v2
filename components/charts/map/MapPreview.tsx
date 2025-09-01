@@ -324,7 +324,17 @@ export function MapPreview({
         );
       }
 
-      // Click event listener will be added separately to avoid re-initialization
+      // Add click event listener immediately after chart initialization
+      if (onRegionClick) {
+        const handleClick = (params: any) => {
+          if (params.componentType === 'geo' || params.componentType === 'series') {
+            onRegionClick(params.name, params.data);
+          }
+        };
+
+        // Add click listener to the newly created chart instance
+        chartInstance.current.on('click', handleClick);
+      }
 
       if (onChartReady) {
         onChartReady(chartInstance.current);
@@ -332,37 +342,12 @@ export function MapPreview({
     } catch (err) {
       console.error('Error initializing map chart:', err);
     }
-  }, [geojsonData, mapData, title, valueColumn, config, onChartReady]);
+  }, [geojsonData, mapData, title, valueColumn, config, onChartReady, onRegionClick]);
 
   // Initialize chart when data changes
   useEffect(() => {
     initializeMapChart();
   }, [initializeMapChart]);
-
-  // Handle click event listener separately to prevent re-initialization during resize
-  useEffect(() => {
-    if (!chartInstance.current || !onRegionClick) {
-      return undefined;
-    }
-
-    const handleClick = (params: any) => {
-      if (params.componentType === 'geo' || params.componentType === 'series') {
-        onRegionClick(params.name, params.data);
-      }
-    };
-
-    // Remove any existing click listeners
-    chartInstance.current.off('click');
-
-    // Add new click listener
-    chartInstance.current.on('click', handleClick);
-
-    return () => {
-      if (chartInstance.current) {
-        chartInstance.current.off('click');
-      }
-    };
-  }, [onRegionClick, geojsonData, mapData]); // Re-run when chart data changes (which triggers chart re-initialization)
 
   // Handle window resize with debouncing - separate from chart data changes
   useEffect(() => {
