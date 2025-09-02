@@ -732,7 +732,8 @@ export function DashboardNativeView({
 
           {/* Mobile Device Selector Row */}
           <div className="px-4 pb-2 border-t pt-2">
-            <Select
+            {/* Device Size Selector - commented for later use */}
+            {/* <Select
               value={effectiveScreenSize}
               onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
             >
@@ -759,7 +760,7 @@ export function DashboardNativeView({
                   </div>
                 </SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
 
           {/* Responsive Action Row */}
@@ -856,8 +857,8 @@ export function DashboardNativeView({
                 <Maximize2 className="w-4 h-4" />
               </Button>
 
-              {/* Device Size Selector */}
-              <Select
+              {/* Device Size Selector - commented for later use */}
+              {/* <Select
                 value={effectiveScreenSize}
                 onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
               >
@@ -884,7 +885,7 @@ export function DashboardNativeView({
                     </div>
                   </SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
 
               {!isPublicMode && (
                 <ResponsiveDashboardActions
