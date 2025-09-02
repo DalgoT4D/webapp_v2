@@ -211,10 +211,10 @@ export function DashboardListV2() {
     [mutate, router]
   );
 
-  // Handle dashboard download (placeholder)
-  const handleDownloadDashboard = useCallback((dashboardId: number, dashboardTitle: string) => {
-    toastSuccess.generic('Dashboard download will be available soon');
-  }, []);
+  // COMMENTED OUT: Handle dashboard download - not needed
+  // const handleDownloadDashboard = useCallback((dashboardId: number, dashboardTitle: string) => {
+  //   toastSuccess.generic('Dashboard download will be available soon');
+  // }, []);
 
   // Handle share dashboard
   const handleShareDashboard = useCallback((dashboard: any) => {
@@ -284,13 +284,39 @@ export function DashboardListV2() {
           // !dashboard.is_published && 'opacity-75'
         )}
       >
-        {/* Action Menu - only render if user has any dashboard permissions */}
-        {(hasPermission('can_share_dashboards') ||
-          hasPermission('can_create_dashboards') ||
-          hasPermission('can_edit_dashboards') ||
-          hasPermission('can_delete_dashboards') ||
-          hasPermission('can_view_dashboards')) && (
-          <div className="absolute top-2 right-2 z-10">
+        {/* Action Buttons - Share and Edit prominently displayed */}
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          {hasPermission('can_share_dashboards') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+              onClick={(e) => {
+                e.preventDefault();
+                handleShareDashboard(dashboard);
+              }}
+            >
+              <Share2 className="w-3 h-3 mr-1" />
+              Share
+            </Button>
+          )}
+          {hasPermission('can_edit_dashboards') && (
+            <Link href={`/dashboards/${dashboard.id}/edit`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+              >
+                <Settings className="w-3 h-3 mr-1" />
+                Edit
+              </Button>
+            </Link>
+          )}
+
+          {/* More actions menu for remaining actions */}
+          {(hasPermission('can_create_dashboards') ||
+            hasPermission('can_delete_dashboards') ||
+            hasPermission('can_view_dashboards')) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -298,22 +324,10 @@ export function DashboardListV2() {
                   size="icon"
                   className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
                 >
-                  <MoreVertical className="w-4 h-4 text-gray-700" />
+                  <MoreVertical className="w-3 h-3 text-gray-700" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {hasPermission('can_share_dashboards') && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => handleShareDashboard(dashboard)}
-                      className="cursor-pointer"
-                    >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
                 {hasPermission('can_create_dashboards') && (
                   <DropdownMenuItem
                     onClick={() =>
@@ -338,7 +352,8 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuItem>
                 )}
-                {hasPermission('can_view_dashboards') && (
+                {/* COMMENTED OUT: Download functionality - not needed */}
+                {/* {hasPermission('can_view_dashboards') && (
                   <DropdownMenuItem
                     onClick={() =>
                       handleDownloadDashboard(
@@ -351,7 +366,7 @@ export function DashboardListV2() {
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </DropdownMenuItem>
-                )}
+                )} */}
                 {hasPermission('can_delete_dashboards') && (
                   <>
                     <DropdownMenuSeparator />
@@ -394,8 +409,8 @@ export function DashboardListV2() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Clickable content area */}
         <Link href={getNavigationUrl()}>
@@ -484,11 +499,11 @@ export function DashboardListV2() {
                   </Badge>
                 )} */}
 
-                {/* Landing page badges */}
+                {/* Landing page badges with enhanced visual separation */}
                 {isPersonalLanding && (
                   <Badge
                     variant="default"
-                    className="text-xs bg-blue-100 text-blue-800 border-blue-200"
+                    className="text-xs bg-blue-500 text-white border-blue-600 font-semibold"
                   >
                     <Star className="w-3 h-3 mr-1 fill-current" />
                     My Landing Page
@@ -498,10 +513,10 @@ export function DashboardListV2() {
                 {isOrgDefault && (
                   <Badge
                     variant="outline"
-                    className="text-xs bg-green-50 text-green-700 border-green-200"
+                    className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold"
                   >
                     <Settings className="w-3 h-3 mr-1" />
-                    Org Default
+                    Organization Default
                   </Badge>
                 )}
               </div>
@@ -554,7 +569,7 @@ export function DashboardListV2() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-medium truncate">
                     {dashboard.title || dashboard.dashboard_title}
                   </h3>
@@ -562,6 +577,28 @@ export function DashboardListV2() {
                   {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
                     {isNative ? 'Native' : 'Superset'}
                   </Badge> */}
+
+                  {/* Landing page badges in list view */}
+                  {isPersonalLanding && (
+                    <Badge
+                      variant="default"
+                      className="text-xs bg-blue-500 text-white border-blue-600 font-semibold"
+                    >
+                      <Star className="w-3 h-3 mr-1 fill-current" />
+                      My Landing Page
+                    </Badge>
+                  )}
+
+                  {isOrgDefault && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold"
+                    >
+                      <Settings className="w-3 h-3 mr-1" />
+                      Organization Default
+                    </Badge>
+                  )}
+
                   {isLocked && (
                     <Lock
                       className={cn('w-4 h-4', isLockedByOther ? 'text-red-500' : 'text-blue-500')}
@@ -604,40 +641,51 @@ export function DashboardListV2() {
               )} */}
             </Link>
 
-            {/* Action Menu - only render if user has any dashboard permissions */}
-            {(hasPermission('can_share_dashboards') ||
-              hasPermission('can_create_dashboards') ||
-              hasPermission('can_edit_dashboards') ||
-              hasPermission('can_delete_dashboards') ||
-              hasPermission('can_view_dashboards')) && (
-              <div className="flex items-center gap-2 ml-4">
+            {/* Action Buttons - Share and Edit prominently displayed */}
+            <div className="flex items-center gap-2 ml-4">
+              {hasPermission('can_share_dashboards') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  onClick={() => handleShareDashboard(dashboard)}
+                >
+                  <Share2 className="w-3 h-3 mr-1" />
+                  Share
+                </Button>
+              )}
+              {hasPermission('can_edit_dashboards') && (
+                <Link href={`/dashboards/${dashboard.id}/edit`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                </Link>
+              )}
+
+              {/* More actions menu for remaining actions */}
+              {(hasPermission('can_create_dashboards') ||
+                hasPermission('can_delete_dashboards') ||
+                hasPermission('can_view_dashboards') ||
+                canManageOrgDefault) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                      className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                     >
-                      <MoreHorizontal className="w-4 h-4 text-gray-700" />
+                      <MoreHorizontal className="w-3 h-3 text-gray-700" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    {hasPermission('can_share_dashboards') && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => handleShareDashboard(dashboard)}
-                          className="cursor-pointer"
-                        >
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share
-                        </DropdownMenuItem>
-                      </>
-                    )}
-
                     {/* Landing page controls */}
                     {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
                       <>
-                        <DropdownMenuSeparator />
                         <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
                           Landing Page
                         </div>
@@ -706,7 +754,8 @@ export function DashboardListV2() {
                         )}
                       </DropdownMenuItem>
                     )}
-                    {hasPermission('can_view_dashboards') && (
+                    {/* COMMENTED OUT: Download functionality - not needed */}
+                    {/* {hasPermission('can_view_dashboards') && (
                       <DropdownMenuItem
                         onClick={() =>
                           handleDownloadDashboard(
@@ -719,7 +768,7 @@ export function DashboardListV2() {
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </DropdownMenuItem>
-                    )}
+                    )} */}
                     {hasPermission('can_delete_dashboards') && (
                       <>
                         <DropdownMenuSeparator />
@@ -762,8 +811,8 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

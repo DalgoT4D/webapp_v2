@@ -54,11 +54,12 @@ export function ResponsiveDashboardActions({
   if (responsive.isDesktop) {
     return (
       <div className={cn('flex items-center gap-2', className)}>
-        {onRefresh && (
+        {/* COMMENTED OUT: Refresh button - not needed in view mode */}
+        {/* {onRefresh && (
           <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing}>
             <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
           </Button>
-        )}
+        )} */}
         <Button variant="outline" size="sm" onClick={onShare}>
           <Share2 className="w-4 h-4" />
         </Button>
@@ -68,7 +69,8 @@ export function ResponsiveDashboardActions({
               <Edit className="w-4 h-4 mr-2" />
               Edit Dashboard
             </Button>
-            <AlertDialog>
+            {/* COMMENTED OUT: Delete button - not needed in view mode */}
+            {/* <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={isDeleting}>
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -94,7 +96,7 @@ export function ResponsiveDashboardActions({
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialog> */}
           </>
         )}
       </div>
@@ -104,7 +106,8 @@ export function ResponsiveDashboardActions({
   // Mobile/Tablet: Use compact dropdown menu
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      {onRefresh && (
+      {/* COMMENTED OUT: Refresh button - not needed in view mode */}
+      {/* {onRefresh && (
         <Button
           variant="outline"
           size="sm"
@@ -114,7 +117,7 @@ export function ResponsiveDashboardActions({
         >
           <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
         </Button>
-      )}
+      )} */}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -136,21 +139,22 @@ export function ResponsiveDashboardActions({
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Dashboard
               </DropdownMenuItem>
-              <DropdownMenuItem
+              {/* COMMENTED OUT: Delete option - not needed in view mode */}
+              {/* <DropdownMenuItem
                 onClick={() => setShowDeleteDialog(true)}
                 className="text-destructive focus:text-destructive"
                 disabled={isDeleting}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete Dashboard
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      {/* COMMENTED OUT: Delete confirmation dialog - not needed in view mode */}
+      {/* <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
@@ -173,7 +177,7 @@ export function ResponsiveDashboardActions({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog> */}
     </div>
   );
 }

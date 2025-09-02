@@ -97,12 +97,17 @@ export default function ImpactAtAGlancePage() {
       );
     }
 
-    // Render appropriate dashboard view based on type
+    // Render appropriate dashboard view based on type with hidden header
     if (dashboard.dashboard_type === 'native') {
-      return <DashboardNativeView dashboardId={resolvedDashboard.dashboardId} />;
+      return <DashboardNativeView dashboardId={resolvedDashboard.dashboardId} hideHeader={true} />;
     } else {
       // Superset dashboard
-      return <IndividualDashboardView dashboardId={resolvedDashboard.dashboardId.toString()} />;
+      return (
+        <IndividualDashboardView
+          dashboardId={resolvedDashboard.dashboardId.toString()}
+          hideHeader={true}
+        />
+      );
     }
   }
 

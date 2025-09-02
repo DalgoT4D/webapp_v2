@@ -14,6 +14,7 @@ import { SupersetEmbed } from './superset-embed';
 
 interface IndividualDashboardViewProps {
   dashboardId: string;
+  hideHeader?: boolean; // Hide header when used as landing page
 }
 
 interface Dashboard {
@@ -62,7 +63,10 @@ function ErrorFallback({ error }: { error: Error }) {
   );
 }
 
-export function IndividualDashboardView({ dashboardId }: IndividualDashboardViewProps) {
+export function IndividualDashboardView({
+  dashboardId,
+  hideHeader = false,
+}: IndividualDashboardViewProps) {
   const router = useRouter();
 
   // Fetch dashboard details using SWR
@@ -158,80 +162,82 @@ export function IndividualDashboardView({ dashboardId }: IndividualDashboardView
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-6 border-b">
-        <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" onClick={() => router.push('/dashboards')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboards
-          </Button>
+      {/* Header - Conditional rendering for landing page */}
+      {!hideHeader && (
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" onClick={() => router.push('/dashboards')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboards
+            </Button>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleShare}>
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            {dashboard.url && (
-              <Button variant="outline" size="sm" onClick={handleOpenInSuperset}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in Superset
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
               </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">{dashboard.dashboard_title}</h1>
-          {dashboard.description && (
-            <p className="text-muted-foreground text-lg">{dashboard.description}</p>
-          )}
-
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {dashboard.changed_by && (
-              <>
-                <span>
-                  Modified by {dashboard.changed_by.first_name} {dashboard.changed_by.last_name}
-                </span>
-                <span>•</span>
-              </>
-            )}
-            <span>
-              {dashboard.changed_on_humanized ||
-                (dashboard.changed_on
-                  ? format(new Date(dashboard.changed_on), 'MMM d, yyyy h:mm a')
-                  : 'Recently')}
-            </span>
-            {dashboard.published && (
-              <>
-                <span>•</span>
-                <Badge variant="default">Published</Badge>
-              </>
-            )}
-            {dashboard.certified_by && (
-              <>
-                <span>•</span>
-                <Badge variant="secondary" title={dashboard.certification_details}>
-                  Certified
-                </Badge>
-              </>
-            )}
-          </div>
-
-          {dashboard.tags && dashboard.tags.length > 0 && (
-            <div className="flex gap-2 mt-2">
-              {dashboard.tags.map((tag) => (
-                <Badge key={tag.id} variant="outline">
-                  {tag.name}
-                </Badge>
-              ))}
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              {dashboard.url && (
+                <Button variant="outline" size="sm" onClick={handleOpenInSuperset}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in Superset
+                </Button>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">{dashboard.dashboard_title}</h1>
+            {dashboard.description && (
+              <p className="text-muted-foreground text-lg">{dashboard.description}</p>
+            )}
+
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              {dashboard.changed_by && (
+                <>
+                  <span>
+                    Modified by {dashboard.changed_by.first_name} {dashboard.changed_by.last_name}
+                  </span>
+                  <span>•</span>
+                </>
+              )}
+              <span>
+                {dashboard.changed_on_humanized ||
+                  (dashboard.changed_on
+                    ? format(new Date(dashboard.changed_on), 'MMM d, yyyy h:mm a')
+                    : 'Recently')}
+              </span>
+              {dashboard.published && (
+                <>
+                  <span>•</span>
+                  <Badge variant="default">Published</Badge>
+                </>
+              )}
+              {dashboard.certified_by && (
+                <>
+                  <span>•</span>
+                  <Badge variant="secondary" title={dashboard.certification_details}>
+                    Certified
+                  </Badge>
+                </>
+              )}
+            </div>
+
+            {dashboard.tags && dashboard.tags.length > 0 && (
+              <div className="flex gap-2 mt-2">
+                {dashboard.tags.map((tag) => (
+                  <Badge key={tag.id} variant="outline">
+                    {tag.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Dashboard Content - Embedded Superset */}
       <div className="flex-1 overflow-hidden">

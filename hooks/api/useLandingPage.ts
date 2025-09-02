@@ -42,7 +42,7 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update landing page info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
         toastSuccess.generic(response.message || 'Dashboard set as landing page');
@@ -67,7 +67,7 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update landing page info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
         toastSuccess.generic(response.message || 'Personal landing page removed');
@@ -92,7 +92,7 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update org default info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
         toastSuccess.generic(response.message || 'Dashboard set as organization default');
@@ -117,7 +117,7 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update org default info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
         toastSuccess.generic(response.message || 'Organization default removed');
