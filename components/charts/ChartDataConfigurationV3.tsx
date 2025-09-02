@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -11,11 +11,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { BarChart3, Table, PieChart, LineChart, Hash, MapPin } from 'lucide-react';
+import { BarChart3, Table, PieChart, LineChart, Hash, MapPin, Edit2, Check, X } from 'lucide-react';
 import { useColumns, useColumnValues } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
+import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
@@ -192,6 +195,7 @@ export function ChartDataConfigurationV3({
   onChange,
   disabled,
 }: ChartDataConfigurationV3Props) {
+  const [isEditingDataset, setIsEditingDataset] = useState(false);
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
@@ -209,7 +213,90 @@ export function ChartDataConfigurationV3({
 
   const allColumns = normalizedColumns;
 
-  // Handle chart type changes with field cleanup
+  // Handle dataset changes with complete form reset
+  const handleDatasetChange = (schema_name: string, table_name: string) => {
+    // Prevent unnecessary resets if dataset hasn't actually changed
+    if (formData.schema_name === schema_name && formData.table_name === table_name) {
+      setIsEditingDataset(false);
+      return;
+    }
+
+    // Preserve only essential chart identity fields
+    const preservedFields = {
+      title: formData.title,
+      description: formData.description,
+      chart_type: formData.chart_type,
+      customizations: formData.customizations || {}, // Keep styling preferences
+    };
+
+    // Reset all data-related fields to ensure compatibility with new dataset
+    onChange({
+      ...preservedFields,
+      schema_name,
+      table_name,
+      // Reset all column selections
+      x_axis_column: undefined,
+      y_axis_column: undefined,
+      dimension_column: undefined,
+      aggregate_column: undefined,
+      aggregate_function: 'sum', // Default aggregate function
+      extra_dimension_column: undefined,
+      geographic_column: undefined,
+      value_column: undefined,
+      selected_geojson_id: undefined,
+      // Reset data configuration
+      metrics: [],
+      filters: [],
+      sort: [],
+      pagination: { enabled: false, page_size: 50 },
+      computation_type: 'aggregated',
+      // Reset map-specific fields
+      layers: undefined,
+      geojsonPreviewPayload: undefined,
+      dataOverlayPayload: undefined,
+    });
+
+    // Exit edit mode after successful change
+    setIsEditingDataset(false);
+  };
+
+  // Handle canceling dataset edit
+  const handleCancelDatasetEdit = () => {
+    setIsEditingDataset(false);
+  };
+
+  // Auto-prefill when columns are loaded
+  React.useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
+      // Check if we should auto-prefill (no existing configuration)
+      const hasExistingConfig = !!(
+        formData.dimension_column ||
+        formData.aggregate_column ||
+        formData.geographic_column ||
+        formData.x_axis_column ||
+        formData.y_axis_column ||
+        formData.table_columns?.length ||
+        (formData.metrics && formData.metrics.length > 0)
+      );
+
+      if (!hasExistingConfig) {
+        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
+        if (Object.keys(autoConfig).length > 0) {
+          console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);
+          onChange(autoConfig);
+        }
+      }
+    }
+  }, [
+    columns,
+    formData.schema_name,
+    formData.table_name,
+    formData.chart_type,
+    normalizedColumns,
+    onChange,
+  ]);
+
+  // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
     // Fields to preserve across all chart types
     const preservedFields = {
@@ -219,6 +306,13 @@ export function ChartDataConfigurationV3({
       table_name: formData.table_name,
       chart_type: newChartType as 'bar' | 'line' | 'pie' | 'number' | 'map',
     };
+
+    // Auto-prefill for new chart type if we have columns
+    let autoPrefilledFields = {};
+    if (columns && columns.length > 0) {
+      autoPrefilledFields = generateAutoPrefilledConfig(newChartType as any, normalizedColumns);
+      console.log('🤖 [CHART-TYPE-CHANGE] Auto-prefilling for', newChartType, autoPrefilledFields);
+    }
 
     // Chart type specific field handling
     let specificFields = {};
@@ -271,11 +365,26 @@ export function ChartDataConfigurationV3({
           computation_type: formData.computation_type || 'aggregated',
         };
         break;
+
+      case 'table':
+        // Tables default to aggregated data like other charts
+        specificFields = {
+          computation_type: formData.computation_type || 'aggregated',
+          x_axis_column: formData.x_axis_column,
+          y_axis_column: null, // Tables don't need Y axis
+          dimension_column: formData.dimension_column,
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          extra_dimension_column: formData.extra_dimension_column,
+          metrics: formData.metrics, // Preserve all metrics
+        };
+        break;
     }
 
-    // Apply the changes
+    // Apply the changes with auto-prefill
     onChange({
       ...preservedFields,
+      ...autoPrefilledFields,
       ...specificFields,
       // Preserve other settings like filters, customizations, etc.
       filters: formData.filters,
@@ -294,15 +403,51 @@ export function ChartDataConfigurationV3({
         disabled={disabled}
       />
 
-      {/* Data Source - Show readonly */}
+      {/* Data Source - Inline Edit Pattern */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-900">Data Source</Label>
-        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
-          <Table className="h-5 w-5 text-gray-600" />
-          <span className="font-mono text-sm">
-            {formData.schema_name}.{formData.table_name}
-          </span>
-        </div>
+        {!isEditingDataset ? (
+          // Read-only view with edit button
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full group hover:bg-gray-100 transition-colors">
+            <Table className="h-5 w-5 text-gray-600" />
+            <span className="font-mono text-sm flex-1">
+              {formData.schema_name}.{formData.table_name}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => setIsEditingDataset(true)}
+              disabled={disabled}
+            >
+              <Edit2 className="h-3 w-3 text-gray-500" />
+            </Button>
+          </div>
+        ) : (
+          // Edit mode with dataset selector
+          <div className="space-y-2">
+            <DatasetSelector
+              schema_name={formData.schema_name}
+              table_name={formData.table_name}
+              onDatasetChange={handleDatasetChange}
+              disabled={disabled}
+              className="w-full"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelDatasetEdit}
+                disabled={disabled}
+                className="h-7 px-2 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+              <span className="text-xs text-gray-500">Select a dataset to continue</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Computation Type - For bar/line/table charts */}
@@ -360,12 +505,13 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts */}
+      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
+        formData.chart_type !== 'table' &&
         (formData.computation_type === 'raw' ||
           (formData.computation_type === 'aggregated' &&
-            !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || ''))) && (
+            !['bar', 'line', 'pie'].includes(formData.chart_type || ''))) && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
             <Select
@@ -394,16 +540,17 @@ export function ChartDataConfigurationV3({
         )}
 
       {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') &&
-        formData.computation_type === 'aggregated' && (
-          <MetricsSelector
-            metrics={formData.metrics || []}
-            onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
-            columns={normalizedColumns}
-            disabled={disabled}
-            chartType={formData.chart_type}
-          />
-        )}
+      {((['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.computation_type === 'aggregated') ||
+        formData.chart_type === 'table') && (
+        <MetricsSelector
+          metrics={formData.metrics || []}
+          onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
+          columns={normalizedColumns}
+          disabled={disabled}
+          chartType={formData.chart_type}
+        />
+      )}
 
       {/* Single Metric for Pie Charts */}
       {formData.chart_type === 'pie' && formData.computation_type === 'aggregated' && (
@@ -437,8 +584,8 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Extra Dimension - for stacked/grouped charts */}
-      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
+      {/* Extra Dimension - for stacked/grouped charts AND tables */}
+      {['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Select

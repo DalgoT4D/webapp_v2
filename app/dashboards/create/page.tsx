@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { createDashboard } from '@/hooks/api/useDashboards';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -48,9 +49,10 @@ export default function CreateDashboardPage() {
           components: dashboard.components || {},
         });
 
-        // Simple notification instead of toast
+        toastSuccess.created('Dashboard');
       } catch (error: any) {
         console.error('Failed to create dashboard:', error);
+        toastError.create(error, 'dashboard');
         // Redirect back to dashboard list on error
         router.push('/dashboards');
       } finally {

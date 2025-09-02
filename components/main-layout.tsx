@@ -342,10 +342,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background">
+    <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-background">
       {/* SECTION 1: NAVBAR - Fixed Full Width */}
-      <header className="h-16 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0">
-        <div className="h-full px-4 lg:px-6">
+      <header
+        id="main-layout-navbar"
+        className="h-16 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0"
+      >
+        <div id="main-layout-navbar-container" className="h-full px-4 lg:px-6">
           <Header
             onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             hideMenu={false}
@@ -361,17 +364,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* CONTENT AREA: Remaining Height */}
-      <div className="flex h-[calc(100vh-4rem)]">
+      <div id="main-layout-content-area" className="flex h-[calc(100vh-4rem)]">
         {/* SECTION 2: SIDEBAR - Only show on desktop screens */}
         {shouldShowDesktopSidebar && (
           <aside
+            id="main-layout-sidebar"
             className={cn(
               'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
               isSidebarCollapsed ? 'w-16' : 'w-64'
             )}
           >
             {/* Sidebar Navigation */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div id="main-layout-sidebar-nav" className="flex-1 overflow-y-auto p-4 space-y-2">
               {isSidebarCollapsed
                 ? // Collapsed: Show all items (including nested) as individual icons with tooltips
                   flattenedNavItems.map((item, index) => (
@@ -382,7 +386,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Sidebar Footer */}
-            <div className="p-4 border-t space-y-2">
+            <div id="main-layout-sidebar-footer" className="p-4 border-t space-y-2">
               {/* Footer Links */}
               <div className="space-y-1">
                 <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
@@ -433,9 +437,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </aside>
         )}
         {/* Mobile Sidebar */}
-        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="left" className="p-0 w-72">
-            <div className="flex flex-col h-full">
+        <Sheet
+          id="main-layout-mobile-sidebar"
+          open={isMobileMenuOpen}
+          onOpenChange={setIsMobileMenuOpen}
+        >
+          <SheetContent id="main-layout-mobile-sidebar-content" side="left" className="p-0 w-72">
+            <div id="main-layout-mobile-sidebar-wrapper" className="flex flex-col h-full">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">
                   <BarChart3 className="h-6 w-6 text-primary" />
@@ -496,25 +504,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </Sheet>
 
         {/* SECTION 3: MAIN CONTENT AREA - Remaining Width */}
-        <main className="flex-1 overflow-hidden bg-background">
-          {/* Page Container - Dashboard and chart edit pages handle their own scrolling */}
-          <div
-            className={cn(
-              'h-full w-full',
-              // Only add scrolling for pages that don't handle their own layout
-              !pathname.includes('/dashboards') && !pathname.includes('/edit') && 'overflow-auto'
-            )}
-          >
-            {/* Consistent Inner Padding Container - No padding for dashboard and chart edit pages */}
-            <div
-              className={cn(
-                'h-full',
-                // Only add padding for regular pages
-                !pathname.includes('/dashboards') && !pathname.includes('/edit') && 'p-6'
-              )}
-            >
+        <main id="main-layout-main-content" className="flex-1 overflow-hidden bg-background">
+          {/* Page Container - Dashboard pages handle their own scrolling */}
+          <div id="main-layout-page-container" className="h-full w-full">
+            {/* Consistent Inner Padding Container - No padding for dashboard pages */}
+            <div id="main-layout-inner-container" className="h-full">
               {/* Content Area */}
-              <div className="h-full w-full">{children}</div>
+              <div id="main-layout-content-wrapper" className="h-full w-full">
+                {children}
+              </div>
             </div>
           </div>
         </main>

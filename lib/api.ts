@@ -174,15 +174,14 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
     }
 
     if (!response.ok) {
-      // Log full error details
-      console.error('API Error Details:', {
+      // Simplified error logging
+      console.error('🚨 API Error:', {
         url,
-        method: options.method,
+        method: options.method || 'GET',
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        data,
-        retryCount,
+        responseData: data,
+        timestamp: new Date().toISOString(),
       });
 
       // Handle different error formats from the backend
@@ -207,7 +206,7 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
 
     return data;
   } catch (error) {
-    console.error('API Fetch Error:', error);
+    console.error('🔥 API Network Error:', error?.message || error);
     if (error instanceof Error) {
       throw error;
     }

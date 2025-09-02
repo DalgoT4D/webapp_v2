@@ -22,28 +22,30 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   // Always bypass auth for public dashboard routes
   if (pathname.startsWith('/share/dashboard/') || pathname.startsWith('/public/dashboard/')) {
     return (
-      <>
+      <div id="client-layout-public-dashboard">
         {children}
         <Toaster richColors position="top-right" />
-      </>
+      </div>
     );
   }
 
   if (isPublicRoute) {
     // Public routes (login, signup, etc.) - no auth guard or main layout
     return (
-      <>
+      <div id="client-layout-public-route">
         {children}
         <Toaster richColors position="top-right" />
-      </>
+      </div>
     );
   }
 
   // Protected routes - require authentication and include main layout
   return (
-    <AuthGuard>
-      <MainLayout>{children}</MainLayout>
-      <Toaster richColors position="top-right" />
-    </AuthGuard>
+    <div id="client-layout-protected-route">
+      <AuthGuard>
+        <MainLayout>{children}</MainLayout>
+        <Toaster richColors position="top-right" />
+      </AuthGuard>
+    </div>
   );
 }

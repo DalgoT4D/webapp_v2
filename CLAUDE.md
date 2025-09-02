@@ -1,230 +1,211 @@
-# CLAUDE.md - Dalgo Web Application Development Guide
+# CLAUDE.md
 
-## Overview
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Dalgo is a modern data intelligence platform built with Next.js 15 and React 19, featuring a comprehensive dashboard system with data visualization, analytics, and reporting capabilities. The application follows a modular architecture with clear separation of concerns.
+## Project Overview
 
-## Common Development Commands
+This is webapp_v2, a modern Next.js 15 React 19 web application that serves as the frontend for Dalgo - a data intelligence platform. The application features a comprehensive dashboard system with data visualization, analytics, and reporting capabilities.
+
+## Essential Development Commands
 
 ```bash
 # Development
 npm run dev                    # Start dev server with Turbopack on port 3001
-npm run build                  # Build production bundle
+npm run build                  # Production build
 npm run start                  # Start production server on port 3001
 
-# Code Quality
-npm run lint                   # Run ESLint
-npm run format:check           # Check code formatting
-npm run format:write           # Format code with Prettier (auto-stages)
-
 # Testing
-npm run test                   # Run Jest tests
-npm run test:watch            # Run tests in watch mode
-npm run test:coverage         # Generate coverage report
-npm run test:ci               # Run tests in CI mode with coverage
+npm run test                   # Run Jest unit tests
+npm run test:watch             # Run tests in watch mode
+npm run test:coverage          # Generate coverage report
+npm run test:ci                # Run tests in CI mode with coverage
+npm run test:e2e               # Run Playwright E2E tests
+npm run test:e2e:ui            # Run E2E tests with UI
+npm run test:e2e:debug         # Debug E2E tests
+npm run test:e2e:headed        # Run E2E tests in headed mode
+
+# Code Quality
+npm run lint                   # Run ESLint linting
+npm run format:check           # Check code formatting with Prettier
+npm run format:write           # Format code and auto-stage changes
 ```
 
 ## High-Level Architecture
 
 ### Technology Stack
 
-- **Frontend Framework**: Next.js 15 with App Router (React 19)
-- **Language**: TypeScript (with strict mode disabled)
-- **Styling**: Tailwind CSS v4 with CSS-in-JS utilities
-- **State Management**: Zustand for global state
-- **Data Fetching**: SWR for server state management
-- **UI Components**: Radix UI (headless components) + custom components
-- **Charts**: ECharts, Nivo, and Recharts for different visualization needs
-- **Form Handling**: React Hook Form
-- **Testing**: Jest + React Testing Library
+- **Framework**: Next.js 15 with App Router and React 19
+- **Language**: TypeScript (with relaxed strictness)
+- **Styling**: Tailwind CSS v4 with utility-first approach
+- **State Management**: Zustand for global state, SWR for server state
+- **UI Components**: Radix UI headless components with custom styling
+- **Charts**: Multi-library approach (ECharts, Nivo, Recharts)
+- **Forms**: React Hook Form with validation
+- **Testing**: Jest + React Testing Library + Playwright
+- **Development**: Turbopack for fast builds, Husky for Git hooks
 
 ### Directory Structure
 
 ```
 webapp_v2/
 ├── app/                      # Next.js App Router pages
-│   ├── charts/              # Chart creation and management
-│   ├── dashboards/          # Dashboard CRUD operations
-│   ├── data/                # Data management
+│   ├── charts/              # Chart management and builder
+│   ├── dashboards/          # Dashboard CRUD operations  
+│   ├── data/                # Data management features
 │   ├── ingest/              # Data ingestion workflows
-│   ├── orchestrate/         # Orchestration features
+│   ├── orchestrate/         # Orchestration management
 │   └── transform/           # Data transformation tools
 ├── components/
-│   ├── ui/                  # Reusable UI components (Radix-based)
+│   ├── ui/                  # Reusable Radix-based UI components
 │   ├── charts/              # Chart-specific components
-│   ├── dashboard/           # Dashboard builder components
-│   └── [feature]/           # Feature-specific components
-├── stores/                  # Zustand stores
-├── hooks/                   # Custom React hooks
-│   └── api/                 # API-specific hooks
-├── lib/                     # Utilities and configurations
+│   └── dashboard/           # Dashboard builder components
+├── hooks/
+│   ├── api/                 # SWR-based API hooks
+│   └── [custom hooks]       # Utility hooks (toast, mobile, etc.)
+├── stores/                  # Zustand stores (currently just authStore)
+├── lib/                     # Utilities (API client, SWR config, utils)
 └── constants/               # Application constants
 ```
 
 ### Key Architectural Patterns
 
-#### 1. **Component Architecture**
-- **Headless UI Pattern**: Using Radix UI for unstyled, accessible components
-- **Composition Pattern**: Building complex UIs from smaller, reusable components
-- **Client/Server Components**: Clear separation with 'use client' directive
-- **Error Boundaries**: Implemented for robust error handling
+#### 1. **Authentication & API Integration**
+- **Token-based Authentication**: JWT access tokens with refresh token flow
+- **Automatic Token Refresh**: Implemented in `lib/api.ts` with retry logic
+- **Organization Context**: Multi-tenant with `x-dalgo-org` header
+- **Centralized API Client**: All API calls go through `lib/api.ts` with automatic auth injection
+
+```typescript
+// API calls automatically include auth headers and handle token refresh
+import { apiGet, apiPost } from '@/lib/api';
+const data = await apiGet('/api/charts');
+```
 
 #### 2. **State Management Strategy**
-- **Zustand**: For global application state (auth, org selection)
-- **SWR**: For server state and data caching
-- **React Hook Form**: For complex form state management
-- **Local State**: useState for component-specific state
+- **Global State**: Zustand stores for authentication and app-wide state
+- **Server State**: SWR for data fetching with built-in caching and revalidation
+- **Form State**: React Hook Form for complex form handling
+- **Local State**: React useState for component-specific state
 
-#### 3. **Data Flow**
+```typescript
+// Authentication state with persistence
+const { token, selectedOrgSlug, setSelectedOrg } = useAuthStore();
+
+// Server state with automatic caching
+const { data: charts, error, mutate } = useCharts();
 ```
-API (Backend) → lib/api.ts → SWR/Hooks → Components → UI
-                    ↓
-              Zustand Store (for global state)
+
+#### 3. **Component Architecture**
+- **Composition Pattern**: Building UIs from small, composable components
+- **Headless UI**: Radix UI for accessible, unstyled primitives
+- **Variant-based Styling**: Using CVA (Class Variance Authority) for component variants
+- **Client/Server Split**: Clear separation with 'use client' directives
+
+```typescript
+// Typical component pattern
+const MyComponent = ({ variant = 'default', ...props }) => {
+  return (
+    <Button variant={variant} className={cn('custom-styles', className)}>
+      {children}
+    </Button>
+  );
+};
 ```
 
-#### 4. **Authentication & Authorization**
-- Token-based authentication stored in localStorage
-- Auth state managed via Zustand (authStore)
-- Protected routes using AuthGuard component
-- Organization-based access control with x-dalgo-org header
+#### 4. **Data Visualization Architecture**
+- **Multi-Library Strategy**: ECharts for complex charts, Nivo for statistical, Recharts for simple
+- **Unified Interface**: Common wrapper components for consistent API
+- **Dynamic Chart Types**: Runtime configuration for different visualization types
+- **Dashboard Builder**: Drag-and-drop dashboard creation with grid layout
 
-#### 5. **API Integration**
-- Centralized API configuration in `lib/api.ts`
-- Automatic auth token and org header injection
-- RESTful endpoints with typed responses
-- Error handling with meaningful messages
+#### 5. **Error Handling & UX**
+- **Error Boundaries**: React error boundaries for graceful failure handling  
+- **Toast Notifications**: Sonner for user feedback
+- **Loading States**: Built into SWR hooks and components
+- **Auth Redirects**: Automatic redirect to login on auth failure (except public routes)
 
-#### 6. **Dashboard Builder Architecture**
-- **Drag-and-Drop**: Using @dnd-kit for intuitive dashboard creation
-- **Grid System**: Flexible grid-based layout for dashboard elements
-- **Component Types**: Charts, text, headings with extensible architecture
-- **Real-time Updates**: SWR for live data updates in dashboards
+### Important Configuration Details
 
-#### 7. **Chart System**
-- **Multi-Library Support**: ECharts (complex), Nivo (statistical), Recharts (simple)
-- **Unified Interface**: Common wrapper components for consistency
-- **Dynamic Configuration**: Runtime chart type and data binding
-- **Export Capabilities**: PNG/PDF export via html2canvas and jspdf
+#### Build & Development
+- **TypeScript**: Configured with `strict: false` but selective strict options enabled
+- **Build Errors Ignored**: Both TypeScript and ESLint errors ignored during build
+- **Coverage Thresholds**: Set to minimal 1% for all metrics
+- **Path Aliases**: `@/*` maps to project root for clean imports
 
-## Important Implementation Details
+#### Testing Setup
+- **Jest Configuration**: Custom setup with module name mapping for path aliases
+- **Coverage Collection**: Includes components, app, lib, hooks, and stores directories
+- **E2E Testing**: Playwright configured for comprehensive end-to-end testing
+- **Component Testing**: React Testing Library with jsdom environment
 
-### Path Aliases
-- Use `@/` for absolute imports (maps to project root)
-- Example: `import { Button } from '@/components/ui/button'`
+#### Environment & API
+- **Backend URL**: Configurable via `NEXT_PUBLIC_BACKEND_URL` (defaults to localhost:8002)
+- **Local Storage**: Used for auth tokens and organization selection
+- **CORS**: Handled by backend, frontend makes direct API calls
 
-### Environment Variables
-- `NEXT_PUBLIC_BACKEND_URL`: Backend API URL (defaults to http://localhost:8002)
+## Development Patterns to Follow
+
+### Creating New Features
+1. **Start with the API hook** in `hooks/api/` using SWR
+2. **Build UI components** in appropriate feature directory under `components/`
+3. **Create pages** in `app/` directory following App Router conventions
+4. **Use existing UI components** from `components/ui/` for consistency
+
+### State Management Guidelines
+- Use **Zustand** for global application state that persists across routes
+- Use **SWR hooks** for server data that needs caching and revalidation
+- Use **React Hook Form** for complex forms with validation
+- Use **local useState** for simple component-specific state
 
 ### Styling Approach
-- Tailwind CSS for utility classes
-- Class Variance Authority (CVA) for component variants
-- tailwind-merge for safe class merging
-- CSS modules avoided in favor of Tailwind
+- **Tailwind-first**: Use utility classes for styling
+- **Component variants**: Use CVA for consistent component styling variations
+- **Class merging**: Use `cn()` utility (tailwind-merge) for safe class combinations
+- **Responsive design**: Mobile-first approach with responsive breakpoints
 
-### Testing Strategy
-- Unit tests for utilities and hooks
-- Component testing with React Testing Library
-- Coverage thresholds set to 1% (minimum viable)
-- Test files co-located with components
+### API Integration
+- **Use centralized API helpers**: `apiGet`, `apiPost`, `apiPut`, `apiDelete` from `lib/api.ts`
+- **Handle auth automatically**: API client manages tokens and organization context
+- **Error handling**: API errors are thrown as Error objects with meaningful messages
+- **Type safety**: Define TypeScript interfaces for API responses
 
-### Build Configuration
-- TypeScript errors ignored during build (`ignoreBuildErrors: true`)
-- ESLint errors ignored during build (`ignoreDuringBuilds: true`)
-- Turbopack enabled for faster development builds
+### Chart Implementation
+- **Choose appropriate library**: ECharts for complex interactions, Recharts for simple charts
+- **Use existing patterns**: Follow established chart component patterns in `components/charts/`
+- **Handle data formatting**: Transform API data to chart-compatible formats
+- **Export capabilities**: Implement PNG/PDF export using existing utilities
 
-### Performance Optimizations
-- SWR for intelligent data caching
-- React 19's automatic batching
-- Next.js 15's improved bundling
-- Lazy loading for heavy chart libraries
+## Key Files & Their Purpose
 
-### Security Considerations
-- Bearer token authentication
-- Organization-based data isolation
-- CORS handled by backend
-- No sensitive data in client-side code
+- `lib/api.ts`: Centralized API client with auth and error handling
+- `stores/authStore.ts`: Authentication state management with Zustand
+- `app/layout.tsx`: Root layout with SWR provider and client layout wrapper
+- `components/ui/`: Radix-based reusable UI component library
+- `hooks/api/`: SWR-based hooks for server state management
+- `next.config.ts`: Next.js configuration with alias setup and build settings
+- `jest.config.ts`: Test configuration with path aliases and coverage settings
 
-## Development Workflow
+## Testing Strategy
 
-1. **Feature Development**
-   - Create feature branch from main
-   - Implement components in appropriate directories
-   - Use existing UI components from `components/ui/`
-   - Add necessary API hooks in `hooks/api/`
+### Unit Tests
+- Test utility functions and custom hooks in isolation
+- Mock API calls using SWR's testing utilities
+- Focus on logic and edge cases rather than implementation details
 
-2. **State Management**
-   - Use Zustand for global state needs
-   - Implement SWR hooks for data fetching
-   - Keep component state local when possible
+### Component Tests  
+- Use React Testing Library for user-centric testing
+- Test component behavior and user interactions
+- Mock complex dependencies like chart libraries
 
-3. **Testing**
-   - Write tests for new components
-   - Ensure API mocks are realistic
-   - Run `npm test` before committing
+### E2E Tests
+- Use Playwright for full user journey testing
+- Test critical paths like authentication and dashboard creation
+- Ensure cross-browser compatibility
 
-4. **Code Quality**
-   - Run `npm run format:write` to format code
-   - ESLint will catch basic issues
-   - TypeScript provides type safety (when enabled)
+## Common Gotchas
 
-## Common Patterns to Follow
-
-### Creating a New Page
-```typescript
-// app/feature/page.tsx
-export default function FeaturePage() {
-  return (
-    <div className="container mx-auto p-6">
-      {/* Page content */}
-    </div>
-  );
-}
-```
-
-### Creating an API Hook
-```typescript
-// hooks/api/useFeature.ts
-import useSWR from 'swr';
-
-export function useFeature(id: string) {
-  return useSWR(`/api/features/${id}`);
-}
-```
-
-### Adding to Zustand Store
-```typescript
-// stores/featureStore.ts
-import { createAppStore } from '@/lib/zustand';
-
-interface FeatureState {
-  // state
-  // actions
-}
-
-export const useFeatureStore = createAppStore<FeatureState>(
-  (set, get) => ({
-    // implementation
-  }),
-  { name: 'feature-store' }
-);
-```
-
-### Using UI Components
-```typescript
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-
-// Use with Tailwind classes for styling
-<Button className="w-full mt-4" variant="primary">
-  Click me
-</Button>
-```
-
-## Notes for Development
-
-- The app uses Next.js App Router - all pages are in the `app/` directory
-- Client components must have 'use client' directive
-- Prefer composition over prop drilling
-- Use TypeScript interfaces for better code documentation
-- Follow existing patterns for consistency
-- Dashboard builder is the core feature - maintain its flexibility
+- **TypeScript strict mode disabled**: Be extra careful with type checking
+- **Build errors ignored**: Ensure code quality through testing and linting during development
+- **Client-side only APIs**: Some browser APIs need `typeof window !== 'undefined'` checks
+- **Organization context**: Remember that API calls need organization selection for multi-tenancy
+- **Token refresh**: API calls may be delayed due to automatic token refresh attempts

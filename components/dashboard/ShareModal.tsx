@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { Share2, Copy, Shield, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
       setShareStatus(status);
     } catch (error) {
       console.error('Failed to fetch share status:', error);
-      toast.error('Failed to load sharing status');
+      toastError.load(error, 'sharing status');
     }
   };
 
@@ -67,16 +67,16 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
       if (isPublic && response.public_url) {
         // Copy URL to clipboard
         await navigator.clipboard.writeText(response.public_url);
-        toast.success('Dashboard made public and URL copied to clipboard!');
+        toastSuccess.generic('Dashboard made public and URL copied to clipboard!');
       } else {
-        toast.success('Dashboard sharing disabled');
+        toastSuccess.generic('Dashboard sharing disabled');
       }
 
       // Refresh parent component
       onUpdate();
     } catch (error: any) {
       console.error('Failed to toggle sharing:', error);
-      toast.error(error.message || 'Failed to update sharing settings');
+      toastError.share(error);
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +86,9 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
     if (shareStatus.public_url) {
       try {
         await navigator.clipboard.writeText(shareStatus.public_url);
-        toast.success('URL copied to clipboard!');
+        toastSuccess.generic('URL copied to clipboard!');
       } catch (error) {
-        toast.error('Failed to copy URL');
+        toastError.api(error, 'Failed to copy URL');
       }
     }
   };

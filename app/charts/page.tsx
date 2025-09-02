@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 // AlertDialog imports removed - now using ChartDeleteDialog component
 import { format } from 'date-fns';
-import { toast } from 'sonner';
+import { toastSuccess, toastError, toastPromise } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 // Simple debounce implementation
@@ -145,10 +145,10 @@ export default function ChartsPage() {
       try {
         await deleteChart(chartId);
         await mutate();
-        toast.success(`"${chartTitle}" has been deleted successfully`);
+        toastSuccess.deleted(chartTitle);
       } catch (error) {
         console.error('Error deleting chart:', error);
-        toast.error('Failed to delete chart. Please try again.');
+        toastError.delete(error, chartTitle);
       } finally {
         setIsDeleting(null);
       }
@@ -261,7 +261,7 @@ export default function ChartsPage() {
         await mutate();
 
         console.log('✅ Charts list refreshed successfully');
-        toast.success(`Chart "${duplicateTitle}" created successfully!`);
+        toastSuccess.duplicated(originalChart.title, duplicateTitle);
       } catch (error: any) {
         console.log('❌ ERROR in duplicate process:', error);
         console.log('Error details:', {
@@ -270,8 +270,7 @@ export default function ChartsPage() {
           info: error?.info,
         });
 
-        const errorMessage = error?.message || 'Unknown error occurred';
-        toast.error(`Failed to duplicate chart: ${errorMessage}`);
+        toastError.duplicate(error, originalChart.title);
       } finally {
         console.log('🏁 Duplicate process finished, clearing loading state');
         setIsDuplicating(null);
@@ -348,13 +347,16 @@ export default function ChartsPage() {
       }
 
       await mutate();
-      toast.success(
+      toastSuccess.generic(
         `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`
       );
       exitSelectionMode();
     } catch (error) {
       console.error('Error deleting charts:', error);
-      toast.error('Failed to delete some charts. Please try again.');
+      toastError.delete(
+        error,
+        `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'}`
+      );
     } finally {
       setIsBulkDeleting(false);
     }
@@ -366,6 +368,7 @@ export default function ChartsPage() {
 
     return (
       <Card
+        id={`chart-card-${chart.id}`}
         key={chart.id}
         className={cn(
           'transition-all duration-200 hover:shadow-md h-full relative group',
@@ -519,6 +522,7 @@ export default function ChartsPage() {
 
     return (
       <Card
+        id={`chart-list-${chart.id}`}
         key={chart.id}
         className={cn(
           'transition-all duration-200 hover:shadow-sm',
@@ -665,20 +669,24 @@ export default function ChartsPage() {
   }
 
   return (
-    <div className="top-0 right-0 bottom-0 left-64 flex flex-col bg-gray-50">
+    <div id="charts-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
-      <div className="flex-shrink-0 border-b bg-white p-6 shadow-sm">
+      <div id="charts-header" className="flex-shrink-0 border-b bg-background">
         {/* Title Section */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Charts</h1>
-            <p className="text-muted-foreground mt-1">Create and manage your data visualizations</p>
+        <div id="charts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
+          <div id="charts-title-wrapper">
+            <h1 id="charts-page-title" className="text-3xl font-bold">
+              Charts
+            </h1>
+            <p id="charts-page-description" className="text-muted-foreground mt-1">
+              Create and manage your data visualizations
+            </p>
           </div>
 
           {hasPermission('can_create_charts') && (
-            <Link href="/charts/new">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
+            <Link id="charts-create-link" href="/charts/new">
+              <Button id="charts-create-button">
+                <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
                 Create Chart
               </Button>
             </Link>
@@ -687,15 +695,19 @@ export default function ChartsPage() {
 
         {/* Selection Bar */}
         {isSelectionMode && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+          <div
+            id="charts-selection-bar"
+            className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div id="charts-selection-controls" className="flex items-center gap-4">
+              <div id="charts-selection-info" className="flex items-center gap-2">
                 <button
+                  id="charts-exit-selection-button"
                   onClick={exitSelectionMode}
                   className="p-1 hover:bg-blue-100 rounded"
                   title="Exit selection mode"
                 >
-                  <X className="w-4 h-4 text-blue-600" />
+                  <X id="charts-exit-selection-icon" className="w-4 h-4 text-blue-600" />
                 </button>
                 <span className="text-sm font-medium text-blue-900">
                   {selectedCharts.size} of {filteredCharts.length} charts selected
@@ -741,10 +753,14 @@ export default function ChartsPage() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <div id="charts-filters-section" className="flex flex-col sm:flex-row gap-4 p-6 pt-0">
+          <div id="charts-search-wrapper" className="relative flex-1">
+            <Search
+              id="charts-search-icon"
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4"
+            />
             <Input
+              id="charts-search-input"
               placeholder="Search charts..."
               value={searchQuery}
               onChange={handleSearchChange}
@@ -753,54 +769,72 @@ export default function ChartsPage() {
           </div>
 
           <Select
+            id="charts-type-select"
             value={chartType}
             onValueChange={(value: any) => {
               setChartType(value);
               setCurrentPage(1); // Reset to first page when filter changes
             }}
           >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
+            <SelectTrigger id="charts-type-trigger" className="w-[180px]">
+              <SelectValue id="charts-type-value" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="bar">Bar Charts</SelectItem>
-              <SelectItem value="line">Line Charts</SelectItem>
-              <SelectItem value="pie">Pie Charts</SelectItem>
-              <SelectItem value="number">Number Cards</SelectItem>
-              <SelectItem value="map">Maps</SelectItem>
-              <SelectItem value="table">Tables</SelectItem>
+            <SelectContent id="charts-type-content">
+              <SelectItem id="charts-type-all" value="all">
+                All Types
+              </SelectItem>
+              <SelectItem id="charts-type-bar" value="bar">
+                Bar Charts
+              </SelectItem>
+              <SelectItem id="charts-type-line" value="line">
+                Line Charts
+              </SelectItem>
+              <SelectItem id="charts-type-pie" value="pie">
+                Pie Charts
+              </SelectItem>
+              <SelectItem id="charts-type-number" value="number">
+                Number Cards
+              </SelectItem>
+              <SelectItem id="charts-type-map" value="map">
+                Maps
+              </SelectItem>
+              <SelectItem id="charts-type-table" value="table">
+                Tables
+              </SelectItem>
             </SelectContent>
           </Select>
 
-          <div className="flex gap-1">
+          <div id="charts-view-mode-wrapper" className="flex gap-1">
             <Button
+              id="charts-grid-view-button"
               variant={viewMode === 'grid' ? 'default' : 'outline'}
               size="icon"
               onClick={() => setViewMode('grid')}
             >
-              <Grid className="w-4 h-4" />
+              <Grid id="charts-grid-icon" className="w-4 h-4" />
             </Button>
             <Button
+              id="charts-list-view-button"
               variant={viewMode === 'list' ? 'default' : 'outline'}
               size="icon"
               onClick={() => setViewMode('list')}
             >
-              <List className="w-4 h-4" />
+              <List id="charts-list-icon" className="w-4 h-4" />
             </Button>
           </div>
         </div>
       </div>
 
       {/* Scrollable Content - Only the charts list scrolls */}
-      <div className="flex-1 overflow-hidden px-6">
-        <div className="h-full overflow-y-auto">
+      <div id="charts-content-wrapper" className="flex-1 overflow-hidden px-6">
+        <div id="charts-scrollable-content" className="h-full overflow-y-auto">
           {isLoading ? (
             <div
+              id="charts-loading-grid"
               className={cn(
                 'py-6',
                 viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
                   : 'space-y-2'
               )}
             >
@@ -819,10 +853,11 @@ export default function ChartsPage() {
             </div>
           ) : filteredCharts.length > 0 ? (
             <div
+              id="charts-content-grid"
               className={cn(
                 'py-6',
                 viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
                   : 'space-y-2'
               )}
             >
@@ -831,15 +866,18 @@ export default function ChartsPage() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
-              <BarChart2 className="w-12 h-12 text-muted-foreground" />
-              <p className="text-muted-foreground">
+            <div
+              id="charts-empty-state"
+              className="flex flex-col items-center justify-center h-full gap-4"
+            >
+              <BarChart2 id="charts-empty-icon" className="w-12 h-12 text-muted-foreground" />
+              <p id="charts-empty-text" className="text-muted-foreground">
                 {searchQuery || chartType !== 'all' ? 'No charts found' : 'No charts yet'}
               </p>
               {hasPermission('can_create_charts') && (
-                <Link href="/charts/new">
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
+                <Link id="charts-empty-create-link" href="/charts/new">
+                  <Button id="charts-empty-create-button">
+                    <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
                     Create your first chart
                   </Button>
                 </Link>
@@ -851,37 +889,49 @@ export default function ChartsPage() {
 
       {/* Fixed Pagination Footer */}
       {totalPages > 1 && (
-        <div className="flex-shrink-0 border-t bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
+        <div id="charts-pagination-footer" className="flex-shrink-0 border-t bg-background p-6">
+          <div id="charts-pagination-wrapper" className="flex items-center justify-between">
+            <div id="charts-pagination-info" className="text-sm text-muted-foreground">
               Showing {(currentPage - 1) * pageSize + 1} to{' '}
               {Math.min(currentPage * pageSize, total)} of {total} charts
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Rows per page:</span>
+            <div id="charts-pagination-controls" className="flex items-center gap-2">
+              <div id="charts-page-size-wrapper" className="flex items-center gap-2">
+                <span id="charts-page-size-label" className="text-sm text-muted-foreground">
+                  Rows per page:
+                </span>
                 <Select
+                  id="charts-page-size-select"
                   value={pageSize.toString()}
                   onValueChange={(value) => {
                     setPageSize(parseInt(value));
                     setCurrentPage(1); // Reset to first page when page size changes
                   }}
                 >
-                  <SelectTrigger className="w-20 h-8">
-                    <SelectValue />
+                  <SelectTrigger id="charts-page-size-trigger" className="w-20 h-8">
+                    <SelectValue id="charts-page-size-value" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
+                  <SelectContent id="charts-page-size-content">
+                    <SelectItem id="charts-page-size-10" value="10">
+                      10
+                    </SelectItem>
+                    <SelectItem id="charts-page-size-20" value="20">
+                      20
+                    </SelectItem>
+                    <SelectItem id="charts-page-size-50" value="50">
+                      50
+                    </SelectItem>
+                    <SelectItem id="charts-page-size-100" value="100">
+                      100
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div id="charts-pagination-nav-left" className="flex items-center gap-1">
                 <Button
+                  id="charts-first-page-button"
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(1)}
@@ -890,33 +940,36 @@ export default function ChartsPage() {
                   First
                 </Button>
                 <Button
+                  id="charts-prev-page-button"
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft id="charts-prev-icon" className="h-4 w-4" />
                   Previous
                 </Button>
               </div>
 
-              <div className="flex items-center gap-1">
-                <span className="text-sm">
+              <div id="charts-pagination-info-center" className="flex items-center gap-1">
+                <span id="charts-page-info" className="text-sm">
                   Page {currentPage} of {totalPages}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div id="charts-pagination-nav-right" className="flex items-center gap-1">
                 <Button
+                  id="charts-next-page-button"
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage >= totalPages}
                 >
                   Next
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight id="charts-next-icon" className="h-4 w-4" />
                 </Button>
                 <Button
+                  id="charts-last-page-button"
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(totalPages)}
