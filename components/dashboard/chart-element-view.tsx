@@ -9,8 +9,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost } from '@/lib/api';
-import { useChart } from '@/hooks/api/useCharts';
-import { useChartDataPreview, useMapDataOverlay, useGeoJSONData } from '@/hooks/api/useChart';
+import {
+  useChart,
+  useChartDataPreview,
+  useMapDataOverlay,
+  useGeoJSONData,
+  useRegions,
+  useRegionGeoJSONs,
+} from '@/hooks/api/useChart';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
@@ -111,6 +117,9 @@ export function ChartElementView({
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Fetch regions data for dynamic geojson lookup (for Indian maps)
+  const { data: regions } = useRegions('IND', 'state');
 
   // Fetch chart metadata to determine chart type (only in authenticated mode)
   const {
@@ -260,16 +269,31 @@ export function ChartElementView({
     isLoading: tableLoading,
   } = useChartDataPreview(chartDataPayload, 1, 50);
 
+  // Get the current drill-down region ID for dynamic geojson fetching
+  const currentDrillDownRegionId =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
+
+  // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
+  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
 
   if (chart?.chart_type === 'map') {
     if (drillDownPath.length > 0) {
-      // We're in a drill-down state, use the geojson from the last drill-down level
+      // We're in a drill-down state, use the first available geojson for this region
       const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeojsonId = lastDrillDown.geojson_id;
       activeGeographicColumn = lastDrillDown.geographic_column;
+
+      if (regionGeojsons && regionGeojsons.length > 0) {
+        // Use the first available geojson for this region (e.g., Karnataka districts)
+        activeGeojsonId = regionGeojsons[0].id;
+        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
+      } else {
+        // Fallback to the stored geojson_id (if any)
+        activeGeojsonId = lastDrillDown.geojson_id;
+      }
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -358,7 +382,127 @@ export function ChartElementView({
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
-    if (!chart?.extra_config?.layers || chart.chart_type !== 'map') return;
+    if (chart.chart_type !== 'map') return;
+
+    // Check for dynamic drill-down configuration (new system)
+    const hasDynamicDrillDown =
+      chart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
+
+    // NEW DYNAMIC SYSTEM: Use geographic hierarchy
+    if (hasDynamicDrillDown) {
+      const hierarchy = chart.extra_config.geographic_hierarchy;
+      const nextLevel = hierarchy.drill_down_levels.find(
+        (level: any) => level.level === currentLevel + 1
+      );
+
+      if (nextLevel) {
+        // Find the clicked region in the regions data
+        const selectedRegion = regions?.find(
+          (region: any) => region.name === regionName || region.display_name === regionName
+        );
+
+        if (!selectedRegion) {
+          toast.error(`Region "${regionName}" not found in database`);
+          return;
+        }
+
+        toast.success(`Drilling down to ${nextLevel.label.toLowerCase()} in ${regionName}`);
+
+        // Create drill-down level for dynamic system
+        const newLevel: DrillDownLevel = {
+          level: currentLevel + 1,
+          name: regionName,
+          geographic_column: nextLevel.column,
+          geojson_id: 0, // Will be resolved dynamically
+          region_id: selectedRegion.id,
+          parent_selections: [
+            ...drillDownPath.flatMap((level) => level.parent_selections),
+            {
+              column: activeGeographicColumn || '',
+              value: regionName,
+            },
+          ],
+        };
+
+        setDrillDownPath([...drillDownPath, newLevel]);
+        return;
+      } else {
+        // No more levels available in dynamic system
+        toast.info('No further drill-down levels configured');
+        return;
+      }
+    }
+
+    // Check for legacy simplified drill-down configuration
+    const hasSimplifiedDrillDown =
+      chart?.extra_config?.district_column ||
+      chart?.extra_config?.ward_column ||
+      chart?.extra_config?.subward_column;
+
+    if (hasSimplifiedDrillDown) {
+      let nextGeographicColumn = null;
+      let levelName = '';
+
+      // Determine next level based on current drill-down state
+      if (currentLevel === 0 && chart.extra_config.district_column) {
+        nextGeographicColumn = chart.extra_config.district_column;
+        levelName = 'districts';
+      } else if (currentLevel === 1 && chart.extra_config.ward_column) {
+        nextGeographicColumn = chart.extra_config.ward_column;
+        levelName = 'wards';
+      } else if (currentLevel === 2 && chart.extra_config.subward_column) {
+        nextGeographicColumn = chart.extra_config.subward_column;
+        levelName = 'sub-wards';
+      }
+
+      if (nextGeographicColumn) {
+        toast.success(`Drilling down to ${levelName} in ${regionName}`);
+
+        // Create drill-down level for simplified system
+        // Find the region ID for the clicked region (e.g., Karnataka)
+        const selectedRegion = regions?.find(
+          (region: any) => region.name === regionName || region.display_name === regionName
+        );
+
+        if (!selectedRegion) {
+          toast.error(`Region "${regionName}" not found in database`);
+          return;
+        }
+
+        // For now, we'll create the drill-down level and let the useRegionGeoJSONs
+        // hook handle fetching the correct geojson in the data fetching logic
+        const regionId = selectedRegion.id;
+        console.log(`🔍 Found region "${regionName}" with ID: ${regionId}`);
+
+        const newLevel: DrillDownLevel = {
+          level: currentLevel + 1,
+          name: regionName,
+          geographic_column: nextGeographicColumn,
+          geojson_id: 0, // Will be resolved dynamically
+          region_id: regionId, // Store the region ID for geojson lookup
+          parent_selections: [
+            ...drillDownPath.flatMap((level) => level.parent_selections),
+            {
+              column: activeGeographicColumn || '',
+              value: regionName,
+            },
+          ],
+        };
+
+        setDrillDownPath([...drillDownPath, newLevel]);
+        return;
+      } else {
+        // No more levels available in simplified system
+        toast.info('No further drill-down levels configured');
+        return;
+      }
+    }
+
+    // Fallback to legacy layers system
+    if (!chart?.extra_config?.layers) {
+      toast.info('No further drill-down levels configured');
+      return;
+    }
 
     const nextLevel = currentLevel + 1;
     const nextLayer = chart.extra_config.layers[nextLevel];

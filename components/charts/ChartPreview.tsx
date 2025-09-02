@@ -30,7 +30,16 @@ export function ChartPreview({
 
   // Initialize or update chart
   const initializeChart = useCallback(() => {
-    if (!chartRef.current || !config) return;
+    if (!chartRef.current) return;
+
+    // If no config, dispose existing chart to clear it
+    if (!config) {
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
+      return;
+    }
 
     try {
       // Dispose existing instance if it exists

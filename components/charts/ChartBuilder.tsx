@@ -18,6 +18,7 @@ import { DataPreview } from './DataPreview';
 import { MapDataConfigurationV3 } from './map/MapDataConfigurationV3';
 import { MapCustomizations } from './map/MapCustomizations';
 import { MapPreview } from './map/MapPreview';
+import { DynamicLevelConfig } from './map/DynamicLevelConfig';
 import {
   useChartData,
   useChartDataPreview,
@@ -28,9 +29,18 @@ import {
   useMapDataOverlay,
   useRawTableData,
   useTableCount,
+  useRegions,
+  useChildRegions,
+  useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
-import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
+import type {
+  ChartCreate,
+  ChartDataPayload,
+  ChartBuilderFormData,
+  GeographicHierarchy,
+} from '@/types/charts';
 import { debounce } from 'lodash';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -121,11 +131,17 @@ export function ChartBuilder({
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [rawDataPage, setRawDataPage] = useState(1);
 
-  // Build payload for chart data
+  // Drill-down state for maps
+  const [drillDownState, setDrillDownState] = useState<{
+    selectedState?: string;
+    stateId?: number;
+  } | null>(null);
+
+  // Build payload for chart data - exclude tables entirely
   const chartDataPayload: ChartDataPayload | null =
-    formData.schema_name && formData.table_name
+    formData.schema_name && formData.table_name && formData.chart_type !== 'table'
       ? {
-          chart_type: formData.chart_type === 'table' ? 'bar' : formData.chart_type!,
+          chart_type: formData.chart_type!,
           computation_type: formData.computation_type || 'aggregated',
           schema_name: formData.schema_name,
           table_name: formData.table_name,
@@ -154,14 +170,6 @@ export function ChartBuilder({
         }
       : null;
 
-  // Debug logging
-  console.log('ChartBuilder Debug:', {
-    formData,
-    chartDataPayload,
-    hasSchemaAndTable: !!(formData.schema_name && formData.table_name),
-    metricsLength: formData.metrics?.length || 0,
-  });
-
   // Fetch chart data - use different hooks for maps, tables, vs regular charts
   const {
     data: chartData,
@@ -177,23 +185,39 @@ export function ChartBuilder({
     error: geojsonError,
     isLoading: geojsonLoading,
   } = useGeoJSONData(
-    formData.chart_type === 'map' && formData.geojsonPreviewPayload?.geojsonId
-      ? formData.geojsonPreviewPayload.geojsonId
+    formData.chart_type === 'map' && formData.selected_geojson_id
+      ? formData.selected_geojson_id
       : null
   );
+
+  // Build map data overlay payload dynamically
+  const mapDataOverlayPayload =
+    formData.chart_type === 'map' &&
+    formData.schema_name &&
+    formData.table_name &&
+    formData.geographic_column &&
+    formData.value_column &&
+    formData.aggregate_function &&
+    formData.selected_geojson_id
+      ? {
+          schema_name: formData.schema_name,
+          table_name: formData.table_name,
+          geographic_column: formData.geographic_column,
+          value_column: formData.value_column,
+          aggregate_function: formData.aggregate_function,
+          selected_geojson_id: formData.selected_geojson_id,
+          chart_filters: formData.filters || [],
+        }
+      : null;
 
   // Fetch map data overlay separately
   const {
     data: mapDataOverlay,
     error: mapDataError,
     isLoading: mapDataLoading,
-  } = useMapDataOverlay(
-    formData.chart_type === 'map' && formData.dataOverlayPayload
-      ? formData.dataOverlayPayload
-      : null
-  );
+  } = useMapDataOverlay(mapDataOverlayPayload);
 
-  // Fetch data preview (used by both charts and tables)
+  // Fetch data preview (used by charts, but not tables)
   const {
     data: dataPreview,
     error: previewError,
@@ -213,6 +237,48 @@ export function ChartBuilder({
     formData.table_name || null
   );
 
+  // Get states for drill-down functionality
+  const countryCode = formData.country_code || 'IND';
+  const { data: states } = useRegions(countryCode, 'state');
+
+  // Get child regions (districts) for the selected state when drilling down
+  const { data: childDistricts } = useChildRegions(
+    drillDownState?.stateId || null,
+    !!drillDownState?.stateId
+  );
+
+  // Get district-level GeoJSON - use the first district's parent region for district boundaries
+  // District boundaries are usually stored at the district level, not state level
+  const districtRegionId =
+    childDistricts && childDistricts.length > 0
+      ? childDistricts[0].parent_id // Use parent ID for district-level boundaries
+      : drillDownState?.stateId || null; // Fallback to state ID
+
+  const { data: districtGeojsonData } = useRegionGeoJSONs(districtRegionId);
+
+  // Get drill-down column - support both dynamic and legacy systems
+  const drillDownColumn =
+    formData.geographic_hierarchy?.drill_down_levels[0]?.column || formData.district_column;
+
+  const districtDataPayload =
+    drillDownState && drillDownColumn
+      ? {
+          schema_name: formData.schema_name!,
+          table_name: formData.table_name!,
+          geographic_column: drillDownColumn,
+          value_column: formData.aggregate_column || formData.value_column!,
+          aggregate_function: formData.aggregate_function!,
+          selected_geojson_id: districtGeojsonData?.[0]?.id || 0,
+          // Use filters parameter for proper geographic filtering
+          filters: {
+            [formData.geographic_column!]: drillDownState.selectedState,
+          },
+          chart_filters: formData.filters || [], // Keep existing chart filters separate
+        }
+      : null;
+
+  const { data: districtMapData } = useMapDataOverlay(districtDataPayload);
+
   // Fetch warehouse data for map configuration
   const { data: tables } = useTables(formData.schema_name);
   const { data: columns } = useColumns(formData.schema_name, formData.table_name);
@@ -222,6 +288,68 @@ export function ChartBuilder({
   }, []);
 
   const debouncedFormChange = useCallback(debounce(handleFormChange, 500), [handleFormChange]);
+
+  // Auto-prefill when dataset is selected
+  useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
+      // Check if we should auto-prefill (no existing configuration)
+      const hasExistingConfig = !!(
+        formData.dimension_column ||
+        formData.aggregate_column ||
+        formData.geographic_column ||
+        formData.x_axis_column ||
+        formData.y_axis_column ||
+        formData.table_columns?.length
+      );
+
+      if (!hasExistingConfig) {
+        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
+        if (Object.keys(autoConfig).length > 0) {
+          handleFormChange(autoConfig);
+        }
+      }
+    }
+  }, [columns, formData.schema_name, formData.table_name, formData.chart_type, handleFormChange]);
+
+  // Handle state click for drill-down
+  const handleRegionClick = useCallback(
+    (regionName: string, regionData: any) => {
+      // Check if drill-down is available - support both dynamic and legacy systems
+      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels.length > 0;
+      const hasLegacyDrillDown = formData.district_column;
+
+      if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
+        return;
+      }
+
+      // Determine drill-down column based on system type
+      const drillDownColumn = hasDynamicDrillDown
+        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
+        : formData.district_column;
+
+      if (!drillDownColumn) {
+        return;
+      }
+
+      // Find the region that was clicked
+      const clickedRegion = states?.find(
+        (state: any) => state.name === regionName || state.display_name === regionName
+      );
+
+      if (clickedRegion) {
+        setDrillDownState({
+          selectedState: regionName,
+          stateId: clickedRegion.id,
+        });
+      }
+    },
+    [formData.geographic_hierarchy, formData.district_column, states]
+  );
+
+  // Handle drill-up (going back to country level)
+  const handleDrillUp = useCallback(() => {
+    setDrillDownState(null);
+  }, []);
 
   const isFormValid = () => {
     if (!formData.title || !formData.chart_type || !formData.schema_name || !formData.table_name) {
@@ -281,17 +409,111 @@ export function ChartBuilder({
     }
   };
 
+  // Helper to convert simplified drill-down selections to layers structure
+  const convertSimplifiedToLayers = (formData: ChartBuilderFormData) => {
+    const layers = [];
+    let layerIndex = 0;
+
+    // Level 0: Always include the main geographic column (states/counties/provinces)
+    if (formData.geographic_column) {
+      layers.push({
+        id: layerIndex.toString(),
+        level: layerIndex,
+        geographic_column: formData.geographic_column,
+        geojson_id: formData.selected_geojson_id,
+        selected_regions: [] as any[], // Allow all regions by default
+      });
+      layerIndex++;
+    }
+
+    // Level 1+: Add additional levels based on simplified fields
+    const additionalLevels = [
+      { field: 'district_column', name: 'District Level' },
+      { field: 'ward_column', name: 'Ward Level' },
+      { field: 'subward_column', name: 'Sub-Ward Level' },
+      // Future: can add more levels here easily
+    ];
+
+    additionalLevels.forEach((level) => {
+      if ((formData as any)[level.field] && (formData as any)[level.field].trim() !== '') {
+        layers.push({
+          id: layerIndex.toString(),
+          level: layerIndex,
+          geographic_column: (formData as any)[level.field],
+          selected_regions: [] as any[], // Allow all regions for drill-down
+          parent_selections: [], // Will be populated during drill-down
+        });
+        layerIndex++;
+      }
+    });
+
+    return layers.length > 0 ? layers : undefined;
+  };
+
+  // Convert new geographic hierarchy to legacy layers format
+  const convertHierarchyToLayers = (hierarchy: GeographicHierarchy, baseGeojsonId?: number) => {
+    const layers = [];
+
+    // Base level (level 0)
+    layers.push({
+      id: '0',
+      level: 0,
+      geographic_column: hierarchy.base_level.column,
+      geojson_id: baseGeojsonId || null,
+      selected_regions: [] as any[],
+    });
+
+    // Drill-down levels
+    hierarchy.drill_down_levels.forEach((level) => {
+      layers.push({
+        id: level.level.toString(),
+        level: level.level,
+        geographic_column: level.column,
+        selected_regions: [],
+        parent_selections: [],
+      });
+    });
+
+    return layers.length > 0 ? layers : undefined;
+  };
+
   const handleSave = () => {
     if (!isFormValid()) {
       return;
     }
 
-    // For map charts, ensure backward compatibility by setting selected_geojson_id from first layer
+    // For map charts, process geographic hierarchy and legacy layers
     let selectedGeojsonId = formData.selected_geojson_id;
-    if (formData.chart_type === 'map' && formData.layers && formData.layers.length > 0) {
-      const firstLayer = formData.layers[0];
-      if (firstLayer.geojson_id) {
-        selectedGeojsonId = firstLayer.geojson_id;
+    let layersToSave = formData.layers;
+
+    if (formData.chart_type === 'map') {
+      // New Dynamic System: Use geographic_hierarchy if available
+      if (formData.geographic_hierarchy) {
+        console.log('🔄 Using dynamic geographic hierarchy');
+        console.log('✅ Geographic Hierarchy:', formData.geographic_hierarchy);
+
+        // Convert hierarchy to layers for backward compatibility
+        layersToSave = convertHierarchyToLayers(formData.geographic_hierarchy, selectedGeojsonId);
+      }
+      // Legacy System: Check for simplified drill-down fields
+      else {
+        const hasSimplifiedFields =
+          formData.geographic_column &&
+          (formData.district_column || formData.ward_column || formData.subward_column);
+
+        if (hasSimplifiedFields) {
+          console.log('🔄 Converting legacy simplified drill-down to layers structure');
+          layersToSave = convertSimplifiedToLayers(formData);
+          console.log('✅ Generated layers:', layersToSave);
+        }
+      }
+
+      // Backward compatibility: set selectedGeojsonId from first layer
+      if (layersToSave && layersToSave.length > 0) {
+        const firstLayer = layersToSave[0];
+        if (firstLayer.geojson_id) {
+          selectedGeojsonId = firstLayer.geojson_id;
+        }
       }
     }
 
@@ -317,7 +539,16 @@ export function ChartBuilder({
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
         // Store the layers configuration for multi-layer maps
-        layers: formData.layers,
+        layers: layersToSave,
+        // New dynamic geographic hierarchy
+        geographic_hierarchy: formData.geographic_hierarchy,
+        // Legacy simplified map configuration (backward compatibility)
+        district_column: formData.district_column,
+        ward_column: formData.ward_column,
+        subward_column: formData.subward_column,
+        drill_down_enabled:
+          formData.drill_down_enabled ||
+          (formData.geographic_hierarchy?.drill_down_levels.length || 0) > 0,
         // Table-specific fields
         table_columns: formData.table_columns,
         customizations: formData.customizations,
@@ -430,20 +661,154 @@ export function ChartBuilder({
                   chart_type: newChartType,
                 };
 
+                // Preserve dataset selection (schema, table, title, description)
+                // These are compatible across all chart types
+                if (formData.schema_name) updates.schema_name = formData.schema_name;
+                if (formData.table_name) updates.table_name = formData.table_name;
+                if (formData.title) updates.title = formData.title;
+                if (formData.description) updates.description = formData.description;
+
                 // Set computation_type based on chart type
                 if (newChartType === 'number') {
                   updates.computation_type = 'aggregated';
                 } else if (newChartType === 'map') {
                   // Maps always use aggregation
                   updates.computation_type = 'aggregated';
-                  // Don't set default aggregate function - let user select
                 } else if (newChartType === 'table') {
-                  // Tables use raw data by default
-                  updates.computation_type = 'raw';
+                  // Tables default to aggregated data
+                  updates.computation_type = 'aggregated';
+                  // Preserve all existing selections - don't clear them!
+                  if (formData.dimension_column) updates.x_axis_column = formData.dimension_column;
+                  if (formData.x_axis_column) updates.x_axis_column = formData.x_axis_column;
+                  if (formData.metrics) updates.metrics = formData.metrics;
+                  if (formData.aggregate_column)
+                    updates.aggregate_column = formData.aggregate_column;
                 } else {
                   // For bar/line/pie, preserve existing computation_type
                   // If no existing value, default to aggregated
                   updates.computation_type = formData.computation_type || 'aggregated';
+                }
+
+                // Smart column mapping based on chart type compatibility
+                const oldChartType = formData.chart_type;
+
+                // Preserve columns that are compatible across chart types
+                if (oldChartType && oldChartType !== newChartType) {
+                  // For aggregated chart types (bar, line, pie, number)
+                  if (['bar', 'line', 'pie', 'number'].includes(newChartType)) {
+                    // Preserve dimension and aggregate columns from other aggregated charts
+                    if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+                      if (formData.dimension_column)
+                        updates.dimension_column = formData.dimension_column;
+                      if (formData.aggregate_column)
+                        updates.aggregate_column = formData.aggregate_column;
+                      if (formData.aggregate_function)
+                        updates.aggregate_function = formData.aggregate_function;
+                      if (formData.metrics) updates.metrics = formData.metrics;
+                    }
+                    // From maps: use geographic_column as dimension, value_column as aggregate
+                    else if (oldChartType === 'map') {
+                      if (formData.geographic_column)
+                        updates.dimension_column = formData.geographic_column;
+                      if (formData.value_column) updates.aggregate_column = formData.value_column;
+                      if (formData.aggregate_function)
+                        updates.aggregate_function = formData.aggregate_function;
+                    }
+                    // From tables: preserve columns if they exist
+                    else if (oldChartType === 'table' && formData.table_columns?.length > 0) {
+                      // Use first column as dimension if available
+                      if (formData.table_columns[0])
+                        updates.dimension_column = formData.table_columns[0];
+                      // Use second column as aggregate if available and numeric-like
+                      if (formData.table_columns[1])
+                        updates.aggregate_column = formData.table_columns[1];
+                      updates.aggregate_function = formData.aggregate_function || 'sum';
+                    }
+                  }
+
+                  // For map charts
+                  else if (newChartType === 'map') {
+                    // From other aggregated charts: use dimension as geographic, aggregate as value
+                    if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+                      if (formData.dimension_column)
+                        updates.geographic_column = formData.dimension_column;
+                      if (formData.aggregate_column)
+                        updates.value_column = formData.aggregate_column;
+                      if (formData.aggregate_function)
+                        updates.aggregate_function = formData.aggregate_function;
+                      if (formData.metrics) updates.metrics = formData.metrics;
+                    }
+                    // From tables: use first column as geographic if available
+                    else if (oldChartType === 'table' && formData.table_columns?.length > 0) {
+                      if (formData.table_columns[0])
+                        updates.geographic_column = formData.table_columns[0];
+                      if (formData.table_columns[1])
+                        updates.value_column = formData.table_columns[1];
+                      updates.aggregate_function = formData.aggregate_function || 'sum';
+                    }
+                  }
+
+                  // For table charts
+                  else if (newChartType === 'table') {
+                    const tableColumns: string[] = [];
+
+                    // From aggregated charts: include dimension and aggregate columns
+                    if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+                      // Try to get the X axis column - check both dimension_column and x_axis_column
+                      let dimensionForTable = null;
+                      if (formData.dimension_column && formData.dimension_column !== 'undefined') {
+                        dimensionForTable = formData.dimension_column;
+                      } else if (formData.x_axis_column && formData.x_axis_column !== 'undefined') {
+                        dimensionForTable = formData.x_axis_column;
+                      } else if (
+                        formData.aggregate_column &&
+                        formData.aggregate_column !== 'undefined'
+                      ) {
+                        dimensionForTable = formData.aggregate_column;
+                      } else if (formData.metrics?.length > 0 && formData.metrics[0]?.column) {
+                        dimensionForTable = formData.metrics[0].column;
+                      }
+
+                      if (dimensionForTable) {
+                        if (!tableColumns.includes(dimensionForTable)) {
+                          tableColumns.push(dimensionForTable);
+                        }
+                        updates.x_axis_column = dimensionForTable;
+                      }
+
+                      if (
+                        formData.aggregate_column &&
+                        formData.aggregate_column !== dimensionForTable
+                      ) {
+                        tableColumns.push(formData.aggregate_column);
+                      }
+                      // Add metrics columns if available
+                      if (formData.metrics) {
+                        formData.metrics.forEach((metric) => {
+                          if (metric.column && !tableColumns.includes(metric.column)) {
+                            tableColumns.push(metric.column);
+                          }
+                        });
+                      }
+                    }
+                    // From maps: include geographic and value columns
+                    else if (oldChartType === 'map') {
+                      if (formData.geographic_column) {
+                        tableColumns.push(formData.geographic_column);
+                        updates.x_axis_column = formData.geographic_column;
+                      }
+                      if (
+                        formData.value_column &&
+                        formData.value_column !== formData.geographic_column
+                      ) {
+                        tableColumns.push(formData.value_column);
+                      }
+                    }
+
+                    if (tableColumns.length > 0) {
+                      updates.table_columns = tableColumns;
+                    }
+                  }
                 }
 
                 // Merge customizations intelligently
@@ -477,6 +842,11 @@ export function ChartBuilder({
                   ...preservedFields,
                 };
 
+                // Preserve chart-level filters, pagination, and sorting
+                if (formData.filters) updates.filters = formData.filters;
+                if (formData.pagination) updates.pagination = formData.pagination;
+                if (formData.sort) updates.sort = formData.sort;
+
                 handleFormChange(updates);
               }}
             />
@@ -488,10 +858,17 @@ export function ChartBuilder({
           >
             <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
             {formData.chart_type === 'map' ? (
-              <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
+              <div className="space-y-6">
+                <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
+
+                {/* Dynamic Level Configuration - New Feature */}
+                {formData.schema_name && formData.table_name && formData.geographic_column && (
+                  <DynamicLevelConfig formData={formData} onChange={handleFormChange} />
+                )}
+              </div>
             ) : formData.chart_type === 'table' ? (
               <div className="space-y-6">
-                {/* Basic configuration using the same as other chart types */}
+                {/* Table configuration - same as other charts but simpler */}
                 <ChartDataConfigurationV3
                   formData={formData}
                   onChange={handleFormChange}
@@ -590,29 +967,53 @@ export function ChartBuilder({
           <TabsContent value="chart" className="h-[calc(100%-3rem)]">
             {formData.chart_type === 'map' ? (
               <MapPreview
-                geojsonData={geojsonData?.geojson_data}
+                geojsonData={
+                  drillDownState
+                    ? districtGeojsonData?.[0]?.geojson_data
+                    : geojsonData?.geojson_data
+                }
                 geojsonLoading={geojsonLoading}
                 geojsonError={geojsonError}
-                mapData={mapDataOverlay?.data}
+                mapData={drillDownState ? districtMapData?.data : mapDataOverlay?.data}
                 mapDataLoading={mapDataLoading}
                 mapDataError={mapDataError}
                 title={formData.title}
                 valueColumn={formData.aggregate_column}
+                onRegionClick={handleRegionClick}
+                drillDownPath={
+                  drillDownState
+                    ? [
+                        {
+                          level: 1,
+                          name: drillDownState.selectedState,
+                          geographic_column: '',
+                          parent_selections: [],
+                        },
+                      ]
+                    : undefined
+                }
+                onDrillUp={handleDrillUp}
+                onDrillHome={() => setDrillDownState(null)}
+                showBreadcrumbs={!!drillDownState}
               />
             ) : formData.chart_type === 'table' ? (
               <DataPreview
-                data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                columns={formData.table_columns || dataPreview?.columns || []}
-                columnTypes={dataPreview?.column_types || {}}
-                isLoading={previewLoading}
-                error={previewError}
+                data={Array.isArray(rawTableData) ? rawTableData : []}
+                columns={
+                  columns
+                    ? columns.map((col: any) => (typeof col === 'string' ? col : col.column_name))
+                    : []
+                }
+                columnTypes={{}}
+                isLoading={rawDataLoading}
+                error={rawDataError}
                 pagination={
-                  dataPreview
+                  tableCount && rawTableData?.length > 0
                     ? {
-                        page: dataPreview.page,
-                        pageSize: dataPreview.page_size,
-                        total: dataPreview.total_rows,
-                        onPageChange: setDataPreviewPage,
+                        page: rawDataPage,
+                        pageSize: 50,
+                        total: tableCount.total_rows || 0,
+                        onPageChange: setRawDataPage,
                       }
                     : undefined
                 }

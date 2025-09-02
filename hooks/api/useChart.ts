@@ -158,16 +158,15 @@ export function useRawTableData(
   page: number = 1,
   pageSize: number = 50
 ) {
-  return useSWR(
+  const swrKey =
     schema && table
       ? `/api/warehouse/table_data/${schema}/${table}?page=${page}&limit=${pageSize}`
-      : null,
-    apiGet,
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 60000, // Cache for 1 minute
-    }
-  );
+      : null;
+
+  return useSWR(swrKey, apiGet, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000, // Cache for 1 minute
+  });
 }
 
 export function useTableCount(schema: string | null, table: string | null) {
@@ -264,6 +263,16 @@ export function useRegionGeoJSONs(regionId: number | null | undefined) {
   );
 }
 
+// New hook for region hierarchy
+const regionHierarchyFetcher = (url: string) => apiGet(url);
+
+export function useRegionHierarchy(countryCode: string = 'IND') {
+  return useSWR(
+    countryCode ? `/api/charts/hierarchy/?country=${countryCode}` : null,
+    regionHierarchyFetcher
+  );
+}
+
 export function useMapData(payload: ChartDataPayload | null) {
   return useSWR(
     payload ? ['/api/charts/map-data/', payload] : null,
@@ -288,7 +297,7 @@ export function useAvailableLayers(layerType: string = 'country') {
 }
 
 // Get region hierarchy by fetching all available region types for a country
-export function useRegionHierarchy(countryCode: string = 'IND') {
+export function useAvailableRegionTypes(countryCode: string = 'IND') {
   // First, get all regions without specifying type to see what types are available
   return useSWR(`/api/charts/regions/?country_code=${countryCode}`, apiGet);
 }
@@ -314,7 +323,6 @@ export function useMapDataOverlay(
       pagination?: any;
       sort?: any[];
     };
-    chart_id?: number; // Add chart ID for cache isolation
   } | null
 ) {
   // Transform payload to match backend requirements
@@ -358,16 +366,18 @@ export function useMapDataOverlay(
     : '';
 
   const swrKey = transformedPayload
-    ? `/api/charts/map-data-overlay/?chart_id=${payload?.chart_id || 'unknown'}&payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
+    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
     : null;
 
   return useSWR(
     swrKey,
-    (url: string) => {
+    async (url: string) => {
       // Extract the payload from URL params for the API call
       const urlParams = new URLSearchParams(url.split('?')[1]);
       const payloadParam = urlParams.get('payload');
       const payload = payloadParam ? JSON.parse(decodeURIComponent(payloadParam)) : null;
+
+      // Making API call for map data overlay
       return apiPost('/api/charts/map-data-overlay/', payload);
     },
     {

@@ -39,6 +39,32 @@ export interface ChartSort {
   direction: 'asc' | 'desc';
 }
 
+// Dynamic geographic hierarchy interfaces
+export interface GeographicLevel {
+  level: number;
+  column: string;
+  region_type: string;
+  label: string;
+  parent_level?: number;
+  parent_column?: string;
+}
+
+export interface GeographicHierarchy {
+  country_code: string;
+  base_level: GeographicLevel;
+  drill_down_levels: GeographicLevel[];
+  max_depth?: number;
+}
+
+// Region hierarchy from backend
+export interface RegionHierarchyLevel {
+  level: number;
+  region_type: string;
+  parent_type?: string;
+  label: string;
+  is_active: boolean;
+}
+
 export interface Chart {
   id: number;
   title: string;
@@ -92,8 +118,16 @@ export interface ChartCreate {
       }
     >;
     customizations?: Record<string, any>;
-    // Chart-level filters, pagination and sorting
+    // Chart-level filters
     filters?: ChartFilter[];
+    // Legacy map fields
+    district_column?: string;
+    ward_column?: string;
+    subward_column?: string;
+    drill_down_enabled?: boolean;
+    // New dynamic geographic hierarchy
+    geographic_hierarchy?: GeographicHierarchy;
+    // Pagination and sorting
     pagination?: ChartPagination;
     sort?: ChartSort[];
   };
@@ -138,10 +172,8 @@ export interface ChartUpdate {
       }
     >;
     customizations?: Record<string, any>;
-    // Chart-level filters, pagination and sorting
+    // Chart-level filters
     filters?: ChartFilter[];
-    pagination?: ChartPagination;
-    sort?: ChartSort[];
   };
 }
 
@@ -247,17 +279,27 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     }
   >;
   customizations?: Record<string, any>;
-  // Chart-level filters, pagination and sorting
+  // Chart-level filters
   filters?: ChartFilter[];
+  // Table configuration
   pagination?: ChartPagination;
   sort?: ChartSort[];
-  // Additional fields used in map configuration
+  // Map layers configuration
   layers?: Array<{
     id: string;
     level: number;
     name?: string;
     geojson_id?: number;
   }>;
+  // Legacy simplified map configuration (backward compatibility)
+  district_column?: string;
+  ward_column?: string;
+  subward_column?: string;
+  drill_down_enabled?: boolean;
+
+  // New dynamic geographic hierarchy
+  geographic_hierarchy?: GeographicHierarchy;
+  // Preview payloads for maps
   geojsonPreviewPayload?: {
     geojsonId: number;
   };
@@ -268,5 +310,7 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     value_column: string;
     aggregate_function: string;
     selected_geojson_id: number;
+    filters?: Record<string, any>;
+    chart_filters?: ChartFilter[];
   };
 };

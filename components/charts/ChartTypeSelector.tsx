@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart2, LineChart, Table, PieChart } from 'lucide-react';
+import { BarChart2, LineChart, Table, PieChart, Hash, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ChartTypeSelectorProps {
@@ -29,6 +29,18 @@ const chartTypes = [
     icon: PieChart,
   },
   {
+    id: 'number',
+    name: 'Big Number',
+    description: 'Display a single key metric prominently',
+    icon: Hash,
+  },
+  {
+    id: 'map',
+    name: 'Map',
+    description: 'Visualize geographic data',
+    icon: MapPin,
+  },
+  {
     id: 'table',
     name: 'Table',
     description: 'Display data in rows and columns',
@@ -46,7 +58,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
         <p className="text-xs text-gray-500">Choose how to visualize your data</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-6 gap-3">
         {chartTypes.map((type) => {
           const Icon = type.icon;
           const isSelected = selectedType === type.id;
@@ -55,24 +67,16 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
             <Button
               key={type.id}
               variant="outline"
-              className={`h-auto p-4 flex flex-col items-center space-y-2 transition-all ${
+              className={`aspect-square p-3 flex items-center justify-center transition-all ${
                 isSelected
                   ? 'bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100 shadow-sm'
                   : 'bg-white hover:bg-gray-50 border-gray-200'
               }`}
               onClick={() => onChange(type.id)}
               disabled={disabled}
+              title={type.name}
             >
               <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
-              <div className="text-center">
-                <div
-                  className={`text-xs font-medium leading-tight ${
-                    isSelected ? 'text-blue-900' : 'text-gray-900'
-                  }`}
-                >
-                  {type.name}
-                </div>
-              </div>
             </Button>
           );
         })}
