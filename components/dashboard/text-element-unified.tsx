@@ -170,7 +170,7 @@ export function UnifiedTextElement({
           onChange={(e) => setTempContent(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleInlineEditSave}
-          className="resize-none border-0 p-2 focus:ring-0 focus:border-0 bg-transparent"
+          className="resize-none border-0 p-2 focus:ring-0 focus:border-0 bg-transparent drag-cancel"
           style={{
             fontSize: `${config.fontSize}px`,
             fontWeight: config.fontWeight,
@@ -253,7 +253,7 @@ export function UnifiedTextElement({
       )}
       <Card className="h-full flex flex-col bg-white/50 hover:bg-white/80 transition-colors">
         {/* Quick toolbar */}
-        <div className="flex items-center justify-between p-2 border-b bg-gray-50/50">
+        <div className="flex items-center justify-between p-2 border-b bg-gray-50/50 drag-cancel">
           <div className="flex items-center gap-1">
             {/* Text Type Toggle */}
             <Button

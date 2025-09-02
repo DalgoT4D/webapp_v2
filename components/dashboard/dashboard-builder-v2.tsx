@@ -1670,7 +1670,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onResizeStart={handleResizeStart}
                 onResizeStop={handleResizeStop}
-                draggableHandle=".drag-handle"
+                draggableCancel=".drag-cancel"
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
@@ -1681,17 +1681,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-                  <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                    <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
-                      <Grip className="w-4 h-4 text-gray-400" />
+                  <div
+                    key={item.i}
+                    className="dashboard-item bg-white rounded-lg shadow-sm border cursor-move"
+                  >
+                    <div className="absolute top-2 left-2 p-1 rounded z-10 pointer-events-none">
+                      <Grip className="w-4 h-4 text-gray-400 opacity-60" />
                     </div>
                     <button
                       onClick={() => removeComponent(item.i)}
-                      className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
+                      className="drag-cancel absolute top-2 right-2 p-1 hover:bg-gray-100 rounded cursor-pointer"
                     >
                       <X className="w-4 h-4 text-gray-400" />
                     </button>
-                    <div className="p-4 flex-1 flex flex-col min-h-0">
+                    <div className="p-4 flex-1 flex flex-col min-h-0 pt-8">
                       {renderComponent(item.i)}
                     </div>
                   </div>
