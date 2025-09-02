@@ -15,6 +15,7 @@ import { SupersetEmbed } from './superset-embed';
 interface IndividualDashboardViewProps {
   dashboardId: string;
   hideHeader?: boolean; // Hide header when used as landing page
+  showMinimalHeader?: boolean; // Show only title when used as landing page
 }
 
 interface Dashboard {
@@ -66,6 +67,7 @@ function ErrorFallback({ error }: { error: Error }) {
 export function IndividualDashboardView({
   dashboardId,
   hideHeader = false,
+  showMinimalHeader = false,
 }: IndividualDashboardViewProps) {
   const router = useRouter();
 
@@ -163,7 +165,7 @@ export function IndividualDashboardView({
   return (
     <div className="flex flex-col h-full">
       {/* Header - Conditional rendering for landing page */}
-      {!hideHeader && (
+      {!hideHeader && !showMinimalHeader && (
         <div className="p-6 border-b">
           <div className="flex items-center justify-between mb-4">
             <Button variant="ghost" onClick={() => router.push('/dashboards')}>
@@ -234,6 +236,20 @@ export function IndividualDashboardView({
                   </Badge>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Minimal Header - Show only title for landing page */}
+      {showMinimalHeader && (
+        <div className="p-6 border-b">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-2">{dashboard.dashboard_title}</h1>
+            {dashboard.description && (
+              <p className="text-muted-foreground text-sm max-w-2xl mx-auto">
+                {dashboard.description}
+              </p>
             )}
           </div>
         </div>

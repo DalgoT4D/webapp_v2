@@ -248,6 +248,7 @@ interface DashboardNativeViewProps {
   publicToken?: string;
   dashboardData?: any; // Pre-fetched dashboard data for public mode
   hideHeader?: boolean; // Hide header when used as landing page
+  showMinimalHeader?: boolean; // Show only title when used as landing page
 }
 
 export function DashboardNativeView({
@@ -256,6 +257,7 @@ export function DashboardNativeView({
   publicToken,
   dashboardData,
   hideHeader = false,
+  showMinimalHeader = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -713,7 +715,7 @@ export function DashboardNativeView({
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
-      {!hideHeader && (
+      {!hideHeader && !showMinimalHeader && (
         <div className="bg-white border-b shadow-sm flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
@@ -1077,6 +1079,17 @@ export function DashboardNativeView({
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Minimal Header - Show only title for landing page */}
+      {showMinimalHeader && (
+        <div className="bg-white border-b flex-shrink-0 px-6 py-4">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{dashboard.title}</h1>
+            {dashboard.description && (
+              <p className="text-sm text-gray-600 max-w-2xl mx-auto">{dashboard.description}</p>
+            )}
           </div>
         </div>
       )}
