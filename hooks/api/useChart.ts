@@ -158,16 +158,15 @@ export function useRawTableData(
   page: number = 1,
   pageSize: number = 50
 ) {
-  return useSWR(
+  const swrKey =
     schema && table
       ? `/api/warehouse/table_data/${schema}/${table}?page=${page}&limit=${pageSize}`
-      : null,
-    apiGet,
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 60000, // Cache for 1 minute
-    }
-  );
+      : null;
+
+  return useSWR(swrKey, apiGet, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000, // Cache for 1 minute
+  });
 }
 
 export function useTableCount(schema: string | null, table: string | null) {

@@ -137,11 +137,11 @@ export function ChartBuilder({
     stateId?: number;
   } | null>(null);
 
-  // Build payload for chart data
+  // Build payload for chart data - exclude tables entirely
   const chartDataPayload: ChartDataPayload | null =
-    formData.schema_name && formData.table_name
+    formData.schema_name && formData.table_name && formData.chart_type !== 'table'
       ? {
-          chart_type: formData.chart_type === 'table' ? 'bar' : formData.chart_type!,
+          chart_type: formData.chart_type!,
           computation_type: formData.computation_type || 'aggregated',
           schema_name: formData.schema_name,
           table_name: formData.table_name,
@@ -170,14 +170,6 @@ export function ChartBuilder({
         }
       : null;
 
-  // Debug logging
-  console.log('ChartBuilder Debug:', {
-    formData,
-    chartDataPayload,
-    hasSchemaAndTable: !!(formData.schema_name && formData.table_name),
-    metricsLength: formData.metrics?.length || 0,
-  });
-
   // Fetch chart data - use different hooks for maps, tables, vs regular charts
   const {
     data: chartData,
@@ -193,23 +185,39 @@ export function ChartBuilder({
     error: geojsonError,
     isLoading: geojsonLoading,
   } = useGeoJSONData(
-    formData.chart_type === 'map' && formData.geojsonPreviewPayload?.geojsonId
-      ? formData.geojsonPreviewPayload.geojsonId
+    formData.chart_type === 'map' && formData.selected_geojson_id
+      ? formData.selected_geojson_id
       : null
   );
+
+  // Build map data overlay payload dynamically
+  const mapDataOverlayPayload =
+    formData.chart_type === 'map' &&
+    formData.schema_name &&
+    formData.table_name &&
+    formData.geographic_column &&
+    formData.value_column &&
+    formData.aggregate_function &&
+    formData.selected_geojson_id
+      ? {
+          schema_name: formData.schema_name,
+          table_name: formData.table_name,
+          geographic_column: formData.geographic_column,
+          value_column: formData.value_column,
+          aggregate_function: formData.aggregate_function,
+          selected_geojson_id: formData.selected_geojson_id,
+          chart_filters: formData.filters || [],
+        }
+      : null;
 
   // Fetch map data overlay separately
   const {
     data: mapDataOverlay,
     error: mapDataError,
     isLoading: mapDataLoading,
-  } = useMapDataOverlay(
-    formData.chart_type === 'map' && formData.dataOverlayPayload
-      ? formData.dataOverlayPayload
-      : null
-  );
+  } = useMapDataOverlay(mapDataOverlayPayload);
 
-  // Fetch data preview (used by both charts and tables)
+  // Fetch data preview (used by charts, but not tables)
   const {
     data: dataPreview,
     error: previewError,
@@ -653,20 +661,153 @@ export function ChartBuilder({
                   chart_type: newChartType,
                 };
 
+                // Preserve dataset selection (schema, table, title, description)
+                // These are compatible across all chart types
+                if (formData.schema_name) updates.schema_name = formData.schema_name;
+                if (formData.table_name) updates.table_name = formData.table_name;
+                if (formData.title) updates.title = formData.title;
+                if (formData.description) updates.description = formData.description;
+
                 // Set computation_type based on chart type
                 if (newChartType === 'number') {
                   updates.computation_type = 'aggregated';
                 } else if (newChartType === 'map') {
                   // Maps always use aggregation
                   updates.computation_type = 'aggregated';
-                  // Don't set default aggregate function - let user select
                 } else if (newChartType === 'table') {
-                  // Tables use raw data by default
-                  updates.computation_type = 'raw';
+                  // Tables can use raw or aggregated data like other charts
+                  updates.computation_type = formData.computation_type || 'aggregated';
+                  // Preserve all existing selections - don't clear them!
+                  if (formData.dimension_column) updates.x_axis_column = formData.dimension_column;
+                  if (formData.x_axis_column) updates.x_axis_column = formData.x_axis_column;
+                  if (formData.metrics) updates.metrics = formData.metrics;
+                  if (formData.aggregate_column)
+                    updates.aggregate_column = formData.aggregate_column;
                 } else {
                   // For bar/line/pie, preserve existing computation_type
                   // If no existing value, default to aggregated
                   updates.computation_type = formData.computation_type || 'aggregated';
+                }
+
+                // Smart column mapping based on chart type compatibility
+                const oldChartType = formData.chart_type;
+
+                // Preserve columns that are compatible across chart types
+                if (oldChartType && oldChartType !== newChartType) {
+                  // For aggregated chart types (bar, line, pie, number)
+                  if (['bar', 'line', 'pie', 'number'].includes(newChartType)) {
+                    // Preserve dimension and aggregate columns from other aggregated charts
+                    if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+                      if (formData.dimension_column)
+                        updates.dimension_column = formData.dimension_column;
+                      if (formData.aggregate_column)
+                        updates.aggregate_column = formData.aggregate_column;
+                      if (formData.aggregate_function)
+                        updates.aggregate_function = formData.aggregate_function;
+                      if (formData.metrics) updates.metrics = formData.metrics;
+                    }
+                    // From maps: use geographic_column as dimension, value_column as aggregate
+                    else if (oldChartType === 'map') {
+                      if (formData.geographic_column)
+                        updates.dimension_column = formData.geographic_column;
+                      if (formData.value_column) updates.aggregate_column = formData.value_column;
+                      if (formData.aggregate_function)
+                        updates.aggregate_function = formData.aggregate_function;
+                    }
+                    // From tables: preserve columns if they exist
+                    else if (oldChartType === 'table' && formData.table_columns?.length > 0) {
+                      // Use first column as dimension if available
+                      if (formData.table_columns[0])
+                        updates.dimension_column = formData.table_columns[0];
+                      // Use second column as aggregate if available and numeric-like
+                      if (formData.table_columns[1])
+                        updates.aggregate_column = formData.table_columns[1];
+                      updates.aggregate_function = formData.aggregate_function || 'sum';
+                    }
+                  }
+
+                  // For map charts
+                  else if (newChartType === 'map') {
+                    // From other aggregated charts: use dimension as geographic, aggregate as value
+                    if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+                      if (formData.dimension_column)
+                        updates.geographic_column = formData.dimension_column;
+                      if (formData.aggregate_column)
+                        updates.value_column = formData.aggregate_column;
+                      if (formData.aggregate_function)
+                        updates.aggregate_function = formData.aggregate_function;
+                    }
+                    // From tables: use first column as geographic if available
+                    else if (oldChartType === 'table' && formData.table_columns?.length > 0) {
+                      if (formData.table_columns[0])
+                        updates.geographic_column = formData.table_columns[0];
+                      if (formData.table_columns[1])
+                        updates.value_column = formData.table_columns[1];
+                      updates.aggregate_function = formData.aggregate_function || 'sum';
+                    }
+                  }
+
+                  // For table charts
+                  else if (newChartType === 'table') {
+                    const tableColumns: string[] = [];
+
+                    // From aggregated charts: include dimension and aggregate columns
+                    if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+                      // Try to get the X axis column - check both dimension_column and x_axis_column
+                      let dimensionForTable = null;
+                      if (formData.dimension_column && formData.dimension_column !== 'undefined') {
+                        dimensionForTable = formData.dimension_column;
+                      } else if (formData.x_axis_column && formData.x_axis_column !== 'undefined') {
+                        dimensionForTable = formData.x_axis_column;
+                      } else if (
+                        formData.aggregate_column &&
+                        formData.aggregate_column !== 'undefined'
+                      ) {
+                        dimensionForTable = formData.aggregate_column;
+                      } else if (formData.metrics?.length > 0 && formData.metrics[0]?.column) {
+                        dimensionForTable = formData.metrics[0].column;
+                      }
+
+                      if (dimensionForTable) {
+                        if (!tableColumns.includes(dimensionForTable)) {
+                          tableColumns.push(dimensionForTable);
+                        }
+                        updates.x_axis_column = dimensionForTable;
+                      }
+
+                      if (
+                        formData.aggregate_column &&
+                        formData.aggregate_column !== dimensionForTable
+                      ) {
+                        tableColumns.push(formData.aggregate_column);
+                      }
+                      // Add metrics columns if available
+                      if (formData.metrics) {
+                        formData.metrics.forEach((metric) => {
+                          if (metric.column && !tableColumns.includes(metric.column)) {
+                            tableColumns.push(metric.column);
+                          }
+                        });
+                      }
+                    }
+                    // From maps: include geographic and value columns
+                    else if (oldChartType === 'map') {
+                      if (formData.geographic_column) {
+                        tableColumns.push(formData.geographic_column);
+                        updates.x_axis_column = formData.geographic_column;
+                      }
+                      if (
+                        formData.value_column &&
+                        formData.value_column !== formData.geographic_column
+                      ) {
+                        tableColumns.push(formData.value_column);
+                      }
+                    }
+
+                    if (tableColumns.length > 0) {
+                      updates.table_columns = tableColumns;
+                    }
+                  }
                 }
 
                 // Merge customizations intelligently
@@ -700,6 +841,11 @@ export function ChartBuilder({
                   ...preservedFields,
                 };
 
+                // Preserve chart-level filters, pagination, and sorting
+                if (formData.filters) updates.filters = formData.filters;
+                if (formData.pagination) updates.pagination = formData.pagination;
+                if (formData.sort) updates.sort = formData.sort;
+
                 handleFormChange(updates);
               }}
             />
@@ -721,7 +867,7 @@ export function ChartBuilder({
               </div>
             ) : formData.chart_type === 'table' ? (
               <div className="space-y-6">
-                {/* Basic configuration using the same as other chart types */}
+                {/* Table configuration - same as other charts but simpler */}
                 <ChartDataConfigurationV3
                   formData={formData}
                   onChange={handleFormChange}
@@ -851,18 +997,22 @@ export function ChartBuilder({
               />
             ) : formData.chart_type === 'table' ? (
               <DataPreview
-                data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                columns={formData.table_columns || dataPreview?.columns || []}
-                columnTypes={dataPreview?.column_types || {}}
-                isLoading={previewLoading}
-                error={previewError}
+                data={Array.isArray(rawTableData) ? rawTableData : []}
+                columns={
+                  columns
+                    ? columns.map((col: any) => (typeof col === 'string' ? col : col.column_name))
+                    : []
+                }
+                columnTypes={{}}
+                isLoading={rawDataLoading}
+                error={rawDataError}
                 pagination={
-                  dataPreview
+                  tableCount && rawTableData?.length > 0
                     ? {
-                        page: dataPreview.page,
-                        pageSize: dataPreview.page_size,
-                        total: dataPreview.total_rows,
-                        onPageChange: setDataPreviewPage,
+                        page: rawDataPage,
+                        pageSize: 50,
+                        total: tableCount.total_rows || 0,
+                        onPageChange: setRawDataPage,
                       }
                     : undefined
                 }

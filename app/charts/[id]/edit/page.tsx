@@ -575,7 +575,156 @@ function EditChartPageContent() {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
+    // Smart chart type switching logic (same as ChartBuilder)
+    if (updates.chart_type && updates.chart_type !== formData.chart_type) {
+      const newChartType = updates.chart_type;
+      const oldChartType = formData.chart_type;
+
+      // Smart column mapping based on chart type compatibility
+      const smartUpdates = { ...updates };
+
+      // Preserve dataset selection (schema, table, title, description)
+      // These are compatible across all chart types - no need to change
+
+      // Set computation_type based on chart type
+      if (newChartType === 'number') {
+        smartUpdates.computation_type = 'aggregated';
+      } else if (newChartType === 'map') {
+        smartUpdates.computation_type = 'aggregated';
+      } else if (newChartType === 'table') {
+        smartUpdates.computation_type = 'raw';
+        // Keep existing columns for table display - don't clear them!
+      } else {
+        smartUpdates.computation_type = formData.computation_type || 'aggregated';
+      }
+
+      // Smart column mapping between chart types
+      if (oldChartType && oldChartType !== newChartType) {
+        // For aggregated chart types (bar, line, pie, number)
+        if (['bar', 'line', 'pie', 'number'].includes(newChartType)) {
+          // From maps: use geographic_column as dimension, value_column as aggregate
+          if (oldChartType === 'map') {
+            if (formData.geographic_column)
+              smartUpdates.dimension_column = formData.geographic_column;
+            if (formData.value_column) smartUpdates.aggregate_column = formData.value_column;
+            if (formData.aggregate_function)
+              smartUpdates.aggregate_function = formData.aggregate_function;
+          }
+          // From tables: preserve columns if they exist
+          else if (oldChartType === 'table' && formData.table_columns?.length > 0) {
+            if (formData.table_columns[0])
+              smartUpdates.dimension_column = formData.table_columns[0];
+            if (formData.table_columns[1])
+              smartUpdates.aggregate_column = formData.table_columns[1];
+            smartUpdates.aggregate_function = formData.aggregate_function || 'sum';
+          }
+        }
+        // For map charts
+        else if (newChartType === 'map') {
+          // From other aggregated charts: use dimension as geographic, aggregate as value
+          if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+            if (formData.dimension_column)
+              smartUpdates.geographic_column = formData.dimension_column;
+            if (formData.aggregate_column) smartUpdates.value_column = formData.aggregate_column;
+            if (formData.aggregate_function)
+              smartUpdates.aggregate_function = formData.aggregate_function;
+          }
+          // From tables: use first column as geographic if available
+          else if (oldChartType === 'table' && formData.table_columns?.length > 0) {
+            if (formData.table_columns[0])
+              smartUpdates.geographic_column = formData.table_columns[0];
+            if (formData.table_columns[1]) smartUpdates.value_column = formData.table_columns[1];
+            smartUpdates.aggregate_function = formData.aggregate_function || 'sum';
+          }
+        }
+
+        // For table charts
+        else if (newChartType === 'table') {
+          const tableColumns: string[] = [];
+
+          // From aggregated charts: include dimension and aggregate columns
+          if (['bar', 'line', 'pie', 'number'].includes(oldChartType)) {
+            // Try to get the X axis column - check both dimension_column and x_axis_column
+            let dimensionForTable = null;
+            if (formData.dimension_column && formData.dimension_column !== 'undefined') {
+              dimensionForTable = formData.dimension_column;
+            } else if (formData.x_axis_column && formData.x_axis_column !== 'undefined') {
+              dimensionForTable = formData.x_axis_column;
+            }
+
+            if (dimensionForTable) {
+              tableColumns.push(dimensionForTable);
+              // Map to x_axis_column for raw data compatibility
+              smartUpdates.x_axis_column = dimensionForTable;
+            }
+            if (
+              formData.aggregate_column &&
+              formData.aggregate_column !== formData.dimension_column
+            ) {
+              tableColumns.push(formData.aggregate_column);
+            }
+            // Add metrics columns if available
+            if (formData.metrics) {
+              formData.metrics.forEach((metric) => {
+                if (metric.column && !tableColumns.includes(metric.column)) {
+                  tableColumns.push(metric.column);
+                }
+              });
+            }
+          }
+          // From maps: include geographic and value columns
+          else if (oldChartType === 'map') {
+            if (formData.geographic_column) {
+              tableColumns.push(formData.geographic_column);
+              smartUpdates.x_axis_column = formData.geographic_column;
+            }
+            if (formData.value_column && formData.value_column !== formData.geographic_column) {
+              tableColumns.push(formData.value_column);
+            }
+          }
+
+          if (tableColumns.length > 0) {
+            smartUpdates.table_columns = tableColumns;
+          }
+        }
+      }
+
+      // Merge customizations intelligently
+      const existingCustomizations = formData.customizations || {};
+      const newDefaults = getDefaultCustomizations(newChartType);
+
+      // Preserve common settings and user-entered text
+      const preservedFields: Record<string, any> = {};
+
+      // Common UI settings across chart types
+      ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {
+        if (field in existingCustomizations && field in newDefaults) {
+          preservedFields[field] = existingCustomizations[field];
+        }
+      });
+
+      // Preserve user-entered text fields
+      ['xAxisTitle', 'yAxisTitle', 'subtitle'].forEach((field) => {
+        if (existingCustomizations[field]?.trim()) {
+          preservedFields[field] = existingCustomizations[field];
+        }
+      });
+
+      // Preserve data label positions if compatible
+      if (existingCustomizations.dataLabelPosition && newDefaults.dataLabelPosition) {
+        preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
+      }
+
+      smartUpdates.customizations = {
+        ...newDefaults,
+        ...preservedFields,
+      };
+
+      setFormData((prev) => ({ ...prev, ...smartUpdates }));
+    } else {
+      // Regular form update without chart type change
+      setFormData((prev) => ({ ...prev, ...updates }));
+    }
   };
 
   const handleRawDataPageSizeChange = (newPageSize: number) => {

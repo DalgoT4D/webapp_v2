@@ -365,6 +365,20 @@ export function ChartDataConfigurationV3({
           computation_type: formData.computation_type || 'aggregated',
         };
         break;
+
+      case 'table':
+        // Tables can use raw or aggregated data like bar/line charts
+        specificFields = {
+          computation_type: formData.computation_type || 'aggregated', // Default to aggregated like other charts
+          x_axis_column: formData.x_axis_column,
+          y_axis_column: null, // Tables don't need Y axis
+          dimension_column: formData.dimension_column,
+          aggregate_column: formData.aggregate_column,
+          aggregate_function: formData.aggregate_function,
+          extra_dimension_column: formData.extra_dimension_column,
+          metrics: formData.metrics, // Preserve all metrics
+        };
+        break;
     }
 
     // Apply the changes with auto-prefill
@@ -491,12 +505,13 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts */}
+      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
+        formData.chart_type !== 'table' &&
         (formData.computation_type === 'raw' ||
           (formData.computation_type === 'aggregated' &&
-            !['bar', 'line', 'pie', 'table'].includes(formData.chart_type || ''))) && (
+            !['bar', 'line', 'pie'].includes(formData.chart_type || ''))) && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
             <Select
@@ -525,16 +540,17 @@ export function ChartDataConfigurationV3({
         )}
 
       {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') &&
-        formData.computation_type === 'aggregated' && (
-          <MetricsSelector
-            metrics={formData.metrics || []}
-            onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
-            columns={normalizedColumns}
-            disabled={disabled}
-            chartType={formData.chart_type}
-          />
-        )}
+      {((['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.computation_type === 'aggregated') ||
+        formData.chart_type === 'table') && (
+        <MetricsSelector
+          metrics={formData.metrics || []}
+          onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
+          columns={normalizedColumns}
+          disabled={disabled}
+          chartType={formData.chart_type}
+        />
+      )}
 
       {/* Single Metric for Pie Charts */}
       {formData.chart_type === 'pie' && formData.computation_type === 'aggregated' && (
@@ -568,8 +584,8 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Extra Dimension - for stacked/grouped charts */}
-      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
+      {/* Extra Dimension - for stacked/grouped charts AND tables */}
+      {['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Select
