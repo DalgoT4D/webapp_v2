@@ -86,6 +86,9 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -111,6 +114,7 @@ export function DashboardListV2() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setSearchQuery(value);
+      setCurrentPage(1); // Reset to first page when searching
       debouncedSearch(value);
     },
     [debouncedSearch]
@@ -121,10 +125,32 @@ export function DashboardListV2() {
     search: debouncedSearchQuery,
     dashboard_type: dashboardType === 'all' ? undefined : dashboardType,
     is_published: publishFilter === 'all' ? undefined : publishFilter === 'published',
+    page: currentPage,
+    pageSize,
   };
 
   // Fetch dashboards
-  const { data: dashboards, isLoading, isError, mutate } = useDashboards(params);
+  const {
+    data: allDashboards,
+    total: apiTotal,
+    page: apiPage,
+    pageSize: apiPageSize,
+    totalPages: apiTotalPages,
+    isLoading,
+    isError,
+    mutate,
+  } = useDashboards(params);
+
+  // If API doesn't support pagination, implement client-side pagination
+  const dashboards = allDashboards || [];
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedDashboards =
+    apiTotalPages > 1 ? dashboards : dashboards.slice(startIndex, endIndex);
+
+  // Calculate pagination values (use API values if available, otherwise client-side)
+  const total = apiTotal || dashboards.length;
+  const totalPages = apiTotalPages > 1 ? apiTotalPages : Math.ceil(dashboards.length / pageSize);
 
   // Handle dashboard deletion
   const handleDeleteDashboard = useCallback(
@@ -230,6 +256,7 @@ export function DashboardListV2() {
 
     return (
       <Card
+        id={`dashboard-card-${dashboard.id}`}
         key={dashboard.id}
         className={cn(
           'transition-all duration-200 hover:shadow-md h-full relative group',
@@ -649,19 +676,24 @@ export function DashboardListV2() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboards</h1>
-            <p className="text-muted-foreground mt-1">Create and manage your data dashboards</p>
+    <div id="dashboard-list-container" className="h-full flex flex-col">
+      {/* Fixed Header */}
+      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background p-6">
+        {/* Title Section */}
+        <div id="dashboard-title-section" className="flex items-center justify-between mb-6">
+          <div id="dashboard-title-wrapper">
+            <h1 id="dashboard-page-title" className="text-3xl font-bold">
+              Dashboards
+            </h1>
+            <p id="dashboard-page-description" className="text-muted-foreground mt-1">
+              Create and manage your data dashboards
+            </p>
           </div>
 
           {hasPermission('can_create_dashboards') && (
-            <Link href="/dashboards/create">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
+            <Link id="dashboard-create-link" href="/dashboards/create">
+              <Button id="dashboard-create-button">
+                <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
                 Create Dashboard
               </Button>
             </Link>
@@ -669,10 +701,14 @@ export function DashboardListV2() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <div id="dashboard-filters-section" className="flex flex-col sm:flex-row gap-4">
+          <div id="dashboard-search-wrapper" className="relative flex-1">
+            <Search
+              id="dashboard-search-icon"
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4"
+            />
             <Input
+              id="dashboard-search-input"
               placeholder="Search dashboards..."
               value={searchQuery}
               onChange={handleSearchChange}
@@ -680,95 +716,234 @@ export function DashboardListV2() {
             />
           </div>
 
-          <Select value={dashboardType} onValueChange={(value: any) => setDashboardType(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
+          <Select
+            id="dashboard-type-select"
+            value={dashboardType}
+            onValueChange={(value: any) => {
+              setDashboardType(value);
+              setCurrentPage(1); // Reset to first page when filter changes
+            }}
+          >
+            <SelectTrigger id="dashboard-type-trigger" className="w-[180px]">
+              <SelectValue id="dashboard-type-value" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="native">Native Only</SelectItem>
-              <SelectItem value="superset">Superset Only</SelectItem>
+            <SelectContent id="dashboard-type-content">
+              <SelectItem id="dashboard-type-all" value="all">
+                All Types
+              </SelectItem>
+              <SelectItem id="dashboard-type-native" value="native">
+                Native Only
+              </SelectItem>
+              <SelectItem id="dashboard-type-superset" value="superset">
+                Superset Only
+              </SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={publishFilter} onValueChange={(value: any) => setPublishFilter(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
+          <Select
+            id="dashboard-publish-select"
+            value={publishFilter}
+            onValueChange={(value: any) => {
+              setPublishFilter(value);
+              setCurrentPage(1); // Reset to first page when filter changes
+            }}
+          >
+            <SelectTrigger id="dashboard-publish-trigger" className="w-[180px]">
+              <SelectValue id="dashboard-publish-value" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
+            <SelectContent id="dashboard-publish-content">
+              <SelectItem id="dashboard-publish-all" value="all">
+                All Status
+              </SelectItem>
+              <SelectItem id="dashboard-publish-published" value="published">
+                Published
+              </SelectItem>
+              <SelectItem id="dashboard-publish-draft" value="draft">
+                Draft
+              </SelectItem>
             </SelectContent>
           </Select>
 
-          <div className="flex gap-1">
+          <div id="dashboard-view-mode-wrapper" className="flex gap-1">
             <Button
+              id="dashboard-grid-view-button"
               variant={viewMode === 'grid' ? 'default' : 'outline'}
               size="icon"
               onClick={() => setViewMode('grid')}
             >
-              <Grid className="w-4 h-4" />
+              <Grid id="dashboard-grid-icon" className="w-4 h-4" />
             </Button>
             <Button
+              id="dashboard-list-view-button"
               variant={viewMode === 'list' ? 'default' : 'outline'}
               size="icon"
               onClick={() => setViewMode('list')}
             >
-              <List className="w-4 h-4" />
+              <List id="dashboard-list-icon" className="w-4 h-4" />
             </Button>
           </div>
         </div>
-
-        {/* Content */}
-        {isLoading ? (
-          <div
-            className={cn(
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                : 'space-y-2'
-            )}
-          >
-            {[...Array(8)].map((_, i) => (
-              <Card key={i}>
-                <div className="h-48 bg-muted animate-pulse" />
-                <CardHeader>
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3 w-full mt-2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-3 w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : dashboards && dashboards.length > 0 ? (
-          <div
-            className={cn(
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                : 'space-y-2'
-            )}
-          >
-            {dashboards.map((dashboard) =>
-              viewMode === 'grid' ? renderDashboardCard(dashboard) : renderDashboardList(dashboard)
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
-            <Layout className="w-12 h-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {searchQuery ? 'No dashboards found' : 'No dashboards yet'}
-            </p>
-            <Link href="/dashboards/create">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Create your first dashboard
-              </Button>
-            </Link>
-          </div>
-        )}
       </div>
+
+      {/* Scrollable Content - Only the dashboard list scrolls */}
+      <div className="flex-1 overflow-hidden px-6">
+        <div className="h-full overflow-y-auto">
+          {isLoading ? (
+            <div
+              className={cn(
+                'py-6',
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                  : 'space-y-2'
+              )}
+            >
+              {[...Array(8)].map((_, i) => (
+                <Card key={i}>
+                  <div className="h-48 bg-muted animate-pulse" />
+                  <CardHeader>
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-full mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-3 w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : paginatedDashboards && paginatedDashboards.length > 0 ? (
+            <div
+              className={cn(
+                'py-6',
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                  : 'space-y-2'
+              )}
+            >
+              {paginatedDashboards.map((dashboard) =>
+                viewMode === 'grid'
+                  ? renderDashboardCard(dashboard)
+                  : renderDashboardList(dashboard)
+              )}
+            </div>
+          ) : (
+            <div
+              id="dashboard-empty-state"
+              className="flex flex-col items-center justify-center h-full gap-4"
+            >
+              <Layout id="dashboard-empty-icon" className="w-12 h-12 text-muted-foreground" />
+              <p id="dashboard-empty-text" className="text-muted-foreground">
+                {searchQuery || dashboardType !== 'all' || publishFilter !== 'all'
+                  ? 'No dashboards found'
+                  : 'No dashboards yet'}
+              </p>
+              {hasPermission('can_create_dashboards') && (
+                <Link id="dashboard-empty-create-link" href="/dashboards/create">
+                  <Button id="dashboard-empty-create-button">
+                    <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
+                    Create your first dashboard
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Fixed Pagination Footer */}
+      {dashboards.length > pageSize && (
+        <div id="dashboard-pagination-footer" className="flex-shrink-0 border-t bg-background p-6">
+          <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
+            <div id="dashboard-pagination-info" className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(startIndex + pageSize, dashboards.length)} of{' '}
+              {dashboards.length} dashboards
+            </div>
+
+            <div id="dashboard-pagination-controls" className="flex items-center gap-2">
+              <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
+                <span id="dashboard-page-size-label" className="text-sm text-muted-foreground">
+                  Rows per page:
+                </span>
+                <Select
+                  id="dashboard-page-size-select"
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(parseInt(value));
+                    setCurrentPage(1); // Reset to first page when page size changes
+                  }}
+                >
+                  <SelectTrigger id="dashboard-page-size-trigger" className="w-20 h-8">
+                    <SelectValue id="dashboard-page-size-value" />
+                  </SelectTrigger>
+                  <SelectContent id="dashboard-page-size-content">
+                    <SelectItem id="dashboard-page-size-10" value="10">
+                      10
+                    </SelectItem>
+                    <SelectItem id="dashboard-page-size-20" value="20">
+                      20
+                    </SelectItem>
+                    <SelectItem id="dashboard-page-size-50" value="50">
+                      50
+                    </SelectItem>
+                    <SelectItem id="dashboard-page-size-100" value="100">
+                      100
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div id="dashboard-pagination-nav-left" className="flex items-center gap-1">
+                <Button
+                  id="dashboard-first-page-button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  First
+                </Button>
+                <Button
+                  id="dashboard-prev-page-button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
+                  Previous
+                </Button>
+              </div>
+
+              <div id="dashboard-pagination-info-center" className="flex items-center gap-1">
+                <span id="dashboard-page-info" className="text-sm">
+                  Page {currentPage} of {totalPages}
+                </span>
+              </div>
+
+              <div id="dashboard-pagination-nav-right" className="flex items-center gap-1">
+                <Button
+                  id="dashboard-next-page-button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                  <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
+                </Button>
+                <Button
+                  id="dashboard-last-page-button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share Modal */}
       {selectedDashboard && (
