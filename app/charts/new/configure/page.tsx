@@ -557,7 +557,7 @@ function ConfigureChartPageContent() {
       const hasLegacyDrillDown = formData.district_column;
 
       if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
-        toastInfo.generic('Configure drill-down levels to enable region drilling');
+        toast.info('Configure drill-down levels to enable region drilling');
         return;
       }
 
@@ -590,9 +590,9 @@ function ConfigureChartPageContent() {
         };
 
         setDrillDownPath([newDrillDownLevel]);
-        toastSuccess.generic(`✨ Drilling down to ${regionName} districts!`);
+        toast.success(`✨ Drilling down to ${regionName} districts!`);
       } else {
-        toastError.api(`Region "${regionName}" not found for drill-down`);
+        toast.error(`Region "${regionName}" not found for drill-down`);
       }
     },
     [
