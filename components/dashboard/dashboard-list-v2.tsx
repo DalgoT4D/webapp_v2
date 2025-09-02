@@ -244,20 +244,22 @@ export function DashboardListV2() {
           hasPermission('can_delete_dashboards') ||
           hasPermission('can_view_dashboards')) && (
           <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-            {/* Share icon button */}
-            {hasPermission('can_share_dashboards') && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleShareDashboard(dashboard);
-                }}
-              >
-                <Share2 className="w-4 h-4 text-gray-700" />
-              </Button>
-            )}
+            {/* Share icon button - only for dashboard creators */}
+            {hasPermission('can_share_dashboards') &&
+              (dashboard.created_by === currentUser?.email ||
+                dashboard.changed_by_name === currentUser?.email) && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleShareDashboard(dashboard);
+                  }}
+                >
+                  <Share2 className="w-4 h-4 text-gray-700" />
+                </Button>
+              )}
 
             {/* Edit icon button */}
             {hasPermission('can_edit_dashboards') && (
@@ -528,20 +530,22 @@ export function DashboardListV2() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {/* Share icon button */}
-              {hasPermission('can_share_dashboards') && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleShareDashboard(dashboard);
-                  }}
-                >
-                  <Share2 className="w-4 h-4 text-gray-700" />
-                </Button>
-              )}
+              {/* Share icon button - only for dashboard creators */}
+              {hasPermission('can_share_dashboards') &&
+                (dashboard.created_by === currentUser?.email ||
+                  dashboard.changed_by_name === currentUser?.email) && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleShareDashboard(dashboard);
+                    }}
+                  >
+                    <Share2 className="w-4 h-4 text-gray-700" />
+                  </Button>
+                )}
 
               {/* Edit icon button */}
               {hasPermission('can_edit_dashboards') && (
