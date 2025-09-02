@@ -83,8 +83,10 @@ function debounce<T extends (...args: any[]) => any>(
 export function DashboardListV2() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
-  const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
+  // COMMENTED OUT: Dashboard type filtering (Native/Superset) - not needed anymore
+  // const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
+  // COMMENTED OUT: Draft/publish filtering - not applicable for dashboards
+  // const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
@@ -134,8 +136,10 @@ export function DashboardListV2() {
   // Build params for API call
   const params = {
     search: debouncedSearchQuery,
-    dashboard_type: dashboardType === 'all' ? undefined : dashboardType,
-    is_published: publishFilter === 'all' ? undefined : publishFilter === 'published',
+    // COMMENTED OUT: Dashboard type filtering - not needed anymore
+    // dashboard_type: dashboardType === 'all' ? undefined : dashboardType,
+    // COMMENTED OUT: Draft/publish filtering - not applicable for dashboards
+    // is_published: publishFilter === 'all' ? undefined : publishFilter === 'published',
     page: currentPage,
     pageSize,
   };
@@ -254,7 +258,8 @@ export function DashboardListV2() {
   // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
-    const isNative = dashboard.dashboard_type === 'native';
+    // COMMENTED OUT: Dashboard type checking - not needed anymore
+    // const isNative = dashboard.dashboard_type === 'native';
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
@@ -274,8 +279,9 @@ export function DashboardListV2() {
         id={`dashboard-card-${dashboard.id}`}
         key={dashboard.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-md h-full relative group',
-          !dashboard.is_published && 'opacity-75'
+          'transition-all duration-200 hover:shadow-md h-full relative group'
+          // COMMENTED OUT: Draft opacity styling - not applicable for dashboards
+          // !dashboard.is_published && 'opacity-75'
         )}
       >
         {/* Action Menu - only render if user has any dashboard permissions */}
@@ -396,22 +402,23 @@ export function DashboardListV2() {
           <div className="cursor-pointer">
             {/* Thumbnail */}
             <div className="relative h-48 bg-muted overflow-hidden">
-              {isNative ? (
-                <div className="flex items-center justify-center h-full">
-                  <Layout className="w-16 h-16 text-muted-foreground" />
-                </div>
-              ) : (
+              {/* COMMENTED OUT: Type-based thumbnail rendering - show generic layout icon for all */}
+              {/* {isNative ? ( */}
+              <div className="flex items-center justify-center h-full">
+                <Layout className="w-16 h-16 text-muted-foreground" />
+              </div>
+              {/* ) : (
                 <DashboardThumbnail
                   dashboardId={dashboard.id}
                   thumbnailUrl={dashboard.thumbnail_url}
                   alt={dashboard.title}
                 />
-              )}
+              )} */}
 
-              {/* Type badge */}
-              <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
+              {/* COMMENTED OUT: Type badge - not needed anymore */}
+              {/* <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
                 {isNative ? 'Native' : 'Superset'}
-              </Badge>
+              </Badge> */}
 
               {/* Lock indicator */}
               {isLocked && (
@@ -438,22 +445,26 @@ export function DashboardListV2() {
                   </CardDescription>
                 </div>
 
-                {!isNative && (
+                {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
+                {/* {!isNative && (
                   <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-                )}
+                )} */}
               </div>
             </CardHeader>
 
             <CardContent className="pt-0">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" title="Dashboard Creator">
                   <User className="w-3 h-3" />
-                  <span>{dashboard.created_by || dashboard.changed_by_name || 'Unknown'}</span>
+                  <span>
+                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" title="Last Updated">
                   <Clock className="w-3 h-3" />
                   <span>
+                    Updated{' '}
                     {dashboard.updated_at
                       ? format(new Date(dashboard.updated_at), 'MMM d')
                       : 'Unknown'}
@@ -462,7 +473,8 @@ export function DashboardListV2() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                {dashboard.is_published ? (
+                {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
+                {/* {dashboard.is_published ? (
                   <Badge variant="outline" className="text-xs">
                     Published
                   </Badge>
@@ -470,7 +482,7 @@ export function DashboardListV2() {
                   <Badge variant="secondary" className="text-xs">
                     Draft
                   </Badge>
-                )}
+                )} */}
 
                 {/* Landing page badges */}
                 {isPersonalLanding && (
@@ -509,7 +521,8 @@ export function DashboardListV2() {
   };
 
   const renderDashboardList = (dashboard: any) => {
-    const isNative = dashboard.dashboard_type === 'native';
+    // COMMENTED OUT: Dashboard type checking - not needed anymore
+    // const isNative = dashboard.dashboard_type === 'native';
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
@@ -532,11 +545,12 @@ export function DashboardListV2() {
               className="flex items-center gap-4 flex-1 cursor-pointer"
             >
               <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                {isNative ? (
-                  <Layout className="w-8 h-8 text-muted-foreground" />
-                ) : (
+                {/* COMMENTED OUT: Type-based icons - show generic layout icon for all */}
+                {/* {isNative ? ( */}
+                <Layout className="w-8 h-8 text-muted-foreground" />
+                {/* ) : (
                   <BarChart3 className="w-8 h-8 text-muted-foreground" />
-                )}
+                )} */}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -544,9 +558,10 @@ export function DashboardListV2() {
                   <h3 className="font-medium truncate">
                     {dashboard.title || dashboard.dashboard_title}
                   </h3>
-                  <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
+                  {/* COMMENTED OUT: Type badge - not needed anymore */}
+                  {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
                     {isNative ? 'Native' : 'Superset'}
-                  </Badge>
+                  </Badge> */}
                   {isLocked && (
                     <Lock
                       className={cn('w-4 h-4', isLockedByOther ? 'text-red-500' : 'text-blue-500')}
@@ -559,17 +574,19 @@ export function DashboardListV2() {
                 </p>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" title="Dashboard Creator">
                     <User className="w-3 h-3" />
-                    {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" title="Last Updated">
                     <Clock className="w-3 h-3" />
+                    Updated{' '}
                     {dashboard.updated_at
                       ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
                       : 'Unknown'}
                   </span>
-                  {dashboard.is_published ? (
+                  {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
+                  {/* {dashboard.is_published ? (
                     <Badge variant="outline" className="text-xs">
                       Published
                     </Badge>
@@ -577,13 +594,14 @@ export function DashboardListV2() {
                     <Badge variant="secondary" className="text-xs">
                       Draft
                     </Badge>
-                  )}
+                  )} */}
                 </div>
               </div>
 
-              {!isNative && (
+              {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
+              {/* {!isNative && (
                 <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-              )}
+              )} */}
             </Link>
 
             {/* Action Menu - only render if user has any dashboard permissions */}
@@ -805,7 +823,8 @@ export function DashboardListV2() {
             />
           </div>
 
-          <Select
+          {/* COMMENTED OUT: Dashboard type filter dropdown - not needed anymore */}
+          {/* <Select
             id="dashboard-type-select"
             value={dashboardType}
             onValueChange={(value: any) => {
@@ -827,9 +846,10 @@ export function DashboardListV2() {
                 Superset Only
               </SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
 
-          <Select
+          {/* COMMENTED OUT: Draft/publish filter dropdown - not applicable for dashboards */}
+          {/* <Select
             id="dashboard-publish-select"
             value={publishFilter}
             onValueChange={(value: any) => {
@@ -851,7 +871,7 @@ export function DashboardListV2() {
                 Draft
               </SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
 
           <div id="dashboard-view-mode-wrapper" className="flex gap-1">
             <Button
@@ -921,8 +941,10 @@ export function DashboardListV2() {
             >
               <Layout id="dashboard-empty-icon" className="w-12 h-12 text-muted-foreground" />
               <p id="dashboard-empty-text" className="text-muted-foreground">
-                {searchQuery || dashboardType !== 'all' || publishFilter !== 'all'
-                  ? 'No dashboards found'
+                {searchQuery
+                  ? // COMMENTED OUT: Filter-based checks - not needed anymore
+                    // || dashboardType !== 'all' || publishFilter !== 'all'
+                    'No dashboards found'
                   : 'No dashboards yet'}
               </p>
               {hasPermission('can_create_dashboards') && (
