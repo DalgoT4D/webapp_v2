@@ -628,6 +628,7 @@ function EditChartPageContent() {
             if (formData.aggregate_column) smartUpdates.value_column = formData.aggregate_column;
             if (formData.aggregate_function)
               smartUpdates.aggregate_function = formData.aggregate_function;
+            if (formData.metrics) smartUpdates.metrics = formData.metrics;
           }
           // From tables: use first column as geographic if available
           else if (oldChartType === 'table' && formData.table_columns?.length > 0) {

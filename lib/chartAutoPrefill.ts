@@ -25,7 +25,7 @@ const isNumberColumn = (dataType: string) => {
 
 const findStateColumn = (columns: TableColumn[]) => {
   return (
-    columns.find((col) => col.name.toLowerCase().includes('state')) ||
+    columns.find((col) => col.name?.toLowerCase().includes('state')) ||
     columns.find((col) => isTextColumn(col.data_type))
   );
 };
@@ -36,8 +36,8 @@ export function generateAutoPrefilledConfig(
 ): Partial<ChartBuilderFormData> {
   if (!columns || columns.length === 0) return {};
 
-  const textColumn = columns.find((col) => isTextColumn(col.data_type));
-  const numberColumn = columns.find((col) => isNumberColumn(col.data_type));
+  const textColumn = columns.find((col) => col.name && isTextColumn(col.data_type));
+  const numberColumn = columns.find((col) => col.name && isNumberColumn(col.data_type));
 
   const config: Partial<ChartBuilderFormData> = {};
 
@@ -115,7 +115,10 @@ export function generateAutoPrefilledConfig(
           },
         ];
       }
-      config.table_columns = columns.slice(0, 6).map((col) => col.name);
+      config.table_columns = columns
+        .slice(0, 6)
+        .filter((col) => col.name)
+        .map((col) => col.name);
       break;
   }
 

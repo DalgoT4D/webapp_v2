@@ -736,6 +736,7 @@ export function ChartBuilder({
                         updates.value_column = formData.aggregate_column;
                       if (formData.aggregate_function)
                         updates.aggregate_function = formData.aggregate_function;
+                      if (formData.metrics) updates.metrics = formData.metrics;
                     }
                     // From tables: use first column as geographic if available
                     else if (oldChartType === 'table' && formData.table_columns?.length > 0) {

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { CountryLevelConfig } from './CountryLevelConfig';
 import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
@@ -358,14 +359,12 @@ export function MapDataConfigurationV3({
 
   return (
     <div className="space-y-4">
-      {/* Chart Type - Show readonly */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Chart Type</Label>
-        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border w-full">
-          <MapPin className="h-5 w-5 text-blue-600" />
-          <span className="font-medium">Map</span>
-        </div>
-      </div>
+      {/* Chart Type Selector - without duplicate title */}
+      <ChartTypeSelector
+        value={formData.chart_type}
+        onChange={(chart_type) => onFormDataChange({ chart_type })}
+        disabled={disabled}
+      />
 
       {/* Data Source - Inline Edit Pattern */}
       <div className="space-y-2">
