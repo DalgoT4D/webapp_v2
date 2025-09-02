@@ -67,6 +67,8 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import useSWR, { mutate as swrMutate } from 'swr';
+import { apiGet } from '@/lib/api';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -100,7 +102,18 @@ export function DashboardListV2() {
 
   // Get current user info for permission checks
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const currentUser = getCurrentOrgUser();
+  const authCurrentUser = getCurrentOrgUser();
+
+  // Fetch fresh user data to get updated landing page settings
+  const { data: orgUsersData } = useSWR('/api/currentuserv2', apiGet, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  // Use fresh user data if available, fall back to auth store data
+  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
+  const currentUser =
+    orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
 
   // Get user permissions
   const { hasPermission } = useUserPermissions();
@@ -237,6 +250,9 @@ export function DashboardListV2() {
   const handleSetPersonalLanding = useCallback(
     async (dashboardId: number) => {
       await setPersonalLanding(dashboardId);
+      // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+      // Also mutate '/api/currentuserv2' to refresh our local data
+      await swrMutate('/api/currentuserv2');
       mutate(); // Refresh the dashboard list to update indicators
     },
     [setPersonalLanding, mutate]
@@ -244,12 +260,18 @@ export function DashboardListV2() {
 
   const handleRemovePersonalLanding = useCallback(async () => {
     await removePersonalLanding();
+    // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+    // Also mutate '/api/currentuserv2' to refresh our local data
+    await swrMutate('/api/currentuserv2');
     mutate(); // Refresh the dashboard list to update indicators
   }, [removePersonalLanding, mutate]);
 
   const handleSetOrgDefault = useCallback(
     async (dashboardId: number) => {
       await setOrgDefault(dashboardId);
+      // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+      // Also mutate '/api/currentuserv2' to refresh our local data
+      await swrMutate('/api/currentuserv2');
       mutate(); // Refresh the dashboard list to update indicators
     },
     [setOrgDefault, mutate]

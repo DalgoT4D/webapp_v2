@@ -69,6 +69,8 @@ import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import useSWR, { mutate as swrMutate } from 'swr';
+import { apiGet } from '@/lib/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -278,7 +280,19 @@ export function DashboardNativeView({
 
   // Get current user info for permission checks (skip in public mode)
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const currentUser = isPublicMode ? null : getCurrentOrgUser();
+  const authCurrentUser = isPublicMode ? null : getCurrentOrgUser();
+
+  // Fetch fresh user data to get updated landing page settings
+  const { data: orgUsersData } = useSWR(!isPublicMode ? '/api/currentuserv2' : null, apiGet, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  // Use fresh user data if available, fall back to auth store data
+  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
+  const currentUser = isPublicMode
+    ? null
+    : orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
 
   // Landing page functionality
   const {
@@ -496,14 +510,20 @@ export function DashboardNativeView({
   // Landing page handlers
   const handleSetPersonalLanding = async () => {
     await setPersonalLanding(dashboardId);
+    // Refresh user data to update landing page status
+    await swrMutate('/api/currentuserv2');
   };
 
   const handleRemovePersonalLanding = async () => {
     await removePersonalLanding();
+    // Refresh user data to update landing page status
+    await swrMutate('/api/currentuserv2');
   };
 
   const handleSetOrgDefault = async () => {
     await setOrgDefault(dashboardId);
+    // Refresh user data to update landing page status
+    await swrMutate('/api/currentuserv2');
   };
 
   // Render dashboard components

@@ -1193,7 +1193,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     )}
                   </Button>
                 )}
-                <Popover>
+                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
+                {/* <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="ghost" className="p-1.5">
                       <Settings className="w-4 h-4" />
@@ -1208,7 +1209,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         </p>
                       </div>
 
-                      {/* Filter Layout Setting */}
                       <div className="grid gap-2">
                         <Label className="text-sm font-medium">
                           Filter Layout
@@ -1273,7 +1273,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
                     </div>
                   </PopoverContent>
-                </Popover>
+                </Popover> */}
               </div>
             </div>
 
@@ -1473,7 +1473,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </div>
                 )}
 
-                <Popover>
+                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
+                {/* <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline">
                       <Settings className="w-4 h-4" />
@@ -1488,7 +1489,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         </p>
                       </div>
 
-                      {/* Filter Layout Setting */}
                       <div className="grid gap-2">
                         <Label className="text-sm font-medium">
                           Filter Layout
@@ -1553,7 +1553,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
                     </div>
                   </PopoverContent>
-                </Popover>
+                </Popover> */}
 
                 <Button onClick={() => saveDashboard()} size="sm" variant="outline">
                   <Save className="w-4 h-4 mr-2" />
