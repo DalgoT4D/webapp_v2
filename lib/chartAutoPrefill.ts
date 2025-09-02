@@ -94,6 +94,13 @@ export function generateAutoPrefilledConfig(
         config.value_column = numberColumn.name;
         config.aggregate_column = numberColumn.name;
         config.aggregate_function = 'sum';
+        config.metrics = [
+          {
+            column: numberColumn.name,
+            aggregation: 'sum',
+            alias: numberColumn.name,
+          },
+        ];
       }
       break;
 
