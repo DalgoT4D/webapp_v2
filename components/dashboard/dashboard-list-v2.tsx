@@ -52,6 +52,7 @@ import {
   Copy,
   Download,
   Share2,
+  Edit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -236,116 +237,123 @@ export function DashboardListV2() {
           !dashboard.is_published && 'opacity-75'
         )}
       >
-        {/* Action Menu - only render if user has any dashboard permissions */}
+        {/* Action buttons - only render if user has any dashboard permissions */}
         {(hasPermission('can_share_dashboards') ||
           hasPermission('can_create_dashboards') ||
           hasPermission('can_edit_dashboards') ||
           hasPermission('can_delete_dashboards') ||
           hasPermission('can_view_dashboards')) && (
-          <div className="absolute top-2 right-2 z-10">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-                >
-                  <MoreVertical className="w-4 h-4 text-gray-700" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {hasPermission('can_share_dashboards') && (
-                  <>
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+            {/* Share icon button */}
+            {hasPermission('can_share_dashboards') && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleShareDashboard(dashboard);
+                }}
+              >
+                <Share2 className="w-4 h-4 text-gray-700" />
+              </Button>
+            )}
+
+            {/* Edit icon button */}
+            {hasPermission('can_edit_dashboards') && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(`/dashboards/${dashboard.id}/edit`);
+                }}
+              >
+                <Edit className="w-4 h-4 text-gray-700" />
+              </Button>
+            )}
+
+            {/* Three dots menu - only render if user has remaining permissions */}
+            {(hasPermission('can_create_dashboards') || hasPermission('can_delete_dashboards')) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                  >
+                    <MoreVertical className="w-4 h-4 text-gray-700" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {hasPermission('can_create_dashboards') && (
                     <DropdownMenuItem
-                      onClick={() => handleShareDashboard(dashboard)}
+                      onClick={() =>
+                        handleDuplicateDashboard(
+                          dashboard.id,
+                          dashboard.title || dashboard.dashboard_title
+                        )
+                      }
                       className="cursor-pointer"
+                      disabled={isDuplicating === dashboard.id}
                     >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
+                      {isDuplicating === dashboard.id ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                          Duplicating...
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicate
+                        </>
+                      )}
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                {hasPermission('can_create_dashboards') && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDuplicateDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
-                    }
-                    className="cursor-pointer"
-                    disabled={isDuplicating === dashboard.id}
-                  >
-                    {isDuplicating === dashboard.id ? (
-                      <>
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                        Duplicating...
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Duplicate
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                )}
-                {hasPermission('can_view_dashboards') && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDownloadDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
-                    }
-                    className="cursor-pointer"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </DropdownMenuItem>
-                )}
-                {hasPermission('can_delete_dashboards') && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "
-                            {dashboard.title || dashboard.dashboard_title}"? This action cannot be
-                            undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() =>
-                              handleDeleteDashboard(
-                                dashboard.id,
-                                dashboard.title || dashboard.dashboard_title
-                              )
-                            }
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  )}
+                  {hasPermission('can_delete_dashboards') && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onSelect={(e) => e.preventDefault()}
                           >
-                            {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "
+                              {dashboard.title || dashboard.dashboard_title}"? This action cannot be
+                              undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() =>
+                                handleDeleteDashboard(
+                                  dashboard.id,
+                                  dashboard.title || dashboard.dashboard_title
+                                )
+                              }
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         )}
 
@@ -518,13 +526,41 @@ export function DashboardListV2() {
               )}
             </Link>
 
-            {/* Action Menu - only render if user has any dashboard permissions */}
-            {(hasPermission('can_share_dashboards') ||
-              hasPermission('can_create_dashboards') ||
-              hasPermission('can_edit_dashboards') ||
-              hasPermission('can_delete_dashboards') ||
-              hasPermission('can_view_dashboards')) && (
-              <div className="flex items-center gap-2 ml-4">
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 ml-4">
+              {/* Share icon button */}
+              {hasPermission('can_share_dashboards') && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleShareDashboard(dashboard);
+                  }}
+                >
+                  <Share2 className="w-4 h-4 text-gray-700" />
+                </Button>
+              )}
+
+              {/* Edit icon button */}
+              {hasPermission('can_edit_dashboards') && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(`/dashboards/${dashboard.id}/edit`);
+                  }}
+                >
+                  <Edit className="w-4 h-4 text-gray-700" />
+                </Button>
+              )}
+
+              {/* Three dots menu - only render if user has any remaining permissions */}
+              {(hasPermission('can_create_dashboards') ||
+                hasPermission('can_delete_dashboards')) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -536,18 +572,6 @@ export function DashboardListV2() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    {hasPermission('can_share_dashboards') && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => handleShareDashboard(dashboard)}
-                          className="cursor-pointer"
-                        >
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
                     {hasPermission('can_create_dashboards') && (
                       <DropdownMenuItem
                         onClick={() =>
@@ -570,20 +594,6 @@ export function DashboardListV2() {
                             Duplicate
                           </>
                         )}
-                      </DropdownMenuItem>
-                    )}
-                    {hasPermission('can_view_dashboards') && (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleDownloadDashboard(
-                            dashboard.id,
-                            dashboard.title || dashboard.dashboard_title
-                          )
-                        }
-                        className="cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
                       </DropdownMenuItem>
                     )}
                     {hasPermission('can_delete_dashboards') && (
@@ -628,8 +638,8 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
