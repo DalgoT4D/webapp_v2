@@ -24,7 +24,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     return (
       <div id="client-layout-public-dashboard">
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-center" />
       </div>
     );
   }
@@ -34,7 +34,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     return (
       <div id="client-layout-public-route">
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-center" />
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     <div id="client-layout-protected-route">
       <AuthGuard>
         <MainLayout>{children}</MainLayout>
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-center" />
       </AuthGuard>
     </div>
   );

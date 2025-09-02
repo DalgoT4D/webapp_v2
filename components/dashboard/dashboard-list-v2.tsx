@@ -182,7 +182,7 @@ export function DashboardListV2() {
         setIsDeleting(null);
       }
     },
-    [mutate, toast]
+    [mutate]
   );
 
   // Handle dashboard duplication
@@ -204,7 +204,7 @@ export function DashboardListV2() {
         setIsDuplicating(null);
       }
     },
-    [mutate, toast, router]
+    [mutate, router]
   );
 
   // Handle dashboard download (placeholder)
