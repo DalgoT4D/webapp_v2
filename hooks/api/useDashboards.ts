@@ -49,6 +49,16 @@ interface UseDashboardsParams {
   dashboard_type?: 'native' | 'superset';
   search?: string;
   is_published?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+interface PaginatedDashboardsResponse {
+  data: Dashboard[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export function useDashboards(params?: UseDashboardsParams) {
@@ -63,18 +73,40 @@ export function useDashboards(params?: UseDashboardsParams) {
   if (params?.is_published !== undefined) {
     queryParams.append('is_published', params.is_published.toString());
   }
+  if (params?.page) {
+    queryParams.append('page', params.page.toString());
+  }
+  if (params?.pageSize) {
+    queryParams.append('page_size', params.pageSize.toString());
+  }
 
   const queryString = queryParams.toString();
   const url = `/api/dashboards/${queryString ? `?${queryString}` : ''}`;
 
-  const { data, error, mutate } = useSWR<Dashboard[]>(url, apiGet, {
+  const { data, error, mutate } = useSWR<PaginatedDashboardsResponse | Dashboard[]>(url, apiGet, {
     revalidateOnFocus: true, // Refresh when tab/window gets focus
     revalidateOnReconnect: true, // Refresh on network reconnect
     dedupingInterval: 5000, // Avoid duplicate requests for 5 seconds
   });
 
+  // Handle both paginated and non-paginated responses
+  const isArray = Array.isArray(data);
+  const dashboards = isArray
+    ? (data as Dashboard[])
+    : (data as PaginatedDashboardsResponse)?.data || [];
+  const total = isArray ? dashboards.length : (data as PaginatedDashboardsResponse)?.total || 0;
+  const page = isArray ? 1 : (data as PaginatedDashboardsResponse)?.page || 1;
+  const pageSize = isArray
+    ? dashboards.length
+    : (data as PaginatedDashboardsResponse)?.pageSize || 10;
+  const totalPages = isArray ? 1 : (data as PaginatedDashboardsResponse)?.totalPages || 1;
+
   return {
-    data: data,
+    data: dashboards,
+    total,
+    page,
+    pageSize,
+    totalPages,
     isLoading: !error && !data,
     isError: error,
     mutate,
