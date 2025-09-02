@@ -513,7 +513,7 @@ export function DashboardListV2() {
 
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
     const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
-
+    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
       return `/dashboards/${dashboard.id}`;
