@@ -367,9 +367,9 @@ export function ChartDataConfigurationV3({
         break;
 
       case 'table':
-        // Tables can use raw or aggregated data like bar/line charts
+        // Tables default to aggregated data like other charts
         specificFields = {
-          computation_type: formData.computation_type || 'aggregated', // Default to aggregated like other charts
+          computation_type: formData.computation_type || 'aggregated',
           x_axis_column: formData.x_axis_column,
           y_axis_column: null, // Tables don't need Y axis
           dimension_column: formData.dimension_column,

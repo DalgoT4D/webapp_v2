@@ -675,8 +675,8 @@ export function ChartBuilder({
                   // Maps always use aggregation
                   updates.computation_type = 'aggregated';
                 } else if (newChartType === 'table') {
-                  // Tables can use raw or aggregated data like other charts
-                  updates.computation_type = formData.computation_type || 'aggregated';
+                  // Tables default to aggregated data
+                  updates.computation_type = 'aggregated';
                   // Preserve all existing selections - don't clear them!
                   if (formData.dimension_column) updates.x_axis_column = formData.dimension_column;
                   if (formData.x_axis_column) updates.x_axis_column = formData.x_axis_column;

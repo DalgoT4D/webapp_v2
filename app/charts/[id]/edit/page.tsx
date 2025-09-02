@@ -592,7 +592,7 @@ function EditChartPageContent() {
       } else if (newChartType === 'map') {
         smartUpdates.computation_type = 'aggregated';
       } else if (newChartType === 'table') {
-        smartUpdates.computation_type = 'raw';
+        smartUpdates.computation_type = 'aggregated';
         // Keep existing columns for table display - don't clear them!
       } else {
         smartUpdates.computation_type = formData.computation_type || 'aggregated';
