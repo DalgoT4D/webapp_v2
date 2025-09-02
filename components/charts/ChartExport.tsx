@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 import * as echarts from 'echarts';
 
 interface ChartExportProps {
@@ -66,10 +66,7 @@ export default function ChartExport({
           backgroundColor: '#ffffff',
         });
 
-        toast.success(`Chart exported as ${selectedFormat.toUpperCase()}`, {
-          description:
-            selectedFormat === 'pdf' ? 'Professional document format' : 'High resolution image',
-        });
+        toastSuccess.exported(chartTitle, selectedFormat);
         setIsOpen(false);
         return;
       }
@@ -105,10 +102,7 @@ export default function ChartExport({
 
           chart.dispose();
 
-          toast.success(`Chart exported as ${selectedFormat.toUpperCase()}`, {
-            description:
-              selectedFormat === 'pdf' ? 'Professional document format' : 'High resolution image',
-          });
+          toastSuccess.exported(chartTitle, selectedFormat);
         } finally {
           if (tempDiv.parentNode) {
             document.body.removeChild(tempDiv);
@@ -121,9 +115,7 @@ export default function ChartExport({
       setIsOpen(false);
     } catch (error: any) {
       console.error('Export failed:', error);
-      toast.error('Export Failed', {
-        description: error.message || 'Failed to export chart. Please try again.',
-      });
+      toastError.export(error, selectedFormat);
     }
   };
 

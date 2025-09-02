@@ -28,7 +28,7 @@ import {
   useChildRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
-import { toast } from 'sonner';
+import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
@@ -714,10 +714,10 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
-      toast.success('Chart created successfully');
+      toastSuccess.created('Chart');
       router.push(`/charts/${result.id}`);
-    } catch {
-      toast.error('Failed to create chart');
+    } catch (error) {
+      toastError.create(error, 'chart');
     }
   };
 

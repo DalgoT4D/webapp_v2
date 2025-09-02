@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 // AlertDialog imports removed - now using ChartDeleteDialog component
 import { format } from 'date-fns';
-import { toast } from 'sonner';
+import { toastSuccess, toastError, toastPromise } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 // Simple debounce implementation
@@ -145,10 +145,10 @@ export default function ChartsPage() {
       try {
         await deleteChart(chartId);
         await mutate();
-        toast.success(`"${chartTitle}" has been deleted successfully`);
+        toastSuccess.deleted(chartTitle);
       } catch (error) {
         console.error('Error deleting chart:', error);
-        toast.error('Failed to delete chart. Please try again.');
+        toastError.delete(error, chartTitle);
       } finally {
         setIsDeleting(null);
       }
@@ -261,7 +261,7 @@ export default function ChartsPage() {
         await mutate();
 
         console.log('✅ Charts list refreshed successfully');
-        toast.success(`Chart "${duplicateTitle}" created successfully!`);
+        toastSuccess.duplicated(originalChart.title, duplicateTitle);
       } catch (error: any) {
         console.log('❌ ERROR in duplicate process:', error);
         console.log('Error details:', {
@@ -270,8 +270,7 @@ export default function ChartsPage() {
           info: error?.info,
         });
 
-        const errorMessage = error?.message || 'Unknown error occurred';
-        toast.error(`Failed to duplicate chart: ${errorMessage}`);
+        toastError.duplicate(error, originalChart.title);
       } finally {
         console.log('🏁 Duplicate process finished, clearing loading state');
         setIsDuplicating(null);
@@ -348,13 +347,16 @@ export default function ChartsPage() {
       }
 
       await mutate();
-      toast.success(
+      toastSuccess.generic(
         `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`
       );
       exitSelectionMode();
     } catch (error) {
       console.error('Error deleting charts:', error);
-      toast.error('Failed to delete some charts. Please try again.');
+      toastError.delete(
+        error,
+        `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'}`
+      );
     } finally {
       setIsBulkDeleting(false);
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
 import GridLayout, { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -333,6 +334,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
+    // Fetch all charts
+    const { data: chartsData, isLoading: chartsLoading } = useCharts
+      ? useCharts()
+      : { data: [], isLoading: false };
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(
       null
@@ -1397,7 +1402,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 <div className="h-6 w-px bg-gray-300" />
 
-                <Button onClick={() => setShowChartSelector(true)} size="sm">
+                <Button
+                  onClick={() => {
+                    if (
+                      !chartsLoading &&
+                      chartsData &&
+                      Array.isArray(chartsData) &&
+                      chartsData.length === 0
+                    ) {
+                      router.push('/charts/new');
+                    } else {
+                      setShowChartSelector(true);
+                    }
+                  }}
+                  size="sm"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
                 </Button>

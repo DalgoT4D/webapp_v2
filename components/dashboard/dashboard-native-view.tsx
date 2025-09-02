@@ -68,6 +68,15 @@ import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
+import { useLandingPage } from '@/hooks/api/useLandingPage';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Star, StarOff, Settings } from 'lucide-react';
 
 // Define responsive breakpoints and column configurations (same as builder)
 const BREAKPOINTS = {
@@ -267,6 +276,14 @@ export function DashboardNativeView({
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const currentUser = isPublicMode ? null : getCurrentOrgUser();
 
+  // Landing page functionality
+  const {
+    setPersonalLanding,
+    removePersonalLanding,
+    setOrgDefault,
+    isLoading: landingPageLoading,
+  } = useLandingPage();
+
   // Fetch dashboard data (skip API call if we have pre-fetched data for public mode)
   const {
     data: dashboardFromApi,
@@ -301,6 +318,12 @@ export function DashboardNativeView({
 
   // Check if dashboard is locked by another user
   const isLockedByOther = isLocked && lockedBy && lockedBy !== currentUser?.email;
+
+  // Check landing page status
+  const isPersonalLanding = currentUser?.landing_dashboard_id === dashboardId;
+  const isOrgDefault = currentUser?.org_default_dashboard_id === dashboardId;
+  const canManageOrgDefault =
+    currentUser?.new_role_slug === 'admin' || currentUser?.new_role_slug === 'super-admin';
 
   // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
@@ -464,6 +487,19 @@ export function DashboardNativeView({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Landing page handlers
+  const handleSetPersonalLanding = async () => {
+    await setPersonalLanding(dashboardId);
+  };
+
+  const handleRemovePersonalLanding = async () => {
+    await removePersonalLanding();
+  };
+
+  const handleSetOrgDefault = async () => {
+    await setOrgDefault(dashboardId);
   };
 
   // Render dashboard components
@@ -724,6 +760,77 @@ export function DashboardNativeView({
 
             {/* Mobile Quick Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              {!isPublicMode && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        'p-1.5 border-dashed',
+                        (isPersonalLanding || isOrgDefault) &&
+                          'bg-blue-50 border-blue-200 text-blue-700'
+                      )}
+                      disabled={landingPageLoading}
+                    >
+                      {isPersonalLanding || isOrgDefault ? (
+                        <Star className="w-4 h-4 fill-current" />
+                      ) : (
+                        <StarOff className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                      Landing Page
+                    </div>
+                    <DropdownMenuSeparator />
+
+                    {isPersonalLanding ? (
+                      <DropdownMenuItem
+                        onClick={handleRemovePersonalLanding}
+                        disabled={landingPageLoading}
+                      >
+                        <StarOff className="w-4 h-4 mr-2" />
+                        Remove as my landing page
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={handleSetPersonalLanding}
+                        disabled={landingPageLoading}
+                      >
+                        <Star className="w-4 h-4 mr-2" />
+                        Set as my landing page
+                      </DropdownMenuItem>
+                    )}
+
+                    {canManageOrgDefault && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Organization Default
+                        </div>
+                        <DropdownMenuItem
+                          onClick={handleSetOrgDefault}
+                          disabled={landingPageLoading || isOrgDefault}
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-1.5"
+              >
+                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+              </Button>
               <Button variant="outline" size="sm" onClick={toggleFullscreen} className="p-1.5">
                 <Maximize2 className="w-4 h-4" />
               </Button>
@@ -850,6 +957,70 @@ export function DashboardNativeView({
                   </div>
                 )}
               </div>
+
+              {/* Landing page controls */}
+              {!isPublicMode && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        'border-dashed',
+                        (isPersonalLanding || isOrgDefault) &&
+                          'bg-blue-50 border-blue-200 text-blue-700'
+                      )}
+                      disabled={landingPageLoading}
+                    >
+                      {isPersonalLanding || isOrgDefault ? (
+                        <Star className="w-4 h-4 fill-current" />
+                      ) : (
+                        <StarOff className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                      Landing Page
+                    </div>
+                    <DropdownMenuSeparator />
+
+                    {isPersonalLanding ? (
+                      <DropdownMenuItem
+                        onClick={handleRemovePersonalLanding}
+                        disabled={landingPageLoading}
+                      >
+                        <StarOff className="w-4 h-4 mr-2" />
+                        Remove as my landing page
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={handleSetPersonalLanding}
+                        disabled={landingPageLoading}
+                      >
+                        <Star className="w-4 h-4 mr-2" />
+                        Set as my landing page
+                      </DropdownMenuItem>
+                    )}
+
+                    {canManageOrgDefault && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Organization Default
+                        </div>
+                        <DropdownMenuItem
+                          onClick={handleSetOrgDefault}
+                          disabled={landingPageLoading || isOrgDefault}
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Action buttons */}
               <Button variant="outline" size="sm" onClick={toggleFullscreen}>

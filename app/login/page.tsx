@@ -68,10 +68,10 @@ export default function LoginPage() {
     }
   }, [orgUsers, selectedOrgSlug, setOrgUsers, setSelectedOrg]);
 
-  // Redirect to main app when authenticated and org is selected
+  // Redirect to Impact at a Glance when authenticated and org is selected
   useEffect(() => {
     if (isAuthenticated && token && currentOrg) {
-      router.push('/');
+      router.push('/impact-at-a-glance');
     }
   }, [isAuthenticated, token, currentOrg, router]);
 

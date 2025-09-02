@@ -31,7 +31,7 @@ import {
   useChildRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -916,7 +916,7 @@ function EditChartPageContent() {
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
 
-      toast.success('Chart updated successfully');
+      toastSuccess.updated('Chart');
 
       // Navigate based on context - if exiting after save, go to charts list
       if (isExitingAfterSave) {
@@ -926,7 +926,7 @@ function EditChartPageContent() {
         navigateWithoutWarning(`/charts/${chartId}`);
       }
     } catch {
-      toast.error('Failed to update chart');
+      toastError.update(error, 'chart');
     }
   };
 
@@ -945,7 +945,7 @@ function EditChartPageContent() {
 
       const result = await createChart(newChartData);
 
-      toast.success(`New chart "${newTitle}" created successfully!`);
+      toastSuccess.created(`Chart "${newTitle}"`);
 
       // Navigate based on context - if exiting after save, go to charts list
       if (isExitingAfterSave) {
@@ -955,7 +955,7 @@ function EditChartPageContent() {
         navigateWithoutWarning(`/charts/${result.id}`);
       }
     } catch {
-      toast.error('Failed to create new chart');
+      toastError.create(error, 'chart');
     }
   };
 
@@ -1000,12 +1000,12 @@ function EditChartPageContent() {
 
   if (chartLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
+      <div className="h-full flex flex-col overflow-hidden bg-gray-50">
+        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
           <Skeleton className="h-8 w-64" />
         </div>
-        <div className="p-8 h-[calc(100vh-144px)]">
-          <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="flex-1 flex overflow-hidden p-8">
+          <div className="flex w-full h-full bg-white rounded-lg shadow-sm border overflow-hidden">
             <Skeleton className="w-[30%] h-full" />
             <Skeleton className="w-[70%] h-full" />
           </div>
@@ -1016,12 +1016,12 @@ function EditChartPageContent() {
 
   if (chartError || !chart) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b px-6 py-4">
+      <div className="h-full flex flex-col overflow-hidden bg-gray-50">
+        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
           <h1 className="text-xl font-semibold">Edit Chart</h1>
         </div>
-        <div className="p-8">
-          <Alert className="max-w-2xl mx-auto">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <Alert className="max-w-2xl">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {chartError ? 'Failed to load chart' : 'Chart not found'}
@@ -1033,9 +1033,9 @@ function EditChartPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Single Header with Everything */}
-      <div className="bg-white border-b px-6 py-4">
+    <div className="h-full flex flex-col overflow-hidden bg-gray-50">
+      {/* Header - Fixed Height */}
+      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Breadcrumb */}
@@ -1134,7 +1134,7 @@ function EditChartPageContent() {
               </TabsContent>
 
               {formData.chart_type !== 'table' && (
-                <TabsContent value="styling" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
+                <TabsContent value="styling" className="mt-0 flex-1 overflow-y-auto">
                   <div className="p-4">
                     {formData.chart_type === 'map' ? (
                       <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
@@ -1187,7 +1187,7 @@ function EditChartPageContent() {
                       />
                     </div>
                   ) : formData.chart_type === 'table' ? (
-                    <div className="w-full h-full">
+                    <div className="w-full h-full overflow-auto">
                       <DataPreview
                         data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                         columns={dataPreview?.columns || []}
@@ -1212,7 +1212,7 @@ function EditChartPageContent() {
               <TabsContent value="data" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4">
                   <Tabs defaultValue="chart-data" className="h-full flex flex-col">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
                       <TabsTrigger value="chart-data" className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
                         Chart Data
@@ -1223,7 +1223,7 @@ function EditChartPageContent() {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="chart-data" className="flex-1 mt-6">
+                    <TabsContent value="chart-data" className="flex-1 mt-6 overflow-auto">
                       <DataPreview
                         data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                         columns={dataPreview?.columns || []}
@@ -1233,7 +1233,7 @@ function EditChartPageContent() {
                       />
                     </TabsContent>
 
-                    <TabsContent value="raw-data" className="flex-1 mt-6">
+                    <TabsContent value="raw-data" className="flex-1 mt-6 overflow-auto">
                       <DataPreview
                         data={Array.isArray(rawTableData) ? rawTableData : []}
                         columns={
