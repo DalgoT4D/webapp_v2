@@ -376,10 +376,10 @@ export function DashboardListV2() {
                 />
               )}
 
-              {/* Type badge */}
-              <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
+              {/* Type badge - commented for later use */}
+              {/* <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
                 {isNative ? 'Native' : 'Superset'}
-              </Badge>
+              </Badge> */}
 
               {/* Lock indicator */}
               {isLocked && (
@@ -413,23 +413,24 @@ export function DashboardListV2() {
             </CardHeader>
 
             <CardContent className="pt-0">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <User className="w-3 h-3" />
                   <span>{dashboard.created_by || dashboard.changed_by_name || 'Unknown'}</span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="w-3 h-3" />
                   <span>
                     {dashboard.updated_at
-                      ? format(new Date(dashboard.updated_at), 'MMM d')
+                      ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
                       : 'Unknown'}
                   </span>
                 </div>
               </div>
 
-              {dashboard.is_published ? (
+              {/* Status badges - commented for later use */}
+              {/* {dashboard.is_published ? (
                 <Badge variant="outline" className="mt-2 text-xs">
                   Published
                 </Badge>
@@ -437,7 +438,7 @@ export function DashboardListV2() {
                 <Badge variant="secondary" className="mt-2 text-xs">
                   Draft
                 </Badge>
-              )}
+              )} */}
 
               {isLocked && dashboard.locked_by && (
                 <p
@@ -486,9 +487,10 @@ export function DashboardListV2() {
                   <h3 className="font-medium truncate">
                     {dashboard.title || dashboard.dashboard_title}
                   </h3>
-                  <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
+                  {/* Type badge - commented for later use */}
+                  {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
                     {isNative ? 'Native' : 'Superset'}
-                  </Badge>
+                  </Badge> */}
                   {isLocked && (
                     <Lock
                       className={cn('w-4 h-4', isLockedByOther ? 'text-red-500' : 'text-blue-500')}
@@ -511,7 +513,8 @@ export function DashboardListV2() {
                       ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
                       : 'Unknown'}
                   </span>
-                  {dashboard.is_published ? (
+                  {/* Status badges - commented for later use */}
+                  {/* {dashboard.is_published ? (
                     <Badge variant="outline" className="text-xs">
                       Published
                     </Badge>
@@ -519,7 +522,7 @@ export function DashboardListV2() {
                     <Badge variant="secondary" className="text-xs">
                       Draft
                     </Badge>
-                  )}
+                  )} */}
                 </div>
               </div>
 
