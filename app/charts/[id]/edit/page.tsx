@@ -101,6 +101,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showLegend: true,
         nullValueLabel: 'No Data',
         title: '',
+        showLabels: false,
       };
     default:
       return {};
@@ -365,7 +366,6 @@ function EditChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        customizations: formData.customizations,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         extra_config: {
@@ -1180,6 +1180,7 @@ function EditChartPageContent() {
                         mapDataError={mapDataError}
                         title={formData.title}
                         valueColumn={formData.aggregate_column}
+                        customizations={formData.customizations}
                         onRegionClick={handleRegionClick}
                         drillDownPath={drillDownPath}
                         onDrillUp={handleDrillUp}

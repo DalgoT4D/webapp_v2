@@ -21,34 +21,19 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
   const customizations = formData.customizations || {};
 
   const updateCustomization = (key: string, value: any) => {
+    const newCustomizations = {
+      ...customizations,
+      [key]: value,
+    };
+
     onFormDataChange({
       ...formData,
-      customizations: {
-        ...customizations,
-        [key]: value,
-      },
+      customizations: newCustomizations,
     });
   };
 
   return (
     <div className="space-y-6">
-      {/* Chart Title */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Chart Title</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium">Title</Label>
-            <Input
-              value={customizations.title || ''}
-              onChange={(e) => updateCustomization('title', e.target.value)}
-              placeholder="Enter chart title"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Color and Styling */}
       <Card>
         <CardHeader>
@@ -107,17 +92,6 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium">Enable Zoom & Pan</Label>
-              <p className="text-xs text-muted-foreground">Allow users to zoom and pan the map</p>
-            </div>
-            <Switch
-              checked={customizations.roam !== false}
-              onCheckedChange={(checked) => updateCustomization('roam', checked)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
               <Label className="text-sm font-medium">Enable Selection</Label>
               <p className="text-xs text-muted-foreground">Allow clicking to select regions</p>
             </div>
@@ -141,7 +115,11 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
               Text to show for regions with no data
             </p>
             <Input
-              value={customizations.nullValueLabel || 'No Data'}
+              value={
+                customizations.nullValueLabel !== undefined
+                  ? customizations.nullValueLabel
+                  : 'No Data'
+              }
               onChange={(e) => updateCustomization('nullValueLabel', e.target.value)}
               placeholder="No Data"
             />
@@ -179,7 +157,7 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
               <p className="text-xs text-muted-foreground">Display region labels on the map</p>
             </div>
             <Switch
-              checked={customizations.showLabels !== false}
+              checked={customizations.showLabels === true}
               onCheckedChange={(checked) => updateCustomization('showLabels', checked)}
             />
           </div>
