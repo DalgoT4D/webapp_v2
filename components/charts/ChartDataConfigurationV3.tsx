@@ -16,7 +16,9 @@ import { useColumns, useColumnValues } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
@@ -263,7 +265,38 @@ export function ChartDataConfigurationV3({
     setIsEditingDataset(false);
   };
 
-  // Handle chart type changes with field cleanup
+  // Auto-prefill when columns are loaded
+  React.useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
+      // Check if we should auto-prefill (no existing configuration)
+      const hasExistingConfig = !!(
+        formData.dimension_column ||
+        formData.aggregate_column ||
+        formData.geographic_column ||
+        formData.x_axis_column ||
+        formData.y_axis_column ||
+        formData.table_columns?.length ||
+        (formData.metrics && formData.metrics.length > 0)
+      );
+
+      if (!hasExistingConfig) {
+        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
+        if (Object.keys(autoConfig).length > 0) {
+          console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);
+          onChange(autoConfig);
+        }
+      }
+    }
+  }, [
+    columns,
+    formData.schema_name,
+    formData.table_name,
+    formData.chart_type,
+    normalizedColumns,
+    onChange,
+  ]);
+
+  // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
     // Fields to preserve across all chart types
     const preservedFields = {
@@ -273,6 +306,13 @@ export function ChartDataConfigurationV3({
       table_name: formData.table_name,
       chart_type: newChartType as 'bar' | 'line' | 'pie' | 'number' | 'map',
     };
+
+    // Auto-prefill for new chart type if we have columns
+    let autoPrefilledFields = {};
+    if (columns && columns.length > 0) {
+      autoPrefilledFields = generateAutoPrefilledConfig(newChartType as any, normalizedColumns);
+      console.log('🤖 [CHART-TYPE-CHANGE] Auto-prefilling for', newChartType, autoPrefilledFields);
+    }
 
     // Chart type specific field handling
     let specificFields = {};
@@ -327,9 +367,10 @@ export function ChartDataConfigurationV3({
         break;
     }
 
-    // Apply the changes
+    // Apply the changes with auto-prefill
     onChange({
       ...preservedFields,
+      ...autoPrefilledFields,
       ...specificFields,
       // Preserve other settings like filters, customizations, etc.
       filters: formData.filters,

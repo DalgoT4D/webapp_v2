@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -421,6 +422,30 @@ function ConfigureChartPageContent() {
     console.log('🔄 [CREATE-MODE] Form data change:', updates);
     setFormData((prev) => ({ ...prev, ...updates }));
   };
+
+  // Auto-prefill when columns are loaded
+  useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
+      // Check if we should auto-prefill (no existing configuration)
+      const hasExistingConfig = !!(
+        formData.dimension_column ||
+        formData.aggregate_column ||
+        formData.geographic_column ||
+        formData.x_axis_column ||
+        formData.y_axis_column ||
+        formData.table_columns?.length ||
+        (formData.metrics && formData.metrics.length > 0)
+      );
+
+      if (!hasExistingConfig) {
+        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
+        if (Object.keys(autoConfig).length > 0) {
+          console.log('🤖 [CREATE-MODE] Auto-prefilling configuration:', autoConfig);
+          handleFormChange(autoConfig);
+        }
+      }
+    }
+  }, [columns, formData.schema_name, formData.table_name, formData.chart_type]);
 
   // FIX #1: Generate map preview payloads in create mode with detailed logging
   useEffect(() => {

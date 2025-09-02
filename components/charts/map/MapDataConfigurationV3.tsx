@@ -33,6 +33,7 @@ import { CountryLevelConfig } from './CountryLevelConfig';
 import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 // Column data type
 interface TableColumn {
@@ -329,6 +330,26 @@ export function MapDataConfigurationV3({
     // Exit edit mode after successful change
     setIsEditingDataset(false);
   };
+
+  // Auto-prefill map configuration when columns are loaded
+  React.useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type === 'map') {
+      // Check if we should auto-prefill (no existing configuration)
+      const hasExistingConfig = !!(
+        formData.geographic_column ||
+        formData.value_column ||
+        formData.aggregate_column
+      );
+
+      if (!hasExistingConfig) {
+        const autoConfig = generateAutoPrefilledConfig('map', normalizedColumns);
+        if (Object.keys(autoConfig).length > 0) {
+          console.log('🤖 [MAP-DATA-CONFIG-V3] Auto-prefilling map configuration:', autoConfig);
+          onFormDataChange(autoConfig);
+        }
+      }
+    }
+  }, [columns, formData.schema_name, formData.table_name, normalizedColumns, onFormDataChange]);
 
   // Handle canceling dataset edit
   const handleCancelDatasetEdit = () => {

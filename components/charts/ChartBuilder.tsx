@@ -40,6 +40,7 @@ import type {
   GeographicHierarchy,
 } from '@/types/charts';
 import { debounce } from 'lodash';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -279,6 +280,28 @@ export function ChartBuilder({
   }, []);
 
   const debouncedFormChange = useCallback(debounce(handleFormChange, 500), [handleFormChange]);
+
+  // Auto-prefill when dataset is selected
+  useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
+      // Check if we should auto-prefill (no existing configuration)
+      const hasExistingConfig = !!(
+        formData.dimension_column ||
+        formData.aggregate_column ||
+        formData.geographic_column ||
+        formData.x_axis_column ||
+        formData.y_axis_column ||
+        formData.table_columns?.length
+      );
+
+      if (!hasExistingConfig) {
+        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
+        if (Object.keys(autoConfig).length > 0) {
+          handleFormChange(autoConfig);
+        }
+      }
+    }
+  }, [columns, formData.schema_name, formData.table_name, formData.chart_type, handleFormChange]);
 
   // Handle state click for drill-down
   const handleRegionClick = useCallback(
