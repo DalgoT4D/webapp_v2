@@ -337,6 +337,23 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const navItems = getNavItems(pathname);
   const flattenedNavItems = getFlattenedNavItems(navItems);
 
+  // Auto-collapse sidebar on specific dashboard/chart pages
+  useEffect(() => {
+    const shouldCollapse =
+      // Chart pages
+      pathname === '/charts/create' ||
+      pathname.match(/^\/charts\/[^\/]+\/edit$/) ||
+      (pathname.match(/^\/charts\/[^\/]+$/) && !pathname.includes('/edit')) ||
+      // Dashboard pages
+      pathname === '/dashboards/create' ||
+      pathname.match(/^\/dashboards\/[^\/]+\/edit$/) ||
+      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit'));
+
+    if (shouldCollapse && !isSidebarCollapsed) {
+      setIsSidebarCollapsed(true);
+    }
+  }, [pathname, isSidebarCollapsed]);
+
   // Determine if sidebar should be shown based on screen size
   const shouldShowDesktopSidebar = responsive.isDesktop;
   const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
