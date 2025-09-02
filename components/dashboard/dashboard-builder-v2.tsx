@@ -385,6 +385,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Ref for the white dashboard container (actual boundary)
     const dashboardContainerRef = useRef<HTMLDivElement>(null);
 
+    // Helper function to scroll to bottom after adding a component
+    const scrollToBottom = () => {
+      setTimeout(() => {
+        if (canvasRef.current) {
+          canvasRef.current.scrollTo({
+            top: canvasRef.current.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      }, 100); // Small delay to ensure component is rendered
+    };
+
     // Get current screen size config
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
 
@@ -783,6 +795,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             [newComponent.id]: newComponent,
           },
         });
+
+        // Auto-scroll to bottom to show the newly added component
+        scrollToBottom();
       } catch (error: any) {
         console.error('Failed to add chart:', error.message || 'Please try again');
       }
@@ -830,6 +845,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           [newComponent.id]: newComponent,
         },
       });
+
+      // Auto-scroll to bottom to show the newly added component
+      scrollToBottom();
     };
 
     // Remove component
