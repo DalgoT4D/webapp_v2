@@ -511,6 +511,9 @@ export function DashboardListV2() {
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
 
+    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
+    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
       return `/dashboards/${dashboard.id}`;
