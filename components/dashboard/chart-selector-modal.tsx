@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import { useCharts } from '@/hooks/api/useCharts';
 import { MiniChart } from '@/components/charts/MiniChart';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Plus, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 interface ChartSelectorModalProps {
   open: boolean;
@@ -43,30 +45,42 @@ export function ChartSelectorModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Select a Chart</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search charts..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10"
-            />
+          {/* Search and Create New Button */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search charts..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10"
+              />
+            </div>
+            <Link href="/charts/new">
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Create New Chart
+              </Button>
+            </Link>
           </div>
 
-          <ScrollArea className="h-[500px] pr-4">
+          <ScrollArea className="h-[600px] pr-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 <span className="ml-2">Loading charts...</span>
               </div>
             ) : charts && charts.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 {charts.map((chart) => {
                   const isAlreadyAdded = excludedChartIds.includes(chart.id);
 
@@ -95,8 +109,27 @@ export function ChartSelectorModal({
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                {search ? 'No charts found matching your search.' : 'No charts available.'}
+              <div className="text-center py-12">
+                <div className="text-gray-500 mb-4">
+                  {search ? 'No charts found matching your search.' : 'No charts available yet.'}
+                </div>
+                {!search && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-400">
+                      Get started by creating your first chart
+                    </p>
+                    <Link href="/charts/new">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Your First Chart
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>
