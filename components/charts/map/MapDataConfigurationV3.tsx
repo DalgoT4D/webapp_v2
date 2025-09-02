@@ -524,18 +524,8 @@ export function MapDataConfigurationV3({
             </p>
           </div>
 
-          {/* Grey box container for map configuration */}
-          <div className="bg-gray-50 p-4 rounded-lg border space-y-4">
-            {/* Country Level Configuration */}
-            <CountryLevelConfig
-              formData={formData}
-              onFormDataChange={onFormDataChange}
-              disabled={disabled}
-            />
-
-            {/* Dynamic Drill-down Configuration */}
-            <DynamicLevelConfig formData={formData} onChange={onFormDataChange} />
-          </div>
+          {/* Simplified Map Configuration - Single Card */}
+          <DynamicLevelConfig formData={formData} onChange={onFormDataChange} disabled={disabled} />
         </div>
       )}
     </div>

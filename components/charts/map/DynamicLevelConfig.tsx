@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
@@ -12,50 +12,48 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Navigation, CheckCircle, Loader2 } from 'lucide-react';
-import { useColumns, useAvailableRegionTypes } from '@/hooks/api/useChart';
+import {
+  useColumns,
+  useAvailableRegionTypes,
+  useRegions,
+  useRegionGeoJSONs,
+} from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 interface DynamicLevelConfigProps {
   formData: ChartBuilderFormData;
   onChange: (data: Partial<ChartBuilderFormData>) => void;
+  disabled?: boolean;
 }
 
-export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigProps) {
-  // 🔍 COMPREHENSIVE LOGGING: Component initialization
-  console.log('🏗️ [DYNAMIC-LEVEL-CONFIG] Component initialized:', {
-    schema_name: formData.schema_name,
-    table_name: formData.table_name,
-    geographic_column: formData.geographic_column,
-    district_column: formData.district_column,
-    drill_down_enabled: formData.drill_down_enabled,
-    geographic_hierarchy: formData.geographic_hierarchy,
-    hasGeographicColumn: !!formData.geographic_column,
-  });
-
+export function DynamicLevelConfig({
+  formData,
+  onChange,
+  disabled = false,
+}: DynamicLevelConfigProps) {
   // Fetch available columns
   const { data: columns = [] } = useColumns(formData.schema_name || '', formData.table_name || '');
 
   // Fetch available region types from backend
   const { data: regionTypes = [], isLoading: regionTypesLoading } = useAvailableRegionTypes('IND');
 
-  // 🔍 LOG: Data fetching status
-  console.log('📋 [DYNAMIC-LEVEL-CONFIG] Data fetching status:', {
-    columnsCount: columns.length,
-    regionTypesCount: regionTypes.length,
-    regionTypesLoading,
-    sampleColumns: columns.slice(0, 3),
-    sampleRegionTypes: regionTypes.slice(0, 3),
-  });
+  // Get regions and GeoJSONs for automatic preview (copied from CountryLevelConfig)
+  const countryCode = formData.country_code || 'IND';
+  const { data: regions } = useRegions(countryCode, undefined);
+  const countryRegionId = regions?.find((r: any) => r.type === 'country')?.id || 1;
+  const { data: geojsons } = useRegionGeoJSONs(countryRegionId);
 
-  // Note: Removed auto-clearing useEffect as it was interfering with drill-down functionality
-
-  // Show component only if we have a geographic column selected
-  if (!formData.geographic_column) {
-    console.log('⚠️ [DYNAMIC-LEVEL-CONFIG] No geographic column selected, hiding component');
-    return null;
-  }
-
-  console.log('✅ [DYNAMIC-LEVEL-CONFIG] Geographic column found, showing drill-down config');
+  // Handle state column selection (copy logic from CountryLevelConfig)
+  const handleGeographicColumnChange = (column: string) => {
+    onChange({
+      geographic_column: column,
+      selected_geojson_id: undefined,
+      district_column: undefined,
+      ward_column: undefined,
+      subward_column: undefined,
+      geographic_hierarchy: undefined, // Reset hierarchy when base column changes
+    });
+  };
 
   // Get available columns (all types, exclude already used columns)
   const getAvailableColumns = (excludeColumns: string[]) => {
@@ -136,32 +134,12 @@ export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigPro
   ];
 
   const updateLevel = (levelIndex: number, column: string) => {
-    console.log('🔧 [DYNAMIC-LEVEL-CONFIG] updateLevel called:', {
-      levelIndex,
-      column,
-      regionHierarchyLength: regionHierarchy.length,
-      currentLevelsLength: currentLevels.length,
-      formDataGeographicHierarchy: formData.geographic_hierarchy,
-    });
-
     // levelIndex corresponds to drill-down levels, so we need to add 1 to get the correct hierarchy position
     const regionType = regionHierarchy[levelIndex + 1];
 
-    console.log('🏗️ [DYNAMIC-LEVEL-CONFIG] Region type for level:', {
-      levelIndex,
-      regionType,
-      regionHierarchy: regionHierarchy,
-    });
-
     if (!regionType) {
-      console.warn(
-        '⚠️ [DYNAMIC-LEVEL-CONFIG] No region type found for levelIndex:',
-        levelIndex + 1
-      );
       return;
     }
-
-    console.log('📝 [DYNAMIC-LEVEL-CONFIG] Creating drill-down level configuration');
 
     // Create base hierarchy using the actual first level from the hierarchy
     const baseRegionType = regionHierarchy[0] || 'region';
@@ -213,16 +191,73 @@ export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigPro
       district_column: baseHierarchy.drill_down_levels[0]?.column || undefined,
     };
 
-    console.log('🚀 [DYNAMIC-LEVEL-CONFIG] Calling onChange with updated hierarchy:', {
-      baseHierarchy,
-      district_column: updateData.district_column,
-      drill_down_levels_count: baseHierarchy.drill_down_levels.length,
-    });
-
     onChange(updateData);
-
-    console.log('✅ [DYNAMIC-LEVEL-CONFIG] onChange called successfully');
   };
+
+  // Auto-select default GeoJSON when geographic column is selected (copied from CountryLevelConfig)
+  useEffect(() => {
+    if (formData.geographic_column && geojsons && !formData.selected_geojson_id) {
+      const defaultGeojson = geojsons.find((g: any) => g.is_default);
+      if (defaultGeojson) {
+        onChange({
+          selected_geojson_id: defaultGeojson.id,
+        });
+      }
+    }
+  }, [formData.geographic_column, geojsons, formData.selected_geojson_id, onChange]);
+
+  // Auto-generate preview when all required fields are configured (copied from CountryLevelConfig)
+  useEffect(() => {
+    if (
+      formData.geographic_column &&
+      formData.selected_geojson_id &&
+      formData.aggregate_column &&
+      formData.aggregate_function &&
+      formData.schema_name &&
+      formData.table_name
+    ) {
+      // Check if we need to update preview payloads
+      const currentFiltersHash = JSON.stringify(formData.filters || []);
+      const payloadFiltersHash = JSON.stringify(formData.dataOverlayPayload?.chart_filters || []);
+
+      const hasValidPayloads =
+        formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
+        formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
+        currentFiltersHash === payloadFiltersHash;
+
+      if (!hasValidPayloads) {
+        const geojsonPayload = {
+          geojsonId: formData.selected_geojson_id,
+        };
+
+        const dataOverlayPayload = {
+          schema_name: formData.schema_name,
+          table_name: formData.table_name,
+          geographic_column: formData.geographic_column,
+          value_column: formData.aggregate_column || formData.value_column,
+          aggregate_function: formData.aggregate_function,
+          selected_geojson_id: formData.selected_geojson_id,
+          filters: {},
+          chart_filters: formData.filters || [],
+        };
+
+        onChange({
+          geojsonPreviewPayload: geojsonPayload,
+          dataOverlayPayload: dataOverlayPayload,
+        });
+      }
+    }
+  }, [
+    formData.geographic_column,
+    formData.selected_geojson_id,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    formData.schema_name,
+    formData.table_name,
+    JSON.stringify(formData.filters || []),
+    JSON.stringify(formData.geojsonPreviewPayload || {}),
+    JSON.stringify(formData.dataOverlayPayload || {}),
+  ]);
 
   const shouldShowLevel = (levelIndex: number) => {
     // Show first level always (next level after geographic column)
@@ -246,86 +281,75 @@ export function DynamicLevelConfig({ formData, onChange }: DynamicLevelConfigPro
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Navigation className="h-4 w-4 text-orange-600" />
-          2. Drill-Down Levels (Optional)
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Progressive Level Configuration - show next levels progressively */}
-        {regionHierarchy.slice(1).map((regionType, index) => {
-          if (!shouldShowLevel(index)) return null;
+    <div className="bg-gray-50 p-4 rounded-lg border space-y-4">
+      {/* Country Selection */}
+      <div>
+        <Label className="text-sm font-medium">Country</Label>
+        <p className="text-xs text-gray-600 mb-2">Select the country for your map</p>
+        <Select value="IND" disabled>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="India" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="IND">India</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-          const currentValue = currentLevels[index]?.column || '';
-          const availableColumns = getAvailableColumns(usedColumns);
-          const isConfigured = currentValue !== '';
+      {/* State Column Selection */}
+      <div>
+        <Label className="text-sm font-medium">State Column</Label>
+        <p className="text-xs text-gray-600 mb-2">Column containing state/region names</p>
+        <Select
+          value={formData.geographic_column || ''}
+          onValueChange={handleGeographicColumnChange}
+          disabled={disabled}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select state column" />
+          </SelectTrigger>
+          <SelectContent>
+            {columns.map((col: any) => {
+              const columnName = col.column_name || col.name;
+              return (
+                <SelectItem key={columnName} value={columnName}>
+                  {columnName} ({col.data_type})
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      </div>
 
-          console.log(
-            `Level ${index}: currentValue='${currentValue}', availableColumns:`,
-            availableColumns.map((c) => c.column_name || c.name)
-          );
-
-          // Simple progressive naming: Level 1, Level 2, etc.
-          const levelNumber = index + 1;
-          const displayName = `Level ${levelNumber}`;
-
-          return (
-            <div key={`level-${index}`} className="space-y-2">
-              <Label className="text-sm font-medium">
-                {displayName} Column {index === 0 ? '' : '(Optional)'}
-              </Label>
-
-              <Select
-                value={currentValue}
-                onValueChange={(value) => {
-                  updateLevel(index, value === '__none__' ? '' : value);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select column" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No drill-down</SelectItem>
-                  {availableColumns.map((col: any) => {
-                    const columnName = col.column_name || col.name;
-                    return (
-                      <SelectItem key={columnName} value={columnName}>
-                        {columnName}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          );
-        })}
-
-        {/* Current Configuration Status */}
-        {currentLevels.some((l) => l.column) && (
-          <div className="pt-4 border-t">
-            <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm font-medium text-green-800 mb-2">Drill-down Flow:</p>
-              <div className="flex items-center gap-2 text-sm text-green-700 flex-wrap">
-                <span className="font-mono bg-white px-2 py-1 rounded border">
-                  {formData.geographic_column}
-                </span>
-                {currentLevels
-                  .filter((l) => l.column)
-                  .map((level, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <ChevronRight className="h-3 w-3" />
-                      <span className="font-mono bg-white px-2 py-1 rounded border">
-                        {level.column}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* District Column Selection */}
+      {formData.geographic_column && regionHierarchy.length > 1 && (
+        <div>
+          <Label className="text-sm font-medium">District Column (Optional)</Label>
+          <p className="text-xs text-gray-600 mb-2">Enable drill-down from states to districts</p>
+          <Select
+            value={currentLevels[0]?.column || ''}
+            onValueChange={(value) => {
+              updateLevel(0, value === '__none__' ? '' : value);
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select column for districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No drill-down</SelectItem>
+              {getAvailableColumns(usedColumns).map((col: any) => {
+                const columnName = col.column_name || col.name;
+                return (
+                  <SelectItem key={columnName} value={columnName}>
+                    {columnName}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
   );
 }
