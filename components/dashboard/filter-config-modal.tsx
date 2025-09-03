@@ -362,7 +362,7 @@ export function FilterConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-hidden">
+      <DialogContent className="!max-w-[900px] !w-[90vw] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />
@@ -402,7 +402,7 @@ export function FilterConfigModal({
                         />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                           <Label>Schema</Label>
                           <Select
