@@ -777,7 +777,7 @@ export function ChartElementV2({
   }, [isResizing]);
 
   return (
-    <div className="h-full w-full relative">
+    <div className={`h-full w-full relative ${isMapChart ? 'drag-cancel' : ''}`}>
       {isEditMode && (
         <div className="absolute -top-2 -right-2 z-10 flex gap-1">
           <button

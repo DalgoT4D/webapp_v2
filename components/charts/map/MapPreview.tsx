@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, Map, ArrowLeft, Home } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,6 +31,7 @@ interface MapPreviewProps {
   // Map configuration
   title?: string;
   valueColumn?: string;
+  customizations?: Record<string, any>;
 
   // Legacy support
   config?: Record<string, any>;
@@ -61,6 +62,7 @@ export function MapPreview({
   mapDataError,
   title,
   valueColumn,
+  customizations = {},
 
   // Legacy props
   config,
@@ -80,25 +82,9 @@ export function MapPreview({
   // Dashboard integration
   isResizing = false,
 }: MapPreviewProps) {
-  // 🔍 COMPREHENSIVE LOGGING: Component initialization
-  console.log('🗺️ [MAP-PREVIEW] Component initialized with props:', {
-    hasGeojsonData: !!geojsonData,
-    geojsonLoading,
-    geojsonError: !!geojsonError,
-    hasMapData: !!mapData,
-    mapDataCount: Array.isArray(mapData) ? mapData.length : 0,
-    mapDataLoading,
-    mapDataError: !!mapDataError,
-    title,
-    valueColumn,
-    hasDrillDownPath: drillDownPath.length > 0,
-    drillDownPathLength: drillDownPath.length,
-    hasOnRegionClick: !!onRegionClick,
-    hasOnDrillUp: !!onDrillUp,
-    hasOnDrillHome: !!onDrillHome,
-    showBreadcrumbs,
-    isResizing,
-  });
+  // Create stable reference for customizations to avoid unnecessary re-renders
+  const safeCustomizations = useMemo(() => customizations || {}, [customizations]);
+
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -142,16 +128,6 @@ export function MapPreview({
 
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
-    console.log('🚀 [MAP-PREVIEW] initializeMapChart called with data:', {
-      hasChartRef: !!chartRef.current,
-      hasGeojsonData: !!geojsonData,
-      hasMapData: !!mapData,
-      mapDataLength: Array.isArray(mapData) ? mapData.length : 0,
-      uniqueMapName,
-      title,
-      valueColumn,
-    });
-
     if (!chartRef.current) {
       console.warn('⚠️ [MAP-PREVIEW] chartRef.current is null, cannot initialize chart');
       return;
@@ -202,11 +178,25 @@ export function MapPreview({
         const minValue = values.length > 0 ? Math.min(...values) : 0;
         const maxValue = values.length > 0 ? Math.max(...values) : 100;
 
-        // Create uniform color with opacity-based mapping for each data point
-        const baseColor = '#1f77b4'; // Blue base color
+        // Check if we have single value scenario (all regions have same value)
+        const hasSingleValue = minValue === maxValue && values.length > 0;
+
+        // Get color scheme from customizations
+        const colorScheme = safeCustomizations.colorScheme || 'Blues';
+        const colorMaps: Record<string, string> = {
+          Blues: '#1f77b4',
+          Reds: '#d62728',
+          Greens: '#2ca02c',
+          Purples: '#9467bd',
+          Oranges: '#ff7f0e',
+          Greys: '#7f7f7f',
+        };
+        const baseColor = colorMaps[colorScheme] || colorMaps.Blues;
+
+        // Create color-mapped data points based on scheme
         const enhancedSeriesData = seriesData.map((item) => {
           const normalizedValue =
-            maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 0;
+            maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 1; // Use 1.0 for single value case
           // Map to opacity range: 0.3 (min) to 1.0 (max) for better visibility
           const opacity = 0.3 + normalizedValue * 0.7;
           return {
@@ -220,47 +210,101 @@ export function MapPreview({
           };
         });
 
-        // Create ECharts configuration
+        // Create ECharts configuration with applied customizations
         chartConfig = {
-          title: title
-            ? {
-                text: title,
-                left: 'center',
-              }
-            : undefined,
+          title:
+            safeCustomizations.title || title
+              ? {
+                  text: safeCustomizations.title || title,
+                  left: 'center',
+                  show: true,
+                }
+              : undefined,
           tooltip: {
             trigger: 'item',
+            show: safeCustomizations.showTooltip !== false,
             formatter: function (params: any) {
               if (params.data && params.data.value != null) {
                 return `${params.name}<br/>${valueColumn || 'Value'}: ${params.data.value}`;
               }
-              return `${params.name}<br/>No data`;
+              return `${params.name}<br/>${safeCustomizations.nullValueLabel !== undefined ? safeCustomizations.nullValueLabel : 'No Data'}`;
             },
           },
-          // Disable visualMap to prevent it from coloring ALL regions
-          // Instead, use individual itemStyle coloring for data regions only
+          // Add legend based on customizations (but not for single value scenarios)
+          ...(safeCustomizations.showLegend !== false &&
+            values.length > 0 &&
+            !hasSingleValue && {
+              visualMap: {
+                min: minValue,
+                max: maxValue,
+                text: ['High', 'Low'],
+                realtime: false,
+                calculable: true,
+                inRange: {
+                  color: [
+                    `${baseColor}4D`, // 30% opacity
+                    baseColor, // 100% opacity
+                  ],
+                },
+                orient:
+                  safeCustomizations.legendPosition === 'top' ||
+                  safeCustomizations.legendPosition === 'bottom'
+                    ? 'horizontal'
+                    : 'vertical',
+                left:
+                  safeCustomizations.legendPosition === 'right'
+                    ? 'right'
+                    : safeCustomizations.legendPosition === 'left'
+                      ? 'left'
+                      : 'auto',
+                top:
+                  safeCustomizations.legendPosition === 'top'
+                    ? 'top'
+                    : safeCustomizations.legendPosition === 'bottom'
+                      ? 'bottom'
+                      : 'auto',
+              },
+            }),
           series: [
             {
               name: 'Map Data',
               type: 'map',
               mapType: mapName,
-              roam: 'move', // Allow pan but disable pinch zoom
+              // Always enable roam for zoom/pan functionality via buttons
+              roam: 'move',
+              // Apply selection settings
+              selectedMode: safeCustomizations.select !== false ? 'single' : false,
               // Configure how regions without data should appear (default styling)
               itemStyle: {
                 areaColor: '#f5f5f5', // Light gray for regions without data
-                borderColor: '#333',
-                borderWidth: 0.5,
+                borderColor: safeCustomizations.borderColor || '#333',
+                borderWidth: safeCustomizations.borderWidth || 0.5,
+              },
+              label: {
+                show: safeCustomizations.showLabels === true,
+                fontSize: 12,
+                color: '#333',
               },
               emphasis: {
                 label: {
-                  show: true,
+                  show: safeCustomizations.emphasis !== false,
+                  fontSize: 14,
                 },
                 itemStyle: {
-                  areaColor: '#37a2da',
+                  areaColor: safeCustomizations.emphasis !== false ? '#37a2da' : undefined,
                 },
               },
-              // Use enhanced data with individual colors to avoid global visualMap
-              data: enhancedSeriesData,
+              // Animation settings
+              animation: safeCustomizations.animation !== false,
+              animationDuration: safeCustomizations.animation !== false ? 1000 : 0,
+              // Use enhanced data with individual colors when legend is disabled OR when we have single value
+              ...(safeCustomizations.showLegend === false || hasSingleValue
+                ? {
+                    data: enhancedSeriesData,
+                  }
+                : {
+                    data: seriesData, // Use original data when visualMap is enabled
+                  }),
             },
           ],
         };
@@ -342,7 +386,16 @@ export function MapPreview({
     } catch (err) {
       console.error('Error initializing map chart:', err);
     }
-  }, [geojsonData, mapData, title, valueColumn, config, onChartReady, onRegionClick]);
+  }, [
+    geojsonData,
+    mapData,
+    title,
+    valueColumn,
+    safeCustomizations,
+    config,
+    onChartReady,
+    onRegionClick,
+  ]);
 
   // Initialize chart when data changes
   useEffect(() => {

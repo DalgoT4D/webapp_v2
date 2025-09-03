@@ -79,7 +79,7 @@ function SortableFilterItem({
         ref={setNodeRef}
         style={style}
         className={cn(
-          'min-w-[200px] max-w-[300px] flex-shrink-0 transition-all',
+          'min-w-[250px] max-w-[400px] flex-shrink-0 transition-all',
           isDragging && 'shadow-lg scale-105 z-50'
         )}
       >
@@ -188,32 +188,55 @@ export function UnifiedFiltersPanel({
 
   // Sync filters when initialFilters change (when filters are added/deleted externally)
   useEffect(() => {
-    setFilters(initialFilters);
+    try {
+      // Validate initialFilters before setting
+      const validFilters = (initialFilters || []).filter(
+        (filter) =>
+          filter && filter.id && filter.schema_name && filter.table_name && filter.column_name
+      );
 
-    // Update filter values: keep existing values, add defaults for new filters, remove old ones
-    setCurrentFilterValues((prev) => {
-      const newValues = { ...prev };
-      const existingFilterIds = initialFilters.map((f) => String(f.id)); // Convert to strings to match object keys
+      if (validFilters.length !== initialFilters.length) {
+        console.warn('Some filters were invalid and skipped', {
+          total: initialFilters.length,
+          valid: validFilters.length,
+        });
+      }
 
-      // Remove values for filters that no longer exist
-      Object.keys(newValues).forEach((filterId) => {
-        if (!existingFilterIds.includes(filterId)) {
-          delete newValues[filterId];
+      setFilters(validFilters);
+
+      // Update filter values: keep existing values, add defaults for new filters, remove old ones
+      setCurrentFilterValues((prev) => {
+        const newValues = { ...prev };
+        const existingFilterIds = validFilters.map((f) => String(f.id)); // Convert to strings to match object keys
+
+        // Remove values for filters that no longer exist
+        Object.keys(newValues).forEach((filterId) => {
+          if (!existingFilterIds.includes(filterId)) {
+            delete newValues[filterId];
+          }
+        });
+
+        // Add default values for new filters that don't have values yet
+        try {
+          const defaultValues = getDefaultFilterValues(validFilters);
+
+          Object.keys(defaultValues).forEach((filterId) => {
+            const stringFilterId = String(filterId); // Ensure consistent string comparison
+            if (!(stringFilterId in newValues)) {
+              newValues[stringFilterId] = defaultValues[filterId];
+            }
+          });
+        } catch (error) {
+          console.error('Error getting default filter values:', error);
         }
+
+        return newValues;
       });
-
-      // Add default values for new filters that don't have values yet
-      const defaultValues = getDefaultFilterValues(initialFilters);
-
-      Object.keys(defaultValues).forEach((filterId) => {
-        const stringFilterId = String(filterId); // Ensure consistent string comparison
-        if (!(stringFilterId in newValues)) {
-          newValues[stringFilterId] = defaultValues[filterId];
-        }
-      });
-
-      return newValues;
-    });
+    } catch (error) {
+      console.error('Error syncing filters:', error);
+      setFilters([]); // Fallback to empty filters on error
+      setCurrentFilterValues({});
+    }
   }, [initialFilters, getDefaultFilterValues]);
 
   // Handle filter value changes (internal only - no parent re-render)
@@ -315,7 +338,7 @@ export function UnifiedFiltersPanel({
     if (isEditMode) {
       const emptyStateClass =
         layout === 'vertical'
-          ? 'w-full md:w-80 border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 shadow-sm md:shadow-none'
+          ? 'w-full md:w-96 border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 shadow-sm md:shadow-none'
           : 'border-b border-gray-200 bg-white p-4';
 
       return (
@@ -426,7 +449,7 @@ export function UnifiedFiltersPanel({
 
   // Vertical layout
   return (
-    <div className="w-full md:w-80 border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col shadow-sm md:shadow-none">
+    <div className="w-full md:w-96 border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col shadow-sm md:shadow-none">
       {/* Header */}
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">

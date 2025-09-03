@@ -67,6 +67,8 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import useSWR, { mutate as swrMutate } from 'swr';
+import { apiGet } from '@/lib/api';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -83,8 +85,10 @@ function debounce<T extends (...args: any[]) => any>(
 export function DashboardListV2() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
-  const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
+  // COMMENTED OUT: Dashboard type filtering (Native/Superset) - not needed anymore
+  // const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
+  // COMMENTED OUT: Draft/publish filtering - not applicable for dashboards
+  // const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
@@ -98,7 +102,18 @@ export function DashboardListV2() {
 
   // Get current user info for permission checks
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const currentUser = getCurrentOrgUser();
+  const authCurrentUser = getCurrentOrgUser();
+
+  // Fetch fresh user data to get updated landing page settings
+  const { data: orgUsersData } = useSWR('/api/currentuserv2', apiGet, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  // Use fresh user data if available, fall back to auth store data
+  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
+  const currentUser =
+    orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
 
   // Get user permissions
   const { hasPermission } = useUserPermissions();
@@ -134,8 +149,10 @@ export function DashboardListV2() {
   // Build params for API call
   const params = {
     search: debouncedSearchQuery,
-    dashboard_type: dashboardType === 'all' ? undefined : dashboardType,
-    is_published: publishFilter === 'all' ? undefined : publishFilter === 'published',
+    // COMMENTED OUT: Dashboard type filtering - not needed anymore
+    // dashboard_type: dashboardType === 'all' ? undefined : dashboardType,
+    // COMMENTED OUT: Draft/publish filtering - not applicable for dashboards
+    // is_published: publishFilter === 'all' ? undefined : publishFilter === 'published',
     page: currentPage,
     pageSize,
   };
@@ -182,7 +199,7 @@ export function DashboardListV2() {
         setIsDeleting(null);
       }
     },
-    [mutate, toast]
+    [mutate]
   );
 
   // Handle dashboard duplication
@@ -204,13 +221,13 @@ export function DashboardListV2() {
         setIsDuplicating(null);
       }
     },
-    [mutate, toast, router]
+    [mutate, router]
   );
 
-  // Handle dashboard download (placeholder)
-  const handleDownloadDashboard = useCallback((dashboardId: number, dashboardTitle: string) => {
-    toastSuccess.generic('Dashboard download will be available soon');
-  }, []);
+  // COMMENTED OUT: Handle dashboard download - not needed
+  // const handleDownloadDashboard = useCallback((dashboardId: number, dashboardTitle: string) => {
+  //   toastSuccess.generic('Dashboard download will be available soon');
+  // }, []);
 
   // Handle share dashboard
   const handleShareDashboard = useCallback((dashboard: any) => {
@@ -233,6 +250,9 @@ export function DashboardListV2() {
   const handleSetPersonalLanding = useCallback(
     async (dashboardId: number) => {
       await setPersonalLanding(dashboardId);
+      // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+      // Also mutate '/api/currentuserv2' to refresh our local data
+      await swrMutate('/api/currentuserv2');
       mutate(); // Refresh the dashboard list to update indicators
     },
     [setPersonalLanding, mutate]
@@ -240,12 +260,18 @@ export function DashboardListV2() {
 
   const handleRemovePersonalLanding = useCallback(async () => {
     await removePersonalLanding();
+    // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+    // Also mutate '/api/currentuserv2' to refresh our local data
+    await swrMutate('/api/currentuserv2');
     mutate(); // Refresh the dashboard list to update indicators
   }, [removePersonalLanding, mutate]);
 
   const handleSetOrgDefault = useCallback(
     async (dashboardId: number) => {
       await setOrgDefault(dashboardId);
+      // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+      // Also mutate '/api/currentuserv2' to refresh our local data
+      await swrMutate('/api/currentuserv2');
       mutate(); // Refresh the dashboard list to update indicators
     },
     [setOrgDefault, mutate]
@@ -254,7 +280,8 @@ export function DashboardListV2() {
   // Remove mock data - use real data from API
 
   const renderDashboardCard = (dashboard: any) => {
-    const isNative = dashboard.dashboard_type === 'native';
+    // COMMENTED OUT: Dashboard type checking - not needed anymore
+    // const isNative = dashboard.dashboard_type === 'native';
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
@@ -274,17 +301,44 @@ export function DashboardListV2() {
         id={`dashboard-card-${dashboard.id}`}
         key={dashboard.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-md h-full relative group',
-          !dashboard.is_published && 'opacity-75'
+          'transition-all duration-200 hover:shadow-md h-full relative group'
+          // COMMENTED OUT: Draft opacity styling - not applicable for dashboards
+          // !dashboard.is_published && 'opacity-75'
         )}
       >
-        {/* Action Menu - only render if user has any dashboard permissions */}
-        {(hasPermission('can_share_dashboards') ||
-          hasPermission('can_create_dashboards') ||
-          hasPermission('can_edit_dashboards') ||
-          hasPermission('can_delete_dashboards') ||
-          hasPermission('can_view_dashboards')) && (
-          <div className="absolute top-2 right-2 z-10">
+        {/* Action Buttons - Share and Edit prominently displayed */}
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          {hasPermission('can_share_dashboards') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+              onClick={(e) => {
+                e.preventDefault();
+                handleShareDashboard(dashboard);
+              }}
+            >
+              <Share2 className="w-3 h-3 mr-1" />
+              Share
+            </Button>
+          )}
+          {hasPermission('can_edit_dashboards') && (
+            <Link href={`/dashboards/${dashboard.id}/edit`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+              >
+                <Settings className="w-3 h-3 mr-1" />
+                Edit
+              </Button>
+            </Link>
+          )}
+
+          {/* More actions menu for remaining actions */}
+          {(hasPermission('can_create_dashboards') ||
+            hasPermission('can_delete_dashboards') ||
+            hasPermission('can_view_dashboards')) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -292,22 +346,10 @@ export function DashboardListV2() {
                   size="icon"
                   className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
                 >
-                  <MoreVertical className="w-4 h-4 text-gray-700" />
+                  <MoreVertical className="w-3 h-3 text-gray-700" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {hasPermission('can_share_dashboards') && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => handleShareDashboard(dashboard)}
-                      className="cursor-pointer"
-                    >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
                 {hasPermission('can_create_dashboards') && (
                   <DropdownMenuItem
                     onClick={() =>
@@ -332,7 +374,8 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuItem>
                 )}
-                {hasPermission('can_view_dashboards') && (
+                {/* COMMENTED OUT: Download functionality - not needed */}
+                {/* {hasPermission('can_view_dashboards') && (
                   <DropdownMenuItem
                     onClick={() =>
                       handleDownloadDashboard(
@@ -345,7 +388,7 @@ export function DashboardListV2() {
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </DropdownMenuItem>
-                )}
+                )} */}
                 {hasPermission('can_delete_dashboards') && (
                   <>
                     <DropdownMenuSeparator />
@@ -388,30 +431,31 @@ export function DashboardListV2() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Clickable content area */}
         <Link href={getNavigationUrl()}>
           <div className="cursor-pointer">
             {/* Thumbnail */}
             <div className="relative h-48 bg-muted overflow-hidden">
-              {isNative ? (
-                <div className="flex items-center justify-center h-full">
-                  <Layout className="w-16 h-16 text-muted-foreground" />
-                </div>
-              ) : (
+              {/* COMMENTED OUT: Type-based thumbnail rendering - show generic layout icon for all */}
+              {/* {isNative ? ( */}
+              <div className="flex items-center justify-center h-full">
+                <Layout className="w-16 h-16 text-muted-foreground" />
+              </div>
+              {/* ) : (
                 <DashboardThumbnail
                   dashboardId={dashboard.id}
                   thumbnailUrl={dashboard.thumbnail_url}
                   alt={dashboard.title}
                 />
-              )}
+              )} */}
 
-              {/* Type badge */}
-              <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
+              {/* COMMENTED OUT: Type badge - not needed anymore */}
+              {/* <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
                 {isNative ? 'Native' : 'Superset'}
-              </Badge>
+              </Badge> */}
 
               {/* Lock indicator */}
               {isLocked && (
@@ -438,22 +482,26 @@ export function DashboardListV2() {
                   </CardDescription>
                 </div>
 
-                {!isNative && (
+                {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
+                {/* {!isNative && (
                   <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-                )}
+                )} */}
               </div>
             </CardHeader>
 
             <CardContent className="pt-0">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" title="Dashboard Creator">
                   <User className="w-3 h-3" />
-                  <span>{dashboard.created_by || dashboard.changed_by_name || 'Unknown'}</span>
+                  <span>
+                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" title="Last Updated">
                   <Clock className="w-3 h-3" />
                   <span>
+                    Updated{' '}
                     {dashboard.updated_at
                       ? format(new Date(dashboard.updated_at), 'MMM d')
                       : 'Unknown'}
@@ -462,7 +510,8 @@ export function DashboardListV2() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                {dashboard.is_published ? (
+                {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
+                {/* {dashboard.is_published ? (
                   <Badge variant="outline" className="text-xs">
                     Published
                   </Badge>
@@ -470,13 +519,13 @@ export function DashboardListV2() {
                   <Badge variant="secondary" className="text-xs">
                     Draft
                   </Badge>
-                )}
+                )} */}
 
-                {/* Landing page badges */}
+                {/* Landing page badges with enhanced visual separation */}
                 {isPersonalLanding && (
                   <Badge
                     variant="default"
-                    className="text-xs bg-blue-100 text-blue-800 border-blue-200"
+                    className="text-xs bg-blue-500 text-white border-blue-600 font-semibold"
                   >
                     <Star className="w-3 h-3 mr-1 fill-current" />
                     My Landing Page
@@ -486,10 +535,10 @@ export function DashboardListV2() {
                 {isOrgDefault && (
                   <Badge
                     variant="outline"
-                    className="text-xs bg-green-50 text-green-700 border-green-200"
+                    className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold"
                   >
                     <Settings className="w-3 h-3 mr-1" />
-                    Org Default
+                    Organization Default
                   </Badge>
                 )}
               </div>
@@ -509,7 +558,8 @@ export function DashboardListV2() {
   };
 
   const renderDashboardList = (dashboard: any) => {
-    const isNative = dashboard.dashboard_type === 'native';
+    // COMMENTED OUT: Dashboard type checking - not needed anymore
+    // const isNative = dashboard.dashboard_type === 'native';
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
@@ -532,21 +582,45 @@ export function DashboardListV2() {
               className="flex items-center gap-4 flex-1 cursor-pointer"
             >
               <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                {isNative ? (
-                  <Layout className="w-8 h-8 text-muted-foreground" />
-                ) : (
+                {/* COMMENTED OUT: Type-based icons - show generic layout icon for all */}
+                {/* {isNative ? ( */}
+                <Layout className="w-8 h-8 text-muted-foreground" />
+                {/* ) : (
                   <BarChart3 className="w-8 h-8 text-muted-foreground" />
-                )}
+                )} */}
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-medium truncate">
                     {dashboard.title || dashboard.dashboard_title}
                   </h3>
-                  <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
+                  {/* COMMENTED OUT: Type badge - not needed anymore */}
+                  {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
                     {isNative ? 'Native' : 'Superset'}
-                  </Badge>
+                  </Badge> */}
+
+                  {/* Landing page badges in list view */}
+                  {isPersonalLanding && (
+                    <Badge
+                      variant="default"
+                      className="text-xs bg-blue-500 text-white border-blue-600 font-semibold"
+                    >
+                      <Star className="w-3 h-3 mr-1 fill-current" />
+                      My Landing Page
+                    </Badge>
+                  )}
+
+                  {isOrgDefault && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold"
+                    >
+                      <Settings className="w-3 h-3 mr-1" />
+                      Organization Default
+                    </Badge>
+                  )}
+
                   {isLocked && (
                     <Lock
                       className={cn('w-4 h-4', isLockedByOther ? 'text-red-500' : 'text-blue-500')}
@@ -559,17 +633,19 @@ export function DashboardListV2() {
                 </p>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" title="Dashboard Creator">
                     <User className="w-3 h-3" />
-                    {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" title="Last Updated">
                     <Clock className="w-3 h-3" />
+                    Updated{' '}
                     {dashboard.updated_at
                       ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
                       : 'Unknown'}
                   </span>
-                  {dashboard.is_published ? (
+                  {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
+                  {/* {dashboard.is_published ? (
                     <Badge variant="outline" className="text-xs">
                       Published
                     </Badge>
@@ -577,49 +653,61 @@ export function DashboardListV2() {
                     <Badge variant="secondary" className="text-xs">
                       Draft
                     </Badge>
-                  )}
+                  )} */}
                 </div>
               </div>
 
-              {!isNative && (
+              {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
+              {/* {!isNative && (
                 <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-              )}
+              )} */}
             </Link>
 
-            {/* Action Menu - only render if user has any dashboard permissions */}
-            {(hasPermission('can_share_dashboards') ||
-              hasPermission('can_create_dashboards') ||
-              hasPermission('can_edit_dashboards') ||
-              hasPermission('can_delete_dashboards') ||
-              hasPermission('can_view_dashboards')) && (
-              <div className="flex items-center gap-2 ml-4">
+            {/* Action Buttons - Share and Edit prominently displayed */}
+            <div className="flex items-center gap-2 ml-4">
+              {hasPermission('can_share_dashboards') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  onClick={() => handleShareDashboard(dashboard)}
+                >
+                  <Share2 className="w-3 h-3 mr-1" />
+                  Share
+                </Button>
+              )}
+              {hasPermission('can_edit_dashboards') && (
+                <Link href={`/dashboards/${dashboard.id}/edit`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                </Link>
+              )}
+
+              {/* More actions menu for remaining actions */}
+              {(hasPermission('can_create_dashboards') ||
+                hasPermission('can_delete_dashboards') ||
+                hasPermission('can_view_dashboards') ||
+                canManageOrgDefault) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                      className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                     >
-                      <MoreHorizontal className="w-4 h-4 text-gray-700" />
+                      <MoreHorizontal className="w-3 h-3 text-gray-700" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    {hasPermission('can_share_dashboards') && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => handleShareDashboard(dashboard)}
-                          className="cursor-pointer"
-                        >
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share
-                        </DropdownMenuItem>
-                      </>
-                    )}
-
                     {/* Landing page controls */}
                     {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
                       <>
-                        <DropdownMenuSeparator />
                         <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
                           Landing Page
                         </div>
@@ -688,7 +776,8 @@ export function DashboardListV2() {
                         )}
                       </DropdownMenuItem>
                     )}
-                    {hasPermission('can_view_dashboards') && (
+                    {/* COMMENTED OUT: Download functionality - not needed */}
+                    {/* {hasPermission('can_view_dashboards') && (
                       <DropdownMenuItem
                         onClick={() =>
                           handleDownloadDashboard(
@@ -701,7 +790,7 @@ export function DashboardListV2() {
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </DropdownMenuItem>
-                    )}
+                    )} */}
                     {hasPermission('can_delete_dashboards') && (
                       <>
                         <DropdownMenuSeparator />
@@ -744,8 +833,8 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -805,7 +894,8 @@ export function DashboardListV2() {
             />
           </div>
 
-          <Select
+          {/* COMMENTED OUT: Dashboard type filter dropdown - not needed anymore */}
+          {/* <Select
             id="dashboard-type-select"
             value={dashboardType}
             onValueChange={(value: any) => {
@@ -827,9 +917,10 @@ export function DashboardListV2() {
                 Superset Only
               </SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
 
-          <Select
+          {/* COMMENTED OUT: Draft/publish filter dropdown - not applicable for dashboards */}
+          {/* <Select
             id="dashboard-publish-select"
             value={publishFilter}
             onValueChange={(value: any) => {
@@ -851,7 +942,7 @@ export function DashboardListV2() {
                 Draft
               </SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
 
           <div id="dashboard-view-mode-wrapper" className="flex gap-1">
             <Button
@@ -921,8 +1012,10 @@ export function DashboardListV2() {
             >
               <Layout id="dashboard-empty-icon" className="w-12 h-12 text-muted-foreground" />
               <p id="dashboard-empty-text" className="text-muted-foreground">
-                {searchQuery || dashboardType !== 'all' || publishFilter !== 'all'
-                  ? 'No dashboards found'
+                {searchQuery
+                  ? // COMMENTED OUT: Filter-based checks - not needed anymore
+                    // || dashboardType !== 'all' || publishFilter !== 'all'
+                    'No dashboards found'
                   : 'No dashboards yet'}
               </p>
               {hasPermission('can_create_dashboards') && (

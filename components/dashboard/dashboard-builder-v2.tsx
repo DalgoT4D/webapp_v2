@@ -65,10 +65,16 @@ import type { DashboardFilter } from '@/hooks/api/useDashboards';
 function convertFilterToConfig(
   filter: DashboardFilter,
   position: { x: number; y: number; w: number; h: number }
-): DashboardFilterConfig {
+): DashboardFilterConfig | null {
+  // Validate required filter properties
+  if (!filter || !filter.id || !filter.schema_name || !filter.table_name || !filter.column_name) {
+    console.error('Invalid filter data:', filter);
+    return null;
+  }
+
   const baseConfig = {
     id: filter.id.toString(),
-    name: filter.name,
+    name: filter.name || filter.column_name || 'Unnamed Filter',
     schema_name: filter.schema_name,
     table_name: filter.table_name,
     column_name: filter.column_name,
@@ -76,30 +82,45 @@ function convertFilterToConfig(
     position,
   };
 
+  // Ensure settings object exists
+  const settings = filter.settings || {};
+
   if (filter.filter_type === 'value') {
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
+      settings: {
+        has_default_value: false,
+        can_select_multiple: false,
+        ...settings,
+      } as ValueFilterSettings,
     };
   } else if (filter.filter_type === 'numerical') {
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.NUMERICAL,
-      settings: filter.settings as NumericalFilterSettings,
+      settings: {
+        ...settings,
+      } as NumericalFilterSettings,
     };
   } else if (filter.filter_type === 'datetime') {
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.DATETIME,
-      settings: filter.settings as DateTimeFilterSettings,
+      settings: {
+        ...settings,
+      } as DateTimeFilterSettings,
     };
   } else {
     // Fallback to VALUE type for unknown types
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
+      settings: {
+        has_default_value: false,
+        can_select_multiple: false,
+        ...settings,
+      } as ValueFilterSettings,
     };
   }
 }
@@ -285,17 +306,33 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Load responsive layouts if available, otherwise they'll be generated later
     const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
-    // Load filters from backend (without creating components - they're already in components)
+    // Load filters from backend with proper error handling
     const initialFilters = Array.isArray(initialData?.filters)
-      ? initialData.filters.map((filter: any) => ({
-          id: filter.id,
-          name: filter.name || filter.column_name, // Use name first, fallback to column_name
-          schema_name: filter.schema_name,
-          table_name: filter.table_name,
-          column_name: filter.column_name,
-          filter_type: filter.filter_type,
-          settings: filter.settings || {},
-        }))
+      ? initialData.filters
+          .map((filter: any) => {
+            // Validate filter data before processing
+            if (
+              !filter ||
+              !filter.id ||
+              !filter.schema_name ||
+              !filter.table_name ||
+              !filter.column_name
+            ) {
+              console.warn('Skipping invalid filter:', filter);
+              return null;
+            }
+
+            return {
+              id: filter.id,
+              name: filter.name || filter.column_name || 'Unnamed Filter',
+              schema_name: filter.schema_name,
+              table_name: filter.table_name,
+              column_name: filter.column_name,
+              filter_type: filter.filter_type || 'value', // Default to 'value' if missing
+              settings: filter.settings || {},
+            };
+          })
+          .filter(Boolean) // Remove null entries
       : [];
 
     console.log('🎛️ Dashboard Builder - Initial Filters:', {
@@ -384,6 +421,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const canvasRef = useRef<HTMLDivElement>(null);
     // Ref for the white dashboard container (actual boundary)
     const dashboardContainerRef = useRef<HTMLDivElement>(null);
+
+    // Helper function to scroll to bottom after adding a component
+    const scrollToBottom = () => {
+      setTimeout(() => {
+        if (canvasRef.current) {
+          canvasRef.current.scrollTo({
+            top: canvasRef.current.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      }, 100); // Small delay to ensure component is rendered
+    };
 
     // Get current screen size config
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
@@ -783,6 +832,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             [newComponent.id]: newComponent,
           },
         });
+
+        // Auto-scroll to bottom to show the newly added component
+        scrollToBottom();
       } catch (error: any) {
         console.error('Failed to add chart:', error.message || 'Please try again');
       }
@@ -830,6 +882,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           [newComponent.id]: newComponent,
         },
       });
+
+      // Auto-scroll to bottom to show the newly added component
+      scrollToBottom();
     };
 
     // Remove component
@@ -1193,7 +1248,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     )}
                   </Button>
                 )}
-                <Popover>
+                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
+                {/* <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="ghost" className="p-1.5">
                       <Settings className="w-4 h-4" />
@@ -1208,7 +1264,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         </p>
                       </div>
 
-                      {/* Filter Layout Setting */}
                       <div className="grid gap-2">
                         <Label className="text-sm font-medium">
                           Filter Layout
@@ -1273,7 +1328,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
                     </div>
                   </PopoverContent>
-                </Popover>
+                </Popover> */}
               </div>
             </div>
 
@@ -1473,7 +1528,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </div>
                 )}
 
-                <Popover>
+                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
+                {/* <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline">
                       <Settings className="w-4 h-4" />
@@ -1488,7 +1544,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         </p>
                       </div>
 
-                      {/* Filter Layout Setting */}
                       <div className="grid gap-2">
                         <Label className="text-sm font-medium">
                           Filter Layout
@@ -1553,7 +1608,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
                     </div>
                   </PopoverContent>
-                </Popover>
+                </Popover> */}
 
                 <Button onClick={() => saveDashboard()} size="sm" variant="outline">
                   <Save className="w-4 h-4 mr-2" />
@@ -1652,7 +1707,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onResizeStart={handleResizeStart}
                 onResizeStop={handleResizeStop}
-                draggableHandle=".drag-handle"
+                draggableCancel=".drag-cancel"
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
@@ -1663,17 +1718,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-                  <div key={item.i} className="dashboard-item bg-white rounded-lg shadow-sm border">
-                    <div className="drag-handle absolute top-2 left-2 cursor-move p-1 hover:bg-gray-100 rounded z-10">
-                      <Grip className="w-4 h-4 text-gray-400" />
+                  <div
+                    key={item.i}
+                    className="dashboard-item bg-white rounded-lg shadow-sm border cursor-move"
+                  >
+                    <div className="absolute top-2 left-2 p-1 rounded z-10 pointer-events-none">
+                      <Grip className="w-4 h-4 text-gray-400 opacity-60" />
                     </div>
                     <button
                       onClick={() => removeComponent(item.i)}
-                      className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded"
+                      className="drag-cancel absolute top-2 right-2 p-1 hover:bg-gray-100 rounded cursor-pointer"
                     >
                       <X className="w-4 h-4 text-gray-400" />
                     </button>
-                    <div className="p-4 flex-1 flex flex-col min-h-0">
+                    <div className="p-4 flex-1 flex flex-col min-h-0 pt-8">
                       {renderComponent(item.i)}
                     </div>
                   </div>

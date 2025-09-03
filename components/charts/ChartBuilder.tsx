@@ -97,6 +97,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showLegend: true,
         nullValueLabel: 'No Data',
         title: '',
+        showLabels: false,
       };
     case 'table':
       return {
@@ -166,7 +167,6 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
-          customizations: formData.customizations,
         }
       : null;
 
@@ -283,9 +283,21 @@ export function ChartBuilder({
   const { data: tables } = useTables(formData.schema_name);
   const { data: columns } = useColumns(formData.schema_name, formData.table_name);
 
-  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
-  }, []);
+  const handleFormChange = useCallback(
+    (updates: Partial<ChartBuilderFormData>) => {
+      // Handle chart type changes - update customizations to match new chart type
+      if (updates.chart_type && updates.chart_type !== formData.chart_type) {
+        const newCustomizations = getDefaultCustomizations(updates.chart_type);
+        console.log('🔧 [CHART-BUILDER] Chart type changed to:', updates.chart_type);
+        console.log('🔧 [CHART-BUILDER] New customizations:', newCustomizations);
+        updates.customizations = newCustomizations;
+      }
+
+      const newFormData = { ...formData, ...updates };
+      setFormData(newFormData);
+    },
+    [formData]
+  );
 
   const debouncedFormChange = useCallback(debounce(handleFormChange, 500), [handleFormChange]);
 
@@ -865,6 +877,9 @@ export function ChartBuilder({
                 {formData.schema_name && formData.table_name && formData.geographic_column && (
                   <DynamicLevelConfig formData={formData} onChange={handleFormChange} />
                 )}
+
+                {/* Map Customizations - Chart Styling */}
+                <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
               </div>
             ) : formData.chart_type === 'table' ? (
               <div className="space-y-6">
@@ -979,6 +994,7 @@ export function ChartBuilder({
                 mapDataError={mapDataError}
                 title={formData.title}
                 valueColumn={formData.aggregate_column}
+                customizations={formData.customizations}
                 onRegionClick={handleRegionClick}
                 drillDownPath={
                   drillDownState

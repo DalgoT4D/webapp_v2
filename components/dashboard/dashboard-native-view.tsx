@@ -69,6 +69,8 @@ import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import useSWR, { mutate as swrMutate } from 'swr';
+import { apiGet } from '@/lib/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -247,6 +249,8 @@ interface DashboardNativeViewProps {
   isPublicMode?: boolean;
   publicToken?: string;
   dashboardData?: any; // Pre-fetched dashboard data for public mode
+  hideHeader?: boolean; // Hide header when used as landing page
+  showMinimalHeader?: boolean; // Show only title when used as landing page
 }
 
 export function DashboardNativeView({
@@ -254,6 +258,8 @@ export function DashboardNativeView({
   isPublicMode = false,
   publicToken,
   dashboardData,
+  hideHeader = false,
+  showMinimalHeader = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -274,7 +280,19 @@ export function DashboardNativeView({
 
   // Get current user info for permission checks (skip in public mode)
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const currentUser = isPublicMode ? null : getCurrentOrgUser();
+  const authCurrentUser = isPublicMode ? null : getCurrentOrgUser();
+
+  // Fetch fresh user data to get updated landing page settings
+  const { data: orgUsersData } = useSWR(!isPublicMode ? '/api/currentuserv2' : null, apiGet, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  // Use fresh user data if available, fall back to auth store data
+  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
+  const currentUser = isPublicMode
+    ? null
+    : orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
 
   // Landing page functionality
   const {
@@ -492,14 +510,20 @@ export function DashboardNativeView({
   // Landing page handlers
   const handleSetPersonalLanding = async () => {
     await setPersonalLanding(dashboardId);
+    // Refresh user data to update landing page status
+    await swrMutate('/api/currentuserv2');
   };
 
   const handleRemovePersonalLanding = async () => {
     await removePersonalLanding();
+    // Refresh user data to update landing page status
+    await swrMutate('/api/currentuserv2');
   };
 
   const handleSetOrgDefault = async () => {
     await setOrgDefault(dashboardId);
+    // Refresh user data to update landing page status
+    await swrMutate('/api/currentuserv2');
   };
 
   // Render dashboard components
@@ -710,119 +734,121 @@ export function DashboardNativeView({
         isFullscreen && 'fixed inset-0 z-50'
       )}
     >
-      {/* Fixed Header */}
-      <div className="bg-white border-b shadow-sm flex-shrink-0">
-        {/* Mobile Header */}
-        <div className="lg:hidden">
-          {/* Mobile Top Row */}
-          <div className="px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {!isFullscreen && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push('/dashboards')}
-                  className="p-1 flex-shrink-0"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
-                    {dashboard.title}
-                  </h1>
-                  {dashboard.is_published && (
-                    <Badge
-                      variant="default"
-                      className="text-xs bg-green-100 text-green-800 flex-shrink-0"
-                    >
-                      Published
-                    </Badge>
-                  )}
-                  {isLocked && (
-                    <Badge
-                      variant={isLockedByOther ? 'destructive' : 'secondary'}
-                      className="text-xs flex-shrink-0"
-                    >
-                      <Lock className="w-3 h-3 mr-1" />
-                      Locked
-                    </Badge>
+      {/* Fixed Header - Conditional rendering for landing page */}
+      {!hideHeader && !showMinimalHeader && (
+        <div className="bg-white border-b shadow-sm flex-shrink-0">
+          {/* Mobile Header */}
+          <div className="lg:hidden">
+            {/* Mobile Top Row */}
+            <div className="px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {!isFullscreen && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/dashboards')}
+                    className="p-1 flex-shrink-0"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
+                      {dashboard.title}
+                    </h1>
+                    {dashboard.is_published && (
+                      <Badge
+                        variant="default"
+                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
+                      >
+                        Published
+                      </Badge>
+                    )}
+                    {isLocked && (
+                      <Badge
+                        variant={isLockedByOther ? 'destructive' : 'secondary'}
+                        className="text-xs flex-shrink-0"
+                      >
+                        <Lock className="w-3 h-3 mr-1" />
+                        Locked
+                      </Badge>
+                    )}
+                  </div>
+                  {dashboard.description && (
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2 dashboard-header-description">
+                      {dashboard.description}
+                    </p>
                   )}
                 </div>
-                {dashboard.description && (
-                  <p className="text-xs text-gray-600 mt-1 line-clamp-2 dashboard-header-description">
-                    {dashboard.description}
-                  </p>
-                )}
               </div>
-            </div>
 
-            {/* Mobile Quick Actions */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {!isPublicMode && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        'p-1.5 border-dashed',
-                        (isPersonalLanding || isOrgDefault) &&
-                          'bg-blue-50 border-blue-200 text-blue-700'
-                      )}
-                      disabled={landingPageLoading}
-                    >
-                      {isPersonalLanding || isOrgDefault ? (
-                        <Star className="w-4 h-4 fill-current" />
-                      ) : (
-                        <StarOff className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
-                      Landing Page
-                    </div>
-                    <DropdownMenuSeparator />
-
-                    {isPersonalLanding ? (
-                      <DropdownMenuItem
-                        onClick={handleRemovePersonalLanding}
+              {/* Mobile Quick Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {!isPublicMode && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          'px-2 py-1 border-dashed text-xs',
+                          (isPersonalLanding || isOrgDefault) &&
+                            'bg-blue-50 border-blue-200 text-blue-700'
+                        )}
                         disabled={landingPageLoading}
                       >
-                        <StarOff className="w-4 h-4 mr-2" />
-                        Remove as my landing page
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem
-                        onClick={handleSetPersonalLanding}
-                        disabled={landingPageLoading}
-                      >
-                        <Star className="w-4 h-4 mr-2" />
-                        Set as my landing page
-                      </DropdownMenuItem>
-                    )}
+                        {isPersonalLanding
+                          ? 'My Landing'
+                          : isOrgDefault
+                            ? 'Org Default'
+                            : 'Set Landing'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                        Landing Page
+                      </div>
+                      <DropdownMenuSeparator />
 
-                    {canManageOrgDefault && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          Organization Default
-                        </div>
+                      {isPersonalLanding ? (
                         <DropdownMenuItem
-                          onClick={handleSetOrgDefault}
-                          disabled={landingPageLoading || isOrgDefault}
+                          onClick={handleRemovePersonalLanding}
+                          disabled={landingPageLoading}
                         >
-                          <Settings className="w-4 h-4 mr-2" />
-                          {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                          <StarOff className="w-4 h-4 mr-2" />
+                          Remove as my landing page
                         </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <Button
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={handleSetPersonalLanding}
+                          disabled={landingPageLoading}
+                        >
+                          <Star className="w-4 h-4 mr-2" />
+                          Set as my landing page
+                        </DropdownMenuItem>
+                      )}
+
+                      {canManageOrgDefault && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            Organization Default
+                          </div>
+                          <DropdownMenuItem
+                            onClick={handleSetOrgDefault}
+                            disabled={landingPageLoading || isOrgDefault}
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {/* COMMENTED OUT: Refresh button - not needed in view mode */}
+                {/* <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
@@ -830,15 +856,15 @@ export function DashboardNativeView({
                 className="p-1.5"
               >
                 <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button>
-              <Button variant="outline" size="sm" onClick={toggleFullscreen} className="p-1.5">
-                <Maximize2 className="w-4 h-4" />
-              </Button>
+              </Button> */}
+                <Button variant="outline" size="sm" onClick={toggleFullscreen} className="p-1.5">
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {/* Mobile Device Selector Row */}
-          <div className="px-4 pb-2 border-t pt-2">
+            {/* COMMENTED OUT: Mobile Device Preview Selector - not needed in view mode */}
+            {/* <div className="px-4 pb-2 border-t pt-2">
             <Select
               value={effectiveScreenSize}
               onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
@@ -867,168 +893,170 @@ export function DashboardNativeView({
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div> */}
 
-          {/* Responsive Action Row */}
-          {!isPublicMode && (
-            <div className="px-4 pb-2">
-              <ResponsiveDashboardActions
-                onShare={handleShare}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onRefresh={handleRefresh}
-                canEdit={canEdit && !isLockedByOther}
-                isDeleting={isDeleting}
-                isRefreshing={isRefreshing}
-                dashboardTitle={dashboard?.title}
-                className="justify-end"
-              />
-            </div>
-          )}
-
-          {/* Mobile Metadata Row */}
-          <div className="px-4 pb-2 flex items-center gap-4 text-xs text-gray-500 border-t pt-2">
-            {dashboard.last_modified_by && (
-              <div className="flex items-center gap-1">
-                <User className="w-3 h-3" />
-                <span className="truncate">{dashboard.last_modified_by}</span>
+            {/* Responsive Action Row */}
+            {!isPublicMode && (
+              <div className="px-4 pb-2">
+                <ResponsiveDashboardActions
+                  onShare={handleShare}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onRefresh={handleRefresh}
+                  canEdit={canEdit && !isLockedByOther}
+                  isDeleting={isDeleting}
+                  isRefreshing={isRefreshing}
+                  dashboardTitle={dashboard?.title}
+                  className="justify-end"
+                />
               </div>
             )}
-            {dashboard.updated_at && (
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>{format(new Date(dashboard.updated_at), 'MMM d, yyyy')}</span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Desktop Header */}
-        <div className="hidden lg:block px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              {!isFullscreen && (
-                <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
+            {/* Mobile Metadata Row */}
+            <div className="px-4 pb-2 flex items-center gap-4 text-xs text-gray-500 border-t pt-2">
+              {dashboard.last_modified_by && (
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span className="truncate">Created by {dashboard.last_modified_by}</span>
+                </div>
               )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
-                    {dashboard.title}
-                  </h1>
-                  {dashboard.is_published && (
-                    <Badge variant="default" className="text-xs bg-green-100 text-green-800">
-                      Published
-                    </Badge>
-                  )}
-                  {isLocked && (
-                    <Badge
-                      variant={isLockedByOther ? 'destructive' : 'secondary'}
-                      className="text-xs"
-                    >
-                      <Lock className="w-3 h-3 mr-1" />
-                      {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
-                    </Badge>
+              {dashboard.updated_at && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>Updated on {format(new Date(dashboard.updated_at), 'MMM d, yyyy')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden lg:block px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                {!isFullscreen && (
+                  <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                      {dashboard.title}
+                    </h1>
+                    {dashboard.is_published && (
+                      <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                        Published
+                      </Badge>
+                    )}
+                    {isLocked && (
+                      <Badge
+                        variant={isLockedByOther ? 'destructive' : 'secondary'}
+                        className="text-xs"
+                      >
+                        <Lock className="w-3 h-3 mr-1" />
+                        {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
+                      </Badge>
+                    )}
+                  </div>
+                  {dashboard.description && (
+                    <p className="text-sm text-gray-600 mt-1 dashboard-header-description">
+                      {dashboard.description}
+                    </p>
                   )}
                 </div>
-                {dashboard.description && (
-                  <p className="text-sm text-gray-600 mt-1 dashboard-header-description">
-                    {dashboard.description}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Metadata */}
-              <div className="flex items-center gap-4 mr-4 text-xs text-gray-500">
-                {dashboard.last_modified_by && (
-                  <div className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    <span>{dashboard.last_modified_by}</span>
-                  </div>
-                )}
-                {dashboard.updated_at && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{format(new Date(dashboard.updated_at), 'MMM d, yyyy')}</span>
-                  </div>
-                )}
               </div>
 
-              {/* Landing page controls */}
-              {!isPublicMode && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        'border-dashed',
-                        (isPersonalLanding || isOrgDefault) &&
-                          'bg-blue-50 border-blue-200 text-blue-700'
-                      )}
-                      disabled={landingPageLoading}
-                    >
-                      {isPersonalLanding || isOrgDefault ? (
-                        <Star className="w-4 h-4 fill-current" />
-                      ) : (
-                        <StarOff className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
-                      Landing Page
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Metadata */}
+                <div className="flex items-center gap-4 mr-4 text-xs text-gray-500">
+                  {dashboard.last_modified_by && (
+                    <div className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      <span>Created by {dashboard.last_modified_by}</span>
                     </div>
-                    <DropdownMenuSeparator />
+                  )}
+                  {dashboard.updated_at && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>
+                        Updated on {format(new Date(dashboard.updated_at), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-                    {isPersonalLanding ? (
-                      <DropdownMenuItem
-                        onClick={handleRemovePersonalLanding}
+                {/* Landing page controls */}
+                {!isPublicMode && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          'border-dashed text-xs',
+                          (isPersonalLanding || isOrgDefault) &&
+                            'bg-blue-50 border-blue-200 text-blue-700'
+                        )}
                         disabled={landingPageLoading}
                       >
-                        <StarOff className="w-4 h-4 mr-2" />
-                        Remove as my landing page
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem
-                        onClick={handleSetPersonalLanding}
-                        disabled={landingPageLoading}
-                      >
-                        <Star className="w-4 h-4 mr-2" />
-                        Set as my landing page
-                      </DropdownMenuItem>
-                    )}
+                        {isPersonalLanding
+                          ? 'My Landing'
+                          : isOrgDefault
+                            ? 'Org Default'
+                            : 'Set Landing'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                        Landing Page
+                      </div>
+                      <DropdownMenuSeparator />
 
-                    {canManageOrgDefault && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          Organization Default
-                        </div>
+                      {isPersonalLanding ? (
                         <DropdownMenuItem
-                          onClick={handleSetOrgDefault}
-                          disabled={landingPageLoading || isOrgDefault}
+                          onClick={handleRemovePersonalLanding}
+                          disabled={landingPageLoading}
                         >
-                          <Settings className="w-4 h-4 mr-2" />
-                          {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                          <StarOff className="w-4 h-4 mr-2" />
+                          Remove as my landing page
                         </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={handleSetPersonalLanding}
+                          disabled={landingPageLoading}
+                        >
+                          <Star className="w-4 h-4 mr-2" />
+                          Set as my landing page
+                        </DropdownMenuItem>
+                      )}
 
-              {/* Action buttons */}
-              <Button variant="outline" size="sm" onClick={toggleFullscreen}>
-                <Maximize2 className="w-4 h-4" />
-              </Button>
+                      {canManageOrgDefault && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            Organization Default
+                          </div>
+                          <DropdownMenuItem
+                            onClick={handleSetOrgDefault}
+                            disabled={landingPageLoading || isOrgDefault}
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            {isOrgDefault ? 'Current org default' : 'Set as org default'}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
 
-              {/* Device Size Selector */}
-              <Select
+                {/* Action buttons */}
+                <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+
+                {/* COMMENTED OUT: Device Size Preview Selector - not needed in view mode */}
+                {/* <Select
                 value={effectiveScreenSize}
                 onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
               >
@@ -1055,24 +1083,36 @@ export function DashboardNativeView({
                     </div>
                   </SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
 
-              {!isPublicMode && (
-                <ResponsiveDashboardActions
-                  onShare={handleShare}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onRefresh={handleRefresh}
-                  canEdit={canEdit && !isLockedByOther}
-                  isDeleting={isDeleting}
-                  isRefreshing={isRefreshing}
-                  dashboardTitle={dashboard?.title}
-                />
-              )}
+                {!isPublicMode && (
+                  <ResponsiveDashboardActions
+                    onShare={handleShare}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onRefresh={handleRefresh}
+                    canEdit={canEdit && !isLockedByOther}
+                    isDeleting={isDeleting}
+                    isRefreshing={isRefreshing}
+                    dashboardTitle={dashboard?.title}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+      {/* Minimal Header - Show only title for landing page */}
+      {showMinimalHeader && (
+        <div className="bg-white border-b flex-shrink-0 px-6 py-4">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{dashboard.title}</h1>
+            {dashboard.description && (
+              <p className="text-sm text-gray-600 max-w-2xl mx-auto">{dashboard.description}</p>
+            )}
+          </div>
+        </div>
+      )}
       {/* Mobile/Tablet Filters Section - Only show on non-desktop */}
       <ResponsiveFiltersSection
         dashboardFilters={dashboardFilters}

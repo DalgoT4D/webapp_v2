@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { useRegions } from '@/hooks/api/useChart';
 import { apiPost } from '@/lib/api';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 interface GeoJSONUploadModalProps {
   isOpen: boolean;
@@ -53,7 +53,7 @@ export function GeoJSONUploadModal({
     e.preventDefault();
 
     if (!formData.regionId || !formData.name || !formData.propertiesKey || !formData.geojsonData) {
-      toast.error('Please fill in all required fields');
+      toastError.api('Please fill in all required fields');
       return;
     }
 
@@ -61,18 +61,18 @@ export function GeoJSONUploadModal({
     try {
       parsedGeoJSON = JSON.parse(formData.geojsonData);
     } catch (error) {
-      toast.error('Invalid JSON format. Please check your GeoJSON data.');
+      toastError.api('Invalid JSON format. Please check your GeoJSON data.');
       return;
     }
 
     // Basic GeoJSON validation
     if (parsedGeoJSON.type !== 'FeatureCollection') {
-      toast.error('GeoJSON must be a FeatureCollection');
+      toastError.api('GeoJSON must be a FeatureCollection');
       return;
     }
 
     if (!parsedGeoJSON.features || parsedGeoJSON.features.length === 0) {
-      toast.error('GeoJSON must contain at least one feature');
+      toastError.api('GeoJSON must contain at least one feature');
       return;
     }
 
@@ -82,7 +82,7 @@ export function GeoJSONUploadModal({
     );
 
     if (missingProperty) {
-      toast.error(`Some features are missing the property: ${formData.propertiesKey}`);
+      toastError.api(`Some features are missing the property: ${formData.propertiesKey}`);
       return;
     }
 
@@ -99,7 +99,7 @@ export function GeoJSONUploadModal({
 
       await apiPost('/api/charts/geojsons/upload/', uploadData);
 
-      toast.success('GeoJSON uploaded successfully!');
+      toastSuccess.generic('GeoJSON uploaded successfully!');
 
       // Reset form
       setFormData({
@@ -114,7 +114,7 @@ export function GeoJSONUploadModal({
       onClose();
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload GeoJSON');
+      toastError.api(error, 'Failed to upload GeoJSON');
     } finally {
       setIsLoading(false);
     }

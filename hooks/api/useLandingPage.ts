@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { apiPost, apiDelete, apiGet } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 interface LandingPageResponse {
   success: boolean;
@@ -16,7 +16,6 @@ interface LandingPageResolve {
 }
 
 export function useLandingPage() {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   // Get resolved landing page for current user
@@ -27,51 +26,37 @@ export function useLandingPage() {
       return response;
     } catch (error) {
       console.error('Error resolving landing page:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to resolve landing page',
-        variant: 'destructive',
-      });
+      toastError.load(error, 'landing page');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   // Set personal landing dashboard
-  const setPersonalLanding = useCallback(
-    async (dashboardId: number): Promise<boolean> => {
-      try {
-        setIsLoading(true);
-        const response: LandingPageResponse = await apiPost(
-          `/api/dashboards/landing-page/set-personal/${dashboardId}`
-        );
+  const setPersonalLanding = useCallback(async (dashboardId: number): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      const response: LandingPageResponse = await apiPost(
+        `/api/dashboards/landing-page/set-personal/${dashboardId}`
+      );
 
-        if (response.success) {
-          // Revalidate user data to update landing page info
-          await mutate('/api/v1/organizations/users/currentuserv2');
+      if (response.success) {
+        // Revalidate user data to update landing page indicators
+        await mutate('/api/v1/organizations/users/currentuserv2');
 
-          toast({
-            title: 'Success',
-            description: response.message || 'Dashboard set as landing page',
-          });
-          return true;
-        }
-        return false;
-      } catch (error: any) {
-        console.error('Error setting personal landing page:', error);
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.detail || 'Failed to set landing page',
-          variant: 'destructive',
-        });
-        return false;
-      } finally {
-        setIsLoading(false);
+        toastSuccess.generic(response.message || 'Dashboard set as landing page');
+        return true;
       }
-    },
-    [toast]
-  );
+      return false;
+    } catch (error: any) {
+      console.error('Error setting personal landing page:', error);
+      toastError.api(error?.response?.data?.detail || error, 'Failed to set landing page');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Remove personal landing dashboard
   const removePersonalLanding = async (): Promise<boolean> => {
@@ -82,23 +67,16 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update landing page info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
-        toast({
-          title: 'Success',
-          description: response.message || 'Personal landing page removed',
-        });
+        toastSuccess.generic(response.message || 'Personal landing page removed');
         return true;
       }
       return false;
     } catch (error: any) {
       console.error('Error removing personal landing page:', error);
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.detail || 'Failed to remove landing page',
-        variant: 'destructive',
-      });
+      toastError.api(error?.response?.data?.detail || error, 'Failed to remove landing page');
       return false;
     } finally {
       setIsLoading(false);
@@ -114,23 +92,16 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update org default info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
-        toast({
-          title: 'Success',
-          description: response.message || 'Dashboard set as organization default',
-        });
+        toastSuccess.generic(response.message || 'Dashboard set as organization default');
         return true;
       }
       return false;
     } catch (error: any) {
       console.error('Error setting org default:', error);
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.detail || 'Failed to set organization default',
-        variant: 'destructive',
-      });
+      toastError.api(error?.response?.data?.detail || error, 'Failed to set organization default');
       return false;
     } finally {
       setIsLoading(false);
@@ -146,23 +117,19 @@ export function useLandingPage() {
       );
 
       if (response.success) {
-        // Revalidate user data to update org default info
+        // Revalidate user data to update landing page indicators
         await mutate('/api/v1/organizations/users/currentuserv2');
 
-        toast({
-          title: 'Success',
-          description: response.message || 'Organization default removed',
-        });
+        toastSuccess.generic(response.message || 'Organization default removed');
         return true;
       }
       return false;
     } catch (error: any) {
       console.error('Error removing org default:', error);
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.detail || 'Failed to remove organization default',
-        variant: 'destructive',
-      });
+      toastError.api(
+        error?.response?.data?.detail || error,
+        'Failed to remove organization default'
+      );
       return false;
     } finally {
       setIsLoading(false);

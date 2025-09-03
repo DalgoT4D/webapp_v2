@@ -8,7 +8,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
 
@@ -63,16 +63,12 @@ export function ChartExportDropdownForList({
       }
 
       const formatName = format.toUpperCase();
-      toast.success(`Chart exported as ${formatName}`, {
-        description: format === 'pdf' ? 'Professional document format' : 'High resolution image',
-      });
+      toastSuccess.exported(chartTitle, format);
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);
       const errorMessage = error.message || 'Failed to export chart';
-      toast.error('Export Failed', {
-        description: errorMessage,
-      });
+      toastError.export(error, format);
       onExportError?.(errorMessage);
     } finally {
       setIsExporting(false);

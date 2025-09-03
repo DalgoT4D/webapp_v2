@@ -535,7 +535,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       <div>
         {/* Chart Preview - Full width */}
         <div>
-          <Card className="h-[600px]">
+          <Card className="h-[75vh]">
             <CardHeader>
               <CardTitle>Chart Preview</CardTitle>
             </CardHeader>
@@ -550,6 +550,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   mapDataError={mapDataError}
                   title={chart.title}
                   valueColumn={chart.extra_config?.aggregate_column}
+                  customizations={chart.extra_config?.customizations || {}}
                   onRegionClick={handleRegionClick}
                   drillDownPath={drillDownPath}
                   onDrillUp={handleDrillUp}

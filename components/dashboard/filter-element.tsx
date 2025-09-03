@@ -36,12 +36,26 @@ export function FilterElement({
   isPublicMode = false,
   publicToken,
 }: FilterElementProps) {
+  // Validate filter before proceeding
+  if (!filter || !filter.id) {
+    console.error('Invalid filter passed to FilterElement:', filter);
+    return (
+      <div className="p-4 text-red-500 border border-red-200 rounded">
+        Invalid filter configuration
+      </div>
+    );
+  }
+
   const [localValue, setLocalValue] = useState<any>(value || null);
 
   // Sync localValue when value prop changes (for default values)
   useEffect(() => {
-    if (value !== localValue) {
-      setLocalValue(value);
+    try {
+      if (value !== localValue) {
+        setLocalValue(value);
+      }
+    } catch (error) {
+      console.error('Error syncing filter value:', error);
     }
   }, [value, localValue, filter.id]);
 

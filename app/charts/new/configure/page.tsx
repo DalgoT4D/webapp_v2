@@ -557,7 +557,7 @@ function ConfigureChartPageContent() {
       const hasLegacyDrillDown = formData.district_column;
 
       if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
-        toast.info('Configure drill-down levels to enable region drilling');
+        toastInfo.generic('Configure drill-down levels to enable region drilling');
         return;
       }
 
@@ -590,9 +590,9 @@ function ConfigureChartPageContent() {
         };
 
         setDrillDownPath([newDrillDownLevel]);
-        toast.success(`✨ Drilling down to ${regionName} districts!`);
+        toastSuccess.generic(`✨ Drilling down to ${regionName} districts!`);
       } else {
-        toast.error(`Region "${regionName}" not found for drill-down`);
+        toastError.api(`Region "${regionName}" not found for drill-down`);
       }
     },
     [
@@ -867,6 +867,7 @@ function ConfigureChartPageContent() {
                         mapDataError={mapDataError}
                         title={formData.title}
                         valueColumn={formData.aggregate_column}
+                        customizations={formData.customizations}
                         // ✅ UPDATE: Complete drill-down support in create mode
                         onRegionClick={handleMapRegionClick}
                         drillDownPath={drillDownPath}
