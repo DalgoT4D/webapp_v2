@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, User, LogOut, ChevronDown, Bell, Menu, AlignJustify } from 'lucide-react';
+import { BarChart3, LogOut, ChevronDown, Menu, AlignJustify } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -142,16 +141,6 @@ export function Header({
 
       {/* Right side actions */}
       <div className="flex items-center gap-3">
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-          {/* Notification badge */}
-          <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full flex items-center justify-center">
-            <span className="text-xs text-white font-bold">•</span>
-          </span>
-        </Button>
-
         {/* Organization Selector */}
         {currentOrg && availableOrgs.length > 1 && (
           <DropdownMenu open={isOrgMenuOpen} onOpenChange={setIsOrgMenuOpen}>
@@ -218,13 +207,6 @@ export function Header({
                 )}
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push('/settings')}>
-                <User className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
