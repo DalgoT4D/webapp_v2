@@ -867,6 +867,7 @@ function ConfigureChartPageContent() {
                         mapDataError={mapDataError}
                         title={formData.title}
                         valueColumn={formData.aggregate_column}
+                        customizations={formData.customizations}
                         // ✅ UPDATE: Complete drill-down support in create mode
                         onRegionClick={handleMapRegionClick}
                         drillDownPath={drillDownPath}
