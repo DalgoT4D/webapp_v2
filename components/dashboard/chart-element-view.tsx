@@ -157,7 +157,7 @@ export function ChartElementView({
   const fetcher = isPublicMode
     ? async (url: string) => {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
         );
         if (!response.ok) {
           throw new Error('Failed to fetch chart data');
@@ -167,10 +167,73 @@ export function ChartElementView({
       }
     : apiGet;
 
+  // Fetch chart metadata - public vs private mode
+  const publicChartMetadataUrl =
+    isPublicMode && publicToken
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/`
+      : null;
+
+  const {
+    data: publicChartMetadata,
+    error: publicChartError,
+    isLoading: publicChartLoading,
+  } = useSWR(
+    publicChartMetadataUrl,
+    isPublicMode
+      ? async (url: string) => {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
+          );
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          return response.json();
+        }
+      : null,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0,
+    }
+  );
+
+  // Private mode metadata
+  const { data: chartMetadata, error: metadataError } = useSWR(
+    !isPublicMode ? `/api/charts/${chartId}` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0,
+      // Don't retry on 404 errors
+      onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+        // Never retry on 404
+        if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+          return;
+        }
+        // Only retry up to 3 times for other errors
+        if (retryCount >= 3) return;
+
+        // Retry after 1 second
+        setTimeout(() => revalidate({ retryCount }), 1000);
+      },
+    }
+  );
+
+  // Use public chart metadata when in public mode, chart when in private mode
+  const effectiveChart = isPublicMode ? publicChartMetadata : chart;
+  const effectiveChartLoading = isPublicMode ? publicChartLoading : chartLoading;
+  const effectiveChartError = isPublicMode ? publicChartError : chartError;
+
+  // Determine chart type using effective chart
+  const isTableChart = effectiveChart?.chart_type === 'table';
+  const isMapChart = effectiveChart?.chart_type === 'map';
+
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
-  const shouldFetchChartData = chart
-    ? chart.chart_type !== 'map' && chart.chart_type !== 'table'
-    : true;
+  // Only fetch when we know the chart type and it's not a map or table
+  const shouldFetchChartData = effectiveChart
+    ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+    : false;
   const {
     data: chartData,
     isLoading,
@@ -200,74 +263,84 @@ export function ChartElementView({
     },
   });
 
-  // Fetch chart metadata for title resolution (not needed in public mode)
-  const { data: chartMetadata, error: metadataError } = useSWR(
-    !isPublicMode ? `/api/charts/${chartId}` : null,
-    apiGet,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      refreshInterval: 0,
-      // Don't retry on 404 errors
-      onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
-        // Never retry on 404
-        if (error?.message?.includes('404') || error?.message?.includes('not found')) {
-          return;
-        }
-        // Only retry up to 3 times for other errors
-        if (retryCount >= 3) return;
-
-        // Retry after 1 second
-        setTimeout(() => revalidate({ retryCount }), 1000);
-      },
-    }
-  );
-
-  // Determine chart type - use direct comparison like chart-element-v2
-  const isTableChart = chart?.chart_type === 'table';
-
-  const isMapChart = chart?.chart_type === 'map';
-
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
-    chart?.chart_type === 'map' && chart?.extra_config?.layers
-      ? chart.extra_config.layers[currentLevel]
+    effectiveChart?.chart_type === 'map' && effectiveChart?.extra_config?.layers
+      ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
   // For table charts, also fetch raw data using data preview API
   const chartDataPayload: ChartDataPayload | null =
-    isTableChart && chart
+    isTableChart && effectiveChart
       ? {
-          chart_type: chart.chart_type,
-          computation_type: chart.computation_type as 'raw' | 'aggregated',
-          schema_name: chart.schema_name,
-          table_name: chart.table_name,
-          x_axis: chart.extra_config?.x_axis_column,
-          y_axis: chart.extra_config?.y_axis_column,
-          dimension_col: chart.extra_config?.dimension_column,
-          aggregate_col: chart.extra_config?.aggregate_column,
-          aggregate_func: chart.extra_config?.aggregate_function || 'sum',
-          extra_dimension: chart.extra_config?.extra_dimension_column,
-          metrics: chart.extra_config?.metrics,
+          chart_type: effectiveChart.chart_type,
+          computation_type: effectiveChart.computation_type as 'raw' | 'aggregated',
+          schema_name: effectiveChart.schema_name,
+          table_name: effectiveChart.table_name,
+          x_axis: effectiveChart.extra_config?.x_axis_column,
+          y_axis: effectiveChart.extra_config?.y_axis_column,
+          dimension_col: effectiveChart.extra_config?.dimension_column,
+          aggregate_col: effectiveChart.extra_config?.aggregate_column,
+          aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
+          extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
+          metrics: effectiveChart.extra_config?.metrics,
           extra_config: {
             filters: [
-              ...(chart.extra_config?.filters || []),
+              ...(effectiveChart.extra_config?.filters || []),
               ...formatAsChartFilters(resolvedDashboardFilters),
             ],
-            pagination: chart.extra_config?.pagination,
-            sort: chart.extra_config?.sort,
+            pagination: effectiveChart.extra_config?.pagination,
+            sort: effectiveChart.extra_config?.sort,
           },
           // Remove dashboard_filters since we're using filters in extra_config now
         }
       : null;
 
-  // For table charts, use the same reliable approach as chart-element-v2
+  // For table charts - public vs private mode
+  const publicTableDataUrl =
+    isPublicMode && publicToken && chartDataPayload && isTableChart
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/`
+      : null;
+
   const {
-    data: tableData,
-    error: tableError,
-    isLoading: tableLoading,
-  } = useChartDataPreview(chartDataPayload, 1, 50);
+    data: publicTableData,
+    error: publicTableError,
+    isLoading: publicTableLoading,
+  } = useSWR(
+    publicTableDataUrl,
+    isPublicMode && isTableChart
+      ? async (url: string) => {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...chartDataPayload,
+                offset: 0,
+                limit: 50,
+              }),
+            }
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
+        }
+      : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
+
+  // Private mode table data
+  const {
+    data: privateTableData,
+    error: privateTableError,
+    isLoading: privateTableLoading,
+  } = useChartDataPreview(!isPublicMode ? chartDataPayload : null, 1, 50);
+
+  // Use appropriate table data based on mode
+  const tableData = isPublicMode ? publicTableData : privateTableData;
+  const tableError = isPublicMode ? publicTableError : privateTableError;
+  const tableLoading = isPublicMode ? publicTableLoading : privateTableLoading;
 
   // Get the current drill-down region ID for dynamic geojson fetching
   const currentDrillDownRegionId =
@@ -280,7 +353,7 @@ export function ChartElementView({
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
 
-  if (chart?.chart_type === 'map') {
+  if (effectiveChart?.chart_type === 'map') {
     if (drillDownPath.length > 0) {
       // We're in a drill-down state, use the first available geojson for this region
       const lastDrillDown = drillDownPath[drillDownPath.length - 1];
@@ -300,10 +373,10 @@ export function ChartElementView({
       activeGeographicColumn = currentLayer.geographic_column;
     } else {
       // Fallback to first layer or original configuration
-      const firstLayer = chart.extra_config?.layers?.[0];
-      activeGeojsonId = firstLayer?.geojson_id || chart.extra_config?.selected_geojson_id;
+      const firstLayer = effectiveChart.extra_config?.layers?.[0];
+      activeGeojsonId = firstLayer?.geojson_id || effectiveChart.extra_config?.selected_geojson_id;
       activeGeographicColumn =
-        firstLayer?.geographic_column || chart.extra_config?.geographic_column;
+        firstLayer?.geographic_column || effectiveChart.extra_config?.geographic_column;
     }
   }
 
@@ -320,55 +393,124 @@ export function ChartElementView({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
-    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
+    return effectiveChart?.chart_type === 'map' &&
+      effectiveChart.extra_config &&
+      activeGeographicColumn
       ? {
-          schema_name: chart.schema_name,
-          table_name: chart.table_name,
+          schema_name: effectiveChart.schema_name,
+          table_name: effectiveChart.table_name,
           geographic_column: activeGeographicColumn,
-          value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          value_column:
+            effectiveChart.extra_config.aggregate_column ||
+            effectiveChart.extra_config.value_column,
+          aggregate_function: effectiveChart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
           chart_filters: [
-            ...(chart.extra_config.filters || []), // Chart-level filters
+            ...(effectiveChart.extra_config.filters || []), // Chart-level filters
             ...formatAsChartFilters(resolvedDashboardFilters), // Resolved dashboard filters
           ],
           // Remove the old dashboard_filters format since we're using chart_filters now
           // Include full extra_config for pagination, sorting, and other features
           extra_config: {
             filters: [
-              ...(chart.extra_config.filters || []),
+              ...(effectiveChart.extra_config.filters || []),
               ...formatAsChartFilters(resolvedDashboardFilters),
             ],
-            pagination: chart.extra_config.pagination,
-            sort: chart.extra_config.sort,
+            pagination: effectiveChart.extra_config.pagination,
+            sort: effectiveChart.extra_config.sort,
           },
         }
       : null;
   }, [
-    chart?.chart_type,
-    chart?.schema_name,
-    chart?.table_name,
-    chart?.extra_config,
+    effectiveChart?.chart_type,
+    effectiveChart?.schema_name,
+    effectiveChart?.table_name,
+    effectiveChart?.extra_config,
     activeGeographicColumn,
     filters,
     resolvedDashboardFilters, // Updated: Use resolved filters instead of raw dashboardFilters
   ]);
 
-  // Fetch GeoJSON data based on active geojson ID
+  // Fetch GeoJSON data - public vs private mode
+  const publicGeojsonUrl =
+    isPublicMode && publicToken && activeGeojsonId && isMapChart
+      ? `/api/v1/public/dashboards/${publicToken}/geojsons/${activeGeojsonId}/`
+      : null;
 
   const {
-    data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
-  } = useGeoJSONData(activeGeojsonId);
+    data: publicGeojsonData,
+    error: publicGeojsonError,
+    isLoading: publicGeojsonLoading,
+  } = useSWR(
+    publicGeojsonUrl,
+    isPublicMode && isMapChart
+      ? async (url: string) => {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
+        }
+      : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
 
-  // Fetch map data using the working map-data-overlay endpoint
+  // Private mode geojson data
   const {
-    data: mapDataOverlay,
-    error: mapError,
-    isLoading: mapLoading,
-    mutate: mutateMapData,
-  } = useMapDataOverlay(mapDataOverlayPayload);
+    data: privateGeojsonData,
+    error: privateGeojsonError,
+    isLoading: privateGeojsonLoading,
+  } = useGeoJSONData(!isPublicMode ? activeGeojsonId : null);
+
+  // Use appropriate geojson data based on mode
+  const geojsonData = isPublicMode ? publicGeojsonData : privateGeojsonData;
+  const geojsonError = isPublicMode ? publicGeojsonError : privateGeojsonError;
+  const geojsonLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+
+  // Fetch map data overlay - public vs private mode
+  const publicMapDataUrl =
+    isPublicMode && publicToken && mapDataOverlayPayload && isMapChart
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
+      : null;
+
+  const {
+    data: publicMapData,
+    error: publicMapError,
+    isLoading: publicMapLoading,
+    mutate: mutatePublicMapData,
+  } = useSWR(
+    publicMapDataUrl ? [publicMapDataUrl, JSON.stringify(mapDataOverlayPayload)] : null,
+    isPublicMode && isMapChart
+      ? async (key: string | [string, string]) => {
+          const url = Array.isArray(key) ? key[0] : key;
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mapDataOverlayPayload),
+            }
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
+        }
+      : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
+
+  // Private mode map data
+  const {
+    data: privateMapDataOverlay,
+    error: privateMapError,
+    isLoading: privateMapLoading,
+    mutate: mutatePrivateMapData,
+  } = useMapDataOverlay(!isPublicMode ? mapDataOverlayPayload : null);
+
+  // Use appropriate map data based on mode
+  const mapDataOverlay = isPublicMode ? publicMapData : privateMapDataOverlay;
+  const mapError = isPublicMode ? publicMapError : privateMapError;
+  const mapLoading = isPublicMode ? publicMapLoading : privateMapLoading;
+  const mutateMapData = isPublicMode ? mutatePublicMapData : mutatePrivateMapData;
 
   // Get the actual error message
   const errorMessage =
@@ -382,15 +524,15 @@ export function ChartElementView({
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
-    if (chart.chart_type !== 'map') return;
+    if (effectiveChart.chart_type !== 'map') return;
 
     // Check for dynamic drill-down configuration (new system)
     const hasDynamicDrillDown =
-      chart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
+      effectiveChart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
 
     // NEW DYNAMIC SYSTEM: Use geographic hierarchy
     if (hasDynamicDrillDown) {
-      const hierarchy = chart.extra_config.geographic_hierarchy;
+      const hierarchy = effectiveChart.extra_config.geographic_hierarchy;
       const nextLevel = hierarchy.drill_down_levels.find(
         (level: any) => level.level === currentLevel + 1
       );
@@ -444,14 +586,14 @@ export function ChartElementView({
       let levelName = '';
 
       // Determine next level based on current drill-down state
-      if (currentLevel === 0 && chart.extra_config.district_column) {
-        nextGeographicColumn = chart.extra_config.district_column;
+      if (currentLevel === 0 && effectiveChart.extra_config.district_column) {
+        nextGeographicColumn = effectiveChart.extra_config.district_column;
         levelName = 'districts';
-      } else if (currentLevel === 1 && chart.extra_config.ward_column) {
-        nextGeographicColumn = chart.extra_config.ward_column;
+      } else if (currentLevel === 1 && effectiveChart.extra_config.ward_column) {
+        nextGeographicColumn = effectiveChart.extra_config.ward_column;
         levelName = 'wards';
-      } else if (currentLevel === 2 && chart.extra_config.subward_column) {
-        nextGeographicColumn = chart.extra_config.subward_column;
+      } else if (currentLevel === 2 && effectiveChart.extra_config.subward_column) {
+        nextGeographicColumn = effectiveChart.extra_config.subward_column;
         levelName = 'sub-wards';
       }
 
@@ -505,7 +647,7 @@ export function ChartElementView({
     }
 
     const nextLevel = currentLevel + 1;
-    const nextLayer = chart.extra_config.layers[nextLevel];
+    const nextLayer = effectiveChart.extra_config.layers[nextLevel];
 
     if (!nextLayer) {
       // No next layer configured
@@ -954,7 +1096,7 @@ export function ChartElementView({
             mapDataLoading={mapLoading}
             mapDataError={mapError}
             title=""
-            valueColumn={chart?.extra_config?.aggregate_column}
+            valueColumn={effectiveChart?.extra_config?.aggregate_column}
             onRegionClick={handleRegionClick}
             drillDownPath={drillDownPath}
             onDrillUp={handleDrillUp}
