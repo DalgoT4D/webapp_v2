@@ -77,17 +77,32 @@ function ValueFilterWidget({
         : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
       : null;
 
-  // Custom fetcher for public mode
+  // Custom fetcher for public mode with better error handling
   const fetcher = isPublicMode
     ? async (url: string) => {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
-        );
-        if (!response.ok) throw new Error('Failed to fetch filter options');
-        const data = await response.json();
-        return data; // Return full response object
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+          );
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch filter options: ${response.status} ${errorText}`);
+          }
+          const data = await response.json();
+          return data; // Return full response object
+        } catch (error) {
+          console.error('Filter options fetch error:', error);
+          throw error;
+        }
       }
-    : (url: string) => apiGet(url);
+    : async (url: string) => {
+        try {
+          return await apiGet(url);
+        } catch (error) {
+          console.error('Filter options API error:', error);
+          throw error;
+        }
+      };
 
   // Fetch available options dynamically from the API
   const {
@@ -107,21 +122,24 @@ function ValueFilterWidget({
   // Use dynamically fetched options
   const availableOptions = filterOptions?.options || [];
 
-  // Filter options based on search term
-  const filteredOptions = availableOptions.filter(
-    (option: FilterOption) =>
-      option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      option.value.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter options based on search term - with null safety
+  const filteredOptions =
+    availableOptions?.filter(
+      (option: FilterOption) =>
+        option?.label?.toLowerCase?.()?.includes(searchTerm.toLowerCase()) ||
+        option?.value?.toLowerCase?.()?.includes(searchTerm.toLowerCase())
+    ) || [];
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
+    if (!optionValue) return; // Guard against invalid option values
+
     let newSelection: string[];
 
-    if (valueFilter.settings.can_select_multiple) {
+    if (valueFilter.settings?.can_select_multiple) {
       if (isChecked) {
-        newSelection = [...selectedValues, optionValue];
+        newSelection = [...(selectedValues || []), optionValue];
       } else {
-        newSelection = selectedValues.filter((v) => v !== optionValue);
+        newSelection = (selectedValues || []).filter((v) => v !== optionValue);
       }
     } else {
       newSelection = isChecked ? [optionValue] : [];
@@ -185,7 +203,10 @@ function ValueFilterWidget({
           </div>
         ) : filterOptionsError ? (
           <div className="text-xs text-red-600 p-2 bg-red-50 rounded text-center">
-            Error loading options
+            <div>Error loading options</div>
+            <div className="text-xs text-red-500 mt-1">
+              {filterOptionsError.message || 'Please check your data connection'}
+            </div>
           </div>
         ) : availableOptions.length === 0 ? (
           <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
@@ -227,7 +248,7 @@ function ValueFilterWidget({
                 />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start">
+            <PopoverContent className="w-80 p-0" align="start">
               <div className="p-2">
                 <Input
                   placeholder="Search..."
@@ -546,18 +567,46 @@ function NumericalFilterWidget({
 export function DashboardFilterWidget(props: FilterWidgetProps) {
   if (!props.filter) {
     console.error('No filter provided to DashboardFilterWidget');
-    return <div>No filter data</div>;
+    return (
+      <div className="p-4 text-red-500 border border-red-200 rounded">No filter data available</div>
+    );
   }
 
-  if (props.filter.filter_type === DashboardFilterType.VALUE) {
-    return <ValueFilterWidget {...props} />;
-  } else if (props.filter.filter_type === DashboardFilterType.NUMERICAL) {
-    return <NumericalFilterWidget {...props} />;
-  } else if (props.filter.filter_type === DashboardFilterType.DATETIME) {
-    return <DateTimeFilterWidget {...props} />;
+  // Validate required filter properties
+  if (
+    !props.filter.id ||
+    !props.filter.schema_name ||
+    !props.filter.table_name ||
+    !props.filter.column_name
+  ) {
+    console.error('Invalid filter data:', props.filter);
+    return (
+      <div className="p-4 text-red-500 border border-red-200 rounded">
+        Invalid filter configuration
+      </div>
+    );
   }
 
-  return <div>Unknown filter type: {(props.filter as any).filter_type}</div>;
+  try {
+    if (props.filter.filter_type === DashboardFilterType.VALUE) {
+      return <ValueFilterWidget {...props} />;
+    } else if (props.filter.filter_type === DashboardFilterType.NUMERICAL) {
+      return <NumericalFilterWidget {...props} />;
+    } else if (props.filter.filter_type === DashboardFilterType.DATETIME) {
+      return <DateTimeFilterWidget {...props} />;
+    }
+
+    return (
+      <div className="p-4 text-orange-500 border border-orange-200 rounded">
+        Unknown filter type: {(props.filter as any).filter_type}
+      </div>
+    );
+  } catch (error) {
+    console.error('Error rendering filter widget:', error);
+    return (
+      <div className="p-4 text-red-500 border border-red-200 rounded">Error loading filter</div>
+    );
+  }
 }
 
 // Filter Bar Component for Dashboard View

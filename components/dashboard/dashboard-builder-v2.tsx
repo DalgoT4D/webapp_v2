@@ -65,10 +65,16 @@ import type { DashboardFilter } from '@/hooks/api/useDashboards';
 function convertFilterToConfig(
   filter: DashboardFilter,
   position: { x: number; y: number; w: number; h: number }
-): DashboardFilterConfig {
+): DashboardFilterConfig | null {
+  // Validate required filter properties
+  if (!filter || !filter.id || !filter.schema_name || !filter.table_name || !filter.column_name) {
+    console.error('Invalid filter data:', filter);
+    return null;
+  }
+
   const baseConfig = {
     id: filter.id.toString(),
-    name: filter.name,
+    name: filter.name || filter.column_name || 'Unnamed Filter',
     schema_name: filter.schema_name,
     table_name: filter.table_name,
     column_name: filter.column_name,
@@ -76,30 +82,45 @@ function convertFilterToConfig(
     position,
   };
 
+  // Ensure settings object exists
+  const settings = filter.settings || {};
+
   if (filter.filter_type === 'value') {
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
+      settings: {
+        has_default_value: false,
+        can_select_multiple: false,
+        ...settings,
+      } as ValueFilterSettings,
     };
   } else if (filter.filter_type === 'numerical') {
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.NUMERICAL,
-      settings: filter.settings as NumericalFilterSettings,
+      settings: {
+        ...settings,
+      } as NumericalFilterSettings,
     };
   } else if (filter.filter_type === 'datetime') {
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.DATETIME,
-      settings: filter.settings as DateTimeFilterSettings,
+      settings: {
+        ...settings,
+      } as DateTimeFilterSettings,
     };
   } else {
     // Fallback to VALUE type for unknown types
     return {
       ...baseConfig,
       filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
+      settings: {
+        has_default_value: false,
+        can_select_multiple: false,
+        ...settings,
+      } as ValueFilterSettings,
     };
   }
 }
@@ -285,17 +306,33 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Load responsive layouts if available, otherwise they'll be generated later
     const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
-    // Load filters from backend (without creating components - they're already in components)
+    // Load filters from backend with proper error handling
     const initialFilters = Array.isArray(initialData?.filters)
-      ? initialData.filters.map((filter: any) => ({
-          id: filter.id,
-          name: filter.name || filter.column_name, // Use name first, fallback to column_name
-          schema_name: filter.schema_name,
-          table_name: filter.table_name,
-          column_name: filter.column_name,
-          filter_type: filter.filter_type,
-          settings: filter.settings || {},
-        }))
+      ? initialData.filters
+          .map((filter: any) => {
+            // Validate filter data before processing
+            if (
+              !filter ||
+              !filter.id ||
+              !filter.schema_name ||
+              !filter.table_name ||
+              !filter.column_name
+            ) {
+              console.warn('Skipping invalid filter:', filter);
+              return null;
+            }
+
+            return {
+              id: filter.id,
+              name: filter.name || filter.column_name || 'Unnamed Filter',
+              schema_name: filter.schema_name,
+              table_name: filter.table_name,
+              column_name: filter.column_name,
+              filter_type: filter.filter_type || 'value', // Default to 'value' if missing
+              settings: filter.settings || {},
+            };
+          })
+          .filter(Boolean) // Remove null entries
       : [];
 
     console.log('🎛️ Dashboard Builder - Initial Filters:', {
