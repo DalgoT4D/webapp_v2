@@ -178,6 +178,9 @@ export function MapPreview({
         const minValue = values.length > 0 ? Math.min(...values) : 0;
         const maxValue = values.length > 0 ? Math.max(...values) : 100;
 
+        // Check if we have single value scenario (all regions have same value)
+        const hasSingleValue = minValue === maxValue && values.length > 0;
+
         // Get color scheme from customizations
         const colorScheme = safeCustomizations.colorScheme || 'Blues';
         const colorMaps: Record<string, string> = {
@@ -193,7 +196,7 @@ export function MapPreview({
         // Create color-mapped data points based on scheme
         const enhancedSeriesData = seriesData.map((item) => {
           const normalizedValue =
-            maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 0;
+            maxValue > minValue ? (item.value - minValue) / (maxValue - minValue) : 1; // Use 1.0 for single value case
           // Map to opacity range: 0.3 (min) to 1.0 (max) for better visibility
           const opacity = 0.3 + normalizedValue * 0.7;
           return {
@@ -227,9 +230,10 @@ export function MapPreview({
               return `${params.name}<br/>${safeCustomizations.nullValueLabel !== undefined ? safeCustomizations.nullValueLabel : 'No Data'}`;
             },
           },
-          // Add legend based on customizations
+          // Add legend based on customizations (but not for single value scenarios)
           ...(safeCustomizations.showLegend !== false &&
-            values.length > 0 && {
+            values.length > 0 &&
+            !hasSingleValue && {
               visualMap: {
                 min: minValue,
                 max: maxValue,
@@ -293,8 +297,8 @@ export function MapPreview({
               // Animation settings
               animation: safeCustomizations.animation !== false,
               animationDuration: safeCustomizations.animation !== false ? 1000 : 0,
-              // Use enhanced data with individual colors when legend is disabled
-              ...(safeCustomizations.showLegend === false
+              // Use enhanced data with individual colors when legend is disabled OR when we have single value
+              ...(safeCustomizations.showLegend === false || hasSingleValue
                 ? {
                     data: enhancedSeriesData,
                   }
