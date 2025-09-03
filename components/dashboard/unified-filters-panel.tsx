@@ -37,7 +37,6 @@ interface UnifiedFiltersPanelProps {
   onFiltersCleared?: () => void;
   isPublicMode?: boolean;
   publicToken?: string;
-  defaultCollapsed?: boolean;
 }
 
 // Unified sortable filter item component
@@ -140,7 +139,6 @@ export function UnifiedFiltersPanel({
   onFiltersCleared,
   isPublicMode = false,
   publicToken,
-  defaultCollapsed = false,
 }: UnifiedFiltersPanelProps) {
   // Helper function to extract default values from filters
   const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
@@ -184,7 +182,7 @@ export function UnifiedFiltersPanel({
     getDefaultFilterValues(initialFilters)
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [isCollapsed, setIsCollapsed] = useState(false); // Only for horizontal layout
 
   // Sync filters when initialFilters change (when filters are added/deleted externally)
   useEffect(() => {
@@ -325,7 +323,7 @@ export function UnifiedFiltersPanel({
       value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true)
   );
 
-  // Toggle collapse state
+  // Toggle collapse state (only used for horizontal layout)
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
@@ -345,19 +343,34 @@ export function UnifiedFiltersPanel({
         <div className={emptyStateClass}>
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                <button
+                  onClick={toggleCollapse}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  aria-label={isCollapsed ? 'Expand filters' : 'Collapse filters'}
+                >
+                  {isCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+              </div>
               <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
                 <Plus className="w-3 h-3 mr-1" />
                 Add{layout === 'vertical' ? '' : ' Filter'}
               </Button>
             </div>
-            <div className="text-center py-8 text-gray-500">
-              <FilterIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p className="text-sm font-medium">No filters added yet</p>
-              <p className="text-xs mt-1">
-                Click "Add{layout === 'vertical' ? '' : ' Filter'}" to create your first filter
-              </p>
-            </div>
+            {!isCollapsed && (
+              <div className="text-center py-8 text-gray-500">
+                <FilterIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm font-medium">No filters added yet</p>
+                <p className="text-xs mt-1">
+                  Click "Add{layout === 'vertical' ? '' : ' Filter'}" to create your first filter
+                </p>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -372,7 +385,20 @@ export function UnifiedFiltersPanel({
         <div className="px-4 pt-4 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                <button
+                  onClick={toggleCollapse}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  aria-label={isCollapsed ? 'Expand filters' : 'Collapse filters'}
+                >
+                  {isCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+              </div>
               <p className="text-xs text-gray-500">
                 {filters.length} filter{filters.length !== 1 ? 's' : ''}
                 {hasActiveFilters && ' • Some applied'}
@@ -413,36 +439,38 @@ export function UnifiedFiltersPanel({
           </div>
         </div>
 
-        {/* Filters List */}
-        <div className="px-4 pb-4">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={filters.map((f) => f.id)}
-              strategy={horizontalListSortingStrategy}
+        {/* Filters List - Collapsible */}
+        {!isCollapsed && (
+          <div className="px-4 pb-4">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="flex flex-wrap gap-4 items-start">
-                {filters.map((filter) => (
-                  <SortableFilterItem
-                    key={filter.id}
-                    filter={filter}
-                    currentFilterValues={currentFilterValues}
-                    onFilterChange={handleFilterChange}
-                    onRemove={handleRemoveFilter}
-                    onEdit={onEditFilter}
-                    isEditMode={isEditMode}
-                    layout={layout}
-                    isPublicMode={isPublicMode}
-                    publicToken={publicToken}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        </div>
+              <SortableContext
+                items={filters.map((f) => f.id)}
+                strategy={horizontalListSortingStrategy}
+              >
+                <div className="flex flex-wrap gap-4 items-start">
+                  {filters.map((filter) => (
+                    <SortableFilterItem
+                      key={filter.id}
+                      filter={filter}
+                      currentFilterValues={currentFilterValues}
+                      onFilterChange={handleFilterChange}
+                      onRemove={handleRemoveFilter}
+                      onEdit={onEditFilter}
+                      isEditMode={isEditMode}
+                      layout={layout}
+                      isPublicMode={isPublicMode}
+                      publicToken={publicToken}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+        )}
       </div>
     );
   }
