@@ -237,14 +237,25 @@ export function ChartElementV2({
           filters: filters, // Drill-down filters
           chart_filters: [
             ...(chart.extra_config.filters || []), // Chart-level filters
-            ...formatAsChartFilters(resolvedDashboardFilters), // Resolved dashboard filters
+            ...formatAsChartFilters(
+              resolvedDashboardFilters.filter(
+                (filter) =>
+                  filter.schema_name === chart.schema_name && filter.table_name === chart.table_name
+              )
+            ), // Only apply dashboard filters that match the chart's schema/table
           ],
           // Remove the old dashboard_filters format since we're using chart_filters now
           // Include full extra_config for pagination, sorting, and other features
           extra_config: {
             filters: [
               ...(chart.extra_config.filters || []),
-              ...formatAsChartFilters(resolvedDashboardFilters),
+              ...formatAsChartFilters(
+                resolvedDashboardFilters.filter(
+                  (filter) =>
+                    filter.schema_name === chart.schema_name &&
+                    filter.table_name === chart.table_name
+                )
+              ),
             ],
             pagination: chart.extra_config.pagination,
             sort: chart.extra_config.sort,
@@ -347,7 +358,12 @@ export function ChartElementV2({
   // For table charts, also fetch raw data using data preview API
   const chartDataPayload: ChartDataPayload | null = useMemo(() => {
     if (chart?.chart_type === 'table' && chart) {
-      const formattedFilters = formatAsChartFilters(resolvedDashboardFilters);
+      const formattedFilters = formatAsChartFilters(
+        resolvedDashboardFilters.filter(
+          (filter) =>
+            filter.schema_name === chart.schema_name && filter.table_name === chart.table_name
+        )
+      );
       console.log(`📊 [Table ${chartId}] Building payload:`, {
         resolvedDashboardFilters,
         formattedFilters,

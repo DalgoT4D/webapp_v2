@@ -61,10 +61,11 @@ export function resolveDashboardFilters(
     let operator = 'eq'; // Default operator
 
     if (filterConfig.filter_type === 'value') {
-      if (Array.isArray(value)) {
-        operator = 'in'; // Multi-select values
-      } else {
-        operator = 'eq'; // Single value
+      // Always use 'in' operator and array format for consistency
+      // This ensures both single and multi-select work with the backend
+      operator = 'in';
+      if (!Array.isArray(value)) {
+        value = [value]; // Convert single value to array for consistent format
       }
     } else if (filterConfig.filter_type === 'numerical') {
       if (typeof value === 'object' && value.min !== undefined && value.max !== undefined) {

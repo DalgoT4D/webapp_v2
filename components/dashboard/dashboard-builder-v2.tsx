@@ -422,14 +422,45 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Ref for the white dashboard container (actual boundary)
     const dashboardContainerRef = useRef<HTMLDivElement>(null);
 
-    // Helper function to scroll to bottom after adding a component
-    const scrollToBottom = () => {
+    // Smart scroll function - only scrolls if component is actually out of view
+    const scrollToComponentIfNeeded = (componentId: string) => {
       setTimeout(() => {
-        if (canvasRef.current) {
-          canvasRef.current.scrollTo({
-            top: canvasRef.current.scrollHeight,
-            behavior: 'smooth',
-          });
+        if (!canvasRef.current || !dashboardContainerRef.current) return;
+
+        const canvas = canvasRef.current;
+        const dashboardContainer = dashboardContainerRef.current;
+
+        // Find the newly added component element
+        const componentElement = canvas.querySelector(`[data-component-id="${componentId}"]`);
+        if (!componentElement) return;
+
+        // Get container and component positions
+        const canvasRect = canvas.getBoundingClientRect();
+        const componentRect = componentElement.getBoundingClientRect();
+
+        // Check if component is actually outside the visible area
+        const isComponentBelowView = componentRect.bottom > canvasRect.bottom;
+        const isComponentAboveView = componentRect.top < canvasRect.top;
+
+        // Only scroll if there's actual content to scroll and component is out of view
+        const hasScrollableContent = canvas.scrollHeight > canvas.clientHeight;
+        const needsScroll = hasScrollableContent && (isComponentBelowView || isComponentAboveView);
+
+        if (needsScroll) {
+          // Smart scroll: scroll to show the component, not just to bottom
+          if (isComponentBelowView) {
+            // Scroll down to show component
+            canvas.scrollTo({
+              top: canvas.scrollTop + (componentRect.bottom - canvasRect.bottom) + 20, // 20px padding
+              behavior: 'smooth',
+            });
+          } else if (isComponentAboveView) {
+            // Scroll up to show component
+            canvas.scrollTo({
+              top: canvas.scrollTop - (canvasRect.top - componentRect.top) - 20, // 20px padding
+              behavior: 'smooth',
+            });
+          }
         }
       }, 100); // Small delay to ensure component is rendered
     };
@@ -833,8 +864,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         });
 
-        // Auto-scroll to bottom to show the newly added component
-        scrollToBottom();
+        // Smart scroll to show the newly added component if needed
+        scrollToComponentIfNeeded(newComponent.id);
       } catch (error: any) {
         console.error('Failed to add chart:', error.message || 'Please try again');
       }
@@ -883,8 +914,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       });
 
-      // Auto-scroll to bottom to show the newly added component
-      scrollToBottom();
+      // Smart scroll to show the newly added component if needed
+      scrollToComponentIfNeeded(newComponent.id);
     };
 
     // Remove component
@@ -1679,25 +1710,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 position: 'relative',
               }}
             >
-              {/* Screen size and grid info indicator */}
-              <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded z-10">
-                <div>
-                  {currentScreenConfig.name} ({currentScreenConfig.width}×
-                  {currentScreenConfig.height})
-                </div>
-                <div>Configured cols: {currentScreenConfig.cols}</div>
-                <div>
-                  Grid width: {actualContainerWidth}px (should use {currentScreenConfig.cols} cols)
-                </div>
-                <div>
-                  Actual col width: {Math.floor(actualContainerWidth / currentScreenConfig.cols)}px
-                </div>
-                <div>
-                  Fixed col width:{' '}
-                  {Math.floor(currentScreenConfig.width / currentScreenConfig.cols)}px
-                </div>
-              </div>
-
               <GridLayout
                 className="layout relative z-10"
                 layout={state.layout}
@@ -1720,6 +1732,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
                   <div
                     key={item.i}
+                    data-component-id={item.i}
                     className="dashboard-item bg-white rounded-lg shadow-sm border cursor-move"
                   >
                     <div className="absolute top-2 left-2 p-1 rounded z-10 pointer-events-none">

@@ -288,7 +288,13 @@ export function ChartElementView({
           extra_config: {
             filters: [
               ...(effectiveChart.extra_config?.filters || []),
-              ...formatAsChartFilters(resolvedDashboardFilters),
+              ...formatAsChartFilters(
+                resolvedDashboardFilters.filter(
+                  (filter) =>
+                    filter.schema_name === effectiveChart.schema_name &&
+                    filter.table_name === effectiveChart.table_name
+                )
+              ),
             ],
             pagination: effectiveChart.extra_config?.pagination,
             sort: effectiveChart.extra_config?.sort,
@@ -407,14 +413,26 @@ export function ChartElementView({
           filters: filters, // Drill-down filters
           chart_filters: [
             ...(effectiveChart.extra_config.filters || []), // Chart-level filters
-            ...formatAsChartFilters(resolvedDashboardFilters), // Resolved dashboard filters
+            ...formatAsChartFilters(
+              resolvedDashboardFilters.filter(
+                (filter) =>
+                  filter.schema_name === effectiveChart.schema_name &&
+                  filter.table_name === effectiveChart.table_name
+              )
+            ), // Only apply dashboard filters that match the chart's schema/table
           ],
           // Remove the old dashboard_filters format since we're using chart_filters now
           // Include full extra_config for pagination, sorting, and other features
           extra_config: {
             filters: [
               ...(effectiveChart.extra_config.filters || []),
-              ...formatAsChartFilters(resolvedDashboardFilters),
+              ...formatAsChartFilters(
+                resolvedDashboardFilters.filter(
+                  (filter) =>
+                    filter.schema_name === effectiveChart.schema_name &&
+                    filter.table_name === effectiveChart.table_name
+                )
+              ),
             ],
             pagination: effectiveChart.extra_config.pagination,
             sort: effectiveChart.extra_config.sort,
