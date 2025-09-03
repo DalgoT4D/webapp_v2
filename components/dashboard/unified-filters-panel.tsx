@@ -183,6 +183,7 @@ export function UnifiedFiltersPanel({
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false); // Only for horizontal layout
+  const [locallyDeletedFilterIds, setLocallyDeletedFilterIds] = useState<Set<string>>(new Set()); // Track deleted filters
 
   // Sync filters when initialFilters change (when filters are added/deleted externally)
   useEffect(() => {
@@ -200,12 +201,17 @@ export function UnifiedFiltersPanel({
         });
       }
 
-      setFilters(validFilters);
+      // Filter out locally deleted filters to prevent them from reappearing
+      const filtersToShow = validFilters.filter(
+        (filter) => !locallyDeletedFilterIds.has(String(filter.id))
+      );
+
+      setFilters(filtersToShow);
 
       // Update filter values: keep existing values, add defaults for new filters, remove old ones
       setCurrentFilterValues((prev) => {
         const newValues = { ...prev };
-        const existingFilterIds = validFilters.map((f) => String(f.id)); // Convert to strings to match object keys
+        const existingFilterIds = filtersToShow.map((f) => String(f.id)); // Convert to strings to match object keys
 
         // Remove values for filters that no longer exist
         Object.keys(newValues).forEach((filterId) => {
@@ -216,7 +222,7 @@ export function UnifiedFiltersPanel({
 
         // Add default values for new filters that don't have values yet
         try {
-          const defaultValues = getDefaultFilterValues(validFilters);
+          const defaultValues = getDefaultFilterValues(filtersToShow);
 
           Object.keys(defaultValues).forEach((filterId) => {
             const stringFilterId = String(filterId); // Ensure consistent string comparison
@@ -235,7 +241,7 @@ export function UnifiedFiltersPanel({
       setFilters([]); // Fallback to empty filters on error
       setCurrentFilterValues({});
     }
-  }, [initialFilters, getDefaultFilterValues]);
+  }, [initialFilters, getDefaultFilterValues, locallyDeletedFilterIds]);
 
   // Handle filter value changes (internal only - no parent re-render)
   const handleFilterChange = (filterId: string, value: any) => {
@@ -252,6 +258,10 @@ export function UnifiedFiltersPanel({
   const handleRemoveFilter = async (filterId: string) => {
     try {
       await deleteDashboardFilter(dashboardId, parseInt(filterId));
+
+      // Track this filter as locally deleted to prevent it from reappearing
+      setLocallyDeletedFilterIds((prev) => new Set(prev).add(String(filterId)));
+
       setFilters((prev) => prev.filter((filter) => filter.id !== filterId));
       setCurrentFilterValues((prev) => {
         const updated = { ...prev };
