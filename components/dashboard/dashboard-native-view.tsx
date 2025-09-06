@@ -56,6 +56,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
+import { UnifiedTextElement } from './text-element-unified';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
@@ -551,71 +552,16 @@ export function DashboardNativeView({
         );
 
       case 'text':
-        const config = component.config;
-
-        // Handle both old and new text component formats
-        const isUnifiedTextComponent = config?.type !== undefined;
-
-        if (isUnifiedTextComponent) {
-          // New unified text component format
-          const content = config?.content || 'Text content';
-          const commonStyle = {
-            fontSize: `${config?.fontSize || 14}px`,
-            fontWeight: config?.fontWeight || 'normal',
-            fontStyle: config?.fontStyle || 'normal',
-            textDecoration: config?.textDecoration || 'none',
-            textAlign: (config?.textAlign || 'left') as any,
-            color: config?.color || '#1f2937',
-            backgroundColor: config?.backgroundColor || 'transparent',
-            lineHeight: config?.type === 'heading' ? '1.2' : '1.6',
-            padding: '8px',
-            margin: 0,
-            whiteSpace: 'pre-wrap' as any,
-            wordBreak: 'break-word' as any,
-          };
-
-          if (config?.type === 'heading') {
-            const headingLevel = config?.headingLevel || 2;
-            const HeadingTag = `h${headingLevel}` as keyof React.JSX.IntrinsicElements;
-            const headingClass = cn(
-              headingLevel === 1 && 'text-3xl font-bold',
-              headingLevel === 2 && 'text-2xl font-semibold',
-              headingLevel === 3 && 'text-xl font-medium'
-            );
-
-            return (
-              <div key={componentId} className="h-full flex items-start">
-                <HeadingTag className={headingClass} style={commonStyle}>
-                  {content}
-                </HeadingTag>
-              </div>
-            );
-          }
-
-          return (
-            <div key={componentId} className="h-full flex items-start">
-              <div style={commonStyle}>{content}</div>
-            </div>
-          );
-        } else {
-          // Legacy text component format
-          return (
-            <div key={componentId} className="h-full p-4">
-              <div
-                className="text-gray-900"
-                style={{
-                  fontSize: config?.fontSize || 14,
-                  fontWeight: config?.fontWeight || 'normal',
-                  color: config?.color || '#1f2937',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {config?.content || 'Text content'}
-              </div>
-            </div>
-          );
-        }
+        // Use the same UnifiedTextElement component as edit mode for perfect consistency
+        return (
+          <div key={componentId} className="h-full">
+            <UnifiedTextElement
+              config={component.config}
+              onUpdate={() => {}} // No-op in view mode
+              isEditMode={false}
+            />
+          </div>
+        );
 
       case 'heading':
         // Legacy heading component - keep for backward compatibility
@@ -1179,79 +1125,91 @@ export function DashboardNativeView({
               </div>
             ) : null}
 
-            {/* Conditional Grid Layout: Use ResponsiveGrid when preview differs from target, otherwise GridLayout */}
-            {effectiveScreenSize !== targetScreenSize ? (
-              // Preview mode with different screen size - use responsive layout
-              <ResponsiveGrid
-                className="dashboard-grid"
-                layouts={
-                  dashboard.responsive_layouts ||
-                  generateResponsiveLayoutsForPreview(
-                    dashboard.layout_config || [],
-                    targetScreenSize
-                  )
+            {/* Create modified layout for view mode - reduce height for text components */}
+            {(() => {
+              const TOOLBAR_HEIGHT = 2; // Approximately 2 grid units for toolbar
+              const modifiedLayout = (dashboard.layout_config || []).map((item: any) => {
+                const component = dashboard.components?.[item.i];
+                if (component?.type === 'text') {
+                  // Reduce height by toolbar space for text components in view mode
+                  return {
+                    ...item,
+                    h: Math.max(1, item.h - TOOLBAR_HEIGHT), // Ensure minimum height of 1
+                  };
                 }
-                breakpoints={BREAKPOINTS}
-                cols={COLS}
-                rowHeight={30}
-                width={effectiveScreenConfig.width}
-                style={{
-                  width: '100% !important',
-                }}
-                isDraggable={false}
-                isResizable={false}
-                compactType={null}
-                preventCollision={false}
-                margin={[4, 4]}
-                containerPadding={[4, 4]}
-                autoSize={true}
-                verticalCompact={false}
-                onBreakpointChange={(newBreakpoint: string) => {
-                  setCurrentBreakpoint(newBreakpoint);
-                }}
-              >
-                {(dashboard.layout_config || []).map((layoutItem: any) => (
-                  <div key={layoutItem.i} className="dashboard-item">
-                    <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
-                      <CardContent className="p-4 h-full">
-                        {renderComponent(layoutItem.i)}
-                      </CardContent>
-                    </Card>
-                  </div>
-                ))}
-              </ResponsiveGrid>
-            ) : (
-              // Target screen size or no preview override - use exact layout
-              <GridLayout
-                className="dashboard-grid"
-                layout={dashboard.layout_config || []}
-                cols={effectiveScreenConfig.cols}
-                rowHeight={30}
-                width={actualContainerWidth}
-                style={{
-                  width: '100% !important',
-                }}
-                isDraggable={false}
-                isResizable={false}
-                compactType={null}
-                preventCollision={true}
-                allowOverlap={false}
-                margin={[4, 4]}
-                containerPadding={[4, 4]}
-                autoSize={true}
-                verticalCompact={false}
-              >
-                {(dashboard.layout_config || []).map((layoutItem: any) => (
-                  <div key={layoutItem.i} className="dashboard-item">
-                    <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200">
-                      <CardContent className="p-4 h-full">
-                        {renderComponent(layoutItem.i)}
-                      </CardContent>
-                    </Card>
-                  </div>
-                ))}
-              </GridLayout>
-            )}
+                return item;
+              });
+
+              return effectiveScreenSize !== targetScreenSize ? (
+                // Preview mode with different screen size - use responsive layout
+                <ResponsiveGrid
+                  className="dashboard-grid"
+                  layouts={
+                    dashboard.responsive_layouts ||
+                    generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
+                  }
+                  breakpoints={BREAKPOINTS}
+                  cols={COLS}
+                  rowHeight={30}
+                  width={effectiveScreenConfig.width}
+                  style={{
+                    width: '100% !important',
+                  }}
+                  isDraggable={false}
+                  isResizable={false}
+                  compactType={null}
+                  preventCollision={false}
+                  margin={[4, 4]}
+                  containerPadding={[4, 4]}
+                  autoSize={true}
+                  verticalCompact={false}
+                  onBreakpointChange={(newBreakpoint: string) => {
+                    setCurrentBreakpoint(newBreakpoint);
+                  }}
+                >
+                  {modifiedLayout.map((layoutItem: any) => (
+                    <div key={layoutItem.i} className="dashboard-item">
+                      <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
+                        <CardContent className="p-2 h-full">
+                          {renderComponent(layoutItem.i)}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ))}
+                </ResponsiveGrid>
+              ) : (
+                // Target screen size or no preview override - use exact layout
+                <GridLayout
+                  className="dashboard-grid"
+                  layout={modifiedLayout}
+                  cols={effectiveScreenConfig.cols}
+                  rowHeight={30}
+                  width={actualContainerWidth}
+                  style={{
+                    width: '100% !important',
+                  }}
+                  isDraggable={false}
+                  isResizable={false}
+                  compactType={null}
+                  preventCollision={true}
+                  allowOverlap={false}
+                  margin={[4, 4]}
+                  containerPadding={[4, 4]}
+                  autoSize={true}
+                  verticalCompact={false}
+                >
+                  {modifiedLayout.map((layoutItem: any) => (
+                    <div key={layoutItem.i} className="dashboard-item">
+                      <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
+                        <CardContent className="p-2 h-full">
+                          {renderComponent(layoutItem.i)}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ))}
+                </GridLayout>
+              );
+            })()}
           </div>
         </div>
       </div>{' '}

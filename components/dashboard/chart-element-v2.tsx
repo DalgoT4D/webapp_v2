@@ -793,32 +793,8 @@ export function ChartElementV2({
   }, [isResizing]);
 
   return (
-    <div className={`h-full w-full relative ${isMapChart ? 'drag-cancel' : ''}`}>
-      {isEditMode && (
-        <div className="absolute -top-2 -right-2 z-10 flex gap-1">
-          <button
-            onClick={handleViewChart}
-            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
-            title="View chart"
-          >
-            <Eye className="w-3 h-3 text-gray-600 hover:text-blue-600" />
-          </button>
-          <button
-            onClick={handleEditChart}
-            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
-            title="Edit chart"
-          >
-            <Edit className="w-3 h-3 text-gray-600 hover:text-green-600" />
-          </button>
-          <button
-            onClick={onRemove}
-            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
-            title="Remove chart"
-          >
-            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
-          </button>
-        </div>
-      )}
+    <div className="h-full w-full relative">
+      {/* Action buttons moved to dashboard level for proper drag-cancel behavior */}
       <Card className="h-full w-full flex flex-col">
         <CardContent className="p-4 flex-1 flex flex-col min-h-0">
           {/* Chart Title Editor */}
