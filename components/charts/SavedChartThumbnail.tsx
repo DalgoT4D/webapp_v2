@@ -63,7 +63,7 @@ export default function SavedChartThumbnail({
         }
       } catch (err) {
         if (isActive) {
-          setError(err instanceof Error ? err.message : 'Failed to load chart data');
+          setError(err instanceof Error ? err.message : 'Chart data needs attention');
         }
       } finally {
         if (isActive) {

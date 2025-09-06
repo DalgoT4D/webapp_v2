@@ -4,7 +4,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, AlertCircle, Home, Eye, Edit } from 'lucide-react';
+import { X, AlertCircle, Home, Eye, Edit, Loader2 } from 'lucide-react';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
@@ -424,7 +424,7 @@ export function ChartElementV2({
       : isMapChart
         ? mapError?.message || geojsonError?.message
         : dataError?.message) ||
-    'Failed to load chart';
+    'Chart configuration needs adjustment';
 
   // Handle region click for drill-down - EXACT COPY FROM WORKING VIEW MODE
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -840,10 +840,18 @@ export function ChartElementV2({
           {/* Chart Content */}
           <div className="flex-1 w-full h-full">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                  <p className="text-xs text-muted-foreground">Loading chart...</p>
+              <div className="relative w-full h-full min-h-[300px]">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                    <p className="text-sm text-muted-foreground">
+                      {chart?.chart_type === 'table'
+                        ? 'Loading table data...'
+                        : chart?.chart_type === 'map'
+                          ? 'Loading map...'
+                          : 'Loading chart...'}
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : isError ? (

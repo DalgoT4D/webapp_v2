@@ -6,7 +6,7 @@ import { MainLayout } from '@/components/main-layout';
 import { Toaster } from 'sonner';
 
 // Define public routes that don't require authentication
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
+const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -30,7 +30,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   }
 
   if (isPublicRoute) {
-    // Public routes (login, signup, etc.) - no auth guard or main layout
+    // Public routes (login, etc.) - no auth guard or main layout
     return (
       <div id="client-layout-public-route">
         {children}

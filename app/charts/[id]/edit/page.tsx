@@ -1024,7 +1024,7 @@ function EditChartPageContent() {
           <Alert className="max-w-2xl">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {chartError ? 'Failed to load chart' : 'Chart not found'}
+              {chartError ? 'Chart needs attention' : 'Chart not found'}
             </AlertDescription>
           </Alert>
         </div>

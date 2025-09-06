@@ -4,7 +4,15 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, RefreshCw, Maximize2, Download, ArrowLeft, Home } from 'lucide-react';
+import {
+  AlertCircle,
+  RefreshCw,
+  Maximize2,
+  Download,
+  ArrowLeft,
+  Home,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
@@ -538,7 +546,7 @@ export function ChartElementView({
       : isMapChart
         ? mapError?.message || geojsonError?.message
         : isError?.message) ||
-    'Failed to load chart';
+    'Chart configuration needs adjustment';
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -972,9 +980,20 @@ export function ChartElementView({
     (isMapChart && (mapLoading || geojsonLoading))
   ) {
     return (
-      <div className={cn('h-full flex items-center justify-center', className)}>
-        <div className="w-full h-full min-h-[200px] p-4">
-          <Skeleton className="h-full w-full" />
+      <div className={cn('relative w-full h-full min-h-[300px]', className)}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              {isTableChart && tableLoading
+                ? 'Loading table data...'
+                : isMapChart && (mapLoading || geojsonLoading)
+                  ? geojsonLoading
+                    ? 'Loading map boundaries...'
+                    : 'Loading map data...'
+                  : 'Loading chart...'}
+            </p>
+          </div>
         </div>
       </div>
     );
