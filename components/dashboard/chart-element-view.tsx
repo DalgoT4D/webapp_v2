@@ -126,8 +126,26 @@ export function ChartElementView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
-  // Fetch regions data for dynamic geojson lookup (for Indian maps)
-  const { data: regions } = useRegions('IND', 'state');
+  // Fetch regions data - use public API for public mode, private API for private mode
+  const { data: privateRegions } = useRegions(!isPublicMode ? 'IND' : null, 'state');
+
+  // Use public regions API for public mode
+  const publicRegionsUrl =
+    isPublicMode && publicToken
+      ? `/api/v1/public/regions/?country_code=IND&region_type=state`
+      : null;
+
+  const { data: publicRegions } = useSWR(publicRegionsUrl, async (url: string) => {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch public regions');
+    }
+    return response.json();
+  });
+
+  const regions = isPublicMode ? publicRegions : privateRegions;
 
   // Fetch chart metadata to determine chart type (only in authenticated mode)
   const {
@@ -360,8 +378,28 @@ export function ChartElementView({
   const currentDrillDownRegionId =
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
-  // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
-  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+  // Fetch geojsons for the current drill-down region - use public API for public mode
+  const { data: privateRegionGeojsons } = useRegionGeoJSONs(
+    !isPublicMode ? currentDrillDownRegionId : null
+  );
+
+  // Use public geojsons API for public mode
+  const publicGeojsonsUrl =
+    isPublicMode && publicToken && currentDrillDownRegionId
+      ? `/api/v1/public/regions/${currentDrillDownRegionId}/geojsons/`
+      : null;
+
+  const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch public geojsons');
+    }
+    return response.json();
+  });
+
+  const regionGeojsons = isPublicMode ? publicRegionGeojsons : privateRegionGeojsons;
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
@@ -460,7 +498,7 @@ export function ChartElementView({
   // Fetch GeoJSON data - public vs private mode
   const publicGeojsonUrl =
     isPublicMode && publicToken && activeGeojsonId && isMapChart
-      ? `/api/v1/public/dashboards/${publicToken}/geojsons/${activeGeojsonId}/`
+      ? `/api/v1/public/geojsons/${activeGeojsonId}/`
       : null;
 
   const {
@@ -472,7 +510,7 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (url: string) => {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
           );
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           return response.json();

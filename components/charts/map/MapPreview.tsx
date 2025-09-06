@@ -82,6 +82,7 @@ export function MapPreview({
   // Dashboard integration
   isResizing = false,
 }: MapPreviewProps) {
+  // MapPreview initialization
   // Create stable reference for customizations to avoid unnecessary re-renders
   const safeCustomizations = useMemo(() => customizations || {}, [customizations]);
 
@@ -129,7 +130,6 @@ export function MapPreview({
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
     if (!chartRef.current) {
-      console.warn('⚠️ [MAP-PREVIEW] chartRef.current is null, cannot initialize chart');
       return;
     }
 
@@ -272,8 +272,8 @@ export function MapPreview({
               mapType: mapName,
               // Always enable roam for zoom/pan functionality via buttons
               roam: 'move',
-              // Apply selection settings
-              selectedMode: safeCustomizations.select !== false ? 'single' : false,
+              // Apply selection settings - ALWAYS enable for clicks to work
+              selectedMode: 'single',
               // Configure how regions without data should appear (default styling)
               itemStyle: {
                 areaColor: '#f5f5f5', // Light gray for regions without data
@@ -378,6 +378,44 @@ export function MapPreview({
 
         // Add click listener to the newly created chart instance
         chartInstance.current.on('click', handleClick);
+
+        // Also add mobile-specific touch handling
+        if ('ontouchstart' in window && chartRef.current) {
+          const chartDom = chartRef.current;
+          let touchStartTime = 0;
+          let touchMoved = false;
+
+          const handleTouchStart = () => {
+            touchStartTime = Date.now();
+            touchMoved = false;
+          };
+
+          const handleTouchMove = () => {
+            touchMoved = true;
+          };
+
+          const handleTouchEnd = (e: TouchEvent) => {
+            const touchDuration = Date.now() - touchStartTime;
+            if (!touchMoved && touchDuration < 500) {
+              // Simulate a click event for mobile
+              const touch = e.changedTouches[0];
+              const rect = chartDom.getBoundingClientRect();
+              const x = touch.clientX - rect.left;
+              const y = touch.clientY - rect.top;
+
+              // Trigger ECharts click detection
+              chartInstance.current?.dispatchAction({
+                type: 'showTip',
+                x: x,
+                y: y,
+              });
+            }
+          };
+
+          chartDom.addEventListener('touchstart', handleTouchStart);
+          chartDom.addEventListener('touchmove', handleTouchMove);
+          chartDom.addEventListener('touchend', handleTouchEnd);
+        }
       }
 
       if (onChartReady) {
