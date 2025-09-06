@@ -203,7 +203,7 @@ function ValueFilterWidget({
           </div>
         ) : filterOptionsError ? (
           <div className="text-xs text-red-600 p-2 bg-red-50 rounded text-center">
-            <div>Error loading options</div>
+            <div>Options need attention</div>
             <div className="text-xs text-red-500 mt-1">
               {filterOptionsError.message || 'Please check your data connection'}
             </div>
@@ -604,7 +604,7 @@ export function DashboardFilterWidget(props: FilterWidgetProps) {
   } catch (error) {
     console.error('Error rendering filter widget:', error);
     return (
-      <div className="p-4 text-red-500 border border-red-200 rounded">Error loading filter</div>
+      <div className="p-4 text-red-500 border border-red-200 rounded">Filter needs attention</div>
     );
   }
 }

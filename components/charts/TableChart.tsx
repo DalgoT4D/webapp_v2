@@ -42,10 +42,12 @@ export function TableChart({ data = [], config = {}, onSort, isLoading, error }:
   // Handle loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading table data...</p>
+      <div className="relative w-full h-full min-h-[300px]">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-sm text-muted-foreground">Loading table data...</p>
+          </div>
         </div>
       </div>
     );
@@ -54,13 +56,16 @@ export function TableChart({ data = [], config = {}, onSort, isLoading, error }:
   // Handle error state
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load table data. Please check your configuration and try again.
-          </AlertDescription>
-        </Alert>
+      <div className="relative h-full">
+        <div className="absolute top-0 left-0 right-0 z-10 p-4">
+          <Alert variant="warning">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Table configuration needs a small adjustment. Please review your settings and try
+              again.
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }

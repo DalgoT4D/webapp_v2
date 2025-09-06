@@ -69,7 +69,7 @@ export function DatasetSelector({
     return (
       <div className={className}>
         <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-          <Label className="text-red-600">Error loading datasets</Label>
+          <Label className="text-red-600">Datasets need attention</Label>
           <p className="text-sm text-red-500">Please try refreshing the page</p>
         </div>
       </div>

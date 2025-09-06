@@ -173,13 +173,6 @@ export default function LoginPage() {
             Forgot password?
           </a>
         </div>
-
-        <div className="text-center text-sm">
-          Not a member?{' '}
-          <a href="/signup" className="text-primary hover:underline font-medium">
-            Sign Up
-          </a>
-        </div>
       </form>
     </div>
   );

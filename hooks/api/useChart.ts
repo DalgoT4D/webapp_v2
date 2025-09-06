@@ -237,13 +237,13 @@ export interface RegionGeoJSON {
 const regionsFetcher = (url: string) => apiGet(url);
 const regionGeoJSONsFetcher = (url: string) => apiGet(url);
 
-export function useRegions(countryCode: string = 'IND', regionType?: string) {
-  const params = new URLSearchParams({ country_code: countryCode });
-  if (regionType) {
+export function useRegions(countryCode?: string | null, regionType?: string) {
+  const params = countryCode ? new URLSearchParams({ country_code: countryCode }) : null;
+  if (params && regionType) {
     params.append('region_type', regionType);
   }
 
-  return useSWR(`/api/charts/regions/?${params.toString()}`, regionsFetcher);
+  return useSWR(countryCode ? `/api/charts/regions/?${params!.toString()}` : null, regionsFetcher);
 }
 
 export function useChildRegions(

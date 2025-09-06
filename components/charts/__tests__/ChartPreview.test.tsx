@@ -44,7 +44,7 @@ describe('ChartPreview Component', () => {
     it('should render error state', () => {
       render(<ChartPreview error="Failed to load data" />);
 
-      expect(screen.getByText('Failed to load chart')).toBeInTheDocument();
+      expect(screen.getByText('Chart configuration needs a small adjustment')).toBeInTheDocument();
       expect(screen.getByText('Failed to load data')).toBeInTheDocument();
     });
 
@@ -410,7 +410,7 @@ describe('ChartPreview Component', () => {
     it('should announce error state to screen readers', () => {
       render(<ChartPreview error="Connection failed" />);
 
-      const errorElement = screen.getByText('Failed to load chart');
+      const errorElement = screen.getByText('Chart configuration needs a small adjustment');
       const container = errorElement.closest('[role="alert"]');
       expect(container).toBeInTheDocument();
     });
