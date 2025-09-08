@@ -121,6 +121,7 @@ export function ChartElementView({
   config = {},
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1001,10 +1002,12 @@ export function ChartElementView({
   };
 
   const toggleFullscreen = () => {
-    if (!chartRef.current) return;
+    // Use appropriate ref based on chart type
+    const targetRef = isTableChart ? tableRef.current : chartRef.current;
+    if (!targetRef) return;
 
     if (!document.fullscreenElement) {
-      chartRef.current.requestFullscreen().then(() => {
+      targetRef.requestFullscreen().then(() => {
         // Force white background immediately after entering fullscreen
         setTimeout(() => {
           if (document.fullscreenElement) {
@@ -1034,12 +1037,16 @@ export function ChartElementView({
 
       // Trigger chart resize after fullscreen change
       setTimeout(() => {
-        if (chartInstance.current) {
-          chartInstance.current.resize();
+        if (!isTableChart) {
+          // Only resize ECharts instances, not tables
+          if (chartInstance.current) {
+            chartInstance.current.resize();
+          }
+          if (mapChartInstance.current) {
+            mapChartInstance.current.resize();
+          }
         }
-        if (mapChartInstance.current) {
-          mapChartInstance.current.resize();
-        }
+        // Tables don't need explicit resize - they automatically adjust with CSS flexbox
       }, 100);
     };
 
@@ -1193,7 +1200,19 @@ export function ChartElementView({
 
       {/* Chart container */}
       {isTableChart ? (
-        <div className="w-full flex-1 min-h-[200px] p-2">
+        <div
+          ref={tableRef}
+          className={cn(
+            'w-full flex-1 min-h-[200px] p-2',
+            isFullscreen && '!h-full !min-h-[90vh] !bg-white p-4'
+          )}
+          style={{
+            ...(isFullscreen && {
+              backgroundColor: 'white !important',
+              background: 'white !important',
+            }),
+          }}
+        >
           <DataPreview
             data={Array.isArray(tableData?.data) ? tableData.data : []}
             columns={tableData?.columns || []}
