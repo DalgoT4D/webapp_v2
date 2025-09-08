@@ -931,6 +931,7 @@ export function ChartElementView({
     filterHash,
     drillDownPath,
     handleRegionClick,
+    isFullscreen, // Add fullscreen state to trigger chart resize
   ]);
 
   // Separate effect to handle DOM mounting timing issues
@@ -1003,13 +1004,51 @@ export function ChartElementView({
     if (!chartRef.current) return;
 
     if (!document.fullscreenElement) {
-      chartRef.current.requestFullscreen();
+      chartRef.current.requestFullscreen().then(() => {
+        // Force white background immediately after entering fullscreen
+        setTimeout(() => {
+          if (document.fullscreenElement) {
+            document.fullscreenElement.style.backgroundColor = 'white';
+            document.fullscreenElement.style.background = 'white';
+          }
+        }, 50);
+      });
       setIsFullscreen(true);
     } else {
       document.exitFullscreen();
       setIsFullscreen(false);
     }
   };
+
+  // Handle fullscreen change events (e.g., when user presses Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isCurrentlyFullscreen);
+
+      // Force white background on fullscreen element
+      if (document.fullscreenElement) {
+        document.fullscreenElement.style.backgroundColor = 'white';
+        document.fullscreenElement.style.background = 'white';
+      }
+
+      // Trigger chart resize after fullscreen change
+      setTimeout(() => {
+        if (chartInstance.current) {
+          chartInstance.current.resize();
+        }
+        if (mapChartInstance.current) {
+          mapChartInstance.current.resize();
+        }
+      }, 100);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   if (
     isLoading ||
@@ -1065,8 +1104,14 @@ export function ChartElementView({
       className={cn(
         'h-full relative group flex flex-col',
         className,
-        isFullscreen && 'fixed inset-0 z-50 bg-white'
+        isFullscreen && '!h-screen !w-screen !bg-white p-4'
       )}
+      style={{
+        ...(isFullscreen && {
+          backgroundColor: 'white !important',
+          background: 'white !important',
+        }),
+      }}
     >
       {/* Chart toolbar - only visible on hover in view mode */}
       {viewMode && (
@@ -1160,8 +1205,17 @@ export function ChartElementView({
       ) : isMapChart ? (
         <div
           ref={chartRef}
-          className="w-full flex-1 min-h-[200px]"
-          style={{ padding: viewMode ? '8px' : '0' }}
+          className={cn(
+            'w-full flex-1 min-h-[200px]',
+            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+          )}
+          style={{
+            padding: viewMode ? '8px' : '0',
+            ...(isFullscreen && {
+              backgroundColor: 'white !important',
+              background: 'white !important',
+            }),
+          }}
         >
           <MapPreview
             geojsonData={geojsonData?.geojson_data}
@@ -1183,8 +1237,17 @@ export function ChartElementView({
       ) : (
         <div
           ref={chartRef}
-          className="w-full flex-1 min-h-[200px]"
-          style={{ padding: viewMode ? '8px' : '0' }}
+          className={cn(
+            'w-full flex-1 min-h-[200px]',
+            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+          )}
+          style={{
+            padding: viewMode ? '8px' : '0',
+            ...(isFullscreen && {
+              backgroundColor: 'white !important',
+              background: 'white !important',
+            }),
+          }}
         />
       )}
     </div>
