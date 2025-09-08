@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface HistoryState<T> {
   past: T[];
@@ -7,7 +7,7 @@ interface HistoryState<T> {
 }
 
 /**
- * Hook for managing undo/redo functionality
+ * Hook for managing undo/redo functionality with deep comparison
  * @param initialState - Initial state value
  * @param maxHistory - Maximum number of history items to keep (default: 20)
  * @returns Object with state, setState, undo, redo functions and status flags
@@ -19,16 +19,55 @@ export function useUndoRedo<T>(initialState: T, maxHistory: number = 20) {
     future: [],
   });
 
+  // Track the last saved state to prevent duplicate saves
+  const lastSavedStateRef = useRef<string>(JSON.stringify(initialState));
+
   const setState = useCallback(
-    (newState: T) => {
-      setHistory((prev) => ({
-        past: [...prev.past.slice(-maxHistory + 1), prev.present],
-        present: newState,
-        future: [],
-      }));
+    (newState: T | ((prevState: T) => T)) => {
+      setHistory((prev) => {
+        // Handle function updates
+        const resolvedState =
+          typeof newState === 'function'
+            ? (newState as (prevState: T) => T)(prev.present)
+            : newState;
+
+        // Deep comparison to check if state actually changed
+        const newStateStr = JSON.stringify(resolvedState);
+        const currentStateStr = JSON.stringify(prev.present);
+
+        // If state hasn't changed, don't add to history
+        if (newStateStr === currentStateStr) {
+          return prev;
+        }
+
+        // Update last saved state
+        lastSavedStateRef.current = newStateStr;
+
+        // Add to history
+        return {
+          past: [...prev.past.slice(-maxHistory + 1), prev.present],
+          present: resolvedState,
+          future: [], // Clear future when new state is set
+        };
+      });
     },
     [maxHistory]
   );
+
+  // Method to update state without adding to history (for transient updates like dragging)
+  const setStateWithoutHistory = useCallback((newState: T | ((prevState: T) => T)) => {
+    setHistory((prev) => {
+      // Handle function updates
+      const resolvedState =
+        typeof newState === 'function' ? (newState as (prevState: T) => T)(prev.present) : newState;
+
+      // Just update present without modifying history
+      return {
+        ...prev,
+        present: resolvedState,
+      };
+    });
+  }, []);
 
   const undo = useCallback(() => {
     setHistory((prev) => {
@@ -36,6 +75,9 @@ export function useUndoRedo<T>(initialState: T, maxHistory: number = 20) {
 
       const previous = prev.past[prev.past.length - 1];
       const newPast = prev.past.slice(0, prev.past.length - 1);
+
+      // Update last saved state ref
+      lastSavedStateRef.current = JSON.stringify(previous);
 
       return {
         past: newPast,
@@ -52,6 +94,9 @@ export function useUndoRedo<T>(initialState: T, maxHistory: number = 20) {
       const next = prev.future[0];
       const newFuture = prev.future.slice(1);
 
+      // Update last saved state ref
+      lastSavedStateRef.current = JSON.stringify(next);
+
       return {
         past: [...prev.past, prev.present],
         present: next,
@@ -62,9 +107,11 @@ export function useUndoRedo<T>(initialState: T, maxHistory: number = 20) {
 
   const reset = useCallback(
     (newInitialState?: T) => {
+      const resetState = newInitialState || initialState;
+      lastSavedStateRef.current = JSON.stringify(resetState);
       setHistory({
         past: [],
-        present: newInitialState || initialState,
+        present: resetState,
         future: [],
       });
     },
@@ -74,6 +121,7 @@ export function useUndoRedo<T>(initialState: T, maxHistory: number = 20) {
   return {
     state: history.present,
     setState,
+    setStateWithoutHistory,
     undo,
     redo,
     reset,
