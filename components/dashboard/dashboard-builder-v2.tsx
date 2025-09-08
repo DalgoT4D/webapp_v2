@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
 import GridLayout, { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
@@ -349,7 +349,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const initialLayouts = initialResponsiveLayouts || generateResponsiveLayouts(mergedLayout);
 
     // State management with undo/redo (canvas only - no filters)
-    const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo<DashboardState>(
+    const {
+      state,
+      setState,
+      setStateWithoutHistory,
+      undo: undoBase,
+      redo: redoBase,
+      canUndo,
+      canRedo,
+    } = useUndoRedo<DashboardState>(
       {
         layout: mergedLayout,
         layouts: initialLayouts,
@@ -357,6 +365,25 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       },
       20
     );
+
+    // Create custom undo/redo functions that prevent auto-save interference
+    const undo = useCallback(() => {
+      undoBase();
+      // Set flag after operation to prevent subsequent auto-save interference
+      setIsUndoRedoOperation(true);
+      setTimeout(() => {
+        setIsUndoRedoOperation(false);
+      }, 1000); // Longer delay to prevent auto-save after undo
+    }, [undoBase]);
+
+    const redo = useCallback(() => {
+      redoBase();
+      // Set flag after operation to prevent subsequent auto-save interference
+      setIsUndoRedoOperation(true);
+      setTimeout(() => {
+        setIsUndoRedoOperation(false);
+      }, 1000); // Longer delay to prevent auto-save after redo
+    }, [redoBase]);
 
     // Applied filters state - only updates when filters are applied (causes chart re-renders)
     const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
@@ -467,6 +494,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Get current screen size config
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
+
+    // Track if we're in an undo/redo operation to prevent auto-save interference
+    const [isUndoRedoOperation, setIsUndoRedoOperation] = useState(false);
 
     // Debounced state for auto-save (keep original 5-second delay for responsive auto-save)
     const debouncedState = useDebounce(state, 5000);
@@ -584,12 +614,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       };
     }, [lockRefreshInterval]);
 
-    // Auto-save
+    // Auto-save (but not during undo/redo operations)
     useEffect(() => {
-      if (dashboardId && debouncedState) {
+      if (dashboardId && debouncedState && !isUndoRedoOperation) {
         saveDashboard();
       }
-    }, [debouncedState]);
+    }, [debouncedState, isUndoRedoOperation]);
 
     // Component unmount cleanup
     useEffect(() => {
@@ -772,14 +802,45 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
     );
 
+    // Track if we're currently dragging
+    const [isDragging, setIsDragging] = useState(false);
+
     // Handle layout changes for responsive grid
     const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
-      // Update both the current layout and all responsive layouts
-      setState({
-        ...state,
-        layout: currentLayout,
-        layouts: allLayouts,
-      });
+      // During drag, resize, or undo/redo operations, use setStateWithoutHistory to avoid flooding history
+      if (isDragging || isResizing || isUndoRedoOperation) {
+        setStateWithoutHistory({
+          ...state,
+          layout: currentLayout,
+          layouts: allLayouts,
+        });
+      } else {
+        // Only save to history for user-initiated layout changes
+        setState({
+          ...state,
+          layout: currentLayout,
+          layouts: allLayouts,
+        });
+      }
+    };
+
+    // Handle drag start
+    const handleDragStart = () => {
+      setIsDragging(true);
+    };
+
+    // Handle drag stop - save final position to history
+    const handleDragStop = (layout: any[], oldItem: any, newItem: any) => {
+      setIsDragging(false);
+      // Only save to history if we're not in an undo/redo operation
+      if (!isUndoRedoOperation) {
+        const allLayouts = state.layouts || {};
+        setState({
+          ...state,
+          layout: layout,
+          layouts: allLayouts,
+        });
+      }
     };
 
     // Handle breakpoint changes
@@ -788,6 +849,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setCurrentBreakpoint(newBreakpoint);
     };
 
+    // Track if we're currently resizing
+    const [isResizing, setIsResizing] = useState(false);
+
     // Handle resize start
     const handleResizeStart = (
       layout: DashboardLayout[],
@@ -795,9 +859,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       newItem: DashboardLayout
     ) => {
       setResizingItems(new Set([...resizingItems, newItem.i]));
+      setIsResizing(true);
     };
 
-    // Handle resize stop
+    // Handle resize stop - save final size to history
     const handleResizeStop = (
       layout: DashboardLayout[],
       oldItem: DashboardLayout,
@@ -806,6 +871,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const newResizingItems = new Set(resizingItems);
       newResizingItems.delete(newItem.i);
       setResizingItems(newResizingItems);
+      setIsResizing(false);
+
+      // Only save to history if we're not in an undo/redo operation
+      if (!isUndoRedoOperation) {
+        const allLayouts = state.layouts || {};
+        setState({
+          ...state,
+          layout: layout,
+          layouts: allLayouts,
+        });
+      }
+    };
+
+    // Handle resize (during resize)
+    const handleResize = (layout: DashboardLayout[]) => {
+      // Use setStateWithoutHistory during resize to avoid flooding history
+      const allLayouts = state.layouts || {};
+      setStateWithoutHistory({
+        ...state,
+        layout: layout,
+        layouts: allLayouts,
+      });
     };
 
     // Add chart component
@@ -1717,7 +1804,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 rowHeight={30}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+                onDragStart={handleDragStart}
+                onDragStop={handleDragStop}
                 onResizeStart={handleResizeStart}
+                onResize={handleResize}
                 onResizeStop={handleResizeStop}
                 draggableCancel=".drag-cancel"
                 compactType={null}
