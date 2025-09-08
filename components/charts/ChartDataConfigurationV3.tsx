@@ -224,7 +224,6 @@ export function ChartDataConfigurationV3({
     // Preserve only essential chart identity fields
     const preservedFields = {
       title: formData.title,
-      description: formData.description,
       chart_type: formData.chart_type,
       customizations: formData.customizations || {}, // Keep styling preferences
     };
@@ -301,7 +300,6 @@ export function ChartDataConfigurationV3({
     // Fields to preserve across all chart types
     const preservedFields = {
       title: formData.title,
-      description: formData.description,
       schema_name: formData.schema_name,
       table_name: formData.table_name,
       chart_type: newChartType as 'bar' | 'line' | 'pie' | 'number' | 'map',

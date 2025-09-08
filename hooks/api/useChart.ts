@@ -228,7 +228,6 @@ export interface RegionGeoJSON {
   id: number;
   region_id: number;
   name: string;
-  description: string | null;
   is_default: boolean;
   properties_key: string;
   file_size: number;

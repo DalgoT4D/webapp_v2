@@ -721,11 +721,6 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
-                  {dashboard.description && (
-                    <p className="text-xs text-gray-600 mt-1 line-clamp-2 dashboard-header-description">
-                      {dashboard.description}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -905,11 +900,6 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
-                  {dashboard.description && (
-                    <p className="text-sm text-gray-600 mt-1 dashboard-header-description">
-                      {dashboard.description}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -1053,9 +1043,6 @@ export function DashboardNativeView({
         <div className="bg-white border-b flex-shrink-0 px-6 py-4">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-1">{dashboard.title}</h1>
-            {dashboard.description && (
-              <p className="text-sm text-gray-600 max-w-2xl mx-auto">{dashboard.description}</p>
-            )}
           </div>
         </div>
       )}

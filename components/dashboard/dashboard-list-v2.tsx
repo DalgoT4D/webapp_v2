@@ -477,9 +477,6 @@ export function DashboardListV2() {
                   <CardTitle className="text-base line-clamp-1">
                     {dashboard.title || dashboard.dashboard_title}
                   </CardTitle>
-                  <CardDescription className="text-xs line-clamp-2">
-                    {dashboard.description || 'No description'}
-                  </CardDescription>
                 </div>
 
                 {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
@@ -627,10 +624,6 @@ export function DashboardListV2() {
                     />
                   )}
                 </div>
-
-                <p className="text-sm text-muted-foreground truncate">
-                  {dashboard.description || 'No description'}
-                </p>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1" title="Dashboard Creator">

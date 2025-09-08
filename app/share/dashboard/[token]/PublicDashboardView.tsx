@@ -114,10 +114,6 @@ export function PublicDashboardView({ token }: PublicDashboardViewProps) {
               </div>
             </div>
           </div>
-
-          {dashboard.description && (
-            <p className="text-gray-600 mt-2 text-sm">{dashboard.description}</p>
-          )}
         </div>
       </header>
 

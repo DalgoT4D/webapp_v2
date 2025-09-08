@@ -8,7 +8,6 @@ interface SavedChartThumbnailProps {
   chart: {
     id: number;
     title: string;
-    description: string;
     chart_type: string;
     schema_name: string;
     table: string;
