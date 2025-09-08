@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useCharts } from '@/hooks/api/useCharts';
-import { MiniChart } from '@/components/charts/MiniChart';
+import { StaticChartPreview } from '@/components/charts/StaticChartPreview';
 import { Loader2, Search, Plus, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
@@ -95,7 +95,7 @@ export function ChartSelectorModal({
                       onClick={() => handleSelect(chart.id)}
                     >
                       <div className="h-36 mb-3">
-                        <MiniChart chartId={chart.id} showTitle={false} />
+                        <StaticChartPreview chartType={chart.chart_type} />
                       </div>
                       <div className="text-center">
                         <h4 className="text-sm font-medium truncate mb-1">{chart.title}</h4>
