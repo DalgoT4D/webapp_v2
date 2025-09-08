@@ -159,9 +159,15 @@ const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
   const flattened: NavItemType[] = [];
 
   items.forEach((item) => {
-    flattened.push(item);
-    if (item.children) {
+    if (item.children && item.title === 'Data') {
+      // For Data parent, only include children (Ingest, Transform, Orchestrate) in collapsed mode
       flattened.push(...item.children);
+    } else {
+      // For other items, include the parent as usual
+      flattened.push(item);
+      if (item.children) {
+        flattened.push(...item.children);
+      }
     }
   });
 
