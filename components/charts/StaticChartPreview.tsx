@@ -127,8 +127,8 @@ export function StaticChartPreview({
           >
             <div className="w-full h-full max-w-16 max-h-20 flex items-center justify-center">
               <img
-                src="/chart_icons/india_map.svg"
-                alt="India Map"
+                src="/chart_icons/world_map.svg"
+                alt="World Map"
                 className="w-full h-full object-contain"
                 style={{
                   filter:
@@ -153,10 +153,6 @@ export function StaticChartPreview({
               <div className="text-xl font-bold text-indigo-700">847</div>
               {/* Label */}
               <div className="text-[8px] text-indigo-500 font-medium mt-1">TOTAL</div>
-              {/* Small trend indicator */}
-              <div className="flex items-center mt-1">
-                <div className="text-[6px] text-green-600 font-semibold">↗ +12%</div>
-              </div>
             </div>
           </div>
         );
