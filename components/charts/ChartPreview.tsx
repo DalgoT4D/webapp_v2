@@ -4,21 +4,42 @@ import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TableChart } from './TableChart';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
   isLoading?: boolean;
   error?: any;
   onChartReady?: (chart: echarts.ECharts) => void;
+  chartType?: string;
+  tableData?: Record<string, any>[];
+  onTableSort?: (column: string, direction: 'asc' | 'desc') => void;
 }
 
-export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPreviewProps) {
+export function ChartPreview({
+  config,
+  isLoading,
+  error,
+  onChartReady,
+  chartType,
+  tableData,
+  onTableSort,
+}: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
   // Initialize or update chart
   const initializeChart = useCallback(() => {
-    if (!chartRef.current || !config) return;
+    if (!chartRef.current) return;
+
+    // If no config, dispose existing chart to clear it
+    if (!config) {
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
+      return;
+    }
 
     try {
       // Dispose existing instance if it exists
@@ -69,10 +90,12 @@ export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPr
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading chart...</p>
+      <div className="relative w-full h-full min-h-[300px]">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-sm text-muted-foreground">Loading chart...</p>
+          </div>
         </div>
       </div>
     );
@@ -80,18 +103,21 @@ export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPr
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load chart data. Please check your configuration and try again.
-          </AlertDescription>
-        </Alert>
+      <div className="relative h-full">
+        <div className="absolute top-0 left-0 right-0 z-10 p-4">
+          <Alert variant="warning">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Chart configuration needs a small adjustment. Please review your settings and try
+              again.
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }
 
-  if (!config) {
+  if (!config && chartType !== 'table') {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -103,5 +129,11 @@ export function ChartPreview({ config, isLoading, error, onChartReady }: ChartPr
     );
   }
 
+  // Render table chart
+  if (chartType === 'table') {
+    return <TableChart data={tableData} config={config} onSort={onTableSort} />;
+  }
+
+  // Render ECharts-based charts
   return <div ref={chartRef} className="w-full h-full" />;
 }

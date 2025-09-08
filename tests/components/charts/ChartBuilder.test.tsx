@@ -87,29 +87,37 @@ describe('ChartBuilder', () => {
       data: mockSchemas,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useTables as jest.Mock).mockReturnValue({
       data: mockTables,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useColumns as jest.Mock).mockReturnValue({
       data: mockColumns,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useChartData as jest.Mock).mockReturnValue({
       data: null,
       isLoading: false,
       error: null,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     (useChartSave as jest.Mock).mockReturnValue({
       save: jest.fn().mockResolvedValue({ data: { id: 1 } }),
-    });
+    } as any);
   });
 
   it('shows progress indicator', () => {
@@ -124,7 +132,9 @@ describe('ChartBuilder', () => {
       data: null,
       error: null,
       isLoading: true,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
 
     render(<ChartBuilder />);
 

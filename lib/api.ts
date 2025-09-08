@@ -12,7 +12,6 @@ let refreshPromise: Promise<string | null> = Promise.resolve(null);
 function getAuthToken() {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('authToken');
-    console.log('Auth token present:', !!token);
     return token || undefined;
   }
   return undefined;
@@ -41,8 +40,6 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   try {
-    console.log('Attempting to refresh token...');
-
     const response = await fetch(`${API_BASE_URL}/api/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,7 +51,6 @@ async function refreshAccessToken(): Promise<string | null> {
 
       // If refresh token is invalid (401, 403), clear it
       if (response.status === 401 || response.status === 403) {
-        console.log('Refresh token is invalid, clearing tokens');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('authToken');
       }
@@ -75,7 +71,6 @@ async function refreshAccessToken(): Promise<string | null> {
         store.setToken(newAccessToken);
       }
 
-      console.log('Token refreshed successfully');
       return newAccessToken;
     }
 
@@ -100,9 +95,17 @@ function getHeaders() {
 }
 
 function handleAuthFailure() {
-  console.log('Authentication failed, logging out user');
-
   if (typeof window !== 'undefined') {
+    // Don't redirect if we're on a public dashboard page
+    const currentPath = window.location.pathname;
+    if (
+      currentPath.startsWith('/share/dashboard/') ||
+      currentPath.startsWith('/public/dashboard/')
+    ) {
+      console.log('[handleAuthFailure] Ignoring auth failure on public dashboard');
+      return;
+    }
+
     // Clear all auth-related data
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
@@ -121,25 +124,17 @@ function handleAuthFailure() {
 
 async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+
   const headers: HeadersInit = {
     ...(options.headers || {}),
     ...getHeaders(),
   };
-
-  console.log('API Fetch:', {
-    url,
-    method: options.method,
-    headers,
-    retryCount,
-  });
 
   try {
     const response = await fetch(url, { ...options, headers });
 
     // Handle 401 Unauthorized - attempt to refresh token and retry once
     if (response.status === 401 && retryCount === 0) {
-      console.log('Received 401, attempting token refresh...');
-
       // Prevent multiple simultaneous refresh attempts
       if (!isRefreshing) {
         isRefreshing = true;
@@ -151,7 +146,6 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       const newToken = await refreshPromise;
 
       if (newToken) {
-        console.log('Token refreshed, retrying original request...');
         // Retry the original request with the new token
         return apiFetch(path, options, retryCount + 1);
       } else {
@@ -179,24 +173,15 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       data = { error: `Server returned non-JSON response: ${text.substring(0, 100)}...` };
     }
 
-    console.log('API Response:', {
-      status: response.status,
-      ok: response.ok,
-      contentType,
-      data,
-      retryCount,
-    });
-
     if (!response.ok) {
-      // Log full error details
-      console.error('API Error Details:', {
+      // Simplified error logging
+      console.error('🚨 API Error:', {
         url,
-        method: options.method,
+        method: options.method || 'GET',
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        data,
-        retryCount,
+        responseData: data,
+        timestamp: new Date().toISOString(),
       });
 
       // Handle different error formats from the backend
@@ -221,7 +206,7 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
 
     return data;
   } catch (error) {
-    console.error('API Fetch Error:', error);
+    console.error('🔥 API Network Error:', error?.message || error);
     if (error instanceof Error) {
       throw error;
     }
@@ -236,12 +221,6 @@ export function apiGet(path: string, options: RequestInit = {}) {
 
 // Helper for POST requests
 export function apiPost(path: string, body: any, options: RequestInit = {}) {
-  console.log('API POST Request:', {
-    path,
-    body,
-    headers: getHeaders(),
-  });
-
   return apiFetch(path, {
     ...options,
     method: 'POST',
@@ -263,10 +242,24 @@ export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
 }
 
-// Export unified API object for convenience
-export const api = {
-  get: <T = any>(path: string) => apiFetch(path) as Promise<T>,
-  post: <T = any>(path: string, body: any) => apiPost(path, body) as Promise<T>,
-  put: <T = any>(path: string, body: any) => apiPut(path, body) as Promise<T>,
-  delete: (path: string) => apiDelete(path),
-};
+// Helper for POST requests that return binary data
+export async function apiPostBinary(path: string, body: any, options: RequestInit = {}) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const headers: HeadersInit = {
+    ...getHeaders(),
+    ...(options.headers || {}),
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+
+  return response.blob();
+}

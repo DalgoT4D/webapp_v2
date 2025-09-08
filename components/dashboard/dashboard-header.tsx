@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { DashboardType } from './dashboard-view';
+import type { DashboardType } from '@/types/dashboard';
 import { Edit, MessageSquare, Share2, Download } from 'lucide-react';
 import Link from 'next/link';
 

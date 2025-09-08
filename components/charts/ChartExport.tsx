@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useChartExport } from '@/hooks/api/useChart';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,13 +14,16 @@ import {
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Download, FileImage, FileText, Image, Loader2 } from 'lucide-react';
+import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
+import { ChartExporter, generateFilename } from '@/lib/chart-export';
+import { toastSuccess, toastError } from '@/lib/toast';
+import * as echarts from 'echarts';
 
 interface ChartExportProps {
   chartId: number;
   chartTitle: string;
   trigger?: React.ReactNode;
-  chartInstance?: any; // echarts.ECharts instance
+  chartInstance?: echarts.ECharts; // echarts.ECharts instance
 }
 
 const exportFormats = [
@@ -32,23 +35,9 @@ const exportFormats = [
     extension: '.png',
   },
   {
-    value: 'jpeg',
-    label: 'JPEG Image',
-    description: 'Compressed image format, smaller file size',
-    icon: Image,
-    extension: '.jpeg',
-  },
-  {
-    value: 'svg',
-    label: 'SVG Vector',
-    description: 'Scalable vector graphics, ideal for print',
-    icon: FileText,
-    extension: '.svg',
-  },
-  {
     value: 'pdf',
     label: 'PDF Document',
-    description: 'Professional document format with chart and metadata',
+    description: 'Professional document format',
     icon: FileText,
     extension: '.pdf',
   },
@@ -68,41 +57,65 @@ export default function ChartExport({
 
   const handleExport = async () => {
     try {
-      if (selectedFormat === 'png' && chartInstance) {
-        // Use ECharts instance to export as PNG
-        const url = chartInstance.getDataURL({
-          type: 'png',
-          pixelRatio: 2,
-          backgroundColor: '#fff',
+      if (chartInstance) {
+        // Use direct ECharts export
+        const filename = generateFilename(chartTitle, selectedFormat);
+        await ChartExporter.exportEChartsInstance(chartInstance, {
+          filename,
+          format: selectedFormat,
+          backgroundColor: '#ffffff',
         });
 
-        // Create download link
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${chartTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
-
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
+        toastSuccess.exported(chartTitle, selectedFormat);
         setIsOpen(false);
         return;
       }
 
-      // Fallback to API export for other formats or if no echarts ref
+      // Fallback: get chart config from API and create temporary chart
       const response = await exportChart({ chart_id: chartId, format: selectedFormat });
 
-      // For now, just log the response
-      console.log('Export response:', response);
+      if (response?.chart_config) {
+        // Create temporary element
+        const tempDiv = document.createElement('div');
+        tempDiv.style.width = '800px';
+        tempDiv.style.height = '600px';
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.background = '#ffffff';
+        document.body.appendChild(tempDiv);
 
-      // TODO: Implement server-side export for other formats
-      alert(`Export to ${selectedFormat.toUpperCase()} will be implemented soon!`);
+        try {
+          const chart = echarts.init(tempDiv);
+          chart.setOption({
+            ...response.chart_config,
+            animation: false,
+          });
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          const filename = generateFilename(chartTitle, selectedFormat);
+          await ChartExporter.exportEChartsInstance(chart, {
+            filename,
+            format: selectedFormat,
+            backgroundColor: '#ffffff',
+          });
+
+          chart.dispose();
+
+          toastSuccess.exported(chartTitle, selectedFormat);
+        } finally {
+          if (tempDiv.parentNode) {
+            document.body.removeChild(tempDiv);
+          }
+        }
+      } else {
+        throw new Error('No chart configuration received');
+      }
 
       setIsOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Export failed:', error);
-      // TODO: Show error notification
+      toastError.export(error, selectedFormat);
     }
   };
 

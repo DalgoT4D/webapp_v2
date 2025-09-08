@@ -1,7 +1,6 @@
 import { embeddedAppUrl } from '@/constants/constants';
 
 export default function Ingest() {
-  console.log(embeddedAppUrl, 'embeddedAppUrl');
   return (
     <div className="w-full h-screen overflow-hidden">
       <iframe

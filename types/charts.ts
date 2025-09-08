@@ -1,8 +1,74 @@
+// Chart metric configuration for multiple metrics on bar/line charts
+export interface ChartMetric {
+  column: string;
+  aggregation: string; // SUM, COUNT, AVG, MAX, MIN, etc.
+  alias?: string; // Display name for the metric
+}
+
+// Chart filter configuration
+export interface ChartFilter {
+  column: string;
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'greater_than'
+    | 'less_than'
+    | 'greater_than_equal'
+    | 'less_than_equal'
+    | 'like'
+    | 'like_case_insensitive'
+    | 'contains'
+    | 'not_contains'
+    | 'in'
+    | 'not_in'
+    | 'is_null'
+    | 'is_not_null';
+  value: any;
+  data_type?: string;
+}
+
+// Chart pagination configuration
+export interface ChartPagination {
+  enabled: boolean;
+  page_size: number;
+}
+
+// Chart sort configuration
+export interface ChartSort {
+  column: string;
+  direction: 'asc' | 'desc';
+}
+
+// Dynamic geographic hierarchy interfaces
+export interface GeographicLevel {
+  level: number;
+  column: string;
+  region_type: string;
+  label: string;
+  parent_level?: number;
+  parent_column?: string;
+}
+
+export interface GeographicHierarchy {
+  country_code: string;
+  base_level: GeographicLevel;
+  drill_down_levels: GeographicLevel[];
+  max_depth?: number;
+}
+
+// Region hierarchy from backend
+export interface RegionHierarchyLevel {
+  level: number;
+  region_type: string;
+  parent_type?: string;
+  label: string;
+  is_active: boolean;
+}
+
 export interface Chart {
   id: number;
   title: string;
-  description?: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -15,8 +81,7 @@ export interface Chart {
 
 export interface ChartCreate {
   title: string;
-  description?: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -27,14 +92,48 @@ export interface ChartCreate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Multiple metrics for bar/line charts
+    metrics?: ChartMetric[];
+    // Map-specific fields
+    geographic_column?: string;
+    value_column?: string;
+    selected_geojson_id?: number;
+    layers?: Array<{
+      id: string;
+      level: number;
+      name?: string;
+      geojson_id?: number;
+    }>;
+    // Table-specific fields
+    table_columns?: string[];
+    column_formatting?: Record<
+      string,
+      {
+        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        precision?: number;
+        prefix?: string;
+        suffix?: string;
+      }
+    >;
     customizations?: Record<string, any>;
+    // Chart-level filters
+    filters?: ChartFilter[];
+    // Legacy map fields
+    district_column?: string;
+    ward_column?: string;
+    subward_column?: string;
+    drill_down_enabled?: boolean;
+    // New dynamic geographic hierarchy
+    geographic_hierarchy?: GeographicHierarchy;
+    // Pagination and sorting
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
   };
 }
 
 export interface ChartUpdate {
   title?: string;
-  description?: string;
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type?: 'raw' | 'aggregated';
   schema_name?: string;
   table_name?: string;
@@ -46,7 +145,32 @@ export interface ChartUpdate {
     aggregate_column?: string;
     aggregate_function?: string;
     extra_dimension_column?: string;
+    // Multiple metrics for bar/line charts
+    metrics?: ChartMetric[];
+    // Map-specific fields
+    geographic_column?: string;
+    value_column?: string;
+    selected_geojson_id?: number;
+    layers?: Array<{
+      id: string;
+      level: number;
+      name?: string;
+      geojson_id?: number;
+    }>;
+    // Table-specific fields
+    table_columns?: string[];
+    column_formatting?: Record<
+      string,
+      {
+        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        precision?: number;
+        prefix?: string;
+        suffix?: string;
+      }
+    >;
     customizations?: Record<string, any>;
+    // Chart-level filters
+    filters?: ChartFilter[];
   };
 }
 
@@ -66,8 +190,29 @@ export interface ChartDataPayload {
   aggregate_func?: string;
   extra_dimension?: string;
 
+  // Multiple metrics for bar/line charts
+  metrics?: ChartMetric[];
+
+  // Map-specific fields
+  geographic_column?: string;
+  value_column?: string;
+  selected_geojson_id?: number;
+
   // Customizations
   customizations?: Record<string, any>;
+
+  // Chart-level configuration
+  extra_config?: {
+    filters?: ChartFilter[];
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
+  };
+
+  // Dashboard filters
+  dashboard_filters?: Array<{
+    filter_id: string;
+    value: any;
+  }>;
 
   // Pagination
   offset?: number;
@@ -89,9 +234,10 @@ export interface DataPreviewResponse {
 }
 
 export interface TableColumn {
-  column_name: string;
+  name: string;
   data_type: string;
-  is_nullable: boolean;
+  column_name?: string; // For backward compatibility
+  is_nullable?: boolean;
   column_default?: string;
 }
 
@@ -103,12 +249,65 @@ export interface TableInfo {
 
 // Extended ChartCreate type for internal ChartBuilder state
 export type ChartBuilderFormData = Partial<ChartCreate> & {
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   x_axis_column?: string;
   y_axis_column?: string;
   dimension_column?: string;
   aggregate_column?: string;
   aggregate_function?: string;
   extra_dimension_column?: string;
+  // Multiple metrics for bar/line charts
+  metrics?: ChartMetric[];
+  // Map-specific fields
+  geographic_column?: string;
+  value_column?: string;
+  selected_geojson_id?: number;
+  country_code?: string;
+  layer_level?: number;
+  // Table-specific fields
+  table_columns?: string[];
+  column_formatting?: Record<
+    string,
+    {
+      type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+      precision?: number;
+      prefix?: string;
+      suffix?: string;
+    }
+  >;
   customizations?: Record<string, any>;
+  // Chart-level filters
+  filters?: ChartFilter[];
+  // Table configuration
+  pagination?: ChartPagination;
+  sort?: ChartSort[];
+  // Map layers configuration
+  layers?: Array<{
+    id: string;
+    level: number;
+    name?: string;
+    geojson_id?: number;
+  }>;
+  // Legacy simplified map configuration (backward compatibility)
+  district_column?: string;
+  ward_column?: string;
+  subward_column?: string;
+  drill_down_enabled?: boolean;
+
+  // New dynamic geographic hierarchy
+  geographic_hierarchy?: GeographicHierarchy;
+  // Preview payloads for maps
+  geojsonPreviewPayload?: {
+    geojsonId: number;
+  };
+  dataOverlayPayload?: {
+    schema_name: string;
+    table_name: string;
+    geographic_column: string;
+    value_column: string;
+    aggregate_function: string;
+    selected_geojson_id: number;
+    filters?: Record<string, any>;
+    chart_filters?: ChartFilter[];
+  };
 };

@@ -6,12 +6,19 @@ export interface Org {
   viz_url: string;
 }
 
+export interface Permission {
+  slug: string;
+  name: string;
+}
+
 export interface OrgUser {
   email: string;
   org: Org;
   active: boolean;
   new_role_slug: string;
-  permissions: string[];
+  permissions: Permission[];
+  landing_dashboard_id?: number | null; // Personal landing page dashboard ID
+  org_default_dashboard_id?: number | null; // Organization default dashboard ID
 }
 
 interface AuthState {

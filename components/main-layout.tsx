@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { NEXT_PUBLIC_WEBAPP_ENVIRONMENT } from '@/constants/constants';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
   BarChart3,
   Database,
@@ -42,7 +43,6 @@ const PRODUCTION_HIDDEN_ITEMS = [
   'Alerts',
   'Settings',
 ];
-console.log(NEXT_PUBLIC_WEBAPP_ENVIRONMENT);
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
   if (NEXT_PUBLIC_WEBAPP_ENVIRONMENT !== 'production') {
@@ -81,10 +81,10 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 const getNavItems = (currentPath: string): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
-      title: 'Impact',
-      href: '/',
+      title: 'Impact at a Glance',
+      href: '/impact-at-a-glance',
       icon: Home,
-      isActive: currentPath === '/',
+      isActive: currentPath === '/impact-at-a-glance',
     },
     {
       title: 'Metrics',
@@ -159,64 +159,20 @@ const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
   const flattened: NavItemType[] = [];
 
   items.forEach((item) => {
-    flattened.push(item);
-    if (item.children) {
+    if (item.children && item.title === 'Data') {
+      // For Data parent, only include children (Ingest, Transform, Orchestrate) in collapsed mode
       flattened.push(...item.children);
+    } else {
+      // For other items, include the parent as usual
+      flattened.push(item);
+      if (item.children) {
+        flattened.push(...item.children);
+      }
     }
   });
 
   return flattened;
 };
-
-// Profile component for sidebar footer
-function Profile({ isCollapsed }: { isCollapsed: boolean }) {
-  const { currentOrg, getCurrentOrgUser } = useAuthStore();
-  const currentUser = getCurrentOrgUser();
-  const userInitials = currentUser?.email
-    ? currentUser.email
-        .split('@')[0]
-        .split('.')
-        .map((part) => part.charAt(0).toUpperCase())
-        .join('')
-        .slice(0, 2)
-    : 'U';
-
-  if (isCollapsed) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center justify-center p-3 rounded-lg bg-muted/20">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">{userInitials}</span>
-              </div>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="ml-2">
-            <div className="text-sm">
-              <p className="font-medium">{currentOrg?.name || 'Organization'}</p>
-              <p className="text-muted-foreground">{currentUser?.new_role_slug || 'User'}</p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/20">
-      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-sm font-medium text-primary">{userInitials}</span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{currentOrg?.name || 'Organization'}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {currentUser?.new_role_slug || 'User'}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // Collapsed navigation item component
 function CollapsedNavItem({ item }: { item: NavItemType }) {
@@ -383,53 +339,142 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
+  const responsive = useResponsiveLayout();
   const navItems = getNavItems(pathname);
   const flattenedNavItems = getFlattenedNavItems(navItems);
 
+  // Auto-collapse sidebar on specific dashboard/chart pages
+  useEffect(() => {
+    const shouldAutoCollapse =
+      // Chart pages
+      pathname === '/charts/create' ||
+      pathname.match(/^\/charts\/[^\/]+\/edit$/) ||
+      (pathname.match(/^\/charts\/[^\/]+$/) && !pathname.includes('/edit')) ||
+      // Dashboard pages
+      pathname === '/dashboards/create' ||
+      pathname.match(/^\/dashboards\/[^\/]+\/edit$/) ||
+      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit'));
+
+    // Reset user toggle preference on page navigation
+    setHasUserToggledSidebar(false);
+
+    // Auto-collapse when navigating to these pages
+    if (shouldAutoCollapse) {
+      setIsSidebarCollapsed(true);
+    }
+  }, [pathname]);
+
+  // Determine if sidebar should be shown based on screen size
+  const shouldShowDesktopSidebar = responsive.isDesktop;
+  const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
+
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background">
+    <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-background">
       {/* SECTION 1: NAVBAR - Fixed Full Width */}
-      <header className="h-16 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0">
-        <div className="h-full px-4 lg:px-6">
+      <header
+        id="main-layout-navbar"
+        className="h-16 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0"
+      >
+        <div id="main-layout-navbar-container" className="h-full px-4 lg:px-6">
           <Header
             onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             hideMenu={false}
-            onSidebarToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onSidebarToggle={
+              shouldShowDesktopSidebar
+                ? () => {
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                    setHasUserToggledSidebar(true); // Mark that user has manually interacted
+                  }
+                : undefined
+            }
             isSidebarCollapsed={isSidebarCollapsed}
+            responsive={responsive}
           />
         </div>
       </header>
 
       {/* CONTENT AREA: Remaining Height */}
-      <div className="flex h-[calc(100vh-4rem)]">
-        {/* SECTION 2: SIDEBAR - Fixed Width */}
-        <aside
-          className={cn(
-            'hidden md:flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
-            isSidebarCollapsed ? 'w-16' : 'w-64'
-          )}
-        >
-          {/* Sidebar Navigation */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {isSidebarCollapsed
-              ? // Collapsed: Show all items (including nested) as individual icons with tooltips
-                flattenedNavItems.map((item, index) => (
-                  <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
-                ))
-              : // Expanded: Show hierarchical structure
-                navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
-          </div>
+      <div id="main-layout-content-area" className="flex h-[calc(100vh-4rem)]">
+        {/* SECTION 2: SIDEBAR - Only show on desktop screens */}
+        {shouldShowDesktopSidebar && (
+          <aside
+            id="main-layout-sidebar"
+            className={cn(
+              'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
+              isSidebarCollapsed ? 'w-16' : 'w-64'
+            )}
+          >
+            {/* Sidebar Navigation */}
+            <div id="main-layout-sidebar-nav" className="flex-1 overflow-y-auto p-4 space-y-2">
+              {isSidebarCollapsed
+                ? // Collapsed: Show all items (including nested) as individual icons with tooltips
+                  flattenedNavItems.map((item, index) => (
+                    <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
+                  ))
+                : // Expanded: Show hierarchical structure
+                  navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
+            </div>
 
-          {/* Sidebar Footer */}
-          <div className="p-4 border-t">
-            <Profile isCollapsed={isSidebarCollapsed} />
-          </div>
-        </aside>
+            {/* Sidebar Footer */}
+            <div id="main-layout-sidebar-footer" className="p-4 border-t space-y-2">
+              {/* Footer Links */}
+              <div className="space-y-1">
+                <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
+                      isSidebarCollapsed && 'justify-center'
+                    )}
+                  >
+                    {!isSidebarCollapsed && <span>Documentation</span>}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      width="14"
+                      fill="currentColor"
+                      className="flex-shrink-0"
+                    >
+                      <path d="M0 0h24v24H0z" fill="none" />
+                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                    </svg>
+                  </div>
+                </Link>
 
+                <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
+                      isSidebarCollapsed && 'justify-center'
+                    )}
+                  >
+                    {!isSidebarCollapsed && <span>Privacy Policy</span>}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      width="14"
+                      fill="currentColor"
+                      className="flex-shrink-0"
+                    >
+                      <path d="M0 0h24v24H0z" fill="none" />
+                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                    </svg>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </aside>
+        )}
         {/* Mobile Sidebar */}
-        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="left" className="p-0 w-72">
-            <div className="flex flex-col h-full">
+        <Sheet
+          id="main-layout-mobile-sidebar"
+          open={isMobileMenuOpen}
+          onOpenChange={setIsMobileMenuOpen}
+        >
+          <SheetContent id="main-layout-mobile-sidebar-content" side="left" className="p-0 w-72">
+            <div id="main-layout-mobile-sidebar-wrapper" className="flex flex-col h-full">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">
                   <BarChart3 className="h-6 w-6 text-primary" />
@@ -447,21 +492,58 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 ))}
               </div>
 
-              <div className="p-4 border-t">
-                <Profile isCollapsed={false} />
+              <div className="p-4 border-t space-y-2">
+                {/* Footer Links */}
+                <div className="space-y-1">
+                  <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                      <span>Documentation</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        fill="currentColor"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                      </svg>
+                    </div>
+                  </Link>
+
+                  <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                      <span>Privacy Policy</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        fill="currentColor"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                      </svg>
+                    </div>
+                  </Link>
+                </div>
               </div>
             </div>
           </SheetContent>
         </Sheet>
 
         {/* SECTION 3: MAIN CONTENT AREA - Remaining Width */}
-        <main className="flex-1 overflow-hidden bg-background">
-          {/* Page Container - Fixed Width of Remaining Space */}
-          <div className="h-full w-full overflow-auto">
-            {/* Consistent Inner Padding Container */}
-            <div className="p-6 h-full">
+        <main id="main-layout-main-content" className="flex-1 overflow-hidden bg-background">
+          {/* Page Container - Dashboard pages handle their own scrolling */}
+          <div id="main-layout-page-container" className="h-full w-full">
+            {/* Consistent Inner Padding Container - No padding for dashboard pages */}
+            <div id="main-layout-inner-container" className="h-full">
               {/* Content Area */}
-              <div className="h-full w-full">{children}</div>
+              <div id="main-layout-content-wrapper" className="h-full w-full">
+                {children}
+              </div>
             </div>
           </div>
         </main>

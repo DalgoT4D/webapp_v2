@@ -1,11 +1,19 @@
 'use client';
 
 import { SWRConfig } from 'swr';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { apiGet } from './api';
 
 // Use existing API infrastructure for SWR fetcher
 const defaultFetcher = (url: string) => {
+  // Never use authenticated API for public endpoints
+  if (url.includes('/api/v1/public/')) {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
+    return fetch(`${backendUrl}${url}`).then((res) => {
+      if (!res.ok) throw new Error('Failed to fetch public data');
+      return res.json();
+    });
+  }
   return apiGet(url);
 };
 

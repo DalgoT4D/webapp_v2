@@ -40,6 +40,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     mockUseTables.mockReturnValue({
@@ -47,6 +48,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     mockUseColumns.mockReturnValue({
@@ -59,6 +61,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     mockUseChartData.mockReturnValue({
@@ -66,6 +69,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     mockUseChartSave.mockReturnValue({
@@ -229,6 +233,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -265,6 +270,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -303,6 +309,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -345,6 +352,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     mockSave.mockResolvedValue({ id: 1, title: 'Test Chart' });
@@ -408,6 +416,7 @@ describe('ChartBuilder', () => {
       isLoading: true,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -423,6 +432,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: { message: 'Failed to load schemas' },
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -439,6 +449,7 @@ describe('ChartBuilder', () => {
       isLoading: true,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -493,6 +504,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);
@@ -554,6 +566,7 @@ describe('ChartBuilder', () => {
       isLoading: false,
       error: null,
       mutate: jest.fn(),
+      isValidating: false,
     });
 
     render(<ChartBuilder onSave={mockOnSave} onCancel={mockOnCancel} />);

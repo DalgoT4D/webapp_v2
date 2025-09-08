@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart2, PieChart, LineChart, Hash, Map } from 'lucide-react';
+import { BarChart2, PieChart, LineChart, Hash, Map, Table } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -44,6 +44,12 @@ const chartTypes = [
     name: 'Map',
     description: 'Visualize geographic data',
     icon: Map,
+  },
+  {
+    id: 'table',
+    name: 'Table',
+    description: 'Display data in rows and columns',
+    icon: Table,
   },
 ];
 
