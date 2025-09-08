@@ -602,11 +602,27 @@ export function ChartDataConfigurationV3({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None</SelectItem>
-              {allColumns.map((col) => (
-                <SelectItem key={col.column_name} value={col.column_name}>
-                  {col.column_name}
-                </SelectItem>
-              ))}
+              {allColumns
+                .filter((col) => {
+                  // Filter out columns that are already selected in other fields
+                  const usedColumns = [
+                    formData.x_axis_column,
+                    formData.y_axis_column,
+                    formData.dimension_column,
+                    formData.aggregate_column,
+                    formData.geographic_column,
+                    formData.value_column,
+                    // Also filter out columns used in metrics
+                    ...(formData.metrics || []).map((metric) => metric.column),
+                  ].filter(Boolean); // Remove undefined/null values
+
+                  return !usedColumns.includes(col.column_name);
+                })
+                .map((col) => (
+                  <SelectItem key={col.column_name} value={col.column_name}>
+                    {col.column_name}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>
