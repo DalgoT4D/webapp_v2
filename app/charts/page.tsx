@@ -233,9 +233,6 @@ export default function ChartsPage() {
         // Create duplicate chart data
         const duplicateChartData: ChartCreate = {
           title: duplicateTitle,
-          description: originalChart.description
-            ? `Copy of ${originalChart.description}`
-            : undefined,
           chart_type: originalChart.chart_type as
             | 'bar'
             | 'pie'
@@ -489,9 +486,6 @@ export default function ChartsPage() {
               <div className="flex items-start justify-between">
                 <div className="space-y-1 flex-1">
                   <CardTitle className="text-sm line-clamp-1">{chart.title}</CardTitle>
-                  <CardDescription className="text-xs line-clamp-1">
-                    {chart.description || 'No description'}
-                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -571,10 +565,6 @@ export default function ChartsPage() {
                     {chart.chart_type}
                   </Badge>
                 </div>
-
-                <p className="text-sm text-muted-foreground truncate">
-                  {chart.description || 'No description'}
-                </p>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                   <span className="font-mono">

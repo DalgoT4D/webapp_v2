@@ -36,14 +36,12 @@ export default function CreateDashboardPage() {
       try {
         const dashboard = await createDashboard({
           title: 'Untitled Dashboard',
-          description: '',
           grid_columns: 12,
         });
 
         setDashboardId(dashboard.id);
         setDashboardData({
           title: dashboard.title,
-          description: dashboard.description,
           grid_columns: dashboard.grid_columns || 12,
           layout_config: dashboard.layout_config || [],
           components: dashboard.components || {},

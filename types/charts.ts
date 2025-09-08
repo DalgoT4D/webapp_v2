@@ -68,7 +68,6 @@ export interface RegionHierarchyLevel {
 export interface Chart {
   id: number;
   title: string;
-  description?: string;
   chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
@@ -82,7 +81,6 @@ export interface Chart {
 
 export interface ChartCreate {
   title: string;
-  description?: string;
   chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
@@ -135,7 +133,6 @@ export interface ChartCreate {
 
 export interface ChartUpdate {
   title?: string;
-  description?: string;
   chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
   computation_type?: 'raw' | 'aggregated';
   schema_name?: string;

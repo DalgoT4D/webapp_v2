@@ -112,18 +112,8 @@ export function PublicDashboardView({ token }: PublicDashboardViewProps) {
                 <Clock className="h-3 w-3" />
                 Created {new Date(dashboard.created_at).toLocaleDateString()}
               </div>
-              <Link href="https://dashboard.dalgo.org" target="_blank">
-                <Button variant="outline" size="sm">
-                  Sign up to Dalgo
-                  <ExternalLink className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
             </div>
           </div>
-
-          {dashboard.description && (
-            <p className="text-gray-600 mt-2 text-sm">{dashboard.description}</p>
-          )}
         </div>
       </header>
 

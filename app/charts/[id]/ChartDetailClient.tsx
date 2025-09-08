@@ -495,7 +495,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center text-red-600">
-          Failed to load chart. Please try again later.
+          Chart isn't ready yet. Please check your settings or try again later.
         </div>
       </div>
     );

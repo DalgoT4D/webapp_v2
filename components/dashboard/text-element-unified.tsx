@@ -170,7 +170,7 @@ export function UnifiedTextElement({
           onChange={(e) => setTempContent(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleInlineEditSave}
-          className="resize-none border-0 p-2 focus:ring-0 focus:border-0 bg-transparent drag-cancel"
+          className="resize-none border-0 p-2 focus:ring-0 focus:border-0 bg-transparent drag-cancel h-full w-full overflow-y-auto"
           style={{
             fontSize: `${config.fontSize}px`,
             fontWeight: config.fontWeight,
@@ -178,53 +178,53 @@ export function UnifiedTextElement({
             textAlign: config.textAlign as any,
             color: config.color,
             lineHeight: config.type === 'heading' ? '1.2' : '1.6',
-            minHeight: '40px',
           }}
-          rows={Math.min(Math.max(tempContent.split('\n').length, 2), 6)}
         />
       );
     }
 
-    const content = config.content || 'Click to add text...';
+    const content = config.content || (isEditMode ? 'Click to add text...' : '');
     const className = cn(
-      'whitespace-pre-wrap break-words outline-none',
-      config.type === 'heading' && config.headingLevel === 1 && 'text-3xl font-bold',
-      config.type === 'heading' && config.headingLevel === 2 && 'text-2xl font-semibold',
-      config.type === 'heading' && config.headingLevel === 3 && 'text-xl font-medium',
-      !config.content && 'text-gray-400 italic'
+      'whitespace-pre-wrap break-words',
+      !isEditMode && 'outline-none',
+      !config.content && isEditMode && 'text-gray-400 italic'
     );
+
+    // Create clean display style for view mode
+    const displayStyle = isEditMode
+      ? getDisplayStyle()
+      : {
+          fontSize: `${config.fontSize}px`,
+          fontWeight: config.fontWeight,
+          fontStyle: config.fontStyle,
+          textDecoration: config.textDecoration,
+          textAlign: config.textAlign as any,
+          color: config.color,
+          backgroundColor: config.backgroundColor || 'transparent',
+          lineHeight: config.type === 'heading' ? '1.2' : '1.6',
+          margin: 0,
+          whiteSpace: 'pre-wrap' as any,
+          wordBreak: 'break-word' as any,
+        };
+
+    const handleClick = isEditMode ? handleInlineEdit : undefined;
 
     if (config.type === 'heading') {
       if (config.headingLevel === 1) {
         return (
-          <h1
-            ref={textRef}
-            className={className}
-            style={getDisplayStyle()}
-            onClick={handleInlineEdit}
-          >
+          <h1 ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
             {content}
           </h1>
         );
       } else if (config.headingLevel === 2) {
         return (
-          <h2
-            ref={textRef}
-            className={className}
-            style={getDisplayStyle()}
-            onClick={handleInlineEdit}
-          >
+          <h2 ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
             {content}
           </h2>
         );
       } else {
         return (
-          <h3
-            ref={textRef}
-            className={className}
-            style={getDisplayStyle()}
-            onClick={handleInlineEdit}
-          >
+          <h3 ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
             {content}
           </h3>
         );
@@ -232,11 +232,16 @@ export function UnifiedTextElement({
     }
 
     return (
-      <div ref={textRef} className={className} style={getDisplayStyle()} onClick={handleInlineEdit}>
+      <div ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
         {content}
       </div>
     );
   };
+
+  // If not in edit mode, subtract toolbar height to show only content space
+  if (!isEditMode) {
+    return <div className="w-full h-full">{renderContent()}</div>;
+  }
 
   return (
     <div className="h-full w-full relative">
@@ -251,7 +256,7 @@ export function UnifiedTextElement({
           </button>
         </div>
       )}
-      <Card className="h-full flex flex-col bg-white/50 hover:bg-white/80 transition-colors">
+      <Card className="h-full flex flex-col bg-white/50 hover:bg-white/80 transition-colors p-0 gap-0">
         {/* Quick toolbar */}
         <div className="flex items-center justify-between p-2 border-b bg-gray-50/50 drag-cancel">
           <div className="flex items-center gap-1">
@@ -350,9 +355,11 @@ export function UnifiedTextElement({
                       <label className="text-xs font-medium">Heading Level</label>
                       <Select
                         value={config.headingLevel?.toString() || '2'}
-                        onValueChange={(value) =>
-                          handleQuickFormat('headingLevel', parseInt(value))
-                        }
+                        onValueChange={(value) => {
+                          const headingLevel = parseInt(value);
+                          const fontSize = headingLevel === 1 ? 32 : headingLevel === 2 ? 24 : 18;
+                          onUpdate({ ...config, headingLevel, fontSize });
+                        }}
                       >
                         <SelectTrigger className="mt-1 h-8">
                           <SelectValue />
@@ -424,13 +431,17 @@ export function UnifiedTextElement({
         </div>
 
         {/* Text content */}
-        <div className="flex-1 p-0">{renderContent()}</div>
-
-        {isInlineEditing && (
-          <div className="p-2 bg-blue-50 border-t text-xs text-blue-600">
-            <strong>Tip:</strong> Press Enter to save, Esc to cancel, Shift+Enter for new line
-          </div>
-        )}
+        <div className="flex-1 relative min-h-0">
+          {/* Invisible drag zones at edges for easier dragging */}
+          {isEditMode && (
+            <>
+              <div className="absolute top-0 left-0 w-4 h-full cursor-move opacity-0" />
+              <div className="absolute top-0 right-0 w-4 h-full cursor-move opacity-0" />
+              <div className="absolute bottom-0 left-4 right-4 h-2 cursor-move opacity-0" />
+            </>
+          )}
+          <div className="h-full w-full">{renderContent()}</div>
+        </div>
       </Card>
     </div>
   );

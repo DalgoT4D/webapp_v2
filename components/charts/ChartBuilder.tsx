@@ -532,7 +532,6 @@ export function ChartBuilder({
     // Construct the payload with extra_config structure
     const chartData: ChartCreate = {
       title: formData.title!,
-      description: formData.description,
       chart_type: formData.chart_type!,
       computation_type: formData.computation_type!,
       schema_name: formData.schema_name!,
@@ -673,12 +672,11 @@ export function ChartBuilder({
                   chart_type: newChartType,
                 };
 
-                // Preserve dataset selection (schema, table, title, description)
+                // Preserve dataset selection (schema, table, title)
                 // These are compatible across all chart types
                 if (formData.schema_name) updates.schema_name = formData.schema_name;
                 if (formData.table_name) updates.table_name = formData.table_name;
                 if (formData.title) updates.title = formData.title;
-                if (formData.description) updates.description = formData.description;
 
                 // Set computation_type based on chart type
                 if (newChartType === 'number') {

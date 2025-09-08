@@ -41,7 +41,6 @@ export function GeoJSONUploadModal({
   const [formData, setFormData] = useState({
     regionId: '',
     name: '',
-    description: '',
     propertiesKey: '',
     geojsonData: '',
   });
@@ -92,7 +91,6 @@ export function GeoJSONUploadModal({
       const uploadData = {
         region_id: parseInt(formData.regionId),
         name: formData.name,
-        description: formData.description || null,
         properties_key: formData.propertiesKey,
         geojson_data: parsedGeoJSON,
       };
@@ -105,7 +103,6 @@ export function GeoJSONUploadModal({
       setFormData({
         regionId: '',
         name: '',
-        description: '',
         propertiesKey: '',
         geojsonData: '',
       });
@@ -169,18 +166,6 @@ export function GeoJSONUploadModal({
               placeholder="e.g., Custom States 2024"
               disabled={isLoading}
               required
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Optional description"
-              disabled={isLoading}
             />
           </div>
 

@@ -82,6 +82,7 @@ export function MapPreview({
   // Dashboard integration
   isResizing = false,
 }: MapPreviewProps) {
+  // MapPreview initialization
   // Create stable reference for customizations to avoid unnecessary re-renders
   const safeCustomizations = useMemo(() => customizations || {}, [customizations]);
 
@@ -129,7 +130,6 @@ export function MapPreview({
   // Initialize map chart with separated data
   const initializeMapChart = useCallback(() => {
     if (!chartRef.current) {
-      console.warn('⚠️ [MAP-PREVIEW] chartRef.current is null, cannot initialize chart');
       return;
     }
 
@@ -272,8 +272,8 @@ export function MapPreview({
               mapType: mapName,
               // Always enable roam for zoom/pan functionality via buttons
               roam: 'move',
-              // Apply selection settings
-              selectedMode: safeCustomizations.select !== false ? 'single' : false,
+              // Apply selection settings - ALWAYS enable for clicks to work
+              selectedMode: 'single',
               // Configure how regions without data should appear (default styling)
               itemStyle: {
                 areaColor: '#f5f5f5', // Light gray for regions without data
@@ -378,6 +378,44 @@ export function MapPreview({
 
         // Add click listener to the newly created chart instance
         chartInstance.current.on('click', handleClick);
+
+        // Also add mobile-specific touch handling
+        if ('ontouchstart' in window && chartRef.current) {
+          const chartDom = chartRef.current;
+          let touchStartTime = 0;
+          let touchMoved = false;
+
+          const handleTouchStart = () => {
+            touchStartTime = Date.now();
+            touchMoved = false;
+          };
+
+          const handleTouchMove = () => {
+            touchMoved = true;
+          };
+
+          const handleTouchEnd = (e: TouchEvent) => {
+            const touchDuration = Date.now() - touchStartTime;
+            if (!touchMoved && touchDuration < 500) {
+              // Simulate a click event for mobile
+              const touch = e.changedTouches[0];
+              const rect = chartDom.getBoundingClientRect();
+              const x = touch.clientX - rect.left;
+              const y = touch.clientY - rect.top;
+
+              // Trigger ECharts click detection
+              chartInstance.current?.dispatchAction({
+                type: 'showTip',
+                x: x,
+                y: y,
+              });
+            }
+          };
+
+          chartDom.addEventListener('touchstart', handleTouchStart);
+          chartDom.addEventListener('touchmove', handleTouchMove);
+          chartDom.addEventListener('touchend', handleTouchEnd);
+        }
       }
 
       if (onChartReady) {
@@ -535,7 +573,7 @@ export function MapPreview({
     return (
       <div className="flex items-center justify-center h-full min-h-[500px]">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-sm text-muted-foreground">
             {geojsonLoading ? 'Loading map boundaries...' : 'Loading map...'}
           </p>
@@ -548,15 +586,17 @@ export function MapPreview({
   if (error || geojsonError) {
     const errorMessage = error?.message || error || geojsonError?.message || geojsonError;
     return (
-      <div className="flex items-center justify-center h-full min-h-[500px] p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load map. Please check your configuration and try again.
-            <br />
-            <span className="text-xs mt-1 block">{errorMessage}</span>
-          </AlertDescription>
-        </Alert>
+      <div className="relative h-full min-h-[500px]">
+        <div className="absolute top-0 left-0 right-0 z-10 p-4">
+          <Alert variant="warning">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Map configuration needs a small adjustment. Please review your settings and try again.
+              <br />
+              <span className="text-xs mt-1 block">{errorMessage}</span>
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }
@@ -655,7 +695,7 @@ export function MapPreview({
       {showDataLoadingOverlay && (
         <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
           <div className="text-center">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
             <p className="text-sm text-muted-foreground">Loading data...</p>
           </div>
         </div>
@@ -663,11 +703,11 @@ export function MapPreview({
 
       {/* Data error overlay */}
       {mapDataError && geojsonData && (
-        <div className="absolute top-4 right-4">
-          <Alert variant="destructive" className="w-80">
+        <div className="absolute top-4 left-4 right-4">
+          <Alert variant="warning" className="max-w-lg">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load data: {mapDataError?.message || mapDataError}
+              Data needs attention: {mapDataError?.message || mapDataError}
             </AlertDescription>
           </Alert>
         </div>
