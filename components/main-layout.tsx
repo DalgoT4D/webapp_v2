@@ -333,13 +333,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
   const responsive = useResponsiveLayout();
   const navItems = getNavItems(pathname);
   const flattenedNavItems = getFlattenedNavItems(navItems);
 
   // Auto-collapse sidebar on specific dashboard/chart pages
   useEffect(() => {
-    const shouldCollapse =
+    const shouldAutoCollapse =
       // Chart pages
       pathname === '/charts/create' ||
       pathname.match(/^\/charts\/[^\/]+\/edit$/) ||
@@ -349,10 +350,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       pathname.match(/^\/dashboards\/[^\/]+\/edit$/) ||
       (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit'));
 
-    if (shouldCollapse && !isSidebarCollapsed) {
+    // Reset user toggle preference on page navigation
+    setHasUserToggledSidebar(false);
+
+    // Auto-collapse when navigating to these pages
+    if (shouldAutoCollapse) {
       setIsSidebarCollapsed(true);
     }
-  }, [pathname, isSidebarCollapsed]);
+  }, [pathname]);
 
   // Determine if sidebar should be shown based on screen size
   const shouldShowDesktopSidebar = responsive.isDesktop;
@@ -371,7 +376,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             hideMenu={false}
             onSidebarToggle={
               shouldShowDesktopSidebar
-                ? () => setIsSidebarCollapsed(!isSidebarCollapsed)
+                ? () => {
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                    setHasUserToggledSidebar(true); // Mark that user has manually interacted
+                  }
                 : undefined
             }
             isSidebarCollapsed={isSidebarCollapsed}
