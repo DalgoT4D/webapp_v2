@@ -673,7 +673,6 @@ function ConfigureChartPageContent() {
 
     const chartData: ChartCreate = {
       title: formData.title!,
-      description: formData.description,
       chart_type: formData.chart_type!,
       computation_type: formData.computation_type!,
       schema_name: formData.schema_name!,
@@ -753,12 +752,6 @@ function ConfigureChartPageContent() {
               onChange={(e) => handleFormChange({ title: e.target.value })}
               className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[250px]"
               placeholder="Untitled Chart"
-            />
-            <Input
-              placeholder="Brief description"
-              value={formData.description || ''}
-              onChange={(e) => handleFormChange({ description: e.target.value })}
-              className="w-80 border border-gray-200 shadow-sm px-4 py-2 h-11"
             />
             <Button
               onClick={handleSave}

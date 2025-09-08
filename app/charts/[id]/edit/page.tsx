@@ -202,7 +202,6 @@ function EditChartPageContent() {
 
       const initialData: ChartBuilderFormData = {
         title: chart.title,
-        description: chart.description,
         chart_type: chart.chart_type as 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table',
         computation_type: chart.computation_type as 'raw' | 'aggregated',
         schema_name: chart.schema_name,
@@ -583,7 +582,7 @@ function EditChartPageContent() {
       // Smart column mapping based on chart type compatibility
       const smartUpdates = { ...updates };
 
-      // Preserve dataset selection (schema, table, title, description)
+      // Preserve dataset selection (schema, table, title)
       // These are compatible across all chart types - no need to change
 
       // Set computation_type based on chart type
@@ -857,7 +856,6 @@ function EditChartPageContent() {
 
     return {
       title: formData.title!,
-      description: formData.description,
       chart_type: formData.chart_type!,
       computation_type: formData.computation_type!,
       schema_name: formData.schema_name!,
@@ -900,7 +898,6 @@ function EditChartPageContent() {
       const chartData = buildChartData();
       const updateData: ChartUpdate = {
         title: chartData.title,
-        description: chartData.description,
         chart_type: chartData.chart_type,
         computation_type: chartData.computation_type,
         schema_name: chartData.schema_name,
@@ -1024,7 +1021,7 @@ function EditChartPageContent() {
           <Alert className="max-w-2xl">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {chartError ? 'Failed to load chart' : 'Chart not found'}
+              {chartError ? 'Chart needs attention' : 'Chart not found'}
             </AlertDescription>
           </Alert>
         </div>
@@ -1062,12 +1059,6 @@ function EditChartPageContent() {
               onChange={(e) => handleFormChange({ title: e.target.value })}
               className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[250px]"
               placeholder="Untitled Chart"
-            />
-            <Input
-              placeholder="Brief description"
-              value={formData.description || ''}
-              onChange={(e) => handleFormChange({ description: e.target.value })}
-              className="w-80 border border-gray-200 shadow-sm px-4 py-2 h-11"
             />
             <div className="flex gap-3">
               <Button

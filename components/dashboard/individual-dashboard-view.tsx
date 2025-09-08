@@ -23,7 +23,6 @@ interface Dashboard {
   uuid: string;
   dashboard_title: string;
   slug?: string;
-  description?: string;
   published: boolean;
   json_metadata?: string;
   position_json?: string;
@@ -193,9 +192,6 @@ export function IndividualDashboardView({
 
           <div className="space-y-2">
             <h1 className="text-3xl font-bold">{dashboard.dashboard_title}</h1>
-            {dashboard.description && (
-              <p className="text-muted-foreground text-lg">{dashboard.description}</p>
-            )}
 
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               {dashboard.changed_by && (
@@ -246,11 +242,6 @@ export function IndividualDashboardView({
         <div className="p-6 border-b">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-2">{dashboard.dashboard_title}</h1>
-            {dashboard.description && (
-              <p className="text-muted-foreground text-sm max-w-2xl mx-auto">
-                {dashboard.description}
-              </p>
-            )}
           </div>
         </div>
       )}

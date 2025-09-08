@@ -4,7 +4,15 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, RefreshCw, Maximize2, Download, ArrowLeft, Home } from 'lucide-react';
+import {
+  AlertCircle,
+  RefreshCw,
+  Maximize2,
+  Download,
+  ArrowLeft,
+  Home,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
@@ -113,13 +121,32 @@ export function ChartElementView({
   config = {},
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
-  // Fetch regions data for dynamic geojson lookup (for Indian maps)
-  const { data: regions } = useRegions('IND', 'state');
+  // Fetch regions data - use public API for public mode, private API for private mode
+  const { data: privateRegions } = useRegions(!isPublicMode ? 'IND' : null, 'state');
+
+  // Use public regions API for public mode
+  const publicRegionsUrl =
+    isPublicMode && publicToken
+      ? `/api/v1/public/regions/?country_code=IND&region_type=state`
+      : null;
+
+  const { data: publicRegions } = useSWR(publicRegionsUrl, async (url: string) => {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch public regions');
+    }
+    return response.json();
+  });
+
+  const regions = isPublicMode ? publicRegions : privateRegions;
 
   // Fetch chart metadata to determine chart type (only in authenticated mode)
   const {
@@ -352,8 +379,28 @@ export function ChartElementView({
   const currentDrillDownRegionId =
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
-  // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
-  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+  // Fetch geojsons for the current drill-down region - use public API for public mode
+  const { data: privateRegionGeojsons } = useRegionGeoJSONs(
+    !isPublicMode ? currentDrillDownRegionId : null
+  );
+
+  // Use public geojsons API for public mode
+  const publicGeojsonsUrl =
+    isPublicMode && publicToken && currentDrillDownRegionId
+      ? `/api/v1/public/regions/${currentDrillDownRegionId}/geojsons/`
+      : null;
+
+  const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch public geojsons');
+    }
+    return response.json();
+  });
+
+  const regionGeojsons = isPublicMode ? publicRegionGeojsons : privateRegionGeojsons;
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
@@ -452,7 +499,7 @@ export function ChartElementView({
   // Fetch GeoJSON data - public vs private mode
   const publicGeojsonUrl =
     isPublicMode && publicToken && activeGeojsonId && isMapChart
-      ? `/api/v1/public/dashboards/${publicToken}/geojsons/${activeGeojsonId}/`
+      ? `/api/v1/public/geojsons/${activeGeojsonId}/`
       : null;
 
   const {
@@ -464,7 +511,7 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (url: string) => {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
           );
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           return response.json();
@@ -538,7 +585,7 @@ export function ChartElementView({
       : isMapChart
         ? mapError?.message || geojsonError?.message
         : isError?.message) ||
-    'Failed to load chart';
+    'Chart configuration needs adjustment';
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -885,6 +932,7 @@ export function ChartElementView({
     filterHash,
     drillDownPath,
     handleRegionClick,
+    isFullscreen, // Add fullscreen state to trigger chart resize
   ]);
 
   // Separate effect to handle DOM mounting timing issues
@@ -954,16 +1002,60 @@ export function ChartElementView({
   };
 
   const toggleFullscreen = () => {
-    if (!chartRef.current) return;
+    // Use appropriate ref based on chart type
+    const targetRef = isTableChart ? tableRef.current : chartRef.current;
+    if (!targetRef) return;
 
     if (!document.fullscreenElement) {
-      chartRef.current.requestFullscreen();
+      targetRef.requestFullscreen().then(() => {
+        // Force white background immediately after entering fullscreen
+        setTimeout(() => {
+          if (document.fullscreenElement) {
+            document.fullscreenElement.style.backgroundColor = 'white';
+            document.fullscreenElement.style.background = 'white';
+          }
+        }, 50);
+      });
       setIsFullscreen(true);
     } else {
       document.exitFullscreen();
       setIsFullscreen(false);
     }
   };
+
+  // Handle fullscreen change events (e.g., when user presses Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isCurrentlyFullscreen);
+
+      // Force white background on fullscreen element
+      if (document.fullscreenElement) {
+        document.fullscreenElement.style.backgroundColor = 'white';
+        document.fullscreenElement.style.background = 'white';
+      }
+
+      // Trigger chart resize after fullscreen change
+      setTimeout(() => {
+        if (!isTableChart) {
+          // Only resize ECharts instances, not tables
+          if (chartInstance.current) {
+            chartInstance.current.resize();
+          }
+          if (mapChartInstance.current) {
+            mapChartInstance.current.resize();
+          }
+        }
+        // Tables don't need explicit resize - they automatically adjust with CSS flexbox
+      }, 100);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   if (
     isLoading ||
@@ -972,9 +1064,20 @@ export function ChartElementView({
     (isMapChart && (mapLoading || geojsonLoading))
   ) {
     return (
-      <div className={cn('h-full flex items-center justify-center', className)}>
-        <div className="w-full h-full min-h-[200px] p-4">
-          <Skeleton className="h-full w-full" />
+      <div className={cn('relative w-full h-full min-h-[300px]', className)}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              {isTableChart && tableLoading
+                ? 'Loading table data...'
+                : isMapChart && (mapLoading || geojsonLoading)
+                  ? geojsonLoading
+                    ? 'Loading map boundaries...'
+                    : 'Loading map data...'
+                  : 'Loading chart...'}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -1008,8 +1111,14 @@ export function ChartElementView({
       className={cn(
         'h-full relative group flex flex-col',
         className,
-        isFullscreen && 'fixed inset-0 z-50 bg-white'
+        isFullscreen && '!h-screen !w-screen !bg-white p-4'
       )}
+      style={{
+        ...(isFullscreen && {
+          backgroundColor: 'white !important',
+          background: 'white !important',
+        }),
+      }}
     >
       {/* Chart toolbar - only visible on hover in view mode */}
       {viewMode && (
@@ -1091,7 +1200,19 @@ export function ChartElementView({
 
       {/* Chart container */}
       {isTableChart ? (
-        <div className="w-full flex-1 min-h-[200px] p-2">
+        <div
+          ref={tableRef}
+          className={cn(
+            'w-full flex-1 min-h-[200px] p-2',
+            isFullscreen && '!h-full !min-h-[90vh] !bg-white p-4'
+          )}
+          style={{
+            ...(isFullscreen && {
+              backgroundColor: 'white !important',
+              background: 'white !important',
+            }),
+          }}
+        >
           <DataPreview
             data={Array.isArray(tableData?.data) ? tableData.data : []}
             columns={tableData?.columns || []}
@@ -1103,8 +1224,17 @@ export function ChartElementView({
       ) : isMapChart ? (
         <div
           ref={chartRef}
-          className="w-full flex-1 min-h-[200px]"
-          style={{ padding: viewMode ? '8px' : '0' }}
+          className={cn(
+            'w-full flex-1 min-h-[200px]',
+            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+          )}
+          style={{
+            padding: viewMode ? '8px' : '0',
+            ...(isFullscreen && {
+              backgroundColor: 'white !important',
+              background: 'white !important',
+            }),
+          }}
         >
           <MapPreview
             geojsonData={geojsonData?.geojson_data}
@@ -1126,8 +1256,17 @@ export function ChartElementView({
       ) : (
         <div
           ref={chartRef}
-          className="w-full flex-1 min-h-[200px]"
-          style={{ padding: viewMode ? '8px' : '0' }}
+          className={cn(
+            'w-full flex-1 min-h-[200px]',
+            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+          )}
+          style={{
+            padding: viewMode ? '8px' : '0',
+            ...(isFullscreen && {
+              backgroundColor: 'white !important',
+              background: 'white !important',
+            }),
+          }}
         />
       )}
     </div>

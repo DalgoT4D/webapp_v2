@@ -168,9 +168,6 @@ export default function EditDashboardPage() {
             </Button>
             <div>
               <h1 className="text-xl font-semibold">{dashboardData.title}</h1>
-              {dashboardData.description && (
-                <p className="text-sm text-gray-500">{dashboardData.description}</p>
-              )}
             </div>
           </div>
         </div>

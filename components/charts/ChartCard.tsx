@@ -15,7 +15,6 @@ import { formatDistanceToNow } from 'date-fns';
 interface Chart {
   id: number;
   title: string;
-  description?: string;
   chart_type: string;
   created_at: string;
   updated_at: string;
@@ -61,9 +60,6 @@ export default function ChartCard({ chart, onView, onEdit, onDelete }: ChartCard
             {chart.is_public ? 'Public' : 'Private'}
           </Badge>
         </div>
-        {chart.description && (
-          <CardDescription className="mt-2">{chart.description}</CardDescription>
-        )}
       </CardHeader>
       <CardContent>
         <div className="text-sm text-muted-foreground">

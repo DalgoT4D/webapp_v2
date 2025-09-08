@@ -41,6 +41,7 @@ import {
   Filter,
   ArrowLeft,
   Eye,
+  Edit,
   PanelLeft,
   PanelTop,
 } from 'lucide-react';
@@ -1814,31 +1815,80 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 preventCollision={true}
                 allowOverlap={false}
                 margin={[4, 4]}
-                containerPadding={[4, 4]}
+                containerPadding={[8, 8]}
                 autoSize={true}
                 verticalCompact={false}
                 resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
               >
-                {(Array.isArray(state.layout) ? state.layout : []).map((item) => (
-                  <div
-                    key={item.i}
-                    data-component-id={item.i}
-                    className="dashboard-item bg-white rounded-lg shadow-sm border cursor-move"
-                  >
-                    <div className="absolute top-2 left-2 p-1 rounded z-10 pointer-events-none">
-                      <Grip className="w-4 h-4 text-gray-400 opacity-60" />
-                    </div>
-                    <button
-                      onClick={() => removeComponent(item.i)}
-                      className="drag-cancel absolute top-2 right-2 p-1 hover:bg-gray-100 rounded cursor-pointer"
+                {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
+                  const component = state.components[item.i];
+                  const isTextComponent = component?.type === DashboardComponentType.TEXT;
+
+                  return (
+                    <div
+                      key={item.i}
+                      data-component-id={item.i}
+                      className="dashboard-item bg-white rounded-lg shadow-sm relative group"
                     >
-                      <X className="w-4 h-4 text-gray-400" />
-                    </button>
-                    <div className="p-4 flex-1 flex flex-col min-h-0 pt-8">
-                      {renderComponent(item.i)}
+                      {/* Smart Drag Handle - Always visible and draggable */}
+                      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-gray-50/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-white/90 rounded-sm shadow-sm border border-gray-200/50">
+                          <Grip className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-gray-500 font-medium">Drag</span>
+                        </div>
+                      </div>
+
+                      {/* Corner Drag Handle - Alternative drag point */}
+                      <div className="absolute top-2 left-2 p-1.5 rounded cursor-move z-10 opacity-60 hover:opacity-100 hover:bg-white hover:shadow-sm transition-all">
+                        <Grip className="w-3 h-3 text-gray-400" />
+                      </div>
+
+                      {/* Action Buttons - Positioned at dashboard level for proper click handling */}
+                      {component?.type === DashboardComponentType.CHART && (
+                        <div className="absolute top-2 right-2 z-30 flex gap-1 drag-cancel">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/charts/${component.config.chartId}`);
+                            }}
+                            className="p-1 bg-white/90 hover:bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel opacity-80 hover:opacity-100"
+                            title="View chart"
+                          >
+                            <Eye className="w-3 h-3 text-gray-600 hover:text-blue-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/charts/${component.config.chartId}/edit`);
+                            }}
+                            className="p-1 bg-white/90 hover:bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel opacity-80 hover:opacity-100"
+                            title="Edit chart"
+                          >
+                            <Edit className="w-3 h-3 text-gray-600 hover:text-green-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeComponent(item.i);
+                            }}
+                            className="p-1 bg-white/90 hover:bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel opacity-80 hover:opacity-100"
+                            title="Remove chart"
+                          >
+                            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Content Area - All components get drag-cancel, individual elements control their own dragging */}
+                      <div className="p-4 flex-1 flex flex-col min-h-0 drag-cancel">
+                        {renderComponent(item.i)}
+                      </div>
+
+                      {/* Bottom Edge Drag Handle - For easier access */}
+                      <div className="absolute bottom-0 left-0 right-0 h-2 cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-gray-100/50 to-transparent" />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </GridLayout>
             </div>
           </div>

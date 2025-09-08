@@ -299,7 +299,6 @@ export function MapDataConfigurationV3({
     // Preserve only essential chart identity fields
     const preservedFields = {
       title: formData.title,
-      description: formData.description,
       chart_type: formData.chart_type,
       customizations: formData.customizations || {}, // Keep styling preferences
     };
