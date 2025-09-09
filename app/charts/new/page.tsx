@@ -277,7 +277,7 @@ export default function NewChartPage() {
       {/* Bottom Actions */}
       <Separator className="my-8" />
       <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={handleCancel}>
+        <Button variant="cancel" onClick={handleCancel}>
           Cancel
         </Button>
         <Button onClick={handleContinue} disabled={!canProceed} className="min-w-[120px]">

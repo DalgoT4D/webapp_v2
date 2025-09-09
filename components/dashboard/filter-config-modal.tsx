@@ -797,7 +797,7 @@ export function FilterConfigModal({
             {!isFormValid && 'Fill in all required fields to continue'}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="cancel" onClick={handleClose}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={!isFormValid}>

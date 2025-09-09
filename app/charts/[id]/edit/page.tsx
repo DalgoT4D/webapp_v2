@@ -1062,7 +1062,7 @@ function EditChartPageContent() {
             />
             <div className="flex gap-3">
               <Button
-                variant="outline"
+                variant="cancel"
                 onClick={handleCancel}
                 disabled={isMutating || isCreating}
                 className="px-8 h-11"
