@@ -35,6 +35,7 @@ import {
   type DashboardFilterConfig,
 } from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
+import { useFullscreen } from '@/hooks/useFullscreen';
 import * as echarts from 'echarts/core';
 import {
   BarChart,
@@ -124,8 +125,10 @@ export function ChartElementView({
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Use unified fullscreen hook
+  const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
 
   // Fetch regions data - use public API for public mode, private API for private mode
   const { data: privateRegions } = useRegions(!isPublicMode ? 'IND' : null, 'state');
@@ -1001,61 +1004,32 @@ export function ChartElementView({
     }
   };
 
-  const toggleFullscreen = () => {
+  const handleToggleFullscreen = () => {
     // Use appropriate ref based on chart type
     const targetRef = isTableChart ? tableRef.current : chartRef.current;
     if (!targetRef) return;
 
-    if (!document.fullscreenElement) {
-      targetRef.requestFullscreen().then(() => {
-        // Force white background immediately after entering fullscreen
-        setTimeout(() => {
-          if (document.fullscreenElement) {
-            document.fullscreenElement.style.backgroundColor = 'white';
-            document.fullscreenElement.style.background = 'white';
-          }
-        }, 50);
-      });
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
+    toggleFullscreen(targetRef);
   };
 
-  // Handle fullscreen change events (e.g., when user presses Escape)
+  // Handle chart resize when fullscreen state changes
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = !!document.fullscreenElement;
-      setIsFullscreen(isCurrentlyFullscreen);
-
-      // Force white background on fullscreen element
-      if (document.fullscreenElement) {
-        document.fullscreenElement.style.backgroundColor = 'white';
-        document.fullscreenElement.style.background = 'white';
-      }
-
-      // Trigger chart resize after fullscreen change
-      setTimeout(() => {
-        if (!isTableChart) {
-          // Only resize ECharts instances, not tables
-          if (chartInstance.current) {
-            chartInstance.current.resize();
-          }
-          if (mapChartInstance.current) {
-            mapChartInstance.current.resize();
-          }
+    // Trigger chart resize after fullscreen change
+    const resizeTimer = setTimeout(() => {
+      if (!isTableChart) {
+        // Only resize ECharts instances, not tables
+        if (chartInstance.current) {
+          chartInstance.current.resize();
         }
-        // Tables don't need explicit resize - they automatically adjust with CSS flexbox
-      }, 100);
-    };
+        if (mapChartInstance.current) {
+          mapChartInstance.current.resize();
+        }
+      }
+      // Tables don't need explicit resize - they automatically adjust with CSS flexbox
+    }, 100);
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, []);
+    return () => clearTimeout(resizeTimer);
+  }, [isFullscreen, isTableChart]);
 
   if (
     isLoading ||
@@ -1147,7 +1121,7 @@ export function ChartElementView({
             <Button
               variant="ghost"
               size="sm"
-              onClick={toggleFullscreen}
+              onClick={handleToggleFullscreen}
               className="h-7 w-7 p-0"
               title="Fullscreen"
             >
