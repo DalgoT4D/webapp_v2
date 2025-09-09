@@ -21,6 +21,8 @@ import {
   ChartBarBig,
   Grid3x3,
   PieChart,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -114,9 +116,9 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     },
     {
       title: 'Data',
-      href: '/data',
+      href: '/ingest', // Direct navigation to ingest page
       icon: Database,
-      isActive: currentPath.startsWith('/data'),
+      isActive: false, // Never highlight the parent Data menu
       children: [
         {
           title: 'Ingest',
@@ -205,14 +207,70 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
 
-  // Auto-expand if any child is active
+  // Auto-expand if any child is active, or for Data tab when on data-related pages
   useEffect(() => {
     if (hasChildren && item.children?.some((child) => child.isActive)) {
       setIsExpanded(true);
+    } else if (item.title === 'Data' && item.children?.some((child) => child.isActive)) {
+      // Always expand Data submenu when any data-related child is active
+      setIsExpanded(true);
     }
-  }, [item.children, hasChildren]);
+  }, [item.children, hasChildren, item.title]);
 
   if (hasChildren) {
+    // Special handling for Data tab - make it clickable and show submenu
+    if (item.title === 'Data') {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center">
+            <Link
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group flex-1',
+                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+              )}
+              title={item.title}
+            >
+              <item.icon className="h-6 w-6 flex-shrink-0" />
+              <span className="font-medium">{item.title}</span>
+            </Link>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+              title="Toggle submenu"
+            >
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground',
+                  isExpanded && 'rotate-180'
+                )}
+              />
+            </button>
+          </div>
+
+          {isExpanded && (
+            <div className="ml-8 space-y-1">
+              {item.children?.map((child, index) => (
+                <Link
+                  key={index}
+                  href={child.href}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  )}
+                  title={child.title}
+                >
+                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <span>{child.title}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Default behavior for other items with children
     return (
       <div className="space-y-1">
         <button
@@ -277,14 +335,65 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
 
-  // Auto-expand if any child is active
+  // Auto-expand if any child is active, or for Data tab when on data-related pages
   useEffect(() => {
     if (hasChildren && item.children?.some((child) => child.isActive)) {
       setIsExpanded(true);
+    } else if (item.title === 'Data' && item.isActive) {
+      // Always expand Data submenu when on data-related pages
+      setIsExpanded(true);
     }
-  }, [item.children, hasChildren]);
+  }, [item.children, hasChildren, item.title, item.isActive]);
 
   if (hasChildren) {
+    // Special handling for Data tab in mobile view
+    if (item.title === 'Data') {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center">
+            <Link
+              href={item.href}
+              onClick={onClose}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors flex-1',
+                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+              )}
+            >
+              <item.icon className="h-6 w-6" />
+              <span className="font-medium">{item.title}</span>
+            </Link>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+            >
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')}
+              />
+            </button>
+          </div>
+          {isExpanded && (
+            <div className="ml-8 space-y-1">
+              {item.children?.map((child, index) => (
+                <Link
+                  key={index}
+                  href={child.href}
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  )}
+                >
+                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <span className="text-sm">{child.title}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Default behavior for other items with children
     return (
       <div className="space-y-1">
         <button
@@ -382,15 +491,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <Header
             onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             hideMenu={false}
-            onSidebarToggle={
-              shouldShowDesktopSidebar
-                ? () => {
-                    setIsSidebarCollapsed(!isSidebarCollapsed);
-                    setHasUserToggledSidebar(true); // Mark that user has manually interacted
-                  }
-                : undefined
-            }
-            isSidebarCollapsed={isSidebarCollapsed}
             responsive={responsive}
           />
         </div>
@@ -418,53 +518,124 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
             </div>
 
+            {/* Sidebar Toggle Button */}
+            <div className="px-4 pb-2">
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                    setHasUserToggledSidebar(true);
+                  }}
+                  className={cn(
+                    'h-8 w-8 text-[#0066FF] bg-[#0066FF]/8 hover:bg-[#0066FF]/15 hover:text-[#002B5C] transition-colors',
+                    isSidebarCollapsed && 'mx-auto'
+                  )}
+                  title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  {isSidebarCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
             {/* Sidebar Footer */}
             <div id="main-layout-sidebar-footer" className="p-4 border-t space-y-2">
               {/* Footer Links */}
               <div className="space-y-1">
-                <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
-                      isSidebarCollapsed && 'justify-center'
-                    )}
-                  >
-                    {!isSidebarCollapsed && <span>Documentation</span>}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      width="14"
-                      fill="currentColor"
-                      className="flex-shrink-0"
-                    >
-                      <path d="M0 0h24v24H0z" fill="none" />
-                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                    </svg>
-                  </div>
-                </Link>
+                {isSidebarCollapsed ? (
+                  // Collapsed: Show icons with tooltips
+                  <>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                            <div className="flex items-center justify-center p-2 rounded-lg hover:bg-muted/40 transition-colors text-muted-foreground hover:text-foreground">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                width="16"
+                                fill="currentColor"
+                              >
+                                <path d="M0 0h24v24H0z" fill="none" />
+                                <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                              </svg>
+                            </div>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="ml-2">
+                          <p className="font-medium">Documentation</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
-                <Link href="https://dalgo.org/privacy-policy/" target="_blank">
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
-                      isSidebarCollapsed && 'justify-center'
-                    )}
-                  >
-                    {!isSidebarCollapsed && <span>Privacy Policy</span>}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      width="14"
-                      fill="currentColor"
-                      className="flex-shrink-0"
-                    >
-                      <path d="M0 0h24v24H0z" fill="none" />
-                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                    </svg>
-                  </div>
-                </Link>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                            <div className="flex items-center justify-center p-2 rounded-lg hover:bg-muted/40 transition-colors text-muted-foreground hover:text-foreground">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                width="16"
+                                fill="currentColor"
+                              >
+                                <path d="M0 0h24v24H0z" fill="none" />
+                                <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                              </svg>
+                            </div>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="ml-2">
+                          <p className="font-medium">Privacy Policy</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </>
+                ) : (
+                  // Expanded: Show full links with text
+                  <>
+                    <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                        <span>Documentation</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          width="14"
+                          fill="currentColor"
+                          className="flex-shrink-0"
+                        >
+                          <path d="M0 0h24v24H0z" fill="none" />
+                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                        </svg>
+                      </div>
+                    </Link>
+
+                    <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                        <span>Privacy Policy</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          width="14"
+                          fill="currentColor"
+                          className="flex-shrink-0"
+                        >
+                          <path d="M0 0h24v24H0z" fill="none" />
+                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                        </svg>
+                      </div>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </aside>
