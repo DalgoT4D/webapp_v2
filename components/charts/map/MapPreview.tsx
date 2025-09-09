@@ -90,8 +90,8 @@ export function MapPreview({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Zoom state
-  const [currentZoom, setCurrentZoom] = useState(1);
+  // Zoom state - start with smaller default zoom
+  const [currentZoom, setCurrentZoom] = useState(0.8);
 
   // Zoom control functions using setOption
   const handleZoomIn = useCallback(() => {
@@ -246,23 +246,16 @@ export function MapPreview({
                     baseColor, // 100% opacity
                   ],
                 },
-                orient:
-                  safeCustomizations.legendPosition === 'top' ||
-                  safeCustomizations.legendPosition === 'bottom'
-                    ? 'horizontal'
-                    : 'vertical',
-                left:
-                  safeCustomizations.legendPosition === 'right'
-                    ? 'right'
-                    : safeCustomizations.legendPosition === 'left'
-                      ? 'left'
-                      : 'auto',
-                top:
-                  safeCustomizations.legendPosition === 'top'
-                    ? 'top'
-                    : safeCustomizations.legendPosition === 'bottom'
-                      ? 'bottom'
-                      : 'auto',
+                orient: 'vertical',
+                left: '20px',
+                bottom: '72px', // Moved up by another 16px (56px + 16px = 72px)
+                // Ensure legend is properly sized and visible
+                itemWidth: 20,
+                itemHeight: '120px',
+                textStyle: {
+                  fontSize: 12,
+                  color: '#666',
+                },
               },
             }),
           series: [
@@ -270,8 +263,13 @@ export function MapPreview({
               name: 'Map Data',
               type: 'map',
               mapType: mapName,
-              // Always enable roam for zoom/pan functionality via buttons
+              // Enable move only (panning) - zoom handled by our custom buttons
               roam: 'move',
+              // Ensure map fits within container bounds with better sizing
+              layoutCenter: ['50%', '50%'],
+              layoutSize: '75%',
+              // Set initial zoom level
+              zoom: currentZoom,
               // Apply selection settings - ALWAYS enable for clicks to work
               selectedMode: 'single',
               // Configure how regions without data should appear (default styling)
@@ -338,9 +336,19 @@ export function MapPreview({
         chartInstance.current = null;
       }
 
-      // Create new instance
-      chartInstance.current = echarts.init(chartRef.current);
-      chartInstance.current.setOption(chartConfig);
+      // Create new instance with explicit sizing
+      chartInstance.current = echarts.init(chartRef.current, null, {
+        renderer: 'canvas',
+        useDirtyRect: false,
+        // Ensure the chart fits within its container
+        width: chartRef.current.clientWidth,
+        height: chartRef.current.clientHeight,
+      });
+
+      chartInstance.current.setOption(chartConfig, {
+        notMerge: true,
+        replaceMerge: ['series'],
+      });
 
       // Configure touch behavior - disable pinch zoom only
       if (chartInstance.current && chartRef.current) {
@@ -669,22 +677,33 @@ export function MapPreview({
   };
 
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full relative overflow-hidden">
       {showBreadcrumbs && <BreadcrumbNavigation />}
-      <div ref={chartRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
+      <div
+        ref={chartRef}
+        className="w-full h-full"
+        style={{ width: '100%', height: '100%', overflow: 'hidden' }}
+      />
 
-      {/* Custom Zoom Controls */}
-      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+      {/* Custom Zoom Controls - positioned to avoid overlap with map and any chart toolbars */}
+      <div
+        className="absolute flex flex-col gap-1 z-10"
+        style={{
+          top: showBreadcrumbs ? '80px' : '12px',
+          right: '12px',
+          marginRight: '4px',
+        }}
+      >
         <button
           onClick={handleZoomIn}
-          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"
+          className="w-9 h-9 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-md shadow-md hover:bg-white hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-gray-700 hover:text-gray-900"
           title="Zoom In"
         >
           +
         </button>
         <button
           onClick={handleZoomOut}
-          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"
+          className="w-9 h-9 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-md shadow-md hover:bg-white hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-gray-700 hover:text-gray-900"
           title="Zoom Out"
         >
           −
