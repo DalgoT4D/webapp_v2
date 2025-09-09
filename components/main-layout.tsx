@@ -118,11 +118,7 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       title: 'Data',
       href: '/ingest', // Direct navigation to ingest page
       icon: Database,
-      isActive:
-        currentPath.startsWith('/data') ||
-        currentPath.startsWith('/ingest') ||
-        currentPath.startsWith('/transform') ||
-        currentPath.startsWith('/orchestrate'),
+      isActive: false, // Never highlight the parent Data menu
       children: [
         {
           title: 'Ingest',
@@ -215,11 +211,11 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
   useEffect(() => {
     if (hasChildren && item.children?.some((child) => child.isActive)) {
       setIsExpanded(true);
-    } else if (item.title === 'Data' && item.isActive) {
-      // Always expand Data submenu when on data-related pages
+    } else if (item.title === 'Data' && item.children?.some((child) => child.isActive)) {
+      // Always expand Data submenu when any data-related child is active
       setIsExpanded(true);
     }
-  }, [item.children, hasChildren, item.title, item.isActive]);
+  }, [item.children, hasChildren, item.title]);
 
   if (hasChildren) {
     // Special handling for Data tab - make it clickable and show submenu
