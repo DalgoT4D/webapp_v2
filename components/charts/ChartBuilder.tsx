@@ -959,7 +959,7 @@ export function ChartBuilder({
 
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 mt-8 border-t">
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="cancel" onClick={onCancel}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={!isFormValid() || isSaving}>
