@@ -114,9 +114,13 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     },
     {
       title: 'Data',
-      href: '/data',
+      href: '/ingest', // Direct navigation to ingest page
       icon: Database,
-      isActive: currentPath.startsWith('/data'),
+      isActive:
+        currentPath.startsWith('/data') ||
+        currentPath.startsWith('/ingest') ||
+        currentPath.startsWith('/transform') ||
+        currentPath.startsWith('/orchestrate'),
       children: [
         {
           title: 'Ingest',
@@ -205,14 +209,70 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
 
-  // Auto-expand if any child is active
+  // Auto-expand if any child is active, or for Data tab when on data-related pages
   useEffect(() => {
     if (hasChildren && item.children?.some((child) => child.isActive)) {
       setIsExpanded(true);
+    } else if (item.title === 'Data' && item.isActive) {
+      // Always expand Data submenu when on data-related pages
+      setIsExpanded(true);
     }
-  }, [item.children, hasChildren]);
+  }, [item.children, hasChildren, item.title, item.isActive]);
 
   if (hasChildren) {
+    // Special handling for Data tab - make it clickable and show submenu
+    if (item.title === 'Data') {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center">
+            <Link
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group flex-1',
+                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+              )}
+              title={item.title}
+            >
+              <item.icon className="h-6 w-6 flex-shrink-0" />
+              <span className="font-medium">{item.title}</span>
+            </Link>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+              title="Toggle submenu"
+            >
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground',
+                  isExpanded && 'rotate-180'
+                )}
+              />
+            </button>
+          </div>
+
+          {isExpanded && (
+            <div className="ml-8 space-y-1">
+              {item.children?.map((child, index) => (
+                <Link
+                  key={index}
+                  href={child.href}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  )}
+                  title={child.title}
+                >
+                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <span>{child.title}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Default behavior for other items with children
     return (
       <div className="space-y-1">
         <button
@@ -277,14 +337,65 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
 
-  // Auto-expand if any child is active
+  // Auto-expand if any child is active, or for Data tab when on data-related pages
   useEffect(() => {
     if (hasChildren && item.children?.some((child) => child.isActive)) {
       setIsExpanded(true);
+    } else if (item.title === 'Data' && item.isActive) {
+      // Always expand Data submenu when on data-related pages
+      setIsExpanded(true);
     }
-  }, [item.children, hasChildren]);
+  }, [item.children, hasChildren, item.title, item.isActive]);
 
   if (hasChildren) {
+    // Special handling for Data tab in mobile view
+    if (item.title === 'Data') {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center">
+            <Link
+              href={item.href}
+              onClick={onClose}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors flex-1',
+                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+              )}
+            >
+              <item.icon className="h-6 w-6" />
+              <span className="font-medium">{item.title}</span>
+            </Link>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+            >
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')}
+              />
+            </button>
+          </div>
+          {isExpanded && (
+            <div className="ml-8 space-y-1">
+              {item.children?.map((child, index) => (
+                <Link
+                  key={index}
+                  href={child.href}
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  )}
+                >
+                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <span className="text-sm">{child.title}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Default behavior for other items with children
     return (
       <div className="space-y-1">
         <button
