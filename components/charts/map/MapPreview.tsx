@@ -674,7 +674,7 @@ export function MapPreview({
       <div ref={chartRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
 
       {/* Custom Zoom Controls */}
-      <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">
+      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
         <button
           onClick={handleZoomIn}
           className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-lg font-bold text-gray-600"

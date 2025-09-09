@@ -65,10 +65,10 @@ export function ChartSelectorModal({
             <Link href="/charts/new">
               <Button
                 variant="outline"
-                className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all"
+                className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
               >
                 <Plus className="w-4 h-4" />
-                Create New Chart
+                CREATE NEW CHART
               </Button>
             </Link>
           </div>
@@ -122,10 +122,10 @@ export function ChartSelectorModal({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all"
+                        className="border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Create Your First Chart
+                        CREATE YOUR FIRST CHART
                       </Button>
                     </Link>
                   </div>

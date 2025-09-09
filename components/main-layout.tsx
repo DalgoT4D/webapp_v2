@@ -19,6 +19,8 @@ import {
   Home,
   LayoutDashboard,
   ChartBarBig,
+  Grid3x3,
+  PieChart,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -183,8 +185,8 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
           <Link
             href={item.href}
             className={cn(
-              'flex items-center justify-center w-full p-3 rounded-lg hover:bg-accent/50 transition-colors group',
-              item.isActive && 'bg-accent font-medium'
+              'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
+              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
             )}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -216,8 +218,8 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-accent/50 transition-colors group',
-            item.isActive && 'bg-accent'
+            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
+            item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
           )}
           title={item.title}
         >
@@ -240,8 +242,8 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
                 key={index}
                 href={child.href}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors text-sm',
-                  child.isActive && 'bg-accent font-medium'
+                  'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
+                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
                 )}
                 title={child.title}
               >
@@ -259,8 +261,8 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors group',
-        item.isActive && 'bg-accent font-medium'
+        'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
+        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
       )}
       title={item.title}
     >
@@ -288,8 +290,8 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-accent transition-colors',
-            item.isActive && 'bg-accent'
+            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
+            item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
           )}
         >
           <div className="flex items-center gap-3">
@@ -306,8 +308,8 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
                 href={child.href}
                 onClick={onClose}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors',
-                  child.isActive && 'bg-accent'
+                  'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
+                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
                 )}
               >
                 <child.icon className="h-6 w-6 flex-shrink-0" />
@@ -325,8 +327,8 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
       href={item.href}
       onClick={onClose}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors',
-        item.isActive && 'bg-accent'
+        'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
+        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
       )}
     >
       <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -370,11 +372,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
 
   return (
-    <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-background">
+    <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-gray-50">
       {/* SECTION 1: NAVBAR - Fixed Full Width */}
       <header
         id="main-layout-navbar"
-        className="h-16 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0"
+        className="h-16 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0 shadow-md"
       >
         <div id="main-layout-navbar-container" className="h-full px-4 lg:px-6">
           <Header
@@ -535,7 +537,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </Sheet>
 
         {/* SECTION 3: MAIN CONTENT AREA - Remaining Width */}
-        <main id="main-layout-main-content" className="flex-1 overflow-hidden bg-background">
+        <main id="main-layout-main-content" className="flex-1 overflow-hidden bg-gray-50">
           {/* Page Container - Dashboard pages handle their own scrolling */}
           <div id="main-layout-page-container" className="h-full w-full">
             {/* Consistent Inner Padding Container - No padding for dashboard pages */}

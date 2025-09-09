@@ -2,6 +2,7 @@
 
 import { BarChart2, LineChart, Table, PieChart, Hash, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
 
 interface ChartTypeSelectorProps {
   value?: string;
@@ -62,21 +63,32 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
         {chartTypes.map((type) => {
           const Icon = type.icon;
           const isSelected = selectedType === type.id;
+          const typeColors = getChartTypeColor(type.id as ChartType);
 
           return (
             <Button
               key={type.id}
               variant="outline"
               className={`aspect-square p-3 flex items-center justify-center transition-all ${
-                isSelected
-                  ? 'bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100 shadow-sm'
-                  : 'bg-white hover:bg-gray-50 border-gray-200'
+                isSelected ? 'shadow-sm' : 'bg-white hover:bg-gray-50 border-gray-200'
               }`}
+              style={
+                isSelected
+                  ? {
+                      backgroundColor: typeColors.bgColor,
+                      borderColor: typeColors.color,
+                      color: typeColors.color,
+                    }
+                  : undefined
+              }
               onClick={() => onChange(type.id)}
               disabled={disabled}
               title={type.name}
             >
-              <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
+              <Icon
+                className="w-6 h-6"
+                style={{ color: isSelected ? typeColors.color : '#6B7280' }}
+              />
             </Button>
           );
         })}

@@ -53,6 +53,7 @@ import {
 import { format } from 'date-fns';
 import { toastSuccess, toastError, toastPromise } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -362,13 +363,14 @@ export default function ChartsPage() {
   // Render chart card (grid view)
   const renderChartCard = (chart: Chart) => {
     const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
+    const typeColors = getChartTypeColor(chart.chart_type as ChartType);
 
     return (
       <Card
         id={`chart-card-${chart.id}`}
         key={chart.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-md h-full relative group',
+          'transition-all duration-200 hover:shadow-md hover:bg-[#0066FF]/3 h-full relative group',
           isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
         )}
       >
@@ -473,13 +475,13 @@ export default function ChartsPage() {
             {/* Thumbnail */}
             <div className="relative h-32 bg-muted overflow-hidden">
               <div className="flex items-center justify-center h-full">
-                <IconComponent className="w-10 h-10 text-muted-foreground" />
+                <div
+                  className="rounded-lg flex items-center justify-center w-16 h-16"
+                  style={{ backgroundColor: typeColors.bgColor }}
+                >
+                  <IconComponent className="w-8 h-8" style={{ color: typeColors.color }} />
+                </div>
               </div>
-
-              {/* Type badge */}
-              <Badge variant="default" className="absolute top-1 left-1 capitalize text-xs">
-                {chart.chart_type}
-              </Badge>
             </div>
 
             <CardHeader className="pb-2 p-3">
@@ -494,7 +496,7 @@ export default function ChartsPage() {
               <div className="space-y-1 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between">
                   <span>Source:</span>
-                  <span className="font-mono text-xs truncate">
+                  <span className="font-mono text-sm truncate">
                     {chart.schema_name}.{chart.table_name}
                   </span>
                 </div>
@@ -513,13 +515,14 @@ export default function ChartsPage() {
   // Render chart list (list view)
   const renderChartList = (chart: Chart) => {
     const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
+    const typeColors = getChartTypeColor(chart.chart_type as ChartType);
 
     return (
       <Card
         id={`chart-list-${chart.id}`}
         key={chart.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-sm',
+          'transition-all duration-200 hover:shadow-sm hover:bg-[#0066FF]/3',
           isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
         )}
       >
@@ -554,20 +557,20 @@ export default function ChartsPage() {
                   : undefined
               }
             >
-              <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                <IconComponent className="w-8 h-8 text-muted-foreground" />
+              <div
+                className="w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: typeColors.bgColor }}
+              >
+                <IconComponent className="w-8 h-8" style={{ color: typeColors.color }} />
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-medium truncate">{chart.title}</h3>
-                  <Badge variant="default" className="text-xs capitalize">
-                    {chart.chart_type}
-                  </Badge>
                 </div>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span className="font-mono">
+                  <span className="font-mono text-sm">
                     {chart.schema_name}.{chart.table_name}
                   </span>
                   <span>{format(new Date(chart.updated_at), 'MMM d, yyyy')}</span>
@@ -675,9 +678,14 @@ export default function ChartsPage() {
 
           {hasPermission('can_create_charts') && (
             <Link id="charts-create-link" href="/charts/new">
-              <Button id="charts-create-button">
+              <Button
+                id="charts-create-button"
+                variant="ghost"
+                className="text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: '#0066FF' }}
+              >
                 <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
-                Create Chart
+                CREATE CHART
               </Button>
             </Link>
           )}
@@ -754,7 +762,7 @@ export default function ChartsPage() {
               placeholder="Search charts..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="pl-10"
+              className="pl-10 focus:border-[#0066FF] focus:ring-[#0066FF]"
             />
           </div>
 
@@ -766,7 +774,10 @@ export default function ChartsPage() {
               setCurrentPage(1); // Reset to first page when filter changes
             }}
           >
-            <SelectTrigger id="charts-type-trigger" className="w-[180px]">
+            <SelectTrigger
+              id="charts-type-trigger"
+              className="w-[180px] focus:border-[#0066FF] focus:ring-[#0066FF]"
+            >
               <SelectValue id="charts-type-value" />
             </SelectTrigger>
             <SelectContent id="charts-type-content">
@@ -797,17 +808,23 @@ export default function ChartsPage() {
           <div id="charts-view-mode-wrapper" className="flex gap-1">
             <Button
               id="charts-grid-view-button"
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
               onClick={() => setViewMode('grid')}
+              className="h-8 w-8 p-0 bg-transparent rounded-r-none border-r-0"
             >
               <Grid id="charts-grid-icon" className="w-4 h-4" />
             </Button>
             <Button
               id="charts-list-view-button"
-              variant={viewMode === 'list' ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
               onClick={() => setViewMode('list')}
+              className={cn(
+                'h-8 w-8 p-0 bg-transparent rounded-l-none',
+                viewMode === 'list' ? 'text-white' : ''
+              )}
+              style={viewMode === 'list' ? { backgroundColor: '#0066FF' } : {}}
             >
               <List id="charts-list-icon" className="w-4 h-4" />
             </Button>
@@ -866,9 +883,14 @@ export default function ChartsPage() {
               </p>
               {hasPermission('can_create_charts') && (
                 <Link id="charts-empty-create-link" href="/charts/new">
-                  <Button id="charts-empty-create-button">
+                  <Button
+                    id="charts-empty-create-button"
+                    variant="ghost"
+                    className="text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: '#0066FF' }}
+                  >
                     <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
-                    Create your first chart
+                    CREATE YOUR FIRST CHART
                   </Button>
                 </Link>
               )}
@@ -899,7 +921,10 @@ export default function ChartsPage() {
                     setCurrentPage(1); // Reset to first page when page size changes
                   }}
                 >
-                  <SelectTrigger id="charts-page-size-trigger" className="w-20 h-8">
+                  <SelectTrigger
+                    id="charts-page-size-trigger"
+                    className="w-20 h-8 focus:border-[#0066FF] focus:ring-[#0066FF]"
+                  >
                     <SelectValue id="charts-page-size-value" />
                   </SelectTrigger>
                   <SelectContent id="charts-page-size-content">
@@ -954,8 +979,9 @@ export default function ChartsPage() {
                   size="sm"
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage >= totalPages}
+                  className="hover:bg-[#0066FF]/3 hover:text-[#002B5C] hover:border-[#0066FF] bg-transparent"
                 >
-                  Next
+                  NEXT
                   <ChevronRight id="charts-next-icon" className="h-4 w-4" />
                 </Button>
                 <Button
@@ -964,8 +990,9 @@ export default function ChartsPage() {
                   size="sm"
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage >= totalPages}
+                  className="hover:bg-[#0066FF]/3 hover:text-[#002B5C] hover:border-[#0066FF] bg-transparent"
                 >
-                  Last
+                  LAST
                 </Button>
               </div>
             </div>

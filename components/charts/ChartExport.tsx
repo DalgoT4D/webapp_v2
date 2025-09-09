@@ -120,9 +120,9 @@ export default function ChartExport({
   };
 
   const defaultTrigger = (
-    <Button variant="outline" size="sm">
+    <Button variant="outline" size="sm" className="font-medium uppercase">
       <Download className="w-4 h-4 mr-2" />
-      Export
+      EXPORT
     </Button>
   );
 
@@ -168,19 +168,24 @@ export default function ChartExport({
           </RadioGroup>
 
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isMutating}>
-              Cancel
+            <Button
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={isMutating}
+              className="font-medium uppercase"
+            >
+              CANCEL
             </Button>
-            <Button onClick={handleExport} disabled={isMutating}>
+            <Button onClick={handleExport} disabled={isMutating} className="font-medium uppercase">
               {isMutating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Exporting...
+                  EXPORTING...
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4 mr-2" />
-                  Export {selectedFormat.toUpperCase()}
+                  EXPORT {selectedFormat.toUpperCase()}
                 </>
               )}
             </Button>

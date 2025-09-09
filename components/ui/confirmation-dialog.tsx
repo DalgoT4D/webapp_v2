@@ -89,11 +89,21 @@ export function ConfirmationDialog({
         </DialogHeader>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
-            {cancelText}
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isLoading}
+            className="font-medium uppercase"
+          >
+            {cancelText.toUpperCase()}
           </Button>
-          <Button variant={config.confirmVariant} onClick={handleConfirm} disabled={isLoading}>
-            {isLoading ? 'Loading...' : confirmText}
+          <Button
+            variant={config.confirmVariant}
+            onClick={handleConfirm}
+            disabled={isLoading}
+            className="font-medium uppercase"
+          >
+            {isLoading ? 'LOADING...' : confirmText.toUpperCase()}
           </Button>
         </DialogFooter>
       </DialogContent>

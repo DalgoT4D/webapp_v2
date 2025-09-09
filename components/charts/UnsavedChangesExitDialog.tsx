@@ -47,8 +47,8 @@ export function UnsavedChangesExitDialog({
           >
             <Save className="w-5 h-5 mr-3 flex-shrink-0 text-gray-600" />
             <div>
-              <div className="font-medium text-gray-900">
-                {isSaving ? 'Saving...' : 'Save and Leave'}
+              <div className="font-medium text-gray-900 uppercase">
+                {isSaving ? 'SAVING...' : 'SAVE AND LEAVE'}
               </div>
               <div className="text-sm text-gray-500 mt-1">
                 Save your changes and return to charts
@@ -65,7 +65,7 @@ export function UnsavedChangesExitDialog({
           >
             <LogOut className="w-5 h-5 mr-3 flex-shrink-0 text-red-600" />
             <div>
-              <div className="font-medium text-red-900">Leave without Saving</div>
+              <div className="font-medium text-red-900 uppercase">LEAVE WITHOUT SAVING</div>
               <div className="text-sm text-red-700 mt-1">
                 Discard your changes and return to charts
               </div>
@@ -81,7 +81,7 @@ export function UnsavedChangesExitDialog({
           >
             <X className="w-5 h-5 mr-3 flex-shrink-0 text-gray-600" />
             <div>
-              <div className="font-medium text-gray-900">Stay on Page</div>
+              <div className="font-medium text-gray-900 uppercase">STAY ON PAGE</div>
               <div className="text-sm text-gray-500 mt-1">Continue editing this chart</div>
             </div>
           </Button>

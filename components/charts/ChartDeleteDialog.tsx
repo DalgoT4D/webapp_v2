@@ -97,12 +97,12 @@ export function ChartDeleteDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>CANCEL</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium uppercase"
           >
-            {isDeleting ? 'Deleting...' : 'Delete Chart'}
+            {isDeleting ? 'DELETING...' : 'DELETE CHART'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
