@@ -1158,7 +1158,7 @@ function EditChartPageContent() {
                 </TabsList>
               </div>
 
-              <TabsContent value="chart" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
+              <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4 h-full">
                   {formData.chart_type === 'map' ? (
                     <div className="w-full h-full">
@@ -1201,7 +1201,7 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="data" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
+              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4">
                   <Tabs defaultValue="chart-data" className="h-full flex flex-col">
                     <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
@@ -1215,7 +1215,7 @@ function EditChartPageContent() {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="chart-data" className="flex-1 mt-6 overflow-auto">
+                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
                       <DataPreview
                         data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                         columns={dataPreview?.columns || []}
@@ -1225,7 +1225,7 @@ function EditChartPageContent() {
                       />
                     </TabsContent>
 
-                    <TabsContent value="raw-data" className="flex-1 mt-6 overflow-auto">
+                    <TabsContent value="raw-data" className="flex-1 overflow-auto">
                       <DataPreview
                         data={Array.isArray(rawTableData) ? rawTableData : []}
                         columns={

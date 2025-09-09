@@ -1054,7 +1054,7 @@ export function ChartBuilder({
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="chart-data" className="flex-1 mt-6">
+              <TabsContent value="chart-data" className="flex-1">
                 <DataPreview
                   data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                   columns={dataPreview?.columns || []}
@@ -1074,7 +1074,7 @@ export function ChartBuilder({
                 />
               </TabsContent>
 
-              <TabsContent value="raw-data" className="flex-1 mt-6">
+              <TabsContent value="raw-data" className="flex-1">
                 <DataPreview
                   data={Array.isArray(rawTableData) ? rawTableData : []}
                   columns={
