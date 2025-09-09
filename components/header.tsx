@@ -189,9 +189,15 @@ export function Header({
         {/* Profile Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Button
+              variant="ghost"
+              className="relative h-9 w-9 rounded-full hover:bg-accent hover:ring-2 hover:ring-primary/20 transition-all duration-200 cursor-pointer"
+            >
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-sm font-medium">
+                <AvatarFallback
+                  className="text-sm font-medium text-blue-700"
+                  style={{ backgroundColor: '#E0F2FE' }}
+                >
                   {getInitials(userEmail)}
                 </AvatarFallback>
               </Avatar>

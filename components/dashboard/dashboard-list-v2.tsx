@@ -55,6 +55,8 @@ import {
   Star,
   StarOff,
   Settings,
+  LayoutDashboard,
+  Edit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -301,7 +303,7 @@ export function DashboardListV2() {
         id={`dashboard-card-${dashboard.id}`}
         key={dashboard.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-md h-full relative group'
+          'transition-all duration-200 hover:shadow-md hover:bg-[#0066FF]/3 h-full relative group'
           // COMMENTED OUT: Draft opacity styling - not applicable for dashboards
           // !dashboard.is_published && 'opacity-75'
         )}
@@ -329,7 +331,7 @@ export function DashboardListV2() {
                 size="sm"
                 className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
               >
-                <Settings className="w-3 h-3 mr-1" />
+                <Edit className="w-3 h-3 mr-1" />
                 Edit
               </Button>
             </Link>
@@ -442,7 +444,7 @@ export function DashboardListV2() {
               {/* COMMENTED OUT: Type-based thumbnail rendering - show generic layout icon for all */}
               {/* {isNative ? ( */}
               <div className="flex items-center justify-center h-full">
-                <Layout className="w-16 h-16 text-muted-foreground" />
+                <LayoutDashboard className="w-16 h-16 text-muted-foreground" />
               </div>
               {/* ) : (
                 <DashboardThumbnail
@@ -570,7 +572,10 @@ export function DashboardListV2() {
     };
 
     return (
-      <Card key={dashboard.id} className="transition-all duration-200 hover:shadow-sm">
+      <Card
+        key={dashboard.id}
+        className="transition-all duration-200 hover:shadow-sm hover:bg-[#0066FF]/3"
+      >
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             {/* Clickable main content */}
@@ -581,7 +586,7 @@ export function DashboardListV2() {
               <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
                 {/* COMMENTED OUT: Type-based icons - show generic layout icon for all */}
                 {/* {isNative ? ( */}
-                <Layout className="w-8 h-8 text-muted-foreground" />
+                <LayoutDashboard className="w-8 h-8 text-muted-foreground" />
                 {/* ) : (
                   <BarChart3 className="w-8 h-8 text-muted-foreground" />
                 )} */}
@@ -676,7 +681,7 @@ export function DashboardListV2() {
                     size="sm"
                     className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   >
-                    <Settings className="w-3 h-3 mr-1" />
+                    <Edit className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
                 </Link>
@@ -863,9 +868,14 @@ export function DashboardListV2() {
 
           {hasPermission('can_create_dashboards') && (
             <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button id="dashboard-create-button">
+              <Button
+                id="dashboard-create-button"
+                variant="ghost"
+                className="text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: '#0066FF' }}
+              >
                 <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                Create Dashboard
+                CREATE DASHBOARD
               </Button>
             </Link>
           )}
@@ -883,7 +893,7 @@ export function DashboardListV2() {
               placeholder="Search dashboards..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="pl-10"
+              className="pl-10 focus:border-[#0066FF] focus:ring-[#0066FF]"
             />
           </div>
 
@@ -940,17 +950,23 @@ export function DashboardListV2() {
           <div id="dashboard-view-mode-wrapper" className="flex gap-1">
             <Button
               id="dashboard-grid-view-button"
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
               onClick={() => setViewMode('grid')}
+              className="h-8 w-8 p-0 bg-transparent rounded-r-none border-r-0"
             >
               <Grid id="dashboard-grid-icon" className="w-4 h-4" />
             </Button>
             <Button
               id="dashboard-list-view-button"
-              variant={viewMode === 'list' ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
               onClick={() => setViewMode('list')}
+              className={cn(
+                'h-8 w-8 p-0 bg-transparent rounded-l-none',
+                viewMode === 'list' ? 'text-white' : ''
+              )}
+              style={viewMode === 'list' ? { backgroundColor: '#0066FF' } : {}}
             >
               <List id="dashboard-list-icon" className="w-4 h-4" />
             </Button>
@@ -1013,9 +1029,14 @@ export function DashboardListV2() {
               </p>
               {hasPermission('can_create_dashboards') && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
-                  <Button id="dashboard-empty-create-button">
+                  <Button
+                    id="dashboard-empty-create-button"
+                    variant="ghost"
+                    className="text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: '#0066FF' }}
+                  >
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
-                    Create your first dashboard
+                    CREATE YOUR FIRST DASHBOARD
                   </Button>
                 </Link>
               )}
