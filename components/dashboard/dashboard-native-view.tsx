@@ -80,6 +80,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Star, StarOff, Settings } from 'lucide-react';
+import { useFullscreen } from '@/hooks/useFullscreen';
 
 // Define responsive breakpoints and column configurations (same as builder)
 const BREAKPOINTS = {
@@ -263,7 +264,6 @@ export function DashboardNativeView({
   showMinimalHeader = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -276,6 +276,9 @@ export function DashboardNativeView({
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Use unified fullscreen hook
+  const { isFullscreen, toggleFullscreen } = useFullscreen('dashboard');
 
   const { toast } = useToast();
 
@@ -418,14 +421,10 @@ export function DashboardNativeView({
     };
   }, [containerWidth]);
 
-  // Handle fullscreen toggle
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+  // Handle fullscreen toggle - use unified fullscreen system
+  const handleToggleFullscreen = () => {
+    if (containerRef.current) {
+      toggleFullscreen(containerRef.current);
     }
   };
 
@@ -675,6 +674,7 @@ export function DashboardNativeView({
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         'h-screen flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50'
@@ -798,7 +798,12 @@ export function DashboardNativeView({
               >
                 <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
               </Button> */}
-                <Button variant="outline" size="sm" onClick={toggleFullscreen} className="p-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleFullscreen}
+                  className="p-1.5"
+                >
                   <Maximize2 className="w-4 h-4" />
                 </Button>
               </div>
@@ -987,7 +992,7 @@ export function DashboardNativeView({
                 )}
 
                 {/* Action buttons */}
-                <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+                <Button variant="outline" size="sm" onClick={handleToggleFullscreen}>
                   <Maximize2 className="w-4 h-4" />
                 </Button>
 
