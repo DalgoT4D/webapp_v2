@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, LogOut, ChevronDown, Menu, AlignJustify, Key } from 'lucide-react';
+import { BarChart3, LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -102,19 +102,6 @@ export function Header({
     <div className="flex h-16 items-center justify-between w-full">
       {/* Left side - Logo, Sidebar toggle, and status */}
       <div className="flex items-center gap-4">
-        {/* Desktop Sidebar Toggle - Now with hamburger icon */}
-        {onSidebarToggle && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onSidebarToggle}
-            className="hidden md:flex h-9 w-9"
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <AlignJustify className="h-5 w-5" />
-          </Button>
-        )}
-
         {/* Mobile Menu Toggle */}
         {!hideMenu && onMenuToggle && responsive && !responsive.isDesktop && (
           <Button variant="ghost" size="icon" onClick={onMenuToggle} className="h-9 w-9">

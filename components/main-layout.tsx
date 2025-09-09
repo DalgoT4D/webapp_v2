@@ -21,6 +21,8 @@ import {
   ChartBarBig,
   Grid3x3,
   PieChart,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -493,15 +495,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <Header
             onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             hideMenu={false}
-            onSidebarToggle={
-              shouldShowDesktopSidebar
-                ? () => {
-                    setIsSidebarCollapsed(!isSidebarCollapsed);
-                    setHasUserToggledSidebar(true); // Mark that user has manually interacted
-                  }
-                : undefined
-            }
-            isSidebarCollapsed={isSidebarCollapsed}
             responsive={responsive}
           />
         </div>
@@ -529,55 +522,72 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
             </div>
 
-            {/* Sidebar Footer */}
-            <div id="main-layout-sidebar-footer" className="p-4 border-t space-y-2">
-              {/* Footer Links */}
-              <div className="space-y-1">
-                <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
-                      isSidebarCollapsed && 'justify-center'
-                    )}
-                  >
-                    {!isSidebarCollapsed && <span>Documentation</span>}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      width="14"
-                      fill="currentColor"
-                      className="flex-shrink-0"
-                    >
-                      <path d="M0 0h24v24H0z" fill="none" />
-                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                    </svg>
-                  </div>
-                </Link>
-
-                <Link href="https://dalgo.org/privacy-policy/" target="_blank">
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground',
-                      isSidebarCollapsed && 'justify-center'
-                    )}
-                  >
-                    {!isSidebarCollapsed && <span>Privacy Policy</span>}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      width="14"
-                      fill="currentColor"
-                      className="flex-shrink-0"
-                    >
-                      <path d="M0 0h24v24H0z" fill="none" />
-                      <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                    </svg>
-                  </div>
-                </Link>
+            {/* Sidebar Toggle Button */}
+            <div className="px-4 pb-2">
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                    setHasUserToggledSidebar(true);
+                  }}
+                  className={cn(
+                    'h-8 w-8 hover:bg-muted/40 transition-colors',
+                    isSidebarCollapsed && 'mx-auto'
+                  )}
+                  title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  {isSidebarCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
             </div>
+
+            {/* Sidebar Footer */}
+            {!isSidebarCollapsed && (
+              <div id="main-layout-sidebar-footer" className="p-4 border-t space-y-2">
+                {/* Footer Links */}
+                <div className="space-y-1">
+                  <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                      <span>Documentation</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        fill="currentColor"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                      </svg>
+                    </div>
+                  </Link>
+
+                  <Link href="https://dalgo.org/privacy-policy/" target="_blank">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
+                      <span>Privacy Policy</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        fill="currentColor"
+                        className="flex-shrink-0"
+                      >
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+                      </svg>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            )}
           </aside>
         )}
         {/* Mobile Sidebar */}
