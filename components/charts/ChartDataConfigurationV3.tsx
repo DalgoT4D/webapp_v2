@@ -527,7 +527,11 @@ export function ChartDataConfigurationV3({
                 <SelectValue placeholder="Select Y axis column" />
               </SelectTrigger>
               <SelectContent>
-                {(formData.computation_type === 'raw' ? allColumns : numericColumns).map((col) => (
+                {(formData.computation_type === 'raw' ||
+                formData.aggregate_function === 'count_distinct'
+                  ? allColumns
+                  : numericColumns
+                ).map((col) => (
                   <SelectItem key={col.column_name} value={col.column_name}>
                     {col.column_name}
                   </SelectItem>
