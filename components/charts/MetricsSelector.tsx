@@ -108,6 +108,10 @@ export function MetricsSelector({
     if (aggregation === 'count') {
       return [...columns, { column_name: '*', data_type: 'any' }];
     }
+    // Count distinct can work on all columns (no numeric filter)
+    if (aggregation === 'count_distinct') {
+      return columns;
+    }
     // Other aggregations need numeric columns
     return numericColumns;
   };

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
 import Link from 'next/link';
 import { Eye, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { usePublicDashboard } from '@/hooks/api/useDashboards';

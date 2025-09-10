@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import type { ChartDataPayload } from '@/types/charts';
-import * as echarts from 'echarts';
+import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
   chartId: number;

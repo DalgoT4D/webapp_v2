@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
-import * as echarts from 'echarts';
+import type * as echarts from 'echarts';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
