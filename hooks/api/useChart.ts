@@ -103,10 +103,11 @@ export function useAllSchemaTables() {
     data: syncTablesData,
     isLoading,
     error,
-  } = useSWR('/api/warehouse/sync_tables', apiGet, {
-    dedupingInterval: 300000, // 5 minute cache
-    revalidateOnFocus: false,
+  } = useSWR('/api/warehouse/sync_tables?fresh=1', apiGet, {
+    dedupingInterval: 30000,
+    revalidateOnFocus: true,
     revalidateOnReconnect: true,
+    revalidateOnMount: true,
   });
 
   // Transform sync_tables API response to match existing format exactly
