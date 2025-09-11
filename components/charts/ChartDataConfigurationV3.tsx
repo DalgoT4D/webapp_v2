@@ -527,7 +527,11 @@ export function ChartDataConfigurationV3({
                 <SelectValue placeholder="Select Y axis column" />
               </SelectTrigger>
               <SelectContent>
-                {(formData.computation_type === 'raw' ? allColumns : numericColumns).map((col) => (
+                {(formData.computation_type === 'raw' ||
+                formData.aggregate_function === 'count_distinct'
+                  ? allColumns
+                  : numericColumns
+                ).map((col) => (
                   <SelectItem key={col.column_name} value={col.column_name}>
                     {col.column_name}
                   </SelectItem>
@@ -602,19 +606,13 @@ export function ChartDataConfigurationV3({
               <SelectItem value="none">None</SelectItem>
               {allColumns
                 .filter((col) => {
-                  // Filter out columns that are already selected in other fields
-                  const usedColumns = [
-                    formData.x_axis_column,
-                    formData.y_axis_column,
-                    formData.dimension_column,
-                    formData.aggregate_column,
-                    formData.geographic_column,
-                    formData.value_column,
-                    // Also filter out columns used in metrics
-                    ...(formData.metrics || []).map((metric) => metric.column),
-                  ].filter(Boolean); // Remove undefined/null values
+                  // Only exclude the X-axis column (dimension column in aggregated mode, x_axis_column in raw mode)
+                  const xAxisColumn =
+                    formData.computation_type === 'raw'
+                      ? formData.x_axis_column
+                      : formData.dimension_column;
 
-                  return !usedColumns.includes(col.column_name);
+                  return col.column_name !== xAxisColumn;
                 })
                 .map((col) => (
                   <SelectItem key={col.column_name} value={col.column_name}>
