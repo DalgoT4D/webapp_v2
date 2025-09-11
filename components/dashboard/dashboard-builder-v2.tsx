@@ -1283,7 +1283,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           );
 
         case DashboardComponentType.TEXT:
-          return <UnifiedTextElement {...commonProps} config={component.config} />;
+          return (
+            <UnifiedTextElement
+              onUpdate={(config: any) => updateComponent(componentId, config)}
+              config={component.config}
+              isEditMode={true}
+            />
+          );
 
         // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
 
@@ -1873,6 +1879,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             }}
                             className="p-1 bg-white/90 hover:bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel opacity-80 hover:opacity-100"
                             title="Remove chart"
+                          >
+                            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Action Buttons for Text Elements */}
+                      {component?.type === DashboardComponentType.TEXT && (
+                        <div className="absolute top-2 right-2 z-30 flex gap-1 drag-cancel">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeComponent(item.i);
+                            }}
+                            className="p-1 bg-white/90 hover:bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel opacity-80 hover:opacity-100"
+                            title="Remove text"
                           >
                             <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
                           </button>

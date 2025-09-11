@@ -246,10 +246,10 @@ export function UnifiedTextElement({
   return (
     <div className="h-full w-full relative">
       {isEditMode && onRemove && (
-        <div className="absolute -top-2 -right-2 z-10">
+        <div className="absolute -top-2 -right-2 z-10 drag-cancel">
           <button
             onClick={onRemove}
-            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel"
             title="Remove text"
           >
             <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
