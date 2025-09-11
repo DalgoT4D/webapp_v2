@@ -1,0 +1,100 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: 
+      - main  # Auto-deploy to production
+      - staging  # Auto-deploy to staging
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      # Determine environment
+      - name: Set environment
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=production" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+          fi
+      
+      # Build on GitHub Actions (not on production server)
+      - name: Install and Build
+        run: |
+          npm ci
+          npm run build
+        env:
+          # Use different secrets based on environment
+          NEXT_PUBLIC_BACKEND_URL: ${{ env.ENVIRONMENT == 'production' && secrets.PROD_BACKEND_URL || secrets.STAGING_BACKEND_URL }}
+          NEXT_PUBLIC_EMBEDDED_WEBAPP_URL: ${{ env.ENVIRONMENT == 'production' && secrets.PROD_EMBEDDED_WEBAPP_URL || secrets.STAGING_EMBEDDED_WEBAPP_URL }}
+          NEXT_PUBLIC_WEBAPP_ENVIRONMENT: ${{ env.ENVIRONMENT }}
+      
+      # Package the pre-built app
+      - name: Package build
+        run: |
+          mkdir deploy
+          cp -r .next/standalone/* deploy/
+          cp -r .next/static deploy/.next/
+          cp -r public deploy/ || echo "No public directory"
+          tar -czf build.tar.gz -C deploy .
+      
+      # Deploy to staging
+      - name: Deploy to staging
+        if: env.ENVIRONMENT == 'staging'
+        run: |
+          echo "${{ secrets.STAGING_SSH_KEY }}" > deploy_key
+          chmod 600 deploy_key
+          
+          scp -o StrictHostKeyChecking=no -i deploy_key \
+            build.tar.gz \
+            ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/tmp/
+          
+          ssh -o StrictHostKeyChecking=no -i deploy_key \
+            ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+            cd /home/ddp/webapp_v2
+            tar -xzf /tmp/build.tar.gz
+            pm2 restart dalgo-webapp_v2
+            rm /tmp/build.tar.gz
+          EOF
+      
+      # Deploy to production
+      - name: Deploy to production
+        if: env.ENVIRONMENT == 'production'
+        run: |
+          echo "${{ secrets.PROD_SSH_KEY }}" > deploy_key
+          chmod 600 deploy_key
+          
+          scp -o StrictHostKeyChecking=no -i deploy_key \
+            build.tar.gz \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:/tmp/
+          
+          ssh -o StrictHostKeyChecking=no -i deploy_key \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} << 'EOF'
+            cd /home/ddp/webapp_v2
+            tar -xzf /tmp/build.tar.gz
+            pm2 restart dalgo-webapp_v2
+            rm /tmp/build.tar.gz
+          EOF
