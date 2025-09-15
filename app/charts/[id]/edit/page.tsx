@@ -367,6 +367,7 @@ function EditChartPageContent() {
         }),
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+        customizations: formData.customizations,
         extra_config: {
           filters: formData.filters,
           pagination: formData.pagination,
