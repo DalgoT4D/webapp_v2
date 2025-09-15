@@ -158,7 +158,12 @@ export function MetricsSelector({
                     <SelectContent>
                       {getAvailableColumns(metric.aggregation).map((col) => (
                         <SelectItem key={col.column_name} value={col.column_name}>
-                          {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
+                          <span
+                            className="truncate"
+                            title={col.column_name === '*' ? '* (Count all rows)' : col.column_name}
+                          >
+                            {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

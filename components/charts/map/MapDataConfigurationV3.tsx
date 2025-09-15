@@ -148,14 +148,16 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
                 .slice(0, 100)
                 .map((val) => (
                   <SelectItem key={val} value={val.toString()}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <input
                         type="checkbox"
                         checked={selectedValues.includes(val.toString())}
                         readOnly
-                        className="w-4 h-4"
+                        className="w-4 h-4 flex-shrink-0"
                       />
-                      {val}
+                      <span className="truncate" title={val.toString()}>
+                        {val}
+                      </span>
                     </div>
                   </SelectItem>
                 ))}
@@ -213,7 +215,9 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
             .slice(0, 100)
             .map((val) => (
               <SelectItem key={val} value={val.toString()}>
-                {val}
+                <span className="truncate" title={val.toString()}>
+                  {val}
+                </span>
               </SelectItem>
             ))}
         </SelectContent>
@@ -452,7 +456,9 @@ export function MapDataConfigurationV3({
                 <SelectContent>
                   {allColumns.map((col) => (
                     <SelectItem key={col.column_name} value={col.column_name}>
-                      {col.column_name}
+                      <span className="truncate" title={col.column_name}>
+                        {col.column_name}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

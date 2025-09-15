@@ -313,7 +313,9 @@ export function DynamicLevelConfig({
               const columnName = col.column_name || col.name;
               return (
                 <SelectItem key={columnName} value={columnName}>
-                  {columnName} ({col.data_type})
+                  <span className="truncate" title={`${columnName} (${col.data_type})`}>
+                    {columnName} ({col.data_type})
+                  </span>
                 </SelectItem>
               );
             })}
@@ -342,7 +344,9 @@ export function DynamicLevelConfig({
                 const columnName = col.column_name || col.name;
                 return (
                   <SelectItem key={columnName} value={columnName}>
-                    {columnName}
+                    <span className="truncate" title={columnName}>
+                      {columnName}
+                    </span>
                   </SelectItem>
                 );
               })}
