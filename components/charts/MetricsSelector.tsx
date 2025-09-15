@@ -142,7 +142,30 @@ export function MetricsSelector({
           <div key={index} className="space-y-2 p-3 border rounded-lg bg-gray-50">
             <div className="flex items-center gap-2">
               <div className="flex-1 grid grid-cols-2 gap-2">
-                {/* Column Selection */}
+                {/* Aggregation Function - Now First */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-600">{labels.function}</Label>
+                  <Select
+                    value={metric.aggregation}
+                    onValueChange={(value) =>
+                      updateMetric(index, { aggregation: value, column: '' })
+                    }
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Function" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGGREGATE_FUNCTIONS.map((func) => (
+                        <SelectItem key={func.value} value={func.value}>
+                          {func.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Column Selection - Now Second */}
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">{labels.column}</Label>
                   <Select
@@ -150,10 +173,12 @@ export function MetricsSelector({
                     onValueChange={(value) =>
                       updateMetric(index, { column: value === '*' ? null : value })
                     }
-                    disabled={disabled}
+                    disabled={disabled || !metric.aggregation}
                   >
                     <SelectTrigger className="h-8">
-                      <SelectValue placeholder="Select column" />
+                      <SelectValue
+                        placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {getAvailableColumns(metric.aggregation).map((col) => (
@@ -164,27 +189,6 @@ export function MetricsSelector({
                           >
                             {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
                           </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Aggregation Function */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.function}</Label>
-                  <Select
-                    value={metric.aggregation}
-                    onValueChange={(value) => updateMetric(index, { aggregation: value })}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue placeholder="Function" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AGGREGATE_FUNCTIONS.map((func) => (
-                        <SelectItem key={func.value} value={func.value}>
-                          {func.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
