@@ -283,7 +283,9 @@ export function MultiSelectLayerCard({
                   const columnName = column.name || column.column_name;
                   return (
                     <SelectItem key={columnName} value={columnName}>
-                      {columnName} ({column.data_type})
+                      <span className="truncate" title={`${columnName} (${column.data_type})`}>
+                        {columnName} ({column.data_type})
+                      </span>
                     </SelectItem>
                   );
                 })}

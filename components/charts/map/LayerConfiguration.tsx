@@ -227,7 +227,12 @@ function LayerCard({
               <SelectContent>
                 {columns.map((column) => (
                   <SelectItem key={column.column_name} value={column.column_name}>
-                    {column.column_name} ({column.data_type})
+                    <span
+                      className="truncate"
+                      title={`${column.column_name} (${column.data_type})`}
+                    >
+                      {column.column_name} ({column.data_type})
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

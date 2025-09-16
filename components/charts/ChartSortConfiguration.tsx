@@ -199,7 +199,12 @@ export function ChartSortConfiguration({
                       <SelectContent>
                         {normalizedColumns.map((col) => (
                           <SelectItem key={col.column_name} value={col.column_name}>
-                            {col.column_name} ({col.data_type})
+                            <span
+                              className="truncate"
+                              title={`${col.column_name} (${col.data_type})`}
+                            >
+                              {col.column_name} ({col.data_type})
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
