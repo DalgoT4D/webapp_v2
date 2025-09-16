@@ -4,7 +4,6 @@ on:
   push:
     branches: 
       - main  # Auto-deploy to production
-      - staging  # Auto-deploy to staging
   workflow_dispatch:
     inputs:
       environment:
