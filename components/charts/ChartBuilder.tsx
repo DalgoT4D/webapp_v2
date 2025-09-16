@@ -139,36 +139,75 @@ export function ChartBuilder({
   } | null>(null);
 
   // Build payload for chart data - exclude tables entirely
-  const chartDataPayload: ChartDataPayload | null =
-    formData.schema_name && formData.table_name && formData.chart_type !== 'table'
-      ? {
-          chart_type: formData.chart_type!,
-          computation_type: formData.computation_type || 'aggregated',
-          schema_name: formData.schema_name,
-          table_name: formData.table_name,
-          x_axis: formData.x_axis_column,
-          y_axis: formData.y_axis_column,
-          dimension_col: formData.dimension_column,
-          aggregate_col: formData.aggregate_column,
-          aggregate_func: formData.aggregate_function,
-          extra_dimension: formData.extra_dimension_column,
-          // Multiple metrics for bar/line charts
-          metrics: formData.metrics,
-          // Map-specific fields - also populate dimension_col for map charts
-          geographic_column: formData.geographic_column,
-          value_column: formData.value_column,
-          selected_geojson_id:
-            formData.selected_geojson_id ||
-            (formData.chart_type === 'map' && formData.layers?.[0]?.geojson_id
-              ? formData.layers[0].geojson_id
-              : undefined),
-          // For map charts, also set dimension_col to geographic_column for compatibility
-          ...(formData.chart_type === 'map' && {
-            dimension_col: formData.geographic_column,
-            aggregate_col: formData.aggregate_column || formData.value_column,
-          }),
-        }
-      : null;
+  const chartDataPayload: ChartDataPayload | null = React.useMemo(() => {
+    if (!formData.schema_name || !formData.table_name || formData.chart_type === 'table') {
+      return null;
+    }
+
+    const basePayload = {
+      chart_type: formData.chart_type!,
+      computation_type:
+        formData.chart_type === 'table' ? 'aggregated' : formData.computation_type || 'aggregated',
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+    };
+
+    // For raw charts, only include raw-specific fields
+    if (formData.computation_type === 'raw') {
+      return {
+        ...basePayload,
+        x_axis: formData.x_axis_column,
+        y_axis: formData.y_axis_column,
+        extra_dimension: formData.extra_dimension_column,
+        chart_filters: formData.filters || [],
+      };
+    }
+
+    // For aggregated charts, include aggregated-specific fields
+    return {
+      ...basePayload,
+      dimension_col: formData.dimension_column,
+      aggregate_col: formData.aggregate_column,
+      aggregate_func: formData.aggregate_function,
+      extra_dimension: formData.extra_dimension_column,
+      // Multiple metrics for bar/line charts
+      metrics: formData.metrics,
+      // Map-specific fields - also populate dimension_col for map charts
+      geographic_column: formData.geographic_column,
+      value_column: formData.value_column,
+      selected_geojson_id:
+        formData.selected_geojson_id ||
+        (formData.chart_type === 'map' && formData.layers?.[0]?.geojson_id
+          ? formData.layers[0].geojson_id
+          : undefined),
+      // For map charts, also set dimension_col to geographic_column for compatibility
+      ...(formData.chart_type === 'map' && {
+        dimension_col: formData.geographic_column,
+        aggregate_col: formData.aggregate_column || formData.value_column,
+      }),
+    };
+  }, [
+    formData.schema_name,
+    formData.table_name,
+    formData.chart_type,
+    formData.computation_type,
+    formData.x_axis_column,
+    formData.y_axis_column,
+    formData.dimension_column,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    formData.extra_dimension_column,
+    formData.metrics,
+    formData.geographic_column,
+    formData.value_column,
+    formData.selected_geojson_id,
+    formData.layers,
+  ]);
+
+  // Debug: Log when payload changes
+  React.useEffect(() => {
+    console.log('ChartBuilder: Payload updated:', chartDataPayload);
+  }, [chartDataPayload]);
 
   // Fetch chart data - use different hooks for maps, tables, vs regular charts
   const {
@@ -394,6 +433,11 @@ export function ChartBuilder({
     }
 
     if (formData.computation_type === 'raw') {
+      // Pie charts only need x_axis_column for counting occurrences
+      if (formData.chart_type === 'pie') {
+        return !!formData.x_axis_column;
+      }
+      // Bar/line charts need both x and y axis
       return !!(formData.x_axis_column && formData.y_axis_column);
     } else {
       // For bar/line/pie charts with multiple metrics
@@ -615,11 +659,13 @@ export function ChartBuilder({
         }
 
         if (formData.computation_type === 'raw') {
-          return hasBasicConfig && formData.x_axis_column && formData.y_axis_column
-            ? 'complete'
-            : formData.chart_type
-              ? 'current'
-              : 'pending';
+          // Pie charts only need x_axis_column, bar/line need both x and y
+          const hasRawConfig =
+            formData.chart_type === 'pie'
+              ? hasBasicConfig && formData.x_axis_column
+              : hasBasicConfig && formData.x_axis_column && formData.y_axis_column;
+
+          return hasRawConfig ? 'complete' : formData.chart_type ? 'current' : 'pending';
         } else {
           // For bar/line/pie charts with multiple metrics
           if (
