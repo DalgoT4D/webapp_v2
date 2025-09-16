@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -369,9 +369,9 @@ export function ChartDataConfigurationV3({
         break;
 
       case 'table':
-        // Tables default to aggregated data like other charts
+        // Tables are always aggregated (no raw data option)
         specificFields = {
-          computation_type: formData.computation_type || 'aggregated',
+          computation_type: 'aggregated',
           x_axis_column: formData.x_axis_column,
           y_axis_column: null, // Tables don't need Y axis
           dimension_column: formData.dimension_column,
@@ -452,13 +452,64 @@ export function ChartDataConfigurationV3({
         )}
       </div>
 
-      {/* Computation Type - For bar/line/table charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
+      {/* Computation Type - For bar/line/pie charts (tables are always aggregated) */}
+      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Data Type</Label>
           <Select
             value={formData.computation_type || 'aggregated'}
-            onValueChange={(value) => onChange({ computation_type: value as 'raw' | 'aggregated' })}
+            onValueChange={(value) => {
+              const newComputationType = value as 'raw' | 'aggregated';
+              const updates: any = { computation_type: newComputationType };
+
+              // When switching to raw mode, try to intelligently map existing fields
+              if (newComputationType === 'raw') {
+                // Map dimension_column to x_axis_column if available
+                if (formData.dimension_column && !formData.x_axis_column) {
+                  updates.x_axis_column = formData.dimension_column;
+                }
+                // Map aggregate_column to y_axis_column if available
+                if (formData.aggregate_column && !formData.y_axis_column) {
+                  updates.y_axis_column = formData.aggregate_column;
+                }
+                // Use first metric column if available
+                if (
+                  !updates.y_axis_column &&
+                  formData.metrics &&
+                  formData.metrics.length > 0 &&
+                  formData.metrics[0].column
+                ) {
+                  updates.y_axis_column = formData.metrics[0].column;
+                }
+
+                // Clear incompatible aggregated fields
+                updates.dimension_column = undefined;
+                updates.aggregate_column = undefined;
+                updates.aggregate_function = undefined;
+                updates.metrics = undefined;
+              }
+              // When switching to aggregated mode, try to map raw fields back
+              else if (newComputationType === 'aggregated') {
+                // Map x_axis_column to dimension_column if available
+                if (formData.x_axis_column && !formData.dimension_column) {
+                  updates.dimension_column = formData.x_axis_column;
+                }
+                // Map y_axis_column to aggregate_column if available
+                if (formData.y_axis_column && !formData.aggregate_column) {
+                  updates.aggregate_column = formData.y_axis_column;
+                  // Set a default aggregate function
+                  if (!formData.aggregate_function) {
+                    updates.aggregate_function = 'sum';
+                  }
+                }
+
+                // Clear incompatible raw fields
+                updates.x_axis_column = undefined;
+                updates.y_axis_column = undefined;
+              }
+
+              onChange(updates);
+            }}
             disabled={disabled}
           >
             <SelectTrigger className="h-10 w-full">
@@ -479,17 +530,31 @@ export function ChartDataConfigurationV3({
             {formData.chart_type === 'table'
               ? 'Group By Column'
               : formData.chart_type === 'pie'
-                ? 'Dimension'
+                ? formData.computation_type === 'raw'
+                  ? 'X Axis'
+                  : 'Dimension'
                 : 'X Axis'}
           </Label>
           <Select
             value={formData.dimension_column || formData.x_axis_column}
             onValueChange={(value) => {
+              const updates: any = {};
+
               if (formData.computation_type === 'raw') {
-                onChange({ x_axis_column: value });
+                updates.x_axis_column = value;
+                // Clear extra dimension if it conflicts with X-axis
+                if (formData.extra_dimension_column === value) {
+                  updates.extra_dimension_column = undefined;
+                }
               } else {
-                onChange({ dimension_column: value });
+                updates.dimension_column = value;
+                // Clear extra dimension if it conflicts with dimension column
+                if (formData.extra_dimension_column === value) {
+                  updates.extra_dimension_column = undefined;
+                }
               }
+
+              onChange(updates);
             }}
             disabled={disabled}
           >
@@ -509,11 +574,12 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
+      {/* Y Axis - For Raw Data Charts (bar/line/pie) or Single Metric Aggregated Charts */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' &&
-        (formData.computation_type === 'raw' ||
+        ((formData.computation_type === 'raw' &&
+          ['bar', 'line', 'pie'].includes(formData.chart_type || '')) ||
           (formData.computation_type === 'aggregated' &&
             !['bar', 'line', 'pie'].includes(formData.chart_type || ''))) && (
           <div className="space-y-2">
@@ -521,11 +587,19 @@ export function ChartDataConfigurationV3({
             <Select
               value={formData.aggregate_column || formData.y_axis_column}
               onValueChange={(value) => {
+                const updates: any = {};
+
                 if (formData.computation_type === 'raw') {
-                  onChange({ y_axis_column: value });
+                  updates.y_axis_column = value;
+                  // Clear extra dimension if it conflicts with Y-axis
+                  if (formData.extra_dimension_column === value) {
+                    updates.extra_dimension_column = undefined;
+                  }
                 } else {
-                  onChange({ aggregate_column: value });
+                  updates.aggregate_column = value;
                 }
+
+                onChange(updates);
               }}
               disabled={disabled}
             >
@@ -600,9 +674,28 @@ export function ChartDataConfigurationV3({
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Select
             value={formData.extra_dimension_column || 'none'}
-            onValueChange={(value) =>
-              onChange({ extra_dimension_column: value === 'none' ? undefined : value })
-            }
+            onValueChange={(value) => {
+              const newValue = value === 'none' ? undefined : value;
+
+              // Prevent selecting the same column as X-axis or Y-axis
+              if (newValue) {
+                const xAxisColumn =
+                  formData.computation_type === 'raw'
+                    ? formData.x_axis_column
+                    : formData.dimension_column;
+                const yAxisColumn =
+                  formData.computation_type === 'raw'
+                    ? formData.y_axis_column
+                    : formData.aggregate_column;
+
+                if (newValue === xAxisColumn || newValue === yAxisColumn) {
+                  // Don't allow selecting conflicting columns
+                  return;
+                }
+              }
+
+              onChange({ extra_dimension_column: newValue });
+            }}
             disabled={disabled}
           >
             <SelectTrigger className="h-10 w-full">
@@ -614,13 +707,17 @@ export function ChartDataConfigurationV3({
               <SelectItem value="none">None</SelectItem>
               {allColumns
                 .filter((col) => {
-                  // Only exclude the X-axis column (dimension column in aggregated mode, x_axis_column in raw mode)
+                  // Exclude columns already in use for X-axis and Y-axis
                   const xAxisColumn =
                     formData.computation_type === 'raw'
                       ? formData.x_axis_column
                       : formData.dimension_column;
+                  const yAxisColumn =
+                    formData.computation_type === 'raw'
+                      ? formData.y_axis_column
+                      : formData.aggregate_column;
 
-                  return col.column_name !== xAxisColumn;
+                  return col.column_name !== xAxisColumn && col.column_name !== yAxisColumn;
                 })
                 .map((col) => (
                   <SelectItem key={col.column_name} value={col.column_name}>
