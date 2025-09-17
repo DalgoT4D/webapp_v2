@@ -72,7 +72,24 @@ jobs:
           script: |
             set -e
             cd /home/ddp/webapp_v2
-            /home/ddp/.yarn/bin/pm2 stop ddp-webapp_v2 || echo "App not running"
+            
+            # Check if PM2 exists and get the correct path
+            if [ -f "/home/ddp/.yarn/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.yarn/bin/pm2"
+            elif [ -f "/home/ddp/.local/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.local/bin/pm2"
+            elif command -v pm2 &> /dev/null; then
+              PM2_PATH="pm2"
+            else
+              echo "PM2 not found. Checking available paths:"
+              ls -la /home/ddp/.yarn/bin/ || echo "Yarn bin not found"
+              ls -la /home/ddp/.local/bin/ || echo "Local bin not found"
+              which pm2 || echo "PM2 not in PATH"
+              exit 1
+            fi
+            
+            echo "Using PM2 at: $PM2_PATH"
+            $PM2_PATH stop ddp-webapp_v2 || echo "App not running"
             rm -rf .next node_modules || echo "Cleanup completed"
       
       - name: Upload build to server
@@ -96,7 +113,21 @@ jobs:
           script: |
             set -e
             cd /home/ddp/webapp_v2
+            
+            # Find PM2 path
+            if [ -f "/home/ddp/.yarn/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.yarn/bin/pm2"
+            elif [ -f "/home/ddp/.local/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.local/bin/pm2"
+            elif command -v pm2 &> /dev/null; then
+              PM2_PATH="pm2"
+            else
+              echo "PM2 not found!"
+              exit 1
+            fi
+            
+            echo "Using PM2 at: $PM2_PATH"
             tar -xzf /tmp/build.tar.gz
-            /home/ddp/.yarn/bin/pm2 restart ddp-webapp_v2
+            $PM2_PATH restart ddp-webapp_v2
             rm /tmp/build.tar.gz
             echo "Deployment completed successfully"
