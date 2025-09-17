@@ -62,18 +62,41 @@ jobs:
       
       # Deploy to staging
       - name: Deploy to staging
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
-          chmod 600 deploy_key
-          
-          scp -o StrictHostKeyChecking=no -i deploy_key \
-            build.tar.gz \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/
-          
-          ssh -o StrictHostKeyChecking=no -i deploy_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 300s
+          script: |
+            set -e
+            cd /home/ddp/webapp_v2
+            pm2 stop ddp-webapp_v2 || echo "App not running"
+            rm -rf .next node_modules || echo "Cleanup completed"
+      
+      - name: Upload build to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: "build.tar.gz"
+          target: "/tmp/"
+      
+      - name: Extract and restart app
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 300s
+          script: |
+            set -e
             cd /home/ddp/webapp_v2
             tar -xzf /tmp/build.tar.gz
             pm2 restart ddp-webapp_v2
             rm /tmp/build.tar.gz
-          EOF
+            echo "Deployment completed successfully"
