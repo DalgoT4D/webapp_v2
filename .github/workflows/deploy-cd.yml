@@ -72,7 +72,7 @@ jobs:
           script: |
             set -e
             cd /home/ddp/webapp_v2
-            pm2 stop ddp-webapp_v2 || echo "App not running"
+            /home/ddp/.yarn/bin/pm2 stop ddp-webapp_v2 || echo "App not running"
             rm -rf .next node_modules || echo "Cleanup completed"
       
       - name: Upload build to server
@@ -97,6 +97,6 @@ jobs:
             set -e
             cd /home/ddp/webapp_v2
             tar -xzf /tmp/build.tar.gz
-            pm2 restart ddp-webapp_v2
+            /home/ddp/.yarn/bin/pm2 restart ddp-webapp_v2
             rm /tmp/build.tar.gz
             echo "Deployment completed successfully"
