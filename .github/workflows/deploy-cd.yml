@@ -3,27 +3,19 @@ name: Build and Deploy
 on:
   push:
     branches: 
-      - main  # Auto-deploy to production
+      - main
+      - staging
   pull_request:
     branches:
       - main
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to deploy'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
       app_environment:
         description: 'App environment (NEXT_PUBLIC_WEBAPP_ENVIRONMENT)'
         required: false
-        default: ''
+        default: 'staging'
         type: choice
         options:
-          - ''
           - development
           - staging
           - production
@@ -40,38 +32,23 @@ jobs:
           node-version: '18'
           cache: 'npm'
       
-      # Determine environment
-      - name: Set environment
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo 
-            echo "ENVIRONMENT=production" >> $GITHUB_ENV
-          else
-            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
-          fi
-      
-      # Set app environment separately from deployment environment
+      # Set app environment
       - name: Set app environment
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.app_environment }}" != "" ]]; then
             echo "APP_ENVIRONMENT=${{ github.event.inputs.app_environment }}" >> $GITHUB_ENV
-          elif [[ "${{ env.ENVIRONMENT }}" == "production" ]]; then
-            echo "APP_ENVIRONMENT=production" >> $GITHUB_ENV
           else
-            echo "APP_ENVIRONMENT=development" >> $GITHUB_ENV
+            echo "APP_ENVIRONMENT=staging" >> $GITHUB_ENV
           fi
       
-      # Build on GitHub Actions (not on production server)
+      # Build on GitHub Actions
       - name: Install and Build
         run: |
           npm ci
           npm run build
         env:
-          # Use different secrets based on environment
-          NEXT_PUBLIC_BACKEND_URL: ${{ env.ENVIRONMENT == 'production' && secrets.PROD_BACKEND_URL || secrets.STAGING_BACKEND_URL }}
-          NEXT_PUBLIC_EMBEDDED_WEBAPP_URL: ${{ env.ENVIRONMENT == 'production' && secrets.PROD_EMBEDDED_WEBAPP_URL || secrets.STAGING_EMBEDDED_WEBAPP_URL }}
+          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.STAGING_BACKEND_URL }}
+          NEXT_PUBLIC_EMBEDDED_WEBAPP_URL: ${{ secrets.STAGING_EMBEDDED_WEBAPP_URL }}
           NEXT_PUBLIC_WEBAPP_ENVIRONMENT: ${{ env.APP_ENVIRONMENT }}
       
       # Package the pre-built app
@@ -85,7 +62,6 @@ jobs:
       
       # Deploy to staging
       - name: Deploy to staging
-        if: env.ENVIRONMENT == 'staging'
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
           chmod 600 deploy_key
@@ -98,25 +74,6 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd /home/ddp/webapp_v2
             tar -xzf /tmp/build.tar.gz
-            pm2 restart dalgo-webapp_v2
-            rm /tmp/build.tar.gz
-          EOF
-      
-      # Deploy to production
-      - name: Deploy to production
-        if: env.ENVIRONMENT == 'production'
-        run: |
-          echo "${{ secrets.PROD_SSH_PRIVATE_KEY }}" > deploy_key
-          chmod 600 deploy_key
-          
-          scp -o StrictHostKeyChecking=no -i deploy_key \
-            build.tar.gz \
-            ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:/tmp/
-          
-          ssh -o StrictHostKeyChecking=no -i deploy_key \
-            ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} << 'EOF'
-            cd /home/ddp/webapp_v2
-            tar -xzf /tmp/build.tar.gz
-            pm2 restart dalgo-webapp_v2
+            pm2 restart ddp-webapp_v2
             rm /tmp/build.tar.gz
           EOF
