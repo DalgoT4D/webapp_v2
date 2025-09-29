@@ -56,8 +56,17 @@ jobs:
         run: |
           mkdir deploy
           cp -r .next/standalone/* deploy/
-          cp -r .next/static deploy/.next/
-          cp -r public deploy/ || echo "No public directory"
+          cp -r .next/static deploy/.next/static/
+          cp -r public deploy/public/ || echo "No public directory"
+          
+          # Create a simple start script
+          cat > deploy/start.sh << 'EOF'
+          #!/bin/bash
+          cd "$(dirname "$0")"
+          node server.js
+          EOF
+          chmod +x deploy/start.sh
+          
           tar -czf build.tar.gz -C deploy .
       
       # Deploy to staging
