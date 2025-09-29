@@ -1,0 +1,142 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: 
+      - main
+      - staging
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      app_environment:
+        description: 'App environment (NEXT_PUBLIC_WEBAPP_ENVIRONMENT)'
+        required: false
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      # Set app environment
+      - name: Set app environment
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.app_environment }}" != "" ]]; then
+            echo "APP_ENVIRONMENT=${{ github.event.inputs.app_environment }}" >> $GITHUB_ENV
+          else
+            echo "APP_ENVIRONMENT=staging" >> $GITHUB_ENV
+          fi
+      
+      # Build on GitHub Actions
+      - name: Install and Build
+        run: |
+          npm ci
+          npm run build
+        env:
+          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.STAGING_BACKEND_URL }}
+          NEXT_PUBLIC_EMBEDDED_WEBAPP_URL: ${{ secrets.STAGING_EMBEDDED_WEBAPP_URL }}
+          NEXT_PUBLIC_WEBAPP_ENVIRONMENT: ${{ env.APP_ENVIRONMENT }}
+      
+      # Package the pre-built app
+      - name: Package build
+        run: |
+          mkdir deploy
+          cp -r .next/standalone/* deploy/
+          cp -r .next/static deploy/.next/static/
+          cp -r public deploy/public/ || echo "No public directory"
+          
+          # Create a simple start script
+          cat > deploy/start.sh << 'EOF'
+          #!/bin/bash
+          cd "$(dirname "$0")"
+          node server.js
+          EOF
+          chmod +x deploy/start.sh
+          
+          tar -czf build.tar.gz -C deploy .
+      
+      # Deploy to staging
+      - name: Deploy to staging
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 300s
+          script: |
+            set -e
+            cd /home/ddp/webapp_v2
+            
+            # Check if PM2 exists and get the correct path
+            if [ -f "/home/ddp/.yarn/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.yarn/bin/pm2"
+            elif [ -f "/home/ddp/.local/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.local/bin/pm2"
+            elif command -v pm2 &> /dev/null; then
+              PM2_PATH="pm2"
+            else
+              echo "PM2 not found. Checking available paths:"
+              ls -la /home/ddp/.yarn/bin/ || echo "Yarn bin not found"
+              ls -la /home/ddp/.local/bin/ || echo "Local bin not found"
+              which pm2 || echo "PM2 not in PATH"
+              exit 1
+            fi
+            
+            echo "Using PM2 at: $PM2_PATH"
+            $PM2_PATH stop ddp-webapp_v2 || echo "App not running"
+            rm -rf .next node_modules || echo "Cleanup completed"
+      
+      - name: Upload build to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: "build.tar.gz"
+          target: "/tmp/"
+      
+      - name: Extract and restart app
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 300s
+          script: |
+            set -e
+            cd /home/ddp/webapp_v2
+            
+            # Find PM2 path
+            if [ -f "/home/ddp/.yarn/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.yarn/bin/pm2"
+            elif [ -f "/home/ddp/.local/bin/pm2" ]; then
+              PM2_PATH="/home/ddp/.local/bin/pm2"
+            elif command -v pm2 &> /dev/null; then
+              PM2_PATH="pm2"
+            else
+              echo "PM2 not found!"
+              exit 1
+            fi
+            
+            echo "Using PM2 at: $PM2_PATH"
+            tar -xzf /tmp/build.tar.gz
+            $PM2_PATH restart ddp-webapp_v2
+            rm /tmp/build.tar.gz
+            echo "Deployment completed successfully"
