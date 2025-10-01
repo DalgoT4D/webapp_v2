@@ -51,8 +51,19 @@ export function ChartPreview({
       // Create new instance
       chartInstance.current = echarts.init(chartRef.current);
 
+      // Modify config to ensure proper margins for axis titles
+      const modifiedConfig = {
+        ...config,
+        grid: {
+          ...config.grid,
+          containLabel: true,
+          left: '5%',
+          bottom: '5%',
+        },
+      };
+
       // Set chart option
-      chartInstance.current.setOption(config);
+      chartInstance.current.setOption(modifiedConfig);
 
       // Notify parent component that chart is ready
       if (onChartReady) {

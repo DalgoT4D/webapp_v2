@@ -850,22 +850,28 @@ export function ChartElementView({
       textStyle: {
         fontFamily: 'Inter, system-ui, sans-serif',
       },
-      color: [
-        '#3b82f6', // blue-500
-        '#10b981', // emerald-500
-        '#f59e0b', // amber-500
-        '#ef4444', // red-500
-        '#8b5cf6', // violet-500
-        '#ec4899', // pink-500
-        '#14b8a6', // teal-500
-        '#f97316', // orange-500
-      ],
+      // Only set default colors if chart doesn't have custom colors
+      ...(baseConfig.color
+        ? {}
+        : {
+            color: [
+              '#3b82f6', // blue-500
+              '#10b981', // emerald-500
+              '#f59e0b', // amber-500
+              '#ef4444', // red-500
+              '#8b5cf6', // violet-500
+              '#ec4899', // pink-500
+              '#14b8a6', // teal-500
+              '#f97316', // orange-500
+            ],
+          }),
       grid: {
-        top: '10%', // Reduced from 15% since we have HTML title
-        left: '3%',
-        right: '4%',
-        bottom: '10%',
+        ...baseConfig.grid,
         containLabel: true,
+        left: '10%',
+        right: '8%',
+        top: '12%',
+        bottom: '15%',
       },
       tooltip: {
         trigger: 'axis',
@@ -877,14 +883,6 @@ export function ChartElementView({
           fontSize: 12,
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-      },
-      legend: {
-        type: 'scroll',
-        bottom: 0,
-        textStyle: {
-          fontSize: 12,
-          color: '#6b7280',
-        },
       },
     };
 
