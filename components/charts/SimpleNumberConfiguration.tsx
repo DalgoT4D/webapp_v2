@@ -44,14 +44,31 @@ export function SimpleNumberConfiguration({
   const getAvailableColumns = () => {
     // Count can work on any column or no column at all
     if (formData.aggregate_function === 'count') {
-      return [...columns, { column_name: '*', data_type: 'any' }];
+      return [...columns, { column_name: '*', data_type: 'any' }].map((col) => ({
+        ...col,
+        disabled: false,
+      }));
     }
     // Count distinct can work on all columns (no numeric filter)
     if (formData.aggregate_function === 'count_distinct') {
-      return columns;
+      return columns.map((col) => ({
+        ...col,
+        disabled: false,
+      }));
     }
-    // Other aggregations need numeric columns
-    return numericColumns;
+    // Other aggregations need numeric columns - show all but disable non-numeric
+    return [...columns].map((col) => ({
+      ...col,
+      disabled: ![
+        'integer',
+        'bigint',
+        'numeric',
+        'double precision',
+        'real',
+        'float',
+        'decimal',
+      ].includes(col.data_type.toLowerCase()),
+    }));
   };
 
   const availableColumns = getAvailableColumns();
@@ -71,18 +88,28 @@ export function SimpleNumberConfiguration({
           </SelectTrigger>
           <SelectContent>
             {availableColumns.map((col) => (
-              <SelectItem key={col.column_name} value={col.column_name}>
+              <SelectItem
+                key={col.column_name}
+                value={col.column_name}
+                disabled={col.disabled}
+                className={col.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+              >
                 <span
-                  className="truncate"
+                  className={`truncate ${col.disabled ? 'text-gray-400' : ''}`}
                   title={
                     col.column_name === '*'
                       ? '* (Count all rows)'
-                      : `${col.column_name} (${col.data_type})`
+                      : col.disabled
+                        ? `${col.column_name} (${col.data_type}) - Not compatible with ${formData.aggregate_function}`
+                        : `${col.column_name} (${col.data_type})`
                   }
                 >
                   {col.column_name === '*'
                     ? '* (Count all rows)'
                     : `${col.column_name} (${col.data_type})`}
+                  {col.disabled && (
+                    <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
+                  )}
                 </span>
               </SelectItem>
             ))}

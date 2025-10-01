@@ -106,14 +106,31 @@ export function MetricsSelector({
   const getAvailableColumns = (aggregation: string) => {
     // Count can work on any column or no column at all
     if (aggregation === 'count') {
-      return [...columns, { column_name: '*', data_type: 'any' }];
+      return [...columns, { column_name: '*', data_type: 'any' }].map((col) => ({
+        ...col,
+        disabled: false,
+      }));
     }
     // Count distinct can work on all columns (no numeric filter)
     if (aggregation === 'count_distinct') {
-      return columns;
+      return columns.map((col) => ({
+        ...col,
+        disabled: false,
+      }));
     }
-    // Other aggregations need numeric columns
-    return numericColumns;
+    // Other aggregations need numeric columns - show all but disable non-numeric
+    return [...columns].map((col) => ({
+      ...col,
+      disabled: ![
+        'integer',
+        'bigint',
+        'numeric',
+        'double precision',
+        'real',
+        'float',
+        'decimal',
+      ].includes(col.data_type.toLowerCase()),
+    }));
   };
 
   if (metrics.length === 0) {
@@ -182,12 +199,26 @@ export function MetricsSelector({
                     </SelectTrigger>
                     <SelectContent>
                       {getAvailableColumns(metric.aggregation).map((col) => (
-                        <SelectItem key={col.column_name} value={col.column_name}>
+                        <SelectItem
+                          key={col.column_name}
+                          value={col.column_name}
+                          disabled={col.disabled}
+                          className={col.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
                           <span
-                            className="truncate"
-                            title={col.column_name === '*' ? '* (Count all rows)' : col.column_name}
+                            className={`truncate ${col.disabled ? 'text-gray-400' : ''}`}
+                            title={
+                              col.column_name === '*'
+                                ? '* (Count all rows)'
+                                : col.disabled
+                                  ? `${col.column_name} (Not compatible with ${metric.aggregation})`
+                                  : col.column_name
+                            }
                           >
                             {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
+                            {col.disabled && (
+                              <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
+                            )}
                           </span>
                         </SelectItem>
                       ))}
