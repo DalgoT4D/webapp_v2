@@ -43,7 +43,7 @@ export function DatasetSelector({
 
   // Filter tables based on search query
   const filteredTables = allTables?.filter((table) => {
-    if (!searchQuery.trim() && !hasSelection) return true;
+    if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
       table.schema_name.toLowerCase().includes(query) ||
@@ -104,6 +104,10 @@ export function DatasetSelector({
               disabled={disabled || isLoading}
               onFocus={() => {
                 setIsDropdownOpen(true);
+                // Clear the search query to show all options when focusing on a selected value
+                if (hasSelection) {
+                  setSearchQuery('');
+                }
               }}
               onBlur={() => {
                 // Delay closing to allow clicking on dropdown items
@@ -114,7 +118,7 @@ export function DatasetSelector({
           </div>
 
           {/* Dropdown Results matching chart creation style */}
-          {isDropdownOpen && (!hasSelection || searchQuery) && (
+          {isDropdownOpen && (
             <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto">
               {isLoading ? (
                 <div className="p-4 text-center text-sm text-gray-500">
@@ -125,23 +129,57 @@ export function DatasetSelector({
                   {searchQuery ? 'No datasets match your search' : 'No datasets available'}
                 </div>
               ) : (
-                filteredTables?.map((table) => (
-                  <div
-                    key={table.full_name}
-                    className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 w-full"
-                    onClick={() => handleTableSelect(table.full_name)}
-                  >
-                    <Database className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span className="font-mono text-sm font-medium text-gray-900 truncate">
-                        {table.full_name}
-                      </span>
-                      <span className="text-xs text-gray-500 truncate">
-                        Schema: {table.schema_name} • Table: {table.table_name}
-                      </span>
+                filteredTables?.map((table) => {
+                  const isSelected = table.full_name === selectedFullName;
+                  return (
+                    <div
+                      key={table.full_name}
+                      className={`flex items-center gap-3 p-3 cursor-pointer border-b border-gray-100 last:border-b-0 w-full ${
+                        isSelected ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => handleTableSelect(table.full_name)}
+                    >
+                      <Database
+                        className={`w-4 h-4 flex-shrink-0 ${
+                          isSelected ? 'text-blue-600' : 'text-gray-500'
+                        }`}
+                      />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span
+                          className={`font-mono text-sm font-medium truncate ${
+                            isSelected ? 'text-blue-900' : 'text-gray-900'
+                          }`}
+                        >
+                          {table.full_name}
+                        </span>
+                        <span
+                          className={`text-xs truncate ${
+                            isSelected ? 'text-blue-600' : 'text-gray-500'
+                          }`}
+                        >
+                          Schema: {table.schema_name} • Table: {table.table_name}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <div className="flex-shrink-0">
+                          <svg
+                            className="w-4 h-4 text-blue-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
