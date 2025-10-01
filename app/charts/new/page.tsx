@@ -1,32 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  ChevronLeft,
-  BarChart2,
-  PieChart,
-  LineChart,
-  Hash,
-  MapPin,
-  Table,
-  Database,
-  Search,
-  ChevronDown,
-} from 'lucide-react';
-import { useAllSchemaTables } from '@/hooks/api/useChart';
+import { ChevronLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table } from 'lucide-react';
+import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -87,25 +68,6 @@ export default function NewChartPage() {
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [selectedSchema, setSelectedSchema] = useState<string>('');
   const [selectedChartType, setSelectedChartType] = useState<string>('');
-  const [searchTable, setSearchTable] = useState<string>('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
-
-  // Use the new hook that properly handles all schemas/tables
-  const { data: allTables, isLoading: isLoadingTables, error } = useAllSchemaTables();
-
-  // Filter tables based on search
-  const filteredTables = useMemo(() => {
-    if (!allTables.length) return [];
-    if (!searchTable.trim()) return allTables;
-
-    const search = searchTable.toLowerCase();
-    return allTables.filter(
-      (table) =>
-        table.full_name.toLowerCase().includes(search) ||
-        table.table_name.toLowerCase().includes(search) ||
-        table.schema_name.toLowerCase().includes(search)
-    );
-  }, [allTables, searchTable]);
 
   const canProceed = selectedSchema && selectedTable && selectedChartType;
 
@@ -122,12 +84,9 @@ export default function NewChartPage() {
     router.push(`/charts/new/configure?${params.toString()}`);
   };
 
-  const handleTableSelect = (fullTableName: string) => {
-    const [schema, table] = fullTableName.split('.');
+  const handleDatasetChange = (schema: string, table: string) => {
     setSelectedSchema(schema);
     setSelectedTable(table);
-    setSearchTable(''); // Clear search after selection
-    setIsDropdownOpen(false); // Close dropdown after selection
   };
 
   const handleCancel = () => {
@@ -159,73 +118,12 @@ export default function NewChartPage() {
             <h2 className="text-xl font-semibold">Choose a dataset</h2>
           </div>
 
-          <div className="space-y-4">
-            {/* Table Selection with Custom Search Dropdown */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Table</label>
-              <div className="relative max-w-lg">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
-                  <Input
-                    placeholder={
-                      isLoadingTables ? 'Loading tables...' : 'Search and select a table...'
-                    }
-                    value={
-                      selectedTable && selectedSchema
-                        ? `${selectedSchema}.${selectedTable}`
-                        : searchTable
-                    }
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSearchTable(value);
-                      setIsDropdownOpen(true);
-                      // Clear selection when user starts typing
-                      if (selectedTable) {
-                        setSelectedTable('');
-                        setSelectedSchema('');
-                      }
-                    }}
-                    className="pl-10 h-10 text-base"
-                    disabled={isLoadingTables}
-                    onFocus={() => {
-                      setIsDropdownOpen(true);
-                    }}
-                    onBlur={() => {
-                      // Delay closing to allow clicking on dropdown items
-                      setTimeout(() => setIsDropdownOpen(false), 150);
-                    }}
-                  />
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                </div>
-
-                {/* Dropdown Results */}
-                {isDropdownOpen && !selectedTable && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto">
-                    {isLoadingTables ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        Loading tables from all schemas...
-                      </div>
-                    ) : filteredTables.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        {searchTable ? 'No tables match your search' : 'No tables found'}
-                      </div>
-                    ) : (
-                      filteredTables.map((table) => (
-                        <div
-                          key={table.full_name}
-                          className="flex items-center gap-2 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          onClick={() => handleTableSelect(table.full_name)}
-                        >
-                          <Database className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="font-mono text-sm">{table.full_name}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <DatasetSelector
+            schema_name={selectedSchema}
+            table_name={selectedTable}
+            onDatasetChange={handleDatasetChange}
+            className="max-w-lg"
+          />
         </div>
 
         {/* Chart Type Selection */}
