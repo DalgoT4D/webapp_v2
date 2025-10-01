@@ -878,14 +878,6 @@ export function ChartElementView({
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
       },
-      legend: {
-        type: 'scroll',
-        bottom: 0,
-        textStyle: {
-          fontSize: 12,
-          color: '#6b7280',
-        },
-      },
     };
 
     // Check DOM element dimensions before setting options
