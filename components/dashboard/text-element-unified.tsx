@@ -1,20 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Card } from '@/components/ui/card';
 import {
-  Settings,
   Type,
   Bold,
   Italic,
@@ -23,10 +12,7 @@ import {
   AlignCenter,
   AlignRight,
   Palette,
-  Heading1,
-  Heading2,
-  Heading3,
-  X,
+  Hash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -50,28 +36,25 @@ interface UnifiedTextElementProps {
   isEditMode?: boolean;
 }
 
-const fontSizePresets = [
-  { label: 'Small', value: 12 },
-  { label: 'Medium', value: 14 },
-  { label: 'Large', value: 16 },
-  { label: 'Extra Large', value: 18 },
-  { label: 'Huge', value: 24 },
-  { label: 'Title', value: 32 },
+// Font size options from 10px to 32px
+const fontSizeOptions = Array.from({ length: 23 }, (_, i) => 10 + i);
+
+const textTypePresets = [
+  { label: 'H1', value: 1, type: 'heading' },
+  { label: 'H2', value: 2, type: 'heading' },
+  { label: 'H3', value: 3, type: 'heading' },
+  { label: 'T', value: 'paragraph', type: 'paragraph' },
 ];
 
 const colorPresets = [
   '#000000',
   '#374151',
   '#6B7280',
-  '#9CA3AF',
   '#EF4444',
   '#F59E0B',
   '#10B981',
   '#3B82F6',
   '#8B5CF6',
-  '#EC4899',
-  '#14B8A6',
-  '#F97316',
 ];
 
 export function UnifiedTextElement({
@@ -81,65 +64,196 @@ export function UnifiedTextElement({
   isEditMode = true,
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [tempContent, setTempContent] = useState(config.content);
-  const textRef = useRef<any>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
-  // Auto-focus when entering inline edit mode
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [toolbarPosition, setToolbarPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  // Sync tempContent when config.content changes from outside (like formatting)
   useEffect(() => {
-    if (isInlineEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (!isEditing) {
+      setTempContent(config.content || '');
     }
-  }, [isInlineEditing]);
+  }, [config.content, isEditing]);
 
-  const handleInlineEdit = () => {
-    setTempContent(config.content);
-    setIsInlineEditing(true);
-  };
+  // Calculate toolbar position when editing starts
+  const calculateToolbarPosition = useCallback(() => {
+    if (!containerRef.current) return;
 
-  const handleInlineEditSave = () => {
-    onUpdate({ ...config, content: tempContent });
-    setIsInlineEditing(false);
-  };
+    const rect = containerRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const toolbarHeight = 50; // Approximate toolbar height
 
-  const handleInlineEditCancel = () => {
-    setTempContent(config.content);
-    setIsInlineEditing(false);
-  };
+    // Check if there's space above the component
+    const spaceAbove = rect.top;
+    const spaceBelow = viewportHeight - rect.bottom;
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleInlineEditSave();
-    } else if (e.key === 'Escape') {
-      handleInlineEditCancel();
-    }
-  };
+    let top: number;
+    let left = rect.left;
+    let width = rect.width;
 
-  const toggleTextType = () => {
-    const newType = config.type === 'paragraph' ? 'heading' : 'paragraph';
-    const updates: Partial<UnifiedTextConfig> = { type: newType };
-
-    if (newType === 'heading' && !config.headingLevel) {
-      updates.headingLevel = 2;
-      updates.fontSize = 24;
-      updates.fontWeight = 'bold';
-    } else if (newType === 'paragraph') {
-      updates.fontSize = 14;
-      updates.fontWeight = 'normal';
+    // Position above if there's enough space, otherwise below
+    if (spaceAbove >= toolbarHeight + 10) {
+      top = rect.top - toolbarHeight - 10;
+    } else if (spaceBelow >= toolbarHeight + 10) {
+      top = rect.bottom + 10;
+    } else {
+      // If no space above or below, position at top of viewport
+      top = 10;
     }
 
-    onUpdate({ ...config, ...updates });
-  };
+    // Ensure toolbar doesn't go off-screen horizontally
+    if (left + width > window.innerWidth) {
+      left = window.innerWidth - width - 10;
+    }
+    if (left < 10) {
+      left = 10;
+      width = Math.min(width, window.innerWidth - 20);
+    }
 
-  const handleQuickFormat = (property: keyof UnifiedTextConfig, value: any) => {
-    onUpdate({ ...config, [property]: value });
-  };
+    setToolbarPosition({ top, left, width });
+  }, []);
 
-  const getDisplayStyle = () => {
-    const baseStyle = {
+  // Auto-hide toolbar when clicking outside
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Don't hide if clicking on the text component or toolbar
+      if (
+        containerRef.current?.contains(target) ||
+        target.closest('[data-toolbar]') ||
+        target.closest('.drag-cancel')
+      ) {
+        return;
+      }
+
+      // Auto-save and hide toolbar
+      onUpdate({ ...config, content: tempContent });
+      setIsEditing(false);
+      setShowColorPicker(false);
+      setToolbarPosition(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isEditing, config, tempContent, onUpdate]);
+
+  // Auto-resize textarea and focus when editing
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.focus();
+      textarea.select();
+
+      // Auto-resize function
+      const autoResize = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px';
+      };
+
+      autoResize();
+      textarea.addEventListener('input', autoResize);
+
+      return () => {
+        textarea.removeEventListener('input', autoResize);
+      };
+    }
+  }, [isEditing]);
+
+  // Start editing mode
+  const startEditing = useCallback(() => {
+    if (!isEditMode) return;
+    setTempContent(config.content || '');
+    setIsEditing(true);
+    // Calculate toolbar position after a brief delay to ensure DOM is updated
+    setTimeout(calculateToolbarPosition, 10);
+  }, [config.content, isEditMode, calculateToolbarPosition]);
+
+  // Quick formatting function - auto-save and continue editing
+  const handleQuickFormat = useCallback(
+    (property: keyof UnifiedTextConfig, value: any) => {
+      // Auto-save content and formatting immediately
+      const updatedConfig = { ...config, content: tempContent, [property]: value };
+      onUpdate(updatedConfig);
+      // Keep editing state active for continued editing
+      setIsEditing(true);
+    },
+    [config, tempContent, onUpdate]
+  );
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        // Auto-save and exit on Ctrl+Enter
+        onUpdate({ ...config, content: tempContent });
+        setIsEditing(false);
+        setShowColorPicker(false);
+        setToolbarPosition(null);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        // Cancel and exit on Escape (revert to original content)
+        setTempContent(config.content);
+        setIsEditing(false);
+        setShowColorPicker(false);
+        setToolbarPosition(null);
+      } else if (e.ctrlKey) {
+        // Format shortcuts with auto-save
+        if (e.key === 'b') {
+          e.preventDefault();
+          handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold');
+        } else if (e.key === 'i') {
+          e.preventDefault();
+          handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic');
+        } else if (e.key === 'u') {
+          e.preventDefault();
+          handleQuickFormat(
+            'textDecoration',
+            config.textDecoration === 'underline' ? 'none' : 'underline'
+          );
+        }
+      }
+    },
+    [config, tempContent, onUpdate, handleQuickFormat]
+  );
+
+  // Handle text type change - auto-save and continue editing
+  const handleTypeChange = useCallback(
+    (newType: string | number) => {
+      if (newType === 'paragraph') {
+        onUpdate({
+          ...config,
+          content: tempContent, // Auto-save current content
+          type: 'paragraph',
+        });
+      } else {
+        const headingLevel = newType as 1 | 2 | 3;
+        onUpdate({
+          ...config,
+          content: tempContent, // Auto-save current content
+          type: 'heading',
+          headingLevel,
+        });
+      }
+      // Keep editing state active for continued editing
+      setIsEditing(true);
+    },
+    [config, tempContent, onUpdate]
+  );
+
+  // Get text styles for rendering
+  const getTextStyles = useCallback(
+    () => ({
       fontSize: `${config.fontSize}px`,
       fontWeight: config.fontWeight,
       fontStyle: config.fontStyle,
@@ -147,302 +261,323 @@ export function UnifiedTextElement({
       textAlign: config.textAlign as any,
       color: config.color,
       backgroundColor: config.backgroundColor || 'transparent',
-      lineHeight: config.type === 'heading' ? '1.2' : '1.6',
+      lineHeight: config.type === 'heading' ? '1.2' : '1.5',
       margin: 0,
-      padding: '8px',
-      minHeight: '40px',
+      outline: 'none',
       width: '100%',
-      border: isInlineEditing ? '2px solid #3B82F6' : '2px solid transparent',
-      borderRadius: '4px',
-      cursor: isInlineEditing ? 'text' : 'pointer',
-      transition: 'all 0.2s ease',
-    };
+      wordBreak: 'break-word' as any,
+    }),
+    [config]
+  );
 
-    return baseStyle;
-  };
+  // Floating toolbar component that renders via portal
+  const FloatingToolbar = () => {
+    if (!toolbarPosition || !isEditing) return null;
 
-  const renderContent = () => {
-    if (isInlineEditing) {
-      return (
-        <Textarea
-          ref={inputRef}
-          value={tempContent}
-          onChange={(e) => setTempContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleInlineEditSave}
-          className="resize-none border-0 p-2 focus:ring-0 focus:border-0 bg-transparent drag-cancel h-full w-full overflow-y-auto"
-          style={{
-            fontSize: `${config.fontSize}px`,
-            fontWeight: config.fontWeight,
-            fontStyle: config.fontStyle,
-            textAlign: config.textAlign as any,
-            color: config.color,
-            lineHeight: config.type === 'heading' ? '1.2' : '1.6',
-          }}
-        />
-      );
-    }
-
-    const content = config.content || (isEditMode ? 'Click to add text...' : '');
-    const className = cn(
-      'whitespace-pre-wrap break-words',
-      !isEditMode && 'outline-none',
-      !config.content && isEditMode && 'text-gray-400 italic'
-    );
-
-    // Create clean display style for view mode
-    const displayStyle = isEditMode
-      ? getDisplayStyle()
-      : {
-          fontSize: `${config.fontSize}px`,
-          fontWeight: config.fontWeight,
-          fontStyle: config.fontStyle,
-          textDecoration: config.textDecoration,
-          textAlign: config.textAlign as any,
-          color: config.color,
-          backgroundColor: config.backgroundColor || 'transparent',
-          lineHeight: config.type === 'heading' ? '1.2' : '1.6',
-          margin: 0,
-          whiteSpace: 'pre-wrap' as any,
-          wordBreak: 'break-word' as any,
-        };
-
-    const handleClick = isEditMode ? handleInlineEdit : undefined;
-
-    if (config.type === 'heading') {
-      if (config.headingLevel === 1) {
-        return (
-          <h1 ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
-            {content}
-          </h1>
-        );
-      } else if (config.headingLevel === 2) {
-        return (
-          <h2 ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
-            {content}
-          </h2>
-        );
-      } else {
-        return (
-          <h3 ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
-            {content}
-          </h3>
-        );
-      }
-    }
-
-    return (
-      <div ref={textRef} className={className} style={displayStyle} onClick={handleClick}>
-        {content}
-      </div>
-    );
-  };
-
-  // If not in edit mode, subtract toolbar height to show only content space
-  if (!isEditMode) {
-    return <div className="w-full h-full">{renderContent()}</div>;
-  }
-
-  return (
-    <div className="h-full w-full relative">
-      {isEditMode && onRemove && (
-        <div className="absolute -top-2 -right-2 z-10 drag-cancel">
-          <button
-            onClick={onRemove}
-            className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all drag-cancel"
-            title="Remove text"
-          >
-            <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
-          </button>
-        </div>
-      )}
-      <Card className="h-full flex flex-col bg-white/50 hover:bg-white/80 transition-colors p-0 gap-0">
-        {/* Quick toolbar */}
-        <div className="flex items-center justify-between p-2 border-b bg-gray-50/50 drag-cancel">
+    return createPortal(
+      <div
+        className="fixed z-[9999] pointer-events-auto drag-cancel"
+        style={{
+          top: toolbarPosition.top,
+          left: toolbarPosition.left,
+          width: Math.min(toolbarPosition.width, 600), // Max width to prevent huge toolbars
+          minWidth: 300,
+        }}
+        data-toolbar="true"
+      >
+        <div
+          className="bg-white shadow-2xl rounded-lg border border-gray-200 p-2 flex items-center justify-between backdrop-blur-sm"
+          data-toolbar="true"
+        >
+          {/* Left: Quick format buttons */}
           <div className="flex items-center gap-1">
-            {/* Text Type Toggle */}
-            <Button
-              size="sm"
-              variant={config.type === 'heading' ? 'default' : 'ghost'}
-              onClick={toggleTextType}
-              className="h-7 px-2"
-              title={config.type === 'heading' ? 'Switch to Paragraph' : 'Switch to Heading'}
-            >
-              {config.type === 'heading' ? (
-                config.headingLevel === 1 ? (
-                  <Heading1 className="w-3 h-3" />
-                ) : config.headingLevel === 3 ? (
-                  <Heading3 className="w-3 h-3" />
-                ) : (
-                  <Heading2 className="w-3 h-3" />
-                )
-              ) : (
-                <Type className="w-3 h-3" />
-              )}
-            </Button>
+            {/* Text Type */}
+            <div className="flex">
+              {textTypePresets.map((preset) => (
+                <Button
+                  key={preset.label}
+                  size="sm"
+                  variant={
+                    (config.type === 'paragraph' && preset.value === 'paragraph') ||
+                    (config.type === 'heading' && config.headingLevel === preset.value)
+                      ? 'default'
+                      : 'ghost'
+                  }
+                  onClick={() => handleTypeChange(preset.value)}
+                  className="h-6 px-1.5 text-xs"
+                  title={preset.label === 'T' ? 'Normal Text' : preset.label}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
 
-            {/* Quick format buttons */}
+            <div className="w-px h-4 bg-gray-300 mx-1" />
+
+            {/* Font Size Dropdown */}
+            <div className="flex items-center">
+              <select
+                value={config.fontSize}
+                onChange={(e) => handleQuickFormat('fontSize', parseInt(e.target.value))}
+                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel"
+                title="Font Size"
+              >
+                {fontSizeOptions.map((size) => (
+                  <option key={size} value={size}>
+                    {size}px
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-px h-4 bg-gray-300 mx-1" />
+
+            {/* Formatting */}
             <Button
               size="sm"
               variant={config.fontWeight === 'bold' ? 'default' : 'ghost'}
               onClick={() =>
                 handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold')
               }
-              className="h-7 px-2"
+              className="h-6 px-1.5"
               title="Bold"
             >
               <Bold className="w-3 h-3" />
             </Button>
-
             <Button
               size="sm"
               variant={config.fontStyle === 'italic' ? 'default' : 'ghost'}
               onClick={() =>
                 handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic')
               }
-              className="h-7 px-2"
+              className="h-6 px-1.5"
               title="Italic"
             >
               <Italic className="w-3 h-3" />
             </Button>
 
-            {/* Text align */}
+            <div className="w-px h-4 bg-gray-300 mx-1" />
+
+            {/* Alignment */}
             <Button
               size="sm"
               variant={config.textAlign === 'left' ? 'default' : 'ghost'}
               onClick={() => handleQuickFormat('textAlign', 'left')}
-              className="h-7 px-2"
+              className="h-6 px-1.5"
               title="Align Left"
             >
               <AlignLeft className="w-3 h-3" />
             </Button>
-
             <Button
               size="sm"
               variant={config.textAlign === 'center' ? 'default' : 'ghost'}
               onClick={() => handleQuickFormat('textAlign', 'center')}
-              className="h-7 px-2"
+              className="h-6 px-1.5"
               title="Align Center"
             >
               <AlignCenter className="w-3 h-3" />
             </Button>
-
             <Button
               size="sm"
               variant={config.textAlign === 'right' ? 'default' : 'ghost'}
               onClick={() => handleQuickFormat('textAlign', 'right')}
-              className="h-7 px-2"
+              className="h-6 px-1.5"
               title="Align Right"
             >
               <AlignRight className="w-3 h-3" />
             </Button>
           </div>
 
-          {/* Advanced settings */}
-          <Popover open={isEditing} onOpenChange={setIsEditing}>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-7 px-2" title="More Settings">
-                <Settings className="w-3 h-3" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" side="right">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Text Settings</h4>
+          {/* Right: Color picker */}
+          <div className="flex items-center gap-1">
+            <div className="w-px h-4 bg-gray-300 mx-1" />
+            <Button
+              size="sm"
+              variant={showColorPicker ? 'default' : 'ghost'}
+              onClick={() => setShowColorPicker(!showColorPicker)}
+              className="h-6 px-1.5 relative"
+              title="Text Color"
+            >
+              <Palette className="w-3 h-3" />
+              <div
+                className="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white"
+                style={{ backgroundColor: config.color }}
+              />
+            </Button>
 
-                  {config.type === 'heading' && (
-                    <div>
-                      <label className="text-xs font-medium">Heading Level</label>
-                      <Select
-                        value={config.headingLevel?.toString() || '2'}
-                        onValueChange={(value) => {
-                          const headingLevel = parseInt(value);
-                          const fontSize = headingLevel === 1 ? 32 : headingLevel === 2 ? 24 : 18;
-                          onUpdate({ ...config, headingLevel, fontSize });
-                        }}
-                      >
-                        <SelectTrigger className="mt-1 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">H1 - Main Title</SelectItem>
-                          <SelectItem value="2">H2 - Section</SelectItem>
-                          <SelectItem value="3">H3 - Subsection</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-xs font-medium">Font Size</label>
-                    <Select
-                      value={config.fontSize.toString()}
-                      onValueChange={(value) => handleQuickFormat('fontSize', parseInt(value))}
-                    >
-                      <SelectTrigger className="mt-1 h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fontSizePresets.map((preset) => (
-                          <SelectItem key={preset.value} value={preset.value.toString()}>
-                            {preset.label} ({preset.value}px)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium">Text Color</label>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {colorPresets.map((color) => (
-                        <button
-                          key={color}
-                          className={cn(
-                            'w-6 h-6 rounded border-2 transition-all',
-                            config.color === color ? 'border-blue-500 scale-110' : 'border-gray-200'
-                          )}
-                          style={{ backgroundColor: color }}
-                          onClick={() => handleQuickFormat('color', color)}
-                          title={color}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Input
-                        type="color"
-                        value={config.color}
-                        onChange={(e) => handleQuickFormat('color', e.target.value)}
-                        className="w-12 h-8 p-1"
-                      />
-                      <Input
-                        type="text"
-                        value={config.color}
-                        onChange={(e) => handleQuickFormat('color', e.target.value)}
-                        placeholder="#000000"
-                        className="flex-1 h-8 text-sm font-mono"
-                      />
-                    </div>
-                  </div>
+            {/* Color picker dropdown */}
+            {showColorPicker && (
+              <div className="absolute top-8 right-0 bg-white shadow-lg border rounded p-2 z-10">
+                <div className="grid grid-cols-4 gap-1">
+                  {colorPresets.map((color) => (
+                    <button
+                      key={color}
+                      className={cn(
+                        'w-5 h-5 rounded border transition-all',
+                        config.color === color ? 'border-blue-500 scale-110' : 'border-gray-200'
+                      )}
+                      style={{ backgroundColor: color }}
+                      onClick={() => {
+                        handleQuickFormat('color', color);
+                        setShowColorPicker(false);
+                      }}
+                      title={color}
+                    />
+                  ))}
                 </div>
               </div>
-            </PopoverContent>
-          </Popover>
+            )}
+          </div>
         </div>
+      </div>,
+      document.body
+    );
+  };
 
-        {/* Text content */}
-        <div className="flex-1 relative min-h-0">
-          {/* Invisible drag zones at edges for easier dragging */}
-          {isEditMode && (
-            <>
-              <div className="absolute top-0 left-0 w-4 h-full cursor-move opacity-0" />
-              <div className="absolute top-0 right-0 w-4 h-full cursor-move opacity-0" />
-              <div className="absolute bottom-0 left-4 right-4 h-2 cursor-move opacity-0" />
-            </>
-          )}
-          <div className="h-full w-full">{renderContent()}</div>
+  // Preview mode - ultra-compact rendering to eliminate gaps
+  if (!isEditMode) {
+    const textStyles = getTextStyles();
+    const content = config.content || '';
+
+    if (!content) return null; // Don't render empty text in preview
+
+    // Add effect to make parent grid item compact
+    useEffect(() => {
+      const parentGridItem = containerRef.current?.closest('.react-grid-item');
+      if (parentGridItem) {
+        parentGridItem.classList.add('text-component-preview');
+        return () => {
+          parentGridItem.classList.remove('text-component-preview');
+        };
+      }
+    }, []);
+
+    // Ultra-minimal styling - no extra padding or margins
+    if (config.type === 'heading') {
+      const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+      return (
+        <div ref={containerRef}>
+          <Tag
+            className="whitespace-pre-wrap break-words"
+            style={{
+              ...textStyles,
+              margin: 0,
+              padding: '6px 8px',
+              display: 'block',
+              lineHeight: 1.2,
+              height: 'auto',
+              minHeight: 'auto',
+            }}
+          >
+            {content}
+          </Tag>
         </div>
-      </Card>
-    </div>
+      );
+    }
+
+    return (
+      <div ref={containerRef}>
+        <div
+          className="whitespace-pre-wrap break-words"
+          style={{
+            ...textStyles,
+            margin: 0,
+            padding: '6px 8px',
+            display: 'block',
+            lineHeight: 1.4,
+            height: 'auto',
+            minHeight: 'auto',
+          }}
+        >
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  // Edit mode - enhanced editing experience
+  return (
+    <>
+      {/* Floating toolbar rendered via portal */}
+      <FloatingToolbar />
+
+      <div ref={containerRef} className="relative w-full h-full group">
+        {/* Main content area - clean without toolbar padding */}
+        <div
+          className={cn(
+            'w-full h-full p-3 cursor-text transition-all duration-200 rounded drag-cancel',
+            isEditing
+              ? 'bg-white border-2 border-blue-200 shadow-sm'
+              : 'bg-gray-50/40 hover:bg-white/80 border border-gray-200/60 hover:border-gray-300/80',
+            !config.content && 'flex items-center justify-center'
+          )}
+          onClick={startEditing}
+        >
+          {isEditing ? (
+            <textarea
+              ref={textareaRef}
+              value={tempContent}
+              onChange={(e) => setTempContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={(e) => {
+                // Don't exit if clicking on toolbar elements
+                const relatedTarget = e.relatedTarget as HTMLElement;
+                if (
+                  relatedTarget &&
+                  (relatedTarget.closest('.drag-cancel') || relatedTarget.closest('[data-toolbar]'))
+                ) {
+                  return;
+                }
+
+                // Auto-save content and exit editing after a delay
+                setTimeout(() => {
+                  // Only exit if focus has truly moved away from the component
+                  if (!containerRef.current?.contains(document.activeElement)) {
+                    // Auto-save current content before exiting
+                    onUpdate({ ...config, content: tempContent });
+                    setIsEditing(false);
+                    setShowColorPicker(false);
+                    setToolbarPosition(null);
+                  }
+                }, 150);
+              }}
+              className="w-full h-full resize-none border-none outline-none bg-transparent drag-cancel"
+              style={getTextStyles()}
+              placeholder="Start typing..."
+            />
+          ) : (
+            <div
+              className={cn(
+                'w-full h-full flex items-start',
+                !config.content && 'items-center justify-center'
+              )}
+              style={config.content ? getTextStyles() : {}}
+            >
+              {config.content ? (
+                config.type === 'heading' ? (
+                  (() => {
+                    const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+                    return (
+                      <Tag
+                        className="whitespace-pre-wrap break-words w-full"
+                        style={getTextStyles()}
+                      >
+                        {config.content}
+                      </Tag>
+                    );
+                  })()
+                ) : (
+                  <div className="whitespace-pre-wrap break-words w-full" style={getTextStyles()}>
+                    {config.content}
+                  </div>
+                )
+              ) : (
+                <div className="text-gray-400 italic text-sm">Click to add text...</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

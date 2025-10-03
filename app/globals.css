@@ -6,18 +6,47 @@
 /* Dashboard Responsive Styles */
 .react-grid-layout {
   position: relative;
-  transition: height 200ms ease;
+  transition: height 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
   min-height: min-content;
   width: 100% !important;
 }
 
 .react-grid-item {
-  transition: all 200ms ease;
-  transition-property: left, top, width, height;
+  transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-property: left, top, width, height, transform;
 }
 
 .react-grid-item.cssTransforms {
   transition-property: transform, width, height;
+  transition-duration: 400ms;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Enhanced animations for auto-arrangement */
+.react-grid-item.auto-arranging {
+  transition: all 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 2;
+}
+
+/* Magnetic snapping animation */
+.react-grid-item.magnetic-snap {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth spring animation for new components */
+.react-grid-item.component-entrance {
+  animation: componentEntrance 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes componentEntrance {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .react-grid-item.resizing {
@@ -30,19 +59,107 @@
   transition: none;
   z-index: 3;
   will-change: transform;
+  box-shadow: 0 8px 32px rgba(15, 148, 124, 0.15);
 }
 
 .react-grid-item.dropping {
   visibility: hidden;
 }
 
-.react-grid-item.react-grid-placeholder {
-  background: rgb(59, 130, 246, 0.15);
-  opacity: 0.5;
-  transition-duration: 100ms;
+.react-grid-layout .react-grid-item.react-grid-placeholder {
+  background: rgb(59, 130, 246, 0.15) !important;
+  opacity: 0.5 !important;
+  transition-duration: 200ms;
   z-index: 2;
   border-radius: 8px;
   border: 2px dashed rgb(59, 130, 246);
+  animation: placeholderPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes placeholderPulse {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+
+/* Snap indicators */
+.snap-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+  animation: snapIndicatorFade 300ms ease-out;
+}
+
+.snap-indicator.vertical {
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, rgb(83, 76, 217), transparent);
+  box-shadow: 0 0 4px rgba(83, 76, 217, 0.5);
+}
+
+.snap-indicator.horizontal {
+  height: 2px;
+  background: linear-gradient(to right, transparent, rgb(83, 76, 217), transparent);
+  box-shadow: 0 0 4px rgba(83, 76, 217, 0.5);
+}
+
+@keyframes snapIndicatorFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Space-making visual feedback */
+@keyframes spaceMakingPulse {
+  0% { 
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% { 
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.space-making-indicator {
+  animation: spaceMakingPulse 800ms ease-in-out infinite;
+}
+
+/* Enhanced component states during space-making - Lighter design */
+.react-grid-item.being-pushed {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(0.99);
+  opacity: 0.95;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
+}
+
+/* Text component preview mode - compact rendering */
+.text-component-preview {
+  height: auto !important;
+  min-height: auto !important;
+  overflow: visible !important;
+}
+
+.text-component-preview .dashboard-item {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* Dragged component highlighting - Subtle */
+.react-grid-item.space-making-active {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+  z-index: 10;
 }
 
 /* Dashboard Item Responsive Styles */
@@ -52,6 +169,8 @@
   height: 100%;
   width: 100%;
 }
+
+
 
 .dashboard-item > * {
   flex: 1;
@@ -108,9 +227,9 @@
     box-sizing: border-box !important;
   }
   
-  /* Adjust padding for mobile */
-  .dashboard-item .p-4 {
-    padding: 8px !important;
+  /* Adjust padding for mobile - Compact design */
+  .dashboard-item .p-2 {
+    padding: 6px !important;
   }
   
   /* Mobile specific grid fixes */
@@ -438,9 +557,9 @@
   height: 20px;
 }
 
-/* Dashboard item styling */
+/* Dashboard item styling - Ultra-minimal */
 .dashboard-item {
-  transition: box-shadow 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -449,13 +568,25 @@
 }
 
 .dashboard-item:hover {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transform: translateY(-1px);
+}
+
+/* Enhanced animation states for dashboard items */
+.dashboard-item.animating {
+  will-change: transform;
+}
+
+.dashboard-item.magnetic-hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.1), 0 4px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 .dashboard-item > div {
   flex: 1;
   min-height: 0;
 }
+
+
 
 /* Ensure charts resize smoothly */
 .dashboard-item canvas,

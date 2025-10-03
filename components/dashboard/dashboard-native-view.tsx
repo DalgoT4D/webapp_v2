@@ -272,6 +272,8 @@ export function DashboardNativeView({
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
+  // Filters panel collapse state
+  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -553,7 +555,7 @@ export function DashboardNativeView({
       case 'text':
         // Use the same UnifiedTextElement component as edit mode for perfect consistency
         return (
-          <div key={componentId} className="h-full">
+          <div key={componentId} className="w-full">
             <UnifiedTextElement
               config={component.config}
               onUpdate={() => {}} // No-op in view mode
@@ -1074,6 +1076,7 @@ export function DashboardNativeView({
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
+            onCollapseChange={setIsFiltersCollapsed}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
           />
@@ -1117,20 +1120,10 @@ export function DashboardNativeView({
               </div>
             ) : null}
 
-            {/* Create modified layout for view mode - reduce height for text components */}
+            {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
             {(() => {
-              const TOOLBAR_HEIGHT = 2; // Approximately 2 grid units for toolbar
-              const modifiedLayout = (dashboard.layout_config || []).map((item: any) => {
-                const component = dashboard.components?.[item.i];
-                if (component?.type === 'text') {
-                  // Reduce height by toolbar space for text components in view mode
-                  return {
-                    ...item,
-                    h: Math.max(1, item.h - TOOLBAR_HEIGHT), // Ensure minimum height of 1
-                  };
-                }
-                return item;
-              });
+              // Use original layout without any modifications since toolbar is now external
+              const modifiedLayout = dashboard.layout_config || [];
 
               return effectiveScreenSize !== targetScreenSize ? (
                 // Preview mode with different screen size - use responsive layout
