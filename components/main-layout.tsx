@@ -121,6 +121,12 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       isActive: false, // Never highlight the parent Data menu
       children: [
         {
+          title: 'Overview',
+          href: '/pipeline',
+          icon: IngestIcon,
+          isActive: currentPath.startsWith('/pipeline'),
+        },
+        {
           title: 'Ingest',
           href: '/ingest',
           icon: IngestIcon,
@@ -137,6 +143,18 @@ const getNavItems = (currentPath: string): NavItemType[] => {
           href: '/orchestrate',
           icon: OrchestrateIcon,
           isActive: currentPath.startsWith('/orchestrate'),
+        },
+        {
+          title: 'Explore',
+          href: '/explore',
+          icon: IngestIcon,
+          isActive: currentPath.startsWith('/explore'),
+        },
+        {
+          title: 'Quality',
+          href: '/data-quality',
+          icon: IngestIcon,
+          isActive: currentPath.startsWith('/data-quality'),
         },
       ],
     },
