@@ -159,10 +159,27 @@ export function UnifiedTextElement({
         textarea.setSelectionRange(0, textarea.value.length);
       }, 50);
 
-      // Simple resize function - just ensure it fits the container
+      // Stable resize function - prevent jumping by maintaining scroll position
       const autoResize = () => {
+        const scrollTop = textarea.scrollTop;
+        const selectionStart = textarea.selectionStart;
+        const selectionEnd = textarea.selectionEnd;
+
+        // Store the current scroll position of the parent container
+        const parentScroll = containerRef.current?.scrollTop || 0;
+
         textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
+        const newHeight = Math.max(32, textarea.scrollHeight);
+        textarea.style.height = newHeight + 'px';
+
+        // Restore all positions to prevent jumping
+        textarea.scrollTop = scrollTop;
+        textarea.setSelectionRange(selectionStart, selectionEnd);
+
+        // Restore parent scroll if it exists
+        if (containerRef.current) {
+          containerRef.current.scrollTop = parentScroll;
+        }
       };
 
       autoResize();
@@ -188,9 +205,31 @@ export function UnifiedTextElement({
   // Quick formatting function - auto-save and continue editing
   const handleQuickFormat = useCallback(
     (property: keyof UnifiedTextConfig, value: any) => {
+      // Store current state to prevent jumping
+      const textarea = textareaRef.current;
+      const selectionStart = textarea?.selectionStart || 0;
+      const selectionEnd = textarea?.selectionEnd || 0;
+      const scrollTop = textarea?.scrollTop || 0;
+      const parentScroll = containerRef.current?.scrollTop || 0;
+
       // Auto-save content and formatting immediately
       const updatedConfig = { ...config, content: tempContent, [property]: value };
       onUpdate(updatedConfig);
+
+      // Use requestAnimationFrame for smoother restoration
+      requestAnimationFrame(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(selectionStart, selectionEnd);
+          textarea.scrollTop = scrollTop;
+
+          // Restore parent container scroll
+          if (containerRef.current) {
+            containerRef.current.scrollTop = parentScroll;
+          }
+        }
+      });
+
       // Keep editing state active for continued editing
       setIsEditing(true);
     },
@@ -237,6 +276,13 @@ export function UnifiedTextElement({
   // Handle text type change - auto-save and continue editing
   const handleTypeChange = useCallback(
     (newType: string | number) => {
+      // Store current state to prevent jumping
+      const textarea = textareaRef.current;
+      const selectionStart = textarea?.selectionStart || 0;
+      const selectionEnd = textarea?.selectionEnd || 0;
+      const scrollTop = textarea?.scrollTop || 0;
+      const parentScroll = containerRef.current?.scrollTop || 0;
+
       if (newType === 'paragraph') {
         onUpdate({
           ...config,
@@ -252,6 +298,21 @@ export function UnifiedTextElement({
           headingLevel,
         });
       }
+
+      // Use requestAnimationFrame for smoother restoration
+      requestAnimationFrame(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(selectionStart, selectionEnd);
+          textarea.scrollTop = scrollTop;
+
+          // Restore parent container scroll
+          if (containerRef.current) {
+            containerRef.current.scrollTop = parentScroll;
+          }
+        }
+      });
+
       // Keep editing state active for continued editing
       setIsEditing(true);
     },
@@ -566,14 +627,17 @@ export function UnifiedTextElement({
       {/* Floating toolbar rendered via portal */}
       <FloatingToolbar />
 
-      <div ref={containerRef} className="relative w-full h-full group">
+      <div
+        ref={containerRef}
+        className={cn('relative w-full h-full group', isEditing && 'text-component-stable')}
+      >
         {/* Main content area - clean without toolbar padding */}
         <div
           className={cn(
-            'w-full h-full p-1 cursor-text transition-all duration-200 rounded drag-cancel',
+            'w-full h-full p-1 cursor-text transition-all duration-200 rounded drag-cancel relative',
             isEditing
-              ? 'bg-white border-2 border-blue-200 shadow-sm'
-              : 'bg-gray-50/40 hover:bg-white/80 border border-gray-200/60 hover:border-gray-300/80',
+              ? 'bg-white border-2 border-blue-200 shadow-sm text-component-editing'
+              : 'bg-transparent text-component-hover text-component-outline',
             !config.content && 'flex items-center justify-center'
           )}
           onClick={startEditing}

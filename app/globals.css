@@ -190,15 +190,24 @@
   z-index: 10;
 }
 
-/* Dashboard Item Responsive Styles */
+/* Dashboard Item Responsive Styles - Apache Superset Style */
 .dashboard-item {
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
-/* Hover overlay for dashboard items in edit mode */
+/* Subtle hover feedback - barely visible */
+.dashboard-builder .dashboard-item:hover {
+  background: rgba(0,0,0,0.01) !important;
+}
+
+/* Subtle hover outline - Apache Superset style */
 .dashboard-builder .dashboard-item:hover::before {
   content: '';
   position: absolute;
@@ -206,10 +215,47 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border: 1px solid rgba(96, 165, 250, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.3);
   border-radius: 8px;
   pointer-events: none;
   z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dashboard-builder .dashboard-item:hover::before {
+  opacity: 1;
+}
+
+/* Text component border - always visible in edit mode */
+.text-component-outline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 1;
+}
+
+/* Text component hover outline - stronger on hover */
+.text-component-hover:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
 
@@ -347,6 +393,24 @@
 .filter-element input {
   width: 100%;
   min-width: 0;
+}
+
+/* Text component stability fixes */
+.text-component-editing {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.text-component-editing textarea {
+  scroll-behavior: auto !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+/* Prevent layout shifts during text formatting */
+.text-component-stable {
+  contain: layout style !important;
+  will-change: auto !important;
 }
 
 /* Header Responsive Styles */
@@ -753,23 +817,23 @@
 }
 
 
-/* Enhanced resize handles for better visibility and interaction */
+/* Invisible resize handles - Apache Superset style */
 .dashboard-builder .react-grid-item > .react-resizable-handle {
-  opacity: 0;
+  opacity: 0 !important;
   transition: all 0.2s ease;
-  background-color: rgba(59, 130, 246, 0.1) !important;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background-color: transparent !important;
+  border: none !important;
 }
 
+/* Very subtle resize handle visibility on hover */
 .dashboard-builder .react-grid-item:hover > .react-resizable-handle {
-  opacity: 0.6;
+  opacity: 0.1 !important;
+  background-color: rgba(96, 165, 250, 0.1) !important;
 }
 
 .dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover {
-  opacity: 1;
-  background-color: rgba(59, 130, 246, 0.2) !important;
-  border-color: rgba(59, 130, 246, 0.6);
-  transform: scale(1.1);
+  opacity: 0.3 !important;
+  background-color: rgba(96, 165, 250, 0.2) !important;
 }
 
 /* Add subtle border highlight on resize hover */

@@ -2043,7 +2043,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     <div
                       key={item.i}
                       data-component-id={item.i}
-                      className={`dashboard-item bg-white rounded relative group transition-all duration-200 ${
+                      className={`dashboard-item bg-transparent relative group transition-all duration-200 ${
                         isAnimating ? 'animating' : ''
                       } ${isBeingPushed ? 'being-pushed' : ''} ${
                         isDraggedComponent && dashboardAnimation.spaceMakingActive
