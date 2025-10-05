@@ -2124,7 +2124,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 containerWidth={actualContainerWidth}
                 containerHeight={Math.max(currentScreenConfig.height, 400)}
                 rowHeight={24}
-                visible={isDragging}
+                visible={isDragging || isResizing}
               />
 
               {/* Space Making Indicators */}

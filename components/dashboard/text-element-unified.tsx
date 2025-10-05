@@ -635,9 +635,7 @@ export function UnifiedTextElement({
         <div
           className={cn(
             'w-full h-full p-1 cursor-text transition-all duration-200 rounded drag-cancel relative',
-            isEditing
-              ? 'bg-white border-2 border-blue-200 shadow-sm text-component-editing'
-              : 'bg-transparent text-component-hover text-component-outline',
+            isEditing ? 'bg-white text-component-editing' : 'bg-transparent text-component-hover',
             !config.content && 'flex items-center justify-center'
           )}
           onClick={startEditing}

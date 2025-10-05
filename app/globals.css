@@ -202,60 +202,146 @@
   border-radius: 0 !important;
 }
 
-/* Subtle hover feedback - barely visible */
-.dashboard-builder .dashboard-item:hover {
-  background: rgba(0,0,0,0.01) !important;
-}
-
-/* Subtle hover outline - Apache Superset style */
-.dashboard-builder .dashboard-item:hover::before {
+/* Apache Superset style thin dashed border always visible in edit mode */
+.dashboard-builder .dashboard-item::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  border: 1px solid rgba(96, 165, 250, 0.3);
-  border-radius: 8px;
+  border: 1px dashed rgba(52, 152, 219, 0.4);
   pointer-events: none;
   z-index: 10;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.dashboard-builder .dashboard-item:hover::before {
   opacity: 1;
 }
 
-/* Text component border - always visible in edit mode */
-.text-component-outline::before {
+/* Stronger border on hover */
+.dashboard-builder .dashboard-item:hover::before {
+  border-color: rgba(52, 152, 219, 0.8);
+  transition: border-color 0.1s ease;
+}
+
+
+/* Invisible resize zones - Apache Superset style */
+.dashboard-builder .react-grid-item > .react-resizable-handle {
+  opacity: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  z-index: 20 !important;
+}
+
+/* Show resize cursor in invisible zones */
+.dashboard-builder .react-grid-item > .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+}
+
+/* Southeast resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-se {
+  bottom: 0 !important;
+  right: 0 !important;
+  cursor: se-resize !important;
+}
+
+/* Southwest resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-sw {
+  bottom: 0 !important;
+  left: 0 !important;
+  cursor: sw-resize !important;
+}
+
+/* Northeast resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-ne {
+  top: 0 !important;
+  right: 0 !important;
+  cursor: ne-resize !important;
+}
+
+/* Northwest resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-nw {
+  top: 0 !important;
+  left: 0 !important;
+  cursor: nw-resize !important;
+}
+
+/* East resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-e {
+  right: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  cursor: e-resize !important;
+  height: 100% !important;
+  width: 10px !important;
+}
+
+/* West resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-w {
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  cursor: w-resize !important;
+  height: 100% !important;
+  width: 10px !important;
+}
+
+/* North resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-n {
+  top: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  cursor: n-resize !important;
+  width: 100% !important;
+  height: 10px !important;
+}
+
+/* South resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-s {
+  bottom: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  cursor: s-resize !important;
+  width: 100% !important;
+  height: 10px !important;
+}
+
+/* Text component always visible border in edit mode - match dashboard items */
+.text-component-hover::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  border: 1px solid rgba(96, 165, 250, 0.2);
-  border-radius: 8px;
+  border: 1px dashed rgba(52, 152, 219, 0.4);
   pointer-events: none;
   z-index: 10;
   opacity: 1;
 }
 
-/* Text component hover outline - stronger on hover */
+/* Text component stronger border on hover */
 .text-component-hover:hover::before {
+  border-color: rgba(52, 152, 219, 0.8);
+  transition: border-color 0.1s ease;
+}
+
+/* Text component editing state - same style as dashboard items */
+.text-component-editing::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  border: 1px solid rgba(96, 165, 250, 0.4);
-  border-radius: 8px;
+  border: 1px dashed rgba(52, 152, 219, 0.6);
   pointer-events: none;
   z-index: 10;
   opacity: 1;
-  transition: opacity 0.2s ease;
 }
 
 
