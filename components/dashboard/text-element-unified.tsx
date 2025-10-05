@@ -151,13 +151,18 @@ export function UnifiedTextElement({
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       const textarea = textareaRef.current;
-      textarea.focus();
-      textarea.select();
 
-      // Auto-resize function
+      // Focus and select text consistently
+      setTimeout(() => {
+        textarea.focus();
+        // Always select all text when entering edit mode
+        textarea.setSelectionRange(0, textarea.value.length);
+      }, 50);
+
+      // Simple resize function - just ensure it fits the container
       const autoResize = () => {
         textarea.style.height = 'auto';
-        textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px';
+        textarea.style.height = textarea.scrollHeight + 'px';
       };
 
       autoResize();
@@ -167,12 +172,14 @@ export function UnifiedTextElement({
         textarea.removeEventListener('input', autoResize);
       };
     }
-  }, [isEditing]);
+  }, [isEditing, config.fontSize]);
 
   // Start editing mode
   const startEditing = useCallback(() => {
     if (!isEditMode) return;
-    setTempContent(config.content || '');
+    // Preserve current content to prevent disappearing
+    const currentContent = config.content || '';
+    setTempContent(currentContent);
     setIsEditing(true);
     // Calculate toolbar position after a brief delay to ensure DOM is updated
     setTimeout(calculateToolbarPosition, 10);
@@ -266,6 +273,15 @@ export function UnifiedTextElement({
       outline: 'none',
       width: '100%',
       wordBreak: 'break-word' as any,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent:
+        config.textAlign === 'center'
+          ? 'center'
+          : config.textAlign === 'right'
+            ? 'flex-end'
+            : 'flex-start',
+      minHeight: '100%',
     }),
     [config]
   );
@@ -434,15 +450,9 @@ export function UnifiedTextElement({
     );
   };
 
-  // Preview mode - ultra-compact rendering to eliminate gaps
-  if (!isEditMode) {
-    const textStyles = getTextStyles();
-    const content = config.content || '';
-
-    if (!content) return null; // Don't render empty text in preview
-
-    // Add effect to make parent grid item compact
-    useEffect(() => {
+  // Add effect to make parent grid item compact (only in preview mode)
+  useEffect(() => {
+    if (!isEditMode) {
       const parentGridItem = containerRef.current?.closest('.react-grid-item');
       if (parentGridItem) {
         parentGridItem.classList.add('text-component-preview');
@@ -450,23 +460,54 @@ export function UnifiedTextElement({
           parentGridItem.classList.remove('text-component-preview');
         };
       }
-    }, []);
+    }
+  }, [isEditMode]);
 
-    // Ultra-minimal styling - no extra padding or margins
+  // Preview mode - ultra-compact rendering to eliminate gaps
+  if (!isEditMode) {
+    const textStyles = getTextStyles();
+    const content = config.content || '';
+
+    if (!content) return null; // Don't render empty text in preview
+
+    // Compact styling to match edit mode
     if (config.type === 'heading') {
       const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
       return (
-        <div ref={containerRef}>
+        <div
+          ref={containerRef}
+          className="text-preview-container"
+          style={{
+            height: '100%',
+            minHeight: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent:
+              config.textAlign === 'center'
+                ? 'center'
+                : config.textAlign === 'right'
+                  ? 'flex-end'
+                  : 'flex-start',
+            padding: '4px 8px',
+            flex: 'none',
+            overflow: 'hidden',
+          }}
+        >
           <Tag
             className="whitespace-pre-wrap break-words"
             style={{
-              ...textStyles,
-              margin: 0,
-              padding: '6px 8px',
-              display: 'block',
+              fontSize: `${config.fontSize}px`,
+              fontWeight: config.fontWeight,
+              fontStyle: config.fontStyle,
+              textDecoration: config.textDecoration,
+              textAlign: config.textAlign as any,
+              color: config.color,
+              backgroundColor: config.backgroundColor || 'transparent',
               lineHeight: 1.2,
-              height: 'auto',
-              minHeight: 'auto',
+              margin: 0,
+              padding: 0,
+              wordBreak: 'break-word' as any,
+              display: 'block',
             }}
           >
             {content}
@@ -476,21 +517,45 @@ export function UnifiedTextElement({
     }
 
     return (
-      <div ref={containerRef}>
-        <div
+      <div
+        ref={containerRef}
+        className="text-preview-container"
+        style={{
+          height: '100%',
+          minHeight: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent:
+            config.textAlign === 'center'
+              ? 'center'
+              : config.textAlign === 'right'
+                ? 'flex-end'
+                : 'flex-start',
+          padding: '4px 8px',
+          flex: 'none',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+        }}
+      >
+        <span
           className="whitespace-pre-wrap break-words"
           style={{
-            ...textStyles,
+            fontSize: `${config.fontSize}px`,
+            fontWeight: config.fontWeight,
+            fontStyle: config.fontStyle,
+            textDecoration: config.textDecoration,
+            textAlign: config.textAlign as any,
+            color: config.color,
+            backgroundColor: config.backgroundColor || 'transparent',
+            lineHeight: 1.2,
             margin: 0,
-            padding: '6px 8px',
+            padding: 0,
+            wordBreak: 'break-word' as any,
             display: 'block',
-            lineHeight: 1.4,
-            height: 'auto',
-            minHeight: 'auto',
           }}
         >
           {content}
-        </div>
+        </span>
       </div>
     );
   }
@@ -505,7 +570,7 @@ export function UnifiedTextElement({
         {/* Main content area - clean without toolbar padding */}
         <div
           className={cn(
-            'w-full h-full p-3 cursor-text transition-all duration-200 rounded drag-cancel',
+            'w-full h-full p-1 cursor-text transition-all duration-200 rounded drag-cancel',
             isEditing
               ? 'bg-white border-2 border-blue-200 shadow-sm'
               : 'bg-gray-50/40 hover:bg-white/80 border border-gray-200/60 hover:border-gray-300/80',
@@ -533,16 +598,40 @@ export function UnifiedTextElement({
                 setTimeout(() => {
                   // Only exit if focus has truly moved away from the component
                   if (!containerRef.current?.contains(document.activeElement)) {
-                    // Auto-save current content before exiting
-                    onUpdate({ ...config, content: tempContent });
+                    // Only save if we have content or if content was modified
+                    const hasContent = tempContent && tempContent.trim().length > 0;
+                    const contentChanged = tempContent !== config.content;
+
+                    if (hasContent || contentChanged) {
+                      onUpdate({ ...config, content: tempContent });
+                    }
                     setIsEditing(false);
                     setShowColorPicker(false);
                     setToolbarPosition(null);
                   }
                 }, 150);
               }}
-              className="w-full h-full resize-none border-none outline-none bg-transparent drag-cancel"
-              style={getTextStyles()}
+              className="resize-none border-none outline-none bg-transparent drag-cancel"
+              style={{
+                fontSize: `${config.fontSize}px`,
+                fontWeight: config.fontWeight,
+                fontStyle: config.fontStyle,
+                textDecoration: config.textDecoration,
+                textAlign: config.textAlign as any,
+                color: config.color,
+                backgroundColor: config.backgroundColor || 'transparent',
+                lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                margin: 0,
+                outline: 'none',
+                width: '100%',
+                wordBreak: 'break-word' as any,
+                resize: 'none',
+                border: 'none',
+                padding: 0,
+                height: 'auto',
+                minHeight: 'auto',
+                overflow: 'visible',
+              }}
               placeholder="Start typing..."
             />
           ) : (
@@ -551,7 +640,7 @@ export function UnifiedTextElement({
                 'w-full h-full flex items-start',
                 !config.content && 'items-center justify-center'
               )}
-              style={config.content ? getTextStyles() : {}}
+              style={config.content ? { alignItems: 'center' } : {}}
             >
               {config.content ? (
                 config.type === 'heading' ? (
@@ -560,14 +649,41 @@ export function UnifiedTextElement({
                     return (
                       <Tag
                         className="whitespace-pre-wrap break-words w-full"
-                        style={getTextStyles()}
+                        style={{
+                          fontSize: `${config.fontSize}px`,
+                          fontWeight: config.fontWeight,
+                          fontStyle: config.fontStyle,
+                          textDecoration: config.textDecoration,
+                          textAlign: config.textAlign as any,
+                          color: config.color,
+                          backgroundColor: config.backgroundColor || 'transparent',
+                          lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                          margin: 0,
+                          padding: 0,
+                          wordBreak: 'break-word' as any,
+                        }}
                       >
                         {config.content}
                       </Tag>
                     );
                   })()
                 ) : (
-                  <div className="whitespace-pre-wrap break-words w-full" style={getTextStyles()}>
+                  <div
+                    className="whitespace-pre-wrap break-words w-full"
+                    style={{
+                      fontSize: `${config.fontSize}px`,
+                      fontWeight: config.fontWeight,
+                      fontStyle: config.fontStyle,
+                      textDecoration: config.textDecoration,
+                      textAlign: config.textAlign as any,
+                      color: config.color,
+                      backgroundColor: config.backgroundColor || 'transparent',
+                      lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                      margin: 0,
+                      padding: 0,
+                      wordBreak: 'break-word' as any,
+                    }}
+                  >
                     {config.content}
                   </div>
                 )

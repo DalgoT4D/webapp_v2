@@ -66,22 +66,31 @@
   visibility: hidden;
 }
 
-.react-grid-layout .react-grid-item.react-grid-placeholder {
-  background: rgb(59, 130, 246, 0.15) !important;
-  opacity: 0.5 !important;
-  transition-duration: 200ms;
-  z-index: 2;
+/* Enhanced placeholder - highly visible and smooth */
+.react-grid-item.react-grid-placeholder,
+.react-grid-layout .react-grid-item.react-grid-placeholder,
+.dashboard-builder .react-grid-item.react-grid-placeholder {
+  background: rgba(59, 130, 246, 0.15) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  transition-duration: 150ms !important;
+  z-index: 500 !important;
   border-radius: 8px;
-  border: 2px dashed rgb(59, 130, 246);
-  animation: placeholderPulse 1s ease-in-out infinite alternate;
+  border: 3px dashed rgb(59, 130, 246, 0.7) !important;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.2) !important;
+  position: relative !important;
+  animation: placeholderPulse 1.5s ease-in-out infinite alternate;
 }
 
 @keyframes placeholderPulse {
   0% {
-    opacity: 0.3;
+    background: rgb(59, 130, 246, 0.15);
+    border-color: rgb(59, 130, 246, 0.6);
   }
   100% {
-    opacity: 0.7;
+    background: rgb(59, 130, 246, 0.25);
+    border-color: rgb(59, 130, 246, 0.9);
   }
 }
 
@@ -156,6 +165,25 @@
   min-height: auto !important;
 }
 
+.text-component-preview .dashboard-item > * {
+  flex: none !important;
+  height: auto !important;
+  min-height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  max-height: 60px !important;
+}
+
+.text-preview-container {
+  height: 100% !important;
+  min-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: none !important;
+  overflow: hidden !important;
+}
+
 /* Dragged component highlighting - Subtle */
 .react-grid-item.space-making-active {
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
@@ -168,6 +196,20 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
+}
+
+/* Hover overlay for dashboard items in edit mode */
+.dashboard-builder .dashboard-item:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px solid rgba(96, 165, 250, 0.6);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
 }
 
 
@@ -535,6 +577,8 @@
 .dashboard-builder .react-grid-item {
   transition: all 200ms ease;
   transition-property: left, top, width, height;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .dashboard-builder .react-grid-item.cssTransforms {
@@ -557,7 +601,7 @@
   height: 20px;
 }
 
-/* Dashboard item styling - Ultra-minimal */
+/* Dashboard item styling - Clean and minimal */
 .dashboard-item {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -569,6 +613,7 @@
 
 .dashboard-item:hover {
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Enhanced animation states for dashboard items */
@@ -634,8 +679,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-se {
   bottom: 0;
   right: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: se-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -643,8 +688,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-sw {
   bottom: 0;
   left: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: sw-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -652,8 +697,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-ne {
   top: 0;
   right: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: ne-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -661,8 +706,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-nw {
   top: 0;
   left: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: nw-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -671,8 +716,8 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 10px;
+  width: 60px;
+  height: 12px;
   cursor: n-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -681,8 +726,8 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 10px;
+  width: 60px;
+  height: 12px;
   cursor: s-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -691,8 +736,8 @@
   top: 50%;
   right: 0;
   transform: translateY(-50%);
-  width: 10px;
-  height: 20px;
+  width: 12px;
+  height: 60px;
   cursor: e-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -701,22 +746,73 @@
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  width: 10px;
-  height: 20px;
+  width: 12px;
+  height: 60px;
   cursor: w-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
 
-/* Improve resize handle visibility during browser zoom */
+/* Enhanced resize handles for better visibility and interaction */
 .dashboard-builder .react-grid-item > .react-resizable-handle {
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
+  opacity: 0;
+  transition: all 0.2s ease;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .dashboard-builder .react-grid-item:hover > .react-resizable-handle {
-  opacity: 1;
+  opacity: 0.6;
 }
+
+.dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover {
+  opacity: 1;
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border-color: rgba(59, 130, 246, 0.6);
+  transform: scale(1.1);
+}
+
+/* Add subtle border highlight on resize hover */
+.dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(59, 130, 246, 0.4);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Edit mode enhancements */
+.dashboard-builder .react-grid-item {
+  /* Ensure smooth transitions for all interactions */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Improve drag smoothness */
+.dashboard-builder .react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.dashboard-builder .react-grid-item:hover {
+  /* Subtle elevation on hover to indicate interactivity */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Enhanced dragging state - keep it simple to avoid conflicts */
+.dashboard-builder .react-grid-item.react-draggable-dragging {
+  opacity: 0.7 !important;
+  z-index: 1000 !important;
+  transition: none !important;
+}
+
+/* Resizing state */
+.dashboard-builder .react-grid-item.resizing {
+  border-color: rgb(59, 130, 246, 0.6) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2) !important;
+}
+
 
 /* Ensure proper scaling for all chart content */
 .dashboard-item {

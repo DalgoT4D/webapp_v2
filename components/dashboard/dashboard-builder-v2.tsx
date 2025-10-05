@@ -638,13 +638,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
       if (dashboardId) {
-        lockDashboard();
+        lockDashboard(dashboardId);
       }
 
       // Cleanup only on dashboard change or unmount
       return () => {
         if (dashboardId) {
-          unlockDashboard();
+          unlockDashboard(dashboardId);
         }
       };
     }, [dashboardId]); // Only depend on dashboardId
@@ -719,7 +719,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         }
         if (dashboardId && lockToken) {
           // Note: This won't work reliably on page refresh, but handles component unmount
-          unlockDashboard();
+          unlockDashboard(dashboardId);
         }
       };
     }, []); // Empty dependencies - cleanup on unmount only
@@ -2020,10 +2020,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
-                margin={[2, 2]}
-                containerPadding={[4, 4]}
+                margin={[0, 0]}
+                containerPadding={[0, 0]}
                 autoSize={true}
                 verticalCompact={false}
+                useCSSTransforms={true}
+                transformScale={1}
+                isDraggable={true}
+                isResizable={true}
                 resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
@@ -2039,7 +2043,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     <div
                       key={item.i}
                       data-component-id={item.i}
-                      className={`dashboard-item bg-gray-50/40 hover:bg-white/90 rounded border border-gray-100/60 hover:border-gray-200/80 relative group transition-colors duration-200 ${
+                      className={`dashboard-item bg-white rounded relative group transition-all duration-200 ${
                         isAnimating ? 'animating' : ''
                       } ${isBeingPushed ? 'being-pushed' : ''} ${
                         isDraggedComponent && dashboardAnimation.spaceMakingActive
@@ -2048,22 +2052,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       }`}
                       style={dashboardAnimation.getAnimationStyles(item.i)}
                     >
-                      {/* Smart Drag Handle - Minimal and clean */}
-                      <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-gray-50/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
-                        <div className="flex items-center gap-1 px-2 py-0.5 bg-white/80 rounded text-xs">
-                          <Grip className="w-3 h-3 text-gray-400" />
-                          <span className="text-gray-500 font-normal">Drag</span>
-                        </div>
-                      </div>
-
-                      {/* Corner Drag Handle - Minimal alternative */}
-                      <div className="absolute top-1 left-1 p-1 rounded cursor-move z-10 opacity-50 hover:opacity-100 hover:bg-white/60 transition-all">
-                        <Grip className="w-3 h-3 text-gray-400" />
-                      </div>
-
                       {/* Action Buttons - Positioned at dashboard level for proper click handling */}
                       {component?.type === DashboardComponentType.CHART && (
-                        <div className="absolute top-1 right-1 z-30 flex gap-0.5 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2099,7 +2090,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                       {/* Action Buttons for Text Elements */}
                       {component?.type === DashboardComponentType.TEXT && (
-                        <div className="absolute top-1 right-1 z-30 flex gap-0.5 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2113,13 +2104,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         </div>
                       )}
 
-                      {/* Content Area - Compact padding for lighter feel */}
-                      <div className="p-2 flex-1 flex flex-col min-h-0 drag-cancel">
-                        {renderComponent(item.i)}
+                      {/* Drag Handle Area - Top section for dragging */}
+                      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
+                        <div className="text-xs text-gray-400 font-medium">Drag to move</div>
                       </div>
 
-                      {/* Bottom Edge Drag Handle - For easier access */}
-                      <div className="absolute bottom-0 left-0 right-0 h-2 cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-gray-100/50 to-transparent" />
+                      {/* Content Area - Charts fully visible and interactive */}
+                      <div className="p-3 flex-1 flex flex-col min-h-0 drag-cancel">
+                        {renderComponent(item.i)}
+                      </div>
                     </div>
                   );
                 })}
