@@ -23,6 +23,8 @@ import {
   PieChart,
   ChevronLeft,
   ChevronRight,
+  Info,
+  CreditCard,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -183,13 +185,13 @@ const getNavItems = (currentPath: string): NavItemType[] => {
         {
           title: 'About',
           href: '/settings/about',
-          icon: Settings,
+          icon: Info,
           isActive: currentPath === '/settings/about',
         },
         {
           title: 'Billing',
           href: '/settings/billing',
-          icon: Settings,
+          icon: CreditCard,
           isActive: currentPath === '/settings/billing',
         },
       ],
