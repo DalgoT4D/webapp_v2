@@ -5,7 +5,13 @@ export interface Permission {
   name: string;
 }
 
-export function useUserPermissions() {
+export function useUserPermissions(): {
+  permissions: Permission[];
+  hasPermission: (permissionSlug: string) => boolean;
+  hasAnyPermission: (permissionSlugs: string[]) => boolean;
+  hasAllPermissions: (permissionSlugs: string[]) => boolean;
+  isLoading: boolean;
+} {
   const { getCurrentOrgUser } = useAuthStore();
   const currentOrgUser = getCurrentOrgUser();
 
@@ -29,7 +35,6 @@ export function useUserPermissions() {
     hasAnyPermission,
     hasAllPermissions,
     isLoading: false, // Since we're using existing auth store data
-    error: null,
   };
 }
 

@@ -6,8 +6,9 @@ import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2'
 import { createDashboard } from '@/hooks/api/useDashboards';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 export default function CreateDashboardPage() {
   const router = useRouter();
@@ -17,8 +18,32 @@ export default function CreateDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
+  // Get user permissions
+  const { hasPermission } = useUserPermissions();
+
   // Ref to access dashboard builder cleanup function
   const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
+
+  // Check if user has create permissions
+  if (!hasPermission('can_create_dashboards')) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">
+            You don't have permission to create dashboards.
+          </p>
+          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboards
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Ensure component is mounted before running client-side code
   useEffect(() => {

@@ -6,10 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table } from 'lucide-react';
+import {
+  ChevronLeft,
+  BarChart2,
+  PieChart,
+  LineChart,
+  Hash,
+  MapPin,
+  Table,
+  Lock,
+  ArrowLeft,
+} from 'lucide-react';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 // Chart type definitions with descriptions
 const chartTypes = [
@@ -65,9 +76,29 @@ const chartTypes = [
 
 export default function NewChartPage() {
   const router = useRouter();
+  const { hasPermission } = useUserPermissions();
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [selectedSchema, setSelectedSchema] = useState<string>('');
   const [selectedChartType, setSelectedChartType] = useState<string>('');
+
+  // Check if user has create permissions
+  if (!hasPermission('can_create_charts')) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You don't have permission to create charts.</p>
+          <Button variant="outline" onClick={() => router.push('/charts')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Charts
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const canProceed = selectedSchema && selectedTable && selectedChartType;
 

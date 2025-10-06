@@ -16,10 +16,12 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { ArrowLeft, Edit, Lock } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { ChartDataPayload } from '@/types/charts';
 import type * as echarts from 'echarts';
 
@@ -47,8 +49,29 @@ interface DrillDownLevel {
 }
 
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
+  const router = useRouter();
+  const { hasPermission } = useUserPermissions();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Check if user has view permissions
+  if (!hasPermission('can_view_charts')) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
+          <Button variant="outline" onClick={() => router.push('/charts')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Charts
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch regions data for dynamic geojson lookup (for Indian maps)
   const { data: regions } = useRegions('IND', 'state');
@@ -233,13 +256,17 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       setTimeout(
         () => {
           toast('💡 Configure drill-down layers to see filtered regions', {
-            description: "Click 'Edit Chart' to set up geographic layers",
+            description: hasPermission('can_edit_charts')
+              ? "Click 'Edit Chart' to set up geographic layers"
+              : 'Chart needs geographic layers to show filtered regions',
             duration: 7000,
             position: 'top-right',
-            action: {
-              label: 'Edit Chart',
-              onClick: () => (window.location.href = `/charts/${chartId}/edit`),
-            },
+            ...(hasPermission('can_edit_charts') && {
+              action: {
+                label: 'Edit Chart',
+                onClick: () => (window.location.href = `/charts/${chartId}/edit`),
+              },
+            }),
           });
         },
         chart.extra_config.filters.length * 500 + 1000
@@ -380,7 +407,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     // Fallback to legacy layers system
     if (!chart?.extra_config?.layers) {
       toast.info('🗺️ No further drill-down levels configured', {
-        description: 'Configure additional layers in edit mode to enable deeper drill-down',
+        description: hasPermission('can_edit_charts')
+          ? 'Configure additional layers in edit mode to enable deeper drill-down'
+          : 'This chart needs additional layers configured for deeper drill-down',
         position: 'top-right',
       });
       return;
@@ -392,7 +421,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     if (!nextLayer) {
       // No next layer configured
       toast.info('🗺️ No further drill-down levels configured', {
-        description: 'Configure additional layers in edit mode to enable deeper drill-down',
+        description: hasPermission('can_edit_charts')
+          ? 'Configure additional layers in edit mode to enable deeper drill-down'
+          : 'This chart needs additional layers configured for deeper drill-down',
         position: 'top-right',
       });
       return;
@@ -435,13 +466,17 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         });
       } else {
         toast.info(`🗺️ ${regionName} not configured for drill-down`, {
-          description: 'Configure this region in edit mode to enable drill-down',
+          description: hasPermission('can_edit_charts')
+            ? 'Configure this region in edit mode to enable drill-down'
+            : 'This region is not configured for drill-down',
           position: 'top-right',
           duration: 4000,
-          action: {
-            label: 'Edit Chart',
-            onClick: () => (window.location.href = `/charts/${chartId}/edit`),
-          },
+          ...(hasPermission('can_edit_charts') && {
+            action: {
+              label: 'Edit Chart',
+              onClick: () => (window.location.href = `/charts/${chartId}/edit`),
+            },
+          }),
         });
       }
       return; // Prevent drill-down
@@ -518,12 +553,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link href={`/charts/${chartId}/edit`}>
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Chart
-            </Button>
-          </Link>
+          {hasPermission('can_edit_charts') && (
+            <Link href={`/charts/${chartId}/edit`}>
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Chart
+              </Button>
+            </Link>
+          )}
           <ChartExportDropdown
             chartTitle={chart.title}
             chartElement={chartElement}
