@@ -107,7 +107,17 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
-      isActive: currentPath.startsWith('/dashboards'),
+      isActive:
+        currentPath === '/dashboards' ||
+        (currentPath.startsWith('/dashboards/') && !currentPath.startsWith('/dashboards/usage')),
+      children: [
+        {
+          title: 'Usage',
+          href: '/dashboards/usage',
+          icon: BarChart3,
+          isActive: currentPath === '/dashboards/usage',
+        },
+      ],
     },
     {
       title: 'Reports',
