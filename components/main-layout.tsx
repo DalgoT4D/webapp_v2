@@ -46,7 +46,6 @@ const PRODUCTION_HIDDEN_ITEMS = [
   'Metrics',
   'Reports',
   'Alerts',
-  'Settings',
 ];
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
@@ -177,9 +176,23 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     },
     {
       title: 'Settings',
-      href: '/settings',
+      href: '/settings/about',
       icon: Settings,
-      isActive: currentPath.startsWith('/settings'),
+      isActive: false, // Never highlight the parent Settings menu
+      children: [
+        {
+          title: 'About',
+          href: '/settings/about',
+          icon: Settings,
+          isActive: currentPath === '/settings/about',
+        },
+        {
+          title: 'Billing',
+          href: '/settings/billing',
+          icon: Settings,
+          isActive: currentPath === '/settings/billing',
+        },
+      ],
     },
   ];
 
