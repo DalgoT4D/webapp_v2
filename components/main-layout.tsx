@@ -86,10 +86,10 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 const getNavItems = (currentPath: string): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
-      title: 'Impact at a Glance',
-      href: '/impact-at-a-glance',
+      title: 'Impact',
+      href: '/impact',
       icon: Home,
-      isActive: currentPath === '/impact-at-a-glance',
+      isActive: currentPath === '/impact',
     },
     {
       title: 'Metrics',

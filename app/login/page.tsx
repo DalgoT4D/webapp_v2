@@ -74,7 +74,7 @@ function LoginForm() {
   // Redirect to Impact at a Glance when authenticated and org is selected
   useEffect(() => {
     if (isAuthenticated && token && currentOrg) {
-      router.push('/impact-at-a-glance');
+      router.push('/impact');
     }
   }, [isAuthenticated, token, currentOrg, router]);
 
