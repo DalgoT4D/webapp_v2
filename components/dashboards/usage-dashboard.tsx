@@ -86,7 +86,7 @@ export default function UsageDashboard() {
   }
 
   return (
-    <main className="w-full h-screen p-12 pb-20 overflow-auto">
+    <main className="usage-dashboard w-full h-screen p-12 pb-20 overflow-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
@@ -98,19 +98,6 @@ export default function UsageDashboard() {
           width: '100%',
         }}
       />
-      <style jsx global>{`
-        #dashboard-container {
-          overflow: auto;
-        }
-        #dashboard-container iframe {
-          height: 100vh !important;
-          width: 120% !important;
-          border: none !important;
-          transform: scale(0.8, 0.8);
-          transform-origin: 0 0;
-          min-height: 800px;
-        }
-      `}</style>
     </main>
   );
 }
