@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key } from 'lucide-react';
+import Image from 'next/image';
+import { LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -112,8 +113,13 @@ export function Header({
 
         {/* Dalgo Logo - Always visible */}
         <div className="flex items-center gap-3">
-          <BarChart3 className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold text-foreground">Dalgo</span>
+          <Image
+            src="/dalgo_logo.svg"
+            alt="Dalgo"
+            width={60}
+            height={68}
+            className="text-primary"
+          />
         </div>
 
         {/* Organization switching status */}
