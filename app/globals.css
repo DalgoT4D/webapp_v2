@@ -6,18 +6,47 @@
 /* Dashboard Responsive Styles */
 .react-grid-layout {
   position: relative;
-  transition: height 200ms ease;
+  transition: height 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
   min-height: min-content;
   width: 100% !important;
 }
 
 .react-grid-item {
-  transition: all 200ms ease;
-  transition-property: left, top, width, height;
+  transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-property: left, top, width, height, transform;
 }
 
 .react-grid-item.cssTransforms {
   transition-property: transform, width, height;
+  transition-duration: 400ms;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Enhanced animations for auto-arrangement */
+.react-grid-item.auto-arranging {
+  transition: all 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 2;
+}
+
+/* Magnetic snapping animation */
+.react-grid-item.magnetic-snap {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth spring animation for new components */
+.react-grid-item.component-entrance {
+  animation: componentEntrance 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes componentEntrance {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .react-grid-item.resizing {
@@ -30,28 +59,229 @@
   transition: none;
   z-index: 3;
   will-change: transform;
+  box-shadow: 0 8px 32px rgba(15, 148, 124, 0.15);
 }
 
 .react-grid-item.dropping {
   visibility: hidden;
 }
 
-.react-grid-item.react-grid-placeholder {
-  background: rgb(59, 130, 246, 0.15);
-  opacity: 0.5;
-  transition-duration: 100ms;
-  z-index: 2;
+/* Enhanced placeholder - highly visible and smooth */
+.react-grid-item.react-grid-placeholder,
+.react-grid-layout .react-grid-item.react-grid-placeholder,
+.dashboard-builder .react-grid-item.react-grid-placeholder {
+  background: rgba(59, 130, 246, 0.15) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  transition-duration: 150ms !important;
+  z-index: 500 !important;
   border-radius: 8px;
-  border: 2px dashed rgb(59, 130, 246);
+  border: 3px dashed rgb(59, 130, 246, 0.7) !important;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.2) !important;
+  position: relative !important;
+  animation: placeholderPulse 1.5s ease-in-out infinite alternate;
 }
 
-/* Dashboard Item Responsive Styles */
+@keyframes placeholderPulse {
+  0% {
+    background: rgb(59, 130, 246, 0.15);
+    border-color: rgb(59, 130, 246, 0.6);
+  }
+  100% {
+    background: rgb(59, 130, 246, 0.25);
+    border-color: rgb(59, 130, 246, 0.9);
+  }
+}
+
+/* Snap indicators */
+.snap-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+  animation: snapIndicatorFade 300ms ease-out;
+}
+
+.snap-indicator.vertical {
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, rgb(83, 76, 217), transparent);
+  box-shadow: 0 0 4px rgba(83, 76, 217, 0.5);
+}
+
+.snap-indicator.horizontal {
+  height: 2px;
+  background: linear-gradient(to right, transparent, rgb(83, 76, 217), transparent);
+  box-shadow: 0 0 4px rgba(83, 76, 217, 0.5);
+}
+
+@keyframes snapIndicatorFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Space-making visual feedback */
+@keyframes spaceMakingPulse {
+  0% { 
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% { 
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.space-making-indicator {
+  animation: spaceMakingPulse 800ms ease-in-out infinite;
+}
+
+/* Enhanced component states during space-making - Lighter design */
+.react-grid-item.being-pushed {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(0.99);
+  opacity: 0.95;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
+}
+
+
+/* Dragged component highlighting - Subtle */
+.react-grid-item.space-making-active {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+  z-index: 10;
+}
+
+/* Dashboard Item Responsive Styles - Apache Superset Style */
 .dashboard-item {
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
+
+/* Apache Superset style thin dashed border always visible in edit mode */
+.dashboard-builder .dashboard-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px dashed rgba(52, 152, 219, 0.4);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 1;
+}
+
+/* Stronger border on hover */
+.dashboard-builder .dashboard-item:hover::before {
+  border-color: rgba(52, 152, 219, 0.8);
+  transition: border-color 0.1s ease;
+}
+
+
+/* Invisible resize zones - Apache Superset style */
+.dashboard-builder .react-grid-item > .react-resizable-handle {
+  opacity: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  z-index: 20 !important;
+}
+
+/* Show resize cursor in invisible zones */
+.dashboard-builder .react-grid-item > .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+}
+
+/* Southeast resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-se {
+  bottom: 0 !important;
+  right: 0 !important;
+  cursor: se-resize !important;
+}
+
+/* Southwest resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-sw {
+  bottom: 0 !important;
+  left: 0 !important;
+  cursor: sw-resize !important;
+}
+
+/* Northeast resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-ne {
+  top: 0 !important;
+  right: 0 !important;
+  cursor: ne-resize !important;
+}
+
+/* Northwest resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-nw {
+  top: 0 !important;
+  left: 0 !important;
+  cursor: nw-resize !important;
+}
+
+/* East resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-e {
+  right: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  cursor: e-resize !important;
+  height: 100% !important;
+  width: 10px !important;
+}
+
+/* West resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-w {
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  cursor: w-resize !important;
+  height: 100% !important;
+  width: 10px !important;
+}
+
+/* North resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-n {
+  top: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  cursor: n-resize !important;
+  width: 100% !important;
+  height: 10px !important;
+}
+
+/* South resize handle */
+.dashboard-builder .react-grid-item > .react-resizable-handle-s {
+  bottom: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  cursor: s-resize !important;
+  width: 100% !important;
+  height: 10px !important;
+}
+
+
+
 
 .dashboard-item > * {
   flex: 1;
@@ -108,9 +338,9 @@
     box-sizing: border-box !important;
   }
   
-  /* Adjust padding for mobile */
-  .dashboard-item .p-4 {
-    padding: 8px !important;
+  /* Adjust padding for mobile - Compact design */
+  .dashboard-item .p-2 {
+    padding: 6px !important;
   }
   
   /* Mobile specific grid fixes */
@@ -186,6 +416,24 @@
 .filter-element input {
   width: 100%;
   min-width: 0;
+}
+
+/* Text component stability fixes */
+.text-component-editing {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.text-component-editing textarea {
+  scroll-behavior: auto !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+/* Prevent layout shifts during text formatting */
+.text-component-stable {
+  contain: layout style !important;
+  will-change: auto !important;
 }
 
 /* Header Responsive Styles */
@@ -416,6 +664,8 @@
 .dashboard-builder .react-grid-item {
   transition: all 200ms ease;
   transition-property: left, top, width, height;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .dashboard-builder .react-grid-item.cssTransforms {
@@ -438,9 +688,9 @@
   height: 20px;
 }
 
-/* Dashboard item styling */
+/* Dashboard item styling - Clean and minimal */
 .dashboard-item {
-  transition: box-shadow 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -449,13 +699,26 @@
 }
 
 .dashboard-item:hover {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced animation states for dashboard items */
+.dashboard-item.animating {
+  will-change: transform;
+}
+
+.dashboard-item.magnetic-hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.1), 0 4px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 .dashboard-item > div {
   flex: 1;
   min-height: 0;
 }
+
+
 
 /* Ensure charts resize smoothly */
 .dashboard-item canvas,
@@ -503,8 +766,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-se {
   bottom: 0;
   right: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: se-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -512,8 +775,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-sw {
   bottom: 0;
   left: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: sw-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -521,8 +784,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-ne {
   top: 0;
   right: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: ne-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -530,8 +793,8 @@
 .dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-nw {
   top: 0;
   left: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: nw-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -540,8 +803,8 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 10px;
+  width: 60px;
+  height: 12px;
   cursor: n-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -550,8 +813,8 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 10px;
+  width: 60px;
+  height: 12px;
   cursor: s-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -560,8 +823,8 @@
   top: 50%;
   right: 0;
   transform: translateY(-50%);
-  width: 10px;
-  height: 20px;
+  width: 12px;
+  height: 60px;
   cursor: e-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
@@ -570,22 +833,73 @@
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  width: 10px;
-  height: 20px;
+  width: 12px;
+  height: 60px;
   cursor: w-resize;
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
 
-/* Improve resize handle visibility during browser zoom */
+/* Invisible resize handles - Apache Superset style */
 .dashboard-builder .react-grid-item > .react-resizable-handle {
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
+  opacity: 0 !important;
+  transition: all 0.2s ease;
+  background-color: transparent !important;
+  border: none !important;
 }
 
+/* Very subtle resize handle visibility on hover */
 .dashboard-builder .react-grid-item:hover > .react-resizable-handle {
-  opacity: 1;
+  opacity: 0.1 !important;
+  background-color: rgba(96, 165, 250, 0.1) !important;
 }
+
+.dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover {
+  opacity: 0.3 !important;
+  background-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+/* Add subtle border highlight on resize hover */
+.dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(59, 130, 246, 0.4);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Edit mode enhancements */
+.dashboard-builder .react-grid-item {
+  /* Ensure smooth transitions for all interactions */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Improve drag smoothness */
+.dashboard-builder .react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.dashboard-builder .react-grid-item:hover {
+  /* Subtle elevation on hover to indicate interactivity */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Enhanced dragging state - keep it simple to avoid conflicts */
+.dashboard-builder .react-grid-item.react-draggable-dragging {
+  opacity: 0.7 !important;
+  z-index: 1000 !important;
+  transition: none !important;
+}
+
+/* Resizing state */
+.dashboard-builder .react-grid-item.resizing {
+  border-color: rgb(59, 130, 246, 0.6) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2) !important;
+}
+
 
 /* Ensure proper scaling for all chart content */
 .dashboard-item {
