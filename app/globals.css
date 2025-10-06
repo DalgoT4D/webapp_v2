@@ -153,36 +153,6 @@
   box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
 }
 
-/* Text component preview mode - compact rendering */
-.text-component-preview {
-  height: auto !important;
-  min-height: auto !important;
-  overflow: visible !important;
-}
-
-.text-component-preview .dashboard-item {
-  height: auto !important;
-  min-height: auto !important;
-}
-
-.text-component-preview .dashboard-item > * {
-  flex: none !important;
-  height: auto !important;
-  min-height: auto !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  max-height: 60px !important;
-}
-
-.text-preview-container {
-  height: 100% !important;
-  min-height: 40px !important;
-  display: flex !important;
-  align-items: center !important;
-  flex: none !important;
-  overflow: hidden !important;
-}
 
 /* Dragged component highlighting - Subtle */
 .react-grid-item.space-making-active {
@@ -310,39 +280,6 @@
   height: 10px !important;
 }
 
-/* Text component always visible border in edit mode - match dashboard items */
-.text-component-hover::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border: 1px dashed rgba(52, 152, 219, 0.4);
-  pointer-events: none;
-  z-index: 10;
-  opacity: 1;
-}
-
-/* Text component stronger border on hover */
-.text-component-hover:hover::before {
-  border-color: rgba(52, 152, 219, 0.8);
-  transition: border-color 0.1s ease;
-}
-
-/* Text component editing state - same style as dashboard items */
-.text-component-editing::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border: 1px dashed rgba(52, 152, 219, 0.6);
-  pointer-events: none;
-  z-index: 10;
-  opacity: 1;
-}
 
 
 

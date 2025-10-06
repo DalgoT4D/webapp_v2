@@ -555,7 +555,7 @@ export function DashboardNativeView({
       case 'text':
         // Use the same UnifiedTextElement component as edit mode for perfect consistency
         return (
-          <div key={componentId} className="w-full">
+          <div key={componentId} className="w-full h-full">
             <UnifiedTextElement
               config={component.config}
               onUpdate={() => {}} // No-op in view mode

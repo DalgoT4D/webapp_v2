@@ -2049,7 +2049,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         isDraggedComponent && dashboardAnimation.spaceMakingActive
                           ? 'space-making-active'
                           : ''
-                      }`}
+                      } ${component.type === DashboardComponentType.TEXT ? 'text-component' : ''}`}
                       style={dashboardAnimation.getAnimationStyles(item.i)}
                     >
                       {/* Action Buttons - Positioned at dashboard level for proper click handling */}

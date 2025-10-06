@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Type,
   Bold,
@@ -82,6 +83,13 @@ export function UnifiedTextElement({
     }
   }, [config.content, isEditing]);
 
+  // Prevent content clearing when entering edit mode
+  useEffect(() => {
+    if (isEditing && !tempContent && config.content) {
+      setTempContent(config.content);
+    }
+  }, [isEditing, tempContent, config.content]);
+
   // Calculate toolbar position when editing starts
   const calculateToolbarPosition = useCallback(() => {
     if (!containerRef.current) return;
@@ -154,9 +162,11 @@ export function UnifiedTextElement({
 
       // Focus and select text consistently
       setTimeout(() => {
-        textarea.focus();
-        // Always select all text when entering edit mode
-        textarea.setSelectionRange(0, textarea.value.length);
+        if (textarea) {
+          textarea.focus();
+          // Always select all text when entering edit mode
+          textarea.setSelectionRange(0, textarea.value.length);
+        }
       }, 50);
 
       // Stable resize function - prevent jumping by maintaining scroll position
@@ -196,11 +206,13 @@ export function UnifiedTextElement({
     if (!isEditMode) return;
     // Preserve current content to prevent disappearing
     const currentContent = config.content || '';
-    setTempContent(currentContent);
-    setIsEditing(true);
-    // Calculate toolbar position after a brief delay to ensure DOM is updated
-    setTimeout(calculateToolbarPosition, 10);
-  }, [config.content, isEditMode, calculateToolbarPosition]);
+    if (!isEditing) {
+      setTempContent(currentContent);
+      setIsEditing(true);
+      // Calculate toolbar position after a brief delay to ensure DOM is updated
+      setTimeout(calculateToolbarPosition, 10);
+    }
+  }, [config.content, isEditMode, isEditing, calculateToolbarPosition]);
 
   // Quick formatting function - auto-save and continue editing
   const handleQuickFormat = useCallback(
@@ -511,169 +523,46 @@ export function UnifiedTextElement({
     );
   };
 
-  // Add effect to make parent grid item compact (only in preview mode)
-  useEffect(() => {
-    if (!isEditMode) {
-      const parentGridItem = containerRef.current?.closest('.react-grid-item');
-      if (parentGridItem) {
-        parentGridItem.classList.add('text-component-preview');
-        return () => {
-          parentGridItem.classList.remove('text-component-preview');
-        };
-      }
-    }
-  }, [isEditMode]);
-
-  // Preview mode - ultra-compact rendering to eliminate gaps
+  // Preview mode - simplified structure to match container height
   if (!isEditMode) {
-    const textStyles = getTextStyles();
     const content = config.content || '';
 
     if (!content) return null; // Don't render empty text in preview
 
-    // Compact styling to match edit mode
-    if (config.type === 'heading') {
-      const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
-      return (
-        <div
-          ref={containerRef}
-          className="text-preview-container"
-          style={{
-            height: '100%',
-            minHeight: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent:
-              config.textAlign === 'center'
-                ? 'center'
-                : config.textAlign === 'right'
-                  ? 'flex-end'
-                  : 'flex-start',
-            padding: '4px 8px',
-            flex: 'none',
-            overflow: 'hidden',
-          }}
-        >
-          <Tag
-            className="whitespace-pre-wrap break-words"
-            style={{
-              fontSize: `${config.fontSize}px`,
-              fontWeight: config.fontWeight,
-              fontStyle: config.fontStyle,
-              textDecoration: config.textDecoration,
-              textAlign: config.textAlign as any,
-              color: config.color,
-              backgroundColor: config.backgroundColor || 'transparent',
-              lineHeight: 1.2,
-              margin: 0,
-              padding: 0,
-              wordBreak: 'break-word' as any,
-              display: 'block',
-            }}
-          >
-            {content}
-          </Tag>
-        </div>
-      );
-    }
-
     return (
       <div
         ref={containerRef}
-        className="text-preview-container"
-        style={{
-          height: '100%',
-          minHeight: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent:
-            config.textAlign === 'center'
-              ? 'center'
-              : config.textAlign === 'right'
-                ? 'flex-end'
-                : 'flex-start',
-          padding: '4px 8px',
-          flex: 'none',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-        }}
+        className="h-full w-full flex items-center justify-center p-4"
+        onClick={startEditing}
       >
-        <span
-          className="whitespace-pre-wrap break-words"
-          style={{
-            fontSize: `${config.fontSize}px`,
-            fontWeight: config.fontWeight,
-            fontStyle: config.fontStyle,
-            textDecoration: config.textDecoration,
-            textAlign: config.textAlign as any,
-            color: config.color,
-            backgroundColor: config.backgroundColor || 'transparent',
-            lineHeight: 1.2,
-            margin: 0,
-            padding: 0,
-            wordBreak: 'break-word' as any,
-            display: 'block',
-          }}
-        >
-          {content}
-        </span>
-      </div>
-    );
-  }
-
-  // Edit mode - enhanced editing experience
-  return (
-    <>
-      {/* Floating toolbar rendered via portal */}
-      <FloatingToolbar />
-
-      <div
-        ref={containerRef}
-        className={cn('relative w-full h-full group', isEditing && 'text-component-stable')}
-      >
-        {/* Main content area - clean without toolbar padding */}
-        <div
-          className={cn(
-            'w-full h-full p-1 cursor-text transition-all duration-200 rounded drag-cancel relative',
-            isEditing ? 'bg-white text-component-editing' : 'bg-transparent text-component-hover',
-            !config.content && 'flex items-center justify-center'
-          )}
-          onClick={startEditing}
-        >
-          {isEditing ? (
-            <textarea
-              ref={textareaRef}
-              value={tempContent}
-              onChange={(e) => setTempContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={(e) => {
-                // Don't exit if clicking on toolbar elements
-                const relatedTarget = e.relatedTarget as HTMLElement;
-                if (
-                  relatedTarget &&
-                  (relatedTarget.closest('.drag-cancel') || relatedTarget.closest('[data-toolbar]'))
-                ) {
-                  return;
-                }
-
-                // Auto-save content and exit editing after a delay
-                setTimeout(() => {
-                  // Only exit if focus has truly moved away from the component
-                  if (!containerRef.current?.contains(document.activeElement)) {
-                    // Only save if we have content or if content was modified
-                    const hasContent = tempContent && tempContent.trim().length > 0;
-                    const contentChanged = tempContent !== config.content;
-
-                    if (hasContent || contentChanged) {
-                      onUpdate({ ...config, content: tempContent });
-                    }
-                    setIsEditing(false);
-                    setShowColorPicker(false);
-                    setToolbarPosition(null);
-                  }
-                }, 150);
-              }}
-              className="resize-none border-none outline-none bg-transparent drag-cancel"
+        {config.content ? (
+          config.type === 'heading' ? (
+            (() => {
+              const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+              return (
+                <Tag
+                  className="whitespace-pre-wrap break-words w-full"
+                  style={{
+                    fontSize: `${config.fontSize}px`,
+                    fontWeight: config.fontWeight,
+                    fontStyle: config.fontStyle,
+                    textDecoration: config.textDecoration,
+                    textAlign: config.textAlign as any,
+                    color: config.color,
+                    backgroundColor: config.backgroundColor || 'transparent',
+                    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                    margin: 0,
+                    padding: 0,
+                    wordBreak: 'break-word' as any,
+                  }}
+                >
+                  {config.content}
+                </Tag>
+              );
+            })()
+          ) : (
+            <div
+              className="whitespace-pre-wrap break-words w-full"
               style={{
                 fontSize: `${config.fontSize}px`,
                 fontWeight: config.fontWeight,
@@ -684,33 +573,123 @@ export function UnifiedTextElement({
                 backgroundColor: config.backgroundColor || 'transparent',
                 lineHeight: config.type === 'heading' ? '1.2' : '1.5',
                 margin: 0,
-                outline: 'none',
-                width: '100%',
-                wordBreak: 'break-word' as any,
-                resize: 'none',
-                border: 'none',
                 padding: 0,
-                height: 'auto',
-                minHeight: 'auto',
-                overflow: 'visible',
+                wordBreak: 'break-word' as any,
               }}
-              placeholder="Start typing..."
-            />
-          ) : (
+            >
+              {config.content}
+            </div>
+          )
+        ) : (
+          <div className="text-gray-400 italic text-sm">Click to add text...</div>
+        )}
+      </div>
+    );
+  }
+
+  // Edit mode - use same Card structure as charts
+  return (
+    <>
+      {/* Floating toolbar rendered via portal */}
+      <FloatingToolbar />
+
+      <div ref={containerRef} className="h-full w-full">
+        <Card className="h-full w-full flex flex-col border-0 shadow-none">
+          <CardContent className="p-4 flex-1 flex flex-col min-h-0">
             <div
               className={cn(
-                'w-full h-full flex items-start',
-                !config.content && 'items-center justify-center'
+                'flex-1 w-full h-full cursor-text transition-all duration-200 drag-cancel flex items-center justify-center',
+                isEditing ? 'bg-white rounded' : 'bg-transparent',
+                !config.content && 'justify-center'
               )}
-              style={config.content ? { alignItems: 'center' } : {}}
+              onClick={startEditing}
             >
-              {config.content ? (
-                config.type === 'heading' ? (
-                  (() => {
-                    const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
-                    return (
-                      <Tag
-                        className="whitespace-pre-wrap break-words w-full"
+              {isEditing ? (
+                <textarea
+                  ref={textareaRef}
+                  value={tempContent}
+                  onChange={(e) => setTempContent(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={(e) => {
+                    // Don't exit if clicking on toolbar elements
+                    const relatedTarget = e.relatedTarget as HTMLElement;
+                    if (
+                      relatedTarget &&
+                      (relatedTarget.closest('.drag-cancel') ||
+                        relatedTarget.closest('[data-toolbar]'))
+                    ) {
+                      return;
+                    }
+
+                    // Auto-save content and exit editing after a delay
+                    setTimeout(() => {
+                      // Only exit if focus has truly moved away from the component and we're not clicking on the textarea itself
+                      const activeElement = document.activeElement;
+                      const isStillFocusedOnComponent =
+                        containerRef.current?.contains(activeElement);
+                      const isStillFocusedOnTextarea = activeElement === textareaRef.current;
+
+                      if (!isStillFocusedOnComponent && !isStillFocusedOnTextarea) {
+                        // Always save the current content, even if empty
+                        onUpdate({ ...config, content: tempContent });
+                        setIsEditing(false);
+                        setShowColorPicker(false);
+                        setToolbarPosition(null);
+                      }
+                    }, 200);
+                  }}
+                  className="resize-none border-none outline-none bg-transparent drag-cancel w-full text-center"
+                  style={{
+                    fontSize: `${config.fontSize}px`,
+                    fontWeight: config.fontWeight,
+                    fontStyle: config.fontStyle,
+                    textDecoration: config.textDecoration,
+                    textAlign: config.textAlign as any,
+                    color: config.color,
+                    backgroundColor: config.backgroundColor || 'transparent',
+                    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                    margin: 0,
+                    outline: 'none',
+                    wordBreak: 'break-word' as any,
+                    resize: 'none',
+                    border: 'none',
+                    padding: 0,
+                    height: 'auto',
+                    minHeight: 'auto',
+                    overflow: 'visible',
+                  }}
+                  placeholder="Start typing..."
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  {config.content ? (
+                    config.type === 'heading' ? (
+                      (() => {
+                        const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+                        return (
+                          <Tag
+                            className="whitespace-pre-wrap break-words w-full text-center"
+                            style={{
+                              fontSize: `${config.fontSize}px`,
+                              fontWeight: config.fontWeight,
+                              fontStyle: config.fontStyle,
+                              textDecoration: config.textDecoration,
+                              textAlign: config.textAlign as any,
+                              color: config.color,
+                              backgroundColor: config.backgroundColor || 'transparent',
+                              lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                              margin: 0,
+                              padding: 0,
+                              wordBreak: 'break-word' as any,
+                            }}
+                          >
+                            {config.content}
+                          </Tag>
+                        );
+                      })()
+                    ) : (
+                      <div
+                        className="whitespace-pre-wrap break-words w-full text-center"
                         style={{
                           fontSize: `${config.fontSize}px`,
                           fontWeight: config.fontWeight,
@@ -726,35 +705,16 @@ export function UnifiedTextElement({
                         }}
                       >
                         {config.content}
-                      </Tag>
-                    );
-                  })()
-                ) : (
-                  <div
-                    className="whitespace-pre-wrap break-words w-full"
-                    style={{
-                      fontSize: `${config.fontSize}px`,
-                      fontWeight: config.fontWeight,
-                      fontStyle: config.fontStyle,
-                      textDecoration: config.textDecoration,
-                      textAlign: config.textAlign as any,
-                      color: config.color,
-                      backgroundColor: config.backgroundColor || 'transparent',
-                      lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                      margin: 0,
-                      padding: 0,
-                      wordBreak: 'break-word' as any,
-                    }}
-                  >
-                    {config.content}
-                  </div>
-                )
-              ) : (
-                <div className="text-gray-400 italic text-sm">Click to add text...</div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-gray-400 italic text-sm">Click to add text...</div>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </>
   );
