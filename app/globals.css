@@ -938,14 +938,20 @@
 
 /* Usage Dashboard Styles */
 .usage-dashboard #dashboard-container {
-  overflow: auto;
+  overflow: hidden;
+  position: relative;
+  height: 100%;
+  width: 100%;
 }
 
 .usage-dashboard #dashboard-container iframe {
-  height: 100vh !important;
-  width: 120% !important;
+  height: 125% !important;
+  width: 125% !important;
   border: none !important;
-  transform: scale(0.8, 0.8);
+  display: block;
+  transform: scale(0.8);
   transform-origin: 0 0;
-  min-height: 800px;
+  position: absolute;
+  top: 0;
+  left: 0;
 }

@@ -9,7 +9,7 @@ export default function Notifications() {
 
   return (
     <SharedIframe
-      src={`${embeddedAppUrl}/notifications?tab=all&hide=true&fullwidth=true`}
+      src={`${embeddedAppUrl}/notifications?tab=all&fullwidth=true`}
       title="Notifications"
     />
   );

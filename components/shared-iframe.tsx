@@ -24,15 +24,16 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
 
     // Add auth token as query parameter if available
     if (authToken) {
-      url.searchParams.set('token', authToken);
+      url.searchParams.set('embedToken', authToken);
     }
 
     if (selectedOrg) {
-      url.searchParams.set('org', selectedOrg);
+      url.searchParams.set('embedOrg', selectedOrg);
     }
 
     // Add a flag to indicate this is embedded
-    url.searchParams.set('embedded', 'true');
+    url.searchParams.set('embedApp', 'true');
+    url.searchParams.set('embedHideHeader', 'true');
 
     const finalUrl = url.toString();
     console.log('SharedIframe: Final URL:', finalUrl);

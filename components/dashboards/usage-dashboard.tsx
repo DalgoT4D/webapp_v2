@@ -86,18 +86,13 @@ export default function UsageDashboard() {
   }
 
   return (
-    <main className="usage-dashboard w-full h-screen p-12 pb-20 overflow-auto">
-      <div className="flex items-center justify-between mb-6">
+    <main className="usage-dashboard w-full h-screen flex flex-col">
+      <div className="flex items-center justify-between p-6 border-b bg-white flex-shrink-0">
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
-      <div
-        id="dashboard-container"
-        className="w-full overflow-auto"
-        style={{
-          height: 'calc(100vh - 200px)',
-          width: '100%',
-        }}
-      />
+      <div className="flex-1 p-6 pb-10 overflow-auto">
+        <div id="dashboard-container" className="w-full h-full bg-white rounded-lg shadow-sm" />
+      </div>
     </main>
   );
 }
