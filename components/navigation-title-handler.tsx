@@ -15,6 +15,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/data-quality': 'Data Quality',
   '/pipeline': 'Pipeline Overview',
   '/impact': 'Impact',
+  '/notifications': 'Notifications',
 };
 
 export function NavigationTitleHandler(): null {
