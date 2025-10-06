@@ -29,6 +29,7 @@ import TransformIcon from '@/assets/icons/transform';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
+import Image from 'next/image';
 
 // Define types for navigation items
 interface NavItemType {
@@ -668,8 +669,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <div id="main-layout-mobile-sidebar-wrapper" className="flex flex-col h-full">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">
-                  <BarChart3 className="h-6 w-6 text-primary" />
-                  <span className="text-xl font-bold">Dalgo</span>
+                  <Image
+                    src="/dalgo_logo.svg"
+                    alt="Dalgo"
+                    width={60}
+                    height={68}
+                    className="text-primary"
+                  />
                 </div>
               </div>
 
