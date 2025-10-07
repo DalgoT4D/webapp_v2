@@ -21,6 +21,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Table,
+  User,
+  Edit,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
@@ -35,6 +37,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -50,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 // AlertDialog imports removed - now using ChartDeleteDialog component
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError, toastPromise } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
@@ -370,7 +373,7 @@ export default function ChartsPage() {
         id={`chart-card-${chart.id}`}
         key={chart.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-md hover:bg-[#0066FF]/3 h-full relative group',
+          'transition-all duration-200 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-0.5 h-full relative group bg-white border-gray-200/60',
           isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
         )}
       >
@@ -395,7 +398,23 @@ export default function ChartsPage() {
           hasPermission('can_edit_charts') ||
           hasPermission('can_delete_charts') ||
           hasPermission('can_view_charts')) && (
-          <div className={cn('absolute top-2 right-2 z-10', isSelectionMode && 'hidden')}>
+          <div
+            className={cn('absolute top-2 right-2 z-10 flex gap-1', isSelectionMode && 'hidden')}
+          >
+            {/* Edit Button */}
+            {hasPermission('can_edit_charts') && (
+              <Link href={`/charts/${chart.id}/edit`}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                >
+                  <Edit className="w-4 h-4 text-gray-700" />
+                </Button>
+              </Link>
+            )}
+
+            {/* More Actions Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -474,40 +493,31 @@ export default function ChartsPage() {
                 : undefined
             }
           >
-            {/* Thumbnail */}
-            <div className="relative h-32 bg-muted overflow-hidden">
-              <div className="flex items-center justify-center h-full">
+            {/* Modern Chart Preview Area */}
+            <div className="relative h-40 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden group-hover:from-gray-100 group-hover:to-gray-150 transition-colors duration-200">
+              {/* Large Chart Icon */}
+              <div className="flex items-center justify-center h-full p-6">
                 <div
-                  className="rounded-lg flex items-center justify-center w-16 h-16"
+                  className="rounded-xl flex items-center justify-center w-28 h-28 shadow-sm border border-white/50"
                   style={{ backgroundColor: typeColors.bgColor }}
                 >
-                  <IconComponent className="w-8 h-8" style={{ color: typeColors.color }} />
+                  <IconComponent className="w-18 h-18" style={{ color: typeColors.color }} />
                 </div>
               </div>
             </div>
 
-            <CardHeader className="pb-2 p-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 flex-1">
-                  <CardTitle className="text-sm line-clamp-1">{chart.title}</CardTitle>
+            {/* Content Area */}
+            <div className="p-4 space-y-2">
+              {/* Title */}
+              <div className="space-y-1">
+                <CardTitle className="text-sm font-medium line-clamp-2 leading-tight">
+                  {chart.title}
+                </CardTitle>
+                <div className="text-xs text-gray-500">
+                  Modified {formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })}
                 </div>
               </div>
-            </CardHeader>
-
-            <CardContent className="pt-0 p-3">
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center justify-between">
-                  <span>Source:</span>
-                  <span className="font-mono text-sm truncate">
-                    {chart.schema_name}.{chart.table_name}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Updated:</span>
-                  <span>{format(new Date(chart.updated_at), 'MMM d, yyyy')}</span>
-                </div>
-              </div>
-            </CardContent>
+            </div>
           </div>
         </Link>
       </Card>
@@ -572,15 +582,11 @@ export default function ChartsPage() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="space-y-1">
                   <h3 className="font-medium truncate">{chart.title}</h3>
-                </div>
-
-                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span className="font-mono text-sm">
-                    {chart.schema_name}.{chart.table_name}
-                  </span>
-                  <span>{format(new Date(chart.updated_at), 'MMM d, yyyy')}</span>
+                  <div className="text-xs text-gray-500">
+                    Modified {formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })}
+                  </div>
                 </div>
               </div>
             </Link>
@@ -588,6 +594,20 @@ export default function ChartsPage() {
             {/* Action Menu */}
             {!isSelectionMode && (
               <div className="flex items-center gap-2 ml-4">
+                {/* Edit Button */}
+                {hasPermission('can_edit_charts') && (
+                  <Link href={`/charts/${chart.id}/edit`}>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    >
+                      <Edit className="w-4 h-4 text-gray-700" />
+                    </Button>
+                  </Link>
+                )}
+
+                {/* More Actions Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -689,7 +709,7 @@ export default function ChartsPage() {
                 id="charts-create-button"
                 variant="ghost"
                 className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#0066FF' }}
+                style={{ backgroundColor: '#06887b' }}
               >
                 <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
                 CREATE CHART
@@ -818,7 +838,8 @@ export default function ChartsPage() {
               variant="outline"
               size="icon"
               onClick={() => setViewMode('grid')}
-              className="h-8 w-8 p-0 bg-transparent rounded-r-none border-r-0"
+              className={cn('h-8 w-8 p-0 bg-transparent', viewMode === 'grid' ? 'text-white' : '')}
+              style={viewMode === 'grid' ? { backgroundColor: '#06887b' } : {}}
             >
               <Grid id="charts-grid-icon" className="w-4 h-4" />
             </Button>
@@ -827,11 +848,8 @@ export default function ChartsPage() {
               variant="outline"
               size="icon"
               onClick={() => setViewMode('list')}
-              className={cn(
-                'h-8 w-8 p-0 bg-transparent rounded-l-none',
-                viewMode === 'list' ? 'text-white' : ''
-              )}
-              style={viewMode === 'list' ? { backgroundColor: '#0066FF' } : {}}
+              className={cn('h-8 w-8 p-0 bg-transparent', viewMode === 'list' ? 'text-white' : '')}
+              style={viewMode === 'list' ? { backgroundColor: '#06887b' } : {}}
             >
               <List id="charts-list-icon" className="w-4 h-4" />
             </Button>
@@ -906,19 +924,25 @@ export default function ChartsPage() {
         </div>
       </div>
 
-      {/* Fixed Pagination Footer */}
+      {/* Lightweight Modern Pagination */}
       {totalPages > 1 && (
-        <div id="charts-pagination-footer" className="flex-shrink-0 border-t bg-background p-6">
+        <div
+          id="charts-pagination-footer"
+          className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+        >
           <div id="charts-pagination-wrapper" className="flex items-center justify-between">
-            <div id="charts-pagination-info" className="text-sm text-muted-foreground">
-              Showing {(currentPage - 1) * pageSize + 1} to{' '}
-              {Math.min(currentPage * pageSize, total)} of {total} charts
+            {/* Left: Compact Item Count */}
+            <div id="charts-pagination-info" className="text-sm text-gray-600">
+              {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, total)} of{' '}
+              {total}
             </div>
 
-            <div id="charts-pagination-controls" className="flex items-center gap-2">
+            {/* Right: Streamlined Controls */}
+            <div id="charts-pagination-controls" className="flex items-center gap-4">
+              {/* Compact Page Size Selector */}
               <div id="charts-page-size-wrapper" className="flex items-center gap-2">
-                <span id="charts-page-size-label" className="text-sm text-muted-foreground">
-                  Rows per page:
+                <span id="charts-page-size-label" className="text-sm text-gray-500">
+                  Show
                 </span>
                 <Select
                   id="charts-page-size-select"
@@ -930,7 +954,7 @@ export default function ChartsPage() {
                 >
                   <SelectTrigger
                     id="charts-page-size-trigger"
-                    className="w-20 h-8 focus:border-[#0066FF] focus:ring-[#0066FF]"
+                    className="w-16 h-7 text-sm border-gray-200 bg-white"
                   >
                     <SelectValue id="charts-page-size-value" />
                   </SelectTrigger>
@@ -951,55 +975,32 @@ export default function ChartsPage() {
                 </Select>
               </div>
 
-              <div id="charts-pagination-nav-left" className="flex items-center gap-1">
-                <Button
-                  id="charts-first-page-button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  First
-                </Button>
+              {/* Simplified Navigation */}
+              <div className="flex items-center gap-1">
                 <Button
                   id="charts-prev-page-button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
+                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
                 >
                   <ChevronLeft id="charts-prev-icon" className="h-4 w-4" />
-                  Previous
                 </Button>
-              </div>
 
-              <div id="charts-pagination-info-center" className="flex items-center gap-1">
-                <span id="charts-page-info" className="text-sm">
-                  Page {currentPage} of {totalPages}
+                <span id="charts-page-info" className="text-sm text-gray-600 px-3 py-1">
+                  {currentPage} of {totalPages}
                 </span>
-              </div>
 
-              <div id="charts-pagination-nav-right" className="flex items-center gap-1">
                 <Button
                   id="charts-next-page-button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage >= totalPages}
-                  className="hover:bg-[#0066FF]/3 hover:text-[#002B5C] hover:border-[#0066FF] bg-transparent"
+                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
                 >
-                  NEXT
                   <ChevronRight id="charts-next-icon" className="h-4 w-4" />
-                </Button>
-                <Button
-                  id="charts-last-page-button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage >= totalPages}
-                  className="hover:bg-[#0066FF]/3 hover:text-[#002B5C] hover:border-[#0066FF] bg-transparent"
-                >
-                  LAST
                 </Button>
               </div>
             </div>

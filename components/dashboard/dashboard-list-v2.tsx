@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Search,
   Grid,
@@ -61,7 +62,7 @@ import {
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { DashboardThumbnail } from './dashboard-thumbnail';
 import { ShareModal } from './ShareModal';
@@ -173,14 +174,30 @@ export function DashboardListV2() {
 
   // If API doesn't support pagination, implement client-side pagination
   const dashboards = allDashboards || [];
+
+  // Separate pinned dashboards (org default and personal landing page)
+  const pinnedDashboards = dashboards.filter((dashboard) => {
+    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
+    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
+    return isPersonalLanding || isOrgDefault;
+  });
+
+  // Regular dashboards excluding pinned ones
+  const regularDashboards = dashboards.filter((dashboard) => {
+    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
+    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
+    return !(isPersonalLanding || isOrgDefault);
+  });
+
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedDashboards =
-    apiTotalPages > 1 ? dashboards : dashboards.slice(startIndex, endIndex);
+  const paginatedRegularDashboards =
+    apiTotalPages > 1 ? regularDashboards : regularDashboards.slice(startIndex, endIndex);
 
-  // Calculate pagination values (use API values if available, otherwise client-side)
-  const total = apiTotal || dashboards.length;
-  const totalPages = apiTotalPages > 1 ? apiTotalPages : Math.ceil(dashboards.length / pageSize);
+  // Calculate pagination values (use API values if available, otherwise client-side for regular dashboards only)
+  const total = apiTotal || regularDashboards.length;
+  const totalPages =
+    apiTotalPages > 1 ? apiTotalPages : Math.ceil(regularDashboards.length / pageSize);
 
   // Handle dashboard deletion
   const handleDeleteDashboard = useCallback(
@@ -303,169 +320,183 @@ export function DashboardListV2() {
         id={`dashboard-card-${dashboard.id}`}
         key={dashboard.id}
         className={cn(
-          'transition-all duration-200 hover:shadow-md hover:bg-[#0066FF]/3 h-full relative group'
+          'transition-all duration-300 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-1 h-full relative group',
+          'bg-white border border-gray-200 rounded-lg overflow-hidden'
           // COMMENTED OUT: Draft opacity styling - not applicable for dashboards
           // !dashboard.is_published && 'opacity-75'
         )}
       >
-        {/* Action Buttons - Share and Edit prominently displayed */}
-        <div className="absolute top-2 right-2 z-10 flex gap-2">
-          {hasPermission('can_share_dashboards') && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-              onClick={(e) => {
-                e.preventDefault();
-                handleShareDashboard(dashboard);
-              }}
-            >
-              <Share2 className="w-3 h-3 mr-1" />
-              Share
-            </Button>
-          )}
-          {hasPermission('can_edit_dashboards') && (
-            <Link href={`/dashboards/${dashboard.id}/edit`}>
+        {/* Modern Card Header with Integrated Actions */}
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/20 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 [.force-hover_&]:opacity-100">
+          <div className="flex justify-end gap-2">
+            {/* Profile Icon */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <User className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
+                  <p className="text-sm">
+                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Share Button */}
+            {hasPermission('can_share_dashboards') && (
               <Button
                 variant="outline"
-                size="sm"
-                className="h-8 px-3 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                size="icon"
+                className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleShareDashboard(dashboard);
+                }}
               >
-                <Edit className="w-3 h-3 mr-1" />
-                Edit
+                <Share2 className="w-3 h-3" />
               </Button>
-            </Link>
-          )}
+            )}
 
-          {/* More actions menu for remaining actions */}
-          {(hasPermission('can_create_dashboards') ||
-            hasPermission('can_delete_dashboards') ||
-            hasPermission('can_view_dashboards')) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            {/* Edit Button */}
+            {hasPermission('can_edit_dashboards') && (
+              <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
+                  className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
                 >
-                  <MoreVertical className="w-3 h-3 text-gray-700" />
+                  <Edit className="w-3 h-3" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {hasPermission('can_create_dashboards') && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDuplicateDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
+              </Link>
+            )}
+
+            {/* More Actions Menu */}
+            {(hasPermission('can_create_dashboards') ||
+              hasPermission('can_delete_dashboards') ||
+              hasPermission('can_view_dashboards')) && (
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  // Prevent the card hover state from being lost when dropdown opens
+                  if (open) {
+                    const cardElement = document.getElementById(`dashboard-card-${dashboard.id}`);
+                    if (cardElement) {
+                      cardElement.classList.add('force-hover');
                     }
-                    className="cursor-pointer"
-                    disabled={isDuplicating === dashboard.id}
-                  >
-                    {isDuplicating === dashboard.id ? (
-                      <>
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                        Duplicating...
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Duplicate
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                )}
-                {/* COMMENTED OUT: Download functionality - not needed */}
-                {/* {hasPermission('can_view_dashboards') && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDownloadDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
+                  } else {
+                    const cardElement = document.getElementById(`dashboard-card-${dashboard.id}`);
+                    if (cardElement) {
+                      cardElement.classList.remove('force-hover');
                     }
-                    className="cursor-pointer"
+                  }
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white shadow-sm"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </DropdownMenuItem>
-                )} */}
-                {hasPermission('can_delete_dashboards') && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "
-                            {dashboard.title || dashboard.dashboard_title}"? This action cannot be
-                            undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() =>
-                              handleDeleteDashboard(
-                                dashboard.id,
-                                dashboard.title || dashboard.dashboard_title
-                              )
-                            }
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    <MoreVertical className="w-3 h-3 text-gray-700" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {hasPermission('can_create_dashboards') && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        handleDuplicateDashboard(
+                          dashboard.id,
+                          dashboard.title || dashboard.dashboard_title
+                        )
+                      }
+                      className="cursor-pointer"
+                      disabled={isDuplicating === dashboard.id}
+                    >
+                      {isDuplicating === dashboard.id ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                          Duplicating...
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicate
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  {hasPermission('can_delete_dashboards') && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onSelect={(e) => e.preventDefault()}
                           >
-                            {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "
+                              {dashboard.title || dashboard.dashboard_title}"? This action cannot be
+                              undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() =>
+                                handleDeleteDashboard(
+                                  dashboard.id,
+                                  dashboard.title || dashboard.dashboard_title
+                                )
+                              }
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
 
         {/* Clickable content area */}
         <Link href={getNavigationUrl()}>
-          <div
-            className={hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'}
-          >
-            {/* Thumbnail */}
-            <div className="relative h-48 bg-muted overflow-hidden">
-              {/* COMMENTED OUT: Type-based thumbnail rendering - show generic layout icon for all */}
-              {/* {isNative ? ( */}
-              <div className="flex items-center justify-center h-full">
-                <LayoutDashboard className="w-16 h-16 text-muted-foreground" />
-              </div>
-              {/* ) : (
-                <DashboardThumbnail
-                  dashboardId={dashboard.id}
-                  thumbnailUrl={dashboard.thumbnail_url}
-                  alt={dashboard.title}
-                />
-              )} */}
-
-              {/* COMMENTED OUT: Type badge - not needed anymore */}
-              {/* <Badge variant={isNative ? 'default' : 'secondary'} className="absolute top-2 left-2">
-                {isNative ? 'Native' : 'Superset'}
-              </Badge> */}
+          <div className="cursor-pointer">
+            {/* Enhanced Thumbnail with Real Dashboard Preview */}
+            <div className="relative h-52 bg-gray-50 overflow-hidden rounded-t-lg">
+              <DashboardThumbnail
+                dashboardId={dashboard.id}
+                thumbnailUrl={dashboard.thumbnail_url}
+                alt={dashboard.title || dashboard.dashboard_title || 'Dashboard'}
+                className="w-full h-full object-cover"
+                fallbackClassName="bg-gradient-to-br from-gray-50 to-gray-100"
+                fallbackIconSize="lg"
+              />
 
               {/* Lock indicator */}
               {isLocked && (
                 <div
                   className={cn(
-                    'absolute bottom-2 left-2 text-white p-1 rounded text-xs flex items-center gap-1',
+                    'absolute bottom-2 right-2 text-white p-1 rounded text-xs flex items-center gap-1',
                     isLockedByOther ? 'bg-red-500' : 'bg-blue-500'
                   )}
                 >
@@ -475,83 +506,67 @@ export function DashboardListV2() {
               )}
             </div>
 
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 flex-1">
-                  <CardTitle className="text-base line-clamp-1">
-                    {dashboard.title || dashboard.dashboard_title}
-                  </CardTitle>
-                </div>
+            {/* Enhanced Card Content with Better Hierarchy */}
+            <div className="p-4">
+              {/* Left-aligned Title and Metadata Stack */}
+              <div className="space-y-2">
+                {/* Title */}
+                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 leading-tight text-left">
+                  {dashboard.title || dashboard.dashboard_title}
+                </h3>
 
-                {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
-                {/* {!isNative && (
-                  <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-                )} */}
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="flex items-center gap-1" title="Dashboard Creator">
-                  <User className="w-3 h-3" />
+                {/* Modified Time - Left aligned below title */}
+                <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                  <Clock className="w-4 h-4 text-gray-400" />
                   <span>
-                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1" title="Last Updated">
-                  <Clock className="w-3 h-3" />
-                  <span>
-                    Updated{' '}
+                    Modified{' '}
                     {dashboard.updated_at
-                      ? format(new Date(dashboard.updated_at), 'MMM d')
-                      : 'Unknown'}
+                      ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
+                      : 'unknown time ago'}
                   </span>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
-                {/* {dashboard.is_published ? (
-                  <Badge variant="outline" className="text-xs">
-                    Published
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="text-xs">
-                    Draft
-                  </Badge>
-                )} */}
+              {/* Status Badges with Better Visual Design */}
+              {(isPersonalLanding || isOrgDefault || isLocked) && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {isPersonalLanding && (
+                    <Badge
+                      variant="default"
+                      className="text-xs bg-blue-500 text-white border-blue-600 font-medium px-2 py-1"
+                    >
+                      <Star className="w-3 h-3 mr-1 fill-current" />
+                      My Landing Page
+                    </Badge>
+                  )}
 
-                {/* Landing page badges with enhanced visual separation */}
-                {isPersonalLanding && (
-                  <Badge
-                    variant="default"
-                    className="text-xs bg-blue-500 text-white border-blue-600 font-semibold"
-                  >
-                    <Star className="w-3 h-3 mr-1 fill-current" />
-                    My Landing Page
-                  </Badge>
-                )}
+                  {isOrgDefault && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-medium px-2 py-1"
+                    >
+                      <Settings className="w-3 h-3 mr-1" />
+                      Organization Default
+                    </Badge>
+                  )}
 
-                {isOrgDefault && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold"
-                  >
-                    <Settings className="w-3 h-3 mr-1" />
-                    Organization Default
-                  </Badge>
-                )}
-              </div>
-
-              {isLocked && dashboard.locked_by && (
-                <p
-                  className={cn('text-xs mt-2', isLockedByOther ? 'text-red-600' : 'text-blue-600')}
-                >
-                  {isLockedByOther ? `Locked by ${dashboard.locked_by}` : 'Locked by you'}
-                </p>
+                  {isLocked && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-xs font-medium px-2 py-1',
+                        isLockedByOther
+                          ? 'bg-red-50 text-red-700 border-red-300'
+                          : 'bg-blue-50 text-blue-700 border-blue-300'
+                      )}
+                    >
+                      <Lock className="w-3 h-3 mr-1" />
+                      {isLockedByOther ? 'Locked' : 'By you'}
+                    </Badge>
+                  )}
+                </div>
               )}
-            </CardContent>
+            </div>
           </div>
         </Link>
       </Card>
@@ -588,13 +603,15 @@ export function DashboardListV2() {
                 hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'
               )}
             >
-              <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                {/* COMMENTED OUT: Type-based icons - show generic layout icon for all */}
-                {/* {isNative ? ( */}
-                <LayoutDashboard className="w-8 h-8 text-muted-foreground" />
-                {/* ) : (
-                  <BarChart3 className="w-8 h-8 text-muted-foreground" />
-                )} */}
+              <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
+                <DashboardThumbnail
+                  dashboardId={dashboard.id}
+                  thumbnailUrl={dashboard.thumbnail_url}
+                  alt={dashboard.title || dashboard.dashboard_title || 'Dashboard'}
+                  className="w-full h-full object-cover"
+                  fallbackClassName="bg-gradient-to-br from-gray-100 to-gray-200"
+                  fallbackIconSize="sm"
+                />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -636,16 +653,26 @@ export function DashboardListV2() {
                 </div>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1" title="Dashboard Creator">
-                    <User className="w-3 h-3" />
-                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center">
+                          <User className="w-3 h-3 text-gray-600" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
+                        <p className="text-sm">
+                          {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <span className="flex items-center gap-1" title="Last Updated">
                     <Clock className="w-3 h-3" />
-                    Updated{' '}
+                    Modified{' '}
                     {dashboard.updated_at
-                      ? format(new Date(dashboard.updated_at), 'MMM d, yyyy')
-                      : 'Unknown'}
+                      ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
+                      : 'unknown time ago'}
                   </span>
                   {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
                   {/* {dashboard.is_published ? (
@@ -666,28 +693,26 @@ export function DashboardListV2() {
               )} */}
             </Link>
 
-            {/* Action Buttons - Share and Edit prominently displayed */}
+            {/* Action Buttons - Share and Edit as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
               {hasPermission('can_share_dashboards') && (
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  size="icon"
+                  className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   onClick={() => handleShareDashboard(dashboard)}
                 >
-                  <Share2 className="w-3 h-3 mr-1" />
-                  Share
+                  <Share2 className="w-4 h-4 text-gray-700" />
                 </Button>
               )}
               {hasPermission('can_edit_dashboards') && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
                     variant="outline"
-                    size="sm"
-                    className="h-8 px-3 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    size="icon"
+                    className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   >
-                    <Edit className="w-3 h-3 mr-1" />
-                    Edit
+                    <Edit className="w-4 h-4 text-gray-700" />
                   </Button>
                 </Link>
               )}
@@ -877,7 +902,7 @@ export function DashboardListV2() {
                 id="dashboard-create-button"
                 variant="ghost"
                 className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#0066FF' }}
+                style={{ backgroundColor: '#06887b' }}
               >
                 <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
                 CREATE DASHBOARD
@@ -958,7 +983,8 @@ export function DashboardListV2() {
               variant="outline"
               size="icon"
               onClick={() => setViewMode('grid')}
-              className="h-8 w-8 p-0 bg-transparent rounded-r-none border-r-0"
+              className={cn('h-8 w-8 p-0 bg-transparent', viewMode === 'grid' ? 'text-white' : '')}
+              style={viewMode === 'grid' ? { backgroundColor: '#06887b' } : {}}
             >
               <Grid id="dashboard-grid-icon" className="w-4 h-4" />
             </Button>
@@ -967,11 +993,8 @@ export function DashboardListV2() {
               variant="outline"
               size="icon"
               onClick={() => setViewMode('list')}
-              className={cn(
-                'h-8 w-8 p-0 bg-transparent rounded-l-none',
-                viewMode === 'list' ? 'text-white' : ''
-              )}
-              style={viewMode === 'list' ? { backgroundColor: '#0066FF' } : {}}
+              className={cn('h-8 w-8 p-0 bg-transparent', viewMode === 'list' ? 'text-white' : '')}
+              style={viewMode === 'list' ? { backgroundColor: '#06887b' } : {}}
             >
               <List id="dashboard-list-icon" className="w-4 h-4" />
             </Button>
@@ -987,36 +1010,82 @@ export function DashboardListV2() {
               className={cn(
                 'py-6',
                 viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
                   : 'space-y-2'
               )}
             >
               {[...Array(8)].map((_, i) => (
-                <Card key={i}>
-                  <div className="h-48 bg-muted animate-pulse" />
-                  <CardHeader>
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-3 w-full mt-2" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-3 w-1/2" />
-                  </CardContent>
+                <Card key={i} className="h-full overflow-hidden">
+                  <div className="h-52 bg-gray-100 animate-pulse rounded-t-lg" />
+                  <div className="p-4">
+                    <div className="mb-3">
+                      <Skeleton className="h-6 w-3/4 mb-1" />
+                      <Skeleton className="h-6 w-1/2" />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Skeleton className="h-6 w-16" />
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                    </div>
+                  </div>
                 </Card>
               ))}
             </div>
-          ) : paginatedDashboards && paginatedDashboards.length > 0 ? (
-            <div
-              className={cn(
-                'py-6',
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                  : 'space-y-2'
+          ) : pinnedDashboards.length > 0 || paginatedRegularDashboards.length > 0 ? (
+            <div className="py-6 space-y-8">
+              {/* Pinned Dashboards Section */}
+              {pinnedDashboards.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Star className="w-4 h-4 text-blue-500 fill-current" />
+                    <h2 className="text-lg font-semibold text-gray-900">Pinned Dashboards</h2>
+                    <div className="h-px bg-gray-200 flex-1"></div>
+                  </div>
+                  <div
+                    className={cn(
+                      viewMode === 'grid'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                        : 'space-y-2'
+                    )}
+                  >
+                    {pinnedDashboards.map((dashboard) =>
+                      viewMode === 'grid'
+                        ? renderDashboardCard(dashboard)
+                        : renderDashboardList(dashboard)
+                    )}
+                  </div>
+                </div>
               )}
-            >
-              {paginatedDashboards.map((dashboard) =>
-                viewMode === 'grid'
-                  ? renderDashboardCard(dashboard)
-                  : renderDashboardList(dashboard)
+
+              {/* Regular Dashboards Section */}
+              {paginatedRegularDashboards.length > 0 && (
+                <div>
+                  {pinnedDashboards.length > 0 && (
+                    <div className="flex items-center gap-2 mb-4">
+                      <LayoutDashboard className="w-4 h-4 text-gray-500" />
+                      <h2 className="text-lg font-semibold text-gray-900">All Dashboards</h2>
+                      <div className="h-px bg-gray-200 flex-1"></div>
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      viewMode === 'grid'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                        : 'space-y-2'
+                    )}
+                  >
+                    {paginatedRegularDashboards.map((dashboard) =>
+                      viewMode === 'grid'
+                        ? renderDashboardCard(dashboard)
+                        : renderDashboardList(dashboard)
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -1050,19 +1119,25 @@ export function DashboardListV2() {
         </div>
       </div>
 
-      {/* Fixed Pagination Footer */}
-      {dashboards.length > pageSize && (
-        <div id="dashboard-pagination-footer" className="flex-shrink-0 border-t bg-background p-6">
+      {/* Lightweight Modern Pagination */}
+      {regularDashboards.length > pageSize && (
+        <div
+          id="dashboard-pagination-footer"
+          className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+        >
           <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
-            <div id="dashboard-pagination-info" className="text-sm text-muted-foreground">
-              Showing {startIndex + 1} to {Math.min(startIndex + pageSize, dashboards.length)} of{' '}
-              {dashboards.length} dashboards
+            {/* Left: Compact Item Count */}
+            <div id="dashboard-pagination-info" className="text-sm text-gray-600">
+              {startIndex + 1}–{Math.min(startIndex + pageSize, regularDashboards.length)} of{' '}
+              {regularDashboards.length}
             </div>
 
-            <div id="dashboard-pagination-controls" className="flex items-center gap-2">
+            {/* Right: Streamlined Controls */}
+            <div id="dashboard-pagination-controls" className="flex items-center gap-4">
+              {/* Compact Page Size Selector */}
               <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
-                <span id="dashboard-page-size-label" className="text-sm text-muted-foreground">
-                  Rows per page:
+                <span id="dashboard-page-size-label" className="text-sm text-gray-500">
+                  Show
                 </span>
                 <Select
                   id="dashboard-page-size-select"
@@ -1072,7 +1147,10 @@ export function DashboardListV2() {
                     setCurrentPage(1); // Reset to first page when page size changes
                   }}
                 >
-                  <SelectTrigger id="dashboard-page-size-trigger" className="w-20 h-8">
+                  <SelectTrigger
+                    id="dashboard-page-size-trigger"
+                    className="w-16 h-7 text-sm border-gray-200 bg-white"
+                  >
                     <SelectValue id="dashboard-page-size-value" />
                   </SelectTrigger>
                   <SelectContent id="dashboard-page-size-content">
@@ -1092,53 +1170,32 @@ export function DashboardListV2() {
                 </Select>
               </div>
 
-              <div id="dashboard-pagination-nav-left" className="flex items-center gap-1">
-                <Button
-                  id="dashboard-first-page-button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  First
-                </Button>
+              {/* Simplified Navigation */}
+              <div className="flex items-center gap-1">
                 <Button
                   id="dashboard-prev-page-button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
+                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
                 >
                   <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
-                  Previous
                 </Button>
-              </div>
 
-              <div id="dashboard-pagination-info-center" className="flex items-center gap-1">
-                <span id="dashboard-page-info" className="text-sm">
-                  Page {currentPage} of {totalPages}
+                <span id="dashboard-page-info" className="text-sm text-gray-600 px-3 py-1">
+                  {currentPage} of {totalPages}
                 </span>
-              </div>
 
-              <div id="dashboard-pagination-nav-right" className="flex items-center gap-1">
                 <Button
                   id="dashboard-next-page-button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage >= totalPages}
+                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
                 >
-                  Next
                   <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
-                </Button>
-                <Button
-                  id="dashboard-last-page-button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage >= totalPages}
-                >
-                  Last
                 </Button>
               </div>
             </div>
@@ -1158,3 +1215,5 @@ export function DashboardListV2() {
     </div>
   );
 }
+
+export { DashboardListV2 };

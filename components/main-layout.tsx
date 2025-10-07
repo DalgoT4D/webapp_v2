@@ -609,10 +609,34 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <aside
             id="main-layout-sidebar"
             className={cn(
-              'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
+              'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0 relative',
               isSidebarCollapsed ? 'w-16' : 'w-64'
             )}
           >
+            {/* Lightweight Collapse Button - Top Edge */}
+            <div className="absolute top-6 -right-3 z-20">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsSidebarCollapsed(!isSidebarCollapsed);
+                  setHasUserToggledSidebar(true);
+                }}
+                className={cn(
+                  'h-6 w-6 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:shadow-md transition-all duration-200',
+                  'text-gray-400 hover:text-gray-600',
+                  'opacity-75 hover:opacity-100'
+                )}
+                title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isSidebarCollapsed ? (
+                  <ChevronRight className="h-3 w-3" />
+                ) : (
+                  <ChevronLeft className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
+
             {/* Sidebar Navigation */}
             <div id="main-layout-sidebar-nav" className="flex-1 overflow-y-auto p-4 space-y-2">
               {isSidebarCollapsed
@@ -622,31 +646,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   ))
                 : // Expanded: Show hierarchical structure
                   navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
-            </div>
-
-            {/* Sidebar Toggle Button */}
-            <div className="px-4 pb-2">
-              <div className="flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setIsSidebarCollapsed(!isSidebarCollapsed);
-                    setHasUserToggledSidebar(true);
-                  }}
-                  className={cn(
-                    'h-8 w-8 text-[#0066FF] bg-[#0066FF]/8 hover:bg-[#0066FF]/15 hover:text-[#002B5C] transition-colors',
-                    isSidebarCollapsed && 'mx-auto'
-                  )}
-                  title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                >
-                  {isSidebarCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronLeft className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
             </div>
 
             {/* Sidebar Footer */}
