@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAuthStore } from '@/stores/authStore';
 import { embeddedAppUrl } from '@/constants/constants';
 
 interface SharedIframeProps {
@@ -11,13 +12,11 @@ interface SharedIframeProps {
 
 export default function SharedIframe({ src, title, className }: SharedIframeProps) {
   const [iframeSrc, setIframeSrc] = useState<string>('');
+  const { currentOrg } = useAuthStore();
 
   useEffect(() => {
-    // Get the auth token and append it as a query parameter
+    // Get the auth token from localStorage
     const authToken = localStorage.getItem('authToken');
-    const selectedOrg = localStorage.getItem('selectedOrg');
-
-    console.log('SharedIframe: Setting up iframe with org:', selectedOrg);
 
     // Parse the original URL
     const url = new URL(src);
@@ -27,8 +26,9 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
       url.searchParams.set('embedToken', authToken);
     }
 
-    if (selectedOrg) {
-      url.searchParams.set('embedOrg', selectedOrg);
+    // Use the current org from the store instead of localStorage
+    if (currentOrg?.slug) {
+      url.searchParams.set('embedOrg', currentOrg.slug);
     }
 
     // Add a flag to indicate this is embedded
@@ -39,7 +39,7 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
     console.log('SharedIframe: Final URL:', finalUrl);
 
     setIframeSrc(finalUrl);
-  }, [src]);
+  }, [src, currentOrg?.slug]); // React to both src and currentOrg changes
 
   if (!iframeSrc) {
     return <div className="w-full h-screen flex items-center justify-center">Loading...</div>;
