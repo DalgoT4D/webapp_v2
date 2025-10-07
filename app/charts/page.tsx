@@ -479,7 +479,9 @@ export default function ChartsPage() {
         )}
 
         {/* Clickable content area */}
-        <Link href={isSelectionMode ? '#' : `/charts/${chart.id}`}>
+        <Link
+          href={isSelectionMode || !hasPermission('can_view_charts') ? '#' : `/charts/${chart.id}`}
+        >
           <div
             className={cn(!isSelectionMode && 'cursor-pointer')}
             onClick={
@@ -556,8 +558,13 @@ export default function ChartsPage() {
 
             {/* Clickable main content */}
             <Link
-              href={isSelectionMode ? '#' : `/charts/${chart.id}`}
-              className={cn('flex items-center gap-4 flex-1', !isSelectionMode && 'cursor-pointer')}
+              href={
+                isSelectionMode || !hasPermission('can_view_charts') ? '#' : `/charts/${chart.id}`
+              }
+              className={cn(
+                'flex items-center gap-4 flex-1',
+                !isSelectionMode && hasPermission('can_view_charts') && 'cursor-pointer'
+              )}
               onClick={
                 isSelectionMode
                   ? (e) => {

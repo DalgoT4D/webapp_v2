@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key } from 'lucide-react';
+import Image from 'next/image';
+import { LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
+import { apiGet } from '@/lib/api';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -42,7 +44,25 @@ export function Header({
     getCurrentOrgUser,
   } = useAuthStore();
 
-  const [isOrgMenuOpen, setIsOrgMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const data = await apiGet('/api/notifications/unread_count');
+        setUnreadCount(data?.res || 0);
+      } catch (error) {
+        console.error('Failed to fetch notification count:', error);
+      }
+    };
+
+    fetchUnreadCount();
+    // Refresh count every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Get current user email
   const currentOrgUser = getCurrentOrgUser();
@@ -67,7 +87,6 @@ export function Header({
 
     // Update the selected org in store and localStorage
     setSelectedOrg(orgSlug);
-    setIsOrgMenuOpen(false);
 
     try {
       // Show loader for minimum 2 seconds to give substantial feel
@@ -112,8 +131,13 @@ export function Header({
 
         {/* Dalgo Logo - Always visible */}
         <div className="flex items-center gap-3">
-          <BarChart3 className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold text-foreground">Dalgo</span>
+          <Image
+            src="/dalgo_logo.svg"
+            alt="Dalgo"
+            width={60}
+            height={68}
+            className="text-primary"
+          />
         </div>
 
         {/* Organization switching status */}
@@ -128,45 +152,26 @@ export function Header({
       </div>
 
       {/* Right side actions */}
-      <div className="flex items-center gap-3">
-        {/* Organization Selector */}
-        {currentOrg && availableOrgs.length > 1 && (
-          <DropdownMenu open={isOrgMenuOpen} onOpenChange={setIsOrgMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="gap-2 max-w-[200px] h-9"
-                disabled={isOrgSwitching}
-              >
-                <span className="truncate font-medium">{currentOrg.name}</span>
-                <ChevronDown className="h-4 w-4 flex-shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Switch Organization</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {availableOrgs
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((org) => (
-                  <DropdownMenuItem
-                    key={org.slug}
-                    onClick={() => handleOrgChange(org.slug)}
-                    className={currentOrg.slug === org.slug ? 'bg-muted font-medium' : ''}
-                    disabled={isOrgSwitching}
-                  >
-                    <span className="truncate">{org.name}</span>
-                    {currentOrg.slug === org.slug && (
-                      <span className="ml-auto text-xs text-primary">Current</span>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+      <div className="flex items-center gap-2">
+        {/* Notifications Bell */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9 rounded-full bg-muted hover:bg-accent hover:ring-2 hover:ring-primary/20 transition-all duration-200 mr-4"
+          onClick={() => {
+            router.push('/notifications');
+          }}
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+          )}
+          <span className="sr-only">Notifications</span>
+        </Button>
 
-        {/* Current organization name (when only one org) */}
-        {currentOrg && availableOrgs.length === 1 && (
-          <div className="px-3 py-1 bg-muted/50 rounded-lg">
+        {/* Current organization name */}
+        {currentOrg && (
+          <div className="flex items-center">
             <span className="text-sm font-medium text-foreground max-w-[150px] truncate">
               {currentOrg.name}
             </span>
@@ -202,6 +207,34 @@ export function Header({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+
+            {/* Organization switching */}
+            {availableOrgs.length > 1 && (
+              <>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Organizations
+                </DropdownMenuLabel>
+                {availableOrgs
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((org) => (
+                    <DropdownMenuItem
+                      key={org.slug}
+                      onClick={() => handleOrgChange(org.slug)}
+                      className={currentOrg?.slug === org.slug ? 'bg-muted' : ''}
+                      disabled={isOrgSwitching}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="truncate">{org.name}</span>
+                        {currentOrg?.slug === org.slug && (
+                          <span className="ml-2 text-xs text-primary">Current</span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
+
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => router.push('/change-password')}>
                 <Key className="mr-2 h-4 w-4" />

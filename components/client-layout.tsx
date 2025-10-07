@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { AuthGuard } from '@/components/auth-guard';
 import { MainLayout } from '@/components/main-layout';
+import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 
 // Define public routes that don't require authentication
@@ -42,6 +43,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   // Protected routes - require authentication and include main layout
   return (
     <div id="client-layout-protected-route">
+      <NavigationTitleHandler />
       <AuthGuard>
         <MainLayout>{children}</MainLayout>
         <Toaster richColors position="top-center" />

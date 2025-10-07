@@ -23,12 +23,15 @@ import {
   PieChart,
   ChevronLeft,
   ChevronRight,
+  Info,
+  CreditCard,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
+import Image from 'next/image';
 
 // Define types for navigation items
 interface NavItemType {
@@ -45,7 +48,6 @@ const PRODUCTION_HIDDEN_ITEMS = [
   'Metrics',
   'Reports',
   'Alerts',
-  'Settings',
 ];
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
@@ -85,10 +87,10 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 const getNavItems = (currentPath: string): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
-      title: 'Impact at a Glance',
-      href: '/impact-at-a-glance',
+      title: 'Impact',
+      href: '/impact',
       icon: Home,
-      isActive: currentPath === '/impact-at-a-glance',
+      isActive: currentPath === '/impact',
     },
     {
       title: 'Metrics',
@@ -106,7 +108,17 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
-      isActive: currentPath.startsWith('/dashboards'),
+      isActive:
+        currentPath === '/dashboards' ||
+        (currentPath.startsWith('/dashboards/') && !currentPath.startsWith('/dashboards/usage')),
+      children: [
+        {
+          title: 'Usage',
+          href: '/dashboards/usage',
+          icon: BarChart3,
+          isActive: currentPath === '/dashboards/usage',
+        },
+      ],
     },
     {
       title: 'Reports',
@@ -120,6 +132,12 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       icon: Database,
       isActive: false, // Never highlight the parent Data menu
       children: [
+        {
+          title: 'Overview',
+          href: '/pipeline',
+          icon: IngestIcon,
+          isActive: currentPath.startsWith('/pipeline'),
+        },
         {
           title: 'Ingest',
           href: '/ingest',
@@ -138,6 +156,18 @@ const getNavItems = (currentPath: string): NavItemType[] => {
           icon: OrchestrateIcon,
           isActive: currentPath.startsWith('/orchestrate'),
         },
+        {
+          title: 'Explore',
+          href: '/explore',
+          icon: IngestIcon,
+          isActive: currentPath.startsWith('/explore'),
+        },
+        {
+          title: 'Quality',
+          href: '/data-quality',
+          icon: IngestIcon,
+          isActive: currentPath.startsWith('/data-quality'),
+        },
       ],
     },
     {
@@ -148,9 +178,23 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     },
     {
       title: 'Settings',
-      href: '/settings',
+      href: '/settings/about',
       icon: Settings,
-      isActive: currentPath.startsWith('/settings'),
+      isActive: false, // Never highlight the parent Settings menu
+      children: [
+        {
+          title: 'About',
+          href: '/settings/about',
+          icon: Info,
+          isActive: currentPath === '/settings/about',
+        },
+        {
+          title: 'Billing',
+          href: '/settings/billing',
+          icon: CreditCard,
+          isActive: currentPath === '/settings/billing',
+        },
+      ],
     },
   ];
 
@@ -649,8 +693,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <div id="main-layout-mobile-sidebar-wrapper" className="flex flex-col h-full">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">
-                  <BarChart3 className="h-6 w-6 text-primary" />
-                  <span className="text-xl font-bold">Dalgo</span>
+                  <Image
+                    src="/dalgo_logo.svg"
+                    alt="Dalgo"
+                    width={60}
+                    height={68}
+                    className="text-primary"
+                  />
                 </div>
               </div>
 

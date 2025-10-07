@@ -935,3 +935,23 @@
 .dashboard-builder .react-grid-item.resizing .chart-container svg {
   transition: none !important;
 }
+
+/* Usage Dashboard Styles */
+.usage-dashboard #dashboard-container {
+  overflow: hidden;
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.usage-dashboard #dashboard-container iframe {
+  height: 125% !important;
+  width: 125% !important;
+  border: none !important;
+  display: block;
+  transform: scale(0.8);
+  transform-origin: 0 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+}

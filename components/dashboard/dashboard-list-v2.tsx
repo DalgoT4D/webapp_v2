@@ -312,7 +312,7 @@ export function DashboardListV2() {
 
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
-      return `/dashboards/${dashboard.id}`;
+      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -585,7 +585,7 @@ export function DashboardListV2() {
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
-      return `/dashboards/${dashboard.id}`;
+      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -598,7 +598,10 @@ export function DashboardListV2() {
             {/* Clickable main content */}
             <Link
               href={getNavigationUrl()}
-              className="flex items-center gap-4 flex-1 cursor-pointer"
+              className={cn(
+                'flex items-center gap-4 flex-1',
+                hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'
+              )}
             >
               <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
                 <DashboardThumbnail

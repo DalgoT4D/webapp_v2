@@ -640,6 +640,14 @@ export function ChartElementV2({
           ...(chartConfig.title || {}),
           show: false, // Disable ECharts built-in title
         },
+        grid: {
+          ...chartConfig.grid,
+          containLabel: true,
+          left: '10%',
+          right: '8%',
+          top: '12%',
+          bottom: '15%',
+        },
       };
 
       // Set chart option with animation disabled for better performance

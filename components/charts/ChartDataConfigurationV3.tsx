@@ -533,17 +533,43 @@ export function ChartDataConfigurationV3({
                 <SelectValue placeholder="Select Y axis column" />
               </SelectTrigger>
               <SelectContent>
-                {(formData.computation_type === 'raw' ||
-                formData.aggregate_function === 'count_distinct'
-                  ? allColumns
-                  : numericColumns
-                ).map((col) => (
-                  <SelectItem key={col.column_name} value={col.column_name}>
-                    <span className="truncate" title={col.column_name}>
-                      {col.column_name}
-                    </span>
-                  </SelectItem>
-                ))}
+                {allColumns.map((col) => {
+                  const isDisabled =
+                    formData.computation_type === 'aggregated' &&
+                    formData.aggregate_function !== 'count_distinct' &&
+                    ![
+                      'integer',
+                      'bigint',
+                      'numeric',
+                      'double precision',
+                      'real',
+                      'float',
+                      'decimal',
+                    ].includes(col.data_type.toLowerCase());
+
+                  return (
+                    <SelectItem
+                      key={col.column_name}
+                      value={col.column_name}
+                      disabled={isDisabled}
+                      className={isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      <span
+                        className={`truncate ${isDisabled ? 'text-gray-400' : ''}`}
+                        title={
+                          isDisabled
+                            ? `${col.column_name} (Not compatible with ${formData.aggregate_function})`
+                            : col.column_name
+                        }
+                      >
+                        {col.column_name}
+                        {isDisabled && (
+                          <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
