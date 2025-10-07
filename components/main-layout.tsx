@@ -266,12 +266,17 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
     if (item.title === 'Data') {
       return (
         <div className="space-y-1">
-          <div className="flex items-center">
+          <div
+            className={cn(
+              'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+              item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
+            )}
+          >
             <Link
               href={item.href}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group flex-1',
-                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C] font-medium'
               )}
               title={item.title}
             >
@@ -280,13 +285,17 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
             </Link>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+              className={cn(
+                'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C]'
+              )}
               title="Toggle submenu"
             >
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground',
-                  isExpanded && 'rotate-180'
+                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-[#002B5C]',
+                  isExpanded && 'rotate-180',
+                  item.isActive && 'text-[#002B5C]'
                 )}
               />
             </button>
@@ -314,28 +323,43 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
       );
     }
 
-    // Default behavior for other items with children
+    // Default behavior for other items with children (Dashboards and Settings)
     return (
       <div className="space-y-1">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
+        <div
           className={cn(
-            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-            item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+            'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+            item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
           )}
-          title={item.title}
         >
-          <div className="flex items-center gap-3">
+          <Link
+            href={item.href}
+            className={cn(
+              'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C] font-medium'
+            )}
+            title={item.title}
+          >
             <item.icon className="h-6 w-6 flex-shrink-0" />
             <span className="font-medium">{item.title}</span>
-          </div>
-          <ChevronDown
+          </Link>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
             className={cn(
-              'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-foreground',
-              isExpanded && 'rotate-180'
+              'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C]'
             )}
-          />
-        </button>
+            title="Toggle submenu"
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-[#002B5C]',
+                isExpanded && 'rotate-180',
+                item.isActive && 'text-[#002B5C]'
+              )}
+            />
+          </button>
+        </div>
 
         {isExpanded && (
           <div className="ml-8 space-y-1">
@@ -394,13 +418,18 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
     if (item.title === 'Data') {
       return (
         <div className="space-y-1">
-          <div className="flex items-center">
+          <div
+            className={cn(
+              'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+              item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
+            )}
+          >
             <Link
               href={item.href}
               onClick={onClose}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors flex-1',
-                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C] font-medium'
               )}
             >
               <item.icon className="h-6 w-6" />
@@ -408,10 +437,17 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
             </Link>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+              className={cn(
+                'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C]'
+              )}
             >
               <ChevronDown
-                className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')}
+                className={cn(
+                  'h-4 w-4 transition-transform text-muted-foreground group-hover:text-[#002B5C]',
+                  isExpanded && 'rotate-180',
+                  item.isActive && 'text-[#002B5C]'
+                )}
               />
             </button>
           </div>
@@ -437,22 +473,42 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
       );
     }
 
-    // Default behavior for other items with children
+    // Default behavior for other items with children (Dashboards and Settings)
     return (
       <div className="space-y-1">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
+        <div
           className={cn(
-            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-            item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+            'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+            item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
           )}
         >
-          <div className="flex items-center gap-3">
+          <Link
+            href={item.href}
+            onClick={onClose}
+            className={cn(
+              'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C] font-medium'
+            )}
+          >
             <item.icon className="h-6 w-6" />
             <span className="font-medium">{item.title}</span>
-          </div>
-          <ChevronDown className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')} />
-        </button>
+          </Link>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C]'
+            )}
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 transition-transform text-muted-foreground group-hover:text-[#002B5C]',
+                isExpanded && 'rotate-180',
+                item.isActive && 'text-[#002B5C]'
+              )}
+            />
+          </button>
+        </div>
         {isExpanded && (
           <div className="ml-8 space-y-1">
             {item.children?.map((child, index) => (
