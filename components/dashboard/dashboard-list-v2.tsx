@@ -1215,5 +1215,3 @@ export function DashboardListV2() {
     </div>
   );
 }
-
-export { DashboardListV2 };
