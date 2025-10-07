@@ -31,6 +31,7 @@ import TransformIcon from '@/assets/icons/transform';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import Image from 'next/image';
 
 // Define types for navigation items
@@ -40,6 +41,7 @@ interface NavItemType {
   icon: React.ComponentType<{ className?: string }>;
   isActive: boolean;
   children?: NavItemType[];
+  hide?: boolean; // Add hide property for feature flag control
 }
 
 // Menu items to hide in production environment
@@ -84,10 +86,16 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 };
 
 // Define the navigation items with their routes and icons
-const getNavItems = (currentPath: string, hasSupersetSetup: boolean = false): NavItemType[] => {
-  // Build dashboard children based on Superset setup availability
+const getNavItems = (
+  currentPath: string,
+  hasSupersetSetup: boolean = false,
+  isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean
+): NavItemType[] => {
+  // Build dashboard children based on feature flags AND Superset setup
   const dashboardChildren: NavItemType[] = [];
-  if (hasSupersetSetup) {
+
+  // Add Usage Dashboard if BOTH feature flag is enabled AND org has Superset setup
+  if (isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup) {
     dashboardChildren.push({
       title: 'Usage',
       href: '/dashboards/usage',
@@ -171,6 +179,7 @@ const getNavItems = (currentPath: string, hasSupersetSetup: boolean = false): Na
           href: '/data-quality',
           icon: IngestIcon,
           isActive: currentPath.startsWith('/data-quality'),
+          hide: !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY),
         },
       ],
     },
@@ -211,14 +220,20 @@ const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
   const flattened: NavItemType[] = [];
 
   items.forEach((item) => {
+    // Skip hidden items
+    if (item.hide) return;
+
     if (item.children && item.title === 'Data') {
-      // For Data parent, only include children (Ingest, Transform, Orchestrate) in collapsed mode
-      flattened.push(...item.children);
+      // For Data parent, only include non-hidden children in collapsed mode
+      const visibleChildren = item.children.filter((child) => !child.hide);
+      flattened.push(...visibleChildren);
     } else {
       // For other items, include the parent as usual
       flattened.push(item);
       if (item.children) {
-        flattened.push(...item.children);
+        // Only include non-hidden children
+        const visibleChildren = item.children.filter((child) => !child.hide);
+        flattened.push(...visibleChildren);
       }
     }
   });
@@ -253,17 +268,19 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
 // Expanded navigation item component
 function ExpandedNavItem({ item }: { item: NavItemType }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const hasChildren = item.children && item.children.length > 0;
+  // Filter out hidden children
+  const visibleChildren = item.children?.filter((child) => !child.hide) || [];
+  const hasChildren = visibleChildren.length > 0;
 
   // Auto-expand if any child is active, or for Data tab when on data-related pages
   useEffect(() => {
-    if (hasChildren && item.children?.some((child) => child.isActive)) {
+    if (hasChildren && visibleChildren.some((child) => child.isActive)) {
       setIsExpanded(true);
-    } else if (item.title === 'Data' && item.children?.some((child) => child.isActive)) {
+    } else if (item.title === 'Data' && visibleChildren.some((child) => child.isActive)) {
       // Always expand Data submenu when any data-related child is active
       setIsExpanded(true);
     }
-  }, [item.children, hasChildren, item.title]);
+  }, [visibleChildren, hasChildren, item.title]);
 
   if (hasChildren) {
     // Special handling for Data tab - make it clickable and show submenu
@@ -307,7 +324,7 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
 
           {isExpanded && (
             <div className="ml-8 space-y-1">
-              {item.children?.map((child, index) => (
+              {visibleChildren.map((child, index) => (
                 <Link
                   key={index}
                   href={child.href}
@@ -367,7 +384,7 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
 
         {isExpanded && (
           <div className="ml-8 space-y-1">
-            {item.children?.map((child, index) => (
+            {visibleChildren.map((child, index) => (
               <Link
                 key={index}
                 href={child.href}
@@ -405,17 +422,19 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
 // Mobile navigation item component
 function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const hasChildren = item.children && item.children.length > 0;
+  // Filter out hidden children
+  const visibleChildren = item.children?.filter((child) => !child.hide) || [];
+  const hasChildren = visibleChildren.length > 0;
 
   // Auto-expand if any child is active, or for Data tab when on data-related pages
   useEffect(() => {
-    if (hasChildren && item.children?.some((child) => child.isActive)) {
+    if (hasChildren && visibleChildren.some((child) => child.isActive)) {
       setIsExpanded(true);
     } else if (item.title === 'Data' && item.isActive) {
       // Always expand Data submenu when on data-related pages
       setIsExpanded(true);
     }
-  }, [item.children, hasChildren, item.title, item.isActive]);
+  }, [visibleChildren, hasChildren, item.title, item.isActive]);
 
   if (hasChildren) {
     // Special handling for Data tab in mobile view
@@ -457,7 +476,7 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
           </div>
           {isExpanded && (
             <div className="ml-8 space-y-1">
-              {item.children?.map((child, index) => (
+              {visibleChildren.map((child, index) => (
                 <Link
                   key={index}
                   href={child.href}
@@ -515,7 +534,7 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
         </div>
         {isExpanded && (
           <div className="ml-8 space-y-1">
-            {item.children?.map((child, index) => (
+            {visibleChildren.map((child, index) => (
               <Link
                 key={index}
                 href={child.href}
@@ -557,8 +576,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
+  const { isFeatureFlagEnabled } = useFeatureFlags();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup);
+  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled);
   const flattenedNavItems = getFlattenedNavItems(navItems);
 
   // Auto-collapse sidebar on specific dashboard/chart pages
@@ -641,11 +661,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <div id="main-layout-sidebar-nav" className="flex-1 overflow-y-auto p-4 space-y-2">
               {isSidebarCollapsed
                 ? // Collapsed: Show all items (including nested) as individual icons with tooltips
-                  flattenedNavItems.map((item, index) => (
-                    <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
-                  ))
+                  flattenedNavItems
+                    .filter((item) => !item.hide)
+                    .map((item, index) => (
+                      <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
+                    ))
                 : // Expanded: Show hierarchical structure
-                  navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
+                  navItems
+                    .filter((item) => !item.hide)
+                    .map((item, index) => <ExpandedNavItem key={index} item={item} />)}
             </div>
 
             {/* Sidebar Footer */}
@@ -766,13 +790,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               </div>
 
               <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {navItems.map((item, index) => (
-                  <MobileNavItem
-                    key={index}
-                    item={item}
-                    onClose={() => setIsMobileMenuOpen(false)}
-                  />
-                ))}
+                {navItems
+                  .filter((item) => !item.hide)
+                  .map((item, index) => (
+                    <MobileNavItem
+                      key={index}
+                      item={item}
+                      onClose={() => setIsMobileMenuOpen(false)}
+                    />
+                  ))}
               </div>
 
               <div className="p-4 border-t space-y-2">
