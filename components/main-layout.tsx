@@ -84,7 +84,18 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 };
 
 // Define the navigation items with their routes and icons
-const getNavItems = (currentPath: string): NavItemType[] => {
+const getNavItems = (currentPath: string, hasSupersetSetup: boolean = false): NavItemType[] => {
+  // Build dashboard children based on Superset setup availability
+  const dashboardChildren: NavItemType[] = [];
+  if (hasSupersetSetup) {
+    dashboardChildren.push({
+      title: 'Usage',
+      href: '/dashboards/usage',
+      icon: BarChart3,
+      isActive: currentPath === '/dashboards/usage',
+    });
+  }
+
   const allNavItems: NavItemType[] = [
     {
       title: 'Impact',
@@ -111,14 +122,7 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       isActive:
         currentPath === '/dashboards' ||
         (currentPath.startsWith('/dashboards/') && !currentPath.startsWith('/dashboards/usage')),
-      children: [
-        {
-          title: 'Usage',
-          href: '/dashboards/usage',
-          icon: BarChart3,
-          isActive: currentPath === '/dashboards/usage',
-        },
-      ],
+      children: dashboardChildren.length > 0 ? dashboardChildren : undefined,
     },
     {
       title: 'Reports',
@@ -552,7 +556,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
   const responsive = useResponsiveLayout();
-  const navItems = getNavItems(pathname);
+  const { currentOrg } = useAuthStore();
+  const hasSupersetSetup = Boolean(currentOrg?.viz_url);
+  const navItems = getNavItems(pathname, hasSupersetSetup);
   const flattenedNavItems = getFlattenedNavItems(navItems);
 
   // Auto-collapse sidebar on specific dashboard/chart pages
