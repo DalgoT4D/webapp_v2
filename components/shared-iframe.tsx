@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { embeddedAppUrl } from '@/constants/constants';
+import { useIframeCommunication } from '@/hooks/useIframeComm';
 
 interface SharedIframeProps {
   src: string;
@@ -11,45 +11,92 @@ interface SharedIframeProps {
 }
 
 export default function SharedIframe({ src, title, className }: SharedIframeProps) {
-  const [iframeSrc, setIframeSrc] = useState<string>('');
-  const { currentOrg } = useAuthStore();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isIframeReady, setIsIframeReady] = useState(false);
+  const { token, selectedOrgSlug } = useAuthStore();
 
-  useEffect(() => {
-    // Get the auth token from localStorage
-    const authToken = localStorage.getItem('authToken');
+  // Parse origin from src URL
+  const targetOrigin = useMemo(() => {
+    try {
+      const url = new URL(src);
+      return url.origin;
+    } catch {
+      return '*';
+    }
+  }, [src]);
 
-    // Parse the original URL
+  const { sendAuthUpdate, sendOrgSwitch, sendLogout } = useIframeCommunication({
+    iframeRef,
+    targetOrigin,
+  });
+
+  // Clean URL - remove all embed-related query params
+  const cleanUrl = useMemo(() => {
     const url = new URL(src);
+    // Remove all legacy embed query params
+    url.searchParams.delete('embedToken');
+    url.searchParams.delete('embedOrg');
+    url.searchParams.delete('embedApp');
+    url.searchParams.delete('embedHideHeader');
+    return url.toString();
+  }, [src]);
 
-    // Add auth token as query parameter if available
-    if (authToken) {
-      url.searchParams.set('embedToken', authToken);
+  // Listen for iframe ready message
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify origin if not using wildcard
+      if (targetOrigin !== '*' && event.origin !== targetOrigin) {
+        console.warn('[Parent] Received message from unexpected origin:', event.origin);
+        return;
+      }
+
+      // Check if message is from our iframe
+      if (event.data?.source === 'webapp' && event.data?.type === 'READY') {
+        console.log('[Parent] Iframe is ready, sending initial auth state');
+        setIsIframeReady(true);
+
+        // Send initial auth state
+        if (token && selectedOrgSlug) {
+          sendAuthUpdate(token, selectedOrgSlug);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [token, selectedOrgSlug, sendAuthUpdate, targetOrigin]);
+
+  // Send auth updates when auth state changes and iframe is ready
+  useEffect(() => {
+    if (isIframeReady) {
+      if (token && selectedOrgSlug) {
+        console.log('[Parent] Sending auth update to iframe');
+        sendAuthUpdate(token, selectedOrgSlug);
+      } else if (!token) {
+        console.log('[Parent] Sending logout to iframe');
+        sendLogout();
+      }
     }
+  }, [token, selectedOrgSlug, isIframeReady, sendAuthUpdate, sendLogout]);
 
-    // Use the current org from the store instead of localStorage
-    if (currentOrg?.slug) {
-      url.searchParams.set('embedOrg', currentOrg.slug);
+  // Send org switch when only org changes
+  useEffect(() => {
+    if (isIframeReady && token && selectedOrgSlug) {
+      console.log('[Parent] Organization changed, sending update to iframe');
+      sendOrgSwitch(selectedOrgSlug);
     }
+  }, [selectedOrgSlug, isIframeReady, token, sendOrgSwitch]);
 
-    // Add a flag to indicate this is embedded
-    url.searchParams.set('embedApp', 'true');
-    url.searchParams.set('embedHideHeader', 'true');
-
-    const finalUrl = url.toString();
-    console.log('SharedIframe: Final URL:', finalUrl);
-
-    setIframeSrc(finalUrl);
-  }, [src, currentOrg?.slug]); // React to both src and currentOrg changes
-
-  if (!iframeSrc) {
+  if (!cleanUrl) {
     return <div className="w-full h-screen flex items-center justify-center">Loading...</div>;
   }
 
   return (
     <div className="w-full h-screen overflow-hidden">
       <iframe
+        ref={iframeRef}
         className={className || 'w-full h-full border-0 block'}
-        src={iframeSrc}
+        src={cleanUrl}
         title={title}
         allowFullScreen
         width="100%"
@@ -62,6 +109,9 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
           display: 'block',
           transform: 'scale(1)',
           transformOrigin: 'top left',
+        }}
+        onLoad={() => {
+          console.log('[Parent] Iframe loaded');
         }}
       />
     </div>
