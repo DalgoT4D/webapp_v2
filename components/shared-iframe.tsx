@@ -73,7 +73,7 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
         console.log('[Parent] Sending auth update to iframe');
         sendAuthUpdate(token, selectedOrgSlug);
       } else if (!token) {
-        console.log('[Parent] Sending logout to iframe');
+        console.log('[Parent] User logged out, sending logout signal to iframe');
         sendLogout();
       }
     }

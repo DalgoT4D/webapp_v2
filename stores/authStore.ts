@@ -120,6 +120,9 @@ export const useAuthStore = createAppStore<AuthState>(
         isOrgSwitching: false,
         isRefreshing: false,
       });
+
+      // Note: iframe logout is handled automatically by SharedIframe component
+      // monitoring the token state change
     },
 
     initialize: () => {
