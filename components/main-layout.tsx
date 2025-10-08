@@ -140,7 +140,7 @@ const getNavItems = (
     },
     {
       title: 'Data',
-      href: '/ingest', // Direct navigation to ingest page
+      href: '/pipeline', // Direct navigation to overview page (default)
       icon: Database,
       isActive: false, // Never highlight the parent Data menu
       children: [
