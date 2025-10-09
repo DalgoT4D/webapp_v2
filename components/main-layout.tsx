@@ -215,26 +215,25 @@ const getNavItems = (
   return filterMenuItemsForProduction(allNavItems);
 };
 
-// Flatten menu items for collapsed view
-const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
+// Flatten menu items for collapsed view based on expanded state
+const getFlattenedNavItems = (
+  items: NavItemType[],
+  expandedStates: Record<string, boolean>
+): NavItemType[] => {
   const flattened: NavItemType[] = [];
 
   items.forEach((item) => {
     // Skip hidden items
     if (item.hide) return;
 
-    if (item.children && item.title === 'Data') {
-      // For Data parent, only include non-hidden children in collapsed mode
+    // Always include the parent item
+    flattened.push(item);
+
+    // Include visible children if the parent is expanded
+    if (item.children && expandedStates[item.title]) {
+      // Only include non-hidden children
       const visibleChildren = item.children.filter((child) => !child.hide);
       flattened.push(...visibleChildren);
-    } else {
-      // For other items, include the parent as usual
-      flattened.push(item);
-      if (item.children) {
-        // Only include non-hidden children
-        const visibleChildren = item.children.filter((child) => !child.hide);
-        flattened.push(...visibleChildren);
-      }
     }
   });
 
@@ -266,21 +265,25 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
 }
 
 // Expanded navigation item component
-function ExpandedNavItem({ item }: { item: NavItemType }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function ExpandedNavItem({
+  item,
+  isExpanded,
+  onToggle,
+}: {
+  item: NavItemType;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
   // Filter out hidden children
   const visibleChildren = item.children?.filter((child) => !child.hide) || [];
   const hasChildren = visibleChildren.length > 0;
 
-  // Auto-expand if any child is active, or for Data tab when on data-related pages
+  // Auto-expand if any child is active
   useEffect(() => {
-    if (hasChildren && visibleChildren.some((child) => child.isActive)) {
-      setIsExpanded(true);
-    } else if (item.title === 'Data' && visibleChildren.some((child) => child.isActive)) {
-      // Always expand Data submenu when any data-related child is active
-      setIsExpanded(true);
+    if (!isExpanded && hasChildren && visibleChildren.some((child) => child.isActive)) {
+      onToggle(); // Expand if a child is active
     }
-  }, [visibleChildren, hasChildren, item.title]);
+  }, []);
 
   if (hasChildren) {
     // Special handling for Data tab - make it clickable and show submenu
@@ -305,7 +308,7 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
               <span className="font-medium">{item.title}</span>
             </Link>
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={onToggle}
               className={cn(
                 'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
                 item.isActive && 'text-[#002B5C]'
@@ -365,7 +368,7 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
             <span className="font-medium">{item.title}</span>
           </Link>
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={onToggle}
             className={cn(
               'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C]'
@@ -420,21 +423,27 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
 }
 
 // Mobile navigation item component
-function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => void }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function MobileNavItem({
+  item,
+  onClose,
+  isExpanded,
+  onToggle,
+}: {
+  item: NavItemType;
+  onClose: () => void;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
   // Filter out hidden children
   const visibleChildren = item.children?.filter((child) => !child.hide) || [];
   const hasChildren = visibleChildren.length > 0;
 
-  // Auto-expand if any child is active, or for Data tab when on data-related pages
+  // Auto-expand if any child is active
   useEffect(() => {
-    if (hasChildren && visibleChildren.some((child) => child.isActive)) {
-      setIsExpanded(true);
-    } else if (item.title === 'Data' && item.isActive) {
-      // Always expand Data submenu when on data-related pages
-      setIsExpanded(true);
+    if (!isExpanded && hasChildren && visibleChildren.some((child) => child.isActive)) {
+      onToggle(); // Expand if a child is active
     }
-  }, [visibleChildren, hasChildren, item.title, item.isActive]);
+  }, []);
 
   if (hasChildren) {
     // Special handling for Data tab in mobile view
@@ -459,7 +468,7 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
               <span className="font-medium">{item.title}</span>
             </Link>
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={onToggle}
               className={cn(
                 'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
                 item.isActive && 'text-[#002B5C]'
@@ -517,7 +526,7 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
             <span className="font-medium">{item.title}</span>
           </Link>
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={onToggle}
             className={cn(
               'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C]'
@@ -574,12 +583,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
   const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled);
-  const flattenedNavItems = getFlattenedNavItems(navItems);
+  const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
+
+  // Toggle menu expansion state
+  const toggleMenuExpansion = (title: string) => {
+    setExpandedMenus((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
 
   // Auto-collapse sidebar on specific dashboard/chart pages
   useEffect(() => {
@@ -669,7 +684,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 : // Expanded: Show hierarchical structure
                   navItems
                     .filter((item) => !item.hide)
-                    .map((item, index) => <ExpandedNavItem key={index} item={item} />)}
+                    .map((item, index) => (
+                      <ExpandedNavItem
+                        key={index}
+                        item={item}
+                        isExpanded={expandedMenus[item.title] || false}
+                        onToggle={() => toggleMenuExpansion(item.title)}
+                      />
+                    ))}
             </div>
 
             {/* Sidebar Footer */}
@@ -797,6 +819,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                       key={index}
                       item={item}
                       onClose={() => setIsMobileMenuOpen(false)}
+                      isExpanded={expandedMenus[item.title] || false}
+                      onToggle={() => toggleMenuExpansion(item.title)}
                     />
                   ))}
               </div>
