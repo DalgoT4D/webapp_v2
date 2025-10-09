@@ -298,6 +298,12 @@ function ExpandedNavItem({
           >
             <Link
               href={item.href}
+              onClick={() => {
+                // Expand the menu when navigating to show the selected item
+                if (!isExpanded) {
+                  onToggle();
+                }
+              }}
               className={cn(
                 'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
                 item.isActive && 'text-[#002B5C] font-medium'
@@ -358,6 +364,12 @@ function ExpandedNavItem({
         >
           <Link
             href={item.href}
+            onClick={() => {
+              // Expand the menu when navigating to show the selected item
+              if (!isExpanded) {
+                onToggle();
+              }
+            }}
             className={cn(
               'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C] font-medium'
@@ -458,7 +470,13 @@ function MobileNavItem({
           >
             <Link
               href={item.href}
-              onClick={onClose}
+              onClick={() => {
+                // Expand the menu when navigating and close mobile menu
+                if (!isExpanded) {
+                  onToggle();
+                }
+                onClose();
+              }}
               className={cn(
                 'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
                 item.isActive && 'text-[#002B5C] font-medium'
@@ -516,7 +534,13 @@ function MobileNavItem({
         >
           <Link
             href={item.href}
-            onClick={onClose}
+            onClick={() => {
+              // Expand the menu when navigating and close mobile menu
+              if (!isExpanded) {
+                onToggle();
+              }
+              onClose();
+            }}
             className={cn(
               'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C] font-medium'
