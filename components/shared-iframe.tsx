@@ -15,19 +15,35 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
   const [isIframeReady, setIsIframeReady] = useState(false);
   const { token, selectedOrgSlug } = useAuthStore();
 
-  // Parse origin from src URL
-  const targetOrigin = useMemo(() => {
+  // Parse origin from src URL and create allowed origins list
+  const { targetOrigin, allowedOrigins } = useMemo(() => {
     try {
       const url = new URL(src);
-      return url.origin;
+      const origin = url.origin;
+
+      // Create allowlist using configured embedded webapp URL
+      const allowedOrigins: string[] = [];
+      const embeddedWebappUrl = process.env.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL;
+
+      if (embeddedWebappUrl) {
+        try {
+          const embeddedOrigin = new URL(embeddedWebappUrl).origin;
+          allowedOrigins.push(embeddedOrigin);
+        } catch {
+          console.warn('[SharedIframe] Invalid NEXT_PUBLIC_EMBEDDED_WEBAPP_URL format');
+        }
+      }
+
+      return { targetOrigin: origin, allowedOrigins };
     } catch {
-      return '*';
+      return { targetOrigin: '*', allowedOrigins: [] as string[] };
     }
   }, [src]);
 
   const { sendAuthUpdate, sendOrgSwitch, sendLogout } = useIframeCommunication({
     iframeRef,
     targetOrigin,
+    allowedOrigins,
   });
 
   // Clean URL - remove all embed-related query params
@@ -44,9 +60,25 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
   // Listen for iframe ready message
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin if not using wildcard
-      if (targetOrigin !== '*' && event.origin !== targetOrigin) {
-        console.warn('[Parent] Received message from unexpected origin:', event.origin);
+      // Enhanced origin validation with allowlist
+      const isOriginAllowed =
+        allowedOrigins.length > 0
+          ? allowedOrigins.includes(event.origin)
+          : targetOrigin !== '*' && event.origin === targetOrigin;
+
+      if (!isOriginAllowed) {
+        console.warn(
+          '[Parent] Received message from untrusted origin:',
+          event.origin,
+          'Allowed origins:',
+          allowedOrigins
+        );
+        return;
+      }
+
+      // Validate event source is from our iframe window
+      if (event.source !== iframeRef.current?.contentWindow) {
+        console.warn('[Parent] Message source does not match iframe window');
         return;
       }
 
@@ -64,7 +96,7 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [token, selectedOrgSlug, sendAuthUpdate, targetOrigin]);
+  }, [token, selectedOrgSlug, sendAuthUpdate, targetOrigin, allowedOrigins, iframeRef]);
 
   // Send auth updates when auth state changes and iframe is ready
   useEffect(() => {

@@ -16,23 +16,34 @@ export interface IframeMessage {
 interface UseIframeCommunicationProps {
   iframeRef: RefObject<HTMLIFrameElement>;
   targetOrigin?: string;
+  allowedOrigins?: string[]; // Explicit allowlist for enhanced security
 }
 
 export function useIframeCommunication({
   iframeRef,
   targetOrigin = '*',
+  allowedOrigins = [],
 }: UseIframeCommunicationProps) {
-  // Send message to iframe
+  // Send message to iframe with enhanced security
   const sendMessage = useCallback(
     (message: IframeMessage) => {
       if (iframeRef.current?.contentWindow) {
-        console.log('[Parent] Sending message to iframe:', message);
-        iframeRef.current.contentWindow.postMessage(message, targetOrigin);
+        // Use specific target origin or first allowed origin instead of '*'
+        const secureTargetOrigin =
+          targetOrigin !== '*' ? targetOrigin : allowedOrigins.length > 0 ? allowedOrigins[0] : '*';
+
+        console.log(
+          '[Parent] Sending message to iframe:',
+          message,
+          'Target origin:',
+          secureTargetOrigin
+        );
+        iframeRef.current.contentWindow.postMessage(message, secureTargetOrigin);
       } else {
         console.warn('[Parent] Iframe not ready, cannot send message');
       }
     },
-    [iframeRef, targetOrigin]
+    [iframeRef, targetOrigin, allowedOrigins]
   );
 
   // Send auth update with both token and org
