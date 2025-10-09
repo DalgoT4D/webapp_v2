@@ -250,7 +250,7 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
             href={item.href}
             className={cn(
               'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
             )}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -306,12 +306,12 @@ function ExpandedNavItem({
               }}
               className={cn(
                 'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
-                item.isActive && 'text-[#002B5C] font-medium'
+                item.isActive && 'text-[#002B5C] font-bold'
               )}
               title={item.title}
             >
               <item.icon className="h-6 w-6 flex-shrink-0" />
-              <span className="font-medium">{item.title}</span>
+              <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
             </Link>
             <button
               onClick={onToggle}
@@ -339,7 +339,7 @@ function ExpandedNavItem({
                   href={child.href}
                   className={cn(
                     'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                   )}
                   title={child.title}
                 >
@@ -372,12 +372,12 @@ function ExpandedNavItem({
             }}
             className={cn(
               'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
-              item.isActive && 'text-[#002B5C] font-medium'
+              item.isActive && 'text-[#002B5C] font-bold'
             )}
             title={item.title}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />
-            <span className="font-medium">{item.title}</span>
+            <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
           </Link>
           <button
             onClick={onToggle}
@@ -405,7 +405,7 @@ function ExpandedNavItem({
                 href={child.href}
                 className={cn(
                   'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                 )}
                 title={child.title}
               >
@@ -424,12 +424,12 @@ function ExpandedNavItem({
       href={item.href}
       className={cn(
         'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
       )}
       title={item.title}
     >
       <item.icon className="h-6 w-6 flex-shrink-0" />
-      <span className="font-medium">{item.title}</span>
+      <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
     </Link>
   );
 }
@@ -479,11 +479,11 @@ function MobileNavItem({
               }}
               className={cn(
                 'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
-                item.isActive && 'text-[#002B5C] font-medium'
+                item.isActive && 'text-[#002B5C] font-bold'
               )}
             >
               <item.icon className="h-6 w-6" />
-              <span className="font-medium">{item.title}</span>
+              <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
             </Link>
             <button
               onClick={onToggle}
@@ -510,7 +510,7 @@ function MobileNavItem({
                   onClick={onClose}
                   className={cn(
                     'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                   )}
                 >
                   <child.icon className="h-6 w-6 flex-shrink-0" />
@@ -543,11 +543,11 @@ function MobileNavItem({
             }}
             className={cn(
               'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
-              item.isActive && 'text-[#002B5C] font-medium'
+              item.isActive && 'text-[#002B5C] font-bold'
             )}
           >
             <item.icon className="h-6 w-6" />
-            <span className="font-medium">{item.title}</span>
+            <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
           </Link>
           <button
             onClick={onToggle}
@@ -574,7 +574,7 @@ function MobileNavItem({
                 onClick={onClose}
                 className={cn(
                   'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                 )}
               >
                 <child.icon className="h-6 w-6 flex-shrink-0" />
@@ -593,11 +593,11 @@ function MobileNavItem({
       onClick={onClose}
       className={cn(
         'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
       )}
     >
       <item.icon className="h-6 w-6 flex-shrink-0" />
-      <span className="font-medium">{item.title}</span>
+      <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
     </Link>
   );
 }
