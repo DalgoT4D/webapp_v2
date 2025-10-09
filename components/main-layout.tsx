@@ -28,6 +28,9 @@ import {
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
+import ExploreIcon from '@/assets/icons/explore';
+import DataQualityIcon from '@/assets/icons/data-quality';
+import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
@@ -147,7 +150,7 @@ const getNavItems = (
         {
           title: 'Overview',
           href: '/pipeline',
-          icon: IngestIcon,
+          icon: PipelineOverviewIcon,
           isActive: currentPath.startsWith('/pipeline'),
         },
         {
@@ -171,13 +174,13 @@ const getNavItems = (
         {
           title: 'Explore',
           href: '/explore',
-          icon: IngestIcon,
+          icon: ExploreIcon,
           isActive: currentPath.startsWith('/explore'),
         },
         {
           title: 'Quality',
           href: '/data-quality',
-          icon: IngestIcon,
+          icon: DataQualityIcon,
           isActive: currentPath.startsWith('/data-quality'),
           hide: !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY),
         },
@@ -343,7 +346,12 @@ function ExpandedNavItem({
                   )}
                   title={child.title}
                 >
-                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <child.icon
+                    className={cn(
+                      'flex-shrink-0',
+                      child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                    )}
+                  />
                   <span>{child.title}</span>
                 </Link>
               ))}
@@ -409,7 +417,12 @@ function ExpandedNavItem({
                 )}
                 title={child.title}
               >
-                <child.icon className="h-6 w-6 flex-shrink-0" />
+                <child.icon
+                  className={cn(
+                    'flex-shrink-0',
+                    child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                  )}
+                />
                 <span>{child.title}</span>
               </Link>
             ))}
@@ -513,7 +526,12 @@ function MobileNavItem({
                     child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                   )}
                 >
-                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <child.icon
+                    className={cn(
+                      'flex-shrink-0',
+                      child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                    )}
+                  />
                   <span className="text-sm">{child.title}</span>
                 </Link>
               ))}
@@ -577,7 +595,12 @@ function MobileNavItem({
                   child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                 )}
               >
-                <child.icon className="h-6 w-6 flex-shrink-0" />
+                <child.icon
+                  className={cn(
+                    'flex-shrink-0',
+                    child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                  )}
+                />
                 <span className="text-sm">{child.title}</span>
               </Link>
             ))}
