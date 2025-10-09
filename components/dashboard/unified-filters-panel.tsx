@@ -47,6 +47,7 @@ interface UnifiedFiltersPanelProps {
   onCollapseChange?: (isCollapsed: boolean) => void;
   isPublicMode?: boolean;
   publicToken?: string;
+  initiallyCollapsed?: boolean;
 }
 
 // Unified sortable filter item component
@@ -150,6 +151,7 @@ export function UnifiedFiltersPanel({
   onCollapseChange,
   isPublicMode = false,
   publicToken,
+  initiallyCollapsed = false,
 }: UnifiedFiltersPanelProps) {
   // Helper function to extract default values from filters
   const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
@@ -193,7 +195,7 @@ export function UnifiedFiltersPanel({
     getDefaultFilterValues(initialFilters)
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false); // For collapsing entire panel
+  const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed); // For collapsing entire panel
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true); // For showing/hiding filter list
   const [locallyDeletedFilterIds, setLocallyDeletedFilterIds] = useState<Set<string>>(new Set()); // Track deleted filters
 

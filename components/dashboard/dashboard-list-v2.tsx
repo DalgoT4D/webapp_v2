@@ -490,6 +490,9 @@ export function DashboardListV2() {
                 className="w-full h-full object-cover"
                 fallbackClassName="bg-gradient-to-br from-gray-50 to-gray-100"
                 fallbackIconSize="lg"
+                dashboardType={dashboard.dashboard_type}
+                isPublished={dashboard.is_published}
+                useClientSideRendering={true}
               />
 
               {/* Lock indicator */}
@@ -611,6 +614,9 @@ export function DashboardListV2() {
                   className="w-full h-full object-cover"
                   fallbackClassName="bg-gradient-to-br from-gray-100 to-gray-200"
                   fallbackIconSize="sm"
+                  dashboardType={dashboard.dashboard_type}
+                  isPublished={dashboard.is_published}
+                  useClientSideRendering={false}
                 />
               </div>
 
@@ -1041,11 +1047,6 @@ export function DashboardListV2() {
               {/* Pinned Dashboards Section */}
               {pinnedDashboards.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Star className="w-4 h-4 text-blue-500 fill-current" />
-                    <h2 className="text-lg font-semibold text-gray-900">Pinned Dashboards</h2>
-                    <div className="h-px bg-gray-200 flex-1"></div>
-                  </div>
                   <div
                     className={cn(
                       viewMode === 'grid'
@@ -1065,13 +1066,6 @@ export function DashboardListV2() {
               {/* Regular Dashboards Section */}
               {paginatedRegularDashboards.length > 0 && (
                 <div>
-                  {pinnedDashboards.length > 0 && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <LayoutDashboard className="w-4 h-4 text-gray-500" />
-                      <h2 className="text-lg font-semibold text-gray-900">All Dashboards</h2>
-                      <div className="h-px bg-gray-200 flex-1"></div>
-                    </div>
-                  )}
                   <div
                     className={cn(
                       viewMode === 'grid'

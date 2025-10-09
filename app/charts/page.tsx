@@ -57,6 +57,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError, toastPromise } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import { ChartThumbnailPreview } from '@/components/charts/ChartThumbnailPreview';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -493,18 +494,13 @@ export default function ChartsPage() {
                 : undefined
             }
           >
-            {/* Modern Chart Preview Area */}
-            <div className="relative h-40 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden group-hover:from-gray-100 group-hover:to-gray-150 transition-colors duration-200">
-              {/* Large Chart Icon */}
-              <div className="flex items-center justify-center h-full p-6">
-                <div
-                  className="rounded-xl flex items-center justify-center w-28 h-28 shadow-sm border border-white/50"
-                  style={{ backgroundColor: typeColors.bgColor }}
-                >
-                  <IconComponent className="w-18 h-18" style={{ color: typeColors.color }} />
-                </div>
-              </div>
-            </div>
+            {/* Chart Preview Area with Thumbnail */}
+            <ChartThumbnailPreview
+              chartId={chart.id}
+              chart={chart}
+              iconComponent={IconComponent}
+              typeColors={typeColors}
+            />
 
             {/* Content Area */}
             <div className="p-4 space-y-2">
