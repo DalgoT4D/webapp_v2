@@ -8,9 +8,10 @@ interface SharedIframeProps {
   src: string;
   title: string;
   className?: string;
+  scale?: number; // Scale factor (e.g., 0.75 for 75% size)
 }
 
-export default function SharedIframe({ src, title, className }: SharedIframeProps) {
+export default function SharedIframe({ src, title, className, scale = 1 }: SharedIframeProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isIframeReady, setIsIframeReady] = useState(false);
   const { token, selectedOrgSlug } = useAuthStore();
@@ -124,7 +125,16 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
   }
 
   return (
-    <div className="w-full h-screen overflow-hidden">
+    <div
+      className="w-full h-screen overflow-hidden"
+      style={{
+        // Container sized for scaled content
+        width: scale < 1 ? `${100 / scale}%` : '100%',
+        height: scale < 1 ? `${100 / scale}vh` : '100vh',
+        transformOrigin: 'top left',
+        transform: scale < 1 ? `scale(${scale})` : 'none',
+      }}
+    >
       <iframe
         ref={iframeRef}
         className={className || 'w-full h-full border-0 block'}
@@ -139,8 +149,6 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
           minWidth: '100%',
           maxWidth: '100%',
           display: 'block',
-          transform: 'scale(1)',
-          transformOrigin: 'top left',
         }}
         onLoad={() => {
           console.log('[Parent] Iframe loaded');
