@@ -18,8 +18,10 @@ const anekMono = Anek_Latin({
 });
 
 export const metadata: Metadata = {
-  title: 'Dalgo - Data Intelligence Platform',
   description: 'Empowering organizations with intelligent data insights',
+  icons: {
+    icon: '/dalgo_favicon.svg?v=1',
+  },
 };
 
 export default function RootLayout({

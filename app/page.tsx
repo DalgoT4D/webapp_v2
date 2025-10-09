@@ -8,7 +8,7 @@ export default function HomePage() {
 
   // Immediately redirect to Impact at a Glance
   useEffect(() => {
-    router.replace('/impact-at-a-glance');
+    router.replace('/impact');
   }, [router]);
 
   // Show minimal loading while redirecting

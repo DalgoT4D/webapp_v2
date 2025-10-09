@@ -1,4 +1,5 @@
 import { createAppStore } from '@/lib/zustand';
+import { mutate } from 'swr';
 
 export interface Org {
   slug: string;
@@ -107,9 +108,17 @@ export const useAuthStore = createAppStore<AuthState>(
     },
 
     logout: () => {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('selectedOrg');
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Clear all SWR cache to prevent stale data from previous user
+      // This clears ALL cached data globally
+      mutate(
+        () => true, // Match all keys
+        undefined, // Set to undefined to clear
+        { revalidate: false } // Don't revalidate (we're logging out)
+      );
+
       set({
         token: null,
         refreshToken: null,
@@ -120,6 +129,9 @@ export const useAuthStore = createAppStore<AuthState>(
         isOrgSwitching: false,
         isRefreshing: false,
       });
+
+      // Note: iframe logout is handled automatically by SharedIframe component
+      // monitoring the token state change
     },
 
     initialize: () => {

@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, Database, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -112,6 +113,26 @@ function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
   const chartId = Number(params.id);
+  const { hasPermission } = useUserPermissions();
+
+  // Check if user has edit permissions
+  if (!hasPermission('can_edit_charts')) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You don't have permission to edit charts.</p>
+          <Button variant="outline" onClick={() => router.push('/charts')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Charts
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const { trigger: updateChart, isMutating } = useUpdateChart();

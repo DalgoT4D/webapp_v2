@@ -1,54 +1,144 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { embeddedAppUrl } from '@/constants/constants';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { useAuthStore } from '@/stores/authStore';
+import { useIframeCommunication } from '@/hooks/useIframeComm';
 
 interface SharedIframeProps {
   src: string;
   title: string;
   className?: string;
+  scale?: number; // Scale factor (e.g., 0.75 for 75% size)
 }
 
-export default function SharedIframe({ src, title, className }: SharedIframeProps) {
-  const [iframeSrc, setIframeSrc] = useState<string>('');
+export default function SharedIframe({ src, title, className, scale = 1 }: SharedIframeProps) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isIframeReady, setIsIframeReady] = useState(false);
+  const { token, selectedOrgSlug } = useAuthStore();
 
-  useEffect(() => {
-    // Get the auth token and append it as a query parameter
-    const authToken = localStorage.getItem('authToken');
-    const selectedOrg = localStorage.getItem('selectedOrg');
+  // Parse origin from src URL and create allowed origins list
+  const { targetOrigin, allowedOrigins } = useMemo(() => {
+    try {
+      const url = new URL(src);
+      const origin = url.origin;
 
-    console.log('SharedIframe: Setting up iframe with org:', selectedOrg);
+      // Create allowlist using configured embedded webapp URL
+      const allowedOrigins: string[] = [];
+      const embeddedWebappUrl = process.env.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL;
 
-    // Parse the original URL
-    const url = new URL(src);
+      if (embeddedWebappUrl) {
+        try {
+          const embeddedOrigin = new URL(embeddedWebappUrl).origin;
+          allowedOrigins.push(embeddedOrigin);
+        } catch {
+          console.warn('[SharedIframe] Invalid NEXT_PUBLIC_EMBEDDED_WEBAPP_URL format');
+        }
+      }
 
-    // Add auth token as query parameter if available
-    if (authToken) {
-      url.searchParams.set('token', authToken);
+      return { targetOrigin: origin, allowedOrigins };
+    } catch {
+      return { targetOrigin: '*', allowedOrigins: [] as string[] };
     }
-
-    if (selectedOrg) {
-      url.searchParams.set('org', selectedOrg);
-    }
-
-    // Add a flag to indicate this is embedded
-    url.searchParams.set('embedded', 'true');
-
-    const finalUrl = url.toString();
-    console.log('SharedIframe: Final URL:', finalUrl);
-
-    setIframeSrc(finalUrl);
   }, [src]);
 
-  if (!iframeSrc) {
+  const { sendAuthUpdate, sendOrgSwitch, sendLogout } = useIframeCommunication({
+    iframeRef,
+    targetOrigin,
+    allowedOrigins,
+  });
+
+  // Clean URL - remove all embed-related query params
+  const cleanUrl = useMemo(() => {
+    const url = new URL(src);
+    // Remove all legacy embed query params
+    url.searchParams.delete('embedToken');
+    url.searchParams.delete('embedOrg');
+    url.searchParams.delete('embedApp');
+    url.searchParams.delete('embedHideHeader');
+    return url.toString();
+  }, [src]);
+
+  // Listen for iframe ready message
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Enhanced origin validation with allowlist
+      const isOriginAllowed =
+        allowedOrigins.length > 0
+          ? allowedOrigins.includes(event.origin)
+          : targetOrigin !== '*' && event.origin === targetOrigin;
+
+      if (!isOriginAllowed) {
+        console.warn(
+          '[Parent] Received message from untrusted origin:',
+          event.origin,
+          'Allowed origins:',
+          allowedOrigins
+        );
+        return;
+      }
+
+      // Validate event source is from our iframe window
+      if (event.source !== iframeRef.current?.contentWindow) {
+        console.warn('[Parent] Message source does not match iframe window');
+        return;
+      }
+
+      // Check if message is from our iframe
+      if (event.data?.source === 'webapp' && event.data?.type === 'READY') {
+        console.log('[Parent] Iframe is ready, sending initial auth state');
+        setIsIframeReady(true);
+
+        // Send initial auth state
+        if (token && selectedOrgSlug) {
+          sendAuthUpdate(token, selectedOrgSlug);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [token, selectedOrgSlug, sendAuthUpdate, targetOrigin, allowedOrigins, iframeRef]);
+
+  // Send auth updates when auth state changes and iframe is ready
+  useEffect(() => {
+    if (isIframeReady) {
+      if (token && selectedOrgSlug) {
+        console.log('[Parent] Sending auth update to iframe');
+        sendAuthUpdate(token, selectedOrgSlug);
+      } else if (!token) {
+        console.log('[Parent] User logged out, sending logout signal to iframe');
+        sendLogout();
+      }
+    }
+  }, [token, selectedOrgSlug, isIframeReady, sendAuthUpdate, sendLogout]);
+
+  // Send org switch when only org changes
+  useEffect(() => {
+    if (isIframeReady && token && selectedOrgSlug) {
+      console.log('[Parent] Organization changed, sending update to iframe');
+      sendOrgSwitch(selectedOrgSlug);
+    }
+  }, [selectedOrgSlug, isIframeReady, token, sendOrgSwitch]);
+
+  if (!cleanUrl) {
     return <div className="w-full h-screen flex items-center justify-center">Loading...</div>;
   }
 
   return (
-    <div className="w-full h-screen overflow-hidden">
+    <div
+      className="w-full h-screen overflow-hidden"
+      style={{
+        // Container sized for scaled content
+        width: scale < 1 ? `${100 / scale}%` : '100%',
+        height: scale < 1 ? `${100 / scale}vh` : '100vh',
+        transformOrigin: 'top left',
+        transform: scale < 1 ? `scale(${scale})` : 'none',
+      }}
+    >
       <iframe
+        ref={iframeRef}
         className={className || 'w-full h-full border-0 block'}
-        src={iframeSrc}
+        src={cleanUrl}
         title={title}
         allowFullScreen
         width="100%"
@@ -59,8 +149,9 @@ export default function SharedIframe({ src, title, className }: SharedIframeProp
           minWidth: '100%',
           maxWidth: '100%',
           display: 'block',
-          transform: 'scale(1)',
-          transformOrigin: 'top left',
+        }}
+        onLoad={() => {
+          console.log('[Parent] Iframe loaded');
         }}
       />
     </div>

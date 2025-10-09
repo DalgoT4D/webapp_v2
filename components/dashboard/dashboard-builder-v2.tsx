@@ -25,6 +25,14 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
 import {
+  getDefaultGridDimensions,
+  getMinGridDimensions,
+  getChartTypeFromConfig,
+  adjustToMinimumSize,
+  getContentAwareGridDimensions,
+  analyzeChartContent,
+} from '@/lib/chart-size-constraints';
+import {
   Plus,
   Undo,
   Redo,
@@ -376,10 +384,45 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const router = useRouter();
 
     // Ensure layout_config is always an array
-    const initialLayout = Array.isArray(initialData?.layout_config)
-      ? initialData.layout_config
-      : [];
+    let initialLayout = Array.isArray(initialData?.layout_config) ? initialData.layout_config : [];
     const initialComponents = initialData?.components || {};
+
+    // Apply minimum size constraints to existing layout items
+    initialLayout = initialLayout.map((item: any) => {
+      const component = initialComponents[item.i];
+      if (component) {
+        const chartType = getChartTypeFromConfig(component.config);
+        let minDimensions;
+
+        // Use stored content constraints if available
+        if (component.config.contentConstraints) {
+          minDimensions = {
+            w: Math.max(
+              2,
+              Math.min(12, Math.ceil(component.config.contentConstraints.minWidth / 100))
+            ),
+            h: Math.max(2, Math.ceil(component.config.contentConstraints.minHeight / 60)),
+          };
+
+          console.log(`📐 Applying stored content constraints for ${chartType} chart:`, {
+            componentId: item.i,
+            contentConstraints: component.config.contentConstraints,
+            gridConstraints: minDimensions,
+          });
+        } else {
+          minDimensions = getMinGridDimensions(chartType);
+        }
+
+        return {
+          ...item,
+          w: Math.max(item.w || 1, minDimensions.w),
+          h: Math.max(item.h || 1, minDimensions.h),
+          minW: minDimensions.w,
+          minH: minDimensions.h,
+        };
+      }
+      return item;
+    });
 
     // Load responsive layouts if available, otherwise they'll be generated later
     const initialResponsiveLayouts = initialData?.responsive_layouts || null;
@@ -993,12 +1036,52 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setResizingItems(newResizingItems);
       setIsResizing(false);
 
+      // Enforce minimum dimensions on final resize
+      const component = state.components[newItem.i];
+      let finalLayout = layout;
+
+      if (component) {
+        const chartType = getChartTypeFromConfig(component.config);
+        let minDimensions;
+
+        // Use stored content constraints if available, otherwise use generic constraints
+        if (component.config.contentConstraints) {
+          // Convert content constraints to grid dimensions
+          minDimensions = {
+            w: Math.max(
+              2,
+              Math.min(12, Math.ceil(component.config.contentConstraints.minWidth / 100))
+            ),
+            h: Math.max(2, Math.ceil(component.config.contentConstraints.minHeight / 60)),
+          };
+
+          console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
+            contentConstraints: component.config.contentConstraints,
+            gridConstraints: minDimensions,
+          });
+        } else {
+          minDimensions = getMinGridDimensions(chartType);
+        }
+
+        // Ensure the resized item meets minimum requirements
+        const constrainedItem = {
+          ...newItem,
+          w: Math.max(newItem.w, minDimensions.w),
+          h: Math.max(newItem.h, minDimensions.h),
+          minW: minDimensions.w,
+          minH: minDimensions.h,
+        };
+
+        // Update layout with constrained item
+        finalLayout = layout.map((item) => (item.i === newItem.i ? constrainedItem : item));
+      }
+
       // Only save to history if we're not in an undo/redo operation
       if (!isUndoRedoOperation) {
         const allLayouts = state.layouts || {};
         setState({
           ...state,
-          layout: layout,
+          layout: finalLayout,
           layouts: allLayouts,
         });
       }
@@ -1006,22 +1089,93 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle resize (during resize)
     const handleResize = (layout: DashboardLayout[]) => {
+      // Enforce minimum dimensions during resize
+      const constrainedLayout = layout.map((item) => {
+        const component = state.components[item.i];
+        if (component) {
+          const chartType = getChartTypeFromConfig(component.config);
+          let minDimensions;
+
+          // Use stored content constraints if available
+          if (component.config.contentConstraints) {
+            minDimensions = {
+              w: Math.max(
+                2,
+                Math.min(12, Math.ceil(component.config.contentConstraints.minWidth / 100))
+              ),
+              h: Math.max(2, Math.ceil(component.config.contentConstraints.minHeight / 60)),
+            };
+          } else {
+            minDimensions = getMinGridDimensions(chartType);
+          }
+
+          // Ensure item doesn't go below minimum dimensions
+          return {
+            ...item,
+            w: Math.max(item.w, minDimensions.w),
+            h: Math.max(item.h, minDimensions.h),
+            minW: minDimensions.w,
+            minH: minDimensions.h,
+          };
+        }
+        return item;
+      });
+
       // Use setStateWithoutHistory during resize to avoid flooding history
       const allLayouts = state.layouts || {};
       setStateWithoutHistory({
         ...state,
-        layout: layout,
+        layout: constrainedLayout,
         layouts: allLayouts,
       });
     };
 
     // Add chart component
     const handleChartSelected = async (chartId: number) => {
+      console.log(`🔄 Starting chart addition process for chartId: ${chartId}`);
+
       try {
-        // Fetch chart details - for now, use mock data
+        // Fetch chart details and data for content-aware sizing
         let chartDetails;
+        let chartData = null;
+
+        console.log(`📡 Fetching chart details for ${chartId}...`);
         try {
+          // Fetch both chart metadata and data
           chartDetails = await apiGet(`/api/charts/${chartId}/`);
+          console.log(`✅ Chart details fetched:`, {
+            chartId,
+            title: chartDetails.title,
+            chart_type: chartDetails.chart_type,
+            computation_type: chartDetails.computation_type,
+          });
+
+          // Fetch chart data for content analysis
+          console.log(`📊 Fetching chart data for ${chartId}...`);
+          try {
+            chartData = await apiGet(`/api/charts/${chartId}/data/`);
+            console.log(`✅ Chart data fetched successfully:`, {
+              chartId,
+              chartType: chartDetails.chart_type,
+              hasData: !!chartData,
+              dataKeys: chartData ? Object.keys(chartData) : [],
+              dataStructure: chartData
+                ? {
+                    hasEchartsConfig: !!chartData.echarts_config,
+                    hasXAxisData: !!chartData.echarts_config?.xAxis?.data,
+                    hasSeriesData: !!chartData.echarts_config?.series,
+                    seriesCount: chartData.echarts_config?.series?.length || 0,
+                    hasColumns: !!chartData.columns,
+                    columnCount: chartData.columns?.length || 0,
+                    hasTableData: !!chartData.data,
+                    rowCount: chartData.data?.length || 0,
+                  }
+                : null,
+            });
+          } catch (dataError) {
+            console.error(`❌ Failed to fetch chart data for ${chartId}:`, dataError);
+            console.warn(`Using default sizing for chart ${chartId}`);
+          }
         } catch (error) {
           // Use mock data if API fails
           chartDetails = {
@@ -1030,8 +1184,56 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             chart_type: 'bar',
             computation_type: 'raw',
           };
+          console.error(`❌ Failed to fetch chart details for ${chartId}:`, error);
+          console.warn(`Using mock data for chart ${chartId}`);
         }
 
+        // Get content-aware dimensions based on actual chart data
+        const chartType = chartDetails.chart_type || 'default';
+        let defaultDimensions, minDimensions;
+        let contentConstraints = null;
+
+        console.log(`🔍 Analyzing chart content for ${chartType} chart (ID: ${chartId})...`);
+
+        if (chartData) {
+          // Analyze chart content first
+          contentConstraints = analyzeChartContent(chartData, chartType);
+          console.log(`🧠 Content analysis results:`, {
+            chartType,
+            contentConstraints,
+            originalData: {
+              hasEchartsConfig: !!chartData.echarts_config,
+              hasColumns: !!chartData.columns,
+              hasData: !!chartData.data,
+            },
+          });
+
+          // Use content-aware sizing based on actual chart data
+          defaultDimensions = getContentAwareGridDimensions(chartData, chartType, true);
+          minDimensions = getContentAwareGridDimensions(chartData, chartType, false);
+
+          console.log(`📐 Content-aware sizing calculated:`, {
+            chartType,
+            defaultDimensions,
+            minDimensions,
+            hasAnalysis: true,
+            sizingSource: 'content-analysis',
+          });
+        } else {
+          // Fallback to generic sizing
+          defaultDimensions = getDefaultGridDimensions(chartType);
+          minDimensions = getMinGridDimensions(chartType);
+
+          console.log(`📐 Generic sizing fallback:`, {
+            chartType,
+            defaultDimensions,
+            minDimensions,
+            hasAnalysis: false,
+            sizingSource: 'generic-fallback',
+          });
+        }
+
+        // Create the component after contentConstraints is properly set
         const newComponent: DashboardComponent = {
           id: `chart-${Date.now()}`,
           type: DashboardComponentType.CHART,
@@ -1041,23 +1243,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             chartType: chartDetails.chart_type,
             computation_type: chartDetails.computation_type,
             description: chartDetails.description,
+            // Store content constraints for resize validation
+            contentConstraints: contentConstraints,
             // Note: render_config not stored - charts fetch fresh config via /data endpoint
           },
         };
 
         // Find the best available position for the new chart using smart positioning
-        const position = dashboardAnimation.findBestPosition({ w: 4, h: 8 }, state.layout);
+        const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
 
         const newLayoutItem: DashboardLayout = {
           i: newComponent.id,
           x: position.x,
           y: position.y,
-          w: 4,
-          h: 8,
-          minW: 2,
+          w: defaultDimensions.w,
+          h: defaultDimensions.h,
+          minW: minDimensions.w,
           maxW: 12,
-          minH: 4,
+          minH: minDimensions.h,
         };
+
+        console.log(`📍 Final layout item created:`, {
+          componentId: newComponent.id,
+          layoutItem: newLayoutItem,
+          pixelEstimate: {
+            width: `~${defaultDimensions.w * 100}px`,
+            height: `~${defaultDimensions.h * 60}px`,
+          },
+        });
 
         const newLayout = [...state.layout, newLayoutItem];
         const newLayouts = generateResponsiveLayouts(newLayout);
@@ -1070,6 +1283,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             [newComponent.id]: newComponent,
           },
         });
+
+        console.log(
+          `✅ Chart ${chartId} (${chartType}) successfully added to dashboard with content-aware sizing!`
+        );
 
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
@@ -1098,18 +1315,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         } as UnifiedTextConfig,
       };
 
+      // Get appropriate dimensions for text component
+      const textDimensions = getDefaultGridDimensions('text');
+      const textMinDimensions = getMinGridDimensions('text');
+
       // Find the best available position for the new text component using smart positioning
-      const position = dashboardAnimation.findBestPosition({ w: 6, h: 5 }, state.layout);
+      const position = dashboardAnimation.findBestPosition(textDimensions, state.layout);
 
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
         x: position.x,
         y: position.y,
-        w: 6,
-        h: 5,
-        minW: 3,
+        w: textDimensions.w,
+        h: textDimensions.h,
+        minW: textMinDimensions.w,
         maxW: 12,
-        minH: 3,
+        minH: textMinDimensions.h,
       };
 
       const newLayout = [...state.layout, newLayoutItem];

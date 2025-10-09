@@ -23,12 +23,19 @@ import {
   PieChart,
   ChevronLeft,
   ChevronRight,
+  Info,
+  CreditCard,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
+import ExploreIcon from '@/assets/icons/explore';
+import DataQualityIcon from '@/assets/icons/data-quality';
+import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
+import Image from 'next/image';
 
 // Define types for navigation items
 interface NavItemType {
@@ -37,6 +44,7 @@ interface NavItemType {
   icon: React.ComponentType<{ className?: string }>;
   isActive: boolean;
   children?: NavItemType[];
+  hide?: boolean; // Add hide property for feature flag control
 }
 
 // Menu items to hide in production environment
@@ -45,7 +53,6 @@ const PRODUCTION_HIDDEN_ITEMS = [
   'Metrics',
   'Reports',
   'Alerts',
-  'Settings',
 ];
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
@@ -82,13 +89,30 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 };
 
 // Define the navigation items with their routes and icons
-const getNavItems = (currentPath: string): NavItemType[] => {
+const getNavItems = (
+  currentPath: string,
+  hasSupersetSetup: boolean = false,
+  isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean
+): NavItemType[] => {
+  // Build dashboard children based on feature flags AND Superset setup
+  const dashboardChildren: NavItemType[] = [];
+
+  // Add Usage Dashboard if BOTH feature flag is enabled AND org has Superset setup
+  if (isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup) {
+    dashboardChildren.push({
+      title: 'Usage',
+      href: '/dashboards/usage',
+      icon: BarChart3,
+      isActive: currentPath === '/dashboards/usage',
+    });
+  }
+
   const allNavItems: NavItemType[] = [
     {
-      title: 'Impact at a Glance',
-      href: '/impact-at-a-glance',
+      title: 'Impact',
+      href: '/impact',
       icon: Home,
-      isActive: currentPath === '/impact-at-a-glance',
+      isActive: currentPath === '/impact',
     },
     {
       title: 'Metrics',
@@ -106,7 +130,10 @@ const getNavItems = (currentPath: string): NavItemType[] => {
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
-      isActive: currentPath.startsWith('/dashboards'),
+      isActive:
+        currentPath === '/dashboards' ||
+        (currentPath.startsWith('/dashboards/') && !currentPath.startsWith('/dashboards/usage')),
+      children: dashboardChildren.length > 0 ? dashboardChildren : undefined,
     },
     {
       title: 'Reports',
@@ -116,10 +143,16 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     },
     {
       title: 'Data',
-      href: '/ingest', // Direct navigation to ingest page
+      href: '/pipeline', // Direct navigation to overview page (default)
       icon: Database,
       isActive: false, // Never highlight the parent Data menu
       children: [
+        {
+          title: 'Overview',
+          href: '/pipeline',
+          icon: PipelineOverviewIcon,
+          isActive: currentPath.startsWith('/pipeline'),
+        },
         {
           title: 'Ingest',
           href: '/ingest',
@@ -138,6 +171,19 @@ const getNavItems = (currentPath: string): NavItemType[] => {
           icon: OrchestrateIcon,
           isActive: currentPath.startsWith('/orchestrate'),
         },
+        {
+          title: 'Explore',
+          href: '/explore',
+          icon: ExploreIcon,
+          isActive: currentPath.startsWith('/explore'),
+        },
+        {
+          title: 'Quality',
+          href: '/data-quality',
+          icon: DataQualityIcon,
+          isActive: currentPath.startsWith('/data-quality'),
+          hide: !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY),
+        },
       ],
     },
     {
@@ -148,9 +194,23 @@ const getNavItems = (currentPath: string): NavItemType[] => {
     },
     {
       title: 'Settings',
-      href: '/settings',
+      href: '/settings/about',
       icon: Settings,
-      isActive: currentPath.startsWith('/settings'),
+      isActive: false, // Never highlight the parent Settings menu
+      children: [
+        {
+          title: 'About',
+          href: '/settings/about',
+          icon: Info,
+          isActive: currentPath === '/settings/about',
+        },
+        {
+          title: 'Billing',
+          href: '/settings/billing',
+          icon: CreditCard,
+          isActive: currentPath === '/settings/billing',
+        },
+      ],
     },
   ];
 
@@ -158,20 +218,25 @@ const getNavItems = (currentPath: string): NavItemType[] => {
   return filterMenuItemsForProduction(allNavItems);
 };
 
-// Flatten menu items for collapsed view
-const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
+// Flatten menu items for collapsed view based on expanded state
+const getFlattenedNavItems = (
+  items: NavItemType[],
+  expandedStates: Record<string, boolean>
+): NavItemType[] => {
   const flattened: NavItemType[] = [];
 
   items.forEach((item) => {
-    if (item.children && item.title === 'Data') {
-      // For Data parent, only include children (Ingest, Transform, Orchestrate) in collapsed mode
-      flattened.push(...item.children);
-    } else {
-      // For other items, include the parent as usual
-      flattened.push(item);
-      if (item.children) {
-        flattened.push(...item.children);
-      }
+    // Skip hidden items
+    if (item.hide) return;
+
+    // Always include the parent item
+    flattened.push(item);
+
+    // Include visible children if the parent is expanded
+    if (item.children && expandedStates[item.title]) {
+      // Only include non-hidden children
+      const visibleChildren = item.children.filter((child) => !child.hide);
+      flattened.push(...visibleChildren);
     }
   });
 
@@ -188,7 +253,7 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
             href={item.href}
             className={cn(
               'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
             )}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -203,46 +268,67 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
 }
 
 // Expanded navigation item component
-function ExpandedNavItem({ item }: { item: NavItemType }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const hasChildren = item.children && item.children.length > 0;
+function ExpandedNavItem({
+  item,
+  isExpanded,
+  onToggle,
+}: {
+  item: NavItemType;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  // Filter out hidden children
+  const visibleChildren = item.children?.filter((child) => !child.hide) || [];
+  const hasChildren = visibleChildren.length > 0;
 
-  // Auto-expand if any child is active, or for Data tab when on data-related pages
+  // Auto-expand if any child is active
   useEffect(() => {
-    if (hasChildren && item.children?.some((child) => child.isActive)) {
-      setIsExpanded(true);
-    } else if (item.title === 'Data' && item.children?.some((child) => child.isActive)) {
-      // Always expand Data submenu when any data-related child is active
-      setIsExpanded(true);
+    if (!isExpanded && hasChildren && visibleChildren.some((child) => child.isActive)) {
+      onToggle(); // Expand if a child is active
     }
-  }, [item.children, hasChildren, item.title]);
+  }, []);
 
   if (hasChildren) {
     // Special handling for Data tab - make it clickable and show submenu
     if (item.title === 'Data') {
       return (
         <div className="space-y-1">
-          <div className="flex items-center">
+          <div
+            className={cn(
+              'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+              item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
+            )}
+          >
             <Link
               href={item.href}
+              onClick={() => {
+                // Expand the menu when navigating to show the selected item
+                if (!isExpanded) {
+                  onToggle();
+                }
+              }}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group flex-1',
-                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C] font-bold'
               )}
               title={item.title}
             >
               <item.icon className="h-6 w-6 flex-shrink-0" />
-              <span className="font-medium">{item.title}</span>
+              <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
             </Link>
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+              onClick={onToggle}
+              className={cn(
+                'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C]'
+              )}
               title="Toggle submenu"
             >
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground',
-                  isExpanded && 'rotate-180'
+                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-[#002B5C]',
+                  isExpanded && 'rotate-180',
+                  item.isActive && 'text-[#002B5C]'
                 )}
               />
             </button>
@@ -250,17 +336,22 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
 
           {isExpanded && (
             <div className="ml-8 space-y-1">
-              {item.children?.map((child, index) => (
+              {visibleChildren.map((child, index) => (
                 <Link
                   key={index}
                   href={child.href}
                   className={cn(
                     'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                   )}
                   title={child.title}
                 >
-                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <child.icon
+                    className={cn(
+                      'flex-shrink-0',
+                      child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                    )}
+                  />
                   <span>{child.title}</span>
                 </Link>
               ))}
@@ -270,42 +361,68 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
       );
     }
 
-    // Default behavior for other items with children
+    // Default behavior for other items with children (Dashboards and Settings)
     return (
       <div className="space-y-1">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
+        <div
           className={cn(
-            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-            item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+            'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+            item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
           )}
-          title={item.title}
         >
-          <div className="flex items-center gap-3">
-            <item.icon className="h-6 w-6 flex-shrink-0" />
-            <span className="font-medium">{item.title}</span>
-          </div>
-          <ChevronDown
+          <Link
+            href={item.href}
+            onClick={() => {
+              // Expand the menu when navigating to show the selected item
+              if (!isExpanded) {
+                onToggle();
+              }
+            }}
             className={cn(
-              'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-foreground',
-              isExpanded && 'rotate-180'
+              'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C] font-bold'
             )}
-          />
-        </button>
+            title={item.title}
+          >
+            <item.icon className="h-6 w-6 flex-shrink-0" />
+            <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
+          </Link>
+          <button
+            onClick={onToggle}
+            className={cn(
+              'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C]'
+            )}
+            title="Toggle submenu"
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-[#002B5C]',
+                isExpanded && 'rotate-180',
+                item.isActive && 'text-[#002B5C]'
+              )}
+            />
+          </button>
+        </div>
 
         {isExpanded && (
           <div className="ml-8 space-y-1">
-            {item.children?.map((child, index) => (
+            {visibleChildren.map((child, index) => (
               <Link
                 key={index}
                 href={child.href}
                 className={cn(
                   'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                 )}
                 title={child.title}
               >
-                <child.icon className="h-6 w-6 flex-shrink-0" />
+                <child.icon
+                  className={cn(
+                    'flex-shrink-0',
+                    child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                  )}
+                />
                 <span>{child.title}</span>
               </Link>
             ))}
@@ -320,70 +437,101 @@ function ExpandedNavItem({ item }: { item: NavItemType }) {
       href={item.href}
       className={cn(
         'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
       )}
       title={item.title}
     >
       <item.icon className="h-6 w-6 flex-shrink-0" />
-      <span className="font-medium">{item.title}</span>
+      <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
     </Link>
   );
 }
 
 // Mobile navigation item component
-function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => void }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const hasChildren = item.children && item.children.length > 0;
+function MobileNavItem({
+  item,
+  onClose,
+  isExpanded,
+  onToggle,
+}: {
+  item: NavItemType;
+  onClose: () => void;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  // Filter out hidden children
+  const visibleChildren = item.children?.filter((child) => !child.hide) || [];
+  const hasChildren = visibleChildren.length > 0;
 
-  // Auto-expand if any child is active, or for Data tab when on data-related pages
+  // Auto-expand if any child is active
   useEffect(() => {
-    if (hasChildren && item.children?.some((child) => child.isActive)) {
-      setIsExpanded(true);
-    } else if (item.title === 'Data' && item.isActive) {
-      // Always expand Data submenu when on data-related pages
-      setIsExpanded(true);
+    if (!isExpanded && hasChildren && visibleChildren.some((child) => child.isActive)) {
+      onToggle(); // Expand if a child is active
     }
-  }, [item.children, hasChildren, item.title, item.isActive]);
+  }, []);
 
   if (hasChildren) {
     // Special handling for Data tab in mobile view
     if (item.title === 'Data') {
       return (
         <div className="space-y-1">
-          <div className="flex items-center">
+          <div
+            className={cn(
+              'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+              item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
+            )}
+          >
             <Link
               href={item.href}
-              onClick={onClose}
+              onClick={() => {
+                // Expand the menu when navigating and close mobile menu
+                if (!isExpanded) {
+                  onToggle();
+                }
+                onClose();
+              }}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors flex-1',
-                item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C] font-bold'
               )}
             >
               <item.icon className="h-6 w-6" />
-              <span className="font-medium">{item.title}</span>
+              <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
             </Link>
             <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors"
+              onClick={onToggle}
+              className={cn(
+                'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+                item.isActive && 'text-[#002B5C]'
+              )}
             >
               <ChevronDown
-                className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')}
+                className={cn(
+                  'h-4 w-4 transition-transform text-muted-foreground group-hover:text-[#002B5C]',
+                  isExpanded && 'rotate-180',
+                  item.isActive && 'text-[#002B5C]'
+                )}
               />
             </button>
           </div>
           {isExpanded && (
             <div className="ml-8 space-y-1">
-              {item.children?.map((child, index) => (
+              {visibleChildren.map((child, index) => (
                 <Link
                   key={index}
                   href={child.href}
                   onClick={onClose}
                   className={cn(
                     'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                   )}
                 >
-                  <child.icon className="h-6 w-6 flex-shrink-0" />
+                  <child.icon
+                    className={cn(
+                      'flex-shrink-0',
+                      child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                    )}
+                  />
                   <span className="text-sm">{child.title}</span>
                 </Link>
               ))}
@@ -393,35 +541,66 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
       );
     }
 
-    // Default behavior for other items with children
+    // Default behavior for other items with children (Dashboards and Settings)
     return (
       <div className="space-y-1">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
+        <div
           className={cn(
-            'flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-            item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+            'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
+            item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
           )}
         >
-          <div className="flex items-center gap-3">
+          <Link
+            href={item.href}
+            onClick={() => {
+              // Expand the menu when navigating and close mobile menu
+              if (!isExpanded) {
+                onToggle();
+              }
+              onClose();
+            }}
+            className={cn(
+              'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C] font-bold'
+            )}
+          >
             <item.icon className="h-6 w-6" />
-            <span className="font-medium">{item.title}</span>
-          </div>
-          <ChevronDown className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')} />
-        </button>
+            <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
+          </Link>
+          <button
+            onClick={onToggle}
+            className={cn(
+              'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
+              item.isActive && 'text-[#002B5C]'
+            )}
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 transition-transform text-muted-foreground group-hover:text-[#002B5C]',
+                isExpanded && 'rotate-180',
+                item.isActive && 'text-[#002B5C]'
+              )}
+            />
+          </button>
+        </div>
         {isExpanded && (
           <div className="ml-8 space-y-1">
-            {item.children?.map((child, index) => (
+            {visibleChildren.map((child, index) => (
               <Link
                 key={index}
                 href={child.href}
                 onClick={onClose}
                 className={cn(
                   'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
                 )}
               >
-                <child.icon className="h-6 w-6 flex-shrink-0" />
+                <child.icon
+                  className={cn(
+                    'flex-shrink-0',
+                    child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                  )}
+                />
                 <span className="text-sm">{child.title}</span>
               </Link>
             ))}
@@ -437,11 +616,11 @@ function MobileNavItem({ item, onClose }: { item: NavItemType; onClose: () => vo
       onClick={onClose}
       className={cn(
         'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-medium'
+        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
       )}
     >
       <item.icon className="h-6 w-6 flex-shrink-0" />
-      <span className="font-medium">{item.title}</span>
+      <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
     </Link>
   );
 }
@@ -451,9 +630,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
-  const navItems = getNavItems(pathname);
-  const flattenedNavItems = getFlattenedNavItems(navItems);
+  const { currentOrg } = useAuthStore();
+  const { isFeatureFlagEnabled } = useFeatureFlags();
+  const hasSupersetSetup = Boolean(currentOrg?.viz_url);
+  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled);
+  const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
+
+  // Toggle menu expansion state
+  const toggleMenuExpansion = (title: string) => {
+    setExpandedMenus((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
 
   // Auto-collapse sidebar on specific dashboard/chart pages
   useEffect(() => {
@@ -503,44 +691,54 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <aside
             id="main-layout-sidebar"
             className={cn(
-              'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0',
+              'flex flex-col border-r bg-background transition-all duration-300 flex-shrink-0 relative',
               isSidebarCollapsed ? 'w-16' : 'w-64'
             )}
           >
+            {/* Lightweight Collapse Button - Top Edge */}
+            <div className="absolute top-6 -right-3 z-20">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsSidebarCollapsed(!isSidebarCollapsed);
+                  setHasUserToggledSidebar(true);
+                }}
+                className={cn(
+                  'h-6 w-6 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:shadow-md transition-all duration-200',
+                  'text-gray-400 hover:text-gray-600',
+                  'opacity-75 hover:opacity-100'
+                )}
+                title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isSidebarCollapsed ? (
+                  <ChevronRight className="h-3 w-3" />
+                ) : (
+                  <ChevronLeft className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
+
             {/* Sidebar Navigation */}
             <div id="main-layout-sidebar-nav" className="flex-1 overflow-y-auto p-4 space-y-2">
               {isSidebarCollapsed
                 ? // Collapsed: Show all items (including nested) as individual icons with tooltips
-                  flattenedNavItems.map((item, index) => (
-                    <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
-                  ))
+                  flattenedNavItems
+                    .filter((item) => !item.hide)
+                    .map((item, index) => (
+                      <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
+                    ))
                 : // Expanded: Show hierarchical structure
-                  navItems.map((item, index) => <ExpandedNavItem key={index} item={item} />)}
-            </div>
-
-            {/* Sidebar Toggle Button */}
-            <div className="px-4 pb-2">
-              <div className="flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setIsSidebarCollapsed(!isSidebarCollapsed);
-                    setHasUserToggledSidebar(true);
-                  }}
-                  className={cn(
-                    'h-8 w-8 text-[#0066FF] bg-[#0066FF]/8 hover:bg-[#0066FF]/15 hover:text-[#002B5C] transition-colors',
-                    isSidebarCollapsed && 'mx-auto'
-                  )}
-                  title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                >
-                  {isSidebarCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronLeft className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+                  navItems
+                    .filter((item) => !item.hide)
+                    .map((item, index) => (
+                      <ExpandedNavItem
+                        key={index}
+                        item={item}
+                        isExpanded={expandedMenus[item.title] || false}
+                        onToggle={() => toggleMenuExpansion(item.title)}
+                      />
+                    ))}
             </div>
 
             {/* Sidebar Footer */}
@@ -650,19 +848,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <div id="main-layout-mobile-sidebar-wrapper" className="flex flex-col h-full">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">
-                  <BarChart3 className="h-6 w-6 text-primary" />
-                  <span className="text-xl font-bold">Dalgo</span>
+                  <Image
+                    src="/dalgo_logo.svg"
+                    alt="Dalgo"
+                    width={60}
+                    height={68}
+                    className="text-primary"
+                  />
                 </div>
               </div>
 
               <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {navItems.map((item, index) => (
-                  <MobileNavItem
-                    key={index}
-                    item={item}
-                    onClose={() => setIsMobileMenuOpen(false)}
-                  />
-                ))}
+                {navItems
+                  .filter((item) => !item.hide)
+                  .map((item, index) => (
+                    <MobileNavItem
+                      key={index}
+                      item={item}
+                      onClose={() => setIsMobileMenuOpen(false)}
+                      isExpanded={expandedMenus[item.title] || false}
+                      onToggle={() => toggleMenuExpansion(item.title)}
+                    />
+                  ))}
               </div>
 
               <div className="p-4 border-t space-y-2">
