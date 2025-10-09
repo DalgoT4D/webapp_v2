@@ -133,26 +133,30 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
   try {
     const response = await fetch(url, { ...options, headers });
 
-    // Handle 401 Unauthorized - attempt to refresh token and retry once
-    if (response.status === 401 && retryCount === 0) {
-      // Prevent multiple simultaneous refresh attempts
-      if (!isRefreshing) {
-        isRefreshing = true;
-        refreshPromise = refreshAccessToken().finally(() => {
-          isRefreshing = false;
-        });
+    // Handle 401 Unauthorized
+    if (response.status === 401) {
+      // If this is the first attempt, try to refresh the token
+      if (retryCount === 0) {
+        // Prevent multiple simultaneous refresh attempts
+        if (!isRefreshing) {
+          isRefreshing = true;
+          refreshPromise = refreshAccessToken().finally(() => {
+            isRefreshing = false;
+          });
+        }
+
+        const newToken = await refreshPromise;
+
+        if (newToken) {
+          // Retry the original request with the new token
+          return apiFetch(path, options, retryCount + 1);
+        }
       }
 
-      const newToken = await refreshPromise;
-
-      if (newToken) {
-        // Retry the original request with the new token
-        return apiFetch(path, options, retryCount + 1);
-      } else {
-        // Token refresh failed, logout user
-        handleAuthFailure();
-        throw new Error('Authentication failed. Please log in again.');
-      }
+      // Either refresh failed or this is a retry that still got 401
+      // In both cases, logout the user
+      handleAuthFailure();
+      throw new Error('Authentication failed. Please log in again.');
     }
 
     // Check if response has JSON content

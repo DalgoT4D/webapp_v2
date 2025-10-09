@@ -169,15 +169,6 @@ export function Header({
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* Current organization name */}
-        {currentOrg && (
-          <div className="flex items-center">
-            <span className="text-sm font-medium text-foreground max-w-[150px] truncate">
-              {currentOrg.name}
-            </span>
-          </div>
-        )}
-
         {/* Profile Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -208,7 +199,7 @@ export function Header({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
-            {/* Organization switching */}
+            {/* Organization switching - only show if more than 1 organization */}
             {availableOrgs.length > 1 && (
               <>
                 <DropdownMenuLabel className="text-xs text-muted-foreground">
