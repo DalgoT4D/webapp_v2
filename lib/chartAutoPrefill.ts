@@ -45,76 +45,66 @@ export function generateAutoPrefilledConfig(
     case 'bar':
     case 'line':
       if (textColumn) config.dimension_column = textColumn.name;
-      if (numberColumn) {
-        config.aggregate_column = numberColumn.name;
-        config.aggregate_function = 'sum';
-        config.metrics = [
-          {
-            column: numberColumn.name,
-            aggregation: 'sum',
-            alias: numberColumn.name,
-          },
-        ];
-      }
+      // Always add count metric as default
+      config.aggregate_function = 'count';
+      config.metrics = [
+        {
+          column: null,
+          aggregation: 'count',
+          alias: 'Total Count',
+        },
+      ];
       break;
 
     case 'pie':
       if (textColumn) config.dimension_column = textColumn.name;
-      if (numberColumn) {
-        config.aggregate_column = numberColumn.name;
-        config.aggregate_function = 'sum';
-        config.metrics = [
-          {
-            column: numberColumn.name,
-            aggregation: 'sum',
-            alias: numberColumn.name,
-          },
-        ];
-      }
+      // Always add count metric as default for pie charts
+      config.aggregate_function = 'count';
+      config.metrics = [
+        {
+          column: null,
+          aggregation: 'count',
+          alias: 'Total Count',
+        },
+      ];
       break;
 
     case 'number':
-      if (numberColumn) {
-        config.aggregate_column = numberColumn.name;
-        config.aggregate_function = 'sum';
-        config.metrics = [
-          {
-            column: numberColumn.name,
-            aggregation: 'sum',
-            alias: numberColumn.name,
-          },
-        ];
-      }
+      // Always add count metric as default for number charts
+      config.aggregate_function = 'count';
+      config.metrics = [
+        {
+          column: null,
+          aggregation: 'count',
+          alias: 'Total Count',
+        },
+      ];
       break;
 
     case 'map':
       const stateColumn = findStateColumn(columns);
       if (stateColumn) config.geographic_column = stateColumn.name;
-      if (numberColumn) {
-        config.value_column = numberColumn.name;
-        config.aggregate_column = numberColumn.name;
-        config.aggregate_function = 'sum';
-        config.metrics = [
-          {
-            column: numberColumn.name,
-            aggregation: 'sum',
-            alias: numberColumn.name,
-          },
-        ];
-      }
+      // Always add count metric as default for maps
+      config.aggregate_function = 'count';
+      config.metrics = [
+        {
+          column: null,
+          aggregation: 'count',
+          alias: 'Total Count',
+        },
+      ];
       break;
 
     case 'table':
       if (textColumn) config.dimension_column = textColumn.name;
-      if (numberColumn) {
-        config.metrics = [
-          {
-            column: numberColumn.name,
-            aggregation: 'sum',
-            alias: numberColumn.name,
-          },
-        ];
-      }
+      // Always add count metric as default for tables
+      config.metrics = [
+        {
+          column: null,
+          aggregation: 'count',
+          alias: 'Total Count',
+        },
+      ];
       config.table_columns = columns
         .slice(0, 6)
         .filter((col) => col.name)
