@@ -158,7 +158,7 @@ export default function NewChartPage() {
           </div>
 
           <TooltipProvider>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Chart type">
               {chartTypes.map((chart) => {
                 const IconComponent = chart.icon;
                 const isSelected = selectedChartType === chart.id;
@@ -174,7 +174,16 @@ export default function NewChartPage() {
                         style={
                           isSelected ? { borderColor: '#06887b', '--tw-ring-color': '#06887b' } : {}
                         }
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
                         onClick={() => setSelectedChartType(chart.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedChartType(chart.id);
+                          }
+                        }}
                       >
                         <CardContent className="p-6 h-32">
                           <div className="flex flex-col items-center justify-center gap-3 text-center h-full">

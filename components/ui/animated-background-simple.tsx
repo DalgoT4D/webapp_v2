@@ -62,99 +62,78 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
     };
 
     // Add mouse events to the window to ensure they're captured
+    // Mouse move listener stays the same
     window.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-    canvas.addEventListener('mouseenter', () => {
+    // Define a stable enter handler so we can remove it later
+    const handleMouseEnter = () => {
       isMouseOver = true;
-    });
-
+    };
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    canvas.addEventListener('mouseenter', handleMouseEnter);
+    // Keep track of the RAF ID so we can cancel on unmount
+    let animationFrameId: number;
     // Animation loop
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       // Update and draw particles
       particles.forEach((particle, i) => {
         // Update position
         particle.x += particle.vx;
         particle.y += particle.vy;
-
         // Bounce off edges
         if (particle.x < 0 || particle.x > canvas.width) particle.vx *= -1;
         if (particle.y < 0 || particle.y > canvas.height) particle.vy *= -1;
-
-        // Mouse repulsion - enhanced interaction
+        // Mouse repulsion
         if (isMouseOver) {
           const dx = mouseX - particle.x;
           const dy = mouseY - particle.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
+          const distance = Math.hypot(dx, dy);
           if (distance < 150) {
             const force = (150 - distance) / 150;
             const repulsionStrength = 8;
             particle.x -= (dx / distance) * force * repulsionStrength;
             particle.y -= (dy / distance) * force * repulsionStrength;
-
-            // Add some velocity for smoother movement
             particle.vx += -(dx / distance) * force * 2;
             particle.vy += -(dy / distance) * force * 2;
           }
         }
-
-        // Apply minimal friction to allow continuous movement
-        particle.vx *= 0.995;
-        particle.vy *= 0.995;
-
-        // Add some random movement to keep particles active
-        particle.vx += (Math.random() - 0.5) * 0.01;
-        particle.vy += (Math.random() - 0.5) * 0.01;
-
+        // Friction & random drift
+        particle.vx = particle.vx * 0.995 + (Math.random() - 0.5) * 0.01;
+        particle.vy = particle.vy * 0.995 + (Math.random() - 0.5) * 0.01;
         // Draw particle
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
         ctx.fillStyle = '#297373';
         ctx.fill();
-
         // Draw connections
-        particles.forEach((otherParticle, j) => {
+        particles.forEach((other, j) => {
           if (i !== j) {
-            const dx = particle.x - otherParticle.x;
-            const dy = particle.y - otherParticle.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < 150) {
+            const dx2 = particle.x - other.x;
+            const dy2 = particle.y - other.y;
+            const dist2 = Math.hypot(dx2, dy2);
+            if (dist2 < 150) {
               ctx.beginPath();
               ctx.moveTo(particle.x, particle.y);
-              ctx.lineTo(otherParticle.x, otherParticle.y);
-              ctx.strokeStyle = `rgba(41, 115, 115, ${0.4 * (1 - distance / 150)})`;
+              ctx.lineTo(other.x, other.y);
+              ctx.strokeStyle = `rgba(41,115,115,${0.4 * (1 - dist2 / 150)})`;
               ctx.lineWidth = 1;
               ctx.stroke();
             }
           }
         });
       });
-
-      // Optional: Draw mouse position indicator (remove for production)
-      // if (isMouseOver) {
-      //   ctx.beginPath();
-      //   ctx.arc(mouseX, mouseY, 100, 0, Math.PI * 2);
-      //   ctx.strokeStyle = 'rgba(41, 115, 115, 0.2)';
-      //   ctx.lineWidth = 2;
-      //   ctx.stroke();
-      // }
-
-      requestAnimationFrame(animate);
+      // Schedule next frame and save its ID
+      animationFrameId = requestAnimationFrame(animate);
     };
-
-    animate();
-
-    // Cleanup
+    // Kick off the loop and store the first ID
+    animationFrameId = requestAnimationFrame(animate);
+    // Cleanup on unmount
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
-      canvas.removeEventListener('mouseenter', () => {
-        isMouseOver = true;
-      });
+      canvas.removeEventListener('mouseenter', handleMouseEnter);
+      cancelAnimationFrame(animationFrameId);
     };
   }, []);
 

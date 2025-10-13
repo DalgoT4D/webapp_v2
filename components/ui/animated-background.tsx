@@ -29,7 +29,6 @@ export function AnimatedBackground({ children, className = '' }: AnimatedBackgro
       if (
         typeof window !== 'undefined' &&
         typeof window.particlesJS !== 'undefined' &&
-        typeof window.Stats !== 'undefined' &&
         !initialized
       ) {
         initializeParticles();

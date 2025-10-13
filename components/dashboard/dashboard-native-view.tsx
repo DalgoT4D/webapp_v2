@@ -1047,9 +1047,9 @@ export function DashboardNativeView({
       )}
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && (
-        <div className="bg-white border-b flex-shrink-0 px-6 py-4">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">{dashboard.title}</h1>
+        <div className="bg-white border-b flex-shrink-0 px-6 py-6">
+          <div>
+            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
           </div>
         </div>
       )}
