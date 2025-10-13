@@ -20,9 +20,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // Always try to fetch user data to check authentication status
-  const { data: orgUsersData, error: orgError } = useSWR('/api/currentuserv2');
+  const { data: orgUsersData, error: orgError, isLoading } = useSWR('/api/currentuserv2');
 
   useEffect(() => {
     // Initialize auth store on mount
@@ -36,6 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       // Successfully got user data, so we're authenticated
       setAuthenticated(true);
       setOrgUsers(orgUsersData);
+      setIsCheckingAuth(false);
 
       // Auto-select organization if none selected
       if (!currentOrg) {
@@ -58,16 +60,29 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     } else if (orgError) {
       // Clear authentication state if there's an error fetching user data
       setAuthenticated(false);
+      setIsCheckingAuth(false);
+    } else if (!isLoading && !orgUsersData) {
+      // Not loading and no data means not authenticated
+      setIsCheckingAuth(false);
     }
-  }, [orgUsersData, orgError, currentOrg, setOrgUsers, setSelectedOrg, setAuthenticated]);
+  }, [
+    orgUsersData,
+    orgError,
+    isLoading,
+    currentOrg,
+    setOrgUsers,
+    setSelectedOrg,
+    setAuthenticated,
+  ]);
 
   // Redirect to login if not authenticated (with debounce)
   useEffect(() => {
-    if (isInitialized && !isAuthenticated && !hasRedirected) {
+    // Only redirect after we've finished checking authentication
+    if (isInitialized && !isCheckingAuth && !isAuthenticated && !hasRedirected) {
       setHasRedirected(true);
       router.push('/login');
     }
-  }, [isInitialized, isAuthenticated, router, hasRedirected]);
+  }, [isInitialized, isCheckingAuth, isAuthenticated, router, hasRedirected]);
 
   // Show org switching loader
   if (isOrgSwitching) {
@@ -82,8 +97,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Show loading during initial setup
-  if (!isInitialized) {
+  // Show loading during initial setup or while checking authentication
+  if (!isInitialized || isCheckingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">
