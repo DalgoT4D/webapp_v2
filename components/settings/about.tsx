@@ -107,7 +107,16 @@ export default function About() {
       </Card>
 
       <div className="mt-8 text-center text-sm text-muted-foreground">
-        <p>© 2024 Dalgo Platform. All rights reserved.</p>
+        <p>
+          <a
+            href="https://dalgo.org/privacy-policy/"
+            target="_blank"
+            className="text-primary underline hover:text-primary/80"
+          >
+            Privacy Policy
+          </a>
+        </p>
+        <p className="mt-2">© {new Date().getFullYear()} Dalgo Platform. All rights reserved.</p>
         <p className="mt-2">
           For support, please contact{' '}
           <a href="mailto:support@dalgo.org" className="text-primary underline">

@@ -912,7 +912,7 @@ export default function ChartsPage() {
                     id="charts-empty-create-button"
                     variant="ghost"
                     className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: '#0066FF' }}
+                    style={{ backgroundColor: '#06887b' }}
                   >
                     <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST CHART
