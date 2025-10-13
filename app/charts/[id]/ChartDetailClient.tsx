@@ -538,34 +538,32 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/charts">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">{chart.title}</h1>
-            <p className="text-muted-foreground mt-1">
-              {chart.chart_type} chart • {chart.schema_name}.{chart.table_name}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {hasPermission('can_edit_charts') && (
-            <Link href={`/charts/${chartId}/edit`}>
-              <Button variant="outline">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Chart
+      <div className="bg-white border-b px-6 py-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/charts">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
               </Button>
             </Link>
-          )}
-          <ChartExportDropdown
-            chartTitle={chart.title}
-            chartElement={chartElement}
-            chartInstance={chartInstance}
-          />
+            <h1 className="text-lg font-semibold">{chart.title}</h1>
+          </div>
+          <div className="flex gap-2">
+            {hasPermission('can_edit_charts') && (
+              <Link href={`/charts/${chartId}/edit`}>
+                <Button variant="outline">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Chart
+                </Button>
+              </Link>
+            )}
+            <ChartExportDropdown
+              chartTitle={chart.title}
+              chartElement={chartElement}
+              chartInstance={chartInstance}
+            />
+          </div>
         </div>
       </div>
 
@@ -573,10 +571,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         {/* Chart Preview - Full width */}
         <div>
           <Card className="h-[75vh]">
-            <CardHeader>
-              <CardTitle>Chart Preview</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-5rem)]" ref={chartContentRef}>
+            <CardContent className="h-full p-6" ref={chartContentRef}>
               {chart?.chart_type === 'map' ? (
                 <MapPreview
                   geojsonData={geojsonData?.geojson_data}
@@ -585,7 +580,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   mapData={mapDataOverlay?.data}
                   mapDataLoading={mapDataLoading}
                   mapDataError={mapDataError}
-                  title={chart.title}
                   valueColumn={chart.extra_config?.aggregate_column}
                   customizations={chart.extra_config?.customizations || {}}
                   onRegionClick={handleRegionClick}

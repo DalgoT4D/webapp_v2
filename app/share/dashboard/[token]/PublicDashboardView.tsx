@@ -3,6 +3,7 @@
 import type { ErrorInfo, ReactNode } from 'react';
 import React, { Component } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Eye, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { usePublicDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
@@ -88,30 +89,68 @@ export function PublicDashboardView({ token }: PublicDashboardViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Public Header */}
+    <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
+      {/* Public Header - Responsive */}
       <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="px-3 sm:px-4 py-3 sm:py-4">
+          {/* Mobile Layout */}
+          <div className="block sm:hidden">
+            {/* Mobile Top Row - Logo and Org */}
+            <div className="flex items-center justify-between mb-3">
+              <Image
+                src="/dalgo_logo.svg"
+                alt="Dalgo"
+                width={50}
+                height={24}
+                className="flex-shrink-0"
+              />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
+                <div className="text-xs font-semibold text-blue-900">{dashboard.org_name}</div>
+              </div>
+            </div>
+            {/* Mobile Bottom Row - Title and Status */}
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                {dashboard.title}
+              </h1>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Eye className="h-4 w-4 flex-shrink-0" />
+                <span>Public View</span>
+                <Badge variant="secondary" className="text-xs">
+                  Read Only
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden sm:flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {/* Dalgo Logo - sized and aligned like main app */}
+              <Image
+                src="/dalgo_logo.svg"
+                alt="Dalgo"
+                width={60}
+                height={28}
+                className="flex-shrink-0"
+              />
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">{dashboard.title}</h1>
                 <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
                   <Eye className="h-4 w-4" />
                   <span>Public View</span>
-                  <span>•</span>
-                  <span>{dashboard.org_name}</span>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-xs ml-2">
                     Read Only
                   </Badge>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-gray-500 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Created {new Date(dashboard.created_at).toLocaleDateString()}
+            {/* Organization name - conspicuous in top right */}
+            <div className="flex items-center">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <div className="text-sm font-semibold text-blue-900">{dashboard.org_name}</div>
+                <div className="text-xs text-blue-600">Organization</div>
               </div>
             </div>
           </div>
@@ -126,10 +165,10 @@ export function PublicDashboardView({ token }: PublicDashboardViewProps) {
         dashboardData={dashboard}
       />
 
-      {/* Footer */}
+      {/* Footer - Responsive */}
       <footer className="bg-white border-t">
-        <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-600">
-          <p>
+        <div className="px-3 sm:px-4 py-4 sm:py-6 text-center text-xs sm:text-sm text-gray-600">
+          <p className="leading-relaxed">
             This dashboard is powered by{' '}
             <Link
               href="https://dalgo.org"
@@ -138,7 +177,10 @@ export function PublicDashboardView({ token }: PublicDashboardViewProps) {
             >
               Dalgo
             </Link>{' '}
-            - Open source data platform for social sector organizations
+            <span className="hidden sm:inline">
+              - Open source data platform for social sector organizations
+            </span>
+            <span className="block sm:hidden mt-1">Open source data platform</span>
           </p>
         </div>
       </footer>

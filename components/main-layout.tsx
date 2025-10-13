@@ -100,7 +100,7 @@ const getNavItems = (
   // Add Usage Dashboard if BOTH feature flag is enabled AND org has Superset setup
   if (isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup) {
     dashboardChildren.push({
-      title: 'Usage',
+      title: 'Superset Usage',
       href: '/dashboards/usage',
       icon: BarChart3,
       isActive: currentPath === '/dashboards/usage',
@@ -712,9 +712,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               >
                 {isSidebarCollapsed ? (
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-5 w-5" />
                 ) : (
-                  <ChevronLeft className="h-3 w-3" />
+                  <ChevronLeft className="h-5 w-5" />
                 )}
               </Button>
             </div>
@@ -739,102 +739,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                         onToggle={() => toggleMenuExpansion(item.title)}
                       />
                     ))}
-            </div>
-
-            {/* Sidebar Footer */}
-            <div id="main-layout-sidebar-footer" className="p-4 border-t space-y-2">
-              {/* Footer Links */}
-              <div className="space-y-1">
-                {isSidebarCollapsed ? (
-                  // Collapsed: Show icons with tooltips
-                  <>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
-                            <div className="flex items-center justify-center p-2 rounded-lg hover:bg-muted/40 transition-colors text-muted-foreground hover:text-foreground">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                width="16"
-                                fill="currentColor"
-                              >
-                                <path d="M0 0h24v24H0z" fill="none" />
-                                <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                              </svg>
-                            </div>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="ml-2">
-                          <p className="font-medium">Documentation</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link href="https://dalgo.org/privacy-policy/" target="_blank">
-                            <div className="flex items-center justify-center p-2 rounded-lg hover:bg-muted/40 transition-colors text-muted-foreground hover:text-foreground">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                width="16"
-                                fill="currentColor"
-                              >
-                                <path d="M0 0h24v24H0z" fill="none" />
-                                <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                              </svg>
-                            </div>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="ml-2">
-                          <p className="font-medium">Privacy Policy</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </>
-                ) : (
-                  // Expanded: Show full links with text
-                  <>
-                    <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
-                      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
-                        <span>Documentation</span>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          width="14"
-                          fill="currentColor"
-                          className="flex-shrink-0"
-                        >
-                          <path d="M0 0h24v24H0z" fill="none" />
-                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                        </svg>
-                      </div>
-                    </Link>
-
-                    <Link href="https://dalgo.org/privacy-policy/" target="_blank">
-                      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
-                        <span>Privacy Policy</span>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          width="14"
-                          fill="currentColor"
-                          className="flex-shrink-0"
-                        >
-                          <path d="M0 0h24v24H0z" fill="none" />
-                          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                        </svg>
-                      </div>
-                    </Link>
-                  </>
-                )}
-              </div>
             </div>
           </aside>
         )}
@@ -870,45 +774,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                       onToggle={() => toggleMenuExpansion(item.title)}
                     />
                   ))}
-              </div>
-
-              <div className="p-4 border-t space-y-2">
-                {/* Footer Links */}
-                <div className="space-y-1">
-                  <Link href="https://dalgot4d.github.io/dalgo_docs/" target="_blank">
-                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
-                      <span>Documentation</span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        width="14"
-                        fill="currentColor"
-                        className="flex-shrink-0"
-                      >
-                        <path d="M0 0h24v24H0z" fill="none" />
-                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                      </svg>
-                    </div>
-                  </Link>
-
-                  <Link href="https://dalgo.org/privacy-policy/" target="_blank">
-                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground">
-                      <span>Privacy Policy</span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        width="14"
-                        fill="currentColor"
-                        className="flex-shrink-0"
-                      >
-                        <path d="M0 0h24v24H0z" fill="none" />
-                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
-                      </svg>
-                    </div>
-                  </Link>
-                </div>
               </div>
             </div>
           </SheetContent>

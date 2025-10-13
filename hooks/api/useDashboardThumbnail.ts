@@ -17,7 +17,7 @@ export function useDashboardThumbnail({
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!enabled || !thumbnailUrl || !dashboardId) {
+    if (!enabled || !dashboardId) {
       return () => {}; // Return empty cleanup function
     }
 
@@ -29,7 +29,7 @@ export function useDashboardThumbnail({
 
       try {
         const blob = await apiPostBinary(`/api/superset/dashboards/${dashboardId}/thumbnail/`, {
-          thumbnail_url: thumbnailUrl,
+          thumbnail_url: thumbnailUrl || `dashboard-${dashboardId}`,
         });
 
         // Convert blob to object URL

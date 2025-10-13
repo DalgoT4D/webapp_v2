@@ -1053,52 +1053,44 @@ function EditChartPageContent() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-      {/* Header - Fixed Height */}
+      {/* Single Header with Everything */}
       <div className="bg-white border-b px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link href="/charts" className="hover:text-foreground transition-colors">
-                CHARTS
-              </Link>
-              <span>/</span>
-              <Link href={`/charts/${chartId}`} className="hover:text-foreground transition-colors">
-                {chart.title}
-              </Link>
-              <span>/</span>
-              <span className="text-foreground font-medium">EDIT</span>
-            </div>
+          <div className="flex items-center gap-3">
+            {/* Back Button */}
+            <Link href={`/charts/${chartId}`}>
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+            </Link>
 
-            <Button variant="ghost" size="icon" onClick={handleCancel}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-4">
+            {/* Chart Title Input */}
             <Input
               value={formData.title}
               onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[250px]"
+              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
               placeholder="Untitled Chart"
             />
-            <div className="flex gap-3">
-              <Button
-                variant="cancel"
-                onClick={handleCancel}
-                disabled={isMutating || isCreating}
-                className="px-8 h-11"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={!isFormValid() || isMutating || isCreating}
-                className="px-8 h-11"
-              >
-                {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
-              </Button>
-            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Button
+              variant="cancel"
+              onClick={handleCancel}
+              disabled={isMutating || isCreating}
+              className="px-8 h-11"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!isFormValid() || isMutating || isCreating}
+              className="px-8 h-11 text-white hover:opacity-90"
+              style={{ backgroundColor: '#06887b' }}
+            >
+              {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
+            </Button>
           </div>
         </div>
       </div>
@@ -1109,17 +1101,23 @@ function EditChartPageContent() {
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
-              <div className="px-4">
+              <div className="px-4 pt-4">
                 <TabsList
-                  className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                  className={`grid w-full h-11 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
                 >
-                  <TabsTrigger value="configuration" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-5" />
+                  <TabsTrigger
+                    value="configuration"
+                    className="flex items-center justify-center gap-2 text-sm h-full"
+                  >
+                    <BarChart3 className="h-4 w-4" />
                     Data Configuration
                   </TabsTrigger>
                   {formData.chart_type !== 'table' && (
-                    <TabsTrigger value="styling" className="flex items-center gap-2">
-                      <Database className="h-4 w-5" />
+                    <TabsTrigger
+                      value="styling"
+                      className="flex items-center justify-center gap-2 text-sm h-full"
+                    >
+                      <Database className="h-4 w-4" />
                       Chart Styling
                     </TabsTrigger>
                   )}
@@ -1191,7 +1189,6 @@ function EditChartPageContent() {
                         mapData={mapDataOverlay?.data}
                         mapDataLoading={mapDataLoading}
                         mapDataError={mapDataError}
-                        title={formData.title}
                         valueColumn={formData.aggregate_column}
                         customizations={formData.customizations}
                         onRegionClick={handleRegionClick}

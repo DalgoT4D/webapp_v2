@@ -28,6 +28,8 @@ export interface Dashboard {
   public_disabled_at?: string;
   public_access_count: number;
   last_public_accessed?: string;
+  // Thumbnail field for dashboard screenshots
+  thumbnail_url?: string;
 }
 
 export interface DashboardFilter {

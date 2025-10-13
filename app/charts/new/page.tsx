@@ -4,19 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  ChevronLeft,
-  BarChart2,
-  PieChart,
-  LineChart,
-  Hash,
-  MapPin,
-  Table,
-  Lock,
-  ArrowLeft,
-} from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table, Lock } from 'lucide-react';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -127,23 +117,23 @@ export default function NewChartPage() {
   return (
     <div className="px-8 py-6 ml-0">
       {/* Header with Back button */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-3 mb-8">
         <Link href="/charts">
-          <Button variant="ghost" size="icon">
-            <ChevronLeft className="h-4 w-4" />
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
           </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold">Create a new chart</h1>
-          <p className="text-muted-foreground mt-1">Select your dataset and choose a chart type</p>
         </div>
       </div>
 
-      <div className="max-w-5xl space-y-8">
+      <div className="max-w-5xl space-y-8" style={{ marginLeft: '0px' }}>
         {/* Dataset Selection */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-medium">
+            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-medium">
               1
             </div>
             <h2 className="text-xl font-semibold">Choose a dataset</h2>
@@ -154,52 +144,67 @@ export default function NewChartPage() {
             table_name={selectedTable}
             onDatasetChange={handleDatasetChange}
             className="max-w-lg"
+            autoFocus={true}
           />
         </div>
 
         {/* Chart Type Selection */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-medium">
+            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-medium">
               2
             </div>
             <h2 className="text-xl font-semibold">Choose chart type</h2>
           </div>
 
-          <div className="flex flex-wrap gap-4">
-            {chartTypes.map((chart) => {
-              const IconComponent = chart.icon;
-              const isSelected = selectedChartType === chart.id;
+          <TooltipProvider>
+            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Chart type">
+              {chartTypes.map((chart) => {
+                const IconComponent = chart.icon;
+                const isSelected = selectedChartType === chart.id;
 
-              return (
-                <Card
-                  key={chart.id}
-                  className={cn(
-                    'cursor-pointer transition-all duration-200 hover:shadow-md flex-1 min-w-0',
-                    isSelected && 'ring-2 ring-blue-600 shadow-md'
-                  )}
-                  onClick={() => setSelectedChartType(chart.id)}
-                >
-                  <CardContent className="p-6 h-32">
-                    <div className="flex flex-col items-center justify-center gap-3 text-center h-full">
-                      <div className={cn('p-3 rounded-lg', chart.bgColor)}>
-                        <IconComponent className={cn('w-6 h-6', chart.color)} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-sm">{chart.name}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">{chart.description}</p>
-                        {isSelected && (
-                          <Badge variant="default" className="bg-blue-600 text-xs mt-2">
-                            Selected
-                          </Badge>
+                return (
+                  <Tooltip key={chart.id}>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={cn(
+                          'cursor-pointer transition-all duration-200 hover:shadow-md flex-1 min-w-0',
+                          isSelected && 'ring-2 shadow-md'
                         )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                        style={
+                          isSelected ? { borderColor: '#06887b', '--tw-ring-color': '#06887b' } : {}
+                        }
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        onClick={() => setSelectedChartType(chart.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedChartType(chart.id);
+                          }
+                        }}
+                      >
+                        <CardContent className="p-6 h-32">
+                          <div className="flex flex-col items-center justify-center gap-3 text-center h-full">
+                            <div className={cn('p-3 rounded-lg', chart.bgColor)}>
+                              <IconComponent className={cn('w-6 h-6', chart.color)} />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-sm">{chart.name}</h3>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-gray-900 text-white border-gray-700">
+                      <p>{chart.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -209,7 +214,12 @@ export default function NewChartPage() {
         <Button variant="cancel" onClick={handleCancel}>
           Cancel
         </Button>
-        <Button onClick={handleContinue} disabled={!canProceed} className="min-w-[120px]">
+        <Button
+          onClick={handleContinue}
+          disabled={!canProceed}
+          className="min-w-[120px] text-white hover:opacity-90"
+          style={{ backgroundColor: '#06887b' }}
+        >
           Continue
         </Button>
       </div>

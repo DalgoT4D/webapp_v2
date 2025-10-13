@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { apiPost } from '@/lib/api';
 import { Loader2, Eye, EyeOff, ChevronLeft } from 'lucide-react';
+import Image from 'next/image';
 
 interface ChangePasswordForm {
   password: string;
@@ -95,6 +96,17 @@ export default function ChangePasswordPage() {
                   <span className="sr-only">Go back</span>
                 </Button>
               </div>
+
+              {/* Dalgo Logo */}
+              <div className="flex justify-center mb-4">
+                <Image
+                  src="/dalgo_logo.svg"
+                  alt="Dalgo"
+                  width={60}
+                  height={68}
+                  className="text-primary"
+                />
+              </div>
             </CardHeader>
             <CardContent className="text-center">
               <h2 className="text-2xl font-bold mb-4">Password Changed Successfully</h2>
@@ -127,6 +139,18 @@ export default function ChangePasswordPage() {
                 <span className="sr-only">Go back</span>
               </Button>
             </div>
+
+            {/* Dalgo Logo */}
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/dalgo_logo.svg"
+                alt="Dalgo"
+                width={60}
+                height={68}
+                className="text-primary"
+              />
+            </div>
+
             <CardTitle className="text-2xl text-center">Change Password</CardTitle>
           </CardHeader>
           <CardContent>

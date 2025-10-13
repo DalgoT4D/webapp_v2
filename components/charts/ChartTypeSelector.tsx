@@ -56,7 +56,6 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-medium text-gray-900 mb-1">Chart Type</h3>
-        <p className="text-xs text-gray-500">Choose how to visualize your data</p>
       </div>
 
       <div className="grid grid-cols-6 gap-3">
