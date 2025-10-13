@@ -159,7 +159,7 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
       `}</style>
 
       <div className={`animated-bg-simple min-h-screen relative overflow-hidden ${className}`}>
-        <canvas ref={canvasRef} className="bg-canvas" />
+        <canvas ref={canvasRef} className="bg-canvas pointer-events-none" />
 
         <div className="content-wrapper">{children}</div>
       </div>
