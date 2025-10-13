@@ -712,9 +712,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               >
                 {isSidebarCollapsed ? (
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-5 w-5" />
                 ) : (
-                  <ChevronLeft className="h-3 w-3" />
+                  <ChevronLeft className="h-5 w-5" />
                 )}
               </Button>
             </div>

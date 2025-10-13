@@ -372,7 +372,6 @@ function PieChartCustomizations({
                 <SelectContent>
                   <SelectItem value="outside">Outside (Top)</SelectItem>
                   <SelectItem value="inside">Inside (Mid)</SelectItem>
-                  <SelectItem value="center">Center (Bottom)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
