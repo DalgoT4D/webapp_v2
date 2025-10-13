@@ -111,8 +111,8 @@ export function Header({
 
   const handleLogout = async () => {
     try {
-      // Call the v2 logout endpoint to clear cookies on server
-      await apiPost('/api/v2/logout/', {});
+      // Call the logout endpoint to clear cookies on server
+      await apiPost('/api/logout/', {});
     } catch (error) {
       console.error('Logout API call failed:', error);
       // Continue with logout even if API call fails

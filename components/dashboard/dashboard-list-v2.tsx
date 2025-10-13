@@ -269,7 +269,7 @@ export function DashboardListV2() {
   const handleSetPersonalLanding = useCallback(
     async (dashboardId: number) => {
       await setPersonalLanding(dashboardId);
-      // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+      // The landing page hook already mutates '/api/currentuserv2'
       // Also mutate '/api/currentuserv2' to refresh our local data
       await swrMutate('/api/currentuserv2');
       mutate(); // Refresh the dashboard list to update indicators
@@ -279,7 +279,7 @@ export function DashboardListV2() {
 
   const handleRemovePersonalLanding = useCallback(async () => {
     await removePersonalLanding();
-    // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+    // The landing page hook already mutates '/api/currentuserv2'
     // Also mutate '/api/currentuserv2' to refresh our local data
     await swrMutate('/api/currentuserv2');
     mutate(); // Refresh the dashboard list to update indicators
@@ -288,7 +288,7 @@ export function DashboardListV2() {
   const handleSetOrgDefault = useCallback(
     async (dashboardId: number) => {
       await setOrgDefault(dashboardId);
-      // The landing page hook already mutates '/api/v1/organizations/users/currentuserv2'
+      // The landing page hook already mutates '/api/currentuserv2'
       // Also mutate '/api/currentuserv2' to refresh our local data
       await swrMutate('/api/currentuserv2');
       mutate(); // Refresh the dashboard list to update indicators

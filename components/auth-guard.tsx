@@ -22,7 +22,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [hasRedirected, setHasRedirected] = useState(false);
 
   // Always try to fetch user data to check authentication status
-  const { data: orgUsersData, error: orgError } = useSWR('/api/v2/currentuser');
+  const { data: orgUsersData, error: orgError } = useSWR('/api/currentuserv2');
 
   useEffect(() => {
     // Initialize auth store on mount
