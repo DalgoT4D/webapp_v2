@@ -24,52 +24,35 @@ export interface OrgUser {
 
 interface AuthState {
   // State
-  token: string | null;
-  refreshToken: string | null;
   selectedOrgSlug: string | null;
   currentOrg: Org | null;
   orgUsers: OrgUser[];
   isAuthenticated: boolean;
   isOrgSwitching: boolean;
-  isRefreshing: boolean;
 
   // Actions
-  setTokens: (token: string, refreshToken?: string) => void;
-  setToken: (token: string) => void;
+  setAuthenticated: (authenticated: boolean) => void;
   setOrgUsers: (orgUsers: OrgUser[]) => void;
   setSelectedOrg: (orgSlug: string) => void;
   setOrgSwitching: (switching: boolean) => void;
-  setRefreshing: (refreshing: boolean) => void;
   logout: () => void;
   initialize: () => void;
+  checkAuthentication: () => Promise<boolean>;
   getCurrentOrgUser: () => OrgUser | null;
 }
 
 export const useAuthStore = createAppStore<AuthState>(
   (set, get) => ({
     // Initial state
-    token: null,
-    refreshToken: null,
     selectedOrgSlug: null,
     currentOrg: null,
     orgUsers: [],
     isAuthenticated: false,
     isOrgSwitching: false,
-    isRefreshing: false,
 
     // Actions
-    setTokens: (token: string, refreshToken?: string) => {
-      localStorage.setItem('authToken', token);
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
-      set({ token, refreshToken, isAuthenticated: true });
-    },
-
-    setToken: (token: string) => {
-      localStorage.setItem('authToken', token);
-      const { refreshToken } = get(); // preserve existing refresh token
-      set({ token, refreshToken, isAuthenticated: true });
+    setAuthenticated: (authenticated: boolean) => {
+      set({ isAuthenticated: authenticated });
     },
 
     setOrgUsers: (orgUsers: OrgUser[]) => {
@@ -103,12 +86,9 @@ export const useAuthStore = createAppStore<AuthState>(
       set({ isOrgSwitching: switching });
     },
 
-    setRefreshing: (refreshing: boolean) => {
-      set({ isRefreshing: refreshing });
-    },
-
     logout: () => {
-      localStorage.clear();
+      // Clear organization selection but keep other localStorage items
+      localStorage.removeItem('selectedOrg');
       sessionStorage.clear();
 
       // Clear all SWR cache to prevent stale data from previous user
@@ -120,34 +100,37 @@ export const useAuthStore = createAppStore<AuthState>(
       );
 
       set({
-        token: null,
-        refreshToken: null,
         selectedOrgSlug: null,
         currentOrg: null,
         orgUsers: [],
         isAuthenticated: false,
         isOrgSwitching: false,
-        isRefreshing: false,
       });
 
       // Note: iframe logout is handled automatically by SharedIframe component
-      // monitoring the token state change
+      // monitoring the auth state change
     },
 
     initialize: () => {
       if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('authToken');
-        const refreshToken = localStorage.getItem('refreshToken');
         const selectedOrgSlug = localStorage.getItem('selectedOrg');
 
-        if (token) {
-          set({
-            token,
-            refreshToken,
-            selectedOrgSlug,
-            isAuthenticated: true,
-          });
-        }
+        set({
+          selectedOrgSlug,
+          isAuthenticated: false, // Will be determined by SWR API calls
+        });
+      }
+    },
+
+    // Helper to check if user is authenticated based on successful API call
+    checkAuthentication: async () => {
+      try {
+        // This will be called by SWR when it successfully fetches user data
+        set({ isAuthenticated: true });
+        return true;
+      } catch {
+        set({ isAuthenticated: false });
+        return false;
       }
     },
 

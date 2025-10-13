@@ -21,8 +21,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const {
     isAuthenticated,
-    token,
-    setTokens,
+    setAuthenticated,
     setOrgUsers,
     setSelectedOrg,
     logout,
@@ -45,50 +44,27 @@ function LoginForm() {
     setError,
   } = useForm<LoginForm>();
 
-  // Fetch organizations when we have a token
-  const { data: orgUsers, error: orgError } = useSWR<OrgUser[]>(
-    token ? '/api/currentuserv2' : null
-  );
-
-  // Handle org data loading and auto-selection
-  useEffect(() => {
-    if (orgUsers && orgUsers.length > 0) {
-      setOrgUsers(orgUsers);
-
-      // Auto-select organization
-      if (!selectedOrgSlug) {
-        // If no org is selected, select the first one
-        const firstOrg = orgUsers[0].org;
-        setSelectedOrg(firstOrg.slug);
-      } else {
-        // Verify the selected org still exists
-        const orgExists = orgUsers.some((ou) => ou.org.slug === selectedOrgSlug);
-        if (!orgExists) {
-          const firstOrg = orgUsers[0].org;
-          setSelectedOrg(firstOrg.slug);
-        }
-      }
-    }
-  }, [orgUsers, selectedOrgSlug, setOrgUsers, setSelectedOrg]);
+  // No need for SWR here - AuthGuard handles authentication for protected routes
 
   // Redirect to Impact at a Glance when authenticated and org is selected
   useEffect(() => {
-    if (isAuthenticated && token && currentOrg) {
+    if (isAuthenticated && currentOrg) {
       router.push('/impact');
     }
-  }, [isAuthenticated, token, currentOrg, router]);
+  }, [isAuthenticated, currentOrg, router]);
 
   // Handle login
   const onLogin = async (data: LoginForm) => {
     try {
-      const response = await apiPost('/api/login/', {
+      const response = await apiPost('/api/v2/login/', {
         username: data.username,
         password: data.password,
       });
 
-      if (response?.token) {
-        // Store both access and refresh tokens
-        setTokens(response.token, response.refresh_token);
+      if (response?.success) {
+        // Cookies are set automatically by the server
+        // Redirect to impact page - AuthGuard will handle authentication
+        router.push('/impact');
       } else {
         setError('root', { message: 'Invalid response from server' });
       }
@@ -98,7 +74,7 @@ function LoginForm() {
   };
 
   // Show loading while checking authentication and org selection
-  if (isAuthenticated && token && !currentOrg && !orgError) {
+  if (isAuthenticated && !currentOrg) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">
@@ -175,12 +151,6 @@ function LoginForm() {
 
         {errors.root && (
           <div className="text-red-600 text-sm text-center">{errors.root.message}</div>
-        )}
-
-        {orgError && (
-          <div className="text-red-600 text-sm text-center">
-            Failed to load organizations. Please try again.
-          </div>
         )}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>

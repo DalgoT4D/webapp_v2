@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -109,7 +109,16 @@ export function Header({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call the v2 logout endpoint to clear cookies on server
+      await apiPost('/api/v2/logout/', {});
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+      // Continue with logout even if API call fails
+    }
+
+    // Clear local state and redirect
     logout();
     router.push('/login');
   };

@@ -6,23 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:80
 
 // Track ongoing refresh request to prevent multiple simultaneous refreshes
 let isRefreshing = false;
-let refreshPromise: Promise<string | null> = Promise.resolve(null);
-
-// Placeholder for getting auth token (to be implemented)
-function getAuthToken() {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('authToken');
-    return token || undefined;
-  }
-  return undefined;
-}
-
-function getRefreshToken() {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('refreshToken') || undefined;
-  }
-  return undefined;
-}
+let refreshPromise: Promise<boolean> = Promise.resolve(false);
 
 function getSelectOrg() {
   if (typeof window !== 'undefined') {
@@ -31,65 +15,32 @@ function getSelectOrg() {
   return undefined;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    console.error('No refresh token available');
-    return null;
-  }
-
+async function refreshAccessToken(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/token/refresh`, {
+    const response = await fetch(`${API_BASE_URL}/api/v2/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
+      credentials: 'include', // Send cookies with request
     });
 
     if (!response.ok) {
       console.error('Token refresh failed:', response.status, response.statusText);
-
-      // If refresh token is invalid (401, 403), clear it
-      if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('authToken');
-      }
-
-      return null;
+      return false;
     }
 
-    const data = await response.json();
-    const newAccessToken = data.token;
-
-    if (newAccessToken) {
-      // Update localStorage and auth store
-      localStorage.setItem('authToken', newAccessToken);
-
-      // Update auth store if available
-      if (typeof window !== 'undefined') {
-        const store = useAuthStore.getState();
-        store.setToken(newAccessToken);
-      }
-
-      return newAccessToken;
-    }
-
-    console.error('No token in refresh response');
-    return null;
+    // Cookie is automatically set by the server response
+    return true;
   } catch (error) {
     console.error('Error refreshing token:', error);
-
-    // On network errors, don't clear tokens - they might be temporary
-    return null;
+    return false;
   }
 }
 
 function getHeaders() {
-  const token = getAuthToken();
   const selectedOrgSlug = getSelectOrg();
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // No Authorization header needed - cookies are sent automatically
     ...(selectedOrgSlug ? { 'x-dalgo-org': selectedOrgSlug } : {}),
   };
 }
@@ -106,9 +57,7 @@ function handleAuthFailure() {
       return;
     }
 
-    // Clear all auth-related data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
+    // Clear organization selection
     localStorage.removeItem('selectedOrg');
 
     // Update auth store
@@ -131,7 +80,11 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
   };
 
   try {
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include', // Always include cookies
+    });
 
     // Handle 401 Unauthorized
     if (response.status === 401) {
@@ -145,10 +98,10 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
           });
         }
 
-        const newToken = await refreshPromise;
+        const success = await refreshPromise;
 
-        if (newToken) {
-          // Retry the original request with the new token
+        if (success) {
+          // Retry the original request with the new token cookie
           return apiFetch(path, options, retryCount + 1);
         }
       }
@@ -259,6 +212,7 @@ export async function apiPostBinary(path: string, body: any, options: RequestIni
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    credentials: 'include', // Include cookies
   });
 
   if (!response.ok) {

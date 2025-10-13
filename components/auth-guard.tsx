@@ -14,17 +14,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     setOrgSwitching,
     setOrgUsers,
     setSelectedOrg,
+    setAuthenticated,
     initialize,
-    token,
   } = useAuthStore();
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
 
-  // Fetch organizations when we have a token but no orgUsers
-  const { data: orgUsersData, error: orgError } = useSWR(
-    token && isAuthenticated && orgUsers.length === 0 ? '/api/currentuserv2' : null
-  );
+  // Always try to fetch user data to check authentication status
+  const { data: orgUsersData, error: orgError } = useSWR('/api/v2/currentuser');
 
   useEffect(() => {
     // Initialize auth store on mount
@@ -32,9 +30,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     setIsInitialized(true);
   }, [initialize]);
 
-  // Handle org data loading and auto-selection (similar to login page)
+  // Handle authentication and org data loading
   useEffect(() => {
     if (orgUsersData && orgUsersData.length > 0) {
+      // Successfully got user data, so we're authenticated
+      setAuthenticated(true);
       setOrgUsers(orgUsersData);
 
       // Auto-select organization if none selected
@@ -55,8 +55,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           setSelectedOrg(orgUsersData[0].org.slug);
         }
       }
+    } else if (orgError) {
+      // Clear authentication state if there's an error fetching user data
+      setAuthenticated(false);
     }
-  }, [orgUsersData, currentOrg, setOrgUsers, setSelectedOrg]);
+  }, [orgUsersData, orgError, currentOrg, setOrgUsers, setSelectedOrg, setAuthenticated]);
 
   // Redirect to login if not authenticated (with debounce)
   useEffect(() => {
@@ -92,7 +95,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Show loading while fetching org data
-  if (isAuthenticated && token && orgUsers.length === 0 && !orgError) {
+  if (isAuthenticated && orgUsers.length === 0 && !orgError) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">
