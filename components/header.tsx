@@ -186,57 +186,69 @@ export function Header({
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-64" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
+          <DropdownMenuContent className="w-80 p-2" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal px-3 py-2.5">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none truncate">{userEmail}</p>
+                <p className="text-base font-medium leading-snug truncate">{userEmail}</p>
                 {currentOrg && (
-                  <p className="text-xs leading-none text-muted-foreground truncate">
+                  <p className="text-sm leading-tight text-muted-foreground truncate">
                     {currentOrg.name} • {currentOrgUser?.new_role_slug || 'User'}
                   </p>
                 )}
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="mx-2" />
 
             {/* Organization switching - only show if more than 1 organization */}
             {availableOrgs.length > 1 && (
               <>
-                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
                   Organizations
                 </DropdownMenuLabel>
-                {availableOrgs
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((org) => (
-                    <DropdownMenuItem
-                      key={org.slug}
-                      onClick={() => handleOrgChange(org.slug)}
-                      className={currentOrg?.slug === org.slug ? 'bg-muted' : ''}
-                      disabled={isOrgSwitching}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className="truncate">{org.name}</span>
-                        {currentOrg?.slug === org.slug && (
-                          <span className="ml-2 text-xs text-primary">Current</span>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                <DropdownMenuSeparator />
+                <div className="px-1 pb-1.5">
+                  {availableOrgs
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((org) => (
+                      <DropdownMenuItem
+                        key={org.slug}
+                        onClick={() => handleOrgChange(org.slug)}
+                        className={`mx-1 my-0.5 px-3 py-2 rounded-md ${
+                          currentOrg?.slug === org.slug ? 'bg-muted' : ''
+                        }`}
+                        disabled={isOrgSwitching}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="truncate font-medium text-base">{org.name}</span>
+                          {currentOrg?.slug === org.slug && (
+                            <span className="ml-2 text-sm text-primary font-medium">Current</span>
+                          )}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                </div>
+                <DropdownMenuSeparator className="mx-2" />
               </>
             )}
 
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push('/change-password')}>
-                <Key className="mr-2 h-4 w-4" />
-                <span>Change Password</span>
+            <DropdownMenuGroup className="px-1 py-1.5">
+              <DropdownMenuItem
+                onClick={() => router.push('/change-password')}
+                className="mx-1 my-0.5 px-3 py-2 rounded-md"
+              >
+                <Key className="mr-3 h-4 w-4" />
+                <span className="font-medium text-base">Change Password</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
+            <DropdownMenuSeparator className="mx-2" />
+            <div className="px-1 py-1.5">
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="mx-1 my-0.5 px-3 py-2 rounded-md text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <LogOut className="mr-3 h-4 w-4" />
+                <span className="font-medium text-base">Log out</span>
+              </DropdownMenuItem>
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

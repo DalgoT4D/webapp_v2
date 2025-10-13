@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, Database, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Database, BarChart3, ArrowLeft } from 'lucide-react';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -150,7 +150,7 @@ function ConfigureChartPageContent() {
     computation_type: 'aggregated',
     customizations: getDefaultCustomizations(chartType),
     // Set default aggregate function to prevent API errors
-    aggregate_function: 'sum',
+    aggregate_function: 'count',
   });
 
   const [activeTab, setActiveTab] = useState('chart');
@@ -729,34 +729,30 @@ function ConfigureChartPageContent() {
       {/* Single Header with Everything */}
       <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link href="/charts" className="hover:text-foreground transition-colors">
-                CHARTS
-              </Link>
-              <span>/</span>
-              <span className="text-foreground font-medium">CREATE CHART</span>
-            </div>
-
+          <div className="flex items-center gap-3">
+            {/* Back Button */}
             <Link href="/charts/new">
-              <Button variant="ghost" size="icon">
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
               </Button>
             </Link>
-          </div>
 
-          <div className="flex items-center gap-4">
+            {/* Chart Title Input */}
             <Input
               value={formData.title}
               onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[250px]"
+              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
               placeholder="Untitled Chart"
             />
+          </div>
+
+          <div className="flex items-center gap-4">
             <Button
               onClick={handleSave}
               disabled={!isFormValid() || isMutating}
-              className="px-8 h-11"
+              className="px-8 h-11 text-white hover:opacity-90"
+              style={{ backgroundColor: '#06887b' }}
             >
               {isMutating ? 'Saving...' : 'Save Chart'}
             </Button>
@@ -770,17 +766,23 @@ function ConfigureChartPageContent() {
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
-              <div className="px-4">
+              <div className="px-4 pt-4">
                 <TabsList
-                  className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                  className={`grid w-full h-11 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
                 >
-                  <TabsTrigger value="configuration" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-5" />
+                  <TabsTrigger
+                    value="configuration"
+                    className="flex items-center justify-center gap-2 text-sm h-full"
+                  >
+                    <BarChart3 className="h-4 w-4" />
                     Data Configuration
                   </TabsTrigger>
                   {formData.chart_type !== 'table' && (
-                    <TabsTrigger value="styling" className="flex items-center gap-2">
-                      <Database className="h-4 w-5" />
+                    <TabsTrigger
+                      value="styling"
+                      className="flex items-center justify-center gap-2 text-sm h-full"
+                    >
+                      <Database className="h-4 w-4" />
                       Chart Styling
                     </TabsTrigger>
                   )}
@@ -858,7 +860,6 @@ function ConfigureChartPageContent() {
                         mapData={mapDataOverlay?.data}
                         mapDataLoading={mapDataLoading}
                         mapDataError={mapDataError}
-                        title={formData.title}
                         valueColumn={formData.aggregate_column}
                         customizations={formData.customizations}
                         // ✅ UPDATE: Complete drill-down support in create mode

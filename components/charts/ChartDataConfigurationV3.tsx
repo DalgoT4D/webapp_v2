@@ -27,9 +27,9 @@ interface ChartDataConfigurationV3Props {
 }
 
 const AGGREGATE_FUNCTIONS = [
+  { value: 'count', label: 'Count' },
   { value: 'sum', label: 'Sum' },
   { value: 'avg', label: 'Average' },
-  { value: 'count', label: 'Count' },
   { value: 'min', label: 'Minimum' },
   { value: 'max', label: 'Maximum' },
   { value: 'count_distinct', label: 'Count Distinct' },
@@ -242,7 +242,7 @@ export function ChartDataConfigurationV3({
       y_axis_column: undefined,
       dimension_column: undefined,
       aggregate_column: undefined,
-      aggregate_function: 'sum', // Default aggregate function
+      aggregate_function: 'count', // Default aggregate function
       extra_dimension_column: undefined,
       geographic_column: undefined,
       value_column: undefined,
@@ -758,7 +758,7 @@ export function ChartDataConfigurationV3({
                 onChange({ filters: newFilters });
               }}
               disabled={disabled}
-              className="w-full"
+              className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
             >
               + Add Filter
             </Button>

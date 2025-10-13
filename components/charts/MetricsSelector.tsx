@@ -24,9 +24,9 @@ interface MetricsSelectorProps {
 }
 
 const AGGREGATE_FUNCTIONS = [
+  { value: 'count', label: 'Count' },
   { value: 'sum', label: 'Sum' },
   { value: 'avg', label: 'Average' },
-  { value: 'count', label: 'Count' },
   { value: 'min', label: 'Minimum' },
   { value: 'max', label: 'Maximum' },
   { value: 'count_distinct', label: 'Count Distinct' },
@@ -74,7 +74,7 @@ export function MetricsSelector({
   const addMetric = () => {
     const newMetric: ChartMetric = {
       column: '',
-      aggregation: 'sum',
+      aggregation: 'count',
       alias: '',
     };
     onChange([...metrics, newMetric]);
@@ -156,7 +156,7 @@ export function MetricsSelector({
       <Label className="text-sm font-medium text-gray-900">Metrics</Label>
       <div className="space-y-3">
         {metrics.map((metric, index) => (
-          <div key={index} className="space-y-2 p-3 border rounded-lg bg-gray-50">
+          <div key={index} className="space-y-2 p-3 border rounded-lg bg-white">
             <div className="flex items-center gap-2">
               <div className="flex-1 grid grid-cols-2 gap-2">
                 {/* Aggregation Function - Now First */}

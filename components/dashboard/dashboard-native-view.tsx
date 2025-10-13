@@ -273,7 +273,7 @@ export function DashboardNativeView({
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
-  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
+  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -690,7 +690,7 @@ export function DashboardNativeView({
             {/* Mobile Top Row */}
             <div className="px-4 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                {!isFullscreen && (
+                {!isFullscreen && !isPublicMode && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -881,7 +881,7 @@ export function DashboardNativeView({
           <div className="hidden lg:block px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 min-w-0 flex-1">
-                {!isFullscreen && (
+                {!isFullscreen && !isPublicMode && (
                   <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back
@@ -1047,9 +1047,9 @@ export function DashboardNativeView({
       )}
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && (
-        <div className="bg-white border-b flex-shrink-0 px-6 py-4">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">{dashboard.title}</h1>
+        <div className="bg-white border-b flex-shrink-0 px-6 py-6">
+          <div>
+            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
           </div>
         </div>
       )}
@@ -1079,6 +1079,7 @@ export function DashboardNativeView({
             onCollapseChange={setIsFiltersCollapsed}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
+            initiallyCollapsed={showMinimalHeader || isPublicMode}
           />
         )}
 

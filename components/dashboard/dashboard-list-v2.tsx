@@ -64,7 +64,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
-import { DashboardThumbnail } from './dashboard-thumbnail';
 import { ShareModal } from './ShareModal';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -481,16 +480,13 @@ export function DashboardListV2() {
         {/* Clickable content area */}
         <Link href={getNavigationUrl()}>
           <div className="cursor-pointer">
-            {/* Enhanced Thumbnail with Real Dashboard Preview */}
-            <div className="relative h-52 bg-gray-50 overflow-hidden rounded-t-lg">
-              <DashboardThumbnail
-                dashboardId={dashboard.id}
-                thumbnailUrl={dashboard.thumbnail_url}
-                alt={dashboard.title || dashboard.dashboard_title || 'Dashboard'}
-                className="w-full h-full object-cover"
-                fallbackClassName="bg-gradient-to-br from-gray-50 to-gray-100"
-                fallbackIconSize="lg"
-              />
+            {/* Dashboard Icon Preview */}
+            <div className="relative h-52 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden rounded-t-lg">
+              <div className="flex items-center justify-center h-full p-6">
+                <div className="rounded-xl flex items-center justify-center w-32 h-32 shadow-sm border border-white/50 bg-gray-200/60">
+                  <LayoutDashboard className="w-20 h-20 text-gray-600" />
+                </div>
+              </div>
 
               {/* Lock indicator */}
               {isLocked && (
@@ -603,15 +599,8 @@ export function DashboardListV2() {
                 hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'
               )}
             >
-              <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
-                <DashboardThumbnail
-                  dashboardId={dashboard.id}
-                  thumbnailUrl={dashboard.thumbnail_url}
-                  alt={dashboard.title || dashboard.dashboard_title || 'Dashboard'}
-                  className="w-full h-full object-cover"
-                  fallbackClassName="bg-gradient-to-br from-gray-100 to-gray-200"
-                  fallbackIconSize="sm"
-                />
+              <div className="w-16 h-16 bg-gray-200/60 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-200">
+                <LayoutDashboard className="w-8 h-8 text-gray-600" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -1041,11 +1030,6 @@ export function DashboardListV2() {
               {/* Pinned Dashboards Section */}
               {pinnedDashboards.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Star className="w-4 h-4 text-blue-500 fill-current" />
-                    <h2 className="text-lg font-semibold text-gray-900">Pinned Dashboards</h2>
-                    <div className="h-px bg-gray-200 flex-1"></div>
-                  </div>
                   <div
                     className={cn(
                       viewMode === 'grid'
@@ -1065,13 +1049,6 @@ export function DashboardListV2() {
               {/* Regular Dashboards Section */}
               {paginatedRegularDashboards.length > 0 && (
                 <div>
-                  {pinnedDashboards.length > 0 && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <LayoutDashboard className="w-4 h-4 text-gray-500" />
-                      <h2 className="text-lg font-semibold text-gray-900">All Dashboards</h2>
-                      <div className="h-px bg-gray-200 flex-1"></div>
-                    </div>
-                  )}
                   <div
                     className={cn(
                       viewMode === 'grid'

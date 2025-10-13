@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -19,6 +19,7 @@ interface DatasetSelectorProps {
   onDatasetChange: (schema_name: string, table_name: string) => void;
   disabled?: boolean;
   className?: string;
+  autoFocus?: boolean;
 }
 
 export function DatasetSelector({
@@ -27,19 +28,28 @@ export function DatasetSelector({
   onDatasetChange,
   disabled,
   className,
+  autoFocus = false,
 }: DatasetSelectorProps) {
   const { data: allTables, isLoading, error } = useAllSchemaTables();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(autoFocus);
   const [hasSelection, setHasSelection] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Current selected value for display
   const selectedFullName = schema_name && table_name ? `${schema_name}.${table_name}` : '';
 
   // Update hasSelection when props change
-  React.useEffect(() => {
+  useEffect(() => {
     setHasSelection(!!selectedFullName);
   }, [selectedFullName]);
+
+  // Auto-focus the input when autoFocus is enabled
+  useEffect(() => {
+    if (autoFocus && inputRef.current && !isLoading) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus, isLoading]);
 
   // Filter tables based on search query
   const filteredTables = allTables?.filter((table) => {
@@ -78,17 +88,14 @@ export function DatasetSelector({
 
   return (
     <div className={className}>
-      {/* Container with grey background */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <Label htmlFor="dataset" className="text-sm font-medium text-gray-900 mb-2 block">
-          Dataset
-        </Label>
-
+      {/* Container with white background */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
         {/* Search input matching chart creation style */}
         <div className="relative">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
             <Input
+              ref={inputRef}
               placeholder={isLoading ? 'Loading datasets...' : 'Search and select a dataset...'}
               value={hasSelection && !searchQuery ? selectedFullName : searchQuery}
               onChange={(e) => {
