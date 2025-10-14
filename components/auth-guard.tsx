@@ -14,17 +14,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     setOrgSwitching,
     setOrgUsers,
     setSelectedOrg,
+    setAuthenticated,
     initialize,
-    token,
   } = useAuthStore();
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Fetch organizations when we have a token but no orgUsers
-  const { data: orgUsersData, error: orgError } = useSWR(
-    token && isAuthenticated && orgUsers.length === 0 ? '/api/currentuserv2' : null
-  );
+  // Always try to fetch user data to check authentication status
+  const { data: orgUsersData, error: orgError, isLoading } = useSWR('/api/currentuserv2');
 
   useEffect(() => {
     // Initialize auth store on mount
@@ -32,10 +31,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     setIsInitialized(true);
   }, [initialize]);
 
-  // Handle org data loading and auto-selection (similar to login page)
+  // Handle authentication and org data loading
   useEffect(() => {
     if (orgUsersData && orgUsersData.length > 0) {
+      // Successfully got user data, so we're authenticated
+      setAuthenticated(true);
       setOrgUsers(orgUsersData);
+      setIsCheckingAuth(false);
 
       // Auto-select organization if none selected
       if (!currentOrg) {
@@ -55,16 +57,32 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           setSelectedOrg(orgUsersData[0].org.slug);
         }
       }
+    } else if (orgError) {
+      // Clear authentication state if there's an error fetching user data
+      setAuthenticated(false);
+      setIsCheckingAuth(false);
+    } else if (!isLoading && !orgUsersData) {
+      // Not loading and no data means not authenticated
+      setIsCheckingAuth(false);
     }
-  }, [orgUsersData, currentOrg, setOrgUsers, setSelectedOrg]);
+  }, [
+    orgUsersData,
+    orgError,
+    isLoading,
+    currentOrg,
+    setOrgUsers,
+    setSelectedOrg,
+    setAuthenticated,
+  ]);
 
   // Redirect to login if not authenticated (with debounce)
   useEffect(() => {
-    if (isInitialized && !isAuthenticated && !hasRedirected) {
+    // Only redirect after we've finished checking authentication
+    if (isInitialized && !isCheckingAuth && !isAuthenticated && !hasRedirected) {
       setHasRedirected(true);
       router.push('/login');
     }
-  }, [isInitialized, isAuthenticated, router, hasRedirected]);
+  }, [isInitialized, isCheckingAuth, isAuthenticated, router, hasRedirected]);
 
   // Show org switching loader
   if (isOrgSwitching) {
@@ -79,8 +97,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Show loading during initial setup
-  if (!isInitialized) {
+  // Show loading during initial setup or while checking authentication
+  if (!isInitialized || isCheckingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">
@@ -92,7 +110,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Show loading while fetching org data
-  if (isAuthenticated && token && orgUsers.length === 0 && !orgError) {
+  if (isAuthenticated && orgUsers.length === 0 && !orgError) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">

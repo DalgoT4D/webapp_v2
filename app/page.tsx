@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 export default function HomePage() {
   const router = useRouter();
 
-  // Immediately redirect to Impact at a Glance
+  // Redirect to Impact page, but use push instead of replace to preserve history
   useEffect(() => {
-    router.replace('/impact');
+    router.push('/impact');
   }, [router]);
 
   // Show minimal loading while redirecting

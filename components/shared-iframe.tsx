@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useIframeCommunication } from '@/hooks/useIframeComm';
+import { apiPost } from '@/lib/api';
 
 interface SharedIframeProps {
   src: string;
@@ -14,7 +15,8 @@ interface SharedIframeProps {
 export default function SharedIframe({ src, title, className, scale = 1 }: SharedIframeProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isIframeReady, setIsIframeReady] = useState(false);
-  const { token, selectedOrgSlug } = useAuthStore();
+  const [iframeToken, setIframeToken] = useState<string | null>(null);
+  const { selectedOrgSlug, isAuthenticated } = useAuthStore();
 
   // Parse origin from src URL and create allowed origins list
   const { targetOrigin, allowedOrigins } = useMemo(() => {
@@ -46,6 +48,30 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
     targetOrigin,
     allowedOrigins,
   });
+
+  // Function to fetch iframe token
+  const fetchIframeToken = useCallback(async () => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    try {
+      console.log('[Parent] Fetching iframe token...');
+      const response = await apiPost('/api/v2/iframe-token/', {});
+
+      if (response?.success && response?.iframe_token) {
+        console.log('[Parent] Got iframe token, expires in:', response.expires_in, 'seconds');
+        setIframeToken(response.iframe_token);
+        return response.iframe_token;
+      } else {
+        console.warn('[Parent] Failed to get iframe token:', response);
+        return null;
+      }
+    } catch (error) {
+      console.error('[Parent] Error fetching iframe token:', error);
+      return null;
+    }
+  }, [isAuthenticated]);
 
   // Clean URL - remove all embed-related query params
   const cleanUrl = useMemo(() => {
@@ -85,40 +111,67 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
 
       // Check if message is from our iframe
       if (event.data?.source === 'webapp' && event.data?.type === 'READY') {
-        console.log('[Parent] Iframe is ready, sending initial auth state');
+        console.log('[Parent] Iframe is ready');
         setIsIframeReady(true);
-
-        // Send initial auth state
-        if (token && selectedOrgSlug) {
-          sendAuthUpdate(token, selectedOrgSlug);
-        }
+        // Don't fetch token here - let the combined auth effect handle it
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [token, selectedOrgSlug, sendAuthUpdate, targetOrigin, allowedOrigins, iframeRef]);
+  }, [targetOrigin, allowedOrigins, iframeRef]);
 
-  // Send auth updates when auth state changes and iframe is ready
+  // Combined effect: Send auth updates when auth state changes and iframe is ready
   useEffect(() => {
     if (isIframeReady) {
-      if (token && selectedOrgSlug) {
-        console.log('[Parent] Sending auth update to iframe');
-        sendAuthUpdate(token, selectedOrgSlug);
-      } else if (!token) {
+      if (isAuthenticated && selectedOrgSlug) {
+        console.log('[Parent] Auth state ready, fetching token and sending to iframe');
+        fetchIframeToken().then((token) => {
+          if (token) {
+            sendAuthUpdate(token, selectedOrgSlug);
+          }
+        });
+      } else if (!isAuthenticated) {
         console.log('[Parent] User logged out, sending logout signal to iframe');
+        setIframeToken(null);
         sendLogout();
       }
     }
-  }, [token, selectedOrgSlug, isIframeReady, sendAuthUpdate, sendLogout]);
+  }, [isAuthenticated, selectedOrgSlug, isIframeReady]);
 
   // Send org switch when only org changes
   useEffect(() => {
-    if (isIframeReady && token && selectedOrgSlug) {
+    if (isIframeReady && isAuthenticated && selectedOrgSlug) {
       console.log('[Parent] Organization changed, sending update to iframe');
       sendOrgSwitch(selectedOrgSlug);
     }
-  }, [selectedOrgSlug, isIframeReady, token, sendOrgSwitch]);
+  }, [selectedOrgSlug, isIframeReady, isAuthenticated, sendOrgSwitch]);
+
+  // Token refresh mechanism - refresh every 4 minutes (before 5-minute expiry)
+  useEffect(() => {
+    if (!isAuthenticated || !isIframeReady) {
+      return;
+    }
+
+    console.log('[Parent] Setting up iframe token refresh (every 4 minutes)');
+    const refreshInterval = setInterval(
+      async () => {
+        if (isAuthenticated && selectedOrgSlug) {
+          console.log('[Parent] Refreshing iframe token...');
+          const newToken = await fetchIframeToken();
+          if (newToken) {
+            sendAuthUpdate(newToken, selectedOrgSlug);
+          }
+        }
+      },
+      4 * 60 * 1000
+    ); // 4 minutes
+
+    return () => {
+      console.log('[Parent] Clearing iframe token refresh interval');
+      clearInterval(refreshInterval);
+    };
+  }, [isAuthenticated, isIframeReady, selectedOrgSlug]);
 
   if (!cleanUrl) {
     return <div className="w-full h-screen flex items-center justify-center">Loading...</div>;
