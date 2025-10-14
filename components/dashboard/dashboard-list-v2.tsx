@@ -277,22 +277,26 @@ export function DashboardListV2() {
         const now = new Date();
 
         switch (dateFilters.range) {
-          case 'today':
+          case 'today': {
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             if (updatedDate < today) return false;
             break;
-          case 'week':
+          }
+          case 'week': {
             const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             if (updatedDate < weekAgo) return false;
             break;
-          case 'month':
+          }
+          case 'month': {
             const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
             if (updatedDate < monthAgo) return false;
             break;
-          case 'custom':
+          }
+          case 'custom': {
             if (dateFilters.customStart && updatedDate < dateFilters.customStart) return false;
             if (dateFilters.customEnd && updatedDate > dateFilters.customEnd) return false;
             break;
+          }
         }
       }
 
