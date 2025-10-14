@@ -58,18 +58,14 @@ function LoginForm() {
   // Handle login
   const onLogin = async (data: LoginForm) => {
     try {
-      const response = await apiPost('/api/v2/login/', {
+      await apiPost('/api/v2/login/', {
         username: data.username,
         password: data.password,
       });
 
-      if (response?.success) {
-        // Cookies are set automatically by the server
-        // Redirect to impact page - AuthGuard will handle authentication
-        router.push('/impact');
-      } else {
-        setError('root', { message: 'Invalid response from server' });
-      }
+      // Cookies are set automatically by the server
+      // Redirect to impact page - AuthGuard will handle authentication
+      router.push('/impact');
     } catch (error: any) {
       setError('root', { message: error.message || 'Login failed' });
     }
