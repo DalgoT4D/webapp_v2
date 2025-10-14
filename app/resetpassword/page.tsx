@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { apiPost } from '@/lib/api';
+import { hashPassword } from '@/lib/utils';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -49,7 +50,7 @@ function ResetPasswordForm() {
     try {
       await apiPost('/api/users/reset_password/', {
         token: token,
-        password: data.password,
+        password: hashPassword(data.password),
       });
 
       // Show success message and redirect to login

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { apiPost } from '@/lib/api';
+import { hashPassword } from '@/lib/utils';
 import { Loader2, Eye, EyeOff, ChevronLeft } from 'lucide-react';
 import Image from 'next/image';
 
@@ -60,8 +61,8 @@ export default function ChangePasswordPage() {
     setIsLoading(true);
     try {
       const response = await apiPost('/api/users/change_password/', {
-        password: data.password,
-        confirmPassword: data.confirmPassword,
+        password: hashPassword(data.password),
+        confirmPassword: hashPassword(data.confirmPassword),
       });
       setShowSuccess(true);
       toast({
