@@ -87,8 +87,7 @@ export const useAuthStore = createAppStore<AuthState>(
     },
 
     logout: () => {
-      // Clear organization selection but keep other localStorage items
-      localStorage.removeItem('selectedOrg');
+      localStorage.clear();
       sessionStorage.clear();
 
       // Clear all SWR cache to prevent stale data from previous user
