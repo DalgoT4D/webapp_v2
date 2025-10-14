@@ -141,7 +141,7 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
     <>
       <style jsx>{`
         .animated-bg-simple {
-          background-color: #0f2440;
+          background-color: rgb(224, 233, 232);
           position: relative;
         }
 
