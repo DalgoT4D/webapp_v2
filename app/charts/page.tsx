@@ -23,6 +23,14 @@ import {
   Table,
   User,
   Edit,
+  ChevronUp,
+  ChevronDown as ChevronDownSort,
+  ArrowUpDown,
+  Filter,
+  Star,
+  StarOff,
+  Share2,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
@@ -38,6 +46,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Table as TableComponent,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -80,12 +99,37 @@ const chartIcons = {
 };
 
 export default function ChartsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [chartType, setChartType] = useState<
-    'all' | 'bar' | 'line' | 'pie' | 'number' | 'map' | 'table'
-  >('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  // View mode is now fixed to 'table' - list and grid views are commented out
+  const viewMode = 'table';
+  const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chart_type' | 'data_source'>(
+    'updated_at'
+  );
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
+
+  // Column filter states
+  const [nameFilters, setNameFilters] = useState({
+    text: '',
+    showFavorites: false,
+  });
+  const [dataSourceFilters, setDataSourceFilters] = useState<string[]>([]);
+  const [chartTypeFilters, setChartTypeFilters] = useState<string[]>([]);
+  const [dateFilters, setDateFilters] = useState({
+    range: 'all' as 'all' | 'today' | 'week' | 'month' | 'custom',
+    customStart: null as Date | null,
+    customEnd: null as Date | null,
+  });
+
+  // Filter dropdown states
+  const [openFilters, setOpenFilters] = useState({
+    name: false,
+    dataSource: false,
+    chartType: false,
+    date: false,
+  });
+
+  // Search states for filters
+  const [dataSourceSearch, setDataSourceSearch] = useState('');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   // Multi-select state
@@ -97,19 +141,18 @@ export default function ChartsPage() {
   const [pageSize, setPageSize] = useState(10);
 
   const {
-    data: charts,
-    total,
-    page,
-    pageSize: currentPageSize,
-    totalPages,
+    data: allCharts,
+    total: apiTotal,
+    page: apiPage,
+    pageSize: apiPageSize,
+    totalPages: apiTotalPages,
     isLoading,
     isError,
     mutate,
   } = useCharts({
     page: currentPage,
     pageSize,
-    search: debouncedSearchQuery,
-    chartType,
+    // Remove search and chartType - we'll handle filtering client-side
   });
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
@@ -119,28 +162,177 @@ export default function ChartsPage() {
   // Get user permissions
   const { hasPermission } = useUserPermissions();
 
-  // Debounce search input
-  const debouncedSearch = useMemo(
-    () =>
-      debounce((value: string) => {
-        setDebouncedSearchQuery(value);
-      }, 500),
-    []
-  );
+  // If API doesn't support pagination, implement client-side filtering and sorting
+  const charts = allCharts || [];
 
-  // Update search with debounce
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      setSearchQuery(value);
-      setCurrentPage(1); // Reset to first page when searching
-      debouncedSearch(value);
-    },
-    [debouncedSearch]
-  );
+  // Handle sorting
+  const handleSort = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  };
 
-  // Filtered charts are now handled by the API
-  const filteredCharts = charts || [];
+  // Apply filters and sort charts with memoization for performance
+  const filteredAndSortedCharts = useMemo(() => {
+    // Apply column filters
+    const filtered = charts.filter((chart) => {
+      // Name filters
+      if (nameFilters.text) {
+        const title = (chart.title || '').toLowerCase();
+        if (!title.includes(nameFilters.text.toLowerCase())) {
+          return false;
+        }
+      }
+
+      if (nameFilters.showFavorites && !favorites.has(chart.id)) {
+        return false;
+      }
+
+      // Data Source filters
+      if (dataSourceFilters.length > 0) {
+        const dataSource = `${chart.schema_name}.${chart.table_name}`;
+        if (!dataSourceFilters.includes(dataSource)) {
+          return false;
+        }
+      }
+
+      // Chart Type filters
+      if (chartTypeFilters.length > 0) {
+        if (!chartTypeFilters.includes(chart.chart_type)) {
+          return false;
+        }
+      }
+
+      // Date filters
+      if (dateFilters.range !== 'all' && chart.updated_at) {
+        const updatedDate = new Date(chart.updated_at);
+        const now = new Date();
+
+        switch (dateFilters.range) {
+          case 'today': {
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (updatedDate < today) return false;
+            break;
+          }
+          case 'week': {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            if (updatedDate < weekAgo) return false;
+            break;
+          }
+          case 'month': {
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            if (updatedDate < monthAgo) return false;
+            break;
+          }
+          case 'custom': {
+            if (dateFilters.customStart && updatedDate < dateFilters.customStart) return false;
+            if (dateFilters.customEnd && updatedDate > dateFilters.customEnd) return false;
+            break;
+          }
+        }
+      }
+
+      return true;
+    });
+
+    // Sort the filtered results
+    return [...filtered].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (sortBy) {
+        case 'title':
+          aValue = (a.title || '').toLowerCase();
+          bValue = (b.title || '').toLowerCase();
+          break;
+        case 'updated_at':
+          aValue = new Date(a.updated_at || 0).getTime();
+          bValue = new Date(b.updated_at || 0).getTime();
+          break;
+        case 'chart_type':
+          aValue = (a.chart_type || '').toLowerCase();
+          bValue = (b.chart_type || '').toLowerCase();
+          break;
+        case 'data_source':
+          aValue = `${a.schema_name}.${a.table_name}`.toLowerCase();
+          bValue = `${b.schema_name}.${b.table_name}`.toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+  }, [
+    charts,
+    nameFilters,
+    dataSourceFilters,
+    chartTypeFilters,
+    dateFilters,
+    favorites,
+    sortBy,
+    sortOrder,
+  ]);
+
+  // Handle favorites toggle
+  const handleToggleFavorite = (chartId: number) => {
+    setFavorites((prev) => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(chartId)) {
+        newFavorites.delete(chartId);
+      } else {
+        newFavorites.add(chartId);
+      }
+      return newFavorites;
+    });
+  };
+
+  // Get unique data sources and chart types for filter options
+  const uniqueDataSources = useMemo(() => {
+    const dataSources = new Set<string>();
+    charts.forEach((chart) => {
+      const dataSource = `${chart.schema_name}.${chart.table_name}`;
+      if (dataSource && dataSource !== '.') {
+        dataSources.add(dataSource);
+      }
+    });
+    return Array.from(dataSources).sort();
+  }, [charts]);
+
+  const uniqueChartTypes = useMemo(() => {
+    const chartTypes = new Set<string>();
+    charts.forEach((chart) => {
+      if (chart.chart_type) {
+        chartTypes.add(chart.chart_type);
+      }
+    });
+    return Array.from(chartTypes).sort();
+  }, [charts]);
+
+  // Get active filter count
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (nameFilters.text || nameFilters.showFavorites) count++;
+    if (dataSourceFilters.length > 0) count++;
+    if (chartTypeFilters.length > 0) count++;
+    if (dateFilters.range !== 'all') count++;
+    return count;
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setNameFilters({ text: '', showFavorites: false });
+    setDataSourceFilters([]);
+    setChartTypeFilters([]);
+    setDateFilters({ range: 'all', customStart: null, customEnd: null });
+  };
 
   const handleDeleteChart = useCallback(
     async (chartId: number, chartTitle: string) => {
@@ -304,9 +496,9 @@ export default function ChartsPage() {
   }, []);
 
   const selectAllCharts = useCallback(() => {
-    const allChartIds = new Set(filteredCharts.map((chart) => chart.id));
+    const allChartIds = new Set(filteredAndSortedCharts.map((chart) => chart.id));
     setSelectedCharts(allChartIds);
-  }, [filteredCharts]);
+  }, [filteredAndSortedCharts]);
 
   const deselectAllCharts = useCallback(() => {
     setSelectedCharts(new Set());
@@ -316,7 +508,7 @@ export default function ChartsPage() {
   const handleBulkDelete = useCallback(async () => {
     if (selectedCharts.size === 0) return;
 
-    const chartTitles = filteredCharts
+    const chartTitles = filteredAndSortedCharts
       .filter((chart) => selectedCharts.has(chart.id))
       .map((chart) => chart.title);
 
@@ -361,7 +553,450 @@ export default function ChartsPage() {
     } finally {
       setIsBulkDeleting(false);
     }
-  }, [selectedCharts, filteredCharts, bulkDeleteCharts, deleteChart, mutate, exitSelectionMode]);
+  }, [
+    selectedCharts,
+    filteredAndSortedCharts,
+    bulkDeleteCharts,
+    deleteChart,
+    mutate,
+    exitSelectionMode,
+  ]);
+
+  // Render sort icon for table headers
+  const renderSortIcon = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return sortOrder === 'asc' ? (
+      <ChevronUp className="w-4 h-4 text-gray-600" />
+    ) : (
+      <ChevronDownSort className="w-4 h-4 text-gray-600" />
+    );
+  };
+
+  // Check if column has active filters
+  const hasActiveFilter = (column: 'name' | 'dataSource' | 'chartType' | 'date') => {
+    switch (column) {
+      case 'name':
+        return nameFilters.text || nameFilters.showFavorites;
+      case 'dataSource':
+        return dataSourceFilters.length > 0;
+      case 'chartType':
+        return chartTypeFilters.length > 0;
+      case 'date':
+        return dateFilters.range !== 'all';
+      default:
+        return false;
+    }
+  };
+
+  // Render filter icon for table headers
+  const renderFilterIcon = (column: 'name' | 'dataSource' | 'chartType' | 'date') => {
+    const isActive = hasActiveFilter(column);
+    return (
+      <div className="relative">
+        <Filter
+          className={cn(
+            'w-4 h-4 transition-colors',
+            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
+          )}
+        />
+        {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
+      </div>
+    );
+  };
+
+  // Render Name column filter
+  const renderNameFilter = () => (
+    <PopoverContent className="w-80" align="start">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm">Filter by Name</h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setNameFilters({ text: '', showFavorites: false })}
+            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+          >
+            Clear
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <Input
+            placeholder="Search chart names..."
+            value={nameFilters.text}
+            onChange={(e) => setNameFilters((prev) => ({ ...prev, text: e.target.value }))}
+            className="h-8"
+          />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="favorites"
+              checked={nameFilters.showFavorites}
+              onCheckedChange={(checked) =>
+                setNameFilters((prev) => ({ ...prev, showFavorites: checked as boolean }))
+              }
+            />
+            <Label htmlFor="favorites" className="text-sm cursor-pointer">
+              Show only favorites
+            </Label>
+          </div>
+        </div>
+      </div>
+    </PopoverContent>
+  );
+
+  // Filter data sources based on search with memoization
+  const filteredDataSources = useMemo(() => {
+    return uniqueDataSources.filter((dataSource) =>
+      dataSource.toLowerCase().includes(dataSourceSearch.toLowerCase())
+    );
+  }, [uniqueDataSources, dataSourceSearch]);
+
+  // Render Data Source column filter
+  const renderDataSourceFilter = () => {
+    return (
+      <PopoverContent className="w-64" align="start">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">Filter by Data Source</h4>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDataSourceFilters([])}
+              className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            >
+              Clear
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Input
+              placeholder="Search data sources..."
+              value={dataSourceSearch}
+              onChange={(e) => setDataSourceSearch(e.target.value)}
+              className="h-8"
+            />
+          </div>
+
+          <div className="max-h-48 overflow-y-auto space-y-2">
+            {filteredDataSources.length > 0 ? (
+              filteredDataSources.map((dataSource) => (
+                <div
+                  key={dataSource}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  onClick={() => {
+                    setDataSourceFilters((prev) => {
+                      if (prev.includes(dataSource)) {
+                        return prev.filter((ds) => ds !== dataSource);
+                      } else {
+                        return [...prev, dataSource];
+                      }
+                    });
+                  }}
+                >
+                  <Checkbox
+                    checked={dataSourceFilters.includes(dataSource)}
+                    onChange={() => {}} // Handled by parent onClick
+                  />
+                  <Label className="text-sm cursor-pointer flex-1 text-gray-900">
+                    {dataSource}
+                  </Label>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-2">No data sources found</p>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    );
+  };
+
+  // Render Chart Type column filter
+  const renderChartTypeFilter = () => (
+    <PopoverContent className="w-56" align="start">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm">Filter by Chart Type</h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setChartTypeFilters([])}
+            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+          >
+            Clear
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {uniqueChartTypes.map((chartType) => (
+            <div
+              key={chartType}
+              className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+              onClick={() => {
+                setChartTypeFilters((prev) => {
+                  if (prev.includes(chartType)) {
+                    return prev.filter((ct) => ct !== chartType);
+                  } else {
+                    return [...prev, chartType];
+                  }
+                });
+              }}
+            >
+              <Checkbox
+                checked={chartTypeFilters.includes(chartType)}
+                onChange={() => {}} // Handled by parent onClick
+              />
+              <Label className="text-sm cursor-pointer flex-1 text-gray-900 capitalize">
+                {chartType}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </div>
+    </PopoverContent>
+  );
+
+  // Render Date column filter
+  const renderDateFilter = () => (
+    <PopoverContent className="w-72" align="start">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm">Filter by Date Modified</h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
+            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+          >
+            Clear
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {[
+            { value: 'all', label: 'All time' },
+            { value: 'today', label: 'Today' },
+            { value: 'week', label: 'Last 7 days' },
+            { value: 'month', label: 'Last 30 days' },
+            { value: 'custom', label: 'Custom range' },
+          ].map((option) => (
+            <div key={option.value} className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id={option.value}
+                name="dateRange"
+                checked={dateFilters.range === option.value}
+                onChange={() => setDateFilters((prev) => ({ ...prev, range: option.value as any }))}
+                className="w-4 h-4 text-teal-600"
+              />
+              <Label htmlFor={option.value} className="text-sm cursor-pointer">
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+
+        {dateFilters.range === 'custom' && (
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs text-gray-600">Custom Date Range</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">From</Label>
+                <Input
+                  type="date"
+                  value={
+                    dateFilters.customStart
+                      ? dateFilters.customStart.toISOString().split('T')[0]
+                      : ''
+                  }
+                  onChange={(e) =>
+                    setDateFilters((prev) => ({
+                      ...prev,
+                      customStart: e.target.value ? new Date(e.target.value) : null,
+                    }))
+                  }
+                  className="h-8"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">To</Label>
+                <Input
+                  type="date"
+                  value={
+                    dateFilters.customEnd ? dateFilters.customEnd.toISOString().split('T')[0] : ''
+                  }
+                  onChange={(e) =>
+                    setDateFilters((prev) => ({
+                      ...prev,
+                      customEnd: e.target.value ? new Date(e.target.value) : null,
+                    }))
+                  }
+                  className="h-8"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </PopoverContent>
+  );
+
+  // Render chart table row
+  const renderChartTableRow = (chart: Chart) => {
+    const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
+    const typeColors = getChartTypeColor(chart.chart_type as ChartType);
+    const isFavorited = favorites.has(chart.id);
+    const dataSource = `${chart.schema_name}.${chart.table_name}`;
+
+    return (
+      <TableRow key={chart.id} className="hover:bg-gray-50">
+        {/* Name Column with Star */}
+        <TableCell className="py-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 p-0 hover:bg-yellow-50"
+              onClick={(e) => {
+                e.preventDefault();
+                handleToggleFavorite(chart.id);
+              }}
+            >
+              {isFavorited ? (
+                <Star className="w-4 h-4 text-yellow-500 fill-current" />
+              ) : (
+                <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
+              )}
+            </Button>
+            <div className="flex flex-col">
+              <Link
+                href={hasPermission('can_view_charts') ? `/charts/${chart.id}` : '#'}
+                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+              >
+                {chart.title}
+              </Link>
+            </div>
+          </div>
+        </TableCell>
+
+        {/* Data Source Column */}
+        <TableCell className="py-4">
+          <div className="flex items-center gap-2">
+            <div className="text-base text-gray-700">{dataSource}</div>
+          </div>
+        </TableCell>
+
+        {/* Chart Type Column */}
+        <TableCell className="py-4">
+          <div className="flex justify-center">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 cursor-default"
+                    style={{ backgroundColor: typeColors.bgColor }}
+                  >
+                    <IconComponent className="w-6 h-6" style={{ color: typeColors.color }} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
+                  <p className="text-sm capitalize">{chart.chart_type} Chart</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </TableCell>
+
+        {/* Last Modified Column */}
+        <TableCell className="py-4 text-base text-gray-600">
+          {chart.updated_at
+            ? formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })
+            : 'Unknown'}
+        </TableCell>
+
+        {/* Actions Column */}
+        <TableCell className="py-4">
+          <div className="flex items-center gap-2">
+            {hasPermission('can_edit_charts') && (
+              <Link href={`/charts/${chart.id}/edit`}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <Edit className="w-4 h-4 text-gray-600" />
+                </Button>
+              </Link>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
+                  <CheckSquare className="w-4 h-4 mr-2" />
+                  Select
+                </DropdownMenuItem>
+                {hasPermission('can_create_charts') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDuplicateChart(chart.id, chart.title)}
+                      className="cursor-pointer"
+                      disabled={isDuplicating === chart.id}
+                    >
+                      {isDuplicating === chart.id ? (
+                        <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
+                      Duplicate
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {hasPermission('can_view_charts') && (
+                  <ChartExportDropdownForList
+                    chartId={chart.id}
+                    chartTitle={chart.title}
+                    chartType={chart.chart_type}
+                  />
+                )}
+                {hasPermission('can_delete_charts') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <ChartDeleteDialog
+                      chartId={chart.id}
+                      chartTitle={chart.title}
+                      onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                      isDeleting={isDeleting === chart.id}
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <Trash className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </ChartDeleteDialog>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  // Calculate pagination for filtered results
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedCharts = filteredAndSortedCharts.slice(startIndex, endIndex);
+  const total = filteredAndSortedCharts.length;
+  const totalPages = Math.ceil(filteredAndSortedCharts.length / pageSize);
 
   // Render chart card (grid view)
   const renderChartCard = (chart: Chart) => {
@@ -513,6 +1148,15 @@ export default function ChartsPage() {
                 <CardTitle className="text-sm font-medium line-clamp-2 leading-tight">
                   {chart.title}
                 </CardTitle>
+                {/* Data Source Info */}
+                <div className="text-xs text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Data Source:</span>
+                    <span className="truncate">
+                      {chart.schema_name}.{chart.table_name}
+                    </span>
+                  </div>
+                </div>
                 <div className="text-xs text-gray-500">
                   Modified {formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })}
                 </div>
@@ -584,6 +1228,15 @@ export default function ChartsPage() {
               <div className="flex-1 min-w-0">
                 <div className="space-y-1">
                   <h3 className="font-medium truncate">{chart.title}</h3>
+                  {/* Data Source Info */}
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium min-w-0">Data Source:</span>
+                      <span className="truncate">
+                        {chart.schema_name}.{chart.table_name}
+                      </span>
+                    </div>
+                  </div>
                   <div className="text-xs text-gray-500">
                     Modified {formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })}
                   </div>
@@ -735,7 +1388,7 @@ export default function ChartsPage() {
                   <X id="charts-exit-selection-icon" className="w-4 h-4 text-blue-600" />
                 </button>
                 <span className="text-sm font-medium text-blue-900">
-                  {selectedCharts.size} of {filteredCharts.length} charts selected
+                  {selectedCharts.size} of {filteredAndSortedCharts.length} charts selected
                 </span>
               </div>
 
@@ -744,7 +1397,7 @@ export default function ChartsPage() {
                   variant="outline"
                   size="sm"
                   onClick={selectAllCharts}
-                  disabled={selectedCharts.size === filteredCharts.length}
+                  disabled={selectedCharts.size === filteredAndSortedCharts.length}
                 >
                   Select All
                 </Button>
@@ -777,125 +1430,233 @@ export default function ChartsPage() {
           </div>
         )}
 
-        {/* Filters */}
-        <div id="charts-filters-section" className="flex flex-col sm:flex-row gap-4 p-6 pt-0">
-          <div id="charts-search-wrapper" className="relative flex-1">
-            <Search
-              id="charts-search-icon"
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4"
-            />
-            <Input
-              id="charts-search-input"
-              placeholder="Search charts..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="pl-10 focus:border-[#0066FF] focus:ring-[#0066FF]"
-            />
-          </div>
-
-          <Select
-            id="charts-type-select"
-            value={chartType}
-            onValueChange={(value: any) => {
-              setChartType(value);
-              setCurrentPage(1); // Reset to first page when filter changes
-            }}
-          >
-            <SelectTrigger
-              id="charts-type-trigger"
-              className="w-[180px] focus:border-[#0066FF] focus:ring-[#0066FF]"
-            >
-              <SelectValue id="charts-type-value" />
-            </SelectTrigger>
-            <SelectContent id="charts-type-content">
-              <SelectItem id="charts-type-all" value="all">
-                All Types
-              </SelectItem>
-              <SelectItem id="charts-type-bar" value="bar">
-                Bar Charts
-              </SelectItem>
-              <SelectItem id="charts-type-line" value="line">
-                Line Charts
-              </SelectItem>
-              <SelectItem id="charts-type-pie" value="pie">
-                Pie Charts
-              </SelectItem>
-              <SelectItem id="charts-type-number" value="number">
-                Number Cards
-              </SelectItem>
-              <SelectItem id="charts-type-map" value="map">
-                Maps
-              </SelectItem>
-              <SelectItem id="charts-type-table" value="table">
-                Tables
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div id="charts-view-mode-wrapper" className="flex gap-1">
+        {/* Filter Summary - Only shows when filters are active to save space */}
+        {getActiveFilterCount() > 0 && (
+          <div id="charts-filters-section" className="flex items-center gap-2 px-6 pb-0">
+            <span className="text-sm text-gray-600">
+              {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
+            </span>
             <Button
-              id="charts-grid-view-button"
-              variant="outline"
-              size="icon"
-              onClick={() => setViewMode('grid')}
-              className={cn('h-8 w-8 p-0 bg-transparent', viewMode === 'grid' ? 'text-white' : '')}
-              style={viewMode === 'grid' ? { backgroundColor: '#06887b' } : {}}
+              variant="ghost"
+              size="sm"
+              onClick={clearAllFilters}
+              className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
             >
-              <Grid id="charts-grid-icon" className="w-4 h-4" />
-            </Button>
-            <Button
-              id="charts-list-view-button"
-              variant="outline"
-              size="icon"
-              onClick={() => setViewMode('list')}
-              className={cn('h-8 w-8 p-0 bg-transparent', viewMode === 'list' ? 'text-white' : '')}
-              style={viewMode === 'list' ? { backgroundColor: '#06887b' } : {}}
-            >
-              <List id="charts-list-icon" className="w-4 h-4" />
+              <X className="w-3 h-3 mr-1" />
+              Clear all
             </Button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Scrollable Content - Only the charts list scrolls */}
       <div id="charts-content-wrapper" className="flex-1 overflow-hidden px-6">
         <div id="charts-scrollable-content" className="h-full overflow-y-auto">
           {isLoading ? (
-            <div
-              id="charts-loading-grid"
-              className={cn(
-                'py-6',
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                  : 'space-y-2'
-              )}
-            >
-              {[...Array(8)].map((_, i) => (
-                <Card key={i}>
-                  <div className="h-36 bg-muted animate-pulse" />
-                  <CardHeader>
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-3 w-full mt-2" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-3 w-1/2" />
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="py-6">
+              <div className="border rounded-lg bg-white">
+                <TableComponent>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="w-[35%]">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[30%]">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[10%]">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-12" />
+                          <Skeleton className="h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[20%]">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[5%]">
+                        <Skeleton className="h-4 w-16" />
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...Array(8)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="h-8 w-8 rounded" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Skeleton className="h-10 w-10 rounded-lg" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </TableComponent>
+              </div>
             </div>
-          ) : filteredCharts.length > 0 ? (
-            <div
-              id="charts-content-grid"
-              className={cn(
-                'py-6',
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                  : 'space-y-2'
-              )}
-            >
-              {filteredCharts.map((chart: any) =>
-                viewMode === 'grid' ? renderChartCard(chart) : renderChartList(chart)
-              )}
+          ) : paginatedCharts.length > 0 ? (
+            <div className="py-6">
+              <div className="border rounded-lg bg-white">
+                <TableComponent>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="w-[35%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            onClick={() => handleSort('title')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Name
+                              {renderSortIcon('title')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.name}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, name: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                              >
+                                {renderFilterIcon('name')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderNameFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[30%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            onClick={() => handleSort('data_source')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Data Source
+                              {renderSortIcon('data_source')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.dataSource}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, dataSource: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                              >
+                                {renderFilterIcon('dataSource')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderDataSourceFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[10%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            onClick={() => handleSort('chart_type')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Type
+                              {renderSortIcon('chart_type')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.chartType}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, chartType: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                              >
+                                {renderFilterIcon('chartType')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderChartTypeFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[20%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            onClick={() => handleSort('updated_at')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Last Modified
+                              {renderSortIcon('updated_at')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.date}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, date: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                              >
+                                {renderFilterIcon('date')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderDateFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedCharts.map((chart) => renderChartTableRow(chart))}
+                  </TableBody>
+                </TableComponent>
+              </div>
             </div>
           ) : (
             <div
@@ -904,7 +1665,7 @@ export default function ChartsPage() {
             >
               <BarChart2 id="charts-empty-icon" className="w-12 h-12 text-muted-foreground" />
               <p id="charts-empty-text" className="text-muted-foreground">
-                {searchQuery || chartType !== 'all' ? 'No charts found' : 'No charts yet'}
+                {getActiveFilterCount() > 0 ? 'No charts found' : 'No charts yet'}
               </p>
               {hasPermission('can_create_charts') && (
                 <Link id="charts-empty-create-link" href="/charts/new">
