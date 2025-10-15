@@ -393,32 +393,28 @@ export function ChartBuilder({
       return !!(formData.schema_name && formData.table_name && formData.title);
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
-      // For bar/line/pie charts with multiple metrics
-      if (
-        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
-          )
-        );
-      }
-
-      // For aggregated charts, allow count function without aggregate column
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
+    // For bar/line/pie charts with multiple metrics
+    if (
+      ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
+      formData.metrics &&
+      formData.metrics.length > 0
+    ) {
       return !!(
         formData.dimension_column &&
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
+        formData.metrics.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        )
       );
     }
+
+    // For aggregated charts, allow count function without aggregate column
+    const needsAggregateColumn = formData.aggregate_function !== 'count';
+    return !!(
+      formData.dimension_column &&
+      formData.aggregate_function &&
+      (!needsAggregateColumn || formData.aggregate_column)
+    );
   };
 
   // Helper to convert simplified drill-down selections to layers structure
@@ -614,39 +610,29 @@ export function ChartBuilder({
               : 'pending';
         }
 
-        if (formData.computation_type === 'raw') {
-          return hasBasicConfig && formData.x_axis_column && formData.y_axis_column
-            ? 'complete'
-            : formData.chart_type
-              ? 'current'
-              : 'pending';
-        } else {
-          // For bar/line/pie charts with multiple metrics
-          if (
-            ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
-            formData.metrics &&
-            formData.metrics.length > 0
-          ) {
-            const hasValidMetrics = formData.metrics.every(
-              (metric) =>
-                metric.aggregation &&
-                (metric.aggregation.toLowerCase() === 'count' || metric.column)
-            );
-            const hasRequiredFields =
-              hasBasicConfig && formData.dimension_column && hasValidMetrics;
-            return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
-          }
-
-          // For aggregated data, allow count function without aggregate column
-          const needsAggregateColumn = formData.aggregate_function !== 'count';
-          const hasRequiredFields =
-            hasBasicConfig &&
-            formData.dimension_column &&
-            formData.aggregate_function &&
-            (!needsAggregateColumn || formData.aggregate_column);
-
+        // For bar/line/pie charts with multiple metrics
+        if (
+          ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
+          formData.metrics &&
+          formData.metrics.length > 0
+        ) {
+          const hasValidMetrics = formData.metrics.every(
+            (metric) =>
+              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+          );
+          const hasRequiredFields = hasBasicConfig && formData.dimension_column && hasValidMetrics;
           return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
         }
+
+        // For aggregated data, allow count function without aggregate column
+        const needsAggregateColumn = formData.aggregate_function !== 'count';
+        const hasRequiredFields =
+          hasBasicConfig &&
+          formData.dimension_column &&
+          formData.aggregate_function &&
+          (!needsAggregateColumn || formData.aggregate_column);
+
+        return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
       default:
         return 'pending';
     }
@@ -678,25 +664,16 @@ export function ChartBuilder({
                 if (formData.table_name) updates.table_name = formData.table_name;
                 if (formData.title) updates.title = formData.title;
 
-                // Set computation_type based on chart type
-                if (newChartType === 'number') {
-                  updates.computation_type = 'aggregated';
-                } else if (newChartType === 'map') {
-                  // Maps always use aggregation
-                  updates.computation_type = 'aggregated';
-                } else if (newChartType === 'table') {
-                  // Tables default to aggregated data
-                  updates.computation_type = 'aggregated';
-                  // Preserve all existing selections - don't clear them!
+                // Set computation_type - always use aggregated
+                updates.computation_type = 'aggregated';
+
+                // For table charts, preserve existing selections
+                if (newChartType === 'table') {
                   if (formData.dimension_column) updates.x_axis_column = formData.dimension_column;
                   if (formData.x_axis_column) updates.x_axis_column = formData.x_axis_column;
                   if (formData.metrics) updates.metrics = formData.metrics;
                   if (formData.aggregate_column)
                     updates.aggregate_column = formData.aggregate_column;
-                } else {
-                  // For bar/line/pie, preserve existing computation_type
-                  // If no existing value, default to aggregated
-                  updates.computation_type = formData.computation_type || 'aggregated';
                 }
 
                 // Smart column mapping based on chart type compatibility

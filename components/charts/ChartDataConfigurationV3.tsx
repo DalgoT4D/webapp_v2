@@ -207,13 +207,8 @@ export function ChartDataConfigurationV3({
     columns?.map((col) => ({
       column_name: col.column_name || col.name,
       data_type: col.data_type,
+      name: col.column_name || col.name,
     })) || [];
-
-  const numericColumns = normalizedColumns.filter((col) =>
-    ['integer', 'bigint', 'numeric', 'double precision', 'real', 'float', 'decimal'].includes(
-      col.data_type.toLowerCase()
-    )
-  );
 
   const allColumns = normalizedColumns;
 
@@ -452,26 +447,6 @@ export function ChartDataConfigurationV3({
         )}
       </div>
 
-      {/* Computation Type - For bar/line/table charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Data Type</Label>
-          <Select
-            value={formData.computation_type || 'aggregated'}
-            onValueChange={(value) => onChange({ computation_type: value as 'raw' | 'aggregated' })}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select data type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="raw">Raw Data</SelectItem>
-              <SelectItem value="aggregated">Aggregated Data</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       {/* X Axis / Dimension */}
       {formData.chart_type !== 'number' && formData.chart_type !== 'map' && (
         <div className="space-y-2">
@@ -485,11 +460,7 @@ export function ChartDataConfigurationV3({
           <Select
             value={formData.dimension_column || formData.x_axis_column}
             onValueChange={(value) => {
-              if (formData.computation_type === 'raw') {
-                onChange({ x_axis_column: value });
-              } else {
-                onChange({ dimension_column: value });
-              }
+              onChange({ dimension_column: value });
             }}
             disabled={disabled}
           >
@@ -513,9 +484,7 @@ export function ChartDataConfigurationV3({
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' &&
-        (formData.computation_type === 'raw' ||
-          (formData.computation_type === 'aggregated' &&
-            !['bar', 'line', 'pie'].includes(formData.chart_type || ''))) && (
+        !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
             <Select
