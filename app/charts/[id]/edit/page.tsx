@@ -114,9 +114,13 @@ function EditChartPageContent() {
   const router = useRouter();
   const chartId = Number(params.id);
   const { hasPermission } = useUserPermissions();
+  const canEditChart = hasPermission('can_edit_charts');
+  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  const { trigger: updateChart, isMutating } = useUpdateChart();
+  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
   // Check if user has edit permissions
-  if (!hasPermission('can_edit_charts')) {
+  if (!canEditChart) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -133,10 +137,6 @@ function EditChartPageContent() {
       </div>
     );
   }
-
-  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
-  const { trigger: updateChart, isMutating } = useUpdateChart();
-  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
   // Initialize form data with chart data when loaded
   const [formData, setFormData] = useState<ChartBuilderFormData>({
@@ -940,8 +940,8 @@ function EditChartPageContent() {
       } else {
         navigateWithoutWarning(`/charts/${chartId}`);
       }
-    } catch {
-      toastError.update(error, 'chart');
+    } catch (err) {
+      toastError.update(err, 'chart');
     }
   };
 
@@ -969,8 +969,8 @@ function EditChartPageContent() {
       } else {
         navigateWithoutWarning(`/charts/${result.id}`);
       }
-    } catch {
-      toastError.create(error, 'chart');
+    } catch (err) {
+      toastError.create(err, 'chart');
     }
   };
 

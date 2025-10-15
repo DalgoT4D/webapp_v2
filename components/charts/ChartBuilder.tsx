@@ -573,7 +573,7 @@ export function ChartBuilder({
     switch (step) {
       case 1:
         return formData.chart_type ? 'complete' : 'current';
-      case 2:
+      case 2: {
         // For data configuration step
         if (!formData.chart_type) {
           return 'pending';
@@ -633,6 +633,7 @@ export function ChartBuilder({
           (!needsAggregateColumn || formData.aggregate_column);
 
         return hasRequiredFields ? 'complete' : formData.chart_type ? 'current' : 'pending';
+      }
       default:
         return 'pending';
     }
