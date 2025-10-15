@@ -64,8 +64,9 @@ function LoginForm() {
       });
 
       // Cookies are set automatically by the server
+
       // Redirect to impact page - AuthGuard will handle authentication
-      router.push('/impact');
+      router.replace('/impact');
     } catch (error: any) {
       setError('root', { message: error.message || 'Login failed' });
     }
