@@ -203,9 +203,7 @@ function ConfigureChartPageContent() {
       );
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
@@ -630,9 +628,7 @@ function ConfigureChartPageContent() {
       return true; // Tables just need schema, table, title which are already checked above
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&

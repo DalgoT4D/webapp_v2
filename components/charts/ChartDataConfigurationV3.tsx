@@ -490,11 +490,7 @@ export function ChartDataConfigurationV3({
             <Select
               value={formData.aggregate_column || formData.y_axis_column}
               onValueChange={(value) => {
-                if (formData.computation_type === 'raw') {
-                  onChange({ y_axis_column: value });
-                } else {
-                  onChange({ aggregate_column: value });
-                }
+                onChange({ aggregate_column: value });
               }}
               disabled={disabled}
             >
@@ -609,11 +605,8 @@ export function ChartDataConfigurationV3({
               <SelectItem value="none">None</SelectItem>
               {allColumns
                 .filter((col) => {
-                  // Only exclude the X-axis column (dimension column in aggregated mode, x_axis_column in raw mode)
-                  const xAxisColumn =
-                    formData.computation_type === 'raw'
-                      ? formData.x_axis_column
-                      : formData.dimension_column;
+                  // Only exclude the X-axis column (dimension column in aggregated mode)
+                  const xAxisColumn = formData.dimension_column;
 
                   return col.column_name !== xAxisColumn;
                 })
@@ -788,16 +781,12 @@ export function ChartDataConfigurationV3({
                 // Sort by the appropriate column based on chart type and computation
                 let sortColumn: string | undefined;
 
-                if (formData.computation_type === 'raw') {
-                  sortColumn = formData.y_axis_column;
+                // For aggregated data with multiple metrics, use the first metric column
+                if (formData.metrics && formData.metrics.length > 0) {
+                  sortColumn = formData.metrics[0].column || formData.dimension_column;
                 } else {
-                  // For aggregated data with multiple metrics, use the first metric column
-                  if (formData.metrics && formData.metrics.length > 0) {
-                    sortColumn = formData.metrics[0].column || formData.dimension_column;
-                  } else {
-                    // Legacy single metric approach
-                    sortColumn = formData.aggregate_column;
-                  }
+                  // Legacy single metric approach
+                  sortColumn = formData.aggregate_column;
                 }
 
                 if (sortColumn) {

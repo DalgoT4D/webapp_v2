@@ -331,9 +331,7 @@ function EditChartPageContent() {
       return true; // Table charts just need basic schema/table selection
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
@@ -780,9 +778,7 @@ function EditChartPageContent() {
       return true; // Table charts only need basic fields (title, chart_type, schema, table)
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&

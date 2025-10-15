@@ -1182,7 +1182,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             id: chartId,
             title: `Chart #${chartId}`,
             chart_type: 'bar',
-            computation_type: 'raw',
+            computation_type: 'aggregated',
           };
           console.error(`❌ Failed to fetch chart details for ${chartId}:`, error);
           console.warn(`Using mock data for chart ${chartId}`);
