@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
-import GridLayout, { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -11,8 +11,6 @@ import { ChartSelectorModal } from './chart-selector-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Label } from '@/components/ui/label';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
@@ -28,7 +26,6 @@ import {
   getDefaultGridDimensions,
   getMinGridDimensions,
   getChartTypeFromConfig,
-  adjustToMinimumSize,
   getContentAwareGridDimensions,
   analyzeChartContent,
 } from '@/lib/chart-size-constraints';
@@ -39,11 +36,9 @@ import {
   Save,
   Loader2,
   Type,
-  Grip,
   X,
   Lock,
   Unlock,
-  Settings,
   Edit2,
   Check,
   AlertCircle,
@@ -51,13 +46,9 @@ import {
   ArrowLeft,
   Eye,
   Edit,
-  PanelLeft,
-  PanelTop,
   Wand2,
   LayoutGrid,
   AlignLeft,
-  AlignCenter,
-  Grid3X3,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -239,24 +230,6 @@ interface DashboardBuilderV2Props {
 // Interface for the ref methods exposed to parent
 interface DashboardBuilderV2Ref {
   cleanup: () => Promise<void>;
-}
-
-// Helper function to map screen size to breakpoint
-function getBreakpointForScreenSize(screenSize: ScreenSizeKey): string {
-  switch (screenSize) {
-    case 'mobile':
-      return 'xs';
-    case 'tablet':
-      return 'sm';
-    case 'laptop':
-      return 'md';
-    case 'desktop':
-      return 'lg';
-    case 'widescreen':
-      return 'lg';
-    default:
-      return 'lg';
-  }
 }
 
 // Helper function to adjust layout for different column counts
@@ -681,13 +654,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
       if (dashboardId) {
-        lockDashboard(dashboardId);
+        lockDashboard();
       }
 
       // Cleanup only on dashboard change or unmount
       return () => {
         if (dashboardId) {
-          unlockDashboard(dashboardId);
+          unlockDashboard();
         }
       };
     }, [dashboardId]); // Only depend on dashboardId
@@ -762,7 +735,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         }
         if (dashboardId && lockToken) {
           // Note: This won't work reliably on page refresh, but handles component unmount
-          unlockDashboard(dashboardId);
+          unlockDashboard();
         }
       };
     }, []); // Empty dependencies - cleanup on unmount only
