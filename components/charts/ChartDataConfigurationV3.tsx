@@ -769,42 +769,142 @@ export function ChartDataConfigurationV3({
       {/* Sort Section */}
       {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Sort Metric</Label>
-          <Select
-            value={
-              formData.sort && formData.sort.length > 0 ? formData.sort[0].direction : '__none__'
+          <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
+
+          {(() => {
+            // Build sortable options list
+            const sortableOptions: Array<{
+              value: string;
+              label: string;
+              type: 'column' | 'metric';
+            }> = [];
+
+            // Add dimension column if available
+            if (formData.dimension_column) {
+              sortableOptions.push({
+                value: formData.dimension_column,
+                label: formData.dimension_column,
+                type: 'column',
+              });
             }
-            onValueChange={(value) => {
-              if (value === '__none__') {
-                onChange({ sort: [] });
-              } else {
-                // Sort by the appropriate column based on chart type and computation
-                let sortColumn: string | undefined;
 
-                // For aggregated data with multiple metrics, use the first metric column
-                if (formData.metrics && formData.metrics.length > 0) {
-                  sortColumn = formData.metrics[0].column || formData.dimension_column;
-                } else {
-                  // Legacy single metric approach
-                  sortColumn = formData.aggregate_column;
+            // Add configured metrics using their aliases
+            if (formData.metrics && formData.metrics.length > 0) {
+              formData.metrics.forEach((metric) => {
+                if (metric.alias) {
+                  sortableOptions.push({
+                    value: metric.alias,
+                    label: metric.alias,
+                    type: 'metric',
+                  });
                 }
+              });
+            } else if (formData.aggregate_column && formData.aggregate_function) {
+              // Legacy single metric - create an alias for it
+              const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
+              sortableOptions.push({
+                value: defaultAlias,
+                label: defaultAlias,
+                type: 'metric',
+              });
+            }
 
-                if (sortColumn) {
-                  onChange({ sort: [{ column: sortColumn, direction: value as 'asc' | 'desc' }] });
-                }
-              }
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select sort order" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
-              <SelectItem value="asc">Asc</SelectItem>
-              <SelectItem value="desc">Desc</SelectItem>
-            </SelectContent>
-          </Select>
+            // Get current sort values
+            const currentSort = formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
+            const currentColumn = currentSort?.column || '__none__';
+            const currentDirection = currentSort?.direction || 'asc';
+
+            // Check if current sort column is still available
+            const isCurrentColumnAvailable =
+              currentColumn === '__none__' ||
+              sortableOptions.some((opt) => opt.value === currentColumn);
+
+            // Reset sort if current column is no longer available
+            if (currentSort && !isCurrentColumnAvailable) {
+              onChange({ sort: [] });
+            }
+
+            if (sortableOptions.length > 0) {
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Column/Metric Selection */}
+                  <Select
+                    value={isCurrentColumnAvailable ? currentColumn : '__none__'}
+                    onValueChange={(value) => {
+                      if (value === '__none__') {
+                        onChange({ sort: [] });
+                      } else {
+                        onChange({
+                          sort: [
+                            {
+                              column: value,
+                              direction: currentDirection,
+                            },
+                          ],
+                        });
+                      }
+                    }}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue placeholder="Select column to sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {sortableOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                                option.type === 'column'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}
+                            >
+                              {option.type === 'column' ? 'COL' : 'METRIC'}
+                            </span>
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Direction Selection */}
+                  <Select
+                    value={currentSort ? currentDirection : 'asc'}
+                    onValueChange={(value) => {
+                      if (currentSort && currentColumn !== '__none__') {
+                        onChange({
+                          sort: [
+                            {
+                              column: currentColumn,
+                              direction: value as 'asc' | 'desc',
+                            },
+                          ],
+                        });
+                      }
+                    }}
+                    disabled={disabled || !currentSort || currentColumn === '__none__'}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue placeholder="Sort direction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">Ascending</SelectItem>
+                      <SelectItem value="desc">Descending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            } else {
+              return (
+                <div className="text-sm text-gray-500">
+                  Configure metrics first to enable sorting
+                </div>
+              );
+            }
+          })()}
         </div>
       )}
     </div>
