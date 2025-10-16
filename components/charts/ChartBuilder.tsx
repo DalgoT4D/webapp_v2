@@ -167,6 +167,14 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
+          // Include extra_config for time_grain and other configurations
+          extra_config: {
+            time_grain: formData.time_grain,
+            filters: formData.filters,
+            sort: formData.sort,
+            pagination: formData.pagination,
+            customizations: formData.customizations,
+          },
         }
       : null;
 
@@ -207,6 +215,7 @@ export function ChartBuilder({
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           chart_filters: formData.filters || [],
+          time_grain: formData.time_grain,
         }
       : null;
 

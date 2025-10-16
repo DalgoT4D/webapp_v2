@@ -263,6 +263,7 @@ function ConfigureChartPageContent() {
           filters: formData.filters,
           pagination: formData.pagination,
           sort: formData.sort,
+          time_grain: formData.time_grain,
         },
       }
     : null;
@@ -688,6 +689,7 @@ function ConfigureChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        time_grain: formData.time_grain,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         // ✅ FIX: Include geographic_hierarchy for drill-down functionality
