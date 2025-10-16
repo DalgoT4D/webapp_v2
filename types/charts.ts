@@ -94,6 +94,8 @@ export interface ChartCreate {
     extra_dimension_column?: string;
     // Multiple metrics for bar/line charts
     metrics?: ChartMetric[];
+    // Time grain for datetime x-axis columns
+    time_grain?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | null;
     // Map-specific fields
     geographic_column?: string;
     value_column?: string;
@@ -147,6 +149,8 @@ export interface ChartUpdate {
     extra_dimension_column?: string;
     // Multiple metrics for bar/line charts
     metrics?: ChartMetric[];
+    // Time grain for datetime x-axis columns
+    time_grain?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | null;
     // Map-specific fields
     geographic_column?: string;
     value_column?: string;
@@ -258,6 +262,8 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
   extra_dimension_column?: string;
   // Multiple metrics for bar/line charts
   metrics?: ChartMetric[];
+  // Time grain for datetime x-axis columns
+  time_grain?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | null;
   // Map-specific fields
   geographic_column?: string;
   value_column?: string;
@@ -309,5 +315,6 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     selected_geojson_id: number;
     filters?: Record<string, any>;
     chart_filters?: ChartFilter[];
+    time_grain?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | null;
   };
 };

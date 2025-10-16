@@ -234,6 +234,7 @@ function EditChartPageContent() {
         aggregate_function: chart.extra_config?.aggregate_function,
         extra_dimension_column: chart.extra_config?.extra_dimension_column,
         metrics: chart.extra_config?.metrics,
+        time_grain: chart.extra_config?.time_grain,
         // Use converted simplified fields, fallback to direct extra_config values
         geographic_column:
           simplifiedFromLayers.geographic_column || chart.extra_config?.geographic_column,
@@ -391,6 +392,7 @@ function EditChartPageContent() {
           filters: formData.filters,
           pagination: formData.pagination,
           sort: formData.sort,
+          time_grain: formData.time_grain,
         },
       }
     : null;
@@ -900,6 +902,7 @@ function EditChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        time_grain: formData.time_grain,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },

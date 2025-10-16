@@ -17,6 +17,7 @@ import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
+import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
@@ -319,6 +320,25 @@ export function ChartDataConfigurationV3({
     formData.aggregate_function,
   ]);
 
+  // Reset time grain if dimension column is not datetime or chart type doesn't support it
+  React.useEffect(() => {
+    const shouldHaveTimeGrain =
+      ['bar', 'line'].includes(formData.chart_type || '') &&
+      formData.dimension_column &&
+      allColumns.find(
+        (col) =>
+          col.column_name === formData.dimension_column &&
+          ['timestamp', 'timestamptz', 'date', 'datetime', 'time'].some((type) =>
+            col.data_type.toLowerCase().includes(type)
+          )
+      );
+
+    if (!shouldHaveTimeGrain && formData.time_grain) {
+      onChange({ time_grain: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.chart_type, formData.dimension_column, allColumns]);
+
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
     // Fields to preserve across all chart types
@@ -504,6 +524,23 @@ export function ChartDataConfigurationV3({
           </Select>
         </div>
       )}
+
+      {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
+      {['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.dimension_column &&
+        allColumns.find(
+          (col) =>
+            col.column_name === formData.dimension_column &&
+            ['timestamp', 'timestamptz', 'date', 'datetime', 'time'].some((type) =>
+              col.data_type.toLowerCase().includes(type)
+            )
+        ) && (
+          <TimeGrainSelector
+            value={formData.time_grain || null}
+            onChange={(value) => onChange({ time_grain: value })}
+            disabled={disabled}
+          />
+        )}
 
       {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
       {formData.chart_type !== 'number' &&
