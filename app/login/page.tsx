@@ -33,11 +33,6 @@ function LoginForm() {
   } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
 
-  // Initialize auth state from localStorage
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
   // Login form
   const {
     register,
@@ -45,15 +40,6 @@ function LoginForm() {
     formState: { errors, isSubmitting },
     setError,
   } = useForm<LoginForm>();
-
-  // No need for SWR here - AuthGuard handles authentication for protected routes
-
-  // Redirect to Impact at a Glance when authenticated and org is selected
-  useEffect(() => {
-    if (isAuthenticated && currentOrg) {
-      router.push('/impact');
-    }
-  }, [isAuthenticated, currentOrg, router]);
 
   // Handle login
   const onLogin = async (data: LoginForm) => {
