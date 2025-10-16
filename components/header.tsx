@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key, Bell } from 'lucide-react';
+import {
+  LogOut,
+  ChevronDown,
+  Menu,
+  ChevronLeft,
+  ChevronRight,
+  Key,
+  Bell,
+  Plus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,6 +26,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
 import { apiGet, apiPost } from '@/lib/api';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -45,6 +56,10 @@ export function Header({
   } = useAuthStore();
 
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
+
+  const { hasPermission } = useUserPermissions();
+  const canCreateOrg = hasPermission('can_create_org');
 
   // Fetch unread notification count
   useEffect(() => {
@@ -235,6 +250,40 @@ export function Header({
                       </DropdownMenuItem>
                     ))}
                 </div>
+                {canCreateOrg && (
+                  <div className="px-1 pb-1.5">
+                    <DropdownMenuItem
+                      onClick={() => setShowCreateOrgDialog(true)}
+                      className="mx-1 my-0.5 px-3 py-2 rounded-md"
+                    >
+                      <div className="flex items-center w-full">
+                        <Plus className="mr-3 h-4 w-4" />
+                        <span className="font-medium text-base">Create Organization</span>
+                      </div>
+                    </DropdownMenuItem>
+                  </div>
+                )}
+                <DropdownMenuSeparator className="mx-2" />
+              </>
+            )}
+
+            {/* Show create org option even if user has only one org but has permission */}
+            {availableOrgs.length === 1 && canCreateOrg && (
+              <>
+                <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
+                  Organizations
+                </DropdownMenuLabel>
+                <div className="px-1 pb-1.5">
+                  <DropdownMenuItem
+                    onClick={() => setShowCreateOrgDialog(true)}
+                    className="mx-1 my-0.5 px-3 py-2 rounded-md"
+                  >
+                    <div className="flex items-center w-full">
+                      <Plus className="mr-3 h-4 w-4" />
+                      <span className="font-medium text-base">Create Organization</span>
+                    </div>
+                  </DropdownMenuItem>
+                </div>
                 <DropdownMenuSeparator className="mx-2" />
               </>
             )}
@@ -261,6 +310,9 @@ export function Header({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Create Organization Dialog */}
+      <CreateOrgDialog open={showCreateOrgDialog} onOpenChange={setShowCreateOrgDialog} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 
 // Define public routes that don't require authentication
-const publicRoutes = ['/login', '/forgot-password', '/resetpassword'];
+const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations'];
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -18,7 +18,8 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   const isPublicRoute =
     publicRoutes.includes(pathname) ||
     pathname.startsWith('/public/dashboard/') ||
-    pathname.startsWith('/share/dashboard/');
+    pathname.startsWith('/share/dashboard/') ||
+    pathname.startsWith('/invitations/');
 
   // Always bypass auth for public dashboard routes
   if (pathname.startsWith('/share/dashboard/') || pathname.startsWith('/public/dashboard/')) {

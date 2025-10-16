@@ -24,14 +24,7 @@ export default function ChartBuilderPage() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save chart';
 
-      // Check if it's an authentication error
-      if (errorMessage === 'unauthorized' || errorMessage.includes('unauthorized')) {
-        toast.error('Please login again to continue');
-        // Redirect to login
-        router.push('/login');
-      } else {
-        toast.error(errorMessage);
-      }
+      toast.error(errorMessage);
     }
   };
 
