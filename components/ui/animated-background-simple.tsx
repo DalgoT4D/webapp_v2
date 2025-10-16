@@ -39,8 +39,8 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 1.5, // Increased base movement
-        vy: (Math.random() - 0.5) * 1.5, // Increased base movement
+        vx: (Math.random() - 0.75) * 1.75, // Increased base movement
+        vy: (Math.random() - 0.75) * 1.75, // Increased base movement
         size: Math.random() * 3 + 1,
       });
     }
@@ -98,12 +98,12 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
           }
         }
         // Friction & random drift
-        particle.vx = particle.vx * 0.995 + (Math.random() - 0.5) * 0.01;
-        particle.vy = particle.vy * 0.995 + (Math.random() - 0.5) * 0.01;
+        particle.vx = particle.vx * 0.9995 + (Math.random() - 0.5) * 0.03;
+        particle.vy = particle.vy * 0.9995 + (Math.random() - 0.5) * 0.03;
         // Draw particle
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = '#297373';
+        ctx.fillStyle = '#89C7C1';
         ctx.fill();
         // Draw connections
         particles.forEach((other, j) => {
@@ -141,7 +141,7 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
     <>
       <style jsx>{`
         .animated-bg-simple {
-          background-color: rgb(224, 233, 232);
+          background-color: #f0fffd;
           position: relative;
         }
 
