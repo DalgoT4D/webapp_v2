@@ -30,4 +30,9 @@ export interface UpdateUserRoleForm {
 export interface CreateOrgForm {
   name: string;
   website?: string; // NGO's website URL
+  base_plan: string;
+  subscription_duration: string;
+  superset_included: boolean;
+  start_date?: string;
+  end_date?: string;
 }
