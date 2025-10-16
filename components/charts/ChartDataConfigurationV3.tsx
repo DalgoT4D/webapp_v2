@@ -294,6 +294,31 @@ export function ChartDataConfigurationV3({
     onChange,
   ]);
 
+  // Reset sort if current column is no longer available (avoid render-time side effects)
+  React.useEffect(() => {
+    const sortable = new Set<string>();
+    if (formData.dimension_column) sortable.add(formData.dimension_column);
+    if (formData.metrics?.length) {
+      formData.metrics.forEach((m) => {
+        const alias = m.alias || `${m.aggregation}(${m.column})`;
+        sortable.add(alias);
+      });
+    } else if (formData.aggregate_column && formData.aggregate_function) {
+      sortable.add(`${formData.aggregate_function}(${formData.aggregate_column})`);
+    }
+
+    const current = formData.sort?.[0]?.column;
+    if (current && !sortable.has(current)) {
+      onChange({ sort: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formData.dimension_column,
+    formData.metrics,
+    formData.aggregate_column,
+    formData.aggregate_function,
+  ]);
+
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
     // Fields to preserve across all chart types
@@ -818,11 +843,6 @@ export function ChartDataConfigurationV3({
             const isCurrentColumnAvailable =
               currentColumn === '__none__' ||
               sortableOptions.some((opt) => opt.value === currentColumn);
-
-            // Reset sort if current column is no longer available
-            if (currentSort && !isCurrentColumnAvailable) {
-              onChange({ sort: [] });
-            }
 
             if (sortableOptions.length > 0) {
               return (
