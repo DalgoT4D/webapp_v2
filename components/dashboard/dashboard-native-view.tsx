@@ -253,6 +253,8 @@ interface DashboardNativeViewProps {
   dashboardData?: any; // Pre-fetched dashboard data for public mode
   hideHeader?: boolean; // Hide header when used as landing page
   showMinimalHeader?: boolean; // Show only title when used as landing page
+  isEmbedMode?: boolean; // Hide all non-essential UI for iframe embedding
+  embedTheme?: 'light' | 'dark'; // Theme for embed mode
 }
 
 export function DashboardNativeView({
@@ -262,6 +264,8 @@ export function DashboardNativeView({
   dashboardData,
   hideHeader = false,
   showMinimalHeader = false,
+  isEmbedMode = false,
+  embedTheme = 'light',
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -678,12 +682,14 @@ export function DashboardNativeView({
     <div
       ref={containerRef}
       className={cn(
-        'h-screen flex flex-col bg-white overflow-hidden',
+        isEmbedMode
+          ? `h-full flex flex-col overflow-auto ${embedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'}`
+          : 'h-screen flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
-      {!hideHeader && !showMinimalHeader && (
+      {!hideHeader && !showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b shadow-sm flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
@@ -1046,7 +1052,7 @@ export function DashboardNativeView({
         </div>
       )}
       {/* Minimal Header - Show only title for landing page */}
-      {showMinimalHeader && (
+      {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div>
             <h1 className="text-3xl font-bold">{dashboard.title}</h1>
@@ -1054,21 +1060,23 @@ export function DashboardNativeView({
         </div>
       )}
       {/* Mobile/Tablet Filters Section - Only show on non-desktop */}
-      <ResponsiveFiltersSection
-        dashboardFilters={dashboardFilters}
-        dashboardId={dashboardId}
-        isEditMode={false}
-        onFiltersApplied={handleFiltersApplied}
-        onFiltersCleared={handleFiltersCleared}
-        isPublicMode={isPublicMode}
-        publicToken={publicToken}
-        appliedFiltersCount={appliedFiltersCount}
-        className="px-4 pb-2"
-      />
+      {!isEmbedMode && (
+        <ResponsiveFiltersSection
+          dashboardFilters={dashboardFilters}
+          dashboardId={dashboardId}
+          isEditMode={false}
+          onFiltersApplied={handleFiltersApplied}
+          onFiltersCleared={handleFiltersCleared}
+          isPublicMode={isPublicMode}
+          publicToken={publicToken}
+          appliedFiltersCount={appliedFiltersCount}
+          className="px-4 pb-2"
+        />
+      )}
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Vertical Filters Sidebar - Only show on desktop */}
-        {responsive.isDesktop && dashboardFilters.length > 0 && (
+        {responsive.isDesktop && dashboardFilters.length > 0 && !isEmbedMode && (
           <UnifiedFiltersPanel
             initialFilters={dashboardFilters}
             dashboardId={dashboardId}
@@ -1085,31 +1093,52 @@ export function DashboardNativeView({
 
         {/* Dashboard Content - Scrollable Canvas Area */}
         <div
-          className="flex-1 overflow-auto p-4 md:p-6 min-w-0 bg-gray-50"
-          style={{ paddingBottom: '60px' }}
+          className={`flex-1 overflow-auto min-w-0 ${
+            isEmbedMode
+              ? `p-0 ${embedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'}`
+              : 'p-4 md:p-6 bg-gray-50'
+          }`}
+          style={isEmbedMode ? {} : { paddingBottom: '60px' }}
         >
           <div
             ref={dashboardContainerRef}
-            className="dashboard-canvas bg-white border border-gray-300 shadow-lg relative z-10"
-            style={{
-              width: '100%',
-              maxWidth: `min(${effectiveScreenConfig.width}px, 100vw - 2rem)`,
-              minHeight: effectiveScreenConfig.height,
-              margin: '0 auto 40px auto',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
+            className={`dashboard-canvas relative z-10 ${
+              isEmbedMode
+                ? embedTheme === 'dark'
+                  ? 'bg-gray-800'
+                  : 'bg-white'
+                : 'bg-white border border-gray-300 shadow-lg'
+            }`}
+            style={
+              isEmbedMode
+                ? {
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }
+                : {
+                    width: '100%',
+                    maxWidth: `min(${effectiveScreenConfig.width}px, 100vw - 2rem)`,
+                    minHeight: effectiveScreenConfig.height,
+                    margin: '0 auto 40px auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }
+            }
           >
             {/* Canvas Header */}
-            <div className="absolute -top-8 left-0 text-xs text-gray-500 font-medium">
-              {effectiveScreenConfig.name} Canvas ({effectiveScreenConfig.width} ×{' '}
-              {effectiveScreenConfig.height}px)
-              {previewScreenSize && (
-                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                  Preview Mode
-                </span>
-              )}
-            </div>
+            {!isEmbedMode && (
+              <div className="absolute -top-8 left-0 text-xs text-gray-500 font-medium">
+                {effectiveScreenConfig.name} Canvas ({effectiveScreenConfig.width} ×{' '}
+                {effectiveScreenConfig.height}px)
+                {previewScreenSize && (
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                    Preview Mode
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Show empty state if no layout config */}
             {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
