@@ -74,16 +74,20 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
-      setEmail('');
-      setRoleUuid('');
-      setErrors({});
-      onOpenChange(false);
+    setEmail('');
+    setRoleUuid('');
+    setErrors({});
+    onOpenChange(false);
+  };
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      handleClose();
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Invite User</DialogTitle>
