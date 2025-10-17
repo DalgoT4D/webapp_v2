@@ -197,16 +197,10 @@ const getNavItems = (
     },
     {
       title: 'Settings',
-      href: '/settings/about',
+      href: '/settings/billing',
       icon: Settings,
       isActive: false, // Never highlight the parent Settings menu
       children: [
-        {
-          title: 'About',
-          href: '/settings/about',
-          icon: Info,
-          isActive: currentPath.startsWith('/settings/about'),
-        },
         {
           title: 'Billing',
           href: '/settings/billing',
@@ -218,6 +212,12 @@ const getNavItems = (
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
+        },
+        {
+          title: 'About',
+          href: '/settings/about',
+          icon: Info,
+          isActive: currentPath.startsWith('/settings/about'),
         },
       ],
     },
