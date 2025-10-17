@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Info,
   CreditCard,
+  Users,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -204,13 +205,19 @@ const getNavItems = (
           title: 'About',
           href: '/settings/about',
           icon: Info,
-          isActive: currentPath === '/settings/about',
+          isActive: currentPath.startsWith('/settings/about'),
         },
         {
           title: 'Billing',
           href: '/settings/billing',
           icon: CreditCard,
-          isActive: currentPath === '/settings/billing',
+          isActive: currentPath.startsWith('/settings/billing'),
+        },
+        {
+          title: 'User Management',
+          href: '/settings/user-management',
+          icon: Users,
+          isActive: currentPath.startsWith('/settings/user-management'),
         },
       ],
     },

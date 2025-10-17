@@ -146,7 +146,23 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
 
       if (data) {
         if (data.detail) {
-          errorMessage = data.detail;
+          // Handle array of validation errors
+          if (Array.isArray(data.detail)) {
+            // Extract messages from validation error array
+            const messages = data.detail.map((err: any) => {
+              if (err.msg) {
+                // Include field location if available
+                const location = err.loc && err.loc.length > 0 ? err.loc[err.loc.length - 1] : null;
+                return location ? `${location}: ${err.msg}` : err.msg;
+              }
+              return typeof err === 'string' ? err : JSON.stringify(err);
+            });
+            errorMessage = messages.join(', ');
+          } else if (typeof data.detail === 'string') {
+            errorMessage = data.detail;
+          } else {
+            errorMessage = JSON.stringify(data.detail);
+          }
         } else if (data.error) {
           errorMessage = data.error;
         } else if (data.message) {

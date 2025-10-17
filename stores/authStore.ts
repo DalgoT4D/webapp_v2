@@ -39,6 +39,7 @@ interface AuthState {
   initialize: () => void;
   checkAuthentication: () => Promise<boolean>;
   getCurrentOrgUser: () => OrgUser | null;
+  refreshOrganizations: () => Promise<void>;
 }
 
 export const useAuthStore = createAppStore<AuthState>(
@@ -136,6 +137,11 @@ export const useAuthStore = createAppStore<AuthState>(
     getCurrentOrgUser: () => {
       const { orgUsers, selectedOrgSlug } = get();
       return orgUsers.find((ou) => ou.org.slug === selectedOrgSlug) || null;
+    },
+
+    refreshOrganizations: async () => {
+      // Revalidate the current user data which includes all organizations
+      await mutate('/api/currentuserv2');
     },
   }),
   {
