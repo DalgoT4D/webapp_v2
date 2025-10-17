@@ -47,7 +47,7 @@ export default function UserManagement() {
             )}
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto mb-10">
             <TabsContent value="users" className="mt-0 pb-6">
               <UsersTable />
             </TabsContent>
