@@ -131,19 +131,17 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
-      setFormData({
-        name: '',
-        website: '',
-        base_plan: '',
-        subscription_duration: '',
-        superset_included: '',
-        start_date: '',
-        end_date: '',
-      });
-      setErrors({});
-      onOpenChange(false);
-    }
+    setFormData({
+      name: '',
+      website: '',
+      base_plan: '',
+      subscription_duration: '',
+      superset_included: '',
+      start_date: '',
+      end_date: '',
+    });
+    setErrors({});
+    onOpenChange(false);
   };
 
   const updateField = (field: string, value: string) => {
@@ -154,8 +152,14 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
     }
   };
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Organization</DialogTitle>
