@@ -64,8 +64,9 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         invited_email: email.trim(),
         invited_role_uuid: roleUuid,
       });
-      mutate();
-      handleClose();
+      await mutate();
+      setIsSubmitting(false);
+      handleDialogOpenChange(false);
     } catch (error) {
       // Error is handled in the hook
     } finally {
