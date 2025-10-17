@@ -15,7 +15,7 @@ export default function ChartBuilderPage() {
 
   const handleSave = async (chart: ChartCreate) => {
     try {
-      const response = await createChart(chart);
+      await createChart(chart);
 
       toastSuccess.saved('Chart created successfully');
 
