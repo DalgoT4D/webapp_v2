@@ -117,7 +117,7 @@ export default function Billing() {
     return (
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-lg">Loading billing information...</div>
+          <div className="text-lg">Loading Billing Information...</div>
         </div>
       </div>
     );
@@ -127,7 +127,7 @@ export default function Billing() {
     return (
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-lg text-muted-foreground">No billing information available</div>
+          <div className="text-lg text-muted-foreground">No Billing Information Available</div>
         </div>
       </div>
     );
@@ -139,7 +139,7 @@ export default function Billing() {
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Billing</h1>
-        <p className="text-muted-foreground">Manage your subscription and billing information</p>
+        <p className="text-muted-foreground">Manage Your Subscription And Billing Information</p>
       </div>
 
       <Card>

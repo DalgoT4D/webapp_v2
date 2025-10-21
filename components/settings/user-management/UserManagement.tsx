@@ -22,7 +22,7 @@ export default function UserManagement() {
         <div>
           <h1 className="text-3xl font-bold mb-2">User Management</h1>
           <p className="text-muted-foreground">
-            Manage users and invitations for your organization
+            Manage Users And Invitations For Your Organization
           </p>
         </div>
 

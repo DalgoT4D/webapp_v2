@@ -1606,7 +1606,7 @@ export function DashboardListV2() {
               Dashboards
             </h1>
             <p id="dashboard-page-description" className="text-muted-foreground mt-1">
-              Create and manage your data dashboards
+              Create And Manage Your Dashboards
             </p>
           </div>
 

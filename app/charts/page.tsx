@@ -1352,7 +1352,7 @@ export default function ChartsPage() {
               Charts
             </h1>
             <p id="charts-page-description" className="text-muted-foreground mt-1">
-              Create and manage your data visualizations
+              Create And Manage Your Visualizations
             </p>
           </div>
 
