@@ -84,9 +84,10 @@ export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
   },
 
   // Text components are flexible but need minimum readability
+  // minHeight should match defaultHeight to prevent resizing below initial size
   text: {
     minWidth: 200,
-    minHeight: 120,
+    minHeight: 180, // Same as defaultHeight - users can't resize below initial size
     defaultWidth: 350,
     defaultHeight: 180,
   },
@@ -641,6 +642,87 @@ export function getContentAwareGridDimensions(
   return {
     w: finalGridW,
     h: finalGridH,
+  };
+}
+
+/**
+ * Calculate text dimensions based on content and styling
+ * Returns pixel dimensions needed to display text without clipping
+ */
+export function calculateTextDimensions(config: {
+  content: string;
+  fontSize: number;
+  fontWeight: 'normal' | 'bold';
+  type: 'paragraph' | 'heading';
+  textAlign: 'left' | 'center' | 'right';
+}): { width: number; height: number } {
+  const { content, fontSize, fontWeight, type } = config;
+
+  // Return minimum dimensions for empty content
+  if (!content || content.trim() === '') {
+    // For empty textboxes, provide space for default placeholder text
+    // "Click to add text..." at default font size, or user's chosen font size
+    const placeholderContent = 'Click to add text...';
+    const placeholderWidth = placeholderContent.length * fontSize * 0.6 + 40; // Account for placeholder
+
+    return {
+      width: Math.max(250, placeholderWidth), // Minimum empty textbox width to fit placeholder
+      height: 180, // Always use the default textbox height (same as when first added)
+    };
+  }
+
+  // Calculate character width multiplier based on font properties
+  const baseCharWidth = fontSize * 0.6; // Approximate character width in pixels
+  const weightMultiplier = fontWeight === 'bold' ? 1.1 : 1.0;
+  const charWidth = baseCharWidth * weightMultiplier;
+
+  // Split content into lines and calculate dimensions for each line
+  const lines = content.split('\n');
+  const maxLineLength = Math.max(...lines.map((line) => line.length));
+
+  // Calculate width needed for the longest line
+  const contentWidth = maxLineLength * charWidth;
+
+  // Add padding for text container (40px total: 20px each side)
+  const totalWidth = Math.max(200, contentWidth + 40);
+
+  // Calculate height based on number of lines and font size
+  const lineHeight = type === 'heading' ? fontSize * 1.2 : fontSize * 1.5;
+  const contentHeight = lines.length * lineHeight;
+
+  // Add padding for text container (40px total: 20px top/bottom)
+  const totalHeight = Math.max(120, contentHeight + 40);
+
+  return {
+    width: Math.ceil(totalWidth),
+    height: Math.max(Math.ceil(totalHeight), 180), // Enforce absolute minimum height of 180px (default textbox height)
+  };
+}
+
+/**
+ * Get minimum grid dimensions for text content with dynamic sizing
+ * Calculates based on actual text content, font size, and formatting
+ */
+export function getTextGridDimensions(textConfig: {
+  content: string;
+  fontSize: number;
+  fontWeight: 'normal' | 'bold';
+  type: 'paragraph' | 'heading';
+  textAlign: 'left' | 'center' | 'right';
+}): { min: GridDimensions; default: GridDimensions } {
+  const textDimensions = calculateTextDimensions(textConfig);
+
+  // Convert to grid units
+  const minGridW = Math.max(2, pixelsToGridUnits(textDimensions.width, true));
+  const minGridH = Math.max(2, pixelsToGridUnits(textDimensions.height, false));
+
+  // Default size is 25% larger than minimum for better editing experience
+  const defaultGridW = Math.max(minGridW, Math.ceil(minGridW * 1.25));
+  const defaultGridH = Math.max(minGridH, Math.ceil(minGridH * 1.25));
+
+  return {
+    min: { w: minGridW, h: minGridH },
+    default: { w: Math.min(defaultGridW, GRID_CONFIG.cols), h: defaultGridH },
   };
 }
 

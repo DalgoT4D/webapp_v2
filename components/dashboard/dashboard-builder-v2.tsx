@@ -28,6 +28,8 @@ import {
   getChartTypeFromConfig,
   getContentAwareGridDimensions,
   analyzeChartContent,
+  pixelsToGridUnits,
+  calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
 import {
   Plus,
@@ -275,6 +277,7 @@ function getAdjustedLayout(layout: DashboardLayout[], targetCols: number): Dashb
       x: newX,
       y: newY,
       minW: Math.max(1, Math.min(item.minW || 2, targetCols)),
+      minH: item.minH || 2, // Preserve minH constraint
       maxW: targetCols,
     };
   });
@@ -339,6 +342,7 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
         x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
         y: Math.max(0, newY), // Ensure non-negative Y
         minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
+        minH: item.minH || 2, // Preserve minH constraint
         maxW: cols, // Max width is all columns
       };
 
@@ -360,9 +364,52 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     let initialLayout = Array.isArray(initialData?.layout_config) ? initialData.layout_config : [];
     const initialComponents = initialData?.components || {};
 
+    // Helper function to ensure text components have content constraints
+    const ensureTextContentConstraints = (components: any) => {
+      const updatedComponents = { ...components };
+      Object.keys(updatedComponents).forEach((componentId) => {
+        const component = updatedComponents[componentId];
+        if (component.type === DashboardComponentType.TEXT && component.config) {
+          // Calculate content constraints if they don't exist (for both empty and filled content)
+          if (!component.config.contentConstraints) {
+            const textDimensions = calculateTextDimensions({
+              content: component.config.content || '', // Handle empty content
+              fontSize: component.config.fontSize || 16,
+              fontWeight: component.config.fontWeight || 'normal',
+              type: component.config.type || 'paragraph',
+              textAlign: component.config.textAlign || 'left',
+            });
+
+            updatedComponents[componentId] = {
+              ...component,
+              config: {
+                ...component.config,
+                contentConstraints: {
+                  minWidth: textDimensions.width,
+                  minHeight: textDimensions.height,
+                },
+              },
+            };
+
+            console.log(`📐 Added missing content constraints for text component ${componentId}:`, {
+              content: component.config.content,
+              constraints: {
+                minWidth: textDimensions.width,
+                minHeight: textDimensions.height,
+              },
+            });
+          }
+        }
+      });
+      return updatedComponents;
+    };
+
+    // Ensure all text components have content constraints
+    const componentsWithConstraints = ensureTextContentConstraints(initialComponents);
+
     // Apply minimum size constraints to existing layout items
     initialLayout = initialLayout.map((item: any) => {
-      const component = initialComponents[item.i];
+      const component = componentsWithConstraints[item.i];
       if (component) {
         const chartType = getChartTypeFromConfig(component.config);
         let minDimensions;
@@ -372,15 +419,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minDimensions = {
             w: Math.max(
               2,
-              Math.min(12, Math.ceil(component.config.contentConstraints.minWidth / 100))
+              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
             ),
-            h: Math.max(2, Math.ceil(component.config.contentConstraints.minHeight / 60)),
+            h: Math.max(2, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
           };
 
-          console.log(`📐 Applying stored content constraints for ${chartType} chart:`, {
-            componentId: item.i,
-            contentConstraints: component.config.contentConstraints,
-            gridConstraints: minDimensions,
+          console.log(`🔒 Text constraint enforced:`, {
+            textContent: component.config.content?.substring(0, 15) + '...' || '(empty)',
+            minHeight: `${minDimensions.h} grid units (${minDimensions.h * 60}px)`,
+            actualHeight: `${item.h} grid units`,
+            heightOK: item.h >= minDimensions.h,
+            minWidth: `${minDimensions.w} grid units`,
+            actualWidth: `${item.w} grid units`,
+            widthOK: item.w >= minDimensions.w,
           });
         } else {
           minDimensions = getMinGridDimensions(chartType);
@@ -436,7 +487,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Don't create filter components - they should already be in initialComponents
     // Just use the components and layout as they are
-    const mergedComponents = initialComponents;
+    const mergedComponents = componentsWithConstraints;
     const mergedLayout = initialLayout;
 
     // Use saved responsive layouts if available, otherwise generate them
@@ -1023,9 +1074,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minDimensions = {
             w: Math.max(
               2,
-              Math.min(12, Math.ceil(component.config.contentConstraints.minWidth / 100))
+              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
             ),
-            h: Math.max(2, Math.ceil(component.config.contentConstraints.minHeight / 60)),
+            h: Math.max(2, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
           };
 
           console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
@@ -1074,9 +1125,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             minDimensions = {
               w: Math.max(
                 2,
-                Math.min(12, Math.ceil(component.config.contentConstraints.minWidth / 100))
+                Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
               ),
-              h: Math.max(2, Math.ceil(component.config.contentConstraints.minHeight / 60)),
+              h: Math.max(
+                2,
+                pixelsToGridUnits(component.config.contentConstraints.minHeight, false)
+              ),
             };
           } else {
             minDimensions = getMinGridDimensions(chartType);
@@ -1273,6 +1327,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Add text component
     const addTextComponent = () => {
+      // Calculate minimum dimensions for empty text component
+      const defaultTextDimensions = calculateTextDimensions({
+        content: '', // Empty content
+        fontSize: 16,
+        fontWeight: 'normal',
+        type: 'paragraph',
+        textAlign: 'left',
+      });
+
       const newComponent: DashboardComponent = {
         id: `text-${Date.now()}`,
         type: DashboardComponentType.TEXT,
@@ -1285,6 +1348,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           textDecoration: 'none',
           textAlign: 'left',
           color: '#000000',
+          contentConstraints: {
+            minWidth: defaultTextDimensions.width,
+            minHeight: defaultTextDimensions.height,
+          },
         } as UnifiedTextConfig,
       };
 

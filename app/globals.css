@@ -66,15 +66,13 @@
   visibility: hidden;
 }
 
-/* Enhanced placeholder - highly visible and smooth */
+/* Hide drag placeholder/ghost - users can see where element is going during drag */
 .react-grid-item.react-grid-placeholder,
 .react-grid-layout .react-grid-item.react-grid-placeholder,
 .dashboard-builder .react-grid-item.react-grid-placeholder {
-  background: rgba(59, 130, 246, 0.15) !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-  transition-duration: 150ms !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
   z-index: 500 !important;
   border-radius: 8px;
   border: 3px dashed rgb(59, 130, 246, 0.7) !important;
@@ -172,24 +170,9 @@
   border-radius: 0 !important;
 }
 
-/* Apache Superset style thin dashed border always visible in edit mode */
+/* Removed dashed border hover effect - keep UI clean */
 .dashboard-builder .dashboard-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border: 1px dashed rgba(52, 152, 219, 0.4);
-  pointer-events: none;
-  z-index: 10;
-  opacity: 1;
-}
-
-/* Stronger border on hover */
-.dashboard-builder .dashboard-item:hover::before {
-  border-color: rgba(52, 152, 219, 0.8);
-  transition: border-color 0.1s ease;
+  display: none; /* Completely remove hover border */
 }
 
 

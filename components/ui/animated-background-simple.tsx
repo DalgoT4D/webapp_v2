@@ -88,13 +88,13 @@ export function AnimatedBackgroundSimple({ children, className = '' }: AnimatedB
           const dx = mouseX - particle.x;
           const dy = mouseY - particle.y;
           const distance = Math.hypot(dx, dy);
-          if (distance < 150) {
-            const force = (150 - distance) / 150;
-            const repulsionStrength = 8;
+          if (distance < 100) {
+            const force = (80 - distance) / 80;
+            const repulsionStrength = 3;
             particle.x -= (dx / distance) * force * repulsionStrength;
             particle.y -= (dy / distance) * force * repulsionStrength;
-            particle.vx += -(dx / distance) * force * 2;
-            particle.vy += -(dy / distance) * force * 2;
+            particle.vx += -(dx / distance) * force * 1.2;
+            particle.vy += -(dy / distance) * force * 1.2;
           }
         }
         // Friction & random drift

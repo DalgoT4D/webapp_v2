@@ -16,6 +16,7 @@ import {
   Hash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { calculateTextDimensions } from '@/lib/chart-size-constraints';
 
 export interface UnifiedTextConfig {
   content: string;
@@ -28,6 +29,10 @@ export interface UnifiedTextConfig {
   textAlign: 'left' | 'center' | 'right';
   color: string;
   backgroundColor?: string;
+  contentConstraints?: {
+    minWidth: number;
+    minHeight: number;
+  };
 }
 
 interface UnifiedTextElementProps {
@@ -67,6 +72,30 @@ export function UnifiedTextElement({
   const [isEditing, setIsEditing] = useState(false);
   const [tempContent, setTempContent] = useState(config.content);
   const [showColorPicker, setShowColorPicker] = useState(false);
+
+  // Helper function to calculate and update content constraints
+  const updateWithContentConstraints = useCallback(
+    (updatedConfig: UnifiedTextConfig) => {
+      const textDimensions = calculateTextDimensions({
+        content: updatedConfig.content,
+        fontSize: updatedConfig.fontSize,
+        fontWeight: updatedConfig.fontWeight,
+        type: updatedConfig.type,
+        textAlign: updatedConfig.textAlign,
+      });
+
+      const configWithConstraints = {
+        ...updatedConfig,
+        contentConstraints: {
+          minWidth: textDimensions.width,
+          minHeight: textDimensions.height,
+        },
+      };
+
+      onUpdate(configWithConstraints);
+    },
+    [onUpdate]
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -145,7 +174,7 @@ export function UnifiedTextElement({
       }
 
       // Auto-save and hide toolbar
-      onUpdate({ ...config, content: tempContent });
+      updateWithContentConstraints({ ...config, content: tempContent });
       setIsEditing(false);
       setShowColorPicker(false);
       setToolbarPosition(null);
@@ -226,7 +255,7 @@ export function UnifiedTextElement({
 
       // Auto-save content and formatting immediately
       const updatedConfig = { ...config, content: tempContent, [property]: value };
-      onUpdate(updatedConfig);
+      updateWithContentConstraints(updatedConfig);
 
       // Use requestAnimationFrame for smoother restoration
       requestAnimationFrame(() => {
@@ -254,7 +283,7 @@ export function UnifiedTextElement({
       if (e.key === 'Enter' && e.ctrlKey) {
         e.preventDefault();
         // Auto-save and exit on Ctrl+Enter
-        onUpdate({ ...config, content: tempContent });
+        updateWithContentConstraints({ ...config, content: tempContent });
         setIsEditing(false);
         setShowColorPicker(false);
         setToolbarPosition(null);
@@ -296,14 +325,14 @@ export function UnifiedTextElement({
       const parentScroll = containerRef.current?.scrollTop || 0;
 
       if (newType === 'paragraph') {
-        onUpdate({
+        updateWithContentConstraints({
           ...config,
           content: tempContent, // Auto-save current content
           type: 'paragraph',
         });
       } else {
         const headingLevel = newType as 1 | 2 | 3;
-        onUpdate({
+        updateWithContentConstraints({
           ...config,
           content: tempContent, // Auto-save current content
           type: 'heading',
@@ -594,7 +623,7 @@ export function UnifiedTextElement({
       <FloatingToolbar />
 
       <div ref={containerRef} className="h-full w-full">
-        <Card className="h-full w-full flex flex-col border-0 shadow-none">
+        <Card className="h-full w-full flex flex-col">
           <CardContent className="p-4 flex-1 flex flex-col min-h-0">
             <div
               className={cn(
@@ -631,7 +660,7 @@ export function UnifiedTextElement({
 
                       if (!isStillFocusedOnComponent && !isStillFocusedOnTextarea) {
                         // Always save the current content, even if empty
-                        onUpdate({ ...config, content: tempContent });
+                        updateWithContentConstraints({ ...config, content: tempContent });
                         setIsEditing(false);
                         setShowColorPicker(false);
                         setToolbarPosition(null);
