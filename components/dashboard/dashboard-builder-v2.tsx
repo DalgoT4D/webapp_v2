@@ -2038,6 +2038,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     }
                   }}
                   size="sm"
+                  variant="outline"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
@@ -2177,14 +2178,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </PopoverContent>
                 </Popover> */}
 
-                <Button onClick={() => saveDashboard()} size="sm" variant="outline">
+                <Button onClick={() => saveDashboard()} size="sm">
                   <Save className="w-4 h-4 mr-2" />
                   <span className="hidden lg:inline">Save</span>
                 </Button>
 
                 {/* Preview button */}
                 {onPreview && (
-                  <Button variant="outline" size="sm" onClick={onPreview} disabled={isNavigating}>
+                  <Button size="sm" variant="outline" onClick={onPreview} disabled={isNavigating}>
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (

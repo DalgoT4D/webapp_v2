@@ -399,16 +399,16 @@ export function UnifiedTextElement({
           top: toolbarPosition.top,
           left: toolbarPosition.left,
           width: Math.min(toolbarPosition.width, 600), // Max width to prevent huge toolbars
-          minWidth: 300,
+          minWidth: 500, // Increased min width to ensure enough space for all elements
         }}
         data-toolbar="true"
       >
         <div
-          className="bg-white shadow-2xl rounded-lg border border-gray-200 p-2 flex items-center justify-between backdrop-blur-sm"
+          className="bg-white shadow-2xl rounded-lg border border-gray-200 px-3 py-2 flex items-center backdrop-blur-sm w-full"
           data-toolbar="true"
         >
           {/* Left: Quick format buttons */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-1">
             {/* Text Type */}
             <div className="flex">
               {textTypePresets.map((preset) => (
@@ -507,7 +507,7 @@ export function UnifiedTextElement({
           </div>
 
           {/* Right: Color picker */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0 relative">
             <div className="w-px h-4 bg-gray-300 mx-1" />
             <Button
               size="sm"
@@ -525,7 +525,10 @@ export function UnifiedTextElement({
 
             {/* Color picker dropdown */}
             {showColorPicker && (
-              <div className="absolute top-8 right-0 bg-white shadow-lg border rounded p-2 z-10">
+              <div
+                className="absolute top-8 right-0 bg-white shadow-lg border rounded p-2 z-10"
+                style={{ marginRight: 0 }}
+              >
                 <div className="grid grid-cols-4 gap-1">
                   {colorPresets.map((color) => (
                     <button

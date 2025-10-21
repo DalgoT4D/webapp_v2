@@ -172,7 +172,13 @@ export default function NewChartPage() {
                           isSelected && 'ring-2 shadow-md'
                         )}
                         style={
-                          isSelected ? { borderColor: '#06887b', '--tw-ring-color': '#06887b' } : {}
+                          isSelected
+                            ? {
+                                borderColor: '#06887b',
+                                '--tw-ring-color': '#06887b',
+                                backgroundColor: 'rgba(6, 136, 123, 0.04)',
+                              }
+                            : {}
                         }
                         role="radio"
                         aria-checked={isSelected}
@@ -210,7 +216,7 @@ export default function NewChartPage() {
 
       {/* Bottom Actions */}
       <Separator className="my-8" />
-      <div className="flex justify-between items-center">
+      <div className="flex items-center gap-3">
         <Button variant="cancel" onClick={handleCancel}>
           Cancel
         </Button>
