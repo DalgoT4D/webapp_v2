@@ -17,41 +17,49 @@ export default function UserManagement() {
   const canViewInvitations = hasPermission('can_view_invitations');
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">User Management</h1>
-          <p className="text-muted-foreground">
-            Manage Users And Invitations For Your Organization
-          </p>
-        </div>
+    <div className="h-screen flex flex-col">
+      <div className="container mx-auto px-6 pt-6 max-w-6xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">User Management</h1>
+            <p className="text-muted-foreground">
+              Manage users and invitations for your organization
+            </p>
+          </div>
 
-        <Button
-          onClick={() => setShowInviteDialog(true)}
-          disabled={!canCreateInvitation}
-          className="flex items-center gap-2"
-        >
-          <UserPlus className="h-4 w-4" />
-          Invite User
-        </Button>
+          <Button
+            onClick={() => setShowInviteDialog(true)}
+            disabled={!canCreateInvitation}
+            className="flex items-center gap-2"
+          >
+            <UserPlus className="h-4 w-4" />
+            Invite User
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="users" className="w-full">
-        <TabsList>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          {canViewInvitations && <TabsTrigger value="invitations">Pending Invitations</TabsTrigger>}
-        </TabsList>
+      <div className="flex-1 overflow-hidden container mx-auto px-6 pb-6 max-w-6xl">
+        <Tabs defaultValue="users" className="w-full h-full flex flex-col">
+          <TabsList className="mb-6">
+            <TabsTrigger value="users">Users</TabsTrigger>
+            {canViewInvitations && (
+              <TabsTrigger value="invitations">Pending Invitations</TabsTrigger>
+            )}
+          </TabsList>
 
-        <TabsContent value="users" className="mt-6">
-          <UsersTable />
-        </TabsContent>
+          <div className="flex-1 overflow-y-auto mb-10">
+            <TabsContent value="users" className="mt-0 pb-6">
+              <UsersTable />
+            </TabsContent>
 
-        {canViewInvitations && (
-          <TabsContent value="invitations" className="mt-6">
-            <InvitationsTable />
-          </TabsContent>
-        )}
-      </Tabs>
+            {canViewInvitations && (
+              <TabsContent value="invitations" className="mt-0 pb-6">
+                <InvitationsTable />
+              </TabsContent>
+            )}
+          </div>
+        </Tabs>
+      </div>
 
       <InviteUserDialog open={showInviteDialog} onOpenChange={setShowInviteDialog} />
     </div>
