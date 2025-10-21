@@ -66,29 +66,29 @@
   visibility: hidden;
 }
 
-/* Hide drag placeholder/ghost - users can see where element is going during drag */
+/* Show grid lines during drag - lighter blue and thinner */
 .react-grid-item.react-grid-placeholder,
 .react-grid-layout .react-grid-item.react-grid-placeholder,
 .dashboard-builder .react-grid-item.react-grid-placeholder {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
+  display: block !important;
+  opacity: 0.6 !important;
+  visibility: visible !important;
   z-index: 500 !important;
   border-radius: 8px;
-  border: 3px dashed rgb(59, 130, 246, 0.7) !important;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.2) !important;
+  border: 2px dashed rgb(147, 197, 253, 0.8) !important;
+  box-shadow: 0 4px 12px rgba(147, 197, 253, 0.15) !important;
   position: relative !important;
   animation: placeholderPulse 1.5s ease-in-out infinite alternate;
 }
 
 @keyframes placeholderPulse {
   0% {
-    background: rgb(59, 130, 246, 0.15);
-    border-color: rgb(59, 130, 246, 0.6);
+    background: rgb(147, 197, 253, 0.1);
+    border-color: rgb(147, 197, 253, 0.6);
   }
   100% {
-    background: rgb(59, 130, 246, 0.25);
-    border-color: rgb(59, 130, 246, 0.9);
+    background: rgb(147, 197, 253, 0.2);
+    border-color: rgb(147, 197, 253, 0.9);
   }
 }
 

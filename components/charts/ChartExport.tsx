@@ -37,7 +37,7 @@ const exportFormats = [
   {
     value: 'pdf',
     label: 'PDF Document',
-    description: 'Professional document format',
+    description: 'Portable Document Format',
     icon: FileText,
     extension: '.pdf',
   },

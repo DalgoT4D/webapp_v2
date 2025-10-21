@@ -41,7 +41,6 @@ import {
   X,
   Lock,
   Unlock,
-  Edit2,
   Check,
   AlertCircle,
   Filter,
@@ -889,9 +888,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       try {
         // Filters are no longer included in dashboard PUT payload - managed via separate endpoints
 
+        // Ensure title is not empty, use default if needed
+        const finalTitle = title.trim() || 'Untitled Dashboard';
+
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
-          title,
+          title: finalTitle,
           description,
           grid_columns: SCREEN_SIZES[targetScreenSize].cols,
           target_screen_size: targetScreenSize,
@@ -1709,22 +1711,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
+                          const finalTitle = title.trim() || 'Untitled Dashboard';
+                          setTitle(finalTitle);
                           setIsEditingTitle(false);
                           saveDashboard();
                         }
                       }}
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="p-1 h-8 flex-shrink-0"
-                      onClick={() => {
+                      onBlur={() => {
+                        const finalTitle = title.trim() || 'Untitled Dashboard';
+                        setTitle(finalTitle);
                         setIsEditingTitle(false);
                         saveDashboard();
                       }}
-                    >
-                      <Check className="w-4 h-4" />
-                    </Button>
+                    />
                   </div>
                 ) : (
                   <div
@@ -1734,7 +1733,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
                       {title}
                     </h1>
-                    <Edit2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
                   </div>
                 )}
               </div>
@@ -1996,21 +1994,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
+                          const finalTitle = title.trim() || 'Untitled Dashboard';
+                          setTitle(finalTitle);
                           setIsEditingTitle(false);
                           saveDashboard();
                         }
                       }}
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
+                      onBlur={() => {
+                        const finalTitle = title.trim() || 'Untitled Dashboard';
+                        setTitle(finalTitle);
                         setIsEditingTitle(false);
                         saveDashboard();
                       }}
-                    >
-                      <Check className="w-4 h-4" />
-                    </Button>
+                    />
                   </div>
                 ) : (
                   <div
@@ -2018,7 +2014,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     onClick={() => setIsEditingTitle(true)}
                   >
                     <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
-                    <Edit2 className="w-4 h-4 text-gray-400" />
                   </div>
                 )}
 

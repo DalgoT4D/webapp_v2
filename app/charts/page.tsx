@@ -1356,19 +1356,19 @@ export default function ChartsPage() {
             </p>
           </div>
 
-          {hasPermission('can_create_charts') && (
-            <Link id="charts-create-link" href="/charts/new">
-              <Button
-                id="charts-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
-              >
-                <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
-                CREATE CHART
-              </Button>
-            </Link>
-          )}
+          {/* {hasPermission('can_create_charts') && ( */}
+          <Link id="charts-create-link" href="/charts/new">
+            <Button
+              id="charts-create-button"
+              variant="ghost"
+              className="text-white hover:opacity-90 shadow-xs"
+              style={{ backgroundColor: '#06887b' }}
+            >
+              <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
+              CREATE CHART
+            </Button>
+          </Link>
+          {/* )} */}
         </div>
 
         {/* Selection Bar */}
@@ -1667,19 +1667,19 @@ export default function ChartsPage() {
               <p id="charts-empty-text" className="text-muted-foreground">
                 {getActiveFilterCount() > 0 ? 'No charts found' : 'No charts yet'}
               </p>
-              {hasPermission('can_create_charts') && (
-                <Link id="charts-empty-create-link" href="/charts/new">
-                  <Button
-                    id="charts-empty-create-button"
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: '#06887b' }}
-                  >
-                    <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
-                    CREATE YOUR FIRST CHART
-                  </Button>
-                </Link>
-              )}
+              {/* {hasPermission('can_create_charts') && ( */}
+              <Link id="charts-empty-create-link" href="/charts/new">
+                <Button
+                  id="charts-empty-create-button"
+                  variant="ghost"
+                  className="text-white hover:opacity-90 shadow-xs"
+                  style={{ backgroundColor: '#06887b' }}
+                >
+                  <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
+                  CREATE YOUR FIRST CHART
+                </Button>
+              </Link>
+              {/* )} */}
             </div>
           )}
         </div>

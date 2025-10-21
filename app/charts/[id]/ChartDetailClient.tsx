@@ -54,24 +54,24 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
-  // Check if user has view permissions
-  if (!hasPermission('can_view_charts')) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Charts
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // Check if user has view permissions (temporarily disabled)
+  // if (!hasPermission('can_view_charts')) {
+  //   return (
+  //     <div className="h-screen flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+  //           <Lock className="w-6 h-6 text-red-600" />
+  //         </div>
+  //         <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+  //         <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
+  //         <Button variant="outline" onClick={() => router.push('/charts')}>
+  //           <ArrowLeft className="w-4 h-4 mr-2" />
+  //           Back to Charts
+  //         </Button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Fetch regions data for dynamic geojson lookup (for Indian maps)
   const { data: regions } = useRegions('IND', 'state');
