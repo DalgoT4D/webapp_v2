@@ -9,10 +9,18 @@ import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-si
 import { usePublicInvitationAcceptance } from '@/hooks/api/useUserManagement';
 import { Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface InvitationFormData {
   password: string;
   confirmPassword: string;
+  designation: string;
 }
 
 function InvitationAcceptanceForm() {
@@ -24,6 +32,7 @@ function InvitationAcceptanceForm() {
   const [formData, setFormData] = useState<InvitationFormData>({
     password: '',
     confirmPassword: '',
+    designation: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -63,6 +72,7 @@ function InvitationAcceptanceForm() {
         {
           invite_code: inviteCode,
           password: needsPassword ? formData.password : undefined,
+          designation: formData.designation || undefined,
         },
         showToast
       );
@@ -186,6 +196,26 @@ function InvitationAcceptanceForm() {
                     )}
                   </Button>
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="designation">
+                  Which domain best describes the work you do at the organization?
+                </Label>
+                <Select
+                  value={formData.designation}
+                  onValueChange={(value) => handleInputChange('designation', value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select your domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monitoring_evaluation">Monitoring & Evaluation</SelectItem>
+                    <SelectItem value="data_tech">Data & Tech</SelectItem>
+                    <SelectItem value="leadership">Leadership (COO, Founder, CTO etc.)</SelectItem>
+                    <SelectItem value="field_worker">Field worker</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </>
           )}
