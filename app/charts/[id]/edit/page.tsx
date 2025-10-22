@@ -58,6 +58,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         stacked: false,
         showTooltip: true,
         showLegend: true,
+        legendDisplay: 'paginated',
+        legendPosition: 'top',
         xAxisTitle: '',
         yAxisTitle: '',
         xAxisLabelRotation: 'horizontal',
@@ -71,7 +73,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         dataLabelPosition: 'outside',
         showTooltip: true,
         showLegend: true,
-        legendPosition: 'right',
+        legendDisplay: 'paginated',
+        legendPosition: 'top',
       };
     case 'line':
       return {
@@ -79,6 +82,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showDataPoints: true,
         showTooltip: true,
         showLegend: true,
+        legendDisplay: 'paginated',
+        legendPosition: 'top',
         showDataLabels: false,
         dataLabelPosition: 'top',
         xAxisTitle: '',
@@ -119,7 +124,7 @@ function EditChartPageContent() {
   const { trigger: updateChart, isMutating } = useUpdateChart();
   const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
-  // Check if user has edit permissions
+  // Check if user has edit permissions (temporarily disabled)
   if (!canEditChart) {
     return (
       <div className="h-screen flex items-center justify-center">

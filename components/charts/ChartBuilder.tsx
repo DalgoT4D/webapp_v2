@@ -53,6 +53,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         stacked: false,
         showTooltip: true,
         showLegend: true,
+        legendDisplay: 'paginated',
+        legendPosition: 'top',
         xAxisTitle: '',
         yAxisTitle: '',
         xAxisLabelRotation: 'horizontal',
@@ -66,7 +68,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         dataLabelPosition: 'outside',
         showTooltip: true,
         showLegend: true,
-        legendPosition: 'right',
+        legendDisplay: 'paginated',
+        legendPosition: 'top',
       };
     case 'line':
       return {
@@ -74,6 +77,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showDataPoints: true,
         showTooltip: true,
         showLegend: true,
+        legendDisplay: 'paginated',
+        legendPosition: 'top',
         showDataLabels: false,
         dataLabelPosition: 'top',
         xAxisTitle: '',

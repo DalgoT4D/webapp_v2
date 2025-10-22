@@ -56,7 +56,7 @@ export function ChartExportDropdown({
 
       const formatName = format.toUpperCase();
       toast.success(`Chart exported as ${formatName}`, {
-        description: format === 'pdf' ? 'Professional document format' : 'High resolution image',
+        description: format === 'pdf' ? 'Portable Document Format' : 'High resolution image',
       });
       onExportComplete?.();
     } catch (error: any) {

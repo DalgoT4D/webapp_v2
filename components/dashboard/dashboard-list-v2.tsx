@@ -882,6 +882,13 @@ export function DashboardListV2() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
+            {hasPermission('can_edit_dashboards') && (
+              <Link href={`/dashboards/${dashboard.id}/edit`}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <Edit className="w-4 h-4 text-gray-600" />
+                </Button>
+              </Link>
+            )}
             {hasPermission('can_share_dashboards') && (
               <Button
                 variant="ghost"
@@ -891,13 +898,6 @@ export function DashboardListV2() {
               >
                 <Share2 className="w-4 h-4 text-gray-600" />
               </Button>
-            )}
-            {hasPermission('can_edit_dashboards') && (
-              <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <Edit className="w-4 h-4 text-gray-600" />
-                </Button>
-              </Link>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1074,6 +1074,19 @@ export function DashboardListV2() {
               </Tooltip>
             </TooltipProvider>
 
+            {/* Edit Button */}
+            {hasPermission('can_edit_dashboards') && (
+              <Link href={`/dashboards/${dashboard.id}/edit`}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
+                >
+                  <Edit className="w-3 h-3" />
+                </Button>
+              </Link>
+            )}
+
             {/* Share Button */}
             {hasPermission('can_share_dashboards') && (
               <Button
@@ -1087,19 +1100,6 @@ export function DashboardListV2() {
               >
                 <Share2 className="w-3 h-3" />
               </Button>
-            )}
-
-            {/* Edit Button */}
-            {hasPermission('can_edit_dashboards') && (
-              <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
-                >
-                  <Edit className="w-3 h-3" />
-                </Button>
-              </Link>
             )}
 
             {/* More Actions Menu */}
@@ -1407,18 +1407,8 @@ export function DashboardListV2() {
               )} */}
             </Link>
 
-            {/* Action Buttons - Share and Edit as icon-only buttons */}
+            {/* Action Buttons - Edit and Share as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {hasPermission('can_share_dashboards') && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                  onClick={() => handleShareDashboard(dashboard)}
-                >
-                  <Share2 className="w-4 h-4 text-gray-700" />
-                </Button>
-              )}
               {hasPermission('can_edit_dashboards') && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
@@ -1429,6 +1419,16 @@ export function DashboardListV2() {
                     <Edit className="w-4 h-4 text-gray-700" />
                   </Button>
                 </Link>
+              )}
+              {hasPermission('can_share_dashboards') && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  onClick={() => handleShareDashboard(dashboard)}
+                >
+                  <Share2 className="w-4 h-4 text-gray-700" />
+                </Button>
               )}
 
               {/* More actions menu for remaining actions */}
@@ -1606,7 +1606,7 @@ export function DashboardListV2() {
               Dashboards
             </h1>
             <p id="dashboard-page-description" className="text-muted-foreground mt-1">
-              Create and manage your data dashboards
+              Create And Manage Your Dashboards
             </p>
           </div>
 

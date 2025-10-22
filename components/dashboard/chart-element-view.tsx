@@ -1096,15 +1096,6 @@ export function ChartElementView({
       {viewMode && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              className="h-7 w-7 p-0"
-              title="Refresh"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
             {!isTableChart && (
               <Button
                 variant="ghost"

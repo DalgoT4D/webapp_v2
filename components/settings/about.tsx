@@ -66,9 +66,7 @@ export default function About() {
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">About</h1>
-        <p className="text-muted-foreground">
-          Software versions and system information for Dalgo platform
-        </p>
+        <p className="text-muted-foreground">Software Versions And System Information</p>
       </div>
 
       <Card>

@@ -137,23 +137,6 @@ export default function EditDashboardPage() {
     );
   }
 
-  // Comment out error check to show mock data
-  // if (isError && !dashboard) {
-  //   return (
-  //     <div className="h-screen flex items-center justify-center">
-  //       <div className="text-center">
-  //         <p className="text-destructive mb-4">Failed to load dashboard</p>
-  //         <Link href="/dashboards">
-  //           <Button variant="outline">
-  //             <ArrowLeft className="w-4 h-4 mr-2" />
-  //             Back to Dashboards
-  //           </Button>
-  //         </Link>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
   const dashboardData = dashboard || mockDashboard;
 
   // Component for when dashboard is locked by another user

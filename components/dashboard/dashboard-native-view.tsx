@@ -49,7 +49,7 @@ import {
   Phone,
   FileText,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
@@ -735,7 +735,7 @@ export function DashboardNativeView({
                         variant="outline"
                         size="sm"
                         className={cn(
-                          'px-2 py-1 border-dashed text-xs',
+                          'px-3 py-1 text-xs border-green-600 text-green-600 bg-white hover:bg-green-50',
                           (isPersonalLanding || isOrgDefault) &&
                             'bg-blue-50 border-blue-200 text-blue-700'
                         )}
@@ -871,7 +871,10 @@ export function DashboardNativeView({
               {dashboard.updated_at && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  <span>Updated on {format(new Date(dashboard.updated_at), 'MMM d, yyyy')}</span>
+                  <span>
+                    Modified{' '}
+                    {formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })}
+                  </span>
                 </div>
               )}
             </div>
@@ -907,28 +910,29 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
+
+                  {/* Metadata below title */}
+                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                    {dashboard.last_modified_by && (
+                      <div className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        <span>Created by {dashboard.last_modified_by}</span>
+                      </div>
+                    )}
+                    {dashboard.updated_at && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          Modified{' '}
+                          {formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Metadata */}
-                <div className="flex items-center gap-4 mr-4 text-xs text-gray-500">
-                  {dashboard.last_modified_by && (
-                    <div className="flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      <span>Created by {dashboard.last_modified_by}</span>
-                    </div>
-                  )}
-                  {dashboard.updated_at && (
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      <span>
-                        Updated on {format(new Date(dashboard.updated_at), 'MMM d, yyyy')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
                 {/* Landing page controls */}
                 {!isPublicMode && (
                   <DropdownMenu>
@@ -937,7 +941,7 @@ export function DashboardNativeView({
                         variant="outline"
                         size="sm"
                         className={cn(
-                          'border-dashed text-xs',
+                          'text-xs border-green-600 text-green-600 bg-white hover:bg-green-50',
                           (isPersonalLanding || isOrgDefault) &&
                             'bg-blue-50 border-blue-200 text-blue-700'
                         )}
