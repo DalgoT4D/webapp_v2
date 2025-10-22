@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { LogOut, ChevronDown, Menu, ChevronLeft, ChevronRight, Key, Bell } from 'lucide-react';
+import {
+  LogOut,
+  ChevronDown,
+  Menu,
+  ChevronLeft,
+  ChevronRight,
+  Key,
+  Bell,
+  Plus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,7 +25,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -45,6 +56,10 @@ export function Header({
   } = useAuthStore();
 
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
+
+  const { hasPermission } = useUserPermissions();
+  const canCreateOrg = hasPermission('can_create_org');
 
   // Fetch unread notification count
   useEffect(() => {
@@ -109,7 +124,16 @@ export function Header({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call the logout endpoint to clear cookies on server
+      await apiPost('/api/logout/', {});
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+      // Continue with logout even if API call fails
+    }
+
+    // Clear local state and redirect
     logout();
     router.push('/login');
   };
@@ -205,7 +229,7 @@ export function Header({
                 <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
                   Organizations
                 </DropdownMenuLabel>
-                <div className="px-1 pb-1.5">
+                <div className="px-1 pb-1.5 max-h-[200px] overflow-y-auto">
                   {availableOrgs
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((org) => (
@@ -225,6 +249,40 @@ export function Header({
                         </div>
                       </DropdownMenuItem>
                     ))}
+                </div>
+                {canCreateOrg && (
+                  <div className="px-1 pb-1.5">
+                    <DropdownMenuItem
+                      onClick={() => setShowCreateOrgDialog(true)}
+                      className="mx-1 my-0.5 px-3 py-2 rounded-md"
+                    >
+                      <div className="flex items-center w-full">
+                        <Plus className="mr-3 h-4 w-4" />
+                        <span className="font-medium text-base">Create Organization</span>
+                      </div>
+                    </DropdownMenuItem>
+                  </div>
+                )}
+                <DropdownMenuSeparator className="mx-2" />
+              </>
+            )}
+
+            {/* Show create org option even if user has only one org but has permission */}
+            {availableOrgs.length === 1 && canCreateOrg && (
+              <>
+                <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
+                  Organizations
+                </DropdownMenuLabel>
+                <div className="px-1 pb-1.5">
+                  <DropdownMenuItem
+                    onClick={() => setShowCreateOrgDialog(true)}
+                    className="mx-1 my-0.5 px-3 py-2 rounded-md"
+                  >
+                    <div className="flex items-center w-full">
+                      <Plus className="mr-3 h-4 w-4" />
+                      <span className="font-medium text-base">Create Organization</span>
+                    </div>
+                  </DropdownMenuItem>
                 </div>
                 <DropdownMenuSeparator className="mx-2" />
               </>
@@ -252,6 +310,9 @@ export function Header({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Create Organization Dialog */}
+      <CreateOrgDialog open={showCreateOrgDialog} onOpenChange={setShowCreateOrgDialog} />
     </div>
   );
 }

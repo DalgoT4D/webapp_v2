@@ -6,8 +6,8 @@ import { ChartBuilder } from '@/components/charts/ChartBuilder';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useCreateChart } from '@/hooks/api/useChart';
-import { toast } from 'sonner';
 import type { ChartCreate } from '@/types/charts';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -15,23 +15,16 @@ export default function ChartBuilderPage() {
 
   const handleSave = async (chart: ChartCreate) => {
     try {
-      const response = await createChart(chart);
+      await createChart(chart);
 
-      toast.success('Chart created successfully');
+      toastSuccess.saved('Chart created successfully');
 
       // Navigate back to charts list
       router.push('/charts');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save chart';
 
-      // Check if it's an authentication error
-      if (errorMessage === 'unauthorized' || errorMessage.includes('unauthorized')) {
-        toast.error('Please login again to continue');
-        // Redirect to login
-        router.push('/login');
-      } else {
-        toast.error(errorMessage);
-      }
+      toastError.save(errorMessage);
     }
   };
 

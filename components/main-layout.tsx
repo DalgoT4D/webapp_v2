@@ -19,12 +19,11 @@ import {
   Home,
   LayoutDashboard,
   ChartBarBig,
-  Grid3x3,
-  PieChart,
   ChevronLeft,
   ChevronRight,
   Info,
   CreditCard,
+  Users,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -35,6 +34,7 @@ import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
+import { TransformType, useTransformType } from '@/hooks/api/useTransformType';
 import Image from 'next/image';
 
 // Define types for navigation items
@@ -92,7 +92,8 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
-  isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean
+  isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
+  transformType?: string
 ): NavItemType[] => {
   // Build dashboard children based on feature flags AND Superset setup
   const dashboardChildren: NavItemType[] = [];
@@ -182,7 +183,9 @@ const getNavItems = (
           href: '/data-quality',
           icon: DataQualityIcon,
           isActive: currentPath.startsWith('/data-quality'),
-          hide: !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY),
+          hide:
+            !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
+            transformType !== TransformType.UI,
         },
       ],
     },
@@ -194,21 +197,27 @@ const getNavItems = (
     },
     {
       title: 'Settings',
-      href: '/settings/about',
+      href: '/settings/billing',
       icon: Settings,
       isActive: false, // Never highlight the parent Settings menu
       children: [
         {
-          title: 'About',
-          href: '/settings/about',
-          icon: Info,
-          isActive: currentPath === '/settings/about',
-        },
-        {
           title: 'Billing',
           href: '/settings/billing',
           icon: CreditCard,
-          isActive: currentPath === '/settings/billing',
+          isActive: currentPath.startsWith('/settings/billing'),
+        },
+        {
+          title: 'User Management',
+          href: '/settings/user-management',
+          icon: Users,
+          isActive: currentPath.startsWith('/settings/user-management'),
+        },
+        {
+          title: 'About',
+          href: '/settings/about',
+          icon: Info,
+          isActive: currentPath.startsWith('/settings/about'),
         },
       ],
     },
@@ -634,8 +643,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
+  const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled);
+  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
   const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
 
   // Toggle menu expansion state
@@ -744,7 +754,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         )}
         {/* Mobile Sidebar */}
         <Sheet
-          id="main-layout-mobile-sidebar"
+          key="main-layout-mobile-sidebar"
           open={isMobileMenuOpen}
           onOpenChange={setIsMobileMenuOpen}
         >

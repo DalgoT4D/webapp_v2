@@ -38,12 +38,13 @@ export function useLandingPage() {
     try {
       setIsLoading(true);
       const response: LandingPageResponse = await apiPost(
-        `/api/dashboards/landing-page/set-personal/${dashboardId}`
+        `/api/dashboards/landing-page/set-personal/${dashboardId}`,
+        {}
       );
 
       if (response.success) {
         // Revalidate user data to update landing page indicators
-        await mutate('/api/v1/organizations/users/currentuserv2');
+        await mutate('/api/currentuserv2');
 
         toastSuccess.generic(response.message || 'Dashboard set as landing page');
         return true;
@@ -68,7 +69,7 @@ export function useLandingPage() {
 
       if (response.success) {
         // Revalidate user data to update landing page indicators
-        await mutate('/api/v1/organizations/users/currentuserv2');
+        await mutate('/api/currentuserv2');
 
         toastSuccess.generic(response.message || 'Personal landing page removed');
         return true;
@@ -88,12 +89,13 @@ export function useLandingPage() {
     try {
       setIsLoading(true);
       const response: LandingPageResponse = await apiPost(
-        `/api/dashboards/landing-page/set-org-default/${dashboardId}`
+        `/api/dashboards/landing-page/set-org-default/${dashboardId}`,
+        {}
       );
 
       if (response.success) {
         // Revalidate user data to update landing page indicators
-        await mutate('/api/v1/organizations/users/currentuserv2');
+        await mutate('/api/currentuserv2');
 
         toastSuccess.generic(response.message || 'Dashboard set as organization default');
         return true;
@@ -118,7 +120,7 @@ export function useLandingPage() {
 
       if (response.success) {
         // Revalidate user data to update landing page indicators
-        await mutate('/api/v1/organizations/users/currentuserv2');
+        await mutate('/api/currentuserv2');
 
         toastSuccess.generic(response.message || 'Organization default removed');
         return true;

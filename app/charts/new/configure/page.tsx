@@ -203,9 +203,7 @@ function ConfigureChartPageContent() {
       );
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
@@ -265,6 +263,7 @@ function ConfigureChartPageContent() {
           filters: formData.filters,
           pagination: formData.pagination,
           sort: formData.sort,
+          time_grain: formData.time_grain,
         },
       }
     : null;
@@ -630,9 +629,7 @@ function ConfigureChartPageContent() {
       return true; // Tables just need schema, table, title which are already checked above
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
@@ -692,6 +689,7 @@ function ConfigureChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        time_grain: formData.time_grain,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         // ✅ FIX: Include geographic_hierarchy for drill-down functionality

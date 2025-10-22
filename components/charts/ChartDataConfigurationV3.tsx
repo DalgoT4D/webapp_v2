@@ -17,6 +17,7 @@ import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
+import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
@@ -207,13 +208,8 @@ export function ChartDataConfigurationV3({
     columns?.map((col) => ({
       column_name: col.column_name || col.name,
       data_type: col.data_type,
+      name: col.column_name || col.name,
     })) || [];
-
-  const numericColumns = normalizedColumns.filter((col) =>
-    ['integer', 'bigint', 'numeric', 'double precision', 'real', 'float', 'decimal'].includes(
-      col.data_type.toLowerCase()
-    )
-  );
 
   const allColumns = normalizedColumns;
 
@@ -298,6 +294,50 @@ export function ChartDataConfigurationV3({
     normalizedColumns,
     onChange,
   ]);
+
+  // Reset sort if current column is no longer available (avoid render-time side effects)
+  React.useEffect(() => {
+    const sortable = new Set<string>();
+    if (formData.dimension_column) sortable.add(formData.dimension_column);
+    if (formData.metrics?.length) {
+      formData.metrics.forEach((m) => {
+        const alias = m.alias || `${m.aggregation}(${m.column})`;
+        sortable.add(alias);
+      });
+    } else if (formData.aggregate_column && formData.aggregate_function) {
+      sortable.add(`${formData.aggregate_function}(${formData.aggregate_column})`);
+    }
+
+    const current = formData.sort?.[0]?.column;
+    if (current && !sortable.has(current)) {
+      onChange({ sort: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formData.dimension_column,
+    formData.metrics,
+    formData.aggregate_column,
+    formData.aggregate_function,
+  ]);
+
+  // Reset time grain if dimension column is not datetime or chart type doesn't support it
+  React.useEffect(() => {
+    const shouldHaveTimeGrain =
+      ['bar', 'line'].includes(formData.chart_type || '') &&
+      formData.dimension_column &&
+      allColumns.find(
+        (col) =>
+          col.column_name === formData.dimension_column &&
+          ['timestamp', 'timestamptz', 'date', 'datetime', 'time'].some((type) =>
+            col.data_type.toLowerCase().includes(type)
+          )
+      );
+
+    if (!shouldHaveTimeGrain && formData.time_grain) {
+      onChange({ time_grain: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.chart_type, formData.dimension_column, allColumns]);
 
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
@@ -452,26 +492,6 @@ export function ChartDataConfigurationV3({
         )}
       </div>
 
-      {/* Computation Type - For bar/line/table charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Data Type</Label>
-          <Select
-            value={formData.computation_type || 'aggregated'}
-            onValueChange={(value) => onChange({ computation_type: value as 'raw' | 'aggregated' })}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select data type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="raw">Raw Data</SelectItem>
-              <SelectItem value="aggregated">Aggregated Data</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       {/* X Axis / Dimension */}
       {formData.chart_type !== 'number' && formData.chart_type !== 'map' && (
         <div className="space-y-2">
@@ -485,11 +505,7 @@ export function ChartDataConfigurationV3({
           <Select
             value={formData.dimension_column || formData.x_axis_column}
             onValueChange={(value) => {
-              if (formData.computation_type === 'raw') {
-                onChange({ x_axis_column: value });
-              } else {
-                onChange({ dimension_column: value });
-              }
+              onChange({ dimension_column: value });
             }}
             disabled={disabled}
           >
@@ -509,23 +525,34 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
+      {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
+      {['bar', 'line'].includes(formData.chart_type || '') &&
+        formData.dimension_column &&
+        allColumns.find(
+          (col) =>
+            col.column_name === formData.dimension_column &&
+            ['timestamp', 'timestamptz', 'date', 'datetime', 'time'].some((type) =>
+              col.data_type.toLowerCase().includes(type)
+            )
+        ) && (
+          <TimeGrainSelector
+            value={formData.time_grain || null}
+            onChange={(value) => onChange({ time_grain: value })}
+            disabled={disabled}
+          />
+        )}
+
       {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' &&
-        (formData.computation_type === 'raw' ||
-          (formData.computation_type === 'aggregated' &&
-            !['bar', 'line', 'pie'].includes(formData.chart_type || ''))) && (
+        !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
             <Select
               value={formData.aggregate_column || formData.y_axis_column}
               onValueChange={(value) => {
-                if (formData.computation_type === 'raw') {
-                  onChange({ y_axis_column: value });
-                } else {
-                  onChange({ aggregate_column: value });
-                }
+                onChange({ aggregate_column: value });
               }}
               disabled={disabled}
             >
@@ -640,11 +667,8 @@ export function ChartDataConfigurationV3({
               <SelectItem value="none">None</SelectItem>
               {allColumns
                 .filter((col) => {
-                  // Only exclude the X-axis column (dimension column in aggregated mode, x_axis_column in raw mode)
-                  const xAxisColumn =
-                    formData.computation_type === 'raw'
-                      ? formData.x_axis_column
-                      : formData.dimension_column;
+                  // Only exclude the X-axis column (dimension column in aggregated mode)
+                  const xAxisColumn = formData.dimension_column;
 
                   return col.column_name !== xAxisColumn;
                 })
@@ -807,46 +831,137 @@ export function ChartDataConfigurationV3({
       {/* Sort Section */}
       {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Sort Metric</Label>
-          <Select
-            value={
-              formData.sort && formData.sort.length > 0 ? formData.sort[0].direction : '__none__'
+          <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
+
+          {(() => {
+            // Build sortable options list
+            const sortableOptions: Array<{
+              value: string;
+              label: string;
+              type: 'column' | 'metric';
+            }> = [];
+
+            // Add dimension column if available
+            if (formData.dimension_column) {
+              sortableOptions.push({
+                value: formData.dimension_column,
+                label: formData.dimension_column,
+                type: 'column',
+              });
             }
-            onValueChange={(value) => {
-              if (value === '__none__') {
-                onChange({ sort: [] });
-              } else {
-                // Sort by the appropriate column based on chart type and computation
-                let sortColumn: string | undefined;
 
-                if (formData.computation_type === 'raw') {
-                  sortColumn = formData.y_axis_column;
-                } else {
-                  // For aggregated data with multiple metrics, use the first metric column
-                  if (formData.metrics && formData.metrics.length > 0) {
-                    sortColumn = formData.metrics[0].column || formData.dimension_column;
-                  } else {
-                    // Legacy single metric approach
-                    sortColumn = formData.aggregate_column;
-                  }
+            // Add configured metrics using their aliases
+            if (formData.metrics && formData.metrics.length > 0) {
+              formData.metrics.forEach((metric) => {
+                if (metric.alias) {
+                  sortableOptions.push({
+                    value: metric.alias,
+                    label: metric.alias,
+                    type: 'metric',
+                  });
                 }
+              });
+            } else if (formData.aggregate_column && formData.aggregate_function) {
+              // Legacy single metric - create an alias for it
+              const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
+              sortableOptions.push({
+                value: defaultAlias,
+                label: defaultAlias,
+                type: 'metric',
+              });
+            }
 
-                if (sortColumn) {
-                  onChange({ sort: [{ column: sortColumn, direction: value as 'asc' | 'desc' }] });
-                }
-              }
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select sort order" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
-              <SelectItem value="asc">Asc</SelectItem>
-              <SelectItem value="desc">Desc</SelectItem>
-            </SelectContent>
-          </Select>
+            // Get current sort values
+            const currentSort = formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
+            const currentColumn = currentSort?.column || '__none__';
+            const currentDirection = currentSort?.direction || 'asc';
+
+            // Check if current sort column is still available
+            const isCurrentColumnAvailable =
+              currentColumn === '__none__' ||
+              sortableOptions.some((opt) => opt.value === currentColumn);
+
+            if (sortableOptions.length > 0) {
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Column/Metric Selection */}
+                  <Select
+                    value={isCurrentColumnAvailable ? currentColumn : '__none__'}
+                    onValueChange={(value) => {
+                      if (value === '__none__') {
+                        onChange({ sort: [] });
+                      } else {
+                        onChange({
+                          sort: [
+                            {
+                              column: value,
+                              direction: currentDirection,
+                            },
+                          ],
+                        });
+                      }
+                    }}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue placeholder="Select column to sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {sortableOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                                option.type === 'column'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}
+                            >
+                              {option.type === 'column' ? 'COL' : 'METRIC'}
+                            </span>
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Direction Selection */}
+                  <Select
+                    value={currentSort ? currentDirection : 'asc'}
+                    onValueChange={(value) => {
+                      if (currentSort && currentColumn !== '__none__') {
+                        onChange({
+                          sort: [
+                            {
+                              column: currentColumn,
+                              direction: value as 'asc' | 'desc',
+                            },
+                          ],
+                        });
+                      }
+                    }}
+                    disabled={disabled || !currentSort || currentColumn === '__none__'}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue placeholder="Sort direction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">Ascending</SelectItem>
+                      <SelectItem value="desc">Descending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            } else {
+              return (
+                <div className="text-sm text-gray-500">
+                  Configure metrics first to enable sorting
+                </div>
+              );
+            }
+          })()}
         </div>
       )}
     </div>

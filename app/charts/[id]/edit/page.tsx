@@ -114,9 +114,13 @@ function EditChartPageContent() {
   const router = useRouter();
   const chartId = Number(params.id);
   const { hasPermission } = useUserPermissions();
+  const canEditChart = hasPermission('can_edit_charts');
+  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  const { trigger: updateChart, isMutating } = useUpdateChart();
+  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
   // Check if user has edit permissions
-  if (!hasPermission('can_edit_charts')) {
+  if (!canEditChart) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -133,10 +137,6 @@ function EditChartPageContent() {
       </div>
     );
   }
-
-  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
-  const { trigger: updateChart, isMutating } = useUpdateChart();
-  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
   // Initialize form data with chart data when loaded
   const [formData, setFormData] = useState<ChartBuilderFormData>({
@@ -234,6 +234,7 @@ function EditChartPageContent() {
         aggregate_function: chart.extra_config?.aggregate_function,
         extra_dimension_column: chart.extra_config?.extra_dimension_column,
         metrics: chart.extra_config?.metrics,
+        time_grain: chart.extra_config?.time_grain,
         // Use converted simplified fields, fallback to direct extra_config values
         geographic_column:
           simplifiedFromLayers.geographic_column || chart.extra_config?.geographic_column,
@@ -331,9 +332,7 @@ function EditChartPageContent() {
       return true; // Table charts just need basic schema/table selection
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
@@ -393,6 +392,7 @@ function EditChartPageContent() {
           filters: formData.filters,
           pagination: formData.pagination,
           sort: formData.sort,
+          time_grain: formData.time_grain,
         },
       }
     : null;
@@ -780,9 +780,7 @@ function EditChartPageContent() {
       return true; // Table charts only need basic fields (title, chart_type, schema, table)
     }
 
-    if (formData.computation_type === 'raw') {
-      return !!(formData.x_axis_column && formData.y_axis_column);
-    } else {
+    {
       // For bar/line/table charts with multiple metrics
       if (
         ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
@@ -904,6 +902,7 @@ function EditChartPageContent() {
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        time_grain: formData.time_grain,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
@@ -944,8 +943,8 @@ function EditChartPageContent() {
       } else {
         navigateWithoutWarning(`/charts/${chartId}`);
       }
-    } catch {
-      toastError.update(error, 'chart');
+    } catch (err) {
+      toastError.update(err, 'chart');
     }
   };
 
@@ -973,8 +972,8 @@ function EditChartPageContent() {
       } else {
         navigateWithoutWarning(`/charts/${result.id}`);
       }
-    } catch {
-      toastError.create(error, 'chart');
+    } catch (err) {
+      toastError.create(err, 'chart');
     }
   };
 

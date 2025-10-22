@@ -23,8 +23,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const {
     isAuthenticated,
-    token,
-    setTokens,
+    setAuthenticated,
     setOrgUsers,
     setSelectedOrg,
     logout,
@@ -34,11 +33,6 @@ function LoginForm() {
   } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
 
-  // Initialize auth state from localStorage
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
   // Login form
   const {
     register,
@@ -47,60 +41,25 @@ function LoginForm() {
     setError,
   } = useForm<LoginForm>();
 
-  // Fetch organizations when we have a token
-  const { data: orgUsers, error: orgError } = useSWR<OrgUser[]>(
-    token ? '/api/currentuserv2' : null
-  );
-
-  // Handle org data loading and auto-selection
-  useEffect(() => {
-    if (orgUsers && orgUsers.length > 0) {
-      setOrgUsers(orgUsers);
-
-      // Auto-select organization
-      if (!selectedOrgSlug) {
-        // If no org is selected, select the first one
-        const firstOrg = orgUsers[0].org;
-        setSelectedOrg(firstOrg.slug);
-      } else {
-        // Verify the selected org still exists
-        const orgExists = orgUsers.some((ou) => ou.org.slug === selectedOrgSlug);
-        if (!orgExists) {
-          const firstOrg = orgUsers[0].org;
-          setSelectedOrg(firstOrg.slug);
-        }
-      }
-    }
-  }, [orgUsers, selectedOrgSlug, setOrgUsers, setSelectedOrg]);
-
-  // Redirect to Impact at a Glance when authenticated and org is selected
-  useEffect(() => {
-    if (isAuthenticated && token && currentOrg) {
-      router.push('/impact');
-    }
-  }, [isAuthenticated, token, currentOrg, router]);
-
   // Handle login
   const onLogin = async (data: LoginForm) => {
     try {
-      const response = await apiPost('/api/login/', {
+      await apiPost('/api/v2/login/', {
         username: data.username,
         password: data.password,
       });
 
-      if (response?.token) {
-        // Store both access and refresh tokens
-        setTokens(response.token, response.refresh_token);
-      } else {
-        setError('root', { message: 'Invalid response from server' });
-      }
+      // Cookies are set automatically by the server
+
+      // Redirect to impact page - AuthGuard will handle authentication
+      router.replace('/impact');
     } catch (error: any) {
       setError('root', { message: error.message || 'Login failed' });
     }
   };
 
   // Show loading while checking authentication and org selection
-  if (isAuthenticated && token && !currentOrg && !orgError) {
+  if (isAuthenticated && !currentOrg) {
     return (
       <AnimatedBackgroundSimple>
         <div className="flex min-h-screen items-center justify-center">
@@ -147,6 +106,12 @@ function LoginForm() {
             </div>
           )}
 
+          {searchParams.get('invitation') === 'accepted' && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 px-4 py-3 rounded text-sm">
+              Invitation accepted successfully! You can now sign in to your account.
+            </div>
+          )}
+
           <div>
             <Label htmlFor="username">Business Email*</Label>
             <Input
@@ -161,7 +126,6 @@ function LoginForm() {
               <p className="text-red-600 text-sm mt-1">{errors.username.message}</p>
             )}
           </div>
-
           <div>
             <Label htmlFor="password">Password*</Label>
             <div className="relative mt-1">
@@ -190,12 +154,6 @@ function LoginForm() {
 
           {errors.root && (
             <div className="text-red-600 text-sm text-center">{errors.root.message}</div>
-          )}
-
-          {orgError && (
-            <div className="text-red-600 text-sm text-center">
-              Failed to load organizations. Please try again.
-            </div>
           )}
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
