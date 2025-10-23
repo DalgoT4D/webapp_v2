@@ -20,7 +20,7 @@ import {
 interface InvitationFormData {
   password: string;
   confirmPassword: string;
-  designation: string;
+  work_domain: string;
 }
 
 function InvitationAcceptanceForm() {
@@ -32,7 +32,7 @@ function InvitationAcceptanceForm() {
   const [formData, setFormData] = useState<InvitationFormData>({
     password: '',
     confirmPassword: '',
-    designation: '',
+    work_domain: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -72,7 +72,7 @@ function InvitationAcceptanceForm() {
         {
           invite_code: inviteCode,
           password: needsPassword ? formData.password : undefined,
-          designation: formData.designation || undefined,
+          work_domain: formData.work_domain || undefined,
         },
         showToast
       );
@@ -199,18 +199,22 @@ function InvitationAcceptanceForm() {
               </div>
 
               <div>
-                <Label htmlFor="designation">
+                <Label htmlFor="work_domain">
                   Which domain best describes the work you do at the organization?
                 </Label>
                 <Select
-                  value={formData.designation}
-                  onValueChange={(value) => handleInputChange('designation', value)}
+                  value={formData.work_domain || ''}
+                  onValueChange={(value) =>
+                    handleInputChange('work_domain', value === 'none' ? '' : value)
+                  }
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select your domain" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">None / Prefer not to say</SelectItem>
                     <SelectItem value="monitoring_evaluation">Monitoring & Evaluation</SelectItem>
+                    <SelectItem value="program_manager">Program Manager</SelectItem>
                     <SelectItem value="data_tech">Data & Tech</SelectItem>
                     <SelectItem value="leadership">Leadership (COO, Founder, CTO etc.)</SelectItem>
                     <SelectItem value="field_worker">Field worker</SelectItem>
