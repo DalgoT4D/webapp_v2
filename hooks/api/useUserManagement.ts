@@ -141,7 +141,7 @@ export function useOrganizationActions() {
 // Public invitation acceptance (no auth required)
 export function usePublicInvitationAcceptance() {
   const acceptInvitation = async (
-    data: { invite_code: string; password?: string },
+    data: { invite_code: string; password?: string; work_domain?: string },
     showToast = true
   ) => {
     try {
