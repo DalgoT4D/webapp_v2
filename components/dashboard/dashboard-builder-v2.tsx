@@ -2309,7 +2309,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       } ${component.type === DashboardComponentType.TEXT ? 'text-component' : ''}`}
                       style={dashboardAnimation.getAnimationStyles(item.i)}
                     >
-                      {/* Action Buttons - Positioned at dashboard level for proper click handling */}
+                      {/* Chart Action Buttons - Single clean row */}
                       {component?.type === DashboardComponentType.CHART && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
@@ -2317,30 +2317,30 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                               e.stopPropagation();
                               router.push(`/charts/${component.config.chartId}`);
                             }}
-                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-blue-600"
-                            title="View chart"
+                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
+                            title="View Chart"
                           >
-                            <Eye className="w-3 h-3 text-gray-500" />
+                            <Eye className="w-3.5 h-3.5 text-gray-600" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/charts/${component.config.chartId}/edit`);
                             }}
-                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-green-600"
-                            title="Edit chart"
+                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
+                            title="Edit Chart"
                           >
-                            <Edit className="w-3 h-3 text-gray-500" />
+                            <Edit className="w-3.5 h-3.5 text-gray-600" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               removeComponent(item.i);
                             }}
-                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
-                            title="Remove chart"
+                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
+                            title="Remove Chart From Dashboard"
                           >
-                            <X className="w-3 h-3 text-gray-500" />
+                            <X className="w-3.5 h-3.5 text-gray-600" />
                           </button>
                         </div>
                       )}

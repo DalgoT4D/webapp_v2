@@ -157,51 +157,53 @@ export function TableChart({ data = [], config = {}, onSort, isLoading, error }:
 
   return (
     <div className="w-full h-full overflow-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => {
-              const sortDirection = getSortDirection(column);
-              const canSort = !!onSort;
+      <div>
+        <Table className="h-auto">
+          <TableHeader>
+            <TableRow>
+              {columns.map((column) => {
+                const sortDirection = getSortDirection(column);
+                const canSort = !!onSort;
 
-              return (
-                <TableHead key={column} className="font-semibold">
-                  {canSort ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort(column)}
-                    >
-                      <span className="mr-1">{column}</span>
-                      {sortDirection === 'asc' ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : sortDirection === 'desc' ? (
-                        <ChevronDown className="h-3 w-3" />
-                      ) : (
-                        <div className="h-3 w-3" />
-                      )}
-                    </Button>
-                  ) : (
-                    column
-                  )}
-                </TableHead>
-              );
-            })}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((row, index) => (
-            <TableRow key={index}>
-              {columns.map((column) => (
-                <TableCell key={column} className="py-2">
-                  {formatCellValue(row[column], column)}
-                </TableCell>
-              ))}
+                return (
+                  <TableHead key={column} className="font-semibold py-2 px-2">
+                    {canSort ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort(column)}
+                      >
+                        <span className="mr-1">{column}</span>
+                        {sortDirection === 'asc' ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : sortDirection === 'desc' ? (
+                          <ChevronDown className="h-3 w-3" />
+                        ) : (
+                          <div className="h-3 w-3" />
+                        )}
+                      </Button>
+                    ) : (
+                      column
+                    )}
+                  </TableHead>
+                );
+              })}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {data.map((row, index) => (
+              <TableRow key={index}>
+                {columns.map((column) => (
+                  <TableCell key={column} className="py-1.5 px-2">
+                    {formatCellValue(row[column], column)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

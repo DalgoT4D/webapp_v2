@@ -65,12 +65,12 @@ export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
   },
 
   // Tables need space for columns and rows
-  // Title: 50px, headers: 40px, content rows: minimum 150px
+  // Title: 50px, headers: 40px, content rows: minimum 7+ rows = 420px minimum content
   table: {
     minWidth: 400,
-    minHeight: 280,
+    minHeight: 420, // Ensure header + at least 7+ rows are always visible
     defaultWidth: 600,
-    defaultHeight: 400,
+    defaultHeight: 500, // Reasonable default for showing more data
   },
 
   // Number cards need space for title and large numbers
@@ -399,11 +399,13 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
           const rowCount = chartData.data.length;
           console.log(`📊 Table has ${rowCount} rows`);
 
-          // Height calculation: title (50px) + header (40px) + rows + padding
-          const baseHeight = 110; // Title + header + padding
-          const rowHeight = 35; // Per data row
-          const calculatedMinHeight = baseHeight + Math.min(rowCount * rowHeight, 350); // Cap at ~10 rows visible
-          const calculatedDefaultHeight = baseHeight + Math.min(rowCount * rowHeight, 450); // Cap at ~13 rows visible
+          // Height calculation: title (40px) + header (32px) + rows + padding
+          const baseHeight = 90; // Title + header + padding
+          const rowHeight = 30; // Per data row
+          const minRows = Math.max(8, Math.min(rowCount, 10)); // Show at least 8 rows, max 10 for minimum
+          const defaultRows = Math.max(10, Math.min(rowCount, 12)); // Show at least 10 rows, max 12 for default
+          const calculatedMinHeight = baseHeight + minRows * rowHeight; // Minimum shows header + 4-6 rows
+          const calculatedDefaultHeight = baseHeight + defaultRows * rowHeight; // Default shows more rows
 
           minHeight = Math.max(minHeight, calculatedMinHeight);
           defaultHeight = Math.max(defaultHeight, calculatedDefaultHeight);
@@ -411,11 +413,13 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
           console.log(`📐 Height calculated for ${rowCount} rows:`, {
             baseHeight,
             rowHeight,
+            minRows,
+            defaultRows,
             calculatedMinHeight,
             calculatedDefaultHeight,
             finalMinHeight: minHeight,
             finalDefaultHeight: defaultHeight,
-            visibleRows: Math.floor((calculatedDefaultHeight - baseHeight) / rowHeight),
+            visibleRows: defaultRows,
           });
         }
         break;
@@ -590,7 +594,7 @@ export function getContentAwareGridDimensions(
     pie: { minW: 6, minH: 9 }, // Pie charts need more height for chart + legends
     bar: { minW: 7, minH: 10 }, // Bar charts need more height for proper aspect ratio
     line: { minW: 7, minH: 10 }, // Line charts need more height for proper aspect ratio
-    table: { minW: 6, minH: 5 }, // Tables need column space + title
+    table: { minW: 6, minH: 12 }, // Tables need column space + title + at least 7+ rows minimum
     map: { minW: 7, minH: 7 }, // Maps need substantial space
     default: { minW: 5, minH: 5 }, // Conservative default with buffer
   };

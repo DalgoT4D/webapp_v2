@@ -109,12 +109,12 @@ export function DataPreview({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-auto">
-        <Table>
+      <div className="overflow-auto">
+        <Table className="h-auto">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
-                <TableHead key={col} className="font-medium text-xs">
+                <TableHead key={col} className="font-medium text-xs py-2 px-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs opacity-60">
                       {getColumnTypeIcon(columnTypes[col] || 'text')}
@@ -132,7 +132,7 @@ export function DataPreview({
             {data.map((row, idx) => (
               <TableRow key={idx}>
                 {columns.map((col) => (
-                  <TableCell key={col} className="text-xs">
+                  <TableCell key={col} className="text-xs py-1.5 px-2">
                     {formatCellValue(row[col])}
                   </TableCell>
                 ))}
