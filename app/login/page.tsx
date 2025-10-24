@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -50,13 +50,19 @@ function LoginForm() {
       });
 
       // Cookies are set automatically by the server
+      setAuthenticated(true);
 
       // Redirect to impact page - AuthGuard will handle authentication
-      router.replace('/impact');
     } catch (error: any) {
       setError('root', { message: error.message || 'Login failed' });
     }
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/impact');
+    }
+  }, [isAuthenticated]);
 
   // Show loading while checking authentication and org selection
   if (isAuthenticated && !currentOrg) {
@@ -76,12 +82,6 @@ function LoginForm() {
   return (
     <AnimatedBackgroundSimple>
       <div className="flex min-h-screen items-center justify-center relative">
-        {isAuthenticated && (
-          <Button onClick={logout} variant="destructive" className="absolute top-4 right-4 z-10">
-            Logout
-          </Button>
-        )}
-
         <form
           onSubmit={handleSubmit(onLogin)}
           className="w-full max-w-sm space-y-6 rounded-lg bg-white/95 backdrop-blur-sm p-8 shadow-lg border border-white/20"
