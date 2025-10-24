@@ -63,6 +63,8 @@ export function ChartExportDropdown({
         toast.success(`Table exported as CSV`, {
           description: 'Comma-separated values file',
         });
+      } else if (format === 'csv' && chartType === 'table' && !tableData) {
+        throw new Error('Table data is not available for export');
       } else {
         // Export chart as PNG/PDF
         await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
