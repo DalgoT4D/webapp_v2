@@ -1169,7 +1169,7 @@ export function DashboardNativeView({
                   }
                   breakpoints={BREAKPOINTS}
                   cols={COLS}
-                  rowHeight={30}
+                  rowHeight={20}
                   width={effectiveScreenConfig.width}
                   style={{
                     width: '100% !important',
@@ -1202,7 +1202,7 @@ export function DashboardNativeView({
                   className="dashboard-grid"
                   layout={modifiedLayout}
                   cols={effectiveScreenConfig.cols}
-                  rowHeight={30}
+                  rowHeight={20}
                   width={actualContainerWidth}
                   style={{
                     width: '100% !important',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, FileImage, FileText } from 'lucide-react';
+import { Download, FileImage, FileText, Table } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { ChartExporter, generateFilename } from '@/lib/chart-export';
+import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
 
 interface ChartExportDropdownProps {
@@ -23,6 +23,9 @@ interface ChartExportDropdownProps {
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   showText?: boolean;
+  // Table-specific props
+  chartType?: string;
+  tableData?: TableData;
 }
 
 export function ChartExportDropdown({
@@ -35,10 +38,12 @@ export function ChartExportDropdown({
   variant = 'outline',
   size = 'default',
   showText = true,
+  chartType,
+  tableData,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExport = async (format: 'png' | 'pdf') => {
+  const handleExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (isExporting) return;
 
     setIsExporting(true);
@@ -52,12 +57,23 @@ export function ChartExportDropdown({
         backgroundColor: '#ffffff',
       };
 
-      await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+      if (format === 'csv' && chartType === 'table' && tableData) {
+        // Export table as CSV
+        await ChartExporter.exportTableAsCSV(tableData, exportOptions);
+        toast.success(`Table exported as CSV`, {
+          description: 'Comma-separated values file',
+        });
+      } else if (format === 'csv' && chartType === 'table' && !tableData) {
+        throw new Error('Table data is not available for export');
+      } else {
+        // Export chart as PNG/PDF
+        await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        const formatName = format.toUpperCase();
+        toast.success(`Chart exported as ${formatName}`, {
+          description: format === 'pdf' ? 'Portable Document Format' : 'High resolution image',
+        });
+      }
 
-      const formatName = format.toUpperCase();
-      toast.success(`Chart exported as ${formatName}`, {
-        description: format === 'pdf' ? 'Portable Document Format' : 'High resolution image',
-      });
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);
@@ -84,23 +100,38 @@ export function ChartExportDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem
-          onClick={() => handleExport('png')}
-          className="cursor-pointer"
-          disabled={isExporting}
-        >
-          <FileImage className="w-4 h-4 mr-2" />
-          <span>Export as PNG</span>
-        </DropdownMenuItem>
+        {chartType === 'table' ? (
+          // Table charts show CSV export only
+          <DropdownMenuItem
+            onClick={() => handleExport('csv')}
+            className="cursor-pointer"
+            disabled={isExporting}
+          >
+            <Table className="w-4 h-4 mr-2" />
+            <span>Export to CSV</span>
+          </DropdownMenuItem>
+        ) : (
+          // Other charts show PNG/PDF export
+          <>
+            <DropdownMenuItem
+              onClick={() => handleExport('png')}
+              className="cursor-pointer"
+              disabled={isExporting}
+            >
+              <FileImage className="w-4 h-4 mr-2" />
+              <span>Export as PNG</span>
+            </DropdownMenuItem>
 
-        <DropdownMenuItem
-          onClick={() => handleExport('pdf')}
-          className="cursor-pointer"
-          disabled={isExporting}
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          <span>Export as PDF</span>
-        </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleExport('pdf')}
+              className="cursor-pointer"
+              disabled={isExporting}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span>Export as PDF</span>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -53,14 +53,14 @@ const textTypePresets = [
 ];
 
 const colorPresets = [
-  '#000000',
-  '#374151',
-  '#6B7280',
-  '#EF4444',
-  '#F59E0B',
-  '#10B981',
-  '#3B82F6',
-  '#8B5CF6',
+  { color: '#000000', name: 'Black' },
+  { color: '#374151', name: 'Dark Gray' },
+  { color: '#6B7280', name: 'Gray' },
+  { color: '#EF4444', name: 'Red' },
+  { color: '#F59E0B', name: 'Orange' },
+  { color: '#10B981', name: 'Green' },
+  { color: '#3B82F6', name: 'Blue' },
+  { color: '#8B5CF6', name: 'Purple' },
 ];
 
 export function UnifiedTextElement({
@@ -526,25 +526,47 @@ export function UnifiedTextElement({
             {/* Color picker dropdown */}
             {showColorPicker && (
               <div
-                className="absolute top-8 right-0 bg-white shadow-lg border rounded p-2 z-10"
-                style={{ marginRight: 0 }}
+                className="absolute bg-white shadow-lg border rounded p-2 z-[10000] min-w-[120px]"
+                style={{
+                  // Smart positioning: try bottom first, then top, then left if needed
+                  top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
+                  bottom: toolbarPosition && toolbarPosition.top > 200 ? '100%' : 'auto',
+                  right: 0,
+                  marginTop: toolbarPosition && toolbarPosition.top <= 200 ? '8px' : '0',
+                  marginBottom: toolbarPosition && toolbarPosition.top > 200 ? '8px' : '0',
+                }}
               >
                 <div className="grid grid-cols-4 gap-1">
-                  {colorPresets.map((color) => (
+                  {colorPresets.map((preset) => (
                     <button
-                      key={color}
+                      key={preset.color}
                       className={cn(
-                        'w-5 h-5 rounded border transition-all',
-                        config.color === color ? 'border-blue-500 scale-110' : 'border-gray-200'
+                        'w-6 h-6 rounded border transition-all hover:scale-110',
+                        config.color === preset.color
+                          ? 'border-blue-500 scale-110'
+                          : 'border-gray-200'
                       )}
-                      style={{ backgroundColor: color }}
+                      style={{ backgroundColor: preset.color }}
                       onClick={() => {
-                        handleQuickFormat('color', color);
+                        handleQuickFormat('color', preset.color);
                         setShowColorPicker(false);
                       }}
-                      title={color}
+                      title={preset.name}
                     />
                   ))}
+                </div>
+                {/* Custom color input */}
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <input
+                    type="color"
+                    value={config.color}
+                    onChange={(e) => {
+                      handleQuickFormat('color', e.target.value);
+                      setShowColorPicker(false);
+                    }}
+                    className="w-full h-6 rounded border cursor-pointer"
+                    title="Custom color"
+                  />
                 </div>
               </div>
             )}

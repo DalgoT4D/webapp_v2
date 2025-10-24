@@ -1166,7 +1166,7 @@ export function ChartElementView({
         <div
           ref={tableRef}
           className={cn(
-            'w-full flex-1 min-h-[200px] p-2',
+            'w-full p-4 overflow-auto',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white p-4'
           )}
           style={{

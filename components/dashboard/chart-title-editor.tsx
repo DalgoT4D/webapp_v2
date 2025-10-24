@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Edit3, X, RotateCcw, EyeOff } from 'lucide-react';
+import { Edit3, X, RotateCcw, EyeOff, Type } from 'lucide-react';
 import {
   resolveChartTitle,
   isTitleOverridden,
@@ -91,6 +91,12 @@ export function ChartTitleEditor({
     onTitleChange(createTitleUpdateConfig(''));
   };
 
+  const handleShowTitle = () => {
+    // Restore to original title or default if never had one
+    const originalTitle = chartData?.title || 'Untitled Chart';
+    onTitleChange(createTitleUpdateConfig(originalTitle));
+  };
+
   // If not in edit mode, just render the title
   if (!isEditMode) {
     return resolvedTitle && showTitle ? (
@@ -126,68 +132,56 @@ export function ChartTitleEditor({
         </div>
       ) : (
         <div className="group relative">
-          {/* Title Display */}
-          <div
-            className={cn(
-              'min-h-[2rem] flex items-center cursor-text rounded px-2 py-1 -mx-2 -my-1',
-              'hover:bg-gray-50 transition-colors',
-              showTitle && resolvedTitle ? '' : 'text-gray-400 italic'
-            )}
-            onClick={handleStartEdit}
-            title="Click to edit title"
-          >
-            {showTitle && resolvedTitle ? (
-              <span className="text-lg font-semibold text-gray-900">
-                {resolvedTitle}
-                {isOverridden && (
-                  <span className="ml-1 text-xs text-blue-500" title="Custom title">
-                    ✏️
-                  </span>
+          {/* Title Display - Simple click to edit */}
+          {showTitle && resolvedTitle ? (
+            <div className="flex items-center justify-between group/title">
+              <div
+                className={cn(
+                  'flex-1 min-h-[2rem] flex items-center cursor-text rounded px-2 py-1 -mx-2 -my-1',
+                  'hover:bg-gray-50 transition-colors'
                 )}
-              </span>
-            ) : (
-              <span className="text-lg font-medium">
-                {showTitle ? 'Click to add title' : 'Title hidden'}
-              </span>
-            )}
-          </div>
-
-          {/* Edit Controls - Show on hover */}
-          <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleStartEdit}
-              className="h-6 w-6 p-0"
-              title="Edit title"
-            >
-              <Edit3 className="w-3 h-3" />
-            </Button>
-
-            {isOverridden && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleRevertToOriginal}
-                className="h-6 w-6 p-0"
-                title="Revert to original title"
+                onClick={handleStartEdit}
+                title="Click to edit title"
               >
-                <RotateCcw className="w-3 h-3" />
-              </Button>
-            )}
-
-            {showTitle && (
+                <span className="text-lg font-semibold text-gray-900">{resolvedTitle}</span>
+              </div>
+              {/* Small hide title button */}
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={handleHideTitle}
-                className="h-6 w-6 p-0"
+                className="h-5 w-5 p-0 opacity-0 group-hover/title:opacity-100 transition-opacity ml-2"
                 title="Hide title"
               >
-                <EyeOff className="w-3 h-3" />
+                <EyeOff className="w-3 h-3 text-gray-500" />
               </Button>
-            )}
-          </div>
+            </div>
+          ) : showTitle ? (
+            <div
+              className={cn(
+                'min-h-[2rem] flex items-center cursor-text rounded px-2 py-1 -mx-2 -my-1',
+                'hover:bg-gray-50 transition-colors text-gray-400 italic'
+              )}
+              onClick={handleStartEdit}
+              title="Click to add title"
+            >
+              <span className="text-lg font-medium">Click to add title</span>
+            </div>
+          ) : (
+            // Title is hidden - show compact "Show Title" button
+            <div className="flex items-center min-h-[1rem]">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleShowTitle}
+                className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Show title"
+              >
+                <Type className="w-3 h-3 mr-1" />
+                Show title
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

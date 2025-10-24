@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, FileImage, FileText } from 'lucide-react';
+import { Download, FileImage, FileText, Table } from 'lucide-react';
 import {
   DropdownMenuItem,
   DropdownMenuSub,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { ChartExporter, generateFilename } from '@/lib/chart-export';
+import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
 
 interface ChartExportDropdownForListProps {
@@ -31,7 +31,7 @@ export function ChartExportDropdownForList({
 }: ChartExportDropdownForListProps) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExport = async (format: 'png' | 'pdf') => {
+  const handleExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (isExporting) return;
 
     setIsExporting(true);
@@ -45,7 +45,10 @@ export function ChartExportDropdownForList({
         backgroundColor: '#ffffff',
       };
 
-      if (chartType === 'map') {
+      if (format === 'csv' && chartType === 'table') {
+        // Handle table CSV export
+        await handleTableCSVExport(chartId, chartTitle, exportOptions);
+      } else if (chartType === 'map') {
         // Handle map export with geojson fetching
         const mapChartInstance = await MapExportHandler.exportMapChart(chartId, chartTitle, format);
 
@@ -131,6 +134,30 @@ export function ChartExportDropdownForList({
     }
   };
 
+  const handleTableCSVExport = async (chartId: number, title: string, exportOptions: any) => {
+    try {
+      // Import chart data fetching (similar to other chart handlers)
+      const { apiGet } = await import('@/lib/api');
+
+      // Fetch table data using data preview API
+      const response = await apiGet(`/api/charts/${chartId}/data-preview/?page=1&pageSize=10000`);
+
+      if (!response?.data || !response?.columns) {
+        throw new Error('No table data available for export');
+      }
+
+      const tableData: TableData = {
+        data: response.data,
+        columns: response.columns,
+      };
+
+      // Export as CSV
+      await ChartExporter.exportTableAsCSV(tableData, exportOptions);
+    } catch (error) {
+      throw error;
+    }
+  };
+
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger className="cursor-pointer">
@@ -142,23 +169,38 @@ export function ChartExportDropdownForList({
         {isExporting ? 'Exporting...' : 'Export'}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
-        <DropdownMenuItem
-          onClick={() => handleExport('png')}
-          className="cursor-pointer"
-          disabled={isExporting}
-        >
-          <FileImage className="w-4 h-4 mr-2" />
-          <span>Export as PNG</span>
-        </DropdownMenuItem>
+        {chartType === 'table' ? (
+          // Table charts show CSV export only
+          <DropdownMenuItem
+            onClick={() => handleExport('csv')}
+            className="cursor-pointer"
+            disabled={isExporting}
+          >
+            <Table className="w-4 h-4 mr-2" />
+            <span>Export to CSV</span>
+          </DropdownMenuItem>
+        ) : (
+          // Other charts show PNG/PDF export
+          <>
+            <DropdownMenuItem
+              onClick={() => handleExport('png')}
+              className="cursor-pointer"
+              disabled={isExporting}
+            >
+              <FileImage className="w-4 h-4 mr-2" />
+              <span>Export as PNG</span>
+            </DropdownMenuItem>
 
-        <DropdownMenuItem
-          onClick={() => handleExport('pdf')}
-          className="cursor-pointer"
-          disabled={isExporting}
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          <span>Export as PDF</span>
-        </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleExport('pdf')}
+              className="cursor-pointer"
+              disabled={isExporting}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span>Export as PDF</span>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   );

@@ -71,24 +71,24 @@
 .react-grid-layout .react-grid-item.react-grid-placeholder,
 .dashboard-builder .react-grid-item.react-grid-placeholder {
   display: block !important;
-  opacity: 0.6 !important;
+  opacity: 0.4 !important;
   visibility: visible !important;
   z-index: 500 !important;
   border-radius: 8px;
-  border: 2px dashed rgb(147, 197, 253, 0.8) !important;
-  box-shadow: 0 4px 12px rgba(147, 197, 253, 0.15) !important;
+  border: 1px dashed rgb(191, 219, 254, 0.6) !important;
+  box-shadow: 0 2px 6px rgba(191, 219, 254, 0.1) !important;
   position: relative !important;
   animation: placeholderPulse 1.5s ease-in-out infinite alternate;
 }
 
 @keyframes placeholderPulse {
   0% {
-    background: rgb(147, 197, 253, 0.1);
-    border-color: rgb(147, 197, 253, 0.6);
+    background: rgb(191, 219, 254, 0.05);
+    border-color: rgb(191, 219, 254, 0.4);
   }
   100% {
-    background: rgb(147, 197, 253, 0.2);
-    border-color: rgb(147, 197, 253, 0.9);
+    background: rgb(191, 219, 254, 0.1);
+    border-color: rgb(191, 219, 254, 0.7);
   }
 }
 
@@ -102,14 +102,14 @@
 
 .snap-indicator.vertical {
   width: 2px;
-  background: linear-gradient(to bottom, transparent, rgb(83, 76, 217), transparent);
-  box-shadow: 0 0 4px rgba(83, 76, 217, 0.5);
+  background: linear-gradient(to bottom, transparent, rgb(96, 165, 250), transparent);
+  box-shadow: 0 0 4px rgba(96, 165, 250, 0.4);
 }
 
 .snap-indicator.horizontal {
   height: 2px;
-  background: linear-gradient(to right, transparent, rgb(83, 76, 217), transparent);
-  box-shadow: 0 0 4px rgba(83, 76, 217, 0.5);
+  background: linear-gradient(to right, transparent, rgb(96, 165, 250), transparent);
+  box-shadow: 0 0 4px rgba(96, 165, 250, 0.4);
 }
 
 @keyframes snapIndicatorFade {
