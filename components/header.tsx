@@ -142,7 +142,7 @@ export function Header({
     if (!isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
 
   // Available organizations for switching
   const availableOrgs = orgUsers.map((ou) => ou.org);

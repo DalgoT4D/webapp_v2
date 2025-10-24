@@ -3,7 +3,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import useSWR, { mutate } from 'swr';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -62,7 +61,7 @@ function LoginForm() {
     if (isAuthenticated) {
       router.replace('/impact');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
 
   // Show loading while checking authentication and org selection
   if (isAuthenticated && !currentOrg) {
