@@ -58,12 +58,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       }
     } else if (orgError) {
-      // Clear authentication state if there's an error fetching user data
-      setAuthenticated(false);
+      // Only clear authentication if we're not already authenticated
+      // This prevents race conditions where the error occurs before cookies propagate
+      if (!isAuthenticated) {
+        setAuthenticated(false);
+      }
       setIsCheckingAuth(false);
     } else if (!isLoading && !orgUsersData) {
       // Not loading and no data means not authenticated
-      setIsCheckingAuth(false);
+      // But only set to false if we're not already authenticated
+      if (!isAuthenticated) {
+        setIsCheckingAuth(false);
+      }
     }
   }, [
     orgUsersData,
@@ -73,6 +79,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     setOrgUsers,
     setSelectedOrg,
     setAuthenticated,
+    isAuthenticated,
   ]);
 
   // Redirect to login if not authenticated (with debounce)

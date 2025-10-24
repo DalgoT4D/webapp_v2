@@ -53,6 +53,7 @@ export function Header({
     isOrgSwitching,
     logout,
     getCurrentOrgUser,
+    isAuthenticated,
   } = useAuthStore();
 
   const [unreadCount, setUnreadCount] = useState(0);
@@ -135,8 +136,13 @@ export function Header({
 
     // Clear local state and redirect
     logout();
-    router.push('/login');
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   // Available organizations for switching
   const availableOrgs = orgUsers.map((ou) => ou.org);
