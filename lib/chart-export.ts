@@ -4,8 +4,13 @@ import * as echarts from 'echarts';
 
 export interface ExportOptions {
   filename?: string;
-  format?: 'png' | 'pdf';
+  format?: 'png' | 'pdf' | 'csv';
   backgroundColor?: string;
+}
+
+export interface TableData {
+  data: Record<string, any>[];
+  columns: string[];
 }
 
 /**
@@ -146,6 +151,53 @@ export class ChartExporter {
 
       img.src = dataURL;
     });
+  }
+
+  /**
+   * Export table data as CSV
+   */
+  static async exportTableAsCSV(tableData: TableData, options: ExportOptions = {}): Promise<void> {
+    const { filename = 'table-export' } = options;
+    const { data, columns } = tableData;
+
+    if (!data || data.length === 0 || !columns || columns.length === 0) {
+      throw new Error('No table data available for export');
+    }
+
+    try {
+      // Create CSV content
+      const csvHeaders = columns.join(',');
+      const csvRows = data.map((row) =>
+        columns
+          .map((column) => {
+            const value = row[column];
+            // Handle values with commas or quotes by wrapping in quotes
+            if (value === null || value === undefined) {
+              return '';
+            }
+            const stringValue = String(value);
+            if (
+              stringValue.includes(',') ||
+              stringValue.includes('"') ||
+              stringValue.includes('\n')
+            ) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          })
+          .join(',')
+      );
+
+      const csvContent = [csvHeaders, ...csvRows].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, `${filename}.csv`);
+    } catch (error) {
+      throw new Error(
+        `Failed to export CSV: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 }
 
