@@ -159,14 +159,18 @@ export class ChartExporter {
   static async exportTableAsCSV(tableData: TableData, options: ExportOptions = {}): Promise<void> {
     const { filename = 'table-export' } = options;
     const { data, columns } = tableData;
-
     if (!data || data.length === 0 || !columns || columns.length === 0) {
       throw new Error('No table data available for export');
     }
-
     try {
       // Create CSV content
-      const csvHeaders = columns.join(',');
+      const escapeCSVValue = (value: string): string => {
+        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      };
+      const csvHeaders = columns.map(escapeCSVValue).join(',');
       const csvRows = data.map((row) =>
         columns
           .map((column) => {
@@ -176,20 +180,11 @@ export class ChartExporter {
               return '';
             }
             const stringValue = String(value);
-            if (
-              stringValue.includes(',') ||
-              stringValue.includes('"') ||
-              stringValue.includes('\n')
-            ) {
-              return `"${stringValue.replace(/"/g, '""')}"`;
-            }
-            return stringValue;
+            return escapeCSVValue(stringValue);
           })
           .join(',')
       );
-
       const csvContent = [csvHeaders, ...csvRows].join('\n');
-
       // Create blob and download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       saveAs(blob, `${filename}.csv`);
