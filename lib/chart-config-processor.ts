@@ -26,23 +26,53 @@ export function processChartConfig(config: any): any {
 
         // Only apply formatter if threshold is defined and greater than 0
         if (labelThreshold !== undefined && labelThreshold > 0) {
-          // Create a formatter function that respects the threshold
+          // Calculate total value for percentage calculations
+          const totalValue =
+            series.data?.reduce((sum: number, item: any) => sum + (item.value || 0), 0) || 1;
+
+          // Modify each data item to have individual label and labelLine settings
+          if (series.data && Array.isArray(series.data)) {
+            series.data = series.data.map((item: any) => {
+              const percentage = (item.value / totalValue) * 100;
+              const showLabel = percentage >= labelThreshold;
+
+              return {
+                ...item,
+                label: {
+                  show: showLabel,
+                  formatter: showLabel
+                    ? labelFormat === 'percentage'
+                      ? '{d}%'
+                      : labelFormat === 'value'
+                        ? '{c}'
+                        : labelFormat === 'name_percentage'
+                          ? '{b}\n{d}%'
+                          : labelFormat === 'name_value'
+                            ? '{b}\n{c}'
+                            : '{d}%'
+                    : '',
+                },
+                labelLine: {
+                  show: showLabel,
+                },
+              };
+            });
+          }
+
+          // Keep the series-level formatter as fallback but it won't be used for items with individual configs
           series.label.formatter = function (params: any) {
-            // Check if the percentage is below threshold
             if (params.percent < labelThreshold) {
               return '';
             }
-
-            // Format based on labelFormat
             switch (labelFormat) {
               case 'percentage':
                 return params.percent.toFixed(1) + '%';
               case 'value':
                 return String(params.value);
-              case 'name_percentage':
-                return params.name + '\n' + params.percent.toFixed(1) + '%';
               case 'name_value':
                 return params.name + '\n' + params.value;
+              case 'name_percentage':
+                return params.name + '\n' + params.percent.toFixed(1) + '%';
               default:
                 return params.percent.toFixed(1) + '%';
             }
