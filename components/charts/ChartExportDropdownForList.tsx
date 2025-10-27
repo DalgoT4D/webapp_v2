@@ -11,6 +11,7 @@ import {
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
+import { processChartConfig } from '@/lib/chart-config-processor';
 
 interface ChartExportDropdownForListProps {
   chartId: number;
@@ -114,7 +115,9 @@ export function ChartExportDropdownForList({
         },
       };
 
-      chartInstance.setOption(config);
+      // Process the config to handle special features like label thresholds
+      const processedConfig = processChartConfig(config);
+      chartInstance.setOption(processedConfig);
 
       // Wait for rendering
       await new Promise((resolve) => setTimeout(resolve, 500));

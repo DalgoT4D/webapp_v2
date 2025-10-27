@@ -36,6 +36,7 @@ import {
 } from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import { processChartConfig } from '@/lib/chart-config-processor';
 import * as echarts from 'echarts/core';
 import {
   BarChart,
@@ -890,10 +891,13 @@ export function ChartElementView({
     const rect = chartRef.current.getBoundingClientRect();
 
     try {
+      // Process the config to handle special features like label thresholds
+      const processedConfig = processChartConfig(styledConfig);
+
       // Use notMerge: true on first render after filter change, false otherwise
       const notMerge = filtersChanged || !chartInstance.current.getOption();
 
-      chartInstance.current.setOption(styledConfig, notMerge);
+      chartInstance.current.setOption(processedConfig, notMerge);
 
       // Click event listeners for non-map charts only (maps use MapPreview component)
       if (!isMapChart) {

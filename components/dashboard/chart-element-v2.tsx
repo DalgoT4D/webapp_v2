@@ -38,6 +38,7 @@ import {
   GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { processChartConfig } from '@/lib/chart-config-processor';
 
 // Register necessary ECharts components
 echarts.use([
@@ -650,8 +651,11 @@ export function ChartElementV2({
         },
       };
 
+      // Process the config to handle special features like label thresholds
+      const processedConfig = processChartConfig(modifiedConfig);
+
       // Set chart option with animation disabled for better performance
-      chartInstance.current.setOption(modifiedConfig, {
+      chartInstance.current.setOption(processedConfig, {
         notMerge: true,
         lazyUpdate: false,
         silent: false,

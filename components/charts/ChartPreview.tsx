@@ -5,6 +5,7 @@ import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
+import { processChartConfig } from '@/lib/chart-config-processor';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -62,8 +63,11 @@ export function ChartPreview({
         },
       };
 
+      // Process the config to handle special features like label thresholds
+      const processedConfig = processChartConfig(modifiedConfig);
+
       // Set chart option
-      chartInstance.current.setOption(modifiedConfig);
+      chartInstance.current.setOption(processedConfig);
 
       // Notify parent component that chart is ready
       if (onChartReady) {
