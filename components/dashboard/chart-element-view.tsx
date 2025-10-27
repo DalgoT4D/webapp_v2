@@ -258,6 +258,8 @@ export function ChartElementView({
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === 'table';
   const isMapChart = effectiveChart?.chart_type === 'map';
+  const isPieChart = effectiveChart?.chart_type === 'pie';
+  const isNumberChart = effectiveChart?.chart_type === 'number';
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
@@ -580,8 +582,8 @@ export function ChartElementView({
   const mapLoading = isPublicMode ? publicMapLoading : privateMapLoading;
   const mutateMapData = isPublicMode ? mutatePublicMapData : mutatePrivateMapData;
 
-  // Get the actual error message
-  const errorMessage =
+  // Get the actual error message with improved messaging
+  const rawErrorMessage =
     metadataError?.message ||
     (isTableChart
       ? tableError?.message
@@ -589,6 +591,20 @@ export function ChartElementView({
         ? mapError?.message || geojsonError?.message
         : isError?.message) ||
     'Chart configuration needs adjustment';
+
+  // Determine if this is a data-related error and provide helpful message
+  const isDataError =
+    rawErrorMessage.toLowerCase().includes('data') ||
+    rawErrorMessage.toLowerCase().includes('column') ||
+    rawErrorMessage.toLowerCase().includes('metric') ||
+    rawErrorMessage.toLowerCase().includes('dimension') ||
+    rawErrorMessage.toLowerCase().includes('aggregate') ||
+    rawErrorMessage.toLowerCase().includes('no rows') ||
+    rawErrorMessage.toLowerCase().includes('empty result');
+
+  const errorMessage = isDataError
+    ? 'Please check the dataset or metrics selected and try again'
+    : 'Chart configuration needs adjustment. Please review your settings and try again';
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -850,6 +866,30 @@ export function ChartElementView({
       textStyle: {
         fontFamily: 'Inter, system-ui, sans-serif',
       },
+      // Enhanced data labels styling
+      series: Array.isArray(baseConfig.series)
+        ? baseConfig.series.map((series) => ({
+            ...series,
+            label: {
+              ...series.label,
+              fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
+              fontFamily: 'Inter, system-ui, sans-serif',
+              fontWeight: 'normal',
+            },
+          }))
+        : baseConfig.series
+          ? {
+              ...baseConfig.series,
+              label: {
+                ...baseConfig.series.label,
+                fontSize: baseConfig.series.label?.fontSize
+                  ? baseConfig.series.label.fontSize + 0.5
+                  : 12.5,
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontWeight: 'normal',
+              },
+            }
+          : undefined,
       // Only set default colors if chart doesn't have custom colors
       ...(baseConfig.color
         ? {}
@@ -865,14 +905,60 @@ export function ChartElementView({
               '#f97316', // orange-500
             ],
           }),
-      grid: {
-        ...baseConfig.grid,
-        containLabel: true,
-        left: '10%',
-        right: '8%',
-        top: '12%',
-        bottom: '15%',
-      },
+      // For pie and number charts, completely remove grid and axis configurations
+      ...(isPieChart || isNumberChart
+        ? {
+            // Remove grid entirely
+            grid: undefined,
+            // Remove axes entirely
+            xAxis: undefined,
+            yAxis: undefined,
+          }
+        : {
+            // For other chart types, apply normal grid and axis styling
+            grid: {
+              ...baseConfig.grid,
+              containLabel: true,
+              left: '10%',
+              right: '8%',
+              top: '12%',
+              bottom: '15%',
+            },
+            xAxis: Array.isArray(baseConfig.xAxis)
+              ? baseConfig.xAxis.map((axis) => ({
+                  ...axis,
+                  nameTextStyle: {
+                    fontSize: 14,
+                    color: '#374151',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                }))
+              : {
+                  ...baseConfig.xAxis,
+                  nameTextStyle: {
+                    fontSize: 14,
+                    color: '#374151',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                },
+            yAxis: Array.isArray(baseConfig.yAxis)
+              ? baseConfig.yAxis.map((axis) => ({
+                  ...axis,
+                  nameTextStyle: {
+                    fontSize: 14,
+                    color: '#374151',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                }))
+              : {
+                  ...baseConfig.yAxis,
+                  nameTextStyle: {
+                    fontSize: 14,
+                    color: '#374151',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                },
+          }),
       tooltip: {
         trigger: 'axis',
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -883,6 +969,32 @@ export function ChartElementView({
           fontSize: 12,
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
+        formatter: function (params: any) {
+          if (Array.isArray(params)) {
+            // For multiple series (line/bar charts with multiple lines/bars)
+            let result = '';
+            params.forEach((param: any, index: number) => {
+              if (index === 0) {
+                result += param.name + '<br/>';
+              }
+              const value =
+                typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
+              result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
+            });
+            return result;
+          } else {
+            // For single series (pie charts, single bar/line)
+            const value =
+              typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
+            if (params.percent !== undefined) {
+              // Pie chart with percentage
+              return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
+            } else {
+              // Regular chart
+              return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
+            }
+          }
+        },
       },
     };
 
@@ -893,7 +1005,8 @@ export function ChartElementView({
       // Use notMerge: true on first render after filter change, false otherwise
       const notMerge = filtersChanged || !chartInstance.current.getOption();
 
-      chartInstance.current.setOption(styledConfig, notMerge);
+      // Force notMerge to ensure axis title styling is applied
+      chartInstance.current.setOption(styledConfig, true);
 
       // Click event listeners for non-map charts only (maps use MapPreview component)
       if (!isMapChart) {
@@ -1064,15 +1177,24 @@ export function ChartElementView({
     (isMapChart && (!mapDataOverlay || !geojsonData))
   ) {
     return (
-      <div className={cn('h-full flex items-center justify-center p-4', className)}>
-        <div className="text-center">
-          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-          <p className="text-sm font-medium text-gray-900">Chart Error</p>
-          <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
-          <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-2">
-            <RefreshCw className="h-3 w-3 mr-1" />
-            Retry
-          </Button>
+      <div className={cn('h-full flex flex-col items-center justify-start pt-20 p-4', className)}>
+        <div className="w-full max-w-md">
+          <div className="flex items-center p-4 border border-red-200 rounded-lg bg-red-50 shadow-lg">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Chart Error</p>
+              <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="mt-3 h-8 text-xs border-red-300 text-red-700 hover:bg-red-100"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     );

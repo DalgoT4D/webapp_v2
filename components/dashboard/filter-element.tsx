@@ -88,21 +88,21 @@ export function FilterElement({
   };
 
   return (
-    <div className={`w-full relative ${compact ? '' : 'h-full'}`}>
-      {/* Drag handle for reordering (only in edit mode) */}
+    <div className={`w-full relative group ${compact ? '' : 'h-full'}`}>
+      {/* Drag handle for reordering (only in edit mode) - Hidden by default, shown on hover */}
       {isEditMode && dragHandleProps && (
         <div
           {...dragHandleProps}
-          className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-white border border-gray-200 rounded shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
+          className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-white border border-gray-200 rounded shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all opacity-0 group-hover:opacity-100"
           title="Drag to reorder"
         >
           <GripVertical className="w-3 h-3 text-gray-500" />
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons - Hidden by default, shown on hover */}
       {(isEditMode && (onRemove || onEdit)) || hasValue() ? (
-        <div className="absolute -top-2 -right-2 z-10 flex gap-1">
+        <div className="absolute -top-2 -right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
           {hasValue() && (
             <button
               onClick={handleClear}

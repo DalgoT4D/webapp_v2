@@ -795,6 +795,7 @@ export function ChartDataConfigurationV3({
               value: string;
               label: string;
               type: 'column' | 'metric';
+              _uniqueId?: string;
             }> = [];
 
             // Add dimension column if available
@@ -808,12 +809,14 @@ export function ChartDataConfigurationV3({
 
             // Add configured metrics using their aliases
             if (formData.metrics && formData.metrics.length > 0) {
-              formData.metrics.forEach((metric) => {
+              formData.metrics.forEach((metric, metricIndex) => {
                 if (metric.alias) {
                   sortableOptions.push({
                     value: metric.alias,
                     label: metric.alias,
                     type: 'metric',
+                    // Add unique identifier to prevent key conflicts
+                    _uniqueId: `metric-${metricIndex}-${metric.alias}`,
                   });
                 }
               });
@@ -864,8 +867,11 @@ export function ChartDataConfigurationV3({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">None</SelectItem>
-                      {sortableOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
+                      {sortableOptions.map((option, index) => (
+                        <SelectItem
+                          key={option._uniqueId || `${option.type}-${option.value}-${index}`}
+                          value={option.value}
+                        >
                           <div className="flex items-center gap-2">
                             <span
                               className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
