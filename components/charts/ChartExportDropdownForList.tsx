@@ -79,13 +79,16 @@ export function ChartExportDropdownForList({
   };
 
   const handleRegularChartExport = async (chartId: number, title: string, exportOptions: any) => {
-    // Create temporary container for regular chart rendering
+    // Create temporary container for regular chart rendering with proper sizing
     const container = document.createElement('div');
-    container.style.width = '800px';
-    container.style.height = '600px';
+    container.style.width = '1200px'; // Increased width
+    container.style.height = '800px'; // Increased height
     container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '-9999px';
+    container.style.left = '-10000px'; // Move further off-screen
+    container.style.top = '-10000px'; // Move further off-screen
+    container.style.backgroundColor = '#ffffff'; // Ensure white background
+    container.style.padding = '40px'; // Add padding for better chart spacing
+    container.style.boxSizing = 'border-box';
     document.body.appendChild(container);
 
     try {
@@ -99,25 +102,45 @@ export function ChartExportDropdownForList({
 
       // Create chart instance
       const echarts = await import('echarts');
-      const chartInstance = echarts.init(container);
+      const chartInstance = echarts.init(container, null, {
+        renderer: 'canvas', // Force canvas renderer for better export quality
+        devicePixelRatio: 2, // Higher resolution for export
+      });
 
-      // Set the chart configuration
+      // Set the chart configuration with proper spacing and centering (no title for consistency)
       const config = {
         ...response.echarts_config,
-        title: {
-          text: title,
-          left: 'center',
-          textStyle: {
-            fontSize: 18,
-            fontWeight: 'bold',
-          },
+        // Remove title to match chart detail view export behavior
+        title: undefined,
+        // Ensure proper grid/layout for all chart types
+        grid: response.echarts_config.grid || {
+          left: '10%',
+          right: '10%',
+          top: '15%',
+          bottom: '10%',
+          containLabel: true,
         },
+        // For pie charts, ensure proper center positioning
+        ...(response.echarts_config.series &&
+          response.echarts_config.series[0]?.type === 'pie' && {
+            series: response.echarts_config.series.map((series: any) => ({
+              ...series,
+              center: ['50%', '55%'], // Center the pie chart properly
+              radius: series.radius || ['40%', '70%'], // Ensure reasonable radius
+            })),
+          }),
       };
 
-      chartInstance.setOption(config);
+      chartInstance.setOption(config, true); // Force refresh
 
-      // Wait for rendering
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Wait for rendering with longer timeout for complex charts
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Trigger resize to ensure proper layout
+      chartInstance.resize();
+
+      // Wait a bit more after resize
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Export the chart
       await ChartExporter.exportEChartsInstance(chartInstance, exportOptions);
@@ -136,11 +159,50 @@ export function ChartExportDropdownForList({
 
   const handleTableCSVExport = async (chartId: number, title: string, exportOptions: any) => {
     try {
-      // Import chart data fetching (similar to other chart handlers)
-      const { apiGet } = await import('@/lib/api');
+      // Import chart data fetching and API functions
+      const { apiGet, apiPost } = await import('@/lib/api');
 
-      // Fetch table data using data preview API
-      const response = await apiGet(`/api/charts/${chartId}/data-preview/?page=1&pageSize=10000`);
+      // First get the chart configuration to build the payload
+      const chart = await apiGet(`/api/charts/${chartId}/`);
+
+      if (!chart) {
+        throw new Error('Chart not found');
+      }
+
+      // Build chart data payload similar to how it's done in the chart detail view
+      const chartDataPayload = {
+        chart_type: chart.chart_type,
+        computation_type: chart.computation_type,
+        schema_name: chart.schema_name,
+        table_name: chart.table_name,
+        ...(chart.extra_config?.dimension_column && {
+          dimension_col: chart.extra_config.dimension_column,
+        }),
+        ...(chart.extra_config?.aggregate_column && {
+          aggregate_col: chart.extra_config.aggregate_column,
+        }),
+        ...(chart.extra_config?.aggregate_function && {
+          aggregate_func: chart.extra_config.aggregate_function,
+        }),
+        ...(chart.extra_config?.extra_dimension_column && {
+          extra_dimension: chart.extra_config.extra_dimension_column,
+        }),
+        ...(chart.extra_config?.metrics &&
+          chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+        customizations: chart.extra_config?.customizations || {},
+        extra_config: {
+          filters: chart.extra_config?.filters || [],
+          pagination: { enabled: false, page_size: 10000 }, // Get all data for export
+          sort: chart.extra_config?.sort || [],
+        },
+      };
+
+      // Use the same API endpoint as the working chart detail view
+      const response = await apiPost('/api/charts/chart-data-preview/', {
+        ...chartDataPayload,
+        offset: 0,
+        limit: 10000,
+      });
 
       if (!response?.data || !response?.columns) {
         throw new Error('No table data available for export');
