@@ -11,6 +11,7 @@ import {
   DatasetComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { processChartConfig } from '@/lib/chart-config-processor';
 
 // Register necessary ECharts components
 echarts.use([
@@ -80,7 +81,9 @@ export function MiniChart({
 
       // Set chart option
       const option = generateMiniOption();
-      chartInstance.current.setOption(option, true); // Use true to clear previous options
+      // Process the config to handle special features like label thresholds
+      const processedOption = processChartConfig(option);
+      chartInstance.current.setOption(processedOption, true); // Use true to clear previous options
     }
 
     // Cleanup on unmount

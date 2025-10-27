@@ -473,6 +473,29 @@ function PieChartCustomizations({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="labelThreshold">
+                Percentage Threshold
+                <span className="ml-1 text-xs text-muted-foreground">(Hide labels below %)</span>
+              </Label>
+              <Input
+                id="labelThreshold"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={customizations.labelThreshold ?? 5}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  if (!isNaN(value) && value >= 0 && value <= 100) {
+                    updateCustomization('labelThreshold', value);
+                  }
+                }}
+                disabled={disabled}
+                className="w-32"
+              />
+            </div>
           </>
         )}
       </div>

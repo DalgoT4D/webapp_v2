@@ -18,6 +18,7 @@ import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { toastSuccess, toastError } from '@/lib/toast';
 import * as echarts from 'echarts';
+import { processChartConfig } from '@/lib/chart-config-processor';
 
 interface ChartExportProps {
   chartId: number;
@@ -86,10 +87,12 @@ export default function ChartExport({
 
         try {
           const chart = echarts.init(tempDiv);
-          chart.setOption({
+          // Process the config to handle special features like label thresholds
+          const processedConfig = processChartConfig({
             ...response.chart_config,
             animation: false,
           });
+          chart.setOption(processedConfig);
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
