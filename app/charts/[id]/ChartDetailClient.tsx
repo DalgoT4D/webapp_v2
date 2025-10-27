@@ -589,7 +589,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   mapData={mapDataOverlay?.data}
                   mapDataLoading={mapDataLoading}
                   mapDataError={mapDataError}
-                  valueColumn={chart.extra_config?.aggregate_column}
+                  valueColumn={
+                    chart.extra_config?.metrics?.[0]?.alias || chart.extra_config?.aggregate_column
+                  }
                   customizations={chart.extra_config?.customizations || {}}
                   onRegionClick={handleRegionClick}
                   drillDownPath={drillDownPath}

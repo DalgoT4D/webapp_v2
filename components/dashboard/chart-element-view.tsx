@@ -1207,7 +1207,10 @@ export function ChartElementView({
             mapDataLoading={mapLoading}
             mapDataError={mapError}
             title=""
-            valueColumn={effectiveChart?.extra_config?.aggregate_column}
+            valueColumn={
+              effectiveChart?.extra_config?.metrics?.[0]?.alias ||
+              effectiveChart?.extra_config?.aggregate_column
+            }
             onRegionClick={handleRegionClick}
             drillDownPath={drillDownPath}
             onDrillUp={handleDrillUp}

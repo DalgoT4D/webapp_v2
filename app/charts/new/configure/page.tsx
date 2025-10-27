@@ -858,7 +858,7 @@ function ConfigureChartPageContent() {
                         mapData={mapDataOverlay?.data}
                         mapDataLoading={mapDataLoading}
                         mapDataError={mapDataError}
-                        valueColumn={formData.aggregate_column}
+                        valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
                         customizations={formData.customizations}
                         // ✅ UPDATE: Complete drill-down support in create mode
                         onRegionClick={handleMapRegionClick}
