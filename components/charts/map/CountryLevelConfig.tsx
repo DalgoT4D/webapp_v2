@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Globe, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Globe, MapPin, Download, Loader2 } from 'lucide-react';
 import {
   useColumns,
   useAvailableLayers,
@@ -18,6 +19,7 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
+import { useToast } from '@/hooks/use-toast';
 
 interface Region {
   id: number;
@@ -40,11 +42,17 @@ interface CountryLevelConfigProps {
   disabled?: boolean;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
+
 export function CountryLevelConfig({
   formData,
   onFormDataChange,
   disabled = false,
 }: CountryLevelConfigProps) {
+  const { toast } = useToast();
+  const [downloadingStates, setDownloadingStates] = useState(false);
+  const [downloadingDistricts, setDownloadingDistricts] = useState(false);
+
   const { data: countries } = useAvailableLayers('country');
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
@@ -84,6 +92,44 @@ export function CountryLevelConfig({
       ward_column: undefined,
       subward_column: undefined,
     });
+  };
+
+  const handleDownloadRegionNames = async (regionType: 'state' | 'district') => {
+    const countryCode = formData.country_code || 'IND';
+    const setLoading = regionType === 'state' ? setDownloadingStates : setDownloadingDistricts;
+
+    try {
+      setLoading(true);
+
+      // Construct download URL with backend filtering by country
+      const url = `${API_BASE_URL}/api/charts/regions/export-names/?country_code=${countryCode}&region_type=${regionType}`;
+
+      // Create temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${countryCode.toLowerCase()}_${regionType}s.csv`);
+
+      // Set credentials to include cookies for authentication
+      link.setAttribute('target', '_blank');
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: 'Download started',
+        description: `Downloading ${regionType} names for ${countryCode}`,
+      });
+    } catch (error) {
+      console.error(`Error downloading ${regionType}s:`, error);
+      toast({
+        title: 'Download failed',
+        description: `Failed to download ${regionType} names. Please try again.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Auto-select default GeoJSON when geographic column is selected
@@ -240,7 +286,29 @@ export function CountryLevelConfig({
 
       {/* Geographic Column Selection */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Geographic Column (States)</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Geographic Column (States)</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleDownloadRegionNames('state')}
+            disabled={disabled || downloadingStates}
+            className="h-7 px-2 text-xs"
+          >
+            {downloadingStates ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="h-3 w-3" />
+                Download State Names
+              </>
+            )}
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground mb-2">
           Select the column that contains state/province names from your data
         </p>
@@ -262,6 +330,38 @@ export function CountryLevelConfig({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* District Names Download - Helper Section */}
+      <div className="space-y-2 pt-2 border-t">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">District Names Reference</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Download a CSV of all districts grouped by states for {formData.country_code || 'IND'}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleDownloadRegionNames('district')}
+            disabled={disabled || downloadingDistricts}
+            className="h-7 px-2 text-xs"
+          >
+            {downloadingDistricts ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="h-3 w-3" />
+                Download District Names
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Status Display */}

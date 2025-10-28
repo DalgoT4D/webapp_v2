@@ -18,7 +18,6 @@ import { MapPin, Plus, Eye, ChevronDown, ChevronUp, Trash2, Filter, Check, X } f
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
-import { CountryLevelConfig } from './CountryLevelConfig';
 import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
