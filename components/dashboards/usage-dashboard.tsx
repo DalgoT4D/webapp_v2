@@ -33,28 +33,56 @@ export default function UsageDashboard() {
     const loadDashboard = async () => {
       try {
         const embedToken = await fetchEmbedToken();
+
+        // Add a small delay to ensure DOM is ready
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         const mountHTMLElement = document.getElementById('dashboard-container');
 
-        if (mountHTMLElement && embedToken) {
-          // Dynamically import the Superset SDK to ensure it only runs on client
-          const { embedDashboard } = await import('@superset-ui/embedded-sdk');
-
-          embedDashboard({
-            id: USAGE_DASHBOARD_ID,
-            supersetDomain: USAGE_DASHBOARD_DOMAIN,
-            mountPoint: mountHTMLElement,
-            fetchGuestToken: () => embedToken,
-            dashboardUiConfig: {
-              hideTitle: true,
-              filters: {
-                expanded: true,
-              },
-            },
-          });
+        if (!mountHTMLElement) {
+          throw new Error('Dashboard container not found');
         }
+
+        if (!embedToken) {
+          throw new Error('No embed token received');
+        }
+
+        // Dynamically import the Superset SDK to ensure it only runs on client
+        const { embedDashboard } = await import('@superset-ui/embedded-sdk');
+
+        console.log('About to embed dashboard with:', {
+          id: USAGE_DASHBOARD_ID,
+          domain: USAGE_DASHBOARD_DOMAIN,
+          hasToken: !!embedToken,
+          hasContainer: !!mountHTMLElement,
+        });
+
+        const embedResult = embedDashboard({
+          id: USAGE_DASHBOARD_ID,
+          supersetDomain: USAGE_DASHBOARD_DOMAIN,
+          mountPoint: mountHTMLElement,
+          fetchGuestToken: () => embedToken,
+          dashboardUiConfig: {
+            hideTitle: true,
+            filters: {
+              expanded: true,
+            },
+          },
+        });
+
+        console.log('Embed result:', embedResult);
+
+        // Check if iframe was created after a short delay
+        setTimeout(() => {
+          const iframe = mountHTMLElement.querySelector('iframe');
+          console.log('Iframe created:', !!iframe);
+          if (!iframe) {
+            setError('Dashboard failed to load - no iframe created');
+          }
+        }, 2000);
       } catch (err: any) {
         console.error('Dashboard loading error:', err);
-        setError(err.message);
+        setError(err.message || 'Failed to load dashboard');
       } finally {
         setLoading(false);
       }
