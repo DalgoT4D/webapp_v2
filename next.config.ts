@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  transpilePackages: ['@superset-ui/embedded-sdk'],
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
