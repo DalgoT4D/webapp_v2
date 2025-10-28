@@ -15,6 +15,8 @@ export default function UsageDashboard() {
   const { currentOrg } = useAuthStore();
   const [mount, setMount] = useState<boolean>(false);
 
+  console.log('UsageDashboard render:', { loading, error, mount, hasCurrentOrg: !!currentOrg });
+
   useEffect(() => {
     if (!mount) setMount(true);
   }, []);
