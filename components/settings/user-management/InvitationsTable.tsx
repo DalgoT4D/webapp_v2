@@ -172,10 +172,10 @@ export function InvitationsTable() {
       }
 
       // Date filter
-      if (dateFilter !== 'all' && invitation.invited_on) {
+      if (dateFilter !== 'all') {
+        if (!invitation.invited_on) return false;
         const invitedDate = new Date(invitation.invited_on);
         const now = new Date();
-
         switch (dateFilter) {
           case 'today': {
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -200,39 +200,24 @@ export function InvitationsTable() {
 
     // Apply sorting
     const sorted = [...filtered].sort((a, b) => {
-      let aValue: string | Date;
-      let bValue: string | Date;
-
-      if (sortBy === 'email') {
-        aValue = a.invited_email.toLowerCase();
-        bValue = b.invited_email.toLowerCase();
-      } else if (sortBy === 'role') {
-        aValue = a.invited_role.name.toLowerCase();
-        bValue = b.invited_role.name.toLowerCase();
-      } else {
-        aValue = new Date(a.invited_on);
-        bValue = new Date(b.invited_on);
-      }
-
       if (sortBy === 'sent_on') {
-        // Date comparison
-        const dateA = aValue as Date;
-        const dateB = bValue as Date;
-        if (sortOrder === 'asc') {
-          return dateA.getTime() - dateB.getTime();
-        } else {
-          return dateB.getTime() - dateA.getTime();
-        }
-      } else {
-        // String comparison
-        const strA = aValue as string;
-        const strB = bValue as string;
-        if (sortOrder === 'asc') {
-          return strA.localeCompare(strB);
-        } else {
-          return strB.localeCompare(strA);
-        }
+        const toTs = (v: unknown) => {
+          const t = new Date(v as any).getTime();
+          return Number.isFinite(t)
+            ? t
+            : sortOrder === 'asc'
+              ? Number.MAX_SAFE_INTEGER
+              : Number.MIN_SAFE_INTEGER;
+        };
+        const aTs = toTs(a.invited_on);
+        const bTs = toTs(b.invited_on);
+        return sortOrder === 'asc' ? aTs - bTs : bTs - aTs;
       }
+      const aStr =
+        sortBy === 'email' ? a.invited_email.toLowerCase() : a.invited_role.name.toLowerCase();
+      const bStr =
+        sortBy === 'email' ? b.invited_email.toLowerCase() : b.invited_role.name.toLowerCase();
+      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
 
     return sorted;
@@ -270,20 +255,23 @@ export function InvitationsTable() {
         <div>
           <Label className="text-sm font-medium">Filter by Role</Label>
           <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-            {uniqueRoles.map((roleName) => (
-              <div key={roleName} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`role-${roleName}`}
-                  checked={roleFilters.includes(roleName)}
-                  onCheckedChange={(checked) =>
-                    handleRoleFilterChange(roleName, checked as boolean)
-                  }
-                />
-                <Label htmlFor={`role-${roleName}`} className="text-sm cursor-pointer">
-                  {roleName}
-                </Label>
-              </div>
-            ))}
+            {uniqueRoles.map((roleName) => {
+              const roleId = `role-${roleName.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+              return (
+                <div key={roleName} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={roleId}
+                    checked={roleFilters.includes(roleName)}
+                    onCheckedChange={(checked) =>
+                      handleRoleFilterChange(roleName, checked as boolean)
+                    }
+                  />
+                  <Label htmlFor={roleId} className="text-sm cursor-pointer">
+                    {roleName}
+                  </Label>
+                </div>
+              );
+            })}
           </div>
         </div>
         {roleFilters.length > 0 && (
@@ -481,7 +469,10 @@ export function InvitationsTable() {
                         <Badge variant="outline">{invitation.invited_role.name}</Badge>
                       </TableCell>
                       <TableCell>
-                        {format(new Date(invitation.invited_on), 'MMM dd, yyyy')}
+                        {invitation.invited_on &&
+                        Number.isFinite(new Date(invitation.invited_on).getTime())
+                          ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
+                          : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         {(canResendInvitation || canDeleteInvitation) && (
