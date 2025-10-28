@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { embedDashboard } from '@superset-ui/embedded-sdk';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -37,6 +36,9 @@ export default function UsageDashboard() {
         const mountHTMLElement = document.getElementById('dashboard-container');
 
         if (mountHTMLElement && embedToken) {
+          // Dynamically import the Superset SDK to ensure it only runs on client
+          const { embedDashboard } = await import('@superset-ui/embedded-sdk');
+
           embedDashboard({
             id: USAGE_DASHBOARD_ID,
             supersetDomain: USAGE_DASHBOARD_DOMAIN,
@@ -51,6 +53,7 @@ export default function UsageDashboard() {
           });
         }
       } catch (err: any) {
+        console.error('Dashboard loading error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
