@@ -123,6 +123,7 @@ export function ChartElementView({
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
+  const wrapperRef = useRef<HTMLDivElement>(null); // Wrapper ref for fullscreen (stable element)
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
@@ -936,24 +937,6 @@ export function ChartElementView({
     isFullscreen, // Add fullscreen state to trigger chart resize
   ]);
 
-  // Separate effect to handle DOM mounting timing issues
-  useEffect(() => {
-    // For maps, we need both geojson and mapData to be ready
-    const hasMapData = isMapChart ? geojsonData?.geojson_data && mapDataOverlay : true;
-    const hasChartConfig = isMapChart ? hasMapData : chartData?.echarts_config;
-
-    if (hasChartConfig && !chartRef.current) {
-      // Retry after a short delay if DOM element isn't ready yet
-      const timeout = setTimeout(() => {
-        if (chartRef.current) {
-          // Trigger the main useEffect by updating a dependency
-          setIsFullscreen((prev) => prev); // This will cause a re-render without changing state
-        }
-      }, 100);
-      return () => clearTimeout(timeout);
-    }
-  }, [chartData, mapDataOverlay, geojsonData, isMapChart, drillDownPath]);
-
   // Re-fetch data when filters change
   useEffect(() => {
     mutate();
@@ -1003,8 +986,9 @@ export function ChartElementView({
   };
 
   const handleToggleFullscreen = () => {
-    // Use appropriate ref based on chart type
-    const targetRef = isTableChart ? tableRef.current : chartRef.current;
+    // Use wrapper ref for stable fullscreen (prevents exit on drill down)
+    // For tables, use tableRef; for all charts (including maps), use wrapperRef
+    const targetRef = isTableChart ? tableRef.current : wrapperRef.current;
     if (!targetRef) return;
 
     toggleFullscreen(targetRef);
@@ -1080,6 +1064,7 @@ export function ChartElementView({
 
   return (
     <div
+      ref={wrapperRef}
       className={cn(
         'h-full relative group flex flex-col',
         className,
