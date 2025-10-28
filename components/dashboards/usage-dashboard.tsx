@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { use, useEffect, useState } from 'react';
+import { embedDashboard } from '@superset-ui/embedded-sdk';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -12,7 +13,11 @@ export default function UsageDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { currentOrg } = useAuthStore();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [mount, setMount] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!mount) setMount(true);
+  }, []);
 
   const fetchEmbedToken = async () => {
     try {
@@ -25,65 +30,33 @@ export default function UsageDashboard() {
   };
 
   useEffect(() => {
+    if (!currentOrg?.viz_url) {
+      setError('You have not subscribed to Superset for Visualisation.');
+      setLoading(false);
+      return;
+    }
+
     const loadDashboard = async () => {
       try {
-        const { currentOrg } = useAuthStore.getState();
-
-        if (!currentOrg?.viz_url) {
-          setError('You have not subscribed to Superset for Visualisation.');
-          setLoading(false);
-          return;
-        }
-
         const embedToken = await fetchEmbedToken();
+        const mountHTMLElement = document.getElementById('dashboard-container');
 
-        // Use ref instead of getElementById
-        const mountHTMLElement = containerRef.current;
-
-        if (!mountHTMLElement) {
-          throw new Error('Dashboard container not found');
-        }
-
-        if (!embedToken) {
-          throw new Error('No embed token received');
-        }
-
-        // Dynamically import the Superset SDK to ensure it only runs on client
-        const { embedDashboard } = await import('@superset-ui/embedded-sdk');
-
-        console.log('About to embed dashboard with:', {
-          id: USAGE_DASHBOARD_ID,
-          domain: USAGE_DASHBOARD_DOMAIN,
-          hasToken: !!embedToken,
-          hasContainer: !!mountHTMLElement,
-        });
-
-        const embedResult = embedDashboard({
-          id: USAGE_DASHBOARD_ID,
-          supersetDomain: USAGE_DASHBOARD_DOMAIN,
-          mountPoint: mountHTMLElement,
-          fetchGuestToken: () => embedToken,
-          dashboardUiConfig: {
-            hideTitle: true,
-            filters: {
-              expanded: true,
+        if (mountHTMLElement && embedToken) {
+          embedDashboard({
+            id: USAGE_DASHBOARD_ID,
+            supersetDomain: USAGE_DASHBOARD_DOMAIN,
+            mountPoint: mountHTMLElement,
+            fetchGuestToken: () => embedToken,
+            dashboardUiConfig: {
+              hideTitle: true,
+              filters: {
+                expanded: true,
+              },
             },
-          },
-        });
-
-        console.log('Embed result:', embedResult);
-
-        // Check if iframe was created after a short delay
-        setTimeout(() => {
-          const iframe = mountHTMLElement.querySelector('iframe');
-          console.log('Iframe created:', !!iframe);
-          if (!iframe) {
-            setError('Dashboard failed to load - no iframe created');
-          }
-        }, 2000);
+          });
+        }
       } catch (err: any) {
-        console.error('Dashboard loading error:', err);
-        setError(err.message || 'Failed to load dashboard');
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -123,7 +96,7 @@ export default function UsageDashboard() {
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
       <div className="flex-1 p-6 pb-10 overflow-auto">
-        <div ref={containerRef} className="w-full h-full bg-white rounded-lg shadow-sm" />
+        <div id="dashboard-container" className="w-full h-full bg-white rounded-lg shadow-sm" />
       </div>
     </main>
   );
