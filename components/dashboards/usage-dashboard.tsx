@@ -46,6 +46,13 @@ export default function UsageDashboard() {
         const mountHTMLElement = document.getElementById('dashboard-container');
 
         if (mountHTMLElement && embedToken) {
+          console.log('Embedding dashboard with:', {
+            id: USAGE_DASHBOARD_ID,
+            domain: USAGE_DASHBOARD_DOMAIN,
+            element: mountHTMLElement,
+            token: embedToken.substring(0, 20) + '...',
+          });
+
           embedDashboard({
             id: USAGE_DASHBOARD_ID,
             supersetDomain: USAGE_DASHBOARD_DOMAIN,
@@ -57,6 +64,21 @@ export default function UsageDashboard() {
                 expanded: true,
               },
             },
+          });
+
+          // Check for iframe after embedding
+          setTimeout(() => {
+            const iframe = mountHTMLElement.querySelector('iframe');
+            console.log('Iframe check:', {
+              hasIframe: !!iframe,
+              containerChildren: mountHTMLElement.children.length,
+              containerHTML: mountHTMLElement.innerHTML.substring(0, 200),
+            });
+          }, 3000);
+        } else {
+          console.log('Missing requirements:', {
+            hasElement: !!mountHTMLElement,
+            hasToken: !!embedToken,
           });
         }
       } catch (err: any) {
