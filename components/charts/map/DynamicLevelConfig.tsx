@@ -264,7 +264,7 @@ export function DynamicLevelConfig({
         formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
         formData.dataOverlayPayload?.value_column ===
-          (formData.aggregate_column || formData.value_column) &&
+          (formData.aggregate_column || formData.value_column || formData.geographic_column) &&
         formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
         currentFiltersHash === payloadFiltersHash;
 
@@ -277,7 +277,9 @@ export function DynamicLevelConfig({
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
-          value_column: formData.aggregate_column || formData.value_column,
+          // For count operations without a column, fall back to geographic_column
+          value_column:
+            formData.aggregate_column || formData.value_column || formData.geographic_column,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
