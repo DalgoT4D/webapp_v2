@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { embedDashboard } from '@superset-ui/embedded-sdk';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -12,13 +12,7 @@ const USAGE_DASHBOARD_DOMAIN = process.env.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN ||
 export default function UsageDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   const { currentOrg } = useAuthStore();
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const fetchEmbedToken = async () => {
     try {
@@ -30,47 +24,62 @@ export default function UsageDashboard() {
     }
   };
 
-  useEffect(() => {
-    if (!mounted || !currentOrg?.viz_url) {
-      if (mounted && !currentOrg?.viz_url) {
+  const containerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+
+      console.log('Container element attached to DOM');
+
+      if (!currentOrg?.viz_url) {
         setError('You have not subscribed to Superset for Visualisation.');
         setLoading(false);
+        return;
       }
-      return;
-    }
 
-    const loadDashboard = async () => {
-      try {
-        const embedToken = await fetchEmbedToken();
-        const mountHTMLElement = containerRef.current;
+      const loadDashboard = async () => {
+        try {
+          console.log('Loading dashboard with element:', node);
+          const embedToken = await fetchEmbedToken();
 
-        if (!mountHTMLElement) throw new Error('Dashboard container not found in the DOM.');
-
-        if (mountHTMLElement && embedToken) {
-          embedDashboard({
-            id: USAGE_DASHBOARD_ID,
-            supersetDomain: USAGE_DASHBOARD_DOMAIN,
-            mountPoint: mountHTMLElement,
-            fetchGuestToken: () => embedToken,
-            dashboardUiConfig: {
-              hideTitle: true,
-              filters: {
-                expanded: true,
+          if (node && embedToken) {
+            console.log('Embedding dashboard...');
+            embedDashboard({
+              id: USAGE_DASHBOARD_ID,
+              supersetDomain: USAGE_DASHBOARD_DOMAIN,
+              mountPoint: node,
+              fetchGuestToken: () => embedToken,
+              dashboardUiConfig: {
+                hideTitle: true,
+                filters: {
+                  expanded: true,
+                },
               },
-            },
-          });
+            });
+
+            // Check for iframe creation
+            setTimeout(() => {
+              const iframe = node.querySelector('iframe');
+              console.log('Iframe created:', !!iframe);
+              if (!iframe) {
+                setError('Dashboard failed to load - no iframe created');
+              }
+            }, 3000);
+          }
+        } catch (err: any) {
+          console.error('Dashboard loading error:', err);
+          setError(err.message);
+        } finally {
+          setLoading(false);
         }
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    setTimeout(loadDashboard, 100);
-  }, [mounted, currentOrg]);
+      // Small delay to ensure DOM is stable
+      setTimeout(loadDashboard, 100);
+    },
+    [currentOrg]
+  );
 
-  if (!mounted || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-lg">Loading usage dashboard...</div>
