@@ -30,6 +30,8 @@ export default function UsageDashboard() {
   };
 
   useEffect(() => {
+    if (!mount) return;
+
     if (!currentOrg?.viz_url) {
       setError('You have not subscribed to Superset for Visualisation.');
       setLoading(false);
@@ -63,7 +65,7 @@ export default function UsageDashboard() {
     };
 
     loadDashboard();
-  }, []);
+  }, [mount, currentOrg]);
 
   if (loading) {
     return (
