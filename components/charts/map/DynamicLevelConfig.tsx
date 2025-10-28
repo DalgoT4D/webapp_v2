@@ -22,8 +22,7 @@ import {
 } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+import { API_BASE_URL } from '@/lib/config';
 
 interface DynamicLevelConfigProps {
   formData: ChartBuilderFormData;

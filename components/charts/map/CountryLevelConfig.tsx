@@ -20,6 +20,7 @@ import {
 } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/lib/config';
 
 interface Region {
   id: number;
@@ -41,8 +42,6 @@ interface CountryLevelConfigProps {
   onFormDataChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
 
 export function CountryLevelConfig({
   formData,
