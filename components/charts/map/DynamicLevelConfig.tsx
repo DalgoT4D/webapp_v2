@@ -23,6 +23,7 @@ import {
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/config';
+import { downloadRegionNames } from '@/lib/csvUtils';
 
 interface DynamicLevelConfigProps {
   formData: ChartBuilderFormData;
@@ -63,21 +64,6 @@ export function DynamicLevelConfig({
     });
   };
 
-  // Convert JSON to CSV
-  const convertToCSV = (data: any[], regionType: 'state' | 'district'): string => {
-    if (regionType === 'state') {
-      // States: Single column
-      const header = 'State Name\n';
-      const rows = data.map((item) => item.state).join('\n');
-      return header + rows;
-    } else {
-      // Districts: Two columns
-      const header = 'State Name,District Name\n';
-      const rows = data.map((item) => `${item.state},${item.district}`).join('\n');
-      return header + rows;
-    }
-  };
-
   // Handle CSV download
   const handleDownloadRegionNames = async (regionType: 'state' | 'district') => {
     const countryCode = formData.country_code || 'IND';
@@ -86,43 +72,13 @@ export function DynamicLevelConfig({
     try {
       setLoading(true);
 
-      // Fetch JSON data from backend
-      const url = `${API_BASE_URL}/api/charts/regions/export-names/?country_code=${countryCode}&region_type=${regionType}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'include', // Include cookies for authentication
-        headers: {
-          'Content-Type': 'application/json',
+      await downloadRegionNames(API_BASE_URL, countryCode, regionType, {
+        onSuccess: (message) => {
+          toast({
+            title: 'Download complete',
+            description: message,
+          });
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch data: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Convert JSON to CSV
-      const csvContent = convertToCSV(data, regionType);
-
-      // Create blob and download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const downloadUrl = URL.createObjectURL(blob);
-
-      link.href = downloadUrl;
-      link.download = `${countryCode.toLowerCase()}_${regionType}s.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up
-      URL.revokeObjectURL(downloadUrl);
-
-      toast({
-        title: 'Download complete',
-        description: `Downloaded ${data.length} ${regionType}${data.length !== 1 ? 's' : ''} for ${countryCode}`,
       });
     } catch (error) {
       console.error(`Error downloading ${regionType}s:`, error);

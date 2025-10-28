@@ -21,6 +21,7 @@ import {
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/config';
+import { downloadRegionNames } from '@/lib/csvUtils';
 
 interface Region {
   id: number;
@@ -100,24 +101,13 @@ export function CountryLevelConfig({
     try {
       setLoading(true);
 
-      // Construct download URL with backend filtering by country
-      const url = `${API_BASE_URL}/api/charts/regions/export-names/?country_code=${countryCode}&region_type=${regionType}`;
-
-      // Create temporary link and trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${countryCode.toLowerCase()}_${regionType}s.csv`);
-
-      // Set credentials to include cookies for authentication
-      link.setAttribute('target', '_blank');
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: 'Download started',
-        description: `Downloading ${regionType} names for ${countryCode}`,
+      await downloadRegionNames(API_BASE_URL, countryCode, regionType, {
+        onSuccess: (message) => {
+          toast({
+            title: 'Download complete',
+            description: message,
+          });
+        },
       });
     } catch (error) {
       console.error(`Error downloading ${regionType}s:`, error);
