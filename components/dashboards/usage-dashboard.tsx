@@ -43,7 +43,17 @@ export default function UsageDashboard() {
     const loadDashboard = async () => {
       try {
         const embedToken = await fetchEmbedToken();
-        const mountHTMLElement = document.getElementById('dashboard-container');
+
+        // Wait for DOM element to be available
+        let mountHTMLElement = null;
+        let attempts = 0;
+        while (!mountHTMLElement && attempts < 10) {
+          mountHTMLElement = document.getElementById('dashboard-container');
+          if (!mountHTMLElement) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            attempts++;
+          }
+        }
 
         if (mountHTMLElement && embedToken) {
           console.log('Embedding dashboard with:', {
