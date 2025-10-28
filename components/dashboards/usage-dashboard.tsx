@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { embedDashboard } from '@superset-ui/embedded-sdk';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -14,6 +14,7 @@ export default function UsageDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useAuthStore();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -41,7 +42,7 @@ export default function UsageDashboard() {
     const loadDashboard = async () => {
       try {
         const embedToken = await fetchEmbedToken();
-        const mountHTMLElement = document.getElementById('dashboard-container');
+        const mountHTMLElement = containerRef.current;
 
         if (!mountHTMLElement) throw new Error('Dashboard container not found in the DOM.');
 
@@ -100,7 +101,7 @@ export default function UsageDashboard() {
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
       <div className="flex-1 p-6 pb-10 overflow-auto">
-        <div id="dashboard-container" className="w-full h-full bg-white rounded-lg shadow-sm" />
+        <div ref={containerRef} className="w-full h-full bg-white rounded-lg shadow-sm" />
       </div>
     </main>
   );
