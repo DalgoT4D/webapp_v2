@@ -1021,7 +1021,9 @@ export function ChartElementV2({
                 mapDataLoading={mapLoading}
                 mapDataError={mapError}
                 title=""
-                valueColumn={chart?.extra_config?.aggregate_column}
+                valueColumn={
+                  chart?.extra_config?.metrics?.[0]?.alias || chart?.extra_config?.aggregate_column
+                }
                 onRegionClick={handleRegionClick}
                 drillDownPath={drillDownPath}
                 onDrillUp={handleDrillUp}
