@@ -117,6 +117,11 @@ function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
   const chartId = Number(params.id);
+  console.log('🔍 [EDIT-PAGE] Initialized with params:', {
+    rawId: params.id,
+    chartId,
+    isValidNumber: !isNaN(chartId) && chartId > 0,
+  });
   const { hasPermission } = useUserPermissions();
   const canEditChart = hasPermission('can_edit_charts');
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
@@ -143,13 +148,15 @@ function EditChartPageContent() {
   }
 
   // Initialize form data with chart data when loaded
-  const [formData, setFormData] = useState<ChartBuilderFormData>({
+  const initialFormData: ChartBuilderFormData = {
     title: '',
     chart_type: 'bar',
     computation_type: 'aggregated',
     customizations: getDefaultCustomizations('bar'),
     aggregate_function: 'sum',
-  });
+  };
+
+  const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
 
   const [activeTab, setActiveTab] = useState('chart');
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -281,10 +288,36 @@ function EditChartPageContent() {
     }
   }, [chart]);
 
+  // For new charts or charts that couldn't be loaded, set originalFormData to initial state
+  // This enables unsaved changes detection even for new charts
+  useEffect(() => {
+    console.log('🔍 [UNSAVED-CHANGES] Checking conditions:', {
+      hasChart: !!chart,
+      chartLoading,
+      hasOriginalFormData: !!originalFormData,
+      chartId,
+    });
+
+    if (!chart && !chartLoading && !originalFormData) {
+      console.log('✅ [UNSAVED-CHANGES] Setting originalFormData for new/unloaded chart');
+      setOriginalFormData({ ...initialFormData });
+    }
+  }, [chart, chartLoading, originalFormData, initialFormData, chartId]);
+
   // Check for unsaved changes
   const hasUnsavedChanges = useMemo(() => {
-    if (!originalFormData) return false;
-    return !deepEqual(formData, originalFormData);
+    const hasChanges = originalFormData ? !deepEqual(formData, originalFormData) : false;
+    console.log('🔍 [UNSAVED-CHANGES] Detection:', {
+      hasOriginalFormData: !!originalFormData,
+      hasChanges,
+      formDataTitle: formData.title,
+      formDataSchema: formData.schema_name,
+      formDataTable: formData.table_name,
+      originalTitle: originalFormData?.title,
+      originalSchema: originalFormData?.schema_name,
+      originalTable: originalFormData?.table_name,
+    });
+    return hasChanges;
   }, [formData, originalFormData]);
 
   const navigateWithoutWarning = useCallback(
@@ -1137,7 +1170,7 @@ function EditChartPageContent() {
     );
   }
 
-  if (chartError || !chart) {
+  if (chartError || (!chart && !chartLoading && chartId && chartId > 0)) {
     return (
       <div className="h-full flex flex-col overflow-hidden bg-gray-50">
         <div className="bg-white border-b px-6 py-4 flex-shrink-0">
@@ -1166,6 +1199,7 @@ function EditChartPageContent() {
               variant="ghost"
               size="sm"
               onClick={() => {
+                console.log('🔙 [BACK-BUTTON] Clicked. hasUnsavedChanges:', hasUnsavedChanges);
                 if (hasUnsavedChanges) {
                   setUnsavedChangesDialog({
                     open: true,

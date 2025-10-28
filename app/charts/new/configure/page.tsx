@@ -15,6 +15,7 @@ import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfigu
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
+import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
 import {
   useChartData,
   useChartDataPreview,
@@ -33,6 +34,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { deepEqual } from '@/lib/form-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -157,6 +159,11 @@ function ConfigureChartPageContent() {
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(50);
 
+  // Unsaved changes detection state
+  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
+  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string>('/charts');
+
   // ✅ ADD: Drill-down state management for create mode
   const [drillDownPath, setDrillDownPath] = useState<
     Array<{
@@ -180,6 +187,48 @@ function ConfigureChartPageContent() {
   const { data: regionGeojsons } = useRegionGeoJSONs(
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
   );
+
+  // Initialize original form data for unsaved changes detection
+  useEffect(() => {
+    if (!originalFormData) {
+      console.log('🔍 [CREATE-MODE] Initializing original form data for unsaved changes detection');
+      setOriginalFormData({ ...formData });
+    }
+  }, [formData.schema_name, formData.table_name, formData.chart_type, originalFormData]);
+
+  // Check for unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalFormData) return false;
+
+    const hasChanges = !deepEqual(formData, originalFormData);
+    console.log('🔍 [CREATE-MODE] Unsaved changes detection:', {
+      hasOriginalFormData: !!originalFormData,
+      hasChanges,
+      formDataTitle: formData.title,
+      originalTitle: originalFormData?.title,
+      formDataDimension: formData.dimension_column,
+      originalDimension: originalFormData?.dimension_column,
+    });
+
+    return hasChanges;
+  }, [formData, originalFormData]);
+
+  // Handle browser navigation (refresh, close tab, external links)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+      return undefined;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Check if form data is complete enough to generate chart data
   const isChartDataReady = () => {
@@ -711,6 +760,8 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
+      // Reset unsaved changes state after successful save
+      setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
       router.push(`/charts/${result.id}`);
     } catch (error) {
@@ -719,7 +770,27 @@ function ConfigureChartPageContent() {
   };
 
   const handleCancel = () => {
-    router.push('/charts');
+    console.log('🔙 [CREATE-MODE] Cancel button clicked. hasUnsavedChanges:', hasUnsavedChanges);
+    if (hasUnsavedChanges) {
+      setPendingNavigation('/charts');
+      setShowUnsavedChangesDialog(true);
+    } else {
+      router.push('/charts');
+    }
+  };
+
+  const handleUnsavedChangesLeave = () => {
+    setShowUnsavedChangesDialog(false);
+    router.push(pendingNavigation);
+  };
+
+  const handleUnsavedChangesSave = async () => {
+    await handleSave();
+    // handleSave will navigate away after successful save
+  };
+
+  const handleUnsavedChangesStay = () => {
+    setShowUnsavedChangesDialog(false);
   };
 
   return (
@@ -729,12 +800,25 @@ function ConfigureChartPageContent() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back Button */}
-            <Link href="/charts/new">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                console.log(
+                  '🔙 [CREATE-MODE] Back button clicked. hasUnsavedChanges:',
+                  hasUnsavedChanges
+                );
+                if (hasUnsavedChanges) {
+                  setPendingNavigation('/charts/new');
+                  setShowUnsavedChangesDialog(true);
+                } else {
+                  router.push('/charts/new');
+                }
+              }}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
 
             {/* Chart Title Input */}
             <Input
@@ -946,6 +1030,16 @@ function ConfigureChartPageContent() {
           </div>
         </div>
       </div>
+
+      {/* Unsaved Changes Dialog */}
+      <UnsavedChangesExitDialog
+        open={showUnsavedChangesDialog}
+        onOpenChange={setShowUnsavedChangesDialog}
+        onSave={handleUnsavedChangesSave}
+        onLeave={handleUnsavedChangesLeave}
+        onStay={handleUnsavedChangesStay}
+        isSaving={isMutating}
+      />
     </div>
   );
 }
