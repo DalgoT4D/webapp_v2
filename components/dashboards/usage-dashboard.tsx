@@ -24,14 +24,16 @@ export default function UsageDashboard() {
   };
 
   useEffect(() => {
-    if (!currentOrg?.viz_url) {
-      setError('You have not subscribed to Superset for Visualisation.');
-      setLoading(false);
-      return;
-    }
-
     const loadDashboard = async () => {
       try {
+        const { currentOrg } = useAuthStore.getState();
+
+        if (!currentOrg?.viz_url) {
+          setError('You have not subscribed to Superset for Visualisation.');
+          setLoading(false);
+          return;
+        }
+
         const embedToken = await fetchEmbedToken();
 
         // Add a small delay to ensure DOM is ready
@@ -89,7 +91,7 @@ export default function UsageDashboard() {
     };
 
     loadDashboard();
-  }, [currentOrg]);
+  }, []);
 
   if (loading) {
     return (
