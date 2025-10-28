@@ -490,19 +490,24 @@ export function MapDataConfigurationV3({
       </div>
 
       {/* Simplified Map Configuration */}
-      {formData.aggregate_column && formData.aggregate_function && (
-        <div className="space-y-4 pt-4 border-t">
-          <div>
-            <Label className="text-sm font-medium text-gray-900">Map Configuration</Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              Configure geographic levels and drill-down functionality
-            </p>
-          </div>
+      {formData.aggregate_function &&
+        (formData.aggregate_function === 'count' || formData.aggregate_column) && (
+          <div className="space-y-4 pt-4 border-t">
+            <div>
+              <Label className="text-sm font-medium text-gray-900">Map Configuration</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configure geographic levels and drill-down functionality
+              </p>
+            </div>
 
-          {/* Simplified Map Configuration - Single Card */}
-          <DynamicLevelConfig formData={formData} onChange={onFormDataChange} disabled={disabled} />
-        </div>
-      )}
+            {/* Simplified Map Configuration - Single Card */}
+            <DynamicLevelConfig
+              formData={formData}
+              onChange={onFormDataChange}
+              disabled={disabled}
+            />
+          </div>
+        )}
     </div>
   );
 }

@@ -114,10 +114,13 @@ export function CountryLevelConfig({
       },
     });
 
+    // For count operations, aggregate_column is not required (same pattern as bar charts)
+    const needsAggregateColumn = formData.aggregate_function !== 'count';
+
     if (
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
+      (!needsAggregateColumn || formData.aggregate_column) &&
       formData.aggregate_function &&
       formData.schema_name &&
       formData.table_name
@@ -129,6 +132,9 @@ export function CountryLevelConfig({
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
+        formData.dataOverlayPayload?.value_column ===
+          (formData.aggregate_column || formData.value_column) &&
+        formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
         currentFiltersHash === payloadFiltersHash;
 
       console.log('🔄 [COUNTRY-LEVEL-CONFIG] Payload validation check:', {
@@ -138,12 +144,21 @@ export function CountryLevelConfig({
             formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id,
           geographic_column_match:
             formData.dataOverlayPayload?.geographic_column === formData.geographic_column,
+          value_column_match:
+            formData.dataOverlayPayload?.value_column ===
+            (formData.aggregate_column || formData.value_column),
+          aggregate_function_match:
+            formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function,
           filters_match: currentFiltersHash === payloadFiltersHash,
         },
         current_geojson_id: formData.geojsonPreviewPayload?.geojsonId,
         expected_geojson_id: formData.selected_geojson_id,
         current_geographic_column: formData.dataOverlayPayload?.geographic_column,
         expected_geographic_column: formData.geographic_column,
+        current_value_column: formData.dataOverlayPayload?.value_column,
+        expected_value_column: formData.aggregate_column || formData.value_column,
+        current_aggregate_function: formData.dataOverlayPayload?.aggregate_function,
+        expected_aggregate_function: formData.aggregate_function,
       });
 
       if (!hasValidPayloads) {

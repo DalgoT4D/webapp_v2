@@ -208,10 +208,13 @@ export function DynamicLevelConfig({
 
   // Auto-generate preview when all required fields are configured (copied from CountryLevelConfig)
   useEffect(() => {
+    // For count operations, aggregate_column is not required (same pattern as bar charts)
+    const needsAggregateColumn = formData.aggregate_function !== 'count';
+
     if (
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
+      (!needsAggregateColumn || formData.aggregate_column) &&
       formData.aggregate_function &&
       formData.schema_name &&
       formData.table_name
@@ -223,6 +226,9 @@ export function DynamicLevelConfig({
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
+        formData.dataOverlayPayload?.value_column ===
+          (formData.aggregate_column || formData.value_column) &&
+        formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
         currentFiltersHash === payloadFiltersHash;
 
       if (!hasValidPayloads) {
