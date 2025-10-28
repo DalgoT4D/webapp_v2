@@ -94,13 +94,19 @@ export default function UsageDashboard() {
     );
   }
 
+  console.log('Rendering main dashboard component');
+
   return (
     <main className="usage-dashboard w-full h-screen flex flex-col">
       <div className="flex items-center justify-between p-6 border-b bg-white flex-shrink-0">
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
+        <div className="text-sm text-gray-500">DEBUG: Component loaded successfully</div>
       </div>
       <div className="flex-1 p-6 pb-10 overflow-auto">
-        <div id="dashboard-container" className="w-full h-full bg-white rounded-lg shadow-sm" />
+        <div
+          id="dashboard-container"
+          className="w-full h-full bg-white rounded-lg shadow-sm border-2 border-red-500"
+        />
       </div>
     </main>
   );
