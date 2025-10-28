@@ -43,6 +43,8 @@ export default function UsageDashboard() {
         const embedToken = await fetchEmbedToken();
         const mountHTMLElement = document.getElementById('dashboard-container');
 
+        if (!mountHTMLElement) throw new Error('Dashboard container not found in the DOM.');
+
         if (mountHTMLElement && embedToken) {
           embedDashboard({
             id: USAGE_DASHBOARD_ID,
