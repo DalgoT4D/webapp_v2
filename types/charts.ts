@@ -1,6 +1,6 @@
 // Chart metric configuration for multiple metrics on bar/line charts
 export interface ChartMetric {
-  column: string;
+  column: string | null; // null for COUNT(*) operations
   aggregation: string; // SUM, COUNT, AVG, MAX, MIN, etc.
   alias?: string; // Display name for the metric
 }

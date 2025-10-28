@@ -73,7 +73,7 @@ export function MetricsSelector({
 
   const addMetric = () => {
     const newMetric: ChartMetric = {
-      column: '',
+      column: null, // For count, use null to display as '*'
       aggregation: 'count',
       alias: '',
     };
@@ -85,12 +85,12 @@ export function MetricsSelector({
     newMetrics[index] = { ...newMetrics[index], ...updates };
 
     // Auto-generate alias if not manually set
-    if (!updates.alias && (updates.column || updates.aggregation)) {
+    if (!updates.alias && (updates.column !== undefined || updates.aggregation)) {
       const metric = newMetrics[index];
-      if (metric.column && metric.aggregation) {
+      if (metric.aggregation) {
         if (metric.aggregation.toLowerCase() === 'count' && !metric.column) {
           metric.alias = 'Total Count';
-        } else {
+        } else if (metric.column) {
           metric.alias = `${metric.aggregation.toUpperCase()}(${metric.column})`;
         }
       }
@@ -164,9 +164,27 @@ export function MetricsSelector({
                   <Label className="text-xs text-gray-600">{labels.function}</Label>
                   <Select
                     value={metric.aggregation}
-                    onValueChange={(value) =>
-                      updateMetric(index, { aggregation: value, column: '' })
-                    }
+                    onValueChange={(value) => {
+                      const updates: Partial<ChartMetric> = { aggregation: value };
+
+                      if (value === 'count') {
+                        // Count: set to null (displays as '*')
+                        updates.column = null;
+                      } else {
+                        // For other functions, auto-select first valid column
+                        const availableColumns = getAvailableColumns(value);
+                        const firstValidColumn = availableColumns.find((col) => !col.disabled);
+
+                        if (firstValidColumn) {
+                          updates.column = firstValidColumn.column_name;
+                        } else {
+                          // No valid columns available, clear selection to show error
+                          updates.column = '';
+                        }
+                      }
+
+                      updateMetric(index, updates);
+                    }}
                     disabled={disabled}
                   >
                     <SelectTrigger className="h-8">
@@ -186,7 +204,11 @@ export function MetricsSelector({
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">{labels.column}</Label>
                   <Select
-                    value={metric.column || ''}
+                    value={
+                      metric.aggregation?.toLowerCase() === 'count' && !metric.column
+                        ? '*'
+                        : metric.column || ''
+                    }
                     onValueChange={(value) =>
                       updateMetric(index, { column: value === '*' ? null : value })
                     }

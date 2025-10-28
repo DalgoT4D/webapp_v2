@@ -37,7 +37,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
 import { deepEqual } from '@/lib/form-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type {
@@ -118,6 +117,11 @@ function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
   const chartId = Number(params.id);
+  console.log('🔍 [EDIT-PAGE] Initialized with params:', {
+    rawId: params.id,
+    chartId,
+    isValidNumber: !isNaN(chartId) && chartId > 0,
+  });
   const { hasPermission } = useUserPermissions();
   const canEditChart = hasPermission('can_edit_charts');
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
@@ -144,13 +148,15 @@ function EditChartPageContent() {
   }
 
   // Initialize form data with chart data when loaded
-  const [formData, setFormData] = useState<ChartBuilderFormData>({
+  const initialFormData: ChartBuilderFormData = {
     title: '',
     chart_type: 'bar',
     computation_type: 'aggregated',
     customizations: getDefaultCustomizations('bar'),
     aggregate_function: 'sum',
-  });
+  };
+
+  const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
 
   const [activeTab, setActiveTab] = useState('chart');
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -164,6 +170,9 @@ function EditChartPageContent() {
     onConfirm: () => {},
     onCancel: () => {},
   });
+  const [errorToastVisible, setErrorToastVisible] = useState(false);
+  const [errorToastDismissed, setErrorToastDismissed] = useState(false);
+  const [lastValidChartConfig, setLastValidChartConfig] = useState<any>(null);
 
   // Drill-down state for map preview
   const [drillDownPath, setDrillDownPath] = useState<
@@ -279,10 +288,36 @@ function EditChartPageContent() {
     }
   }, [chart]);
 
+  // For new charts or charts that couldn't be loaded, set originalFormData to initial state
+  // This enables unsaved changes detection even for new charts
+  useEffect(() => {
+    console.log('🔍 [UNSAVED-CHANGES] Checking conditions:', {
+      hasChart: !!chart,
+      chartLoading,
+      hasOriginalFormData: !!originalFormData,
+      chartId,
+    });
+
+    if (!chart && !chartLoading && !originalFormData) {
+      console.log('✅ [UNSAVED-CHANGES] Setting originalFormData for new/unloaded chart');
+      setOriginalFormData({ ...initialFormData });
+    }
+  }, [chart, chartLoading, originalFormData, initialFormData, chartId]);
+
   // Check for unsaved changes
   const hasUnsavedChanges = useMemo(() => {
-    if (!originalFormData) return false;
-    return !deepEqual(formData, originalFormData);
+    const hasChanges = originalFormData ? !deepEqual(formData, originalFormData) : false;
+    console.log('🔍 [UNSAVED-CHANGES] Detection:', {
+      hasOriginalFormData: !!originalFormData,
+      hasChanges,
+      formDataTitle: formData.title,
+      formDataSchema: formData.schema_name,
+      formDataTable: formData.table_name,
+      originalTitle: originalFormData?.title,
+      originalSchema: originalFormData?.schema_name,
+      originalTable: originalFormData?.table_name,
+    });
+    return hasChanges;
   }, [formData, originalFormData]);
 
   const navigateWithoutWarning = useCallback(
@@ -410,6 +445,104 @@ function EditChartPageContent() {
   } = useChartData(
     formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
   );
+
+  // Track last valid chart config for better UX
+  useEffect(() => {
+    if (chartData?.echarts_config) {
+      setLastValidChartConfig(chartData.echarts_config);
+    }
+  }, [chartData?.echarts_config]);
+
+  // Reset dismiss state when form configuration changes
+  useEffect(() => {
+    setErrorToastDismissed(false);
+    console.log('Form config changed - reset dismiss state');
+  }, [
+    formData.chart_type,
+    formData.aggregate_function,
+    formData.aggregate_column,
+    formData.dimension_column,
+    formData.metrics,
+    formData.schema_name,
+    formData.table_name,
+  ]);
+
+  // Manage error toast visibility
+  useEffect(() => {
+    const hasBasicConfig = formData.schema_name && formData.table_name && formData.chart_type;
+    const isConfigIncomplete =
+      hasBasicConfig &&
+      !isChartDataReady() &&
+      formData.chart_type !== 'map' &&
+      formData.chart_type !== 'table';
+    const shouldShowToast = isConfigIncomplete && !chartDataLoading && !errorToastDismissed;
+
+    // Debug specifically for number charts
+    if (formData.chart_type === 'number') {
+      console.log('Number chart debug:', {
+        hasBasicConfig,
+        isChartDataReady: isChartDataReady(),
+        chartDataLoading,
+        chartData: !!chartData,
+        aggregate_function: formData.aggregate_function,
+        aggregate_column: formData.aggregate_column,
+        isConfigIncomplete,
+        shouldShowToast,
+      });
+    }
+
+    console.log('Toast visibility check:', {
+      chartType: formData.chart_type,
+      isConfigIncomplete,
+      chartDataLoading,
+      errorToastDismissed,
+      shouldShowToast,
+    });
+
+    if (shouldShowToast && !errorToastVisible) {
+      console.log('Showing toast');
+      setErrorToastVisible(true);
+    } else if (!isConfigIncomplete && errorToastVisible) {
+      console.log('Hiding toast - config complete');
+      setErrorToastVisible(false);
+    }
+  }, [
+    formData,
+    chartData,
+    chartDataLoading,
+    isChartDataReady,
+    errorToastVisible,
+    errorToastDismissed,
+  ]);
+
+  // Handle manual toast dismissal
+  const handleDismissToast = (e: React.MouseEvent) => {
+    console.log('Toast clicked - dismissing, current state:', errorToastVisible);
+    e.preventDefault();
+    e.stopPropagation();
+    setErrorToastVisible(false);
+    setErrorToastDismissed(true); // Mark as manually dismissed
+    console.log('State set to false, dismissed set to true');
+  };
+
+  // Handle error toast visibility and auto-hide - DISABLED
+  // useEffect(() => {
+  //   const hasBasicConfig = formData.schema_name && formData.table_name && formData.chart_type;
+  //   const isConfigComplete = isChartDataReady();
+  //   const hasChartConfig = chartData?.echarts_config;
+  //   const shouldShowError = hasBasicConfig && !isConfigComplete && !hasChartConfig && !chartDataLoading && formData.chart_type !== 'map' && formData.chart_type !== 'table';
+  //
+  //   if (shouldShowError && !errorToastVisible) {
+  //     setErrorToastVisible(true);
+  //     // Auto-hide after 10 seconds
+  //     const timer = setTimeout(() => {
+  //       setErrorToastVisible(false);
+  //     }, 10000);
+  //     return () => clearTimeout(timer);
+  //   } else if (!shouldShowError && errorToastVisible) {
+  //     setErrorToastVisible(false);
+  //   }
+  // }, [formData, chartData, chartDataLoading, isChartDataReady, errorToastVisible]);
 
   // Drill-down functionality for maps - fetch regions
   const countryCode = 'IND'; // TODO: make this dynamic based on selected geojson
@@ -1037,7 +1170,7 @@ function EditChartPageContent() {
     );
   }
 
-  if (chartError || !chart) {
+  if (chartError || (!chart && !chartLoading && chartId && chartId > 0)) {
     return (
       <div className="h-full flex flex-col overflow-hidden bg-gray-50">
         <div className="bg-white border-b px-6 py-4 flex-shrink-0">
@@ -1062,12 +1195,38 @@ function EditChartPageContent() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back Button */}
-            <Link href={`/charts/${chartId}`}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                console.log('🔙 [BACK-BUTTON] Clicked. hasUnsavedChanges:', hasUnsavedChanges);
+                if (hasUnsavedChanges) {
+                  setUnsavedChangesDialog({
+                    open: true,
+                    onConfirm: () => {
+                      setUnsavedChangesDialog({
+                        open: false,
+                        onConfirm: () => {},
+                        onCancel: () => {},
+                      });
+                      navigateWithoutWarning(`/charts/${chartId}`);
+                    },
+                    onCancel: () => {
+                      setUnsavedChangesDialog({
+                        open: false,
+                        onConfirm: () => {},
+                        onCancel: () => {},
+                      });
+                    },
+                  });
+                } else {
+                  router.push(`/charts/${chartId}`);
+                }
+              }}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
 
             {/* Chart Title Input */}
             <Input
@@ -1182,8 +1341,36 @@ function EditChartPageContent() {
                 </TabsList>
               </div>
 
-              <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto">
-                <div className="p-4 h-full">
+              <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto relative">
+                <div className="p-4 h-full relative">
+                  {/* Configuration error toast - properly centered in chart area with working click */}
+                  {errorToastVisible && (
+                    <div
+                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-auto cursor-pointer"
+                      style={{
+                        zIndex: 9999,
+                        width: '90%',
+                        maxWidth: '24rem',
+                      }}
+                      onClick={handleDismissToast}
+                    >
+                      <Alert
+                        variant="destructive"
+                        className="shadow-2xl animate-in slide-in-from-top-2 duration-300 hover:shadow-3xl transition-all border-2 border-red-300 bg-red-50 cursor-pointer"
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-sm">
+                          Please check the dataset or metric column to complete the chart
+                          configuration
+                          <div className="text-xs text-red-600 mt-2 font-medium">
+                            ✕ Click to dismiss
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+
+                  {/* Chart content area - always full size */}
                   {formData.chart_type === 'map' ? (
                     <div className="w-full h-full">
                       <MapPreview
@@ -1215,9 +1402,10 @@ function EditChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config}
+                        config={chartData?.echarts_config || lastValidChartConfig}
                         isLoading={chartDataLoading}
-                        error={chartDataError}
+                        error={null} // Error handled by toast
+                        chartType={formData.chart_type}
                       />
                     </div>
                   )}

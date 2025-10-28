@@ -161,6 +161,14 @@ export function ChartElementV2({
     return chart ? chart.chart_type === 'map' : false;
   }, [chart]);
 
+  const isPieChart = useMemo(() => {
+    return chart ? chart.chart_type === 'pie' : false;
+  }, [chart]);
+
+  const isNumberChart = useMemo(() => {
+    return chart ? chart.chart_type === 'number' : false;
+  }, [chart]);
+
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
@@ -416,8 +424,8 @@ export function ChartElementV2({
         ? mapError || geojsonError
         : dataError);
 
-  // Get the actual error message
-  const errorMessage =
+  // Get the actual error message with improved messaging
+  const rawErrorMessage =
     chartFetchError?.message ||
     (chart?.chart_type === 'table'
       ? tableError?.message
@@ -425,6 +433,20 @@ export function ChartElementV2({
         ? mapError?.message || geojsonError?.message
         : dataError?.message) ||
     'Chart configuration needs adjustment';
+
+  // Determine if this is a data-related error and provide helpful message
+  const isDataError =
+    rawErrorMessage.toLowerCase().includes('data') ||
+    rawErrorMessage.toLowerCase().includes('column') ||
+    rawErrorMessage.toLowerCase().includes('metric') ||
+    rawErrorMessage.toLowerCase().includes('dimension') ||
+    rawErrorMessage.toLowerCase().includes('aggregate') ||
+    rawErrorMessage.toLowerCase().includes('no rows') ||
+    rawErrorMessage.toLowerCase().includes('empty result');
+
+  const errorMessage = isDataError
+    ? 'Please check the dataset or metrics selected and try again'
+    : 'Chart configuration needs adjustment. Please review your settings and try again';
 
   // Handle region click for drill-down - EXACT COPY FROM WORKING VIEW MODE
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -640,13 +662,121 @@ export function ChartElementV2({
           ...(chartConfig.title || {}),
           show: false, // Disable ECharts built-in title
         },
-        grid: {
-          ...chartConfig.grid,
-          containLabel: true,
-          left: '10%',
-          right: '8%',
-          top: '12%',
-          bottom: '15%',
+        // Enhanced data labels styling
+        series: Array.isArray(chartConfig.series)
+          ? chartConfig.series.map((series) => ({
+              ...series,
+              label: {
+                ...series.label,
+                fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontWeight: 'normal',
+              },
+            }))
+          : chartConfig.series
+            ? {
+                ...chartConfig.series,
+                label: {
+                  ...chartConfig.series.label,
+                  fontSize: chartConfig.series.label?.fontSize
+                    ? chartConfig.series.label.fontSize + 0.5
+                    : 12.5,
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  fontWeight: 'normal',
+                },
+              }
+            : undefined,
+        // For pie and number charts, completely remove grid and axis configurations
+        ...(isPieChart || isNumberChart
+          ? {
+              // Remove grid entirely
+              grid: undefined,
+              // Remove axes entirely
+              xAxis: undefined,
+              yAxis: undefined,
+            }
+          : {
+              // For other chart types, apply normal grid and axis styling
+              grid: {
+                ...chartConfig.grid,
+                containLabel: true,
+                left: '10%',
+                right: '8%',
+                top: '12%',
+                bottom: '15%',
+              },
+              xAxis: Array.isArray(chartConfig.xAxis)
+                ? chartConfig.xAxis.map((axis) => ({
+                    ...axis,
+                    nameTextStyle: {
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                  }))
+                : {
+                    ...chartConfig.xAxis,
+                    nameTextStyle: {
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                  },
+              yAxis: Array.isArray(chartConfig.yAxis)
+                ? chartConfig.yAxis.map((axis) => ({
+                    ...axis,
+                    nameTextStyle: {
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                  }))
+                : {
+                    ...chartConfig.yAxis,
+                    nameTextStyle: {
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                  },
+            }),
+        // Enhanced tooltip with bold values
+        tooltip: {
+          ...chartConfig.tooltip,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderColor: '#e5e7eb',
+          borderWidth: 1,
+          textStyle: {
+            color: '#1f2937',
+            fontSize: 12,
+          },
+          extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
+          formatter: function (params: any) {
+            if (Array.isArray(params)) {
+              // For multiple series (line/bar charts with multiple lines/bars)
+              let result = '';
+              params.forEach((param: any, index: number) => {
+                if (index === 0) {
+                  result += param.name + '<br/>';
+                }
+                const value =
+                  typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
+                result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
+              });
+              return result;
+            } else {
+              // For single series (pie charts, single bar/line)
+              const value =
+                typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
+              if (params.percent !== undefined) {
+                // Pie chart with percentage
+                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
+              } else {
+                // Regular chart
+                return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
+              }
+            }
+          },
         },
       };
 
@@ -863,11 +993,15 @@ export function ChartElementV2({
                 </div>
               </div>
             ) : isError ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center p-4">
-                  <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                  <p className="text-sm text-destructive">Chart Error</p>
-                  <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
+              <div className="flex flex-col items-center justify-start h-full pt-20">
+                <div className="w-full max-w-md px-4">
+                  <div className="flex items-center p-4 border border-red-200 rounded-lg bg-red-50 shadow-lg">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-800">Chart Error</p>
+                      <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : chart?.chart_type === 'table' ? (
