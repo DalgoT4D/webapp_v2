@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -12,6 +12,7 @@ export default function UsageDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { currentOrg } = useAuthStore();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const fetchEmbedToken = async () => {
     try {
@@ -36,10 +37,8 @@ export default function UsageDashboard() {
 
         const embedToken = await fetchEmbedToken();
 
-        // Add a small delay to ensure DOM is ready
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        const mountHTMLElement = document.getElementById('dashboard-container');
+        // Use ref instead of getElementById
+        const mountHTMLElement = containerRef.current;
 
         if (!mountHTMLElement) {
           throw new Error('Dashboard container not found');
@@ -124,7 +123,7 @@ export default function UsageDashboard() {
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
       <div className="flex-1 p-6 pb-10 overflow-auto">
-        <div id="dashboard-container" className="w-full h-full bg-white rounded-lg shadow-sm" />
+        <div ref={containerRef} className="w-full h-full bg-white rounded-lg shadow-sm" />
       </div>
     </main>
   );
