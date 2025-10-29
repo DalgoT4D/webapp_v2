@@ -1939,8 +1939,9 @@ export function DashboardListV2() {
         <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
           {/* Left: Compact Item Count */}
           <div id="dashboard-pagination-info" className="text-sm text-gray-600">
-            {startIndex + 1}–{Math.min(startIndex + pageSize, regularDashboards.length)} of{' '}
-            {regularDashboards.length}
+            {total === 0
+              ? '0–0 of 0'
+              : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total}`}
           </div>
 
           {/* Right: Streamlined Controls */}

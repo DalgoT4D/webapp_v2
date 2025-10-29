@@ -1693,7 +1693,9 @@ export default function ChartsPage() {
         <div id="charts-pagination-wrapper" className="flex items-center justify-between">
           {/* Left: Compact Item Count */}
           <div id="charts-pagination-info" className="text-sm text-gray-600">
-            {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, total)} of {total}
+            {total === 0
+              ? '0–0 of 0'
+              : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} of ${total}`}
           </div>
 
           {/* Right: Streamlined Controls */}
