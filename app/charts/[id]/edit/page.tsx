@@ -653,15 +653,6 @@ function EditChartPageContent() {
   // Fetch total rows for chart data preview pagination
   const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
 
-  // Debug logging
-  console.log('Chart Data Preview Debug:', {
-    chartDataTotalRows,
-    dataPreviewPage,
-    hasDataPreview: !!dataPreview,
-    dataLength: dataPreview?.data?.length,
-    chartDataPayload: !!chartDataPayload,
-  });
-
   // Fetch raw table data
   const {
     data: rawTableData,

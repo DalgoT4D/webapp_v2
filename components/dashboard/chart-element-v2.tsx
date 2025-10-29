@@ -565,7 +565,6 @@ export function ChartElementV2({
     }
   }, [appliedFilters, mutateTableData, chartId, chart?.chart_type]);
 
-  // Debug logging
   useEffect(() => {
     // Chart config availability check
   }, [chart, chartData, chartId, appliedFilters]);
