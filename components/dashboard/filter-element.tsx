@@ -12,11 +12,11 @@ interface FilterElementProps {
   onEdit?: () => void;
   onClear?: () => void;
   isEditMode?: boolean;
-  value?: any;
-  onChange?: (filterId: string, value: any) => void;
+  value?: unknown;
+  onChange?: (filterId: string, value: unknown) => void;
   showTitle?: boolean;
   compact?: boolean;
-  dragHandleProps?: any; // DnD Kit listeners for drag handle
+  dragHandleProps?: Record<string, unknown>; // DnD Kit listeners for drag handle
   isPublicMode?: boolean;
   publicToken?: string;
 }
@@ -24,7 +24,6 @@ interface FilterElementProps {
 export function FilterElement({
   filter,
   onRemove,
-  onUpdate,
   onEdit,
   onClear,
   isEditMode = true,
@@ -36,17 +35,16 @@ export function FilterElement({
   isPublicMode = false,
   publicToken,
 }: FilterElementProps) {
+  const [localValue, setLocalValue] = useState<unknown>(value || null);
+
   // Validate filter before proceeding
   if (!filter || !filter.id) {
-    console.error('Invalid filter passed to FilterElement:', filter);
     return (
       <div className="p-4 text-red-500 border border-red-200 rounded">
         Invalid filter configuration
       </div>
     );
   }
-
-  const [localValue, setLocalValue] = useState<any>(value || null);
 
   // Sync localValue when value prop changes (for default values)
   useEffect(() => {
@@ -59,7 +57,7 @@ export function FilterElement({
     }
   }, [value, localValue, filter.id]);
 
-  const handleChange = (filterId: string, newValue: any) => {
+  const handleChange = (filterId: string, newValue: unknown) => {
     setLocalValue(newValue);
     if (onChange) {
       onChange(filterId, newValue);
@@ -77,12 +75,14 @@ export function FilterElement({
   };
 
   // Check if filter has a value
-  const hasValue = () => {
+  const hasValue = (): boolean => {
     if (localValue === null || localValue === undefined) return false;
     if (Array.isArray(localValue)) return localValue.length > 0;
-    if (typeof localValue === 'object') {
+    if (typeof localValue === 'object' && localValue !== null) {
       // For numerical range or date range
-      return Object.values(localValue).some((v) => v !== null && v !== undefined);
+      return Object.values(localValue as Record<string, unknown>).some(
+        (v) => v !== null && v !== undefined
+      );
     }
     return true;
   };
@@ -101,7 +101,7 @@ export function FilterElement({
       )}
 
       {/* Action buttons - Hidden by default, shown on hover */}
-      {(isEditMode && (onRemove || onEdit)) || hasValue() ? (
+      {((isEditMode && (onRemove || onEdit)) || hasValue()) && (
         <div className="absolute -top-2 -right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
           {hasValue() && (
             <button
@@ -131,7 +131,7 @@ export function FilterElement({
             </button>
           )}
         </div>
-      ) : null}
+      )}
 
       <DashboardFilterWidget
         filter={filter}
