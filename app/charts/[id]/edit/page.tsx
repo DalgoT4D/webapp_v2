@@ -23,6 +23,7 @@ import {
   useCreateChart,
   useChartData,
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useGeoJSONData,
   useMapDataOverlay,
   useRawTableData,
@@ -159,6 +160,8 @@ function EditChartPageContent() {
   const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
 
   const [activeTab, setActiveTab] = useState('chart');
+  const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(50);
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(50);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -645,7 +648,10 @@ function EditChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, 1, 50);
+  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+
+  // Fetch total rows for chart data preview pagination
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
 
   // Fetch raw table data
   const {
@@ -885,6 +891,11 @@ function EditChartPageContent() {
       // Regular form update without chart type change
       setFormData((prev) => ({ ...prev, ...updates }));
     }
+  };
+
+  const handleDataPreviewPageSizeChange = (newPageSize: number) => {
+    setDataPreviewPageSize(newPageSize);
+    setDataPreviewPage(1); // Reset to first page when page size changes
   };
 
   const handleRawDataPageSizeChange = (newPageSize: number) => {
@@ -1433,6 +1444,13 @@ function EditChartPageContent() {
                         columnTypes={dataPreview?.column_types || {}}
                         isLoading={previewLoading}
                         error={previewError}
+                        pagination={{
+                          page: dataPreviewPage,
+                          pageSize: dataPreviewPageSize,
+                          total: chartDataTotalRows || 0,
+                          onPageChange: setDataPreviewPage,
+                          onPageSizeChange: handleDataPreviewPageSizeChange,
+                        }}
                       />
                     </TabsContent>
 

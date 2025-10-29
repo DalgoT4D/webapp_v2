@@ -317,13 +317,6 @@ function ConfigureChartPageContent() {
       }
     : null;
 
-  // Debug logging
-  console.log('Chart Configuration Debug:', {
-    isChartDataReady: isChartDataReady(),
-    formData,
-    chartDataPayload,
-  });
-
   // Fetch chart data
   const {
     data: chartData,
