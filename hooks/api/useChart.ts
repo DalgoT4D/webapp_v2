@@ -66,17 +66,29 @@ export function useChartDataPreview(
   page: number = 1,
   pageSize: number = 50
 ) {
-  const enrichedPayload = payload
-    ? {
-        ...payload,
-        offset: (page - 1) * pageSize,
-        limit: pageSize,
-      }
-    : null;
+  // Create a stable key that includes pagination parameters
+  const swrKey = payload ? [`/api/charts/chart-data-preview/`, payload, page, pageSize] : null;
 
   return useSWR(
-    enrichedPayload ? ['/api/charts/chart-data-preview/', enrichedPayload] : null,
-    dataPreviewFetcher
+    swrKey,
+    async ([url, data, pageNum, limit]: [string, ChartDataPayload, number, number]) => {
+      // Send page and limit as query parameters, payload as body
+      const queryParams = new URLSearchParams({
+        page: (pageNum - 1).toString(), // Backend expects 0-based page
+        limit: limit.toString(),
+      });
+
+      // Use the centralized API client with query parameters
+      return apiPost(`${url}?${queryParams}`, data);
+    }
+  );
+}
+
+// Chart data preview total rows hook
+export function useChartDataPreviewTotalRows(payload: ChartDataPayload | null) {
+  return useSWR(
+    payload ? ['/api/charts/chart-data-preview/total-rows/', payload] : null,
+    ([url, data]: [string, ChartDataPayload]) => apiPost(url, data)
   );
 }
 

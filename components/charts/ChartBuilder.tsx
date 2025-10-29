@@ -22,6 +22,7 @@ import { DynamicLevelConfig } from './map/DynamicLevelConfig';
 import {
   useChartData,
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useTables,
   useColumns,
   useMapData,
@@ -135,6 +136,7 @@ export function ChartBuilder({
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(50);
   const [rawDataPage, setRawDataPage] = useState(1);
 
   // Drill-down state for maps
@@ -236,7 +238,19 @@ export function ChartBuilder({
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, 50);
+  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+
+  // Fetch total rows for chart data preview pagination
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+
+  // Debug logging
+  console.log('Chart Data Preview Debug:', {
+    chartDataTotalRows,
+    dataPreviewPage,
+    hasDataPreview: !!dataPreview,
+    dataLength: dataPreview?.data?.length,
+    chartDataPayload: !!chartDataPayload,
+  });
 
   // Fetch raw table data
   const {
@@ -296,6 +310,11 @@ export function ChartBuilder({
   // Fetch warehouse data for map configuration
   const { data: tables } = useTables(formData.schema_name);
   const { data: columns } = useColumns(formData.schema_name, formData.table_name);
+
+  const handleDataPreviewPageSizeChange = (newPageSize: number) => {
+    setDataPreviewPageSize(newPageSize);
+    setDataPreviewPage(1); // Reset to first page when page size changes
+  };
 
   const handleFormChange = useCallback(
     (updates: Partial<ChartBuilderFormData>) => {
@@ -1046,23 +1065,20 @@ export function ChartBuilder({
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="chart-data" className="flex-1">
+              <TabsContent value="chart-data" className="flex-1 flex flex-col h-full">
                 <DataPreview
                   data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                   columns={dataPreview?.columns || []}
                   columnTypes={dataPreview?.column_types || {}}
                   isLoading={previewLoading}
                   error={previewError}
-                  pagination={
-                    dataPreview
-                      ? {
-                          page: dataPreview.page,
-                          pageSize: dataPreview.page_size,
-                          total: dataPreview.total_rows,
-                          onPageChange: setDataPreviewPage,
-                        }
-                      : undefined
-                  }
+                  pagination={{
+                    page: dataPreviewPage,
+                    pageSize: dataPreviewPageSize,
+                    total: chartDataTotalRows || 0,
+                    onPageChange: setDataPreviewPage,
+                    onPageSizeChange: handleDataPreviewPageSizeChange,
+                  }}
                 />
               </TabsContent>
 
