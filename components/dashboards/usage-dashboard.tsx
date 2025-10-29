@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { embedDashboard } from '@superset-ui/embedded-sdk';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -24,60 +24,42 @@ export default function UsageDashboard() {
     }
   };
 
-  const containerRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (!node) return;
+  useEffect(() => {
+    if (!currentOrg?.viz_url) {
+      setError('You have not subscribed to Superset for Visualisation.');
+      setLoading(false);
+      return;
+    }
 
-      console.log('Container element attached to DOM');
+    const loadDashboard = async () => {
+      try {
+        const embedToken = await fetchEmbedToken();
+        const mountHTMLElement = document.getElementById('dashboard-container');
 
-      if (!currentOrg?.viz_url) {
-        setError('You have not subscribed to Superset for Visualisation.');
-        setLoading(false);
-        return;
-      }
-
-      const loadDashboard = async () => {
-        try {
-          console.log('Loading dashboard with element:', node);
-          const embedToken = await fetchEmbedToken();
-
-          if (node && embedToken) {
-            console.log('Embedding dashboard...');
-            embedDashboard({
-              id: USAGE_DASHBOARD_ID,
-              supersetDomain: USAGE_DASHBOARD_DOMAIN,
-              mountPoint: node,
-              fetchGuestToken: () => embedToken,
-              dashboardUiConfig: {
-                hideTitle: true,
-                filters: {
-                  expanded: true,
-                },
+        if (mountHTMLElement && embedToken) {
+          embedDashboard({
+            id: USAGE_DASHBOARD_ID,
+            supersetDomain: USAGE_DASHBOARD_DOMAIN,
+            mountPoint: mountHTMLElement,
+            fetchGuestToken: () => embedToken,
+            dashboardUiConfig: {
+              hideTitle: true,
+              filters: {
+                expanded: true,
               },
-            });
-
-            // Check for iframe creation
-            setTimeout(() => {
-              const iframe = node.querySelector('iframe');
-              console.log('Iframe created:', !!iframe);
-              if (!iframe) {
-                setError('Dashboard failed to load - no iframe created');
-              }
-            }, 3000);
-          }
-        } catch (err: any) {
-          console.error('Dashboard loading error:', err);
-          setError(err.message);
-        } finally {
-          setLoading(false);
+            },
+            debug: true,
+          });
         }
-      };
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      // Small delay to ensure DOM is stable
-      setTimeout(loadDashboard, 100);
-    },
-    [currentOrg]
-  );
+    loadDashboard();
+  }, [currentOrg]);
 
   if (loading) {
     return (
@@ -110,7 +92,7 @@ export default function UsageDashboard() {
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
       <div className="flex-1 p-6 pb-10 overflow-auto">
-        <div ref={containerRef} className="w-full h-full bg-white rounded-lg shadow-sm" />
+        <div id="dashboard-container" className="w-full h-full bg-white rounded-lg shadow-sm" />
       </div>
     </main>
   );
