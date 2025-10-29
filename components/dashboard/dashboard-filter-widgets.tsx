@@ -322,14 +322,8 @@ function ValueFilterWidget({
                 <button
                   type="button"
                   className="inline-flex items-center justify-center hover:text-red-600"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const newSelection = selectedValues.filter((v) => v !== value);
-                    const finalValue = newSelection.length === 0 ? null : newSelection;
-                    setSelectedValues(newSelection);
-                    onChange(filter.id, finalValue);
-                  }}
+                  onClick={() => handleSelectionChange(value, false)}
+                  aria-label={`Remove ${availableOptions.find((opt: FilterOption) => opt.value === value)?.label || value}`}
                 >
                   <X className="w-2.5 h-2.5" />
                 </button>
