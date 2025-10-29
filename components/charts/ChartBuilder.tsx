@@ -394,9 +394,11 @@ export function ChartBuilder({
 
     // Special validation for map charts
     if (formData.chart_type === 'map') {
+      // Count(*) doesn't need a value_column, similar to other chart types
+      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
         formData.geographic_column &&
-        formData.value_column &&
+        (!needsValueColumn || formData.value_column) &&
         formData.aggregate_function &&
         formData.selected_geojson_id
       );
@@ -595,12 +597,14 @@ export function ChartBuilder({
 
         // Special handling for map charts
         if (formData.chart_type === 'map') {
+          // Count(*) doesn't need a value_column
+          const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
           const hasMapConfig =
             formData.schema_name &&
             formData.table_name &&
             formData.title &&
             formData.geographic_column &&
-            formData.value_column &&
+            (!needsValueColumn || formData.value_column) &&
             formData.aggregate_function &&
             formData.selected_geojson_id;
 

@@ -666,9 +666,11 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'map') {
+      // Count(*) doesn't need a value_column, similar to other chart types
+      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
         formData.geographic_column &&
-        formData.value_column &&
+        (!needsValueColumn || formData.value_column) &&
         formData.aggregate_function &&
         formData.selected_geojson_id
       );
