@@ -464,29 +464,11 @@ export function ChartElementView({
             effectiveChart.extra_config.value_column,
           aggregate_function: effectiveChart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
-          chart_filters: [
-            ...(effectiveChart.extra_config.filters || []), // Chart-level filters
-            ...formatAsChartFilters(
-              resolvedDashboardFilters.filter(
-                (filter) =>
-                  filter.schema_name === effectiveChart.schema_name &&
-                  filter.table_name === effectiveChart.table_name
-              )
-            ), // Only apply dashboard filters that match the chart's schema/table
-          ],
-          // Remove the old dashboard_filters format since we're using chart_filters now
-          // Include full extra_config for pagination, sorting, and other features
+          // Send dashboardFilters directly as dashboard_filters (dict format)
+          dashboard_filters: dashboardFilters,
+          // Chart-level filters go in extra_config.filters
           extra_config: {
-            filters: [
-              ...(effectiveChart.extra_config.filters || []),
-              ...formatAsChartFilters(
-                resolvedDashboardFilters.filter(
-                  (filter) =>
-                    filter.schema_name === effectiveChart.schema_name &&
-                    filter.table_name === effectiveChart.table_name
-                )
-              ),
-            ],
+            filters: effectiveChart.extra_config.filters || [], // Chart-level filters only
             pagination: effectiveChart.extra_config.pagination,
             sort: effectiveChart.extra_config.sort,
           },
@@ -499,7 +481,7 @@ export function ChartElementView({
     effectiveChart?.extra_config,
     activeGeographicColumn,
     filters,
-    resolvedDashboardFilters, // Updated: Use resolved filters instead of raw dashboardFilters
+    dashboardFilters, // Use raw dashboardFilters (filter_id -> value mapping)
   ]);
 
   // Fetch GeoJSON data - public vs private mode
@@ -869,7 +851,7 @@ export function ChartElementView({
       },
       // Enhanced data labels styling
       series: Array.isArray(baseConfig.series)
-        ? baseConfig.series.map((series) => ({
+        ? baseConfig.series.map((series: any) => ({
             ...series,
             label: {
               ...series.label,
@@ -926,7 +908,7 @@ export function ChartElementView({
               bottom: '15%',
             },
             xAxis: Array.isArray(baseConfig.xAxis)
-              ? baseConfig.xAxis.map((axis) => ({
+              ? baseConfig.xAxis.map((axis: any) => ({
                   ...axis,
                   nameTextStyle: {
                     fontSize: 14,
@@ -943,7 +925,7 @@ export function ChartElementView({
                   },
                 },
             yAxis: Array.isArray(baseConfig.yAxis)
-              ? baseConfig.yAxis.map((axis) => ({
+              ? baseConfig.yAxis.map((axis: any) => ({
                   ...axis,
                   nameTextStyle: {
                     fontSize: 14,

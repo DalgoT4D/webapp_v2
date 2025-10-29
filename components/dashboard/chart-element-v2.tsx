@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, AlertCircle, Home, Eye, Edit, Loader2 } from 'lucide-react';
+import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
@@ -14,7 +14,7 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import useSWR from 'swr';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
@@ -96,25 +96,11 @@ export function ChartElementV2({
   // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
-  // Navigation
-  const router = useRouter();
-
-  // Navigation handler functions
-  const handleViewChart = () => {
-    router.push(`/charts/${chartId}`);
-  };
-
-  const handleEditChart = () => {
-    router.push(`/charts/${chartId}/edit`);
-  };
-
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
-    console.log(`🔍 [Chart ${chartId}] Filter Resolution:`, {
+    console.log('🔍 [Chart ' + chartId + '] Resolving dashboard filters:', {
       appliedFilters,
       dashboardFilterConfigs,
-      hasAppliedFilters: Object.keys(appliedFilters).length > 0,
-      hasFilterConfigs: dashboardFilterConfigs.length > 0,
     });
 
     if (Object.keys(appliedFilters).length === 0 || dashboardFilterConfigs.length === 0) {
@@ -123,12 +109,8 @@ export function ChartElementV2({
     }
 
     const resolved = resolveDashboardFilters(appliedFilters, dashboardFilterConfigs);
-    console.log(`✅ [Chart ${chartId}] Resolved filters:`, resolved);
     return resolved;
   }, [appliedFilters, dashboardFilterConfigs, chartId]);
-
-  // Create a stable chart instance identifier to prevent state bleeding
-  const chartInstanceId = useRef(`chart-${chartId}-${Date.now()}`).current;
 
   const {
     data: chart,
@@ -243,28 +225,11 @@ export function ChartElementV2({
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
           aggregate_function: chart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
-          chart_filters: [
-            ...(chart.extra_config.filters || []), // Chart-level filters
-            ...formatAsChartFilters(
-              resolvedDashboardFilters.filter(
-                (filter) =>
-                  filter.schema_name === chart.schema_name && filter.table_name === chart.table_name
-              )
-            ), // Only apply dashboard filters that match the chart's schema/table
-          ],
-          // Remove the old dashboard_filters format since we're using chart_filters now
-          // Include full extra_config for pagination, sorting, and other features
+          // Convert appliedFilters to dashboard_filters format (filter_id -> value)
+          dashboard_filters: appliedFilters,
+          // Chart-level filters go in extra_config.filters
           extra_config: {
-            filters: [
-              ...(chart.extra_config.filters || []),
-              ...formatAsChartFilters(
-                resolvedDashboardFilters.filter(
-                  (filter) =>
-                    filter.schema_name === chart.schema_name &&
-                    filter.table_name === chart.table_name
-                )
-              ),
-            ],
+            filters: chart.extra_config.filters || [], // Chart-level filters only
             pagination: chart.extra_config.pagination,
             sort: chart.extra_config.sort,
           },
@@ -277,7 +242,7 @@ export function ChartElementV2({
     chart?.extra_config,
     activeGeographicColumn,
     filters,
-    resolvedDashboardFilters, // Updated: Use resolved filters instead of raw dashboardFilters
+    appliedFilters, // Use raw appliedFilters (filter_id -> value mapping)
   ]);
 
   // Log map payload only when drill down is active
@@ -664,7 +629,7 @@ export function ChartElementV2({
         },
         // Enhanced data labels styling
         series: Array.isArray(chartConfig.series)
-          ? chartConfig.series.map((series) => ({
+          ? chartConfig.series.map((series: any) => ({
               ...series,
               label: {
                 ...series.label,
@@ -706,7 +671,7 @@ export function ChartElementV2({
                 bottom: '15%',
               },
               xAxis: Array.isArray(chartConfig.xAxis)
-                ? chartConfig.xAxis.map((axis) => ({
+                ? chartConfig.xAxis.map((axis: any) => ({
                     ...axis,
                     nameTextStyle: {
                       fontSize: 14,
@@ -723,7 +688,7 @@ export function ChartElementV2({
                     },
                   },
               yAxis: Array.isArray(chartConfig.yAxis)
-                ? chartConfig.yAxis.map((axis) => ({
+                ? chartConfig.yAxis.map((axis: any) => ({
                     ...axis,
                     nameTextStyle: {
                       fontSize: 14,
