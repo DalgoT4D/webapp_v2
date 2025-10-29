@@ -10,6 +10,8 @@ import type {
   ChartDataResponse,
   DataPreviewResponse,
 } from '@/types/charts';
+import { DashboardFilter } from './useDashboards';
+import { ResolvedDashboardFilter } from '@/lib/dashboard-filter-utils';
 
 // Fetchers
 const chartsFetcher = (url: string) => apiGet(url);
@@ -316,8 +318,7 @@ export function useMapDataOverlay(
     value_column: string;
     aggregate_function: string;
     filters?: Record<string, any>;
-    chart_filters?: any[];
-    dashboard_filters?: Array<{ filter_id: string; value: any }>;
+    dashboard_filters?: Record<string, any>;
     extra_config?: {
       filters?: any[];
       pagination?: any;
@@ -351,12 +352,8 @@ export function useMapDataOverlay(
             },
           ],
           filters: payload.filters || {},
-          chart_filters: payload.chart_filters || [],
-          // Remove dashboard_filters since they're now included in chart_filters
-          extra_config: {
-            ...payload.extra_config,
-            filters: payload.chart_filters || payload.extra_config?.filters || [],
-          },
+          dashboard_filters: payload.dashboard_filters || [],
+          extra_config: payload.extra_config || {},
         }
       : null;
 
@@ -364,7 +361,7 @@ export function useMapDataOverlay(
   // Use a hash-based approach like regular charts do with query parameters
   const filterHash = transformedPayload
     ? JSON.stringify({
-        chart_filters: transformedPayload.chart_filters || [],
+        chart_filters: transformedPayload.dashboard_filters || [],
         filters: transformedPayload.filters || {},
         extra_config: transformedPayload.extra_config || {},
       })

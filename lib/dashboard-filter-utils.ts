@@ -45,11 +45,7 @@ export function resolveDashboardFilters(
 
     // Find the filter configuration for this ID (handle string/number mismatch)
     const filterConfig = filterConfigs.find((config) => {
-      return (
-        config.id === filterId ||
-        config.id === parseInt(filterId) ||
-        config.id.toString() === filterId
-      );
+      return config.id === filterId || config.id.toString() === filterId;
     });
 
     if (!filterConfig) {
