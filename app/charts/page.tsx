@@ -1686,7 +1686,7 @@ export default function ChartsPage() {
       </div>
 
       {/* Lightweight Modern Pagination */}
-      {totalPages > 1 && (
+      {total > 0 && (
         <div
           id="charts-pagination-footer"
           className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
