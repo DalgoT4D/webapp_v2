@@ -18,7 +18,6 @@ export default function UsageDashboard() {
   const fetchEmbedToken = async () => {
     try {
       const response = await apiPost(`/api/superset/embed_token/${USAGE_DASHBOARD_ID}/`, {});
-      console.log('Embed token response:', response);
       return response.embed_token;
     } catch (err: any) {
       console.error('Failed to fetch embed token:', err);
@@ -54,19 +53,6 @@ export default function UsageDashboard() {
               },
               debug: true,
             });
-
-            // extra check after a short delay to ensure iframe was created
-            setTimeout(() => {
-              const iframe = mountHTMLElement.querySelector('iframe');
-              console.log('Iframe created:', !!iframe, iframe);
-              if (!iframe) {
-                console.error(
-                  'No iframe found — mount point innerHTML:',
-                  mountHTMLElement.innerHTML
-                );
-                setError('Dashboard failed to load - no iframe created');
-              }
-            }, 4000);
           } catch (sdkErr) {
             console.error('embedDashboard threw:', sdkErr);
             setError((sdkErr as any)?.message || 'Failed to embed dashboard');
