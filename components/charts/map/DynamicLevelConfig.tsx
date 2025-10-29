@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -11,7 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Navigation, CheckCircle, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChevronRight, Navigation, CheckCircle, Loader2, Download } from 'lucide-react';
 import {
   useColumns,
   useAvailableRegionTypes,
@@ -19,6 +21,9 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
+import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/lib/config';
+import { downloadRegionNames } from '@/lib/csvUtils';
 
 interface DynamicLevelConfigProps {
   formData: ChartBuilderFormData;
@@ -31,6 +36,10 @@ export function DynamicLevelConfig({
   onChange,
   disabled = false,
 }: DynamicLevelConfigProps) {
+  const { toast } = useToast();
+  const [downloadingStates, setDownloadingStates] = useState(false);
+  const [downloadingDistricts, setDownloadingDistricts] = useState(false);
+
   // Fetch available columns
   const { data: columns = [] } = useColumns(formData.schema_name || '', formData.table_name || '');
 
@@ -53,6 +62,34 @@ export function DynamicLevelConfig({
       subward_column: undefined,
       geographic_hierarchy: undefined, // Reset hierarchy when base column changes
     });
+  };
+
+  // Handle CSV download
+  const handleDownloadRegionNames = async (regionType: 'state' | 'district') => {
+    const countryCode = formData.country_code || 'IND';
+    const setLoading = regionType === 'state' ? setDownloadingStates : setDownloadingDistricts;
+
+    try {
+      setLoading(true);
+
+      await downloadRegionNames(API_BASE_URL, countryCode, regionType, {
+        onSuccess: (message) => {
+          toast({
+            title: 'Download complete',
+            description: message,
+          });
+        },
+      });
+    } catch (error) {
+      console.error(`Error downloading ${regionType}s:`, error);
+      toast({
+        title: 'Download failed',
+        description: `Failed to download ${regionType} names. Please try again.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Get available columns (all types, exclude already used columns)
@@ -208,10 +245,13 @@ export function DynamicLevelConfig({
 
   // Auto-generate preview when all required fields are configured (copied from CountryLevelConfig)
   useEffect(() => {
+    // For count operations, aggregate_column is not required (same pattern as bar charts)
+    const needsAggregateColumn = formData.aggregate_function !== 'count';
+
     if (
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
+      (!needsAggregateColumn || formData.aggregate_column) &&
       formData.aggregate_function &&
       formData.schema_name &&
       formData.table_name
@@ -223,6 +263,9 @@ export function DynamicLevelConfig({
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
+        formData.dataOverlayPayload?.value_column ===
+          (formData.aggregate_column || formData.value_column || formData.geographic_column) &&
+        formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
         currentFiltersHash === payloadFiltersHash;
 
       if (!hasValidPayloads) {
@@ -234,7 +277,9 @@ export function DynamicLevelConfig({
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
-          value_column: formData.aggregate_column || formData.value_column,
+          // For count operations without a column, fall back to geographic_column
+          value_column:
+            formData.aggregate_column || formData.value_column || formData.geographic_column,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
@@ -298,8 +343,40 @@ export function DynamicLevelConfig({
 
       {/* State Column Selection */}
       <div>
-        <Label className="text-sm font-medium">State Column</Label>
-        <p className="text-xs text-gray-600 mb-2">Column containing state/region names</p>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <Label className="text-sm font-medium">State Column</Label>
+            <p className="text-xs text-gray-600 mt-1">Column containing state/region names</p>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleDownloadRegionNames('state')}
+                disabled={disabled || downloadingStates}
+                className="h-8 px-3 text-xs gap-1.5"
+              >
+                {downloadingStates ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    Download States
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-xs">
+              Download the exact state names used in the map. Your data must match these names
+              exactly to display correctly on the visualization.
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <Select
           value={formData.geographic_column || ''}
           onValueChange={handleGeographicColumnChange}
@@ -326,8 +403,42 @@ export function DynamicLevelConfig({
       {/* District Column Selection */}
       {formData.geographic_column && regionHierarchy.length > 1 && (
         <div>
-          <Label className="text-sm font-medium">District Column (Optional)</Label>
-          <p className="text-xs text-gray-600 mb-2">Enable drill-down from states to districts</p>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <Label className="text-sm font-medium">District Column (Optional)</Label>
+              <p className="text-xs text-gray-600 mt-1">
+                Enable drill-down from states to districts
+              </p>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadRegionNames('district')}
+                  disabled={disabled || downloadingDistricts}
+                  className="h-8 px-3 text-xs gap-1.5"
+                >
+                  {downloadingDistricts ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-3.5 w-3.5" />
+                      Download Districts
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                Download all district names grouped by state. Ensure your data uses these exact
+                names for accurate map visualization and drill-down functionality.
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <Select
             value={currentLevels[0]?.column || ''}
             onValueChange={(value) => {

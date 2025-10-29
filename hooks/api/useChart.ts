@@ -326,21 +326,26 @@ export function useMapDataOverlay(
   } | null
 ) {
   // Transform payload to match backend requirements
+  // For count operations, value_column can be null (same pattern as bar charts)
   const transformedPayload =
     payload &&
     payload.schema_name &&
     payload.table_name &&
     payload.geographic_column &&
-    payload.value_column &&
+    (payload.aggregate_function === 'count' || payload.value_column) &&
     payload.aggregate_function
       ? {
           schema_name: payload.schema_name,
           table_name: payload.table_name,
           geographic_column: payload.geographic_column,
-          value_column: payload.value_column,
+          // For count operations without a column, use geographic_column as value_column
+          value_column: payload.value_column || payload.geographic_column,
           metrics: [
             {
-              column: payload.value_column,
+              // For count without column, use geographic_column to match value_column
+              column:
+                payload.value_column ||
+                (payload.aggregate_function === 'count' ? payload.geographic_column : null),
               aggregation: payload.aggregate_function,
               alias: 'value',
             },

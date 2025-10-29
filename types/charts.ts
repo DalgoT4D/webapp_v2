@@ -310,7 +310,7 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     schema_name: string;
     table_name: string;
     geographic_column: string;
-    value_column: string;
+    value_column?: string; // Optional for count operations, falls back to geographic_column
     aggregate_function: string;
     selected_geojson_id: number;
     filters?: Record<string, any>;

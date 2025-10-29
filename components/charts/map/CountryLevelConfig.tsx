@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Globe, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Globe, MapPin, Download, Loader2 } from 'lucide-react';
 import {
   useColumns,
   useAvailableLayers,
@@ -18,6 +19,9 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData } from '@/types/charts';
+import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/lib/config';
+import { downloadRegionNames } from '@/lib/csvUtils';
 
 interface Region {
   id: number;
@@ -45,6 +49,10 @@ export function CountryLevelConfig({
   onFormDataChange,
   disabled = false,
 }: CountryLevelConfigProps) {
+  const { toast } = useToast();
+  const [downloadingStates, setDownloadingStates] = useState(false);
+  const [downloadingDistricts, setDownloadingDistricts] = useState(false);
+
   const { data: countries } = useAvailableLayers('country');
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
@@ -86,6 +94,33 @@ export function CountryLevelConfig({
     });
   };
 
+  const handleDownloadRegionNames = async (regionType: 'state' | 'district') => {
+    const countryCode = formData.country_code || 'IND';
+    const setLoading = regionType === 'state' ? setDownloadingStates : setDownloadingDistricts;
+
+    try {
+      setLoading(true);
+
+      await downloadRegionNames(API_BASE_URL, countryCode, regionType, {
+        onSuccess: (message) => {
+          toast({
+            title: 'Download complete',
+            description: message,
+          });
+        },
+      });
+    } catch (error) {
+      console.error(`Error downloading ${regionType}s:`, error);
+      toast({
+        title: 'Download failed',
+        description: `Failed to download ${regionType} names. Please try again.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Auto-select default GeoJSON when geographic column is selected
   useEffect(() => {
     if (formData.geographic_column && geojsons && !formData.selected_geojson_id) {
@@ -114,10 +149,13 @@ export function CountryLevelConfig({
       },
     });
 
+    // For count operations, aggregate_column is not required (same pattern as bar charts)
+    const needsAggregateColumn = formData.aggregate_function !== 'count';
+
     if (
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
+      (!needsAggregateColumn || formData.aggregate_column) &&
       formData.aggregate_function &&
       formData.schema_name &&
       formData.table_name
@@ -129,6 +167,9 @@ export function CountryLevelConfig({
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
+        formData.dataOverlayPayload?.value_column ===
+          (formData.aggregate_column || formData.value_column || formData.geographic_column) &&
+        formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
         currentFiltersHash === payloadFiltersHash;
 
       console.log('🔄 [COUNTRY-LEVEL-CONFIG] Payload validation check:', {
@@ -138,12 +179,22 @@ export function CountryLevelConfig({
             formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id,
           geographic_column_match:
             formData.dataOverlayPayload?.geographic_column === formData.geographic_column,
+          value_column_match:
+            formData.dataOverlayPayload?.value_column ===
+            (formData.aggregate_column || formData.value_column || formData.geographic_column),
+          aggregate_function_match:
+            formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function,
           filters_match: currentFiltersHash === payloadFiltersHash,
         },
         current_geojson_id: formData.geojsonPreviewPayload?.geojsonId,
         expected_geojson_id: formData.selected_geojson_id,
         current_geographic_column: formData.dataOverlayPayload?.geographic_column,
         expected_geographic_column: formData.geographic_column,
+        current_value_column: formData.dataOverlayPayload?.value_column,
+        expected_value_column:
+          formData.aggregate_column || formData.value_column || formData.geographic_column,
+        current_aggregate_function: formData.dataOverlayPayload?.aggregate_function,
+        expected_aggregate_function: formData.aggregate_function,
       });
 
       if (!hasValidPayloads) {
@@ -155,7 +206,9 @@ export function CountryLevelConfig({
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
-          value_column: formData.aggregate_column || formData.value_column,
+          // For count operations without a column, fall back to geographic_column
+          value_column:
+            formData.aggregate_column || formData.value_column || formData.geographic_column,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
@@ -225,7 +278,29 @@ export function CountryLevelConfig({
 
       {/* Geographic Column Selection */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Geographic Column (States)</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Geographic Column (States)</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleDownloadRegionNames('state')}
+            disabled={disabled || downloadingStates}
+            className="h-7 px-2 text-xs"
+          >
+            {downloadingStates ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="h-3 w-3" />
+                Download State Names
+              </>
+            )}
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground mb-2">
           Select the column that contains state/province names from your data
         </p>
@@ -247,6 +322,38 @@ export function CountryLevelConfig({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* District Names Download - Helper Section */}
+      <div className="space-y-2 pt-2 border-t">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">District Names Reference</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Download a CSV of all districts grouped by states for {formData.country_code || 'IND'}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleDownloadRegionNames('district')}
+            disabled={disabled || downloadingDistricts}
+            className="h-7 px-2 text-xs"
+          >
+            {downloadingDistricts ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="h-3 w-3" />
+                Download District Names
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Status Display */}

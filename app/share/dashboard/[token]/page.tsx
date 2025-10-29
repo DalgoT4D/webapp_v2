@@ -3,10 +3,28 @@ import { PublicDashboardView } from './PublicDashboardView';
 
 interface PublicDashboardPageProps {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function PublicDashboardPage({ params }: PublicDashboardPageProps) {
+export default async function PublicDashboardPage({
+  params,
+  searchParams,
+}: PublicDashboardPageProps) {
   const { token } = await params;
+  const {
+    embed,
+    title = 'true',
+    org = 'true',
+    theme = 'light',
+    padding = 'true',
+  } = await searchParams;
+
+  const embedOptions = {
+    showTitle: title === 'true',
+    showOrganization: org === 'true',
+    theme: theme as 'light' | 'dark',
+    showPadding: padding === 'true',
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -20,7 +38,11 @@ export default async function PublicDashboardPage({ params }: PublicDashboardPag
           </div>
         }
       >
-        <PublicDashboardView token={token} />
+        <PublicDashboardView
+          token={token}
+          isEmbedMode={embed === 'true'}
+          embedOptions={embed === 'true' ? embedOptions : undefined}
+        />
       </Suspense>
     </div>
   );

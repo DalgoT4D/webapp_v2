@@ -983,7 +983,7 @@ export function ChartBuilder({
                 mapDataLoading={mapDataLoading}
                 mapDataError={mapDataError}
                 title={formData.title}
-                valueColumn={formData.aggregate_column}
+                valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
                 customizations={formData.customizations}
                 onRegionClick={handleRegionClick}
                 drillDownPath={
