@@ -245,25 +245,14 @@ export function ChartElementV2({
           filters: filters, // Drill-down filters
           chart_filters: [
             ...(chart.extra_config.filters || []), // Chart-level filters
-            ...formatAsChartFilters(
-              resolvedDashboardFilters.filter(
-                (filter) =>
-                  filter.schema_name === chart.schema_name && filter.table_name === chart.table_name
-              )
-            ), // Only apply dashboard filters that match the chart's schema/table
+            ...formatAsChartFilters(resolvedDashboardFilters), // Apply ALL dashboard filters for maps regardless of schema/table match
           ],
           // Remove the old dashboard_filters format since we're using chart_filters now
           // Include full extra_config for pagination, sorting, and other features
           extra_config: {
             filters: [
               ...(chart.extra_config.filters || []),
-              ...formatAsChartFilters(
-                resolvedDashboardFilters.filter(
-                  (filter) =>
-                    filter.schema_name === chart.schema_name &&
-                    filter.table_name === chart.table_name
-                )
-              ),
+              ...formatAsChartFilters(resolvedDashboardFilters),
             ],
             pagination: chart.extra_config.pagination,
             sort: chart.extra_config.sort,
