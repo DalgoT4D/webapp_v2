@@ -629,7 +629,7 @@ export function ChartElementV2({
         },
         // Enhanced data labels styling
         series: Array.isArray(chartConfig.series)
-          ? chartConfig.series.map((series) => ({
+          ? chartConfig.series.map((series: any) => ({
               ...series,
               label: {
                 ...series.label,
@@ -671,7 +671,7 @@ export function ChartElementV2({
                 bottom: '15%',
               },
               xAxis: Array.isArray(chartConfig.xAxis)
-                ? chartConfig.xAxis.map((axis) => ({
+                ? chartConfig.xAxis.map((axis: any) => ({
                     ...axis,
                     nameTextStyle: {
                       fontSize: 14,
@@ -688,7 +688,7 @@ export function ChartElementV2({
                     },
                   },
               yAxis: Array.isArray(chartConfig.yAxis)
-                ? chartConfig.yAxis.map((axis) => ({
+                ? chartConfig.yAxis.map((axis: any) => ({
                     ...axis,
                     nameTextStyle: {
                       fontSize: 14,
