@@ -313,13 +313,26 @@ function ValueFilterWidget({
         {/* Selected values display for multi-select */}
         {valueFilter.settings.can_select_multiple && selectedValues.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {selectedLabels.slice(0, 2).map((label, index) => (
-              <Badge key={index} variant="secondary" className="text-xs h-5 px-1.5">
-                {label}
-                <X
-                  className="ml-1 w-2.5 h-2.5 cursor-pointer"
-                  onClick={() => handleSelectionChange(selectedValues[index], false)}
-                />
+            {selectedValues.slice(0, 2).map((value) => (
+              <Badge key={value} variant="secondary" className="text-xs h-5 px-1.5 gap-1">
+                <span>
+                  {availableOptions.find((opt: FilterOption) => opt.value === value)?.label ||
+                    value}
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center hover:text-red-600"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const newSelection = selectedValues.filter((v) => v !== value);
+                    const finalValue = newSelection.length === 0 ? null : newSelection;
+                    setSelectedValues(newSelection);
+                    onChange(filter.id, finalValue);
+                  }}
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
               </Badge>
             ))}
             {selectedValues.length > 2 && (
