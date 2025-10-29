@@ -1068,7 +1068,7 @@ export function DashboardListV2() {
                 </TooltipTrigger>
                 <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
                   <p className="text-sm">
-                    Created by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
+                    Updated by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
                   </p>
                 </TooltipContent>
               </Tooltip>

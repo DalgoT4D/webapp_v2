@@ -871,7 +871,7 @@ export function DashboardNativeView({
               {dashboard.last_modified_by && (
                 <div className="flex items-center gap-1">
                   <User className="w-3 h-3" />
-                  <span className="truncate">Created by {dashboard.last_modified_by}</span>
+                  <span className="truncate">Updated by {dashboard.last_modified_by}</span>
                 </div>
               )}
               {dashboard.updated_at && (
@@ -922,7 +922,7 @@ export function DashboardNativeView({
                     {dashboard.last_modified_by && (
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3" />
-                        <span>Created by {dashboard.last_modified_by}</span>
+                        <span>Updated by {dashboard.last_modified_by}</span>
                       </div>
                     )}
                     {dashboard.updated_at && (
