@@ -12,6 +12,8 @@ import {
 import { toast } from 'sonner';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
+import type { ChartDataPayload } from '@/types/charts';
+import { apiPostBinary } from '@/lib/api';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
@@ -27,6 +29,8 @@ interface ChartExportDropdownProps {
   chartType?: string;
   tableData?: TableData;
   tableElement?: HTMLElement | null;
+  // Chart data payload for CSV export
+  chartDataPayload?: ChartDataPayload | null;
 }
 
 export function ChartExportDropdown({
@@ -42,6 +46,7 @@ export function ChartExportDropdown({
   chartType,
   tableData,
   tableElement,
+  chartDataPayload,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -59,17 +64,33 @@ export function ChartExportDropdown({
         backgroundColor: '#ffffff',
       };
 
-      if (chartType === 'table') {
-        // Handle table exports
-        if (format === 'csv') {
-          if (!tableData) {
-            throw new Error('Table data is not available for export');
-          }
-          await ChartExporter.exportTableAsCSV(tableData, exportOptions);
-          toast.success(`Table exported as CSV`, {
-            description: 'Comma-separated values file',
-          });
-        } else if (format === 'png') {
+      // Handle CSV export for all chart types using streaming endpoint
+      if (format === 'csv') {
+        if (!chartDataPayload) {
+          throw new Error('Chart data configuration is not available for CSV export');
+        }
+
+        toast.info('Preparing CSV download...', {
+          description: 'Fetching chart data from server',
+        });
+
+        // Use API helper with cookie-based auth
+        const blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+
+        // Generate filename
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const csvFilename = `${filename}-${timestamp}.csv`;
+
+        // Download the blob
+        const { saveAs } = await import('file-saver');
+        saveAs(blob, csvFilename);
+
+        toast.success('CSV downloaded successfully', {
+          description: `File: ${csvFilename}`,
+        });
+      } else if (chartType === 'table') {
+        // Handle table image exports (PNG)
+        if (format === 'png') {
           if (!tableElement) {
             throw new Error('Table element is not available for export');
           }
@@ -135,7 +156,7 @@ export function ChartExportDropdown({
             </DropdownMenuItem>
           </>
         ) : (
-          // Other charts show PNG/PDF export
+          // Other charts show PNG/PDF/CSV export
           <>
             <DropdownMenuItem
               onClick={() => handleExport('png')}
@@ -154,6 +175,17 @@ export function ChartExportDropdown({
               <FileText className="w-4 h-4 mr-2" />
               <span>Export as PDF</span>
             </DropdownMenuItem>
+
+            {chartDataPayload && (
+              <DropdownMenuItem
+                onClick={() => handleExport('csv')}
+                className="cursor-pointer"
+                disabled={isExporting}
+              >
+                <Table className="w-4 h-4 mr-2" />
+                <span>Export Data as CSV</span>
+              </DropdownMenuItem>
+            )}
           </>
         )}
       </DropdownMenuContent>

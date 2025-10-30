@@ -563,6 +563,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               chartElement={chartElement}
               chartInstance={chartInstance}
               chartType={chart.chart_type}
+              chartDataPayload={chartDataPayload}
               tableData={
                 chart.chart_type === 'table' && tableData
                   ? {
