@@ -161,7 +161,7 @@ function EditChartPageContent() {
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
-  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(50);
+  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(50);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -530,24 +530,11 @@ function EditChartPageContent() {
     console.log('State set to false, dismissed set to true');
   };
 
-  // Handle error toast visibility and auto-hide - DISABLED
-  // useEffect(() => {
-  //   const hasBasicConfig = formData.schema_name && formData.table_name && formData.chart_type;
-  //   const isConfigComplete = isChartDataReady();
-  //   const hasChartConfig = chartData?.echarts_config;
-  //   const shouldShowError = hasBasicConfig && !isConfigComplete && !hasChartConfig && !chartDataLoading && formData.chart_type !== 'map' && formData.chart_type !== 'table';
-  //
-  //   if (shouldShowError && !errorToastVisible) {
-  //     setErrorToastVisible(true);
-  //     // Auto-hide after 10 seconds
-  //     const timer = setTimeout(() => {
-  //       setErrorToastVisible(false);
-  //     }, 10000);
-  //     return () => clearTimeout(timer);
-  //   } else if (!shouldShowError && errorToastVisible) {
-  //     setErrorToastVisible(false);
-  //   }
-  // }, [formData, chartData, chartDataLoading, isChartDataReady, errorToastVisible]);
+  useEffect(() => {
+    // reset the chart data page size and limit when pagination changes
+    setDataPreviewPageSize(25);
+    setDataPreviewPage(1);
+  }, [formData.pagination?.page_size, formData.pagination?.enabled]);
 
   // Drill-down functionality for maps - fetch regions
   const countryCode = 'IND'; // TODO: make this dynamic based on selected geojson
