@@ -682,10 +682,10 @@ export function DashboardNativeView({
     <div
       ref={containerRef}
       className={cn(
-        isEmbedMode
-          ? `h-full flex flex-col overflow-auto ${embedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'}`
-          : 'h-screen flex flex-col bg-white overflow-hidden',
-        isFullscreen && 'fixed inset-0 z-50'
+        'h-screen flex flex-col bg-white overflow-hidden',
+        isFullscreen && 'fixed inset-0 z-50',
+        // Special handling for public dashboards on mobile
+        isPublicMode && 'sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
@@ -1097,12 +1097,12 @@ export function DashboardNativeView({
 
         {/* Dashboard Content - Scrollable Canvas Area */}
         <div
-          className={`flex-1 overflow-auto min-w-0 ${
-            isEmbedMode
-              ? `p-0 ${embedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'}`
-              : 'p-4 md:p-6 bg-gray-50'
-          }`}
-          style={isEmbedMode ? {} : { paddingBottom: '60px' }}
+          className={cn(
+            'flex-1 overflow-auto p-4 md:p-6 min-w-0 bg-gray-50',
+            // Only apply special mobile padding for public dashboards
+            isPublicMode && 'pb-24 sm:pb-16'
+          )}
+          style={{ paddingBottom: isPublicMode ? undefined : '60px' }}
         >
           <div
             ref={dashboardContainerRef}
@@ -1279,6 +1279,35 @@ export function DashboardNativeView({
             transform: scale(1);
           }
         }
+
+        /* Mobile-specific fixes for scrolling - ONLY for public dashboards */
+        ${isPublicMode
+          ? `
+          @media (max-width: 640px) {
+            html, body {
+              height: auto !important;
+              min-height: 100vh;
+              overflow-x: hidden;
+              -webkit-overflow-scrolling: touch;
+            }
+            
+            .dashboard-canvas {
+              max-width: calc(100vw - 2rem) !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+            }
+          }
+
+          /* iOS Safari specific fixes - ONLY for public dashboards */
+          @supports (-webkit-touch-callout: none) {
+            @media (max-width: 640px) {
+              .dashboard-canvas {
+                will-change: scroll-position;
+              }
+            }
+          }
+        `
+          : ''}
       `}</style>
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
