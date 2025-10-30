@@ -230,10 +230,9 @@ export function MapPreview({
               return `${params.name}<br/>${safeCustomizations.nullValueLabel !== undefined ? safeCustomizations.nullValueLabel : 'No Data'}`;
             },
           },
-          // Add legend based on customizations (but not for single value scenarios)
+          // Add legend based on customizations
           ...(safeCustomizations.showLegend !== false &&
-            values.length > 0 &&
-            !hasSingleValue && {
+            values.length > 0 && {
               visualMap: {
                 min: minValue,
                 max: maxValue,
@@ -295,8 +294,8 @@ export function MapPreview({
               // Animation settings
               animation: safeCustomizations.animation !== false,
               animationDuration: safeCustomizations.animation !== false ? 1000 : 0,
-              // Use enhanced data with individual colors when legend is disabled OR when we have single value
-              ...(safeCustomizations.showLegend === false || hasSingleValue
+              // Use enhanced data with individual colors when legend is disabled
+              ...(safeCustomizations.showLegend === false
                 ? {
                     data: enhancedSeriesData,
                   }
