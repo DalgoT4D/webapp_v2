@@ -422,6 +422,35 @@ function PieChartCustomizations({
         </div>
       </div>
 
+      {/* Slice Configuration */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Slice Configuration</h4>
+
+        <div className="space-y-2">
+          <Label htmlFor="maxSlices">Slice Limit</Label>
+          <Select
+            value={customizations.maxSlices ? customizations.maxSlices.toString() : 'all'}
+            onValueChange={(value) => {
+              updateCustomization('maxSlices', value === 'all' ? null : parseInt(value));
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger id="maxSlices">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Show All Slices</SelectItem>
+              <SelectItem value="3">Top 3 Slices</SelectItem>
+              <SelectItem value="5">Top 5 Slices</SelectItem>
+              <SelectItem value="10">Top 10 Slices</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            When limited, remaining slices will be grouped under "Other" category.
+          </p>
+        </div>
+      </div>
+
       {/* Data Labels */}
       <div className="space-y-4 pb-4 border-b">
         <h4 className="text-sm font-medium">Data Labels</h4>

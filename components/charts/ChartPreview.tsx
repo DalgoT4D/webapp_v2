@@ -55,17 +55,6 @@ export function ChartPreview({
     const isPieChart = detectedChartType === 'pie';
     const isNumberChart = detectedChartType === 'number' || detectedChartType === 'gauge';
 
-    // Debug logging
-    console.log('ChartPreview - Chart type detection:', {
-      chartTypeProp: chartType,
-      detectedChartType,
-      isPieChart,
-      isNumberChart,
-      configHasXAxis: !!config?.xAxis,
-      configHasYAxis: !!config?.yAxis,
-      firstSeriesType: config?.series?.[0]?.type || 'none',
-    });
-
     try {
       // Dispose existing instance if it exists
       if (chartInstance.current) {

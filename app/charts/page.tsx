@@ -1686,88 +1686,88 @@ export default function ChartsPage() {
       </div>
 
       {/* Lightweight Modern Pagination */}
-      {total > 0 && (
-        <div
-          id="charts-pagination-footer"
-          className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
-        >
-          <div id="charts-pagination-wrapper" className="flex items-center justify-between">
-            {/* Left: Compact Item Count */}
-            <div id="charts-pagination-info" className="text-sm text-gray-600">
-              {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, total)} of{' '}
-              {total}
+      <div
+        id="charts-pagination-footer"
+        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+      >
+        <div id="charts-pagination-wrapper" className="flex items-center justify-between">
+          {/* Left: Compact Item Count */}
+          <div id="charts-pagination-info" className="text-sm text-gray-600">
+            {total === 0
+              ? '0–0 of 0'
+              : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} of ${total}`}
+          </div>
+
+          {/* Right: Streamlined Controls */}
+          <div id="charts-pagination-controls" className="flex items-center gap-4">
+            {/* Compact Page Size Selector */}
+            <div id="charts-page-size-wrapper" className="flex items-center gap-2">
+              <span id="charts-page-size-label" className="text-sm text-gray-500">
+                Show
+              </span>
+              <Select
+                id="charts-page-size-select"
+                value={pageSize.toString()}
+                onValueChange={(value) => {
+                  setPageSize(parseInt(value));
+                  setCurrentPage(1); // Reset to first page when page size changes
+                }}
+              >
+                <SelectTrigger
+                  id="charts-page-size-trigger"
+                  className="h-7 text-sm border-gray-200 bg-white"
+                  style={{ width: '70px' }}
+                >
+                  <SelectValue id="charts-page-size-value" />
+                </SelectTrigger>
+                <SelectContent id="charts-page-size-content">
+                  <SelectItem id="charts-page-size-10" value="10">
+                    10
+                  </SelectItem>
+                  <SelectItem id="charts-page-size-20" value="20">
+                    20
+                  </SelectItem>
+                  <SelectItem id="charts-page-size-50" value="50">
+                    50
+                  </SelectItem>
+                  <SelectItem id="charts-page-size-100" value="100">
+                    100
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Right: Streamlined Controls */}
-            <div id="charts-pagination-controls" className="flex items-center gap-4">
-              {/* Compact Page Size Selector */}
-              <div id="charts-page-size-wrapper" className="flex items-center gap-2">
-                <span id="charts-page-size-label" className="text-sm text-gray-500">
-                  Show
-                </span>
-                <Select
-                  id="charts-page-size-select"
-                  value={pageSize.toString()}
-                  onValueChange={(value) => {
-                    setPageSize(parseInt(value));
-                    setCurrentPage(1); // Reset to first page when page size changes
-                  }}
-                >
-                  <SelectTrigger
-                    id="charts-page-size-trigger"
-                    className="w-16 h-7 text-sm border-gray-200 bg-white"
-                  >
-                    <SelectValue id="charts-page-size-value" />
-                  </SelectTrigger>
-                  <SelectContent id="charts-page-size-content">
-                    <SelectItem id="charts-page-size-10" value="10">
-                      10
-                    </SelectItem>
-                    <SelectItem id="charts-page-size-20" value="20">
-                      20
-                    </SelectItem>
-                    <SelectItem id="charts-page-size-50" value="50">
-                      50
-                    </SelectItem>
-                    <SelectItem id="charts-page-size-100" value="100">
-                      100
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Simplified Navigation */}
+            <div className="flex items-center gap-1">
+              <Button
+                id="charts-prev-page-button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <ChevronLeft id="charts-prev-icon" className="h-4 w-4" />
+              </Button>
 
-              {/* Simplified Navigation */}
-              <div className="flex items-center gap-1">
-                <Button
-                  id="charts-prev-page-button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  <ChevronLeft id="charts-prev-icon" className="h-4 w-4" />
-                </Button>
+              <span id="charts-page-info" className="text-sm text-gray-600 px-3 py-1">
+                {currentPage} of {totalPages}
+              </span>
 
-                <span id="charts-page-info" className="text-sm text-gray-600 px-3 py-1">
-                  {currentPage} of {totalPages}
-                </span>
-
-                <Button
-                  id="charts-next-page-button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  <ChevronRight id="charts-next-icon" className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                id="charts-next-page-button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <ChevronRight id="charts-next-icon" className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
-      )}
+      </div>
       <DialogComponent />
     </div>
   );

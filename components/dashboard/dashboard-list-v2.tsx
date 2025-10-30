@@ -1932,88 +1932,88 @@ export function DashboardListV2() {
       </div>
 
       {/* Lightweight Modern Pagination */}
-      {regularDashboards.length > pageSize && (
-        <div
-          id="dashboard-pagination-footer"
-          className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
-        >
-          <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
-            {/* Left: Compact Item Count */}
-            <div id="dashboard-pagination-info" className="text-sm text-gray-600">
-              {startIndex + 1}–{Math.min(startIndex + pageSize, regularDashboards.length)} of{' '}
-              {regularDashboards.length}
+      <div
+        id="dashboard-pagination-footer"
+        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+      >
+        <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
+          {/* Left: Compact Item Count */}
+          <div id="dashboard-pagination-info" className="text-sm text-gray-600">
+            {total === 0
+              ? '0–0 of 0'
+              : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total}`}
+          </div>
+
+          {/* Right: Streamlined Controls */}
+          <div id="dashboard-pagination-controls" className="flex items-center gap-4">
+            {/* Compact Page Size Selector */}
+            <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
+              <span id="dashboard-page-size-label" className="text-sm text-gray-500">
+                Show
+              </span>
+              <Select
+                id="dashboard-page-size-select"
+                value={pageSize.toString()}
+                onValueChange={(value) => {
+                  setPageSize(parseInt(value));
+                  setCurrentPage(1); // Reset to first page when page size changes
+                }}
+              >
+                <SelectTrigger
+                  id="dashboard-page-size-trigger"
+                  className="h-7 text-sm border-gray-200 bg-white"
+                  style={{ width: '70px' }}
+                >
+                  <SelectValue id="dashboard-page-size-value" />
+                </SelectTrigger>
+                <SelectContent id="dashboard-page-size-content">
+                  <SelectItem id="dashboard-page-size-10" value="10">
+                    10
+                  </SelectItem>
+                  <SelectItem id="dashboard-page-size-20" value="20">
+                    20
+                  </SelectItem>
+                  <SelectItem id="dashboard-page-size-50" value="50">
+                    50
+                  </SelectItem>
+                  <SelectItem id="dashboard-page-size-100" value="100">
+                    100
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Right: Streamlined Controls */}
-            <div id="dashboard-pagination-controls" className="flex items-center gap-4">
-              {/* Compact Page Size Selector */}
-              <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
-                <span id="dashboard-page-size-label" className="text-sm text-gray-500">
-                  Show
-                </span>
-                <Select
-                  id="dashboard-page-size-select"
-                  value={pageSize.toString()}
-                  onValueChange={(value) => {
-                    setPageSize(parseInt(value));
-                    setCurrentPage(1); // Reset to first page when page size changes
-                  }}
-                >
-                  <SelectTrigger
-                    id="dashboard-page-size-trigger"
-                    className="w-16 h-7 text-sm border-gray-200 bg-white"
-                  >
-                    <SelectValue id="dashboard-page-size-value" />
-                  </SelectTrigger>
-                  <SelectContent id="dashboard-page-size-content">
-                    <SelectItem id="dashboard-page-size-10" value="10">
-                      10
-                    </SelectItem>
-                    <SelectItem id="dashboard-page-size-20" value="20">
-                      20
-                    </SelectItem>
-                    <SelectItem id="dashboard-page-size-50" value="50">
-                      50
-                    </SelectItem>
-                    <SelectItem id="dashboard-page-size-100" value="100">
-                      100
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Simplified Navigation */}
+            <div className="flex items-center gap-1">
+              <Button
+                id="dashboard-prev-page-button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
+              </Button>
 
-              {/* Simplified Navigation */}
-              <div className="flex items-center gap-1">
-                <Button
-                  id="dashboard-prev-page-button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
-                </Button>
+              <span id="dashboard-page-info" className="text-sm text-gray-600 px-3 py-1">
+                {currentPage} of {totalPages}
+              </span>
 
-                <span id="dashboard-page-info" className="text-sm text-gray-600 px-3 py-1">
-                  {currentPage} of {totalPages}
-                </span>
-
-                <Button
-                  id="dashboard-next-page-button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                id="dashboard-next-page-button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Share Modal */}
       {selectedDashboard && (
