@@ -563,6 +563,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               chartElement={chartElement}
               chartInstance={chartInstance}
               chartType={chart.chart_type}
+              chartDataPayload={chartDataPayload}
               tableData={
                 chart.chart_type === 'table' && tableData
                   ? {
@@ -571,6 +572,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     }
                   : undefined
               }
+              tableElement={chart.chart_type === 'table' ? chartContentRef.current : undefined}
             />
           </div>
         </div>

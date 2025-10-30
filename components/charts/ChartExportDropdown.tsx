@@ -10,8 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
+import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
+import type { ChartDataPayload } from '@/types/charts';
+import { apiPostBinary } from '@/lib/api';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
@@ -25,7 +27,9 @@ interface ChartExportDropdownProps {
   showText?: boolean;
   // Table-specific props
   chartType?: string;
-  tableData?: TableData;
+  tableElement?: HTMLElement | null;
+  // Chart data payload for CSV export
+  chartDataPayload?: ChartDataPayload | null;
 }
 
 export function ChartExportDropdown({
@@ -39,7 +43,8 @@ export function ChartExportDropdown({
   size = 'default',
   showText = true,
   chartType,
-  tableData,
+  tableElement,
+  chartDataPayload,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -57,14 +62,41 @@ export function ChartExportDropdown({
         backgroundColor: '#ffffff',
       };
 
-      if (format === 'csv' && chartType === 'table' && tableData) {
-        // Export table as CSV
-        await ChartExporter.exportTableAsCSV(tableData, exportOptions);
-        toast.success(`Table exported as CSV`, {
-          description: 'Comma-separated values file',
+      // Handle CSV export for all chart types using streaming endpoint
+      if (format === 'csv') {
+        if (!chartDataPayload) {
+          throw new Error('Chart data configuration is not available for CSV export');
+        }
+
+        toast.info('Preparing CSV download...', {
+          description: 'Fetching chart data from server',
         });
-      } else if (format === 'csv' && chartType === 'table' && !tableData) {
-        throw new Error('Table data is not available for export');
+
+        // Use API helper with cookie-based auth
+        const blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+
+        // Generate filename
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const csvFilename = `${filename}-${timestamp}.csv`;
+
+        // Download the blob
+        const { saveAs } = await import('file-saver');
+        saveAs(blob, csvFilename);
+
+        toast.success('CSV downloaded successfully', {
+          description: `File: ${csvFilename}`,
+        });
+      } else if (chartType === 'table') {
+        // Handle table image exports (PNG)
+        if (format === 'png') {
+          if (!tableElement) {
+            throw new Error('Table element is not available for export');
+          }
+          await ChartExporter.exportTableAsImage(tableElement, exportOptions);
+          toast.success(`Table exported as PNG`, {
+            description: 'High resolution image',
+          });
+        }
       } else {
         // Export chart as PNG/PDF
         await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
@@ -101,17 +133,28 @@ export function ChartExportDropdown({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         {chartType === 'table' ? (
-          // Table charts show CSV export only
-          <DropdownMenuItem
-            onClick={() => handleExport('csv')}
-            className="cursor-pointer"
-            disabled={isExporting}
-          >
-            <Table className="w-4 h-4 mr-2" />
-            <span>Export to CSV</span>
-          </DropdownMenuItem>
+          // Table charts show PNG and CSV export
+          <>
+            <DropdownMenuItem
+              onClick={() => handleExport('png')}
+              className="cursor-pointer"
+              disabled={isExporting}
+            >
+              <FileImage className="w-4 h-4 mr-2" />
+              <span>Export as PNG</span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => handleExport('csv')}
+              className="cursor-pointer"
+              disabled={isExporting}
+            >
+              <Table className="w-4 h-4 mr-2" />
+              <span>Export to CSV</span>
+            </DropdownMenuItem>
+          </>
         ) : (
-          // Other charts show PNG/PDF export
+          // Other charts show PNG/PDF/CSV export
           <>
             <DropdownMenuItem
               onClick={() => handleExport('png')}
@@ -130,6 +173,17 @@ export function ChartExportDropdown({
               <FileText className="w-4 h-4 mr-2" />
               <span>Export as PDF</span>
             </DropdownMenuItem>
+
+            {chartDataPayload && (
+              <DropdownMenuItem
+                onClick={() => handleExport('csv')}
+                className="cursor-pointer"
+                disabled={isExporting}
+              >
+                <Table className="w-4 h-4 mr-2" />
+                <span>Export Data as CSV</span>
+              </DropdownMenuItem>
+            )}
           </>
         )}
       </DropdownMenuContent>
