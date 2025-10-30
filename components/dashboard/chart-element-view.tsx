@@ -36,6 +36,7 @@ import {
 } from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import * as echarts from 'echarts/core';
 import {
   BarChart,
@@ -1063,20 +1064,38 @@ export function ChartElementView({
     mapChartInstance.current = chart;
   };
 
-  const handleDownload = () => {
-    // Use the appropriate chart instance based on chart type (maps and regular charts)
-    const activeChartInstance = isMapChart ? mapChartInstance.current : chartInstance.current;
+  const handleDownload = async () => {
+    try {
+      // Handle table chart export
+      if (isTableChart && tableRef.current) {
+        const filename = generateFilename(chartMetadata?.chart_title || `table-${chartId}`, 'png');
+        await ChartExporter.exportTableAsImage(tableRef.current, {
+          filename,
+          format: 'png',
+          backgroundColor: '#ffffff',
+        });
+        toast.success('Table downloaded successfully');
+        return;
+      }
 
-    if (activeChartInstance) {
-      const url = activeChartInstance.getDataURL({
-        type: 'png',
-        pixelRatio: 2,
-        backgroundColor: '#fff',
-      });
-      const link = document.createElement('a');
-      link.download = `${isMapChart ? 'map' : 'chart'}-${chartId}.png`;
-      link.href = url;
-      link.click();
+      // Use the appropriate chart instance based on chart type (maps and regular charts)
+      const activeChartInstance = isMapChart ? mapChartInstance.current : chartInstance.current;
+
+      if (activeChartInstance) {
+        const url = activeChartInstance.getDataURL({
+          type: 'png',
+          pixelRatio: 2,
+          backgroundColor: '#fff',
+        });
+        const link = document.createElement('a');
+        link.download = `${isMapChart ? 'map' : 'chart'}-${chartId}.png`;
+        link.href = url;
+        link.click();
+        toast.success('Chart downloaded successfully');
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Failed to download. Please try again.');
     }
   };
 
@@ -1185,17 +1204,15 @@ export function ChartElementView({
       {viewMode && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            {!isTableChart && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDownload}
-                className="h-7 w-7 p-0"
-                title="Download"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDownload}
+              className="h-7 w-7 p-0"
+              title="Download"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"

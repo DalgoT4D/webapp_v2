@@ -1,10 +1,11 @@
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import * as echarts from 'echarts';
+import html2canvas from 'html2canvas-pro';
 
 export interface ExportOptions {
   filename?: string;
-  format?: 'png' | 'pdf' | 'csv';
+  format?: 'png' | 'pdf' | 'csv' | 'jpeg';
   backgroundColor?: string;
 }
 
@@ -194,12 +195,59 @@ export class ChartExporter {
       );
     }
   }
+
+  /**
+   * Export HTML table element as image (PNG/JPEG) using html2canvas
+   */
+  static async exportTableAsImage(
+    tableElement: HTMLElement,
+    options: ExportOptions = {}
+  ): Promise<void> {
+    const { filename = 'table-export', format = 'png', backgroundColor = '#ffffff' } = options;
+
+    if (!tableElement) {
+      throw new Error('No table element provided for export');
+    }
+
+    try {
+      // Convert HTML element to canvas using html2canvas-pro (supports oklch colors)
+      const canvas = await html2canvas(tableElement, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: backgroundColor || '#ffffff',
+      });
+
+      // Convert canvas to blob based on format
+      const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+      const quality = format === 'jpeg' ? 0.95 : undefined;
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            throw new Error('Failed to create image blob');
+          }
+          // Download the image
+          saveAs(blob, `${filename}.${format}`);
+        },
+        mimeType,
+        quality
+      );
+    } catch (error) {
+      console.error('Table export failed:', error);
+      throw new Error(
+        `Failed to export table as image: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
 }
 
 /**
  * Generate clean filename with timestamp
+ * Note: format parameter is kept for API compatibility but extension is added by caller
  */
-export function generateFilename(chartTitle: string, format: string): string {
+export function generateFilename(chartTitle: string, _format: string): string {
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
   const sanitizedTitle = chartTitle
     .replace(/[^a-zA-Z0-9\s-]/g, '')
