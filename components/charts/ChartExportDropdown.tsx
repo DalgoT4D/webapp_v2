@@ -79,8 +79,12 @@ export function ChartExportDropdown({
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
         const csvFilename = `${filename}-${timestamp}.csv`;
 
-        // Download the blob
-        const { saveAs } = await import('file-saver');
+        // Download the blob - handle both default and named exports for production builds
+        const fileSaver = await import('file-saver');
+        const saveAs = fileSaver.default?.saveAs || fileSaver.saveAs || fileSaver.default;
+        if (typeof saveAs !== 'function') {
+          throw new Error('Failed to load file-saver library');
+        }
         saveAs(blob, csvFilename);
 
         toast.success('CSV downloaded successfully', {
