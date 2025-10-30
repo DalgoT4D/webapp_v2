@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
+import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
 import type { ChartDataPayload } from '@/types/charts';
 import { apiPostBinary } from '@/lib/api';
@@ -27,7 +27,6 @@ interface ChartExportDropdownProps {
   showText?: boolean;
   // Table-specific props
   chartType?: string;
-  tableData?: TableData;
   tableElement?: HTMLElement | null;
   // Chart data payload for CSV export
   chartDataPayload?: ChartDataPayload | null;
@@ -44,7 +43,6 @@ export function ChartExportDropdown({
   size = 'default',
   showText = true,
   chartType,
-  tableData,
   tableElement,
   chartDataPayload,
 }: ChartExportDropdownProps) {

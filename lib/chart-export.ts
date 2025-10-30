@@ -209,6 +209,11 @@ export class ChartExporter {
       throw new Error('No table element provided for export');
     }
 
+    // Validate format
+    if (format !== 'png' && format !== 'jpeg') {
+      throw new Error(`Unsupported image format: ${format}. Only 'png' and 'jpeg' are supported.`);
+    }
+
     try {
       // Convert HTML element to canvas using html2canvas-pro (supports oklch colors)
       const canvas = await html2canvas(tableElement, {
@@ -223,17 +228,23 @@ export class ChartExporter {
       const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
       const quality = format === 'jpeg' ? 0.95 : undefined;
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            throw new Error('Failed to create image blob');
-          }
-          // Download the image
-          saveAs(blob, `${filename}.${format}`);
-        },
-        mimeType,
-        quality
-      );
+      // Wrap canvas.toBlob in a Promise to properly handle errors
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) => {
+            if (!result) {
+              reject(new Error('Failed to create image blob'));
+            } else {
+              resolve(result);
+            }
+          },
+          mimeType,
+          quality
+        );
+      });
+
+      // Download the image only after blob is successfully created
+      saveAs(blob, `${filename}.${format}`);
     } catch (error) {
       console.error('Table export failed:', error);
       throw new Error(
