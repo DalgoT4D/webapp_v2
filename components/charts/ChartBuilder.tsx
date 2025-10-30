@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useInsertionEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -136,7 +136,7 @@ export function ChartBuilder({
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
-  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(50);
+  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
 
   // Drill-down state for maps
@@ -322,6 +322,12 @@ export function ChartBuilder({
     },
     [formData]
   );
+
+  useEffect(() => {
+    // reset the chart data page size and limit when pagination changes
+    setDataPreviewPageSize(25);
+    setDataPreviewPage(1);
+  }, [formData.pagination?.page_size, formData.pagination?.enabled]);
 
   const debouncedFormChange = useCallback(debounce(handleFormChange, 500), [handleFormChange]);
 
