@@ -175,11 +175,38 @@ export function MapPreview({
 
         // Calculate min/max values for color scaling
         const values = seriesData.map((item) => item.value).filter((v) => v != null);
-        const minValue = values.length > 0 ? Math.min(...values) : 0;
-        const maxValue = values.length > 0 ? Math.max(...values) : 100;
+        let minValue = values.length > 0 ? Math.min(...values) : 0;
+        let maxValue = values.length > 0 ? Math.max(...values) : 100;
 
         // Check if we have single value scenario (all regions have same value)
         const hasSingleValue = minValue === maxValue && values.length > 0;
+
+        // Fix for single value: create a meaningful range from 0 or to 0
+        // This ensures the single state is highlighted properly and legend shows context
+        if (hasSingleValue && minValue === maxValue) {
+          const actualValue = maxValue;
+
+          if (actualValue > 0) {
+            // Positive value: range from 0 to value (e.g., 0 to 100)
+            minValue = 0;
+            maxValue = actualValue;
+          } else if (actualValue < 0) {
+            // Negative value: range from value to 0 (e.g., -50 to 0)
+            minValue = actualValue;
+            maxValue = 0;
+          } else {
+            // Value is exactly 0: create a small symmetric range
+            minValue = -1;
+            maxValue = 1;
+          }
+
+          console.log('🎨 [MAP-PREVIEW] Single value detected - creating meaningful range:', {
+            actualValue,
+            rangeMin: minValue,
+            rangeMax: maxValue,
+            dataPoints: seriesData.length,
+          });
+        }
 
         // Get color scheme from customizations
         const colorScheme = safeCustomizations.colorScheme || 'Blues';
@@ -231,6 +258,7 @@ export function MapPreview({
             },
           },
           // Add legend based on customizations
+          // For single values, show range from 0 to actual value for meaningful context
           ...(safeCustomizations.showLegend !== false &&
             values.length > 0 && {
               visualMap: {

@@ -342,7 +342,9 @@ export function ChartElementView({
         customizations: effectiveChart.extra_config?.customizations,
         extra_config: {
           filters: [
+            // Include chart-level filters
             ...(effectiveChart.extra_config?.filters || []),
+            // Include resolved dashboard filters for all chart types
             ...formatAsChartFilters(
               resolvedDashboardFilters.filter(
                 (filter) =>
@@ -354,9 +356,10 @@ export function ChartElementView({
           pagination: effectiveChart.extra_config?.pagination,
           sort: effectiveChart.extra_config?.sort,
         },
-        // Dashboard filters passed separately
+        // Dashboard filters passed separately - but NOT for table charts using chart-data-preview
+        // The chart-data-preview endpoint expects filters in extra_config.filters format only
         dashboard_filters:
-          Object.keys(dashboardFilters).length > 0
+          effectiveChart.chart_type !== 'table' && Object.keys(dashboardFilters).length > 0
             ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
                 filter_id,
                 value,
