@@ -228,16 +228,21 @@ function ValueFilterWidget({
                 role="combobox"
                 aria-expanded={open}
                 className={cn(
-                  'w-full justify-between',
+                  'w-full justify-between font-normal',
                   isEditMode ? 'h-8 text-xs' : 'h-10 text-sm'
                 )}
                 size={isEditMode ? 'sm' : 'default'}
               >
-                <span className="truncate">
+                <span
+                  className={cn(
+                    'truncate normal-case',
+                    selectedValues.length === 0 && 'text-muted-foreground'
+                  )}
+                >
                   {selectedValues.length === 0
                     ? isEditMode
                       ? 'Select...'
-                      : 'Choose values...'
+                      : 'Choose option...'
                     : `${selectedValues.length} selected`}
                 </span>
                 <ChevronDown
