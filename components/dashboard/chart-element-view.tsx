@@ -322,8 +322,17 @@ export function ChartElementView({
         table_name: effectiveChart.table_name,
         x_axis: effectiveChart.extra_config?.x_axis_column,
         y_axis: effectiveChart.extra_config?.y_axis_column,
-        dimension_col: effectiveChart.extra_config?.dimension_column,
-        aggregate_col: effectiveChart.extra_config?.aggregate_column,
+        // For map charts, use geographic_column as dimension_col
+        dimension_col:
+          effectiveChart.chart_type === 'map'
+            ? effectiveChart.extra_config?.geographic_column
+            : effectiveChart.extra_config?.dimension_column,
+        // For map charts, use value_column or aggregate_column
+        aggregate_col:
+          effectiveChart.chart_type === 'map'
+            ? effectiveChart.extra_config?.value_column ||
+              effectiveChart.extra_config?.aggregate_column
+            : effectiveChart.extra_config?.aggregate_column,
         aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
         extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
         metrics: effectiveChart.extra_config?.metrics,
@@ -1173,6 +1182,7 @@ export function ChartElementView({
     try {
       if (!chartDataPayload) {
         toast.error('Chart data is not available for CSV export');
+        console.error('chartDataPayload is null');
         return;
       }
 
@@ -1180,6 +1190,18 @@ export function ChartElementView({
       if (effectiveChart?.chart_type === 'number') {
         toast.error('Number charts cannot be exported as CSV');
         return;
+      }
+
+      // Debug logging for maps
+      if (effectiveChart?.chart_type === 'map') {
+        console.log('Map CSV Export - Payload:', {
+          chart_type: chartDataPayload.chart_type,
+          dimension_col: chartDataPayload.dimension_col,
+          aggregate_col: chartDataPayload.aggregate_col,
+          aggregate_func: chartDataPayload.aggregate_func,
+          geographic_column: chartDataPayload.geographic_column,
+          value_column: chartDataPayload.value_column,
+        });
       }
 
       toast.info('Preparing CSV download...', {
@@ -1209,7 +1231,8 @@ export function ChartElementView({
         description: `File: ${csvFilename}`,
       });
     } catch (error: any) {
-      console.error('CSV download failed:', error);
+      console.error('CSV download failed for chart type:', effectiveChart?.chart_type, error);
+      console.error('chartDataPayload was:', chartDataPayload);
       toast.error('CSV Export Failed', {
         description: error.message || 'Failed to export chart data. Please try again.',
       });
