@@ -181,18 +181,29 @@ export function MapPreview({
         // Check if we have single value scenario (all regions have same value)
         const hasSingleValue = minValue === maxValue && values.length > 0;
 
-        // Fix for single value: create a small range for visualMap to work correctly
-        // This ensures the single state is highlighted properly when only one state has data
+        // Fix for single value: create a meaningful range from 0 or to 0
+        // This ensures the single state is highlighted properly and legend shows context
         if (hasSingleValue && minValue === maxValue) {
-          const originalValue = minValue;
-          // Create a small range around the single value (e.g., ±10% or minimum ±1)
-          const offset = Math.max(Math.abs(minValue * 0.1), 1);
-          minValue = minValue - offset;
-          maxValue = maxValue + offset;
-          console.log('🎨 [MAP-PREVIEW] Single value detected - adjusting range for visualMap:', {
-            originalValue,
-            adjustedMin: minValue,
-            adjustedMax: maxValue,
+          const actualValue = maxValue;
+
+          if (actualValue > 0) {
+            // Positive value: range from 0 to value (e.g., 0 to 100)
+            minValue = 0;
+            maxValue = actualValue;
+          } else if (actualValue < 0) {
+            // Negative value: range from value to 0 (e.g., -50 to 0)
+            minValue = actualValue;
+            maxValue = 0;
+          } else {
+            // Value is exactly 0: create a small symmetric range
+            minValue = -1;
+            maxValue = 1;
+          }
+
+          console.log('🎨 [MAP-PREVIEW] Single value detected - creating meaningful range:', {
+            actualValue,
+            rangeMin: minValue,
+            rangeMax: maxValue,
             dataPoints: seriesData.length,
           });
         }
@@ -247,10 +258,9 @@ export function MapPreview({
             },
           },
           // Add legend based on customizations
-          // Hide legend for single-value scenarios as it would be misleading to show a range
+          // For single values, show range from 0 to actual value for meaningful context
           ...(safeCustomizations.showLegend !== false &&
-            values.length > 0 &&
-            !hasSingleValue && {
+            values.length > 0 && {
               visualMap: {
                 min: minValue,
                 max: maxValue,
@@ -312,8 +322,8 @@ export function MapPreview({
               // Animation settings
               animation: safeCustomizations.animation !== false,
               animationDuration: safeCustomizations.animation !== false ? 1000 : 0,
-              // Use enhanced data with individual colors when legend is disabled OR single value
-              ...(safeCustomizations.showLegend === false || hasSingleValue
+              // Use enhanced data with individual colors when legend is disabled
+              ...(safeCustomizations.showLegend === false
                 ? {
                     data: enhancedSeriesData,
                   }
