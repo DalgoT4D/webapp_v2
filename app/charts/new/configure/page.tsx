@@ -11,6 +11,7 @@ import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigura
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
@@ -949,10 +950,14 @@ function ConfigureChartPageContent() {
                     </div>
                   ) : formData.chart_type === 'table' ? (
                     <div className="w-full h-full">
-                      <DataPreview
+                      <TableChart
                         data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                        columns={dataPreview?.columns || []}
-                        columnTypes={dataPreview?.column_types || {}}
+                        config={{
+                          table_columns: formData.table_columns || dataPreview?.columns || [],
+                          column_formatting: {},
+                          sort: [],
+                          pagination: { enabled: true, page_size: 10 },
+                        }}
                         isLoading={previewLoading}
                         error={previewError}
                       />

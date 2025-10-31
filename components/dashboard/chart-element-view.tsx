@@ -22,6 +22,7 @@ import { apiGet, apiPost } from '@/lib/api';
 import {
   useChart,
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useMapDataOverlay,
   useGeoJSONData,
   useRegions,
@@ -29,6 +30,7 @@ import {
 } from '@/hooks/api/useChart';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { resolveChartTitle, type ChartTitleConfig } from '@/lib/chart-title-utils';
 import {
@@ -137,6 +139,10 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Table pagination state
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(25);
 
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
@@ -379,9 +385,9 @@ export function ChartElementView({
     error: publicTableError,
     isLoading: publicTableLoading,
   } = useSWR(
-    publicTableDataUrl,
+    publicTableDataUrl ? [publicTableDataUrl, tablePage, tablePageSize] : null,
     isPublicMode && isTableChart
-      ? async (url: string) => {
+      ? async ([url]: [string, number, number]) => {
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
             {
@@ -389,8 +395,8 @@ export function ChartElementView({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...chartDataPayload,
-                offset: 0,
-                limit: 50,
+                offset: (tablePage - 1) * tablePageSize,
+                limit: tablePageSize,
               }),
             }
           );
@@ -406,7 +412,18 @@ export function ChartElementView({
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
-  } = useChartDataPreview(!isPublicMode ? chartDataPayload : null, 1, 50);
+  } = useChartDataPreview(!isPublicMode ? chartDataPayload : null, tablePage, tablePageSize);
+
+  // Get total rows for table pagination (private mode)
+  const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
+    !isPublicMode ? chartDataPayload : null
+  );
+
+  // Handle table pagination page size change
+  const handleTablePageSizeChange = (newPageSize: number) => {
+    setTablePageSize(newPageSize);
+    setTablePage(1); // Reset to first page when page size changes
+  };
 
   // Use appropriate table data based on mode
   const tableData = isPublicMode ? publicTableData : privateTableData;
@@ -1445,12 +1462,30 @@ export function ChartElementView({
             }),
           }}
         >
-          <DataPreview
+          <TableChart
             data={Array.isArray(tableData?.data) ? tableData.data : []}
-            columns={tableData?.columns || []}
-            columnTypes={tableData?.column_types || {}}
+            config={{
+              table_columns: tableData?.columns || [],
+              column_formatting: {},
+              sort: [],
+              pagination: { enabled: true, page_size: 10 },
+            }}
             isLoading={tableLoading}
             error={tableError}
+            pagination={
+              (!isPublicMode && privateTableTotalRows && tableData?.data?.length > 0) ||
+              (isPublicMode && tableData?.data?.length > 0)
+                ? {
+                    page: tablePage,
+                    pageSize: tablePageSize,
+                    total: isPublicMode
+                      ? tableData?.total_rows || 1000
+                      : privateTableTotalRows || 0,
+                    onPageChange: setTablePage,
+                    onPageSizeChange: handleTablePageSizeChange,
+                  }
+                : undefined
+            }
           />
         </div>
       ) : isMapChart ? (

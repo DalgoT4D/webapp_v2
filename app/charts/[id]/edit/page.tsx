@@ -12,6 +12,7 @@ import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigura
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
@@ -164,6 +165,8 @@ function EditChartPageContent() {
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(50);
+  const [tableChartPage, setTableChartPage] = useState(1);
+  const [tableChartPageSize, setTableChartPageSize] = useState(25);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -654,6 +657,18 @@ function EditChartPageContent() {
     rawDataPageSize
   );
 
+  // Fetch table data for table chart preview (for table chart type)
+  const {
+    data: tableChartData,
+    error: tableChartError,
+    isLoading: tableChartLoading,
+  } = useRawTableData(
+    formData.chart_type === 'table' ? formData.schema_name || null : null,
+    formData.chart_type === 'table' ? formData.table_name || null : null,
+    tableChartPage,
+    tableChartPageSize
+  );
+
   // Get table count for raw data pagination
   const { data: tableCount } = useTableCount(
     formData.schema_name || null,
@@ -885,6 +900,11 @@ function EditChartPageContent() {
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {
     setDataPreviewPageSize(newPageSize);
     setDataPreviewPage(1); // Reset to first page when page size changes
+  };
+
+  const handleTableChartPageSizeChange = (newPageSize: number) => {
+    setTableChartPageSize(newPageSize);
+    setTableChartPage(1); // Reset to first page when page size changes
   };
 
   const handleRawDataPageSizeChange = (newPageSize: number) => {
@@ -1392,12 +1412,30 @@ function EditChartPageContent() {
                     </div>
                   ) : formData.chart_type === 'table' ? (
                     <div className="w-full h-full overflow-auto">
-                      <DataPreview
-                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                        columns={dataPreview?.columns || []}
-                        columnTypes={dataPreview?.column_types || {}}
-                        isLoading={previewLoading}
-                        error={previewError}
+                      <TableChart
+                        data={Array.isArray(tableChartData) ? tableChartData : []}
+                        config={{
+                          table_columns:
+                            formData.table_columns || tableChartData?.length > 0
+                              ? Object.keys(tableChartData[0])
+                              : [],
+                          column_formatting: {},
+                          sort: [],
+                          pagination: { enabled: true, page_size: 10 },
+                        }}
+                        isLoading={tableChartLoading}
+                        error={tableChartError}
+                        pagination={
+                          tableCount && tableChartData?.length > 0
+                            ? {
+                                page: tableChartPage,
+                                pageSize: tableChartPageSize,
+                                total: tableCount.total_rows || 0,
+                                onPageChange: setTableChartPage,
+                                onPageSizeChange: handleTableChartPageSizeChange,
+                              }
+                            : undefined
+                        }
                       />
                     </div>
                   ) : (

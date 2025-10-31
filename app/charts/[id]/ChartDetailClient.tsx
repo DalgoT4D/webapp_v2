@@ -13,6 +13,7 @@ import {
 } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -601,10 +602,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   onDrillHome={handleDrillHome}
                 />
               ) : chart?.chart_type === 'table' ? (
-                <DataPreview
+                <TableChart
                   data={Array.isArray(tableData?.data) ? tableData.data : []}
-                  columns={tableData?.columns || []}
-                  columnTypes={tableData?.column_types || {}}
+                  config={{
+                    table_columns: chart?.table_columns || tableData?.columns || [],
+                    column_formatting: {},
+                    sort: [],
+                    pagination: { enabled: true, page_size: 10 },
+                  }}
                   isLoading={tableLoading}
                   error={tableError}
                 />
