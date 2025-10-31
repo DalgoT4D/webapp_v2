@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -32,7 +31,8 @@ import {
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import useSWR from 'swr';
-import { useSchemas, useTables, useColumns } from '@/hooks/api/useChart';
+import { useColumns } from '@/hooks/api/useChart';
+import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { useDashboardFilter } from '@/hooks/api/useDashboards';
 import type {
@@ -153,8 +153,6 @@ export function FilterConfigModal({
   const [defaultRangeValue, setDefaultRangeValue] = useState({ min: 0, max: 100 });
 
   // Data fetching using existing warehouse APIs
-  const { data: schemas, isLoading: loadingSchemas } = useSchemas();
-  const { data: tables, isLoading: loadingTables } = useTables(schemaName);
   const { data: columns, isLoading: loadingColumns } = useColumns(schemaName, tableName);
   const { data: filterPreview, isLoading: loadingPreview } = useFilterPreview(
     schemaName,
@@ -276,6 +274,18 @@ export function FilterConfigModal({
     }
   }, [columnName, name]);
 
+  // Handle dataset selection from DatasetSelector
+  const handleDatasetChange = (schema_name: string, table_name: string) => {
+    setSchemaName(schema_name);
+    setTableName(table_name);
+    // Reset all column-dependent state when dataset changes
+    setColumnName('');
+    setFilterType(DashboardFilterType.VALUE); // Reset to default type
+    setCanSelectMultiple(false); // Reset to single select
+    setNumericalUIMode(NumericalFilterUIMode.SLIDER); // Reset to default UI mode
+    setDefaultRangeValue({ min: 0, max: 100 }); // Reset range values
+  };
+
   const handleSave = () => {
     if (!name) {
       return;
@@ -378,7 +388,7 @@ export function FilterConfigModal({
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-visible">
             <Tabs defaultValue="info" className="h-full flex flex-col">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="info">Info</TabsTrigger>
@@ -387,8 +397,8 @@ export function FilterConfigModal({
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-hidden mt-4">
-                <TabsContent value="info" className="h-full overflow-auto">
+              <div className="flex-1 overflow-visible mt-4">
+                <TabsContent value="info" className="h-full overflow-visible">
                   <div className="space-y-6">
                     <div className="grid gap-4">
                       <div>
@@ -402,68 +412,15 @@ export function FilterConfigModal({
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Schema</Label>
-                          <Select
-                            value={schemaName || ''}
-                            onValueChange={setSchemaName}
-                            key={`schema-${schemaName}`}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select schema" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingSchemas ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                </div>
-                              ) : (
-                                schemas?.map((schema: string) => (
-                                  <SelectItem key={schema} value={schema}>
-                                    <div className="flex items-center gap-2">
-                                      <Database className="w-4 h-4" />
-                                      {schema}
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Table</Label>
-                          <Select
-                            value={tableName || ''}
-                            onValueChange={setTableName}
-                            disabled={!schemaName && mode === 'create'}
-                            key={`table-${tableName}`}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select table" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingTables ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                </div>
-                              ) : (
-                                tables?.map((table: any) => {
-                                  const tableName =
-                                    typeof table === 'string' ? table : table.table_name;
-                                  return (
-                                    <SelectItem key={tableName} value={tableName}>
-                                      <div className="flex items-center gap-2">
-                                        <Table className="w-4 h-4" />
-                                        {tableName}
-                                      </div>
-                                    </SelectItem>
-                                  );
-                                })
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <Label>Dataset</Label>
+                          <DatasetSelector
+                            schema_name={schemaName}
+                            table_name={tableName}
+                            onDatasetChange={handleDatasetChange}
+                            className="mt-1"
+                          />
                         </div>
 
                         <div>
@@ -518,66 +475,64 @@ export function FilterConfigModal({
 
                       {/* Auto-detected filter type display */}
                       {columnName && columns && (
-                        <Card>
-                          <CardContent className="pt-4">
-                            <div className="flex items-center gap-3">
-                              {filterType === DashboardFilterType.VALUE && (
-                                <>
-                                  <List className="w-5 h-5 text-blue-600" />
-                                  <div>
-                                    <div className="font-medium">Dropdown Filter</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Auto-detected from{' '}
-                                      {columns.find(
-                                        (col: any) =>
-                                          col.column_name === columnName || col.name === columnName
-                                      )?.data_type || 'column type'}
-                                    </div>
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center gap-3">
+                            {filterType === DashboardFilterType.VALUE && (
+                              <>
+                                <List className="w-5 h-5 text-blue-600" />
+                                <div>
+                                  <div className="font-medium">Dropdown Filter</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    Auto-detected from{' '}
+                                    {columns.find(
+                                      (col: any) =>
+                                        col.column_name === columnName || col.name === columnName
+                                    )?.data_type || 'column type'}
                                   </div>
-                                </>
-                              )}
-                              {filterType === DashboardFilterType.NUMERICAL && (
-                                <>
-                                  <Hash className="w-5 h-5 text-green-600" />
-                                  <div>
-                                    <div className="font-medium">Range Filter</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Auto-detected from{' '}
-                                      {columns.find(
-                                        (col: any) =>
-                                          col.column_name === columnName || col.name === columnName
-                                      )?.data_type || 'column type'}
-                                    </div>
+                                </div>
+                              </>
+                            )}
+                            {filterType === DashboardFilterType.NUMERICAL && (
+                              <>
+                                <Hash className="w-5 h-5 text-green-600" />
+                                <div>
+                                  <div className="font-medium">Range Filter</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    Auto-detected from{' '}
+                                    {columns.find(
+                                      (col: any) =>
+                                        col.column_name === columnName || col.name === columnName
+                                    )?.data_type || 'column type'}
                                   </div>
-                                </>
-                              )}
-                              {filterType === DashboardFilterType.DATETIME && (
-                                <>
-                                  <Calendar className="w-5 h-5 text-purple-600" />
-                                  <div>
-                                    <div className="font-medium">Date Range Filter</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Auto-detected from{' '}
-                                      {columns.find(
-                                        (col: any) =>
-                                          col.column_name === columnName || col.name === columnName
-                                      )?.data_type || 'column type'}
-                                    </div>
+                                </div>
+                              </>
+                            )}
+                            {filterType === DashboardFilterType.DATETIME && (
+                              <>
+                                <Calendar className="w-5 h-5 text-purple-600" />
+                                <div>
+                                  <div className="font-medium">Date Range Filter</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    Auto-detected from{' '}
+                                    {columns.find(
+                                      (col: any) =>
+                                        col.column_name === columnName || col.name === columnName
+                                    )?.data_type || 'column type'}
                                   </div>
-                                </>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       )}
 
                       {/* Type-specific configuration */}
                       {columnName && filterType === DashboardFilterType.VALUE && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Dropdown Configuration</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
+                        <div className="bg-white border border-gray-200 rounded-lg">
+                          <div className="p-4 pb-2 border-b border-gray-100">
+                            <h3 className="text-sm font-medium">Dropdown Configuration</h3>
+                          </div>
+                          <div className="p-4 space-y-3">
                             <div className="grid grid-cols-2 gap-4">
                               <div className="flex items-center space-x-2">
                                 <Checkbox
@@ -606,18 +561,16 @@ export function FilterConfigModal({
                                 ? 'checkboxes (multiple selection)'
                                 : 'radio buttons (single selection)'}
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       )}
 
                       {columnName && filterType === DashboardFilterType.NUMERICAL && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">
-                              Numerical Filter Configuration
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
+                        <div className="bg-white border border-gray-200 rounded-lg">
+                          <div className="p-4 pb-2 border-b border-gray-100">
+                            <h3 className="text-sm font-medium">Numerical Filter Configuration</h3>
+                          </div>
+                          <div className="p-4 space-y-4">
                             <div>
                               <Label className="text-sm font-medium">UI Style</Label>
                               <div className="grid grid-cols-2 gap-4 mt-2">
@@ -659,33 +612,33 @@ export function FilterConfigModal({
                                 : 'Separate Min and Max input fields'}
                               . Range limits automatically computed from your data.
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       )}
 
                       {columnName && filterType === DashboardFilterType.DATETIME && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Date Range Filter</CardTitle>
-                          </CardHeader>
-                          <CardContent>
+                        <div className="bg-white border border-gray-200 rounded-lg">
+                          <div className="p-4 pb-2 border-b border-gray-100">
+                            <h3 className="text-sm font-medium">Date Range Filter</h3>
+                          </div>
+                          <div className="p-4">
                             <div className="text-sm text-muted-foreground bg-purple-50 p-3 rounded">
                               <strong>Renders as:</strong> Date range picker with start and end date
                               selection. Date limits automatically computed from your data.
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="preview" className="h-full overflow-auto">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Filter Preview</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                  <div className="bg-white border border-gray-200 rounded-lg">
+                    <div className="p-4 pb-2 border-b border-gray-100">
+                      <h2 className="text-lg font-medium">Filter Preview</h2>
+                    </div>
+                    <div className="p-4">
                       {loadingPreview ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="w-6 h-6 animate-spin" />
@@ -784,15 +737,15 @@ export function FilterConfigModal({
                             : 'Select schema, table, and column to see preview'}
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </TabsContent>
               </div>
             </Tabs>
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-8 mt-6 border-t relative z-0">
           <div className="text-sm text-muted-foreground">
             {!isFormValid && 'Fill in all required fields to continue'}
           </div>
