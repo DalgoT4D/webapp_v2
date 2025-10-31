@@ -945,15 +945,17 @@ export function ChartElementView({
               const hasRotatedXLabels =
                 baseConfig.xAxis?.axisLabel?.rotate !== undefined &&
                 baseConfig.xAxis?.axisLabel?.rotate !== 0;
-              const bottomMargin = hasRotatedXLabels ? '12%' : '5%';
+              // Horizontal labels (0 degrees) need adequate space to be visible
+              // Rotated labels need more space due to angle
+              const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
               const hasLegend = baseConfig.legend?.show !== false;
-              const topMargin = hasLegend ? '15%' : '8%';
+              const topMargin = hasLegend ? '18%' : '10%';
 
               return {
                 ...baseConfig.grid,
                 containLabel: true,
-                left: '5%',
-                right: '3%',
+                left: '10%', // Increased for overall left margin
+                right: '6%', // Increased for overall right margin
                 top: topMargin,
                 bottom: bottomMargin,
               };
@@ -970,7 +972,7 @@ export function ChartElementView({
                   axisLabel: {
                     ...axis.axisLabel,
                     interval: 0,
-                    margin: 12,
+                    margin: 15, // Increased margin from axis line to labels
                     overflow: 'truncate',
                     width: axis.axisLabel?.rotate ? 100 : undefined,
                   },
@@ -987,7 +989,7 @@ export function ChartElementView({
                     axisLabel: {
                       ...baseConfig.xAxis.axisLabel,
                       interval: 0,
-                      margin: 12,
+                      margin: 15, // Increased margin from axis line to labels
                       overflow: 'truncate',
                       width: baseConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
                     },
@@ -1004,7 +1006,7 @@ export function ChartElementView({
                   },
                   axisLabel: {
                     ...axis.axisLabel,
-                    margin: 10,
+                    margin: 15, // Increased margin from axis line to labels
                   },
                 }))
               : baseConfig.yAxis
@@ -1018,7 +1020,7 @@ export function ChartElementView({
                     },
                     axisLabel: {
                       ...baseConfig.yAxis.axisLabel,
-                      margin: 10,
+                      margin: 15, // Increased margin from axis line to labels
                     },
                   }
                 : undefined,
