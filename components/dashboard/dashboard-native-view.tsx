@@ -81,6 +81,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 // Define responsive breakpoints and column configurations (same as builder)
 const BREAKPOINTS = {
@@ -330,11 +331,14 @@ export function DashboardNativeView({
   // Use responsive layout hook
   const responsive = useResponsiveLayout();
 
-  // Check if user can edit - allow all authenticated users in non-public mode
+  // Get user permissions
+  const { hasPermission } = useUserPermissions();
+
+  // Check if user can edit - requires can_edit_dashboards permission
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return true; // All authenticated users can edit dashboards
-  }, [isPublicMode, dashboard, currentUser]);
+    return hasPermission('can_edit_dashboards');
+  }, [isPublicMode, dashboard, currentUser, hasPermission]);
 
   // Check if dashboard is locked
   const isLocked = dashboard?.is_locked || false;
