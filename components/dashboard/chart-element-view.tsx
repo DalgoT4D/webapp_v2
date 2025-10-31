@@ -1208,8 +1208,16 @@ export function ChartElementView({
         description: 'Fetching chart data from server',
       });
 
-      // Use the existing backend CSV endpoint
-      const blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+      // Use appropriate endpoint based on public mode
+      let blob: Blob;
+      if (isPublicMode && publicToken) {
+        // Public dashboard - use unauthenticated endpoint
+        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/`;
+        blob = await apiPostBinary(publicUrl, chartDataPayload);
+      } else {
+        // Authenticated dashboard - use authenticated endpoint
+        blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+      }
 
       // Generate filename
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');

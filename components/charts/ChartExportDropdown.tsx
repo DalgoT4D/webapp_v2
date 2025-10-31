@@ -30,6 +30,10 @@ interface ChartExportDropdownProps {
   tableElement?: HTMLElement | null;
   // Chart data payload for CSV export
   chartDataPayload?: ChartDataPayload | null;
+  // Public mode props
+  isPublicMode?: boolean;
+  publicToken?: string;
+  chartId?: number;
 }
 
 export function ChartExportDropdown({
@@ -45,6 +49,9 @@ export function ChartExportDropdown({
   chartType,
   tableElement,
   chartDataPayload,
+  isPublicMode = false,
+  publicToken,
+  chartId,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -72,8 +79,16 @@ export function ChartExportDropdown({
           description: 'Fetching chart data from server',
         });
 
-        // Use API helper with cookie-based auth
-        const blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+        // Use appropriate endpoint based on public mode
+        let blob: Blob;
+        if (isPublicMode && publicToken && chartId) {
+          // Public dashboard - use unauthenticated endpoint
+          const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/`;
+          blob = await apiPostBinary(publicUrl, chartDataPayload);
+        } else {
+          // Authenticated dashboard - use authenticated endpoint
+          blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+        }
 
         // Generate filename
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
