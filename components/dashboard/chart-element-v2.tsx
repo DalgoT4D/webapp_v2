@@ -626,6 +626,15 @@ export function ChartElementV2({
           ...(chartConfig.title || {}),
           show: false, // Disable ECharts built-in title
         },
+        // Enhanced legend positioning - place outside chart area
+        legend: chartConfig.legend
+          ? {
+              ...chartConfig.legend,
+              top: '5%',
+              left: 'center',
+              orient: chartConfig.legend.orient || 'horizontal',
+            }
+          : undefined,
         // Enhanced data labels styling
         series: Array.isArray(chartConfig.series)
           ? chartConfig.series.map((series: any) => ({
@@ -661,48 +670,88 @@ export function ChartElementV2({
             }
           : {
               // For other chart types, apply normal grid and axis styling
-              grid: {
-                ...chartConfig.grid,
-                containLabel: true,
-                left: '10%',
-                right: '8%',
-                top: '12%',
-                bottom: '15%',
-              },
+              // Dynamically adjust margins based on label rotation and legend
+              grid: (() => {
+                const hasRotatedXLabels =
+                  chartConfig.xAxis?.axisLabel?.rotate !== undefined &&
+                  chartConfig.xAxis?.axisLabel?.rotate !== 0;
+                const bottomMargin = hasRotatedXLabels ? '12%' : '5%';
+                const hasLegend = chartConfig.legend?.show !== false;
+                const topMargin = hasLegend ? '15%' : '8%';
+
+                return {
+                  ...chartConfig.grid,
+                  containLabel: true,
+                  left: '5%',
+                  right: '3%',
+                  top: topMargin,
+                  bottom: bottomMargin,
+                };
+              })(),
               xAxis: Array.isArray(chartConfig.xAxis)
                 ? chartConfig.xAxis.map((axis: any) => ({
                     ...axis,
+                    nameGap: axis.name ? 80 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                    axisLabel: {
+                      ...axis.axisLabel,
+                      interval: 0,
+                      margin: 12,
+                      overflow: 'truncate',
+                      width: axis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }))
-                : {
-                    ...chartConfig.xAxis,
-                    nameTextStyle: {
-                      fontSize: 14,
-                      color: '#374151',
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                    },
-                  },
+                : chartConfig.xAxis
+                  ? {
+                      ...chartConfig.xAxis,
+                      nameGap: chartConfig.xAxis.name ? 80 : 15,
+                      nameTextStyle: {
+                        fontSize: 14,
+                        color: '#374151',
+                        fontFamily: 'Inter, system-ui, sans-serif',
+                      },
+                      axisLabel: {
+                        ...chartConfig.xAxis.axisLabel,
+                        interval: 0,
+                        margin: 12,
+                        overflow: 'truncate',
+                        width: chartConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
+                      },
+                    }
+                  : undefined,
               yAxis: Array.isArray(chartConfig.yAxis)
                 ? chartConfig.yAxis.map((axis: any) => ({
                     ...axis,
+                    nameGap: axis.name ? 100 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                    axisLabel: {
+                      ...axis.axisLabel,
+                      margin: 10,
                     },
                   }))
-                : {
-                    ...chartConfig.yAxis,
-                    nameTextStyle: {
-                      fontSize: 14,
-                      color: '#374151',
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                    },
-                  },
+                : chartConfig.yAxis
+                  ? {
+                      ...chartConfig.yAxis,
+                      nameGap: chartConfig.yAxis.name ? 100 : 15,
+                      nameTextStyle: {
+                        fontSize: 14,
+                        color: '#374151',
+                        fontFamily: 'Inter, system-ui, sans-serif',
+                      },
+                      axisLabel: {
+                        ...chartConfig.yAxis.axisLabel,
+                        margin: 10,
+                      },
+                    }
+                  : undefined,
             }),
         // Enhanced tooltip with bold values
         tooltip: {

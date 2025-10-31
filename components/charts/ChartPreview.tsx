@@ -68,6 +68,15 @@ export function ChartPreview({
       // Modify config to ensure proper margins for axis titles and axis title styling
       const modifiedConfig = {
         ...config,
+        // Enhanced legend positioning - place outside chart area
+        legend: config.legend
+          ? {
+              ...config.legend,
+              top: '5%',
+              left: 'center',
+              orient: config.legend.orient || 'horizontal',
+            }
+          : undefined,
         // Enhanced data labels styling
         series: Array.isArray(config.series)
           ? config.series.map((series) => ({
@@ -141,46 +150,90 @@ export function ChartPreview({
             }
           : {
               // For other chart types, apply normal grid and axis styling
-              grid: {
-                ...config.grid,
-                containLabel: true,
-                left: '5%',
-                bottom: '5%',
-              },
+              // Dynamically adjust margins based on whether axis titles are present and label rotation
+              // Check if X-axis labels are rotated to allocate more bottom space
+              // Also check if legend is shown to allocate top space
+              grid: (() => {
+                const hasRotatedXLabels =
+                  config.xAxis?.axisLabel?.rotate !== undefined &&
+                  config.xAxis?.axisLabel?.rotate !== 0;
+                const bottomMargin = hasRotatedXLabels ? '12%' : '5%';
+                const hasLegend = config.legend?.show !== false;
+                const topMargin = hasLegend ? '15%' : '8%';
+
+                return {
+                  ...config.grid,
+                  containLabel: true,
+                  left: '5%',
+                  bottom: bottomMargin,
+                  right: '3%',
+                  top: topMargin,
+                };
+              })(),
               xAxis: Array.isArray(config.xAxis)
                 ? config.xAxis.map((axis) => ({
                     ...axis,
+                    nameGap: axis.name ? 80 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                    axisLabel: {
+                      ...axis.axisLabel,
+                      interval: 0,
+                      margin: 12,
+                      overflow: 'truncate',
+                      width: axis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }))
-                : {
-                    ...config.xAxis,
-                    nameTextStyle: {
-                      fontSize: 14,
-                      color: '#374151',
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                    },
-                  },
+                : config.xAxis
+                  ? {
+                      ...config.xAxis,
+                      nameGap: config.xAxis.name ? 80 : 15,
+                      nameTextStyle: {
+                        fontSize: 14,
+                        color: '#374151',
+                        fontFamily: 'Inter, system-ui, sans-serif',
+                      },
+                      axisLabel: {
+                        ...config.xAxis.axisLabel,
+                        interval: 0,
+                        margin: 12,
+                        overflow: 'truncate',
+                        width: config.xAxis.axisLabel?.rotate ? 100 : undefined,
+                      },
+                    }
+                  : undefined,
               yAxis: Array.isArray(config.yAxis)
                 ? config.yAxis.map((axis) => ({
                     ...axis,
+                    nameGap: axis.name ? 100 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                    axisLabel: {
+                      ...axis.axisLabel,
+                      margin: 10,
                     },
                   }))
-                : {
-                    ...config.yAxis,
-                    nameTextStyle: {
-                      fontSize: 14,
-                      color: '#374151',
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                    },
-                  },
+                : config.yAxis
+                  ? {
+                      ...config.yAxis,
+                      nameGap: config.yAxis.name ? 100 : 15,
+                      nameTextStyle: {
+                        fontSize: 14,
+                        color: '#374151',
+                        fontFamily: 'Inter, system-ui, sans-serif',
+                      },
+                      axisLabel: {
+                        ...config.yAxis.axisLabel,
+                        margin: 10,
+                      },
+                    }
+                  : undefined,
             }),
       };
 

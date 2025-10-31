@@ -12,6 +12,8 @@ import {
   ArrowLeft,
   Home,
   Loader2,
+  FileImage,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,6 +39,13 @@ import {
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
+import { apiPostBinary } from '@/lib/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import * as echarts from 'echarts/core';
 import {
   BarChart,
@@ -304,38 +313,57 @@ export function ChartElementView({
       ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
-  // For table charts, also fetch raw data using data preview API
-  const chartDataPayload: ChartDataPayload | null =
-    isTableChart && effectiveChart
-      ? {
-          chart_type: effectiveChart.chart_type,
-          computation_type: effectiveChart.computation_type as 'raw' | 'aggregated',
-          schema_name: effectiveChart.schema_name,
-          table_name: effectiveChart.table_name,
-          x_axis: effectiveChart.extra_config?.x_axis_column,
-          y_axis: effectiveChart.extra_config?.y_axis_column,
-          dimension_col: effectiveChart.extra_config?.dimension_column,
-          aggregate_col: effectiveChart.extra_config?.aggregate_column,
-          aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
-          extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
-          metrics: effectiveChart.extra_config?.metrics,
-          extra_config: {
-            filters: [
-              ...(effectiveChart.extra_config?.filters || []),
-              ...formatAsChartFilters(
-                resolvedDashboardFilters.filter(
-                  (filter) =>
-                    filter.schema_name === effectiveChart.schema_name &&
-                    filter.table_name === effectiveChart.table_name
-                )
-              ),
-            ],
-            pagination: effectiveChart.extra_config?.pagination,
-            sort: effectiveChart.extra_config?.sort,
-          },
-          // Remove dashboard_filters since we're using filters in extra_config now
-        }
-      : null;
+  // Build chartDataPayload for ALL chart types (for CSV export and table data)
+  const chartDataPayload: ChartDataPayload | null = effectiveChart
+    ? {
+        chart_type: effectiveChart.chart_type,
+        computation_type: effectiveChart.computation_type as 'raw' | 'aggregated',
+        schema_name: effectiveChart.schema_name,
+        table_name: effectiveChart.table_name,
+        x_axis: effectiveChart.extra_config?.x_axis_column,
+        y_axis: effectiveChart.extra_config?.y_axis_column,
+        // For map charts, use geographic_column as dimension_col
+        dimension_col:
+          effectiveChart.chart_type === 'map'
+            ? effectiveChart.extra_config?.geographic_column
+            : effectiveChart.extra_config?.dimension_column,
+        // For map charts, use value_column or aggregate_column
+        aggregate_col:
+          effectiveChart.chart_type === 'map'
+            ? effectiveChart.extra_config?.value_column ||
+              effectiveChart.extra_config?.aggregate_column
+            : effectiveChart.extra_config?.aggregate_column,
+        aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
+        extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
+        metrics: effectiveChart.extra_config?.metrics,
+        geographic_column: effectiveChart.extra_config?.geographic_column,
+        value_column: effectiveChart.extra_config?.value_column,
+        selected_geojson_id: effectiveChart.extra_config?.selected_geojson_id,
+        customizations: effectiveChart.extra_config?.customizations,
+        extra_config: {
+          filters: [
+            ...(effectiveChart.extra_config?.filters || []),
+            ...formatAsChartFilters(
+              resolvedDashboardFilters.filter(
+                (filter) =>
+                  filter.schema_name === effectiveChart.schema_name &&
+                  filter.table_name === effectiveChart.table_name
+              )
+            ),
+          ],
+          pagination: effectiveChart.extra_config?.pagination,
+          sort: effectiveChart.extra_config?.sort,
+        },
+        // Dashboard filters passed separately
+        dashboard_filters:
+          Object.keys(dashboardFilters).length > 0
+            ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
+                filter_id,
+                value,
+              }))
+            : undefined,
+      }
+    : null;
 
   // For table charts - public vs private mode
   const publicTableDataUrl =
@@ -844,6 +872,15 @@ export function ChartElementView({
         ...activeChartData.echarts_config.title,
         show: false,
       },
+      // Enhanced legend positioning - place outside chart area
+      legend: baseConfig.legend
+        ? {
+            ...baseConfig.legend,
+            top: '5%',
+            left: 'center',
+            orient: baseConfig.legend.orient || 'horizontal',
+          }
+        : undefined,
       animation: true,
       animationDuration: 500,
       animationEasing: 'cubicOut',
@@ -900,48 +937,88 @@ export function ChartElementView({
           }
         : {
             // For other chart types, apply normal grid and axis styling
-            grid: {
-              ...baseConfig.grid,
-              containLabel: true,
-              left: '10%',
-              right: '8%',
-              top: '12%',
-              bottom: '15%',
-            },
+            // Dynamically adjust margins based on label rotation and legend
+            grid: (() => {
+              const hasRotatedXLabels =
+                baseConfig.xAxis?.axisLabel?.rotate !== undefined &&
+                baseConfig.xAxis?.axisLabel?.rotate !== 0;
+              const bottomMargin = hasRotatedXLabels ? '12%' : '5%';
+              const hasLegend = baseConfig.legend?.show !== false;
+              const topMargin = hasLegend ? '15%' : '8%';
+
+              return {
+                ...baseConfig.grid,
+                containLabel: true,
+                left: '5%',
+                right: '3%',
+                top: topMargin,
+                bottom: bottomMargin,
+              };
+            })(),
             xAxis: Array.isArray(baseConfig.xAxis)
               ? baseConfig.xAxis.map((axis: any) => ({
                   ...axis,
+                  nameGap: axis.name ? 80 : 15,
                   nameTextStyle: {
                     fontSize: 14,
                     color: '#374151',
                     fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                  axisLabel: {
+                    ...axis.axisLabel,
+                    interval: 0,
+                    margin: 12,
+                    overflow: 'truncate',
+                    width: axis.axisLabel?.rotate ? 100 : undefined,
                   },
                 }))
-              : {
-                  ...baseConfig.xAxis,
-                  nameTextStyle: {
-                    fontSize: 14,
-                    color: '#374151',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                  },
-                },
+              : baseConfig.xAxis
+                ? {
+                    ...baseConfig.xAxis,
+                    nameGap: baseConfig.xAxis.name ? 80 : 15,
+                    nameTextStyle: {
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                    axisLabel: {
+                      ...baseConfig.xAxis.axisLabel,
+                      interval: 0,
+                      margin: 12,
+                      overflow: 'truncate',
+                      width: baseConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
+                    },
+                  }
+                : undefined,
             yAxis: Array.isArray(baseConfig.yAxis)
               ? baseConfig.yAxis.map((axis: any) => ({
                   ...axis,
+                  nameGap: axis.name ? 100 : 15,
                   nameTextStyle: {
                     fontSize: 14,
                     color: '#374151',
                     fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                  axisLabel: {
+                    ...axis.axisLabel,
+                    margin: 10,
                   },
                 }))
-              : {
-                  ...baseConfig.yAxis,
-                  nameTextStyle: {
-                    fontSize: 14,
-                    color: '#374151',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                  },
-                },
+              : baseConfig.yAxis
+                ? {
+                    ...baseConfig.yAxis,
+                    nameGap: baseConfig.yAxis.name ? 100 : 15,
+                    nameTextStyle: {
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    },
+                    axisLabel: {
+                      ...baseConfig.yAxis.axisLabel,
+                      margin: 10,
+                    },
+                  }
+                : undefined,
           }),
       tooltip: {
         trigger: 'axis',
@@ -1064,11 +1141,12 @@ export function ChartElementView({
     mapChartInstance.current = chart;
   };
 
-  const handleDownload = async () => {
+  // Original working download function for PNG/Image export
+  const handleDownloadImage = async () => {
     try {
       // Handle table chart export
       if (isTableChart && tableRef.current) {
-        const filename = generateFilename(chartMetadata?.chart_title || `table-${chartId}`, 'png');
+        const filename = generateFilename(chartMetadata?.title || `table-${chartId}`, 'png');
         await ChartExporter.exportTableAsImage(tableRef.current, {
           filename,
           format: 'png',
@@ -1096,6 +1174,76 @@ export function ChartElementView({
     } catch (error) {
       console.error('Download failed:', error);
       toast.error('Failed to download. Please try again.');
+    }
+  };
+
+  // New CSV export function
+  const handleDownloadCSV = async () => {
+    try {
+      if (!chartDataPayload) {
+        toast.error('Chart data is not available for CSV export');
+        console.error('chartDataPayload is null');
+        return;
+      }
+
+      // Skip CSV export for number charts (no meaningful data)
+      if (effectiveChart?.chart_type === 'number') {
+        toast.error('Number charts cannot be exported as CSV');
+        return;
+      }
+
+      // Debug logging for maps
+      if (effectiveChart?.chart_type === 'map') {
+        console.log('Map CSV Export - Payload:', {
+          chart_type: chartDataPayload.chart_type,
+          dimension_col: chartDataPayload.dimension_col,
+          aggregate_col: chartDataPayload.aggregate_col,
+          aggregate_func: chartDataPayload.aggregate_func,
+          geographic_column: chartDataPayload.geographic_column,
+          value_column: chartDataPayload.value_column,
+        });
+      }
+
+      toast.info('Preparing CSV download...', {
+        description: 'Fetching chart data from server',
+      });
+
+      // Use appropriate endpoint based on public mode
+      let blob: Blob;
+      if (isPublicMode && publicToken) {
+        // Public dashboard - use unauthenticated endpoint
+        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/`;
+        blob = await apiPostBinary(publicUrl, chartDataPayload);
+      } else {
+        // Authenticated dashboard - use authenticated endpoint
+        blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+      }
+
+      // Generate filename
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const sanitizedTitle = (chartMetadata?.title || `chart-${chartId}`)
+        .replace(/[^a-z0-9]/gi, '_')
+        .replace(/_+/g, '_')
+        .toLowerCase();
+      const csvFilename = `${sanitizedTitle}-${timestamp}.csv`;
+
+      // Download using file-saver
+      const fileSaver = await import('file-saver');
+      const saveAs = fileSaver.default?.saveAs || fileSaver.saveAs || fileSaver.default;
+      if (typeof saveAs !== 'function') {
+        throw new Error('Failed to load file-saver library');
+      }
+      saveAs(blob, csvFilename);
+
+      toast.success('CSV downloaded successfully', {
+        description: `File: ${csvFilename}`,
+      });
+    } catch (error: any) {
+      console.error('CSV download failed for chart type:', effectiveChart?.chart_type, error);
+      console.error('chartDataPayload was:', chartDataPayload);
+      toast.error('CSV Export Failed', {
+        description: error.message || 'Failed to export chart data. Please try again.',
+      });
     }
   };
 
@@ -1204,15 +1352,27 @@ export function ChartElementView({
       {viewMode && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDownload}
-              className="h-7 w-7 p-0"
-              title="Download"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
+            {/* Download dropdown with PNG and CSV options */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                  <Download className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
+                  <FileImage className="w-4 h-4 mr-2" />
+                  <span>Download as PNG</span>
+                </DropdownMenuItem>
+                {effectiveChart?.chart_type !== 'number' && (
+                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                    <FileText className="w-4 h-4 mr-2" />
+                    <span>Export Data as CSV</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               variant="ghost"
               size="sm"
