@@ -138,6 +138,8 @@ export function ChartBuilder({
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
+  const [tableChartPage, setTableChartPage] = useState(1);
+  const [tableChartPageSize, setTableChartPageSize] = useState(25);
 
   // Drill-down state for maps
   const [drillDownState, setDrillDownState] = useState<{
@@ -243,12 +245,24 @@ export function ChartBuilder({
   // Fetch total rows for chart data preview pagination
   const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
 
-  // Fetch raw table data
+  // Fetch raw table data (for raw data tab)
   const {
     data: rawTableData,
     error: rawDataError,
     isLoading: rawDataLoading,
   } = useRawTableData(formData.schema_name || null, formData.table_name || null, rawDataPage, 50);
+
+  // Fetch table data for table chart preview (for table chart type)
+  const {
+    data: tableChartData,
+    error: tableChartError,
+    isLoading: tableChartLoading,
+  } = useRawTableData(
+    formData.chart_type === 'table' ? formData.schema_name || null : null,
+    formData.chart_type === 'table' ? formData.table_name || null : null,
+    tableChartPage,
+    tableChartPageSize
+  );
 
   // Get table count for raw data pagination
   const { data: tableCount } = useTableCount(
@@ -305,6 +319,11 @@ export function ChartBuilder({
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {
     setDataPreviewPageSize(newPageSize);
     setDataPreviewPage(1); // Reset to first page when page size changes
+  };
+
+  const handleTableChartPageSizeChange = (newPageSize: number) => {
+    setTableChartPageSize(newPageSize);
+    setTableChartPage(1); // Reset to first page when page size changes
   };
 
   const handleFormChange = useCallback(
@@ -1023,23 +1042,25 @@ export function ChartBuilder({
                 showBreadcrumbs={!!drillDownState}
               />
             ) : formData.chart_type === 'table' ? (
-              <DataPreview
-                data={Array.isArray(rawTableData) ? rawTableData : []}
-                columns={
-                  columns
-                    ? columns.map((col: any) => (typeof col === 'string' ? col : col.column_name))
-                    : []
-                }
-                columnTypes={{}}
-                isLoading={rawDataLoading}
-                error={rawDataError}
-                pagination={
-                  tableCount && rawTableData?.length > 0
+              <ChartPreview
+                config={{
+                  table_columns: formData.table_columns,
+                  column_formatting: {},
+                  sort: [],
+                  pagination: formData.pagination || { enabled: true, page_size: 10 },
+                }}
+                chartType="table"
+                tableData={Array.isArray(tableChartData) ? tableChartData : []}
+                isLoading={tableChartLoading}
+                error={tableChartError}
+                tablePagination={
+                  tableCount && tableChartData?.length > 0
                     ? {
-                        page: rawDataPage,
-                        pageSize: 50,
+                        page: tableChartPage,
+                        pageSize: tableChartPageSize,
                         total: tableCount.total_rows || 0,
-                        onPageChange: setRawDataPage,
+                        onPageChange: setTableChartPage,
+                        onPageSizeChange: handleTableChartPageSizeChange,
                       }
                     : undefined
                 }
