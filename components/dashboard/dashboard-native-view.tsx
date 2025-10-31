@@ -330,14 +330,10 @@ export function DashboardNativeView({
   // Use responsive layout hook
   const responsive = useResponsiveLayout();
 
-  // Check if user can edit (creator or admin) - disabled in public mode
+  // Check if user can edit - allow all authenticated users in non-public mode
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return (
-      dashboard.created_by === currentUser.email ||
-      currentUser.new_role_slug === 'admin' ||
-      currentUser.new_role_slug === 'super-admin'
-    );
+    return true; // All authenticated users can edit dashboards
   }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked
