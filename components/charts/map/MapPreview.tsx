@@ -175,11 +175,27 @@ export function MapPreview({
 
         // Calculate min/max values for color scaling
         const values = seriesData.map((item) => item.value).filter((v) => v != null);
-        const minValue = values.length > 0 ? Math.min(...values) : 0;
-        const maxValue = values.length > 0 ? Math.max(...values) : 100;
+        let minValue = values.length > 0 ? Math.min(...values) : 0;
+        let maxValue = values.length > 0 ? Math.max(...values) : 100;
 
         // Check if we have single value scenario (all regions have same value)
         const hasSingleValue = minValue === maxValue && values.length > 0;
+
+        // Fix for single value: create a small range for visualMap to work correctly
+        // This ensures the single state is highlighted properly when only one state has data
+        if (hasSingleValue && minValue === maxValue) {
+          const originalValue = minValue;
+          // Create a small range around the single value (e.g., ±10% or minimum ±1)
+          const offset = Math.max(Math.abs(minValue * 0.1), 1);
+          minValue = minValue - offset;
+          maxValue = maxValue + offset;
+          console.log('🎨 [MAP-PREVIEW] Single value detected - adjusting range for visualMap:', {
+            originalValue,
+            adjustedMin: minValue,
+            adjustedMax: maxValue,
+            dataPoints: seriesData.length,
+          });
+        }
 
         // Get color scheme from customizations
         const colorScheme = safeCustomizations.colorScheme || 'Blues';
@@ -231,8 +247,10 @@ export function MapPreview({
             },
           },
           // Add legend based on customizations
+          // Hide legend for single-value scenarios as it would be misleading to show a range
           ...(safeCustomizations.showLegend !== false &&
-            values.length > 0 && {
+            values.length > 0 &&
+            !hasSingleValue && {
               visualMap: {
                 min: minValue,
                 max: maxValue,
@@ -294,8 +312,8 @@ export function MapPreview({
               // Animation settings
               animation: safeCustomizations.animation !== false,
               animationDuration: safeCustomizations.animation !== false ? 1000 : 0,
-              // Use enhanced data with individual colors when legend is disabled
-              ...(safeCustomizations.showLegend === false
+              // Use enhanced data with individual colors when legend is disabled OR single value
+              ...(safeCustomizations.showLegend === false || hasSingleValue
                 ? {
                     data: enhancedSeriesData,
                   }
