@@ -9,6 +9,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
+import { apiDelete } from '@/lib/api';
 
 export default function EditDashboardPage() {
   const params = useParams();
@@ -69,6 +70,82 @@ export default function EditDashboardPage() {
     // Navigate to dashboard list
     router.push('/dashboards');
   };
+
+  // Direct API call to unlock dashboard - bypasses the full cleanup chain
+  const emergencyUnlock = async () => {
+    try {
+      await apiDelete(`/api/dashboards/${dashboardId}/lock/`);
+    } catch (error) {
+      console.error(`Failed to unlock dashboard ${dashboardId}:`, error);
+    }
+  };
+
+  // Clean up on route change or component unmount
+  useEffect(() => {
+    // Function to handle cleanup synchronously for critical scenarios
+    const handleSyncCleanup = () => {
+      // First try emergency unlock (direct API call)
+      emergencyUnlock();
+
+      // Then also try the full cleanup chain as backup
+      if (dashboardBuilderRef.current?.cleanup) {
+        // Fire and forget - don't wait for async completion during sync cleanup
+        dashboardBuilderRef.current.cleanup().catch((error) => {
+          console.error('Error during dashboard cleanup:', error);
+        });
+      }
+    };
+
+    // Handle browser navigation (back/forward buttons, direct navigation)
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      handleSyncCleanup();
+    };
+
+    // Handle popstate for browser back/forward
+    const handlePopState = () => {
+      handleSyncCleanup();
+    };
+
+    // Handle page visibility change (when tab becomes hidden/inactive)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleSyncCleanup();
+      }
+    };
+
+    // Intercept link clicks to dashboard-related routes
+    const handleLinkClick = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a[href]') as HTMLAnchorElement;
+
+      if (link && link.href) {
+        const url = new URL(link.href, window.location.origin);
+        // Check if navigating away from current edit page
+        if (url.pathname !== window.location.pathname) {
+          handleSyncCleanup();
+        }
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('click', handleLinkClick, true); // Use capture phase
+
+    // Cleanup function that runs when component unmounts
+    // This is for Next.js router navigation
+    return () => {
+      // Use sync cleanup during unmount to avoid race conditions
+      handleSyncCleanup();
+
+      // Clean up event listeners
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('click', handleLinkClick, true);
+    };
+  }, [dashboardId]);
 
   // Handle navigation to preview mode
   const handlePreviewMode = async () => {
