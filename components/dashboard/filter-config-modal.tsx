@@ -32,7 +32,8 @@ import {
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import useSWR from 'swr';
-import { useSchemas, useTables, useColumns } from '@/hooks/api/useChart';
+import { useColumns } from '@/hooks/api/useChart';
+import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { useDashboardFilter } from '@/hooks/api/useDashboards';
 import type {
@@ -153,8 +154,6 @@ export function FilterConfigModal({
   const [defaultRangeValue, setDefaultRangeValue] = useState({ min: 0, max: 100 });
 
   // Data fetching using existing warehouse APIs
-  const { data: schemas, isLoading: loadingSchemas } = useSchemas();
-  const { data: tables, isLoading: loadingTables } = useTables(schemaName);
   const { data: columns, isLoading: loadingColumns } = useColumns(schemaName, tableName);
   const { data: filterPreview, isLoading: loadingPreview } = useFilterPreview(
     schemaName,
@@ -224,16 +223,9 @@ export function FilterConfigModal({
   // Reset dependent fields when parent changes (only if not initializing)
   useEffect(() => {
     if (isInitialized && mode === 'create') {
-      setTableName('');
       setColumnName('');
     }
-  }, [schemaName]);
-
-  useEffect(() => {
-    if (isInitialized && mode === 'create') {
-      setColumnName('');
-    }
-  }, [tableName]);
+  }, [schemaName, tableName, isInitialized, mode]);
 
   // Auto-detect filter type based on column data type
   useEffect(() => {
@@ -275,6 +267,17 @@ export function FilterConfigModal({
       setName(autoName);
     }
   }, [columnName, name]);
+
+  const handleDatasetChange = (schema: string, table: string) => {
+    console.log('🔔 handleDatasetChange received:', { schema, table, mode });
+    setSchemaName(schema);
+    setTableName(table);
+    console.log('📝 State should update:', { schemaName: schema, tableName: table });
+    // Reset column when dataset changes (in create mode)
+    if (mode === 'create') {
+      setColumnName('');
+    }
+  };
 
   const handleSave = () => {
     if (!name) {
@@ -402,68 +405,16 @@ export function FilterConfigModal({
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Schema</Label>
-                          <Select
-                            value={schemaName || ''}
-                            onValueChange={setSchemaName}
-                            key={`schema-${schemaName}`}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select schema" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingSchemas ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                </div>
-                              ) : (
-                                schemas?.map((schema: string) => (
-                                  <SelectItem key={schema} value={schema}>
-                                    <div className="flex items-center gap-2">
-                                      <Database className="w-4 h-4" />
-                                      {schema}
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Table</Label>
-                          <Select
-                            value={tableName || ''}
-                            onValueChange={setTableName}
-                            disabled={!schemaName && mode === 'create'}
-                            key={`table-${tableName}`}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select table" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingTables ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                </div>
-                              ) : (
-                                tables?.map((table: any) => {
-                                  const tableName =
-                                    typeof table === 'string' ? table : table.table_name;
-                                  return (
-                                    <SelectItem key={tableName} value={tableName}>
-                                      <div className="flex items-center gap-2">
-                                        <Table className="w-4 h-4" />
-                                        {tableName}
-                                      </div>
-                                    </SelectItem>
-                                  );
-                                })
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <Label>Dataset</Label>
+                          <DatasetSelector
+                            schema_name={schemaName}
+                            table_name={tableName}
+                            onDatasetChange={handleDatasetChange}
+                            disabled={mode === 'edit'}
+                            className="mt-1"
+                          />
                         </div>
 
                         <div>
