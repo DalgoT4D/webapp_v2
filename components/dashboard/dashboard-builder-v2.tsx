@@ -18,6 +18,7 @@ import {
   updateDashboardFilter,
   createDashboardFilter,
   deleteDashboardFilter,
+  useDashboard,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -450,9 +451,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Load responsive layouts if available, otherwise they'll be generated later
     const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
+    // Fetch live dashboard data to get updated filters
+    const { data: liveDashboardData } = useDashboard(dashboardId!);
+
+    // Use live filters if available, fallback to initialData filters
+    const dashboardFilters = liveDashboardData?.filters || initialData?.filters;
+
     // Load filters from backend with proper error handling
-    const initialFilters = Array.isArray(initialData?.filters)
-      ? initialData.filters
+    const initialFilters = Array.isArray(dashboardFilters)
+      ? dashboardFilters
           .map((filter: any) => {
             // Validate filter data before processing
             if (
@@ -481,6 +488,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     console.log('🎛️ Dashboard Builder - Initial Filters:', {
       initialDataFilters: initialData?.filters,
+      liveDashboardFilters: liveDashboardData?.filters,
+      dashboardFilters,
       processedFilters: initialFilters,
     });
 
