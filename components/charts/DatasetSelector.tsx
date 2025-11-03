@@ -66,8 +66,8 @@ export function DatasetSelector({
       if (containerRef.current && isDropdownOpen) {
         const rect = containerRef.current.getBoundingClientRect();
         setDropdownPosition({
-          top: rect.bottom + window.scrollY,
-          left: rect.left + window.scrollX,
+          top: rect.bottom, // position: fixed uses viewport coordinates
+          left: rect.left, // no need for scrollY/scrollX
           width: rect.width,
         });
       }
