@@ -269,10 +269,8 @@ export function FilterConfigModal({
   }, [columnName, name]);
 
   const handleDatasetChange = (schema: string, table: string) => {
-    console.log('🔔 handleDatasetChange received:', { schema, table, mode });
     setSchemaName(schema);
     setTableName(table);
-    console.log('📝 State should update:', { schemaName: schema, tableName: table });
     // Reset column when dataset changes (in create mode)
     if (mode === 'create') {
       setColumnName('');

@@ -97,18 +97,9 @@ export function DatasetSelector({
   });
 
   const handleTableSelect = (schema: string, table: string) => {
-    console.log('🎯 handleTableSelect called:', { schema, table });
+    if (!schema || !table) return;
 
-    if (!schema || !table) {
-      console.error('❌ Missing schema or table:', { schema, table });
-      return;
-    }
-
-    // Call parent callback
-    console.log('📞 Calling onDatasetChange...');
     onDatasetChange(schema, table);
-
-    // Clean up local state
     setSearchQuery('');
     setIsDropdownOpen(false);
 
@@ -116,8 +107,6 @@ export function DatasetSelector({
     setTimeout(() => {
       isSelectingRef.current = false;
     }, 0);
-
-    console.log('✅ Selection complete');
   };
 
   // Attach native click handlers to dropdown items (Portal event fix)
@@ -129,14 +118,11 @@ export function DatasetSelector({
       const item = target.closest('.dataset-item') as HTMLElement;
 
       if (item) {
-        console.log('🖱️ Native click detected on item');
         event.preventDefault();
         event.stopPropagation();
 
         const schema = item.getAttribute('data-schema');
         const table = item.getAttribute('data-table');
-
-        console.log('📦 Extracted data:', { schema, table });
 
         if (schema && table) {
           isSelectingRef.current = true;
@@ -146,11 +132,9 @@ export function DatasetSelector({
     };
 
     const dropdown = dropdownRef.current;
-    console.log('🔧 Attaching native click listener to dropdown');
     dropdown.addEventListener('click', handleItemClick, true);
 
     return () => {
-      console.log('🧹 Cleaning up click listener');
       dropdown.removeEventListener('click', handleItemClick, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
