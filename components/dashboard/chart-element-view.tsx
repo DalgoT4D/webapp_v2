@@ -1494,11 +1494,14 @@ export function ChartElementView({
         <div
           ref={chartRef}
           className={cn(
-            'w-full flex-1 min-h-[200px]',
+            'w-full flex-1',
+            // Number charts need more minimum height for proper display
+            isNumberChart ? 'min-h-[280px]' : 'min-h-[200px]',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white'
           )}
           style={{
-            padding: viewMode ? '8px' : '0',
+            // Reduce padding for number charts to maximize space for the number
+            padding: viewMode ? (isNumberChart ? '4px' : '8px') : '0',
             ...(isFullscreen && {
               backgroundColor: 'white !important',
               background: 'white !important',
