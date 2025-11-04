@@ -165,16 +165,18 @@ export function ChartPreview({
                 const hasRotatedXLabels =
                   config.xAxis?.axisLabel?.rotate !== undefined &&
                   config.xAxis?.axisLabel?.rotate !== 0;
-                const bottomMargin = hasRotatedXLabels ? '12%' : '5%';
+                // Horizontal labels (0 degrees) need adequate space to be visible
+                // Rotated labels need more space due to angle
+                const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
                 const hasLegend = config.legend?.show !== false;
-                const topMargin = hasLegend ? '15%' : '8%';
+                const topMargin = hasLegend ? '18%' : '10%';
 
                 return {
                   ...config.grid,
                   containLabel: true,
-                  left: '5%',
+                  left: '10%', // Increased for overall left margin
                   bottom: bottomMargin,
-                  right: '3%',
+                  right: '6%', // Increased for overall right margin
                   top: topMargin,
                 };
               })(),
@@ -190,7 +192,7 @@ export function ChartPreview({
                     axisLabel: {
                       ...axis.axisLabel,
                       interval: 0,
-                      margin: 12,
+                      margin: 15, // Increased margin from axis line to labels
                       overflow: 'truncate',
                       width: axis.axisLabel?.rotate ? 100 : undefined,
                     },
@@ -207,7 +209,7 @@ export function ChartPreview({
                       axisLabel: {
                         ...config.xAxis.axisLabel,
                         interval: 0,
-                        margin: 12,
+                        margin: 15, // Increased margin from axis line to labels
                         overflow: 'truncate',
                         width: config.xAxis.axisLabel?.rotate ? 100 : undefined,
                       },
@@ -224,7 +226,7 @@ export function ChartPreview({
                     },
                     axisLabel: {
                       ...axis.axisLabel,
-                      margin: 10,
+                      margin: 15, // Increased margin from axis line to labels
                     },
                   }))
                 : config.yAxis
@@ -238,7 +240,7 @@ export function ChartPreview({
                       },
                       axisLabel: {
                         ...config.yAxis.axisLabel,
-                        margin: 10,
+                        margin: 15, // Increased margin from axis line to labels
                       },
                     }
                   : undefined,
