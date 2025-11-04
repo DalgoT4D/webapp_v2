@@ -137,6 +137,7 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+  const [containerHeight, setContainerHeight] = useState<number>(0); // Track container height for dynamic number chart sizing
 
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
@@ -867,6 +868,30 @@ export function ChartElementView({
     // Get base config (already includes map registration for map charts)
     let baseConfig = activeChartData.echarts_config;
 
+    // Calculate dynamic font size for number charts based on container height
+    let dynamicNumberFontSize: number | undefined;
+    let dynamicSubtitleFontSize: number | undefined;
+    let dynamicSubtitleOffset: number | undefined;
+
+    if (isNumberChart && chartRef.current) {
+      const rect = chartRef.current.getBoundingClientRect();
+      const containerHeight = rect.height;
+
+      // Account for title space (approximately 40-50px for HTML title)
+      const titleSpace = 50;
+      const availableHeight = Math.max(containerHeight - titleSpace, 100);
+
+      // Calculate font size as percentage of available height
+      // Main number takes ~40% of available height for good visibility
+      dynamicNumberFontSize = Math.max(20, Math.min(72, Math.floor(availableHeight * 0.4)));
+
+      // Subtitle is proportional to main number (roughly 25% of number size)
+      dynamicSubtitleFontSize = Math.max(10, Math.floor(dynamicNumberFontSize * 0.25));
+
+      // Subtitle offset should be slightly below the number
+      dynamicSubtitleOffset = Math.floor(dynamicNumberFontSize * 0.6);
+    }
+
     // Apply beautiful theme and styling
     const styledConfig = {
       ...baseConfig,
@@ -892,27 +917,71 @@ export function ChartElementView({
       },
       // Enhanced data labels styling
       series: Array.isArray(baseConfig.series)
-        ? baseConfig.series.map((series: any) => ({
-            ...series,
-            label: {
-              ...series.label,
-              fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontWeight: 'normal',
-            },
-          }))
-        : baseConfig.series
-          ? {
-              ...baseConfig.series,
+        ? baseConfig.series.map((series: any) => {
+            // For gauge charts (number charts), apply dynamic font sizing
+            if (series.type === 'gauge' && dynamicNumberFontSize !== undefined) {
+              return {
+                ...series,
+                detail: {
+                  ...series.detail,
+                  fontSize: dynamicNumberFontSize,
+                },
+                title: {
+                  ...series.title,
+                  fontSize: dynamicSubtitleFontSize,
+                  offsetCenter: [0, dynamicSubtitleOffset],
+                },
+                label: {
+                  ...series.label,
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                },
+              };
+            }
+            // For other chart types, apply normal label styling
+            return {
+              ...series,
               label: {
-                ...baseConfig.series.label,
-                fontSize: baseConfig.series.label?.fontSize
-                  ? baseConfig.series.label.fontSize + 0.5
-                  : 12.5,
+                ...series.label,
+                fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
                 fontFamily: 'Inter, system-ui, sans-serif',
                 fontWeight: 'normal',
               },
-            }
+            };
+          })
+        : baseConfig.series
+          ? (() => {
+              // For single series gauge charts
+              if (baseConfig.series.type === 'gauge' && dynamicNumberFontSize !== undefined) {
+                return {
+                  ...baseConfig.series,
+                  detail: {
+                    ...baseConfig.series.detail,
+                    fontSize: dynamicNumberFontSize,
+                  },
+                  title: {
+                    ...baseConfig.series.title,
+                    fontSize: dynamicSubtitleFontSize,
+                    offsetCenter: [0, dynamicSubtitleOffset],
+                  },
+                  label: {
+                    ...baseConfig.series.label,
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  },
+                };
+              }
+              // For other single series charts
+              return {
+                ...baseConfig.series,
+                label: {
+                  ...baseConfig.series.label,
+                  fontSize: baseConfig.series.label?.fontSize
+                    ? baseConfig.series.label.fontSize + 0.5
+                    : 12.5,
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  fontWeight: 'normal',
+                },
+              };
+            })()
           : undefined,
       // Only set default colors if chart doesn't have custom colors
       ...(baseConfig.color
@@ -1093,8 +1162,15 @@ export function ChartElementView({
     window.addEventListener('resize', handleResize);
 
     // Resize observer for container changes
-    const resizeObserver = new ResizeObserver(() => {
-      chartInstance.current?.resize();
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // Update container height state for number charts to trigger re-render with new font sizes
+        if (isNumberChart) {
+          const newHeight = entry.contentRect.height;
+          setContainerHeight(newHeight);
+        }
+        chartInstance.current?.resize();
+      }
     });
 
     resizeObserver.observe(chartRef.current);
@@ -1108,11 +1184,13 @@ export function ChartElementView({
     mapDataOverlay,
     geojsonData,
     isMapChart,
+    isNumberChart,
     chartId,
     filterHash,
     drillDownPath,
     handleRegionClick,
     isFullscreen, // Add fullscreen state to trigger chart resize
+    containerHeight, // Add containerHeight to trigger re-render for dynamic number chart sizing
   ]);
 
   // Re-fetch data when filters change
