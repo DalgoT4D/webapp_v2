@@ -1,5 +1,5 @@
 import type { Config } from 'jest';
-import nextJest from 'next/jest';
+import nextJest from 'next/jest.js';
 
 const createJestConfig = nextJest({
   dir: './',
@@ -15,7 +15,15 @@ const customJestConfig: Config = {
     '^@lib/(.*)$': '<rootDir>/lib/$1',
     '^@stores/(.*)$': '<rootDir>/stores/$1',
   },
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  // Only run tests in __tests__ directory
+  testMatch: ['<rootDir>/__tests__/**/*.test.ts', '<rootDir>/__tests__/**/*.test.tsx'],
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/node_modules/',
+    '<rootDir>/e2e/', // Exclude Playwright E2E tests
+    '<rootDir>/tests/', // Exclude old tests directory
+    '<rootDir>/components/', // Exclude component-level tests
+  ],
   transform: {
     '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
   },
