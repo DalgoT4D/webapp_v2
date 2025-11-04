@@ -1392,7 +1392,7 @@ export function ChartElementView({
       )}
 
       {/* Chart Title - HTML title for better styling and interaction */}
-      <div className="px-2 pt-2">
+      <div className={cn('px-2', isNumberChart ? 'pt-1' : 'pt-2')}>
         <ChartTitleEditor
           chartData={chartMetadata}
           config={config}
@@ -1495,13 +1495,13 @@ export function ChartElementView({
           ref={chartRef}
           className={cn(
             'w-full flex-1',
-            // Number charts need more minimum height for proper display
-            isNumberChart ? 'min-h-[280px]' : 'min-h-[200px]',
+            // Number charts need more minimum height for proper display at small tile sizes
+            isNumberChart ? 'min-h-[320px]' : 'min-h-[200px]',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white'
           )}
           style={{
             // Reduce padding for number charts to maximize space for the number
-            padding: viewMode ? (isNumberChart ? '4px' : '8px') : '0',
+            padding: viewMode ? (isNumberChart ? '2px' : '8px') : '0',
             ...(isFullscreen && {
               backgroundColor: 'white !important',
               background: 'white !important',
