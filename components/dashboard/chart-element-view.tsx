@@ -137,7 +137,7 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
-  const [containerHeight, setContainerHeight] = useState<number>(0); // Track container height for dynamic number chart sizing
+  const baseChartConfigRef = useRef<any>(null); // Store base config for number chart resizing
 
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
@@ -868,6 +868,28 @@ export function ChartElementView({
     // Get base config (already includes map registration for map charts)
     let baseConfig = activeChartData.echarts_config;
 
+    // Store base config for number chart dynamic resizing
+    baseChartConfigRef.current = baseConfig;
+
+    // Helper function to calculate dynamic font sizes for number charts
+    const calculateNumberChartFontSizes = (containerHeight: number) => {
+      // Account for title space (approximately 40-50px for HTML title)
+      const titleSpace = 50;
+      const availableHeight = Math.max(containerHeight - titleSpace, 100);
+
+      // Calculate font size as percentage of available height
+      // Main number takes ~40% of available height for good visibility
+      const dynamicNumberFontSize = Math.max(20, Math.min(72, Math.floor(availableHeight * 0.4)));
+
+      // Subtitle is proportional to main number (roughly 25% of number size)
+      const dynamicSubtitleFontSize = Math.max(10, Math.floor(dynamicNumberFontSize * 0.25));
+
+      // Subtitle offset should be slightly below the number
+      const dynamicSubtitleOffset = Math.floor(dynamicNumberFontSize * 0.6);
+
+      return { dynamicNumberFontSize, dynamicSubtitleFontSize, dynamicSubtitleOffset };
+    };
+
     // Calculate dynamic font size for number charts based on container height
     let dynamicNumberFontSize: number | undefined;
     let dynamicSubtitleFontSize: number | undefined;
@@ -875,21 +897,10 @@ export function ChartElementView({
 
     if (isNumberChart && chartRef.current) {
       const rect = chartRef.current.getBoundingClientRect();
-      const containerHeight = rect.height;
-
-      // Account for title space (approximately 40-50px for HTML title)
-      const titleSpace = 50;
-      const availableHeight = Math.max(containerHeight - titleSpace, 100);
-
-      // Calculate font size as percentage of available height
-      // Main number takes ~40% of available height for good visibility
-      dynamicNumberFontSize = Math.max(20, Math.min(72, Math.floor(availableHeight * 0.4)));
-
-      // Subtitle is proportional to main number (roughly 25% of number size)
-      dynamicSubtitleFontSize = Math.max(10, Math.floor(dynamicNumberFontSize * 0.25));
-
-      // Subtitle offset should be slightly below the number
-      dynamicSubtitleOffset = Math.floor(dynamicNumberFontSize * 0.6);
+      const sizes = calculateNumberChartFontSizes(rect.height);
+      dynamicNumberFontSize = sizes.dynamicNumberFontSize;
+      dynamicSubtitleFontSize = sizes.dynamicSubtitleFontSize;
+      dynamicSubtitleOffset = sizes.dynamicSubtitleOffset;
     }
 
     // Apply beautiful theme and styling
@@ -1154,6 +1165,54 @@ export function ChartElementView({
       console.error('Error setting chart option for chart', chartId, error);
     }
 
+    // Helper function to apply dynamic font sizes to number chart
+    const updateNumberChartFontSizes = (containerHeight: number) => {
+      if (!isNumberChart || !chartInstance.current || !baseChartConfigRef.current) return;
+
+      const sizes = calculateNumberChartFontSizes(containerHeight);
+      const baseConfig = baseChartConfigRef.current;
+
+      // Create updated config with new font sizes
+      const updatedConfig = {
+        ...baseConfig,
+        series: Array.isArray(baseConfig.series)
+          ? baseConfig.series.map((series: any) => {
+              if (series.type === 'gauge') {
+                return {
+                  ...series,
+                  detail: {
+                    ...series.detail,
+                    fontSize: sizes.dynamicNumberFontSize,
+                  },
+                  title: {
+                    ...series.title,
+                    fontSize: sizes.dynamicSubtitleFontSize,
+                    offsetCenter: [0, sizes.dynamicSubtitleOffset],
+                  },
+                };
+              }
+              return series;
+            })
+          : baseConfig.series?.type === 'gauge'
+            ? {
+                ...baseConfig.series,
+                detail: {
+                  ...baseConfig.series.detail,
+                  fontSize: sizes.dynamicNumberFontSize,
+                },
+                title: {
+                  ...baseConfig.series.title,
+                  fontSize: sizes.dynamicSubtitleFontSize,
+                  offsetCenter: [0, sizes.dynamicSubtitleOffset],
+                },
+              }
+            : baseConfig.series,
+      };
+
+      // Apply updated config to chart
+      chartInstance.current.setOption(updatedConfig, false); // Use merge instead of replace
+    };
+
     // Handle resize
     const handleResize = () => {
       chartInstance.current?.resize();
@@ -1164,11 +1223,14 @@ export function ChartElementView({
     // Resize observer for container changes
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        // Update container height state for number charts to trigger re-render with new font sizes
-        if (isNumberChart) {
-          const newHeight = entry.contentRect.height;
-          setContainerHeight(newHeight);
+        const newHeight = entry.contentRect.height;
+
+        // For number charts, update font sizes dynamically when container resizes
+        if (isNumberChart && newHeight > 0) {
+          updateNumberChartFontSizes(newHeight);
         }
+
+        // Always call resize to ensure chart fits container
         chartInstance.current?.resize();
       }
     });
@@ -1190,7 +1252,6 @@ export function ChartElementView({
     drillDownPath,
     handleRegionClick,
     isFullscreen, // Add fullscreen state to trigger chart resize
-    containerHeight, // Add containerHeight to trigger re-render for dynamic number chart sizing
   ]);
 
   // Re-fetch data when filters change
