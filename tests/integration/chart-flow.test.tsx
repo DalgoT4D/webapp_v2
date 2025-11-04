@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import ChartsPage from '@/app/charts/page';
-// ChartBuilderPage import removed - using new chart creation flow
 
 // Mock next/navigation
 const mockPush = jest.fn();

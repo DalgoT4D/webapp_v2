@@ -266,8 +266,6 @@ export function ChartBuilder({
     tableChartPageSize
   );
 
-  console.log(tableChartData, tableChartError, tableChartLoading);
-
   // Get table count for raw data pagination
   const { data: tableCount } = useTableCount(
     formData.schema_name || null,
@@ -693,8 +691,6 @@ export function ChartBuilder({
         return 'pending';
     }
   };
-
-  console.log('TABLE CHART DATA:', tableChartData);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-12rem)]">
