@@ -5,14 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, Database, BarChart3, ArrowLeft } from 'lucide-react';
+import { Database, BarChart3, ArrowLeft } from 'lucide-react';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
-import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
@@ -20,6 +18,7 @@ import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExit
 import {
   useChartData,
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useCreateChart,
   useGeoJSONData,
   useMapDataOverlay,
@@ -31,8 +30,6 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-import { cn } from '@/lib/utils';
-import Link from 'next/link';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
@@ -157,8 +154,12 @@ function ConfigureChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
+  const [dataPreviewPage, setDataPreviewPage] = useState(1);
+  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(20);
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(50);
+  const [tableChartPage, setTableChartPage] = useState(1);
+  const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
   // Unsaved changes detection state
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -404,40 +405,31 @@ function ConfigureChartPageContent() {
     isLoading: mapDataLoading,
   } = useMapDataOverlay(dataOverlayPayload);
 
-  // Log API call states
-  useEffect(() => {
-    console.log('🌐 [CREATE-MODE] API Call States:', {
-      geojson: {
-        id: geojsonId,
-        loading: geojsonLoading,
-        hasData: !!geojsonData,
-        error: geojsonError,
-      },
-      mapData: {
-        payload: dataOverlayPayload,
-        loading: mapDataLoading,
-        hasData: !!mapDataOverlay?.data,
-        dataCount: mapDataOverlay?.data?.length || 0,
-        error: mapDataError,
-      },
-    });
-  }, [
-    geojsonId,
-    geojsonLoading,
-    geojsonData,
-    geojsonError,
-    dataOverlayPayload,
-    mapDataLoading,
-    mapDataOverlay,
-    mapDataError,
-  ]);
-
   // Fetch data preview
   const {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, 1, 50);
+  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+
+  // Fetch total rows for chart data preview pagination
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+
+  // Fetch table chart data for table charts with server-side pagination
+  const {
+    data: tableChartData,
+    error: tableChartError,
+    isLoading: tableChartLoading,
+  } = useChartDataPreview(
+    formData.chart_type === 'table' ? chartDataPayload : null,
+    tableChartPage,
+    tableChartPageSize
+  );
+
+  // Fetch total rows for table chart pagination
+  const { data: tableChartDataTotalRows } = useChartDataPreviewTotalRows(
+    formData.chart_type === 'table' ? chartDataPayload : null
+  );
 
   // Fetch raw table data
   const {
@@ -585,9 +577,20 @@ function ConfigureChartPageContent() {
     JSON.stringify(formData.dataOverlayPayload || {}),
   ]);
 
+  const handleDataPreviewPageSizeChange = (newPageSize: number) => {
+    setDataPreviewPageSize(newPageSize);
+    setDataPreviewPage(1); // Reset to first page when page size changes
+  };
+
   const handleRawDataPageSizeChange = (newPageSize: number) => {
     setRawDataPageSize(newPageSize);
     setRawDataPage(1); // Reset to first page when page size changes
+  };
+
+  // Handle table chart pagination page size change
+  const handleTableChartPageSizeChange = (newPageSize: number) => {
+    setTableChartPageSize(newPageSize);
+    setTableChartPage(1); // Reset to first page when page size changes
   };
 
   // FIX #3: Handle map region click for drill-down in create mode
@@ -951,15 +954,22 @@ function ConfigureChartPageContent() {
                   ) : formData.chart_type === 'table' ? (
                     <div className="w-full h-full">
                       <TableChart
-                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                        data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                         config={{
-                          table_columns: formData.table_columns || dataPreview?.columns || [],
+                          table_columns: tableChartData?.columns || formData.table_columns || [],
                           column_formatting: {},
-                          sort: [],
-                          pagination: { enabled: true, page_size: 10 },
+                          sort: formData.sort || [],
+                          pagination: formData.pagination || { enabled: true, page_size: 20 },
                         }}
-                        isLoading={previewLoading}
-                        error={previewError}
+                        isLoading={tableChartLoading}
+                        error={tableChartError}
+                        pagination={{
+                          page: tableChartPage,
+                          pageSize: tableChartPageSize,
+                          total: tableChartDataTotalRows || 0,
+                          onPageChange: setTableChartPage,
+                          onPageSizeChange: handleTableChartPageSizeChange,
+                        }}
                       />
                     </div>
                   ) : (
@@ -996,6 +1006,13 @@ function ConfigureChartPageContent() {
                         columnTypes={dataPreview?.column_types || {}}
                         isLoading={previewLoading}
                         error={previewError}
+                        pagination={{
+                          page: dataPreviewPage,
+                          pageSize: dataPreviewPageSize,
+                          total: chartDataTotalRows || 0,
+                          onPageChange: setDataPreviewPage,
+                          onPageSizeChange: handleDataPreviewPageSizeChange,
+                        }}
                       />
                     </TabsContent>
 

@@ -166,7 +166,7 @@ function EditChartPageContent() {
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(50);
   const [tableChartPage, setTableChartPage] = useState(1);
-  const [tableChartPageSize, setTableChartPageSize] = useState(25);
+  const [tableChartPageSize, setTableChartPageSize] = useState(20);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -288,6 +288,8 @@ function EditChartPageContent() {
         sort: chart.extra_config?.sort || [],
         // ✅ FIX: Include geographic_hierarchy so DynamicLevelConfig can auto-fill
         geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
+        // Include table_columns for table charts
+        table_columns: chart.extra_config?.table_columns || [],
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -433,6 +435,10 @@ function EditChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
+        // For table charts, pass selected columns
+        ...(formData.chart_type === 'table' && {
+          table_columns: formData.table_columns,
+        }),
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         customizations: formData.customizations,
@@ -441,18 +447,17 @@ function EditChartPageContent() {
           pagination: formData.pagination,
           sort: formData.sort,
           time_grain: formData.time_grain,
+          table_columns: formData.table_columns,
         },
       }
     : null;
 
-  // Fetch chart data
+  // Fetch chart data (including tables)
   const {
     data: chartData,
     error: chartDataError,
     isLoading: chartDataLoading,
-  } = useChartData(
-    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
-  );
+  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
 
   // Track last valid chart config for better UX
   useEffect(() => {
@@ -657,14 +662,13 @@ function EditChartPageContent() {
     rawDataPageSize
   );
 
-  // Fetch table data for table chart preview (for table chart type)
+  // Use chart data preview for table charts (same as data preview)
   const {
     data: tableChartData,
     error: tableChartError,
     isLoading: tableChartLoading,
-  } = useRawTableData(
-    formData.chart_type === 'table' ? formData.schema_name || null : null,
-    formData.chart_type === 'table' ? formData.table_name || null : null,
+  } = useChartDataPreview(
+    formData.chart_type === 'table' ? chartDataPayload : null,
     tableChartPage,
     tableChartPageSize
   );
@@ -1063,6 +1067,8 @@ function EditChartPageContent() {
         pagination: formData.pagination,
         sort: formData.sort,
         time_grain: formData.time_grain,
+        // Include table_columns for table charts
+        table_columns: formData.table_columns,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
@@ -1413,24 +1419,21 @@ function EditChartPageContent() {
                   ) : formData.chart_type === 'table' ? (
                     <div className="w-full h-full overflow-auto">
                       <TableChart
-                        data={Array.isArray(tableChartData) ? tableChartData : []}
+                        data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                         config={{
-                          table_columns:
-                            formData.table_columns || tableChartData?.length > 0
-                              ? Object.keys(tableChartData[0])
-                              : [],
+                          table_columns: tableChartData?.columns || formData.table_columns,
                           column_formatting: {},
-                          sort: [],
-                          pagination: { enabled: true, page_size: 10 },
+                          sort: formData.sort,
+                          pagination: formData.pagination || { enabled: true, page_size: 20 },
                         }}
                         isLoading={tableChartLoading}
                         error={tableChartError}
                         pagination={
-                          tableCount && tableChartData?.length > 0
+                          chartDataPayload
                             ? {
                                 page: tableChartPage,
                                 pageSize: tableChartPageSize,
-                                total: tableCount.total_rows || 0,
+                                total: chartDataTotalRows || 0,
                                 onPageChange: setTableChartPage,
                                 onPageSizeChange: handleTableChartPageSizeChange,
                               }

@@ -142,7 +142,7 @@ export function ChartElementView({
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(25);
+  const [tablePageSize, setTablePageSize] = useState(20);
 
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
@@ -1469,8 +1469,11 @@ export function ChartElementView({
             config={{
               table_columns: tableData?.columns || [],
               column_formatting: {},
-              sort: [],
-              pagination: { enabled: true, page_size: 10 },
+              sort: effectiveChart?.extra_config?.sort || [],
+              pagination: effectiveChart?.extra_config?.pagination || {
+                enabled: true,
+                page_size: 20,
+              },
             }}
             isLoading={tableLoading}
             error={tableError}

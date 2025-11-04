@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   useChart,
   useChartData,
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useGeoJSONData,
   useMapDataOverlay,
   useChildRegions,
@@ -54,6 +55,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const { hasPermission } = useUserPermissions();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+  const [tableChartPage, setTableChartPage] = useState(1);
+  const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
   // Check if user has view permissions
   if (!hasPermission('can_view_charts')) {
@@ -103,6 +106,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           dimension_col: chart.extra_config?.geographic_column,
           aggregate_col: chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
         }),
+        // For table charts, pass selected columns
+        ...(chart.chart_type === 'table' && {
+          table_columns: chart.extra_config?.table_columns,
+        }),
         customizations: chart.extra_config?.customizations || {},
         // Include metrics for multiple metrics support
         metrics: chart.extra_config?.metrics,
@@ -110,25 +117,39 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           filters: chart.extra_config?.filters,
           pagination: chart.extra_config?.pagination,
           sort: chart.extra_config?.sort,
+          table_columns: chart.extra_config?.table_columns,
         },
       }
     : null;
 
-  // For non-map charts, use the standard chart data hook
+  // For non-map charts (including tables), use the standard chart data hook
   const {
     data: chartData,
     error: dataError,
     isLoading: dataLoading,
-  } = useChartData(
-    chart?.chart_type !== 'map' && chart?.chart_type !== 'table' ? chartDataPayload : null
-  );
+  } = useChartData(chart?.chart_type !== 'map' ? chartDataPayload : null);
 
-  // For table charts, use data preview API
+  // For table charts, use data preview API with pagination
   const {
     data: tableData,
     error: tableError,
     isLoading: tableLoading,
-  } = useChartDataPreview(chart?.chart_type === 'table' ? chartDataPayload : null, 1, 50);
+  } = useChartDataPreview(
+    chart?.chart_type === 'table' ? chartDataPayload : null,
+    tableChartPage,
+    tableChartPageSize
+  );
+
+  // Fetch total rows for table chart pagination
+  const { data: tableDataTotalRows } = useChartDataPreviewTotalRows(
+    chart?.chart_type === 'table' ? chartDataPayload : null
+  );
+
+  // Handler for table page size change
+  const handleTableChartPageSizeChange = useCallback((newPageSize: number) => {
+    setTableChartPageSize(newPageSize);
+    setTableChartPage(1); // Reset to first page when page size changes
+  }, []);
 
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
@@ -605,13 +626,24 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 <TableChart
                   data={Array.isArray(tableData?.data) ? tableData.data : []}
                   config={{
-                    table_columns: chart?.table_columns || tableData?.columns || [],
+                    table_columns: tableData?.columns || chart.extra_config?.table_columns || [],
                     column_formatting: {},
-                    sort: [],
-                    pagination: { enabled: true, page_size: 10 },
+                    sort: chart.extra_config?.sort || [],
+                    pagination: chart.extra_config?.pagination || { enabled: true, page_size: 20 },
                   }}
                   isLoading={tableLoading}
                   error={tableError}
+                  pagination={
+                    chartDataPayload && tableData
+                      ? {
+                          page: tableChartPage,
+                          pageSize: tableChartPageSize,
+                          total: tableDataTotalRows || 0,
+                          onPageChange: setTableChartPage,
+                          onPageSizeChange: handleTableChartPageSizeChange,
+                        }
+                      : undefined
+                  }
                 />
               ) : (
                 <ChartPreview

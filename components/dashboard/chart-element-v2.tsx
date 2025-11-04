@@ -102,7 +102,13 @@ export function ChartElementV2({
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(25);
+  const [tablePageSize, setTablePageSize] = useState(20);
+
+  // Handle table pagination page size change
+  const handleTablePageSizeChange = (newPageSize: number) => {
+    setTablePageSize(newPageSize);
+    setTablePage(1); // Reset to first page when page size changes
+  };
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -423,12 +429,6 @@ export function ChartElementV2({
   const errorMessage = isDataError
     ? 'Please check the dataset or metrics selected and try again'
     : 'Chart configuration needs adjustment. Please review your settings and try again';
-
-  // Handle table pagination page size change
-  const handleTablePageSizeChange = (newPageSize: number) => {
-    setTablePageSize(newPageSize);
-    setTablePage(1); // Reset to first page when page size changes
-  };
 
   // Handle region click for drill-down - EXACT COPY FROM WORKING VIEW MODE
   const handleRegionClick = (regionName: string, regionData: any) => {
@@ -1042,8 +1042,8 @@ export function ChartElementV2({
                 config={{
                   table_columns: tableData?.columns || [],
                   column_formatting: {},
-                  sort: [],
-                  pagination: { enabled: true, page_size: 10 },
+                  sort: chart?.extra_config?.sort || [],
+                  pagination: chart?.extra_config?.pagination || { enabled: true, page_size: 20 },
                 }}
                 isLoading={tableLoading}
                 error={tableError}
