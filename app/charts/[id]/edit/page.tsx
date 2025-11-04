@@ -164,7 +164,7 @@ function EditChartPageContent() {
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
-  const [rawDataPageSize, setRawDataPageSize] = useState(50);
+  const [rawDataPageSize, setRawDataPageSize] = useState(20);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
