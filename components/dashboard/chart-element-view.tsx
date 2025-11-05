@@ -387,7 +387,7 @@ export function ChartElementView({
   } = useSWR(
     publicTableDataUrl ? [publicTableDataUrl, tablePage, tablePageSize] : null,
     isPublicMode && isTableChart
-      ? async ([url]: [string, number, number]) => {
+      ? async ([url, page, size]: [string, number, number]) => {
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
             {
@@ -395,8 +395,8 @@ export function ChartElementView({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...chartDataPayload,
-                offset: (tablePage - 1) * tablePageSize,
-                limit: tablePageSize,
+                offset: (page - 1) * size,
+                limit: size,
               }),
             }
           );
