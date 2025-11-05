@@ -1094,6 +1094,7 @@ export function DashboardNativeView({
             initiallyCollapsed={showMinimalHeader || isPublicMode}
           />
         )}
+
         {/* Dashboard Content - Scrollable Canvas Area */}
         <div
           className={cn(
