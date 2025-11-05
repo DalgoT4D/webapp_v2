@@ -15,14 +15,23 @@ const customJestConfig: Config = {
     '^@lib/(.*)$': '<rootDir>/lib/$1',
     '^@stores/(.*)$': '<rootDir>/stores/$1',
   },
-  // Only run tests in __tests__ directory
-  testMatch: ['<rootDir>/__tests__/**/*.test.ts', '<rootDir>/__tests__/**/*.test.tsx'],
+  // Run tests in both __tests__ directory and component-level __tests__ folders
+  testMatch: [
+    '<rootDir>/__tests__/**/*.test.ts',
+    '<rootDir>/__tests__/**/*.test.tsx',
+    '<rootDir>/components/**/__tests__/**/*.test.ts',
+    '<rootDir>/components/**/__tests__/**/*.test.tsx',
+    '<rootDir>/app/**/__tests__/**/*.test.ts',
+    '<rootDir>/app/**/__tests__/**/*.test.tsx',
+    '<rootDir>/hooks/**/__tests__/**/*.test.ts',
+    '<rootDir>/hooks/**/__tests__/**/*.test.tsx',
+    '<rootDir>/lib/**/__tests__/**/*.test.ts',
+  ],
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
     '<rootDir>/e2e/', // Exclude Playwright E2E tests
     '<rootDir>/tests/', // Exclude old tests directory
-    '<rootDir>/components/', // Exclude component-level tests
   ],
   transform: {
     '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
