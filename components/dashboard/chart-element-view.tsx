@@ -356,10 +356,9 @@ export function ChartElementView({
           pagination: effectiveChart.extra_config?.pagination,
           sort: effectiveChart.extra_config?.sort,
         },
-        // Dashboard filters passed separately - but NOT for table charts using chart-data-preview
-        // The chart-data-preview endpoint expects filters in extra_config.filters format only
+        // Dashboard filters passed separately
         dashboard_filters:
-          effectiveChart.chart_type !== 'table' && Object.keys(dashboardFilters).length > 0
+          Object.keys(dashboardFilters).length > 0
             ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
                 filter_id,
                 value,
@@ -379,14 +378,27 @@ export function ChartElementView({
     error: publicTableError,
     isLoading: publicTableLoading,
   } = useSWR(
-    publicTableDataUrl ? [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize] : null,
+    publicTableDataUrl
+      ? [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
+      : null,
     isPublicMode && isTableChart
-      ? async ([url, payload, page, size]: [string, ChartDataPayload, number, number]) => {
+      ? async ([url, payload, page, size, filters]: [
+          string,
+          ChartDataPayload,
+          number,
+          number,
+          Record<string, any>,
+        ]) => {
           // Send page and limit as query parameters (0-based page for backend)
           const queryParams = new URLSearchParams({
             page: (page - 1).toString(),
             limit: size.toString(),
           });
+
+          // Add dashboard filters if present
+          if (Object.keys(filters).length > 0) {
+            queryParams.append('dashboard_filters', JSON.stringify(filters));
+          }
 
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}?${queryParams}`,
@@ -408,11 +420,17 @@ export function ChartElementView({
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
-  } = useChartDataPreview(!isPublicMode ? chartDataPayload : null, tablePage, tablePageSize);
+  } = useChartDataPreview(
+    !isPublicMode ? chartDataPayload : null,
+    tablePage,
+    tablePageSize,
+    dashboardFilters
+  );
 
   // Get total rows for table pagination (private mode)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
-    !isPublicMode ? chartDataPayload : null
+    !isPublicMode ? chartDataPayload : null,
+    dashboardFilters
   );
 
   // Get total rows for table pagination (public mode) - POST call like data-preview
@@ -422,10 +440,20 @@ export function ChartElementView({
       : null;
 
   const { data: publicTableTotalRowsData } = useSWR(
-    publicTableTotalRowsUrl ? [publicTableTotalRowsUrl, chartDataPayload] : null,
+    publicTableTotalRowsUrl ? [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters] : null,
     isPublicMode && isTableChart
-      ? async ([url, payload]: [string, ChartDataPayload]) => {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`, {
+      ? async ([url, payload, filters]: [string, ChartDataPayload, Record<string, any>]) => {
+          // Add dashboard filters as query parameters if present
+          const queryParams = new URLSearchParams();
+          if (Object.keys(filters).length > 0) {
+            queryParams.append('dashboard_filters', JSON.stringify(filters));
+          }
+
+          const finalUrl = queryParams.toString()
+            ? `${process.env.NEXT_PUBLIC_BACKEND_URL}${url}?${queryParams}`
+            : `${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`;
+
+          const response = await fetch(finalUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),

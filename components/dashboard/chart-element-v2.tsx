@@ -385,10 +385,10 @@ export function ChartElementV2({
     error: tableError,
     isLoading: tableLoading,
     mutate: mutateTableData,
-  } = useChartDataPreview(chartDataPayload, tablePage, tablePageSize);
+  } = useChartDataPreview(chartDataPayload, tablePage, tablePageSize, appliedFilters);
 
   // Get total rows for table pagination
-  const { data: tableTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+  const { data: tableTotalRows } = useChartDataPreviewTotalRows(chartDataPayload, appliedFilters);
 
   // Compute derived state
   const isLoading =
