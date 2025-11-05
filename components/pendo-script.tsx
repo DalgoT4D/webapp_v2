@@ -1,35 +1,57 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 
 export function PendoScript() {
-  const { isAuthenticated, currentOrg, getCurrentOrgUser } = useAuthStore();
+  const { isAuthenticated, currentOrg } = useAuthStore();
   const pendoApiKey = process.env.NEXT_PUBLIC_PENDO_API_KEY;
+  const [pendoInitialized, setPendoInitialized] = useState(false);
+  const previousOrgSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Only initialize Pendo when user is authenticated and we have org data
-    if (isAuthenticated && currentOrg && typeof window !== 'undefined' && window.pendo) {
-      const currentOrgUser = getCurrentOrgUser();
-
-      if (currentOrgUser) {
-        // Initialize Pendo with user and account data
-        window.pendo.initialize({
-          visitor: {
-            id: currentOrgUser.email, // Using email as unique visitor ID
-            email: currentOrgUser.email,
-            role: currentOrgUser.new_role_slug,
-            active: currentOrgUser.active,
-          },
-          account: {
-            id: currentOrg.slug, // Organization slug as account ID
-            name: currentOrg.name,
-          },
-        });
-      }
+    if (!isAuthenticated || !currentOrg || typeof window === 'undefined' || !window.pendo) {
+      return;
     }
-  }, [isAuthenticated, currentOrg, getCurrentOrgUser]);
+
+    const { getCurrentOrgUser } = useAuthStore.getState();
+    const currentOrgUser = getCurrentOrgUser();
+
+    if (!currentOrgUser) {
+      return;
+    }
+
+    const visitorData = {
+      id: currentOrgUser.email, // Using email as unique visitor ID
+      email: currentOrgUser.email,
+      role: currentOrgUser.new_role_slug,
+      active: currentOrgUser.active,
+    };
+
+    const accountData = {
+      id: currentOrg.slug, // Organization slug as account ID
+      name: currentOrg.name,
+    };
+
+    // First time: Initialize Pendo
+    if (!pendoInitialized) {
+      window.pendo.initialize({
+        visitor: visitorData,
+        account: accountData,
+      });
+      setPendoInitialized(true);
+      previousOrgSlugRef.current = currentOrg.slug;
+    }
+    // Org switch: Use identify() to update context and track the change
+    else if (previousOrgSlugRef.current !== currentOrg.slug) {
+      window.pendo.identify({
+        visitor: visitorData,
+        account: accountData,
+      });
+      previousOrgSlugRef.current = currentOrg.slug;
+    }
+  }, [isAuthenticated, currentOrg, pendoInitialized]);
 
   // Don't render script if API key is not configured
   if (!pendoApiKey) {
