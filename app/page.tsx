@@ -11,7 +11,6 @@ export default function HomePage() {
     router.push('/impact');
   }, [router]);
 
-  // Show minimal loading while redirecting
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
