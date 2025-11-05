@@ -136,8 +136,10 @@ export function ChartBuilder({
 
   const [activeTab, setActiveTab] = useState('chart');
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
-  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
+  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(20);
   const [rawDataPage, setRawDataPage] = useState(1);
+  const [tableChartPage, setTableChartPage] = useState(1);
+  const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
   // Drill-down state for maps
   const [drillDownState, setDrillDownState] = useState<{
@@ -145,9 +147,9 @@ export function ChartBuilder({
     stateId?: number;
   } | null>(null);
 
-  // Build payload for chart data - exclude tables entirely
+  // Build payload for chart data - include tables for chart data endpoint
   const chartDataPayload: ChartDataPayload | null =
-    formData.schema_name && formData.table_name && formData.chart_type !== 'table'
+    formData.schema_name && formData.table_name
       ? {
           chart_type: formData.chart_type!,
           computation_type: formData.computation_type || 'aggregated',
@@ -174,6 +176,10 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
+          // For table charts, pass selected columns
+          ...(formData.chart_type === 'table' && {
+            table_columns: formData.table_columns,
+          }),
           // Include extra_config for time_grain and other configurations
           extra_config: {
             time_grain: formData.time_grain,
@@ -181,18 +187,17 @@ export function ChartBuilder({
             sort: formData.sort,
             pagination: formData.pagination,
             customizations: formData.customizations,
+            table_columns: formData.table_columns,
           },
         }
       : null;
 
-  // Fetch chart data - use different hooks for maps, tables, vs regular charts
+  // Fetch chart data - use different hooks for maps vs regular charts (including tables)
   const {
     data: chartData,
     error: chartError,
     isLoading: chartLoading,
-  } = useChartData(
-    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
-  );
+  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
 
   // Fetch GeoJSON data separately for map charts
   const {
@@ -243,12 +248,23 @@ export function ChartBuilder({
   // Fetch total rows for chart data preview pagination
   const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
 
-  // Fetch raw table data
+  // Fetch raw table data (for raw data tab)
   const {
     data: rawTableData,
     error: rawDataError,
     isLoading: rawDataLoading,
   } = useRawTableData(formData.schema_name || null, formData.table_name || null, rawDataPage, 50);
+
+  // Use chart data preview for table charts (same as data preview)
+  const {
+    data: tableChartData,
+    error: tableChartError,
+    isLoading: tableChartLoading,
+  } = useChartDataPreview(
+    formData.chart_type === 'table' ? chartDataPayload : null,
+    tableChartPage,
+    tableChartPageSize
+  );
 
   // Get table count for raw data pagination
   const { data: tableCount } = useTableCount(
@@ -307,13 +323,16 @@ export function ChartBuilder({
     setDataPreviewPage(1); // Reset to first page when page size changes
   };
 
+  const handleTableChartPageSizeChange = (newPageSize: number) => {
+    setTableChartPageSize(newPageSize);
+    setTableChartPage(1); // Reset to first page when page size changes
+  };
+
   const handleFormChange = useCallback(
     (updates: Partial<ChartBuilderFormData>) => {
       // Handle chart type changes - update customizations to match new chart type
       if (updates.chart_type && updates.chart_type !== formData.chart_type) {
         const newCustomizations = getDefaultCustomizations(updates.chart_type);
-        console.log('🔧 [CHART-BUILDER] Chart type changed to:', updates.chart_type);
-        console.log('🔧 [CHART-BUILDER] New customizations:', newCustomizations);
         updates.customizations = newCustomizations;
       }
 
@@ -325,7 +344,7 @@ export function ChartBuilder({
 
   useEffect(() => {
     // reset the chart data page size and limit when pagination changes
-    setDataPreviewPageSize(25);
+    setDataPreviewPageSize(20);
     setDataPreviewPage(1);
   }, [formData.pagination?.page_size, formData.pagination?.enabled]);
 
@@ -982,7 +1001,7 @@ export function ChartBuilder({
       </Card>
 
       {/* Right Panel - Preview */}
-      <Card className="p-8 overflow-hidden">
+      {/* <Card className="p-8 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chart">Chart Preview</TabsTrigger>
@@ -1023,27 +1042,30 @@ export function ChartBuilder({
                 showBreadcrumbs={!!drillDownState}
               />
             ) : formData.chart_type === 'table' ? (
-              <DataPreview
-                data={Array.isArray(rawTableData) ? rawTableData : []}
-                columns={
-                  columns
-                    ? columns.map((col: any) => (typeof col === 'string' ? col : col.column_name))
-                    : []
-                }
-                columnTypes={{}}
-                isLoading={rawDataLoading}
-                error={rawDataError}
-                pagination={
-                  tableCount && rawTableData?.length > 0
-                    ? {
-                        page: rawDataPage,
-                        pageSize: 50,
-                        total: tableCount.total_rows || 0,
-                        onPageChange: setRawDataPage,
-                      }
-                    : undefined
-                }
-              />
+              <div className="w-full h-full overflow-auto">
+                <TableChart
+                  data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
+                  config={{
+                    table_columns: tableChartData?.columns || formData.table_columns || [],
+                    column_formatting: {},
+                    sort: formData.sort || [],
+                    pagination: formData.pagination || { enabled: true, page_size: 20 },
+                  }}
+                  isLoading={tableChartLoading}
+                  error={tableChartError}
+                  pagination={
+                    chartDataPayload
+                      ? {
+                          page: tableChartPage,
+                          pageSize: tableChartPageSize,
+                          total: chartDataTotalRows || 0,
+                          onPageChange: setTableChartPage,
+                          onPageSizeChange: handleTableChartPageSizeChange,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
             ) : (
               <ChartPreview
                 config={chartData?.echarts_config}
@@ -1109,7 +1131,7 @@ export function ChartBuilder({
             </Tabs>
           </TabsContent>
         </Tabs>
-      </Card>
+      </Card> */}
     </div>
   );
 }

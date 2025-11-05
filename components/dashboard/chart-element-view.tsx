@@ -19,6 +19,7 @@ import { apiGet, apiPost } from '@/lib/api';
 import {
   useChart,
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useMapDataOverlay,
   useGeoJSONData,
   useRegions,
@@ -26,6 +27,7 @@ import {
 } from '@/hooks/api/useChart';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
 import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
@@ -131,6 +133,10 @@ export function ChartElementView({
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
+  // Table pagination state
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(20);
+
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
 
@@ -144,9 +150,7 @@ export function ChartElementView({
       : null;
 
   const { data: publicRegions } = useSWR(publicRegionsUrl, async (url: string) => {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-    );
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public regions');
     }
@@ -190,9 +194,7 @@ export function ChartElementView({
   // Custom fetcher for public mode
   const fetcher = isPublicMode
     ? async (url: string) => {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-        );
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
         if (!response.ok) {
           throw new Error('Failed to fetch chart data');
         }
@@ -215,9 +217,7 @@ export function ChartElementView({
     publicChartMetadataUrl,
     isPublicMode
       ? async (url: string) => {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-          );
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
@@ -347,10 +347,9 @@ export function ChartElementView({
           pagination: effectiveChart.extra_config?.pagination,
           sort: effectiveChart.extra_config?.sort,
         },
-        // Dashboard filters passed separately - but NOT for table charts using chart-data-preview
-        // The chart-data-preview endpoint expects filters in extra_config.filters format only
+        // Dashboard filters passed separately
         dashboard_filters:
-          effectiveChart.chart_type !== 'table' && Object.keys(dashboardFilters).length > 0
+          Object.keys(dashboardFilters).length > 0
             ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
                 filter_id,
                 value,
@@ -370,19 +369,34 @@ export function ChartElementView({
     error: publicTableError,
     isLoading: publicTableLoading,
   } = useSWR(
-    publicTableDataUrl,
+    publicTableDataUrl
+      ? [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
+      : null,
     isPublicMode && isTableChart
-      ? async (url: string) => {
+      ? async ([url, payload, page, size, filters]: [
+          string,
+          ChartDataPayload,
+          number,
+          number,
+          Record<string, any>,
+        ]) => {
+          // Send page and limit as query parameters (0-based page for backend)
+          const queryParams = new URLSearchParams({
+            page: (page - 1).toString(),
+            limit: size.toString(),
+          });
+
+          // Add dashboard filters if present
+          if (Object.keys(filters).length > 0) {
+            queryParams.append('dashboard_filters', JSON.stringify(filters));
+          }
+
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}?${queryParams}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...chartDataPayload,
-                offset: 0,
-                limit: 50,
-              }),
+              body: JSON.stringify(payload),
             }
           );
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -397,7 +411,58 @@ export function ChartElementView({
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
-  } = useChartDataPreview(!isPublicMode ? chartDataPayload : null, 1, 50);
+  } = useChartDataPreview(
+    !isPublicMode ? chartDataPayload : null,
+    tablePage,
+    tablePageSize,
+    dashboardFilters
+  );
+
+  // Get total rows for table pagination (private mode)
+  const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
+    !isPublicMode ? chartDataPayload : null,
+    dashboardFilters
+  );
+
+  // Get total rows for table pagination (public mode) - POST call like data-preview
+  const publicTableTotalRowsUrl =
+    isPublicMode && publicToken && chartDataPayload && isTableChart
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
+      : null;
+
+  const { data: publicTableTotalRowsData } = useSWR(
+    publicTableTotalRowsUrl ? [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters] : null,
+    isPublicMode && isTableChart
+      ? async ([url, payload, filters]: [string, ChartDataPayload, Record<string, any>]) => {
+          // Add dashboard filters as query parameters if present
+          const queryParams = new URLSearchParams();
+          if (Object.keys(filters).length > 0) {
+            queryParams.append('dashboard_filters', JSON.stringify(filters));
+          }
+
+          const finalUrl = queryParams.toString()
+            ? `${process.env.NEXT_PUBLIC_BACKEND_URL}${url}?${queryParams}`
+            : `${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`;
+
+          const response = await fetch(finalUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
+        }
+      : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
+
+  const publicTableTotalRows = publicTableTotalRowsData?.total_rows;
+
+  // Handle table pagination page size change
+  const handleTablePageSizeChange = (newPageSize: number) => {
+    setTablePageSize(newPageSize);
+    setTablePage(1); // Reset to first page when page size changes
+  };
 
   // Use appropriate table data based on mode
   const tableData = isPublicMode ? publicTableData : privateTableData;
@@ -420,9 +485,7 @@ export function ChartElementView({
       : null;
 
   const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-    );
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public geojsons');
     }
@@ -521,9 +584,7 @@ export function ChartElementView({
     publicGeojsonUrl,
     isPublicMode && isMapChart
       ? async (url: string) => {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-          );
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           return response.json();
         }
@@ -559,14 +620,11 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(mapDataOverlayPayload),
-            }
-          );
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(mapDataOverlayPayload),
+          });
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           return response.json();
         }
@@ -1438,12 +1496,30 @@ export function ChartElementView({
             }),
           }}
         >
-          <DataPreview
+          <TableChart
             data={Array.isArray(tableData?.data) ? tableData.data : []}
-            columns={tableData?.columns || []}
-            columnTypes={tableData?.column_types || {}}
+            config={{
+              table_columns: tableData?.columns || [],
+              column_formatting: {},
+              sort: effectiveChart?.extra_config?.sort || [],
+              pagination: effectiveChart?.extra_config?.pagination || {
+                enabled: true,
+                page_size: 20,
+              },
+            }}
             isLoading={tableLoading}
             error={tableError}
+            pagination={
+              tableData?.data?.length > 0
+                ? {
+                    page: tablePage,
+                    pageSize: tablePageSize,
+                    total: isPublicMode ? publicTableTotalRows || 0 : privateTableTotalRows || 0,
+                    onPageChange: setTablePage,
+                    onPageSizeChange: handleTablePageSizeChange,
+                  }
+                : undefined
+            }
           />
         </div>
       ) : isMapChart ? (

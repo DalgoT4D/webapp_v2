@@ -12,6 +12,7 @@ import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigura
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
@@ -163,7 +164,9 @@ function EditChartPageContent() {
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
-  const [rawDataPageSize, setRawDataPageSize] = useState(50);
+  const [rawDataPageSize, setRawDataPageSize] = useState(20);
+  const [tableChartPage, setTableChartPage] = useState(1);
+  const [tableChartPageSize, setTableChartPageSize] = useState(20);
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -285,6 +288,8 @@ function EditChartPageContent() {
         sort: chart.extra_config?.sort || [],
         // ✅ FIX: Include geographic_hierarchy so DynamicLevelConfig can auto-fill
         geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
+        // Include table_columns for table charts
+        table_columns: chart.extra_config?.table_columns || [],
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -430,6 +435,10 @@ function EditChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
+        // For table charts, pass selected columns
+        ...(formData.chart_type === 'table' && {
+          table_columns: formData.table_columns,
+        }),
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         customizations: formData.customizations,
@@ -438,18 +447,17 @@ function EditChartPageContent() {
           pagination: formData.pagination,
           sort: formData.sort,
           time_grain: formData.time_grain,
+          table_columns: formData.table_columns,
         },
       }
     : null;
 
-  // Fetch chart data
+  // Fetch chart data (including tables)
   const {
     data: chartData,
     error: chartDataError,
     isLoading: chartDataLoading,
-  } = useChartData(
-    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
-  );
+  } = useChartData(formData.chart_type !== 'map' ? chartDataPayload : null);
 
   // Track last valid chart config for better UX
   useEffect(() => {
@@ -652,6 +660,17 @@ function EditChartPageContent() {
     formData.table_name || null,
     rawDataPage,
     rawDataPageSize
+  );
+
+  // Use chart data preview for table charts (same as data preview)
+  const {
+    data: tableChartData,
+    error: tableChartError,
+    isLoading: tableChartLoading,
+  } = useChartDataPreview(
+    formData.chart_type === 'table' ? chartDataPayload : null,
+    tableChartPage,
+    tableChartPageSize
   );
 
   // Get table count for raw data pagination
@@ -887,6 +906,11 @@ function EditChartPageContent() {
     setDataPreviewPage(1); // Reset to first page when page size changes
   };
 
+  const handleTableChartPageSizeChange = (newPageSize: number) => {
+    setTableChartPageSize(newPageSize);
+    setTableChartPage(1); // Reset to first page when page size changes
+  };
+
   const handleRawDataPageSizeChange = (newPageSize: number) => {
     setRawDataPageSize(newPageSize);
     setRawDataPage(1); // Reset to first page when page size changes
@@ -1043,6 +1067,8 @@ function EditChartPageContent() {
         pagination: formData.pagination,
         sort: formData.sort,
         time_grain: formData.time_grain,
+        // Include table_columns for table charts
+        table_columns: formData.table_columns,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
@@ -1392,12 +1418,27 @@ function EditChartPageContent() {
                     </div>
                   ) : formData.chart_type === 'table' ? (
                     <div className="w-full h-full overflow-auto">
-                      <DataPreview
-                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                        columns={dataPreview?.columns || []}
-                        columnTypes={dataPreview?.column_types || {}}
-                        isLoading={previewLoading}
-                        error={previewError}
+                      <TableChart
+                        data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
+                        config={{
+                          table_columns: tableChartData?.columns || formData.table_columns,
+                          column_formatting: {},
+                          sort: formData.sort,
+                          pagination: formData.pagination || { enabled: true, page_size: 20 },
+                        }}
+                        isLoading={tableChartLoading}
+                        error={tableChartError}
+                        pagination={
+                          chartDataPayload
+                            ? {
+                                page: tableChartPage,
+                                pageSize: tableChartPageSize,
+                                total: chartDataTotalRows || 0,
+                                onPageChange: setTableChartPage,
+                                onPageSizeChange: handleTableChartPageSizeChange,
+                              }
+                            : undefined
+                        }
                       />
                     </div>
                   ) : (
@@ -1416,34 +1457,43 @@ function EditChartPageContent() {
 
               <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4">
-                  <Tabs defaultValue="chart-data" className="h-full flex flex-col">
-                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" />
-                        Chart Data
-                      </TabsTrigger>
+                  <Tabs
+                    defaultValue={formData.chart_type === 'table' ? 'raw-data' : 'chart-data'}
+                    className="h-full flex flex-col"
+                  >
+                    <TabsList
+                      className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'} flex-shrink-0`}
+                    >
+                      {formData.chart_type !== 'table' && (
+                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4" />
+                          Chart Data
+                        </TabsTrigger>
+                      )}
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
-                      <DataPreview
-                        data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                        columns={dataPreview?.columns || []}
-                        columnTypes={dataPreview?.column_types || {}}
-                        isLoading={previewLoading}
-                        error={previewError}
-                        pagination={{
-                          page: dataPreviewPage,
-                          pageSize: dataPreviewPageSize,
-                          total: chartDataTotalRows || 0,
-                          onPageChange: setDataPreviewPage,
-                          onPageSizeChange: handleDataPreviewPageSizeChange,
-                        }}
-                      />
-                    </TabsContent>
+                    {formData.chart_type !== 'table' && (
+                      <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                        <DataPreview
+                          data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                          columns={dataPreview?.columns || []}
+                          columnTypes={dataPreview?.column_types || {}}
+                          isLoading={previewLoading}
+                          error={previewError}
+                          pagination={{
+                            page: dataPreviewPage,
+                            pageSize: dataPreviewPageSize,
+                            total: chartDataTotalRows || 0,
+                            onPageChange: setDataPreviewPage,
+                            onPageSizeChange: handleDataPreviewPageSizeChange,
+                          }}
+                        />
+                      </TabsContent>
+                    )}
 
                     <TabsContent value="raw-data" className="flex-1 overflow-auto">
                       <DataPreview
