@@ -2,14 +2,11 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertCircle,
   RefreshCw,
   Maximize2,
   Download,
-  ArrowLeft,
   Home,
   Loader2,
   FileImage,
@@ -30,12 +27,8 @@ import {
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { MapPreview } from '@/components/charts/map/MapPreview';
-import { resolveChartTitle, type ChartTitleConfig } from '@/lib/chart-title-utils';
-import {
-  resolveDashboardFilters,
-  formatAsChartFilters,
-  type DashboardFilterConfig,
-} from '@/lib/dashboard-filter-utils';
+import { type ChartTitleConfig } from '@/lib/chart-title-utils';
+import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -263,8 +256,6 @@ export function ChartElementView({
 
   // Use public chart metadata when in public mode, chart when in private mode
   const effectiveChart = isPublicMode ? publicChartMetadata : chart;
-  const effectiveChartLoading = isPublicMode ? publicChartLoading : chartLoading;
-  const effectiveChartError = isPublicMode ? publicChartError : chartError;
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === 'table';
@@ -1394,7 +1385,7 @@ export function ChartElementView({
       {/* Chart Title - HTML title for better styling and interaction */}
       <div className="px-2 pt-2">
         <ChartTitleEditor
-          chartData={chartMetadata}
+          chartData={isPublicMode ? effectiveChart : chartMetadata}
           config={config}
           onTitleChange={() => {}} // Read-only in view mode
           isEditMode={false}
