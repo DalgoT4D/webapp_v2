@@ -22,6 +22,7 @@ declare global {
       pageLoad: () => void;
       track: (eventName: string, metadata?: Record<string, any>) => void;
       validateEnvironment: () => void;
+      reset: () => void;
       _q?: any[];
     };
   }

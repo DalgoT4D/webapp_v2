@@ -11,7 +11,26 @@ export function PendoScript() {
   const previousOrgSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentOrg || typeof window === 'undefined' || !window.pendo) {
+    // Detect logout: reset Pendo state when user is no longer authenticated
+    if (!isAuthenticated || !currentOrg) {
+      if (pendoInitialized) {
+        setPendoInitialized(false);
+        previousOrgSlugRef.current = null;
+
+        // Call Pendo's reset method if available to clear session data
+        if (
+          typeof window !== 'undefined' &&
+          window.pendo &&
+          typeof window.pendo.reset === 'function'
+        ) {
+          window.pendo.reset();
+        }
+      }
+      return;
+    }
+
+    // Only proceed with initialization if Pendo script is loaded
+    if (typeof window === 'undefined' || !window.pendo) {
       return;
     }
 
