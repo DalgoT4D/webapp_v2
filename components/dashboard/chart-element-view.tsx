@@ -157,9 +157,7 @@ export function ChartElementView({
       : null;
 
   const { data: publicRegions } = useSWR(publicRegionsUrl, async (url: string) => {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-    );
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public regions');
     }
@@ -203,9 +201,7 @@ export function ChartElementView({
   // Custom fetcher for public mode
   const fetcher = isPublicMode
     ? async (url: string) => {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-        );
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
         if (!response.ok) {
           throw new Error('Failed to fetch chart data');
         }
@@ -228,9 +224,7 @@ export function ChartElementView({
     publicChartMetadataUrl,
     isPublicMode
       ? async (url: string) => {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-          );
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
@@ -385,19 +379,21 @@ export function ChartElementView({
     error: publicTableError,
     isLoading: publicTableLoading,
   } = useSWR(
-    publicTableDataUrl ? [publicTableDataUrl, tablePage, tablePageSize] : null,
+    publicTableDataUrl ? [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize] : null,
     isPublicMode && isTableChart
-      ? async ([url, page, size]: [string, number, number]) => {
+      ? async ([url, payload, page, size]: [string, ChartDataPayload, number, number]) => {
+          // Send page and limit as query parameters (0-based page for backend)
+          const queryParams = new URLSearchParams({
+            page: (page - 1).toString(),
+            limit: size.toString(),
+          });
+
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}?${queryParams}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...chartDataPayload,
-                offset: (page - 1) * size,
-                limit: size,
-              }),
+              body: JSON.stringify(payload),
             }
           );
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -418,6 +414,30 @@ export function ChartElementView({
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
     !isPublicMode ? chartDataPayload : null
   );
+
+  // Get total rows for table pagination (public mode) - POST call like data-preview
+  const publicTableTotalRowsUrl =
+    isPublicMode && publicToken && chartDataPayload && isTableChart
+      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
+      : null;
+
+  const { data: publicTableTotalRowsData } = useSWR(
+    publicTableTotalRowsUrl ? [publicTableTotalRowsUrl, chartDataPayload] : null,
+    isPublicMode && isTableChart
+      ? async ([url, payload]: [string, ChartDataPayload]) => {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
+        }
+      : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
+
+  const publicTableTotalRows = publicTableTotalRowsData?.total_rows;
 
   // Handle table pagination page size change
   const handleTablePageSizeChange = (newPageSize: number) => {
@@ -446,9 +466,7 @@ export function ChartElementView({
       : null;
 
   const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-    );
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public geojsons');
     }
@@ -547,9 +565,7 @@ export function ChartElementView({
     publicGeojsonUrl,
     isPublicMode && isMapChart
       ? async (url: string) => {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`
-          );
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           return response.json();
         }
@@ -585,14 +601,11 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(mapDataOverlayPayload),
-            }
-          );
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(mapDataOverlayPayload),
+          });
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           return response.json();
         }
@@ -1478,14 +1491,11 @@ export function ChartElementView({
             isLoading={tableLoading}
             error={tableError}
             pagination={
-              (!isPublicMode && privateTableTotalRows && tableData?.data?.length > 0) ||
-              (isPublicMode && tableData?.data?.length > 0)
+              tableData?.data?.length > 0
                 ? {
                     page: tablePage,
                     pageSize: tablePageSize,
-                    total: isPublicMode
-                      ? tableData?.total_rows || 1000
-                      : privateTableTotalRows || 0,
+                    total: isPublicMode ? publicTableTotalRows || 0 : privateTableTotalRows || 0,
                     onPageChange: setTablePage,
                     onPageSizeChange: handleTablePageSizeChange,
                   }
