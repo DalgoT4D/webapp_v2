@@ -8,16 +8,20 @@ import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
+  useChartDataPreviewTotalRows,
   useMapDataOverlay,
   useGeoJSONData,
   useRegions,
   useRegionGeoJSONs,
+  useRawTableData,
+  useTableCount,
 } from '@/hooks/api/useChart';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
+import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
 import {
@@ -95,6 +99,16 @@ export function ChartElementV2({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Table pagination state
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(20);
+
+  // Handle table pagination page size change
+  const handleTablePageSizeChange = (newPageSize: number) => {
+    setTablePageSize(newPageSize);
+    setTablePage(1); // Reset to first page when page size changes
+  };
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -371,7 +385,10 @@ export function ChartElementV2({
     error: tableError,
     isLoading: tableLoading,
     mutate: mutateTableData,
-  } = useChartDataPreview(chartDataPayload, 1, 50);
+  } = useChartDataPreview(chartDataPayload, tablePage, tablePageSize, appliedFilters);
+
+  // Get total rows for table pagination
+  const { data: tableTotalRows } = useChartDataPreviewTotalRows(chartDataPayload, appliedFilters);
 
   // Compute derived state
   const isLoading =
@@ -1020,12 +1037,27 @@ export function ChartElementV2({
                 </div>
               </div>
             ) : chart?.chart_type === 'table' ? (
-              <DataPreview
+              <TableChart
                 data={Array.isArray(tableData?.data) ? tableData.data : []}
-                columns={tableData?.columns || []}
-                columnTypes={tableData?.column_types || {}}
+                config={{
+                  table_columns: tableData?.columns || [],
+                  column_formatting: {},
+                  sort: chart?.extra_config?.sort || [],
+                  pagination: chart?.extra_config?.pagination || { enabled: true, page_size: 20 },
+                }}
                 isLoading={tableLoading}
                 error={tableError}
+                pagination={
+                  tableTotalRows && tableData?.data?.length > 0
+                    ? {
+                        page: tablePage,
+                        pageSize: tablePageSize,
+                        total: tableTotalRows || 0,
+                        onPageChange: setTablePage,
+                        onPageSizeChange: handleTablePageSizeChange,
+                      }
+                    : undefined
+                }
               />
             ) : chart?.chart_type === 'map' ? (
               <MapPreview

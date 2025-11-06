@@ -9,7 +9,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, Database, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Loader2,
+  AlertCircle,
+  Database,
+  ChevronLeft,
+  ChevronRight,
+  ChevronFirst,
+  ChevronLast,
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
@@ -163,7 +171,7 @@ export function DataPreview({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
                       <SelectItem value="50">50</SelectItem>
                       <SelectItem value="100">100</SelectItem>
                       <SelectItem value="200">200</SelectItem>
@@ -176,25 +184,28 @@ export function DataPreview({
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => pagination.onPageChange(1)}
                   disabled={pagination.page === 1}
                 >
-                  First
+                  <ChevronFirst className="h-4 w-4" />
+                  <span className="sr-only">First page</span>
                 </Button>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => pagination.onPageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <span className="sr-only">Previous page</span>
                 </Button>
               </div>
 
               <div className="flex items-center gap-1">
-                <span className="text-sm">
+                <span className="text-sm font-medium">
                   Page {pagination.page} of {Math.ceil(pagination.total / pagination.pageSize)}
                 </span>
               </div>
@@ -202,22 +213,25 @@ export function DataPreview({
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => pagination.onPageChange(pagination.page + 1)}
                   disabled={pagination.page * pagination.pageSize >= pagination.total}
                 >
-                  Next
                   <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
                 </Button>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() =>
                     pagination.onPageChange(Math.ceil(pagination.total / pagination.pageSize))
                   }
                   disabled={pagination.page * pagination.pageSize >= pagination.total}
                 >
-                  Last
+                  <ChevronLast className="h-4 w-4" />
+                  <span className="sr-only">Last page</span>
                 </Button>
               </div>
             </div>
