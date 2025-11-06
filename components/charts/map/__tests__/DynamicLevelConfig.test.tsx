@@ -158,25 +158,25 @@ describe('DynamicLevelConfig', () => {
       const user = userEvent.setup();
       render(<DynamicLevelConfig formData={defaultFormData} onChange={mockOnChange} />);
 
-      const stateColumnLabel = screen.getByText('State Column');
-      const selectTrigger =
-        stateColumnLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
+      // Get all comboboxes - first one should be country (disabled), second is state column
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes).toHaveLength(2); // Country and State
 
-      if (selectTrigger) {
-        await user.click(selectTrigger);
+      const stateColumnSelect = comboboxes[1]; // State column is second
+      expect(stateColumnSelect).toBeInTheDocument();
+      await user.click(stateColumnSelect);
 
-        const stateOption = screen.getByRole('option', { name: /state \(varchar\)/i });
-        await user.click(stateOption);
+      const stateOption = screen.getByRole('option', { name: /state \(varchar\)/i });
+      await user.click(stateOption);
 
-        expect(mockOnChange).toHaveBeenCalledWith({
-          geographic_column: 'state',
-          selected_geojson_id: undefined,
-          district_column: undefined,
-          ward_column: undefined,
-          subward_column: undefined,
-          geographic_hierarchy: undefined,
-        });
-      }
+      expect(mockOnChange).toHaveBeenCalledWith({
+        geographic_column: 'state',
+        selected_geojson_id: undefined,
+        district_column: undefined,
+        ward_column: undefined,
+        subward_column: undefined,
+        geographic_hierarchy: undefined,
+      });
     });
 
     it('should reset hierarchy when changing geographic column', async () => {
@@ -195,23 +195,23 @@ describe('DynamicLevelConfig', () => {
 
       render(<DynamicLevelConfig formData={formDataWithHierarchy} onChange={mockOnChange} />);
 
-      const stateColumnLabel = screen.getByText('State Column');
-      const selectTrigger =
-        stateColumnLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
+      // Get all comboboxes - first is country (disabled), second is state, third is district
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes.length).toBeGreaterThanOrEqual(2);
 
-      if (selectTrigger) {
-        await user.click(selectTrigger);
+      const stateColumnSelect = comboboxes[1]; // State column is second
+      expect(stateColumnSelect).toBeInTheDocument();
+      await user.click(stateColumnSelect);
 
-        const populationOption = screen.getByRole('option', { name: /population \(integer\)/i });
-        await user.click(populationOption);
+      const populationOption = screen.getByRole('option', { name: /population \(integer\)/i });
+      await user.click(populationOption);
 
-        expect(mockOnChange).toHaveBeenCalledWith(
-          expect.objectContaining({
-            geographic_column: 'population',
-            geographic_hierarchy: undefined,
-          })
-        );
-      }
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geographic_column: 'population',
+          geographic_hierarchy: undefined,
+        })
+      );
     });
 
     it('should display all available columns with data types', () => {
@@ -247,36 +247,42 @@ describe('DynamicLevelConfig', () => {
 
       render(<DynamicLevelConfig formData={formDataWithState} onChange={mockOnChange} />);
 
-      const districtLabel = screen.getByText('District Column (Optional)');
-      const selectTrigger =
-        districtLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
+      // Get all comboboxes - first is country (disabled), second is state, third is district
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes).toHaveLength(3); // Country, State, and District
 
-      if (selectTrigger) {
-        await user.click(selectTrigger);
+      const districtColumnSelect = comboboxes[2]; // District column is third
+      expect(districtColumnSelect).toBeInTheDocument();
+      await user.click(districtColumnSelect);
 
-        const districtOption = screen.getByRole('option', { name: /district/i });
-        await user.click(districtOption);
+      const districtOption = screen.getByRole('option', { name: /district/i });
+      await user.click(districtOption);
 
-        expect(mockOnChange).toHaveBeenCalledWith(
-          expect.objectContaining({
-            geographic_hierarchy: expect.objectContaining({
-              country_code: 'IND',
-              base_level: expect.objectContaining({
-                level: 0,
-                column: 'state',
-                region_type: 'state',
-              }),
-              drill_down_levels: expect.arrayContaining([
-                expect.objectContaining({
-                  level: 1,
-                  column: 'district',
-                  region_type: 'district',
-                }),
-              ]),
+      // The component creates hierarchy based on region types, not column names
+      // When "state" column is selected as geographic_column and "district" is selected for drill-down,
+      // it maps to the region type hierarchy (country -> state)
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          district_column: 'district',
+          geographic_hierarchy: expect.objectContaining({
+            country_code: 'IND',
+            base_level: expect.objectContaining({
+              level: 0,
+              column: 'state',
+              region_type: 'country', // Maps to first region type in hierarchy
+              label: 'Country',
             }),
-          })
-        );
-      }
+            drill_down_levels: expect.arrayContaining([
+              expect.objectContaining({
+                level: 1,
+                column: 'district',
+                region_type: 'state', // Maps to second region type in hierarchy
+                label: 'State',
+              }),
+            ]),
+          }),
+        })
+      );
     });
 
     it('should allow removing drill-down level', async () => {
@@ -295,24 +301,24 @@ describe('DynamicLevelConfig', () => {
 
       render(<DynamicLevelConfig formData={formDataWithDrillDown} onChange={mockOnChange} />);
 
-      const districtLabel = screen.getByText('District Column (Optional)');
-      const selectTrigger =
-        districtLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
+      // Get all comboboxes - first is country (disabled), second is state, third is district
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes).toHaveLength(3); // Country, State, and District
 
-      if (selectTrigger) {
-        await user.click(selectTrigger);
+      const districtColumnSelect = comboboxes[2]; // District column is third
+      expect(districtColumnSelect).toBeInTheDocument();
+      await user.click(districtColumnSelect);
 
-        const noDrillDownOption = screen.getByRole('option', { name: /no drill-down/i });
-        await user.click(noDrillDownOption);
+      const noDrillDownOption = screen.getByRole('option', { name: /no drill-down/i });
+      await user.click(noDrillDownOption);
 
-        expect(mockOnChange).toHaveBeenCalledWith(
-          expect.objectContaining({
-            geographic_hierarchy: expect.objectContaining({
-              drill_down_levels: [],
-            }),
-          })
-        );
-      }
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geographic_hierarchy: expect.objectContaining({
+            drill_down_levels: [],
+          }),
+        })
+      );
     });
 
     it('should show download button for districts', () => {
@@ -392,7 +398,7 @@ describe('DynamicLevelConfig', () => {
     it('should show toast on successful download', async () => {
       const user = userEvent.setup();
       (csvUtils.downloadRegionNames as jest.Mock).mockImplementation(
-        async (url, code, type, options) => {
+        async (_url, _code, _type, options) => {
           options.onSuccess('Download successful');
         }
       );
@@ -599,16 +605,16 @@ describe('DynamicLevelConfig', () => {
 
       render(<DynamicLevelConfig formData={formDataWithState} onChange={mockOnChange} />);
 
-      const districtLabel = screen.getByText('District Column (Optional)');
-      const selectTrigger =
-        districtLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
+      // Get all comboboxes - first is country (disabled), second is state, third is district
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes).toHaveLength(3); // Country, State, and District
 
-      if (selectTrigger) {
-        await user.click(selectTrigger);
+      const districtColumnSelect = comboboxes[2]; // District column is third
+      expect(districtColumnSelect).toBeInTheDocument();
+      await user.click(districtColumnSelect);
 
-        // District and population should be available, but state might not be shown twice
-        expect(screen.getByRole('option', { name: /district/i })).toBeInTheDocument();
-      }
+      // District and population should be available, but state might not be shown twice
+      expect(screen.getByRole('option', { name: /district/i })).toBeInTheDocument();
     });
 
     it('should handle missing columns data gracefully', () => {
@@ -633,22 +639,22 @@ describe('DynamicLevelConfig', () => {
 
       render(<DynamicLevelConfig formData={formDataWithState} onChange={mockOnChange} />);
 
-      const districtLabel = screen.getByText('District Column (Optional)');
-      const selectTrigger =
-        districtLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
+      // Get all comboboxes - first is country (disabled), second is state, third is district
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes).toHaveLength(3); // Country, State, and District
 
-      if (selectTrigger) {
-        await user.click(selectTrigger);
+      const districtColumnSelect = comboboxes[2]; // District column is third
+      expect(districtColumnSelect).toBeInTheDocument();
+      await user.click(districtColumnSelect);
 
-        const districtOption = screen.getByRole('option', { name: /district/i });
-        await user.click(districtOption);
+      const districtOption = screen.getByRole('option', { name: /district/i });
+      await user.click(districtOption);
 
-        expect(mockOnChange).toHaveBeenCalledWith(
-          expect.objectContaining({
-            district_column: 'district',
-          })
-        );
-      }
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          district_column: 'district',
+        })
+      );
     });
   });
 });

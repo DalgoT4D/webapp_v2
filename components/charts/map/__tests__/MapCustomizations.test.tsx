@@ -141,21 +141,20 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const tooltipSwitch = screen
-        .getByText('Show Tooltip')
-        .parentElement?.parentElement?.querySelector('button');
+      // Find the switch by its role - it should be a button with role="switch"
+      const tooltipLabel = screen.getByText('Show Tooltip');
+      const tooltipSwitch = tooltipLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (tooltipSwitch) {
-        await user.click(tooltipSwitch);
+      expect(tooltipSwitch).toBeInTheDocument();
+      await user.click(tooltipSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...defaultFormData,
-          customizations: {
-            ...defaultFormData.customizations,
-            showTooltip: false,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          showTooltip: false,
+        },
+      });
     });
 
     it('should toggle show legend', async () => {
@@ -164,21 +163,19 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const legendSwitch = screen
-        .getByText('Show Legend')
-        .parentElement?.parentElement?.querySelector('button');
+      const legendLabel = screen.getByText('Show Legend');
+      const legendSwitch = legendLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (legendSwitch) {
-        await user.click(legendSwitch);
+      expect(legendSwitch).toBeInTheDocument();
+      await user.click(legendSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...defaultFormData,
-          customizations: {
-            ...defaultFormData.customizations,
-            showLegend: false,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          showLegend: false,
+        },
+      });
     });
 
     it('should toggle enable selection', async () => {
@@ -187,21 +184,19 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const selectionSwitch = screen
-        .getByText('Enable Selection')
-        .parentElement?.parentElement?.querySelector('button');
+      const selectionLabel = screen.getByText('Enable Selection');
+      const selectionSwitch = selectionLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (selectionSwitch) {
-        await user.click(selectionSwitch);
+      expect(selectionSwitch).toBeInTheDocument();
+      await user.click(selectionSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...defaultFormData,
-          customizations: {
-            ...defaultFormData.customizations,
-            select: false,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          select: false,
+        },
+      });
     });
 
     it('should handle default values when customizations are undefined', () => {
@@ -291,21 +286,19 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const labelsSwitch = screen
-        .getByText('Show Region Names')
-        .parentElement?.parentElement?.querySelector('button');
+      const labelsLabel = screen.getByText('Show Region Names');
+      const labelsSwitch = labelsLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (labelsSwitch) {
-        await user.click(labelsSwitch);
+      expect(labelsSwitch).toBeInTheDocument();
+      await user.click(labelsSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...defaultFormData,
-          customizations: {
-            ...defaultFormData.customizations,
-            showLabels: true,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          showLabels: true,
+        },
+      });
     });
 
     it('should toggle highlight on hover', async () => {
@@ -314,21 +307,19 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const emphasisSwitch = screen
-        .getByText('Highlight on Hover')
-        .parentElement?.parentElement?.querySelector('button');
+      const emphasisLabel = screen.getByText('Highlight on Hover');
+      const emphasisSwitch = emphasisLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (emphasisSwitch) {
-        await user.click(emphasisSwitch);
+      expect(emphasisSwitch).toBeInTheDocument();
+      await user.click(emphasisSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...defaultFormData,
-          customizations: {
-            ...defaultFormData.customizations,
-            emphasis: false,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          emphasis: false,
+        },
+      });
     });
 
     it('should support all legend positions', () => {
@@ -377,21 +368,19 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const animationSwitch = screen
-        .getByText('Animation')
-        .parentElement?.parentElement?.querySelector('button');
+      const animationLabel = screen.getByText('Animation');
+      const animationSwitch = animationLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (animationSwitch) {
-        await user.click(animationSwitch);
+      expect(animationSwitch).toBeInTheDocument();
+      await user.click(animationSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...defaultFormData,
-          customizations: {
-            ...defaultFormData.customizations,
-            animation: false,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          animation: false,
+        },
+      });
     });
 
     it('should display border width options with proper descriptions', () => {
@@ -430,21 +419,19 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={formDataWithExtras} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const tooltipSwitch = screen
-        .getByText('Show Tooltip')
-        .parentElement?.parentElement?.querySelector('button');
+      const tooltipLabel = screen.getByText('Show Tooltip');
+      const tooltipSwitch = tooltipLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (tooltipSwitch) {
-        await user.click(tooltipSwitch);
+      expect(tooltipSwitch).toBeInTheDocument();
+      await user.click(tooltipSwitch!);
 
-        expect(mockOnFormDataChange).toHaveBeenCalledWith({
-          ...formDataWithExtras,
-          customizations: {
-            ...formDataWithExtras.customizations,
-            showTooltip: false,
-          },
-        });
-      }
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...formDataWithExtras,
+        customizations: {
+          ...formDataWithExtras.customizations,
+          showTooltip: false,
+        },
+      });
     });
 
     it('should handle multiple rapid customization changes', async () => {
@@ -454,19 +441,18 @@ describe('MapCustomizations', () => {
       );
 
       // Toggle multiple switches rapidly
-      const tooltipSwitch = screen
-        .getByText('Show Tooltip')
-        .parentElement?.parentElement?.querySelector('button');
-      const legendSwitch = screen
-        .getByText('Show Legend')
-        .parentElement?.parentElement?.querySelector('button');
+      const tooltipLabel = screen.getByText('Show Tooltip');
+      const tooltipSwitch = tooltipLabel.parentElement?.parentElement?.querySelector('button');
+      const legendLabel = screen.getByText('Show Legend');
+      const legendSwitch = legendLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (tooltipSwitch && legendSwitch) {
-        await user.click(tooltipSwitch);
-        await user.click(legendSwitch);
+      expect(tooltipSwitch).toBeInTheDocument();
+      expect(legendSwitch).toBeInTheDocument();
 
-        expect(mockOnFormDataChange).toHaveBeenCalledTimes(2);
-      }
+      await user.click(tooltipSwitch!);
+      await user.click(legendSwitch!);
+
+      expect(mockOnFormDataChange).toHaveBeenCalledTimes(2);
     });
 
     it('should maintain proper structure for all customization updates', async () => {
@@ -475,20 +461,18 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const animationSwitch = screen
-        .getByText('Animation')
-        .parentElement?.parentElement?.querySelector('button');
+      const animationLabel = screen.getByText('Animation');
+      const animationSwitch = animationLabel.parentElement?.parentElement?.querySelector('button');
 
-      if (animationSwitch) {
-        await user.click(animationSwitch);
+      expect(animationSwitch).toBeInTheDocument();
+      await user.click(animationSwitch!);
 
-        const callArg = mockOnFormDataChange.mock.calls[0][0];
+      const callArg = mockOnFormDataChange.mock.calls[0][0];
 
-        // Verify structure
-        expect(callArg).toHaveProperty('customizations');
-        expect(callArg.customizations).toHaveProperty('animation');
-        expect(typeof callArg.customizations.animation).toBe('boolean');
-      }
+      // Verify structure
+      expect(callArg).toHaveProperty('customizations');
+      expect(callArg.customizations).toHaveProperty('animation');
+      expect(typeof callArg.customizations.animation).toBe('boolean');
     });
   });
 
