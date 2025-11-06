@@ -170,10 +170,10 @@ describe('ChartTypeSelector', () => {
     expect(screen.getByTitle('Map')).toBeInTheDocument();
     expect(screen.getByTitle('Table')).toBeInTheDocument();
 
-    // Keyboard navigation - test without multiple renders interfering
-    const navResult = render(<ChartTypeSelector onChange={mockOnChange} />);
+    // Keyboard navigation - buttons are keyboard accessible with proper focus styles
     const allButtonsForNav = screen.getAllByRole('button');
-    // Keyboard navigation is tested implicitly - buttons are keyboard accessible
+    // Check that buttons have outline-none and focus-visible styles for accessibility
     expect(allButtonsForNav[0]).toHaveClass('outline-none');
+    expect(allButtonsForNav[0].className).toMatch(/focus-visible/); // Has some focus-visible styling
   });
 });

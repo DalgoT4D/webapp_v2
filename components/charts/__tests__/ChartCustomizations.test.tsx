@@ -48,9 +48,7 @@ describe('ChartCustomizations', () => {
     it('should return null for unsupported chart types', () => {
       const { container } = render(
         <ChartCustomizations
-          chartType="unknown"
-          as
-          any
+          chartType={'unknown' as any}
           formData={createFormData('bar')}
           onChange={mockOnChange}
         />

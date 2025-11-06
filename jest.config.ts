@@ -26,6 +26,7 @@ const customJestConfig: Config = {
     '<rootDir>/hooks/**/__tests__/**/*.test.ts',
     '<rootDir>/hooks/**/__tests__/**/*.test.tsx',
     '<rootDir>/lib/**/__tests__/**/*.test.ts',
+    '<rootDir>/lib/**/__tests__/**/*.test.tsx',
   ],
   testPathIgnorePatterns: [
     '<rootDir>/.next/',

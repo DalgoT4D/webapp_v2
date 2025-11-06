@@ -745,7 +745,7 @@ describe('ChartBuilder', () => {
    * Map Features
    */
   describe('Map Features', () => {
-    it('should render map-specific components', () => {
+    it('should render map-specific configuration components', () => {
       const mapData = {
         chart_type: 'map' as const,
         schema_name: 'public',
@@ -755,87 +755,19 @@ describe('ChartBuilder', () => {
 
       render(<ChartBuilder {...defaultProps} initialData={mapData} />);
 
+      // Map data configuration should be present in the config panel
       expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
       expect(screen.getByTestId('map-customizations')).toBeInTheDocument();
-      expect(screen.getByTestId('map-preview')).toBeInTheDocument();
+
+      // Note: Map preview is currently commented out in ChartBuilder, so we don't test for it
     });
 
-    it('should handle drill-down when region is clicked', async () => {
-      const user = userEvent.setup();
-
-      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
-        data: [{ id: 1, name: 'Test State', display_name: 'Test State' }],
-        isLoading: false,
-        error: null,
-      });
-
+    it('should render dynamic level config when geographic column is set', () => {
       const mapData = {
         chart_type: 'map' as const,
         schema_name: 'public',
         table_name: 'census',
-        geographic_column: 'state',
-        value_column: 'population',
-        aggregate_function: 'sum' as const,
-        selected_geojson_id: 1,
-        district_column: 'district',
-      };
-
-      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
-
-      await user.click(screen.getByTestId('click-region'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('drill-down-path')).toBeInTheDocument();
-        expect(screen.getByText(/drilled: test state/i)).toBeInTheDocument();
-      });
-    });
-
-    it.each([
-      ['drill-up', 'drill-up'],
-      ['drill-home', 'drill-home'],
-    ])('should handle %s navigation', async (desc, buttonTestId) => {
-      const user = userEvent.setup();
-
-      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
-        data: [{ id: 1, name: 'Test State', display_name: 'Test State' }],
-        isLoading: false,
-        error: null,
-      });
-
-      const mapData = {
-        chart_type: 'map' as const,
-        schema_name: 'public',
-        table_name: 'census',
-        geographic_column: 'state',
-        value_column: 'population',
-        aggregate_function: 'sum' as const,
-        selected_geojson_id: 1,
-        district_column: 'district',
-      };
-
-      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
-
-      // Drill down first
-      await user.click(screen.getByTestId('click-region'));
-      await waitFor(() => {
-        expect(screen.getByTestId('drill-down-path')).toBeInTheDocument();
-      });
-
-      // Navigate back
-      await user.click(screen.getByTestId(buttonTestId));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('drill-down-path')).not.toBeInTheDocument();
-      });
-    });
-
-    it('should not allow drill-down without drill-down config', async () => {
-      const user = userEvent.setup();
-
-      const mapData = {
-        chart_type: 'map' as const,
-        schema_name: 'public',
-        table_name: 'census',
+        title: 'Population Map',
         geographic_column: 'state',
         value_column: 'population',
         aggregate_function: 'sum' as const,
@@ -844,74 +776,126 @@ describe('ChartBuilder', () => {
 
       render(<ChartBuilder {...defaultProps} initialData={mapData} />);
 
-      await user.click(screen.getByTestId('click-region'));
+      // Dynamic level config should be rendered when geographic column is set
+      expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
+    });
 
-      await waitFor(() => {
-        expect(screen.queryByTestId('drill-down-path')).not.toBeInTheDocument();
-      });
+    it('should not render dynamic level config without geographic column', () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Population Map',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      // Dynamic level config should not be rendered without geographic column
+      expect(screen.queryByTestId('dynamic-level-config')).not.toBeInTheDocument();
+    });
+
+    it('should allow setting map configuration through MapDataConfigurationV3', async () => {
+      const user = userEvent.setup();
+
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Population Map',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      // Simulate setting map configuration
+      await user.click(screen.getByTestId('set-map-config'));
+
+      // Configuration should be updated (actual form data is managed internally)
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
     });
   });
 
   /**
-   * Preview States and Tab Navigation
+   * Configuration Panel Focus (Preview Panel Currently Disabled)
+   * Note: The preview panel is currently commented out in ChartBuilder implementation
    */
-  describe('Preview States and Tabs', () => {
-    it.each([
-      ['chart loading', { data: null, isLoading: true, error: null }, 'Loading chart...'],
-      [
-        'chart error',
-        { data: null, isLoading: false, error: new Error('Failed') },
-        'Error: Failed',
-      ],
-    ])('should show %s state', (desc, hookReturn, expectedText) => {
-      (useChartHooks.useChartData as jest.Mock).mockReturnValue(hookReturn);
-
+  describe('Configuration Panel', () => {
+    it('should render the configuration panel', () => {
       render(<ChartBuilder {...defaultProps} />);
 
-      expect(screen.getByText(new RegExp(expectedText, 'i'))).toBeInTheDocument();
+      // Configuration panel should always be rendered
+      expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
+      expect(screen.getByTestId('chart-data-config')).toBeInTheDocument();
     });
 
-    it('should show chart loaded state', () => {
-      (useChartHooks.useChartData as jest.Mock).mockReturnValue({
-        data: { echarts_config: {} },
-        isLoading: false,
-        error: null,
-      });
+    it('should show all configuration sections for bar chart with dataset', () => {
+      const chartData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales Chart',
+      };
 
-      render(<ChartBuilder {...defaultProps} />);
+      render(<ChartBuilder {...defaultProps} initialData={chartData} />);
 
-      // "Chart Preview" appears in both tab and content, so use getAllByText
-      const chartPreviews = screen.getAllByText('Chart Preview');
-      expect(chartPreviews.length).toBeGreaterThan(0);
+      // Should show chart type selector
+      expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
+
+      // Should show data configuration
+      expect(screen.getByTestId('chart-data-config')).toBeInTheDocument();
+
+      // Should show advanced options when dataset is selected
+      expect(screen.getByText(/advanced options/i)).toBeInTheDocument();
+      expect(screen.getByTestId('filters-config')).toBeInTheDocument();
+      expect(screen.getByTestId('pagination-config')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-config')).toBeInTheDocument();
     });
 
-    it('should switch to data preview tab', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder {...defaultProps} />);
+    it('should not show advanced options without dataset selection', () => {
+      const chartData = {
+        chart_type: 'bar' as const,
+      };
 
-      await user.click(screen.getByRole('tab', { name: /data preview/i }));
+      render(<ChartBuilder {...defaultProps} initialData={chartData} />);
 
-      await waitFor(() => {
-        expect(screen.getByTestId('data-preview')).toBeInTheDocument();
-      });
+      // Advanced options should not be visible without dataset
+      expect(screen.queryByText(/advanced options/i)).not.toBeInTheDocument();
     });
 
-    it('should show pagination controls in data preview', async () => {
-      const user = userEvent.setup();
-      (useChartHooks.useChartDataPreview as jest.Mock).mockReturnValue({
-        data: { data: [{ id: 1 }], columns: ['id'], column_types: {} },
-        isLoading: false,
-        error: null,
-      });
-      (useChartHooks.useChartDataPreviewTotalRows as jest.Mock).mockReturnValue({ data: 100 });
+    it('should render table-specific configuration for table charts', () => {
+      render(
+        <ChartBuilder
+          {...defaultProps}
+          initialData={{
+            chart_type: 'table' as const,
+            schema_name: 'public',
+            table_name: 'users',
+            title: 'Users Table',
+          }}
+        />
+      );
 
-      render(<ChartBuilder {...defaultProps} />);
+      // Table should show table-specific config
+      expect(screen.getByTestId('table-config')).toBeInTheDocument();
+      // Table uses regular ChartDataConfigurationV3
+      expect(screen.getByTestId('chart-data-config')).toBeInTheDocument();
+    });
 
-      await user.click(screen.getByRole('tab', { name: /data preview/i }));
+    it('should render map-specific configuration for map charts', () => {
+      render(
+        <ChartBuilder
+          {...defaultProps}
+          initialData={{
+            chart_type: 'map' as const,
+            schema_name: 'public',
+            table_name: 'census',
+            title: 'Population Map',
+          }}
+        />
+      );
 
-      await waitFor(() => {
-        expect(screen.getByTestId('pagination-controls')).toBeInTheDocument();
-      });
+      // Map should show map-specific config
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
+      expect(screen.getByTestId('map-customizations')).toBeInTheDocument();
     });
   });
 
@@ -1025,29 +1009,9 @@ describe('ChartBuilder', () => {
       });
     });
 
-    it.each([
-      ['geojson loading', { data: null, isLoading: true, error: null }, 'Loading map...'],
-      ['geojson error', { data: null, isLoading: false, error: new Error('Failed') }, 'Map error'],
-    ])('should handle map preview %s', (desc, hookReturn, expectedText) => {
-      (useChartHooks.useGeoJSONData as jest.Mock).mockReturnValue(hookReturn);
-
-      const mapData = {
-        chart_type: 'map' as const,
-        schema_name: 'public',
-        table_name: 'census',
-        selected_geojson_id: 1,
-      };
-
-      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
-
-      expect(screen.getByText(expectedText)).toBeInTheDocument();
-    });
-
-    it('should handle drill-down with empty regions data', async () => {
-      const user = userEvent.setup();
-
-      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
-        data: [],
+    it('should render map chart with geojson config', () => {
+      (useChartHooks.useGeoJSONData as jest.Mock).mockReturnValue({
+        data: { geojson_data: { type: 'FeatureCollection', features: [] } },
         isLoading: false,
         error: null,
       });
@@ -1056,20 +1020,39 @@ describe('ChartBuilder', () => {
         chart_type: 'map' as const,
         schema_name: 'public',
         table_name: 'census',
-        geographic_column: 'state',
-        value_column: 'population',
-        aggregate_function: 'sum' as const,
+        title: 'Census Map',
         selected_geojson_id: 1,
-        district_column: 'district',
       };
 
       render(<ChartBuilder {...defaultProps} initialData={mapData} />);
 
-      await user.click(screen.getByTestId('click-region'));
+      // Map configuration should be present
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
+    });
 
-      await waitFor(() => {
-        expect(screen.queryByTestId('drill-down-path')).not.toBeInTheDocument();
-      });
+    it('should handle map configuration with geographic hierarchy', () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census Map',
+        geographic_column: 'state',
+        value_column: 'population',
+        aggregate_function: 'sum' as const,
+        selected_geojson_id: 1,
+        geographic_hierarchy: {
+          country_code: 'IND',
+          base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+          drill_down_levels: [
+            { level: 1, column: 'district', region_type: 'district', label: 'District' },
+          ],
+        },
+      } as any;
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      // Dynamic level config should be rendered
+      expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
     });
   });
 });
