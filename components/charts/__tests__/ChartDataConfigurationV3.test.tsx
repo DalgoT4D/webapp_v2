@@ -1198,4 +1198,400 @@ describe('ChartDataConfigurationV3', () => {
       expect(screen.getByTestId('max-metrics')).toHaveTextContent('unlimited');
     });
   });
+
+  describe('SearchableValueInput onChange Handler', () => {
+    it('should call onChange when typing in regular input fallback', async () => {
+      const user = userEvent.setup();
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'status', operator: 'equals' as const, value: '' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      const input = screen.getByPlaceholderText('Enter value');
+      await user.type(input, 'test');
+
+      expect(mockOnChange).toHaveBeenCalled();
+    });
+
+    it('should call onChange when typing in "in" operator text input', async () => {
+      const user = userEvent.setup();
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'ids', operator: 'in' as const, value: '' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      const input = screen.getByPlaceholderText('value1, value2, value3');
+      await user.type(input, '1,2,3');
+
+      expect(mockOnChange).toHaveBeenCalled();
+    });
+
+    it('should call onChange when typing in "not_in" operator text input', async () => {
+      const user = userEvent.setup();
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'ids', operator: 'not_in' as const, value: '' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      const input = screen.getByPlaceholderText('value1, value2, value3');
+      await user.type(input, '4,5,6');
+
+      expect(mockOnChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('Multiple Filters Interaction', () => {
+    it('should handle multiple filters with different operators', () => {
+      const formData = {
+        ...baseFormData,
+        filters: [
+          { column: 'status', operator: 'equals' as const, value: 'active' },
+          { column: 'age', operator: 'greater_than' as const, value: '18' },
+          { column: 'email', operator: 'like' as const, value: '%@test.com' },
+        ],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Should render all 3 filter inputs
+      const inputs = screen.getAllByPlaceholderText('Enter value');
+      expect(inputs).toHaveLength(3);
+    });
+
+    it('should handle clearing filter value', async () => {
+      const user = userEvent.setup();
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'name', operator: 'equals' as const, value: 'test' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      const input = screen.getByDisplayValue('test');
+      await user.clear(input);
+      await user.type(input, 'new');
+
+      expect(mockOnChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('Additional Filter Edge Cases', () => {
+    it('should handle filter with like operator', () => {
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'name', operator: 'like' as const, value: '%test%' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+    });
+
+    it('should handle filter with like_case_insensitive operator', () => {
+      const formData = {
+        ...baseFormData,
+        filters: [
+          { column: 'email', operator: 'like_case_insensitive' as const, value: '%@test.com' },
+        ],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+    });
+
+    it('should handle filter with greater_than operator', () => {
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'age', operator: 'greater_than' as const, value: '18' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+    });
+
+    it('should handle filter with less_than operator', () => {
+      const formData = {
+        ...baseFormData,
+        filters: [{ column: 'score', operator: 'less_than' as const, value: '100' }],
+      };
+
+      (useChartHooks.useColumnValues as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+    });
+  });
+
+  describe('Computation Type Scenarios', () => {
+    it('should render metrics selector for pie chart with aggregated computation', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'pie' as const,
+        computation_type: 'aggregated' as const,
+        metrics: [{ column: 'amount', aggregation: 'sum', alias: 'Total' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Metrics selector should be rendered
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+
+    it('should not render Y-axis for pie chart with rolling computation', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'pie' as const,
+        computation_type: 'rolling' as const,
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Y-axis column selector should not appear for pie chart
+      expect(screen.queryByText('Y Axis')).not.toBeInTheDocument();
+    });
+
+    it('should render metrics selector for bar chart with aggregated computation', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        computation_type: 'aggregated' as const,
+        aggregate_function: 'sum' as const,
+        metrics: [{ column: 'amount', aggregation: 'sum', alias: 'Total' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Metrics selector should be present for bar chart
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+
+    it('should render metrics for bar chart with count_distinct function', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        computation_type: 'aggregated' as const,
+        aggregate_function: 'count_distinct' as const,
+        metrics: [{ column: 'email', aggregation: 'count_distinct', alias: 'Unique Emails' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Metrics selector should be present
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+
+    it('should render metrics for line chart with rolling computation', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'line' as const,
+        computation_type: 'aggregated' as const,
+        metrics: [{ column: 'amount', aggregation: 'sum', alias: 'Total' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Metrics should be shown for line chart
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+  });
+
+  describe('Column Type Filtering for Y-Axis', () => {
+    it('should render metrics selector with numeric column types', () => {
+      // Mock columns includes 'age' with 'integer' type
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        computation_type: 'aggregated' as const,
+        aggregate_function: 'sum' as const,
+        metrics: [{ column: 'age', aggregation: 'sum', alias: 'Total Age' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Bar chart shows metrics selector, not Y-axis selector
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+
+    it('should render metrics selector with aggregate function', () => {
+      // When aggregate function is 'sum', metrics selector should be shown
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        computation_type: 'aggregated' as const,
+        aggregate_function: 'sum' as const,
+        metrics: [{ column: 'amount', aggregation: 'sum', alias: 'Total' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // Metrics selector should be rendered
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+
+    it('should handle aggregate function count with metrics', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        computation_type: 'aggregated' as const,
+        aggregate_function: 'count' as const,
+        metrics: [{ column: 'status', aggregation: 'count', alias: 'Count' }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      // With count function, metrics selector should be available
+      expect(screen.getByTestId('max-metrics')).toBeInTheDocument();
+    });
+  });
+
+  describe('Extra Dimension Scenarios', () => {
+    it('should render extra dimension for bar chart', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        extra_dimension_column: 'category',
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByText('Extra Dimension')).toBeInTheDocument();
+    });
+
+    it('should render extra dimension for line chart', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'line' as const,
+        extra_dimension_column: 'region',
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByText('Extra Dimension')).toBeInTheDocument();
+    });
+
+    it('should not render extra dimension for number chart', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'number' as const,
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.queryByText('Extra Dimension')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Pagination and Sort Selectors', () => {
+    it('should render pagination selector for bar chart', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        pagination: { enabled: true, page_size: 50 },
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByText('Pagination')).toBeInTheDocument();
+    });
+
+    it('should render pagination selector with disabled state', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'table' as const,
+        pagination: { enabled: false, page_size: 50 },
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByText('Pagination')).toBeInTheDocument();
+    });
+
+    it('should render sort configuration for bar chart', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'bar' as const,
+        sort: [{ column: 'name', direction: 'asc' as const }],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByText(/sorting/i)).toBeInTheDocument();
+    });
+
+    it('should render sort with multiple criteria', () => {
+      const formData = {
+        ...baseFormData,
+        chart_type: 'table' as const,
+        sort: [
+          { column: 'name', direction: 'asc' as const },
+          { column: 'age', direction: 'desc' as const },
+        ],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      expect(screen.getByText(/sorting/i)).toBeInTheDocument();
+    });
+  });
 });

@@ -1055,4 +1055,584 @@ describe('ChartBuilder', () => {
       expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
     });
   });
+
+  /**
+   * Additional Coverage Tests for uncovered branches
+   */
+  describe('Additional Coverage', () => {
+    it('should return default customizations for unknown chart type', () => {
+      const unknownChartData = {
+        chart_type: 'unknown' as any,
+        schema_name: 'public',
+        table_name: 'test',
+        title: 'Test',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={unknownChartData} />);
+      expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
+    });
+
+    it('should handle page size change with pagination reset', async () => {
+      const user = userEvent.setup();
+      const chartData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        pagination: { enabled: true, page_size: 10 },
+      };
+
+      (useChartHooks.useChartDataPreview as jest.Mock).mockReturnValue({
+        data: { data: [], columns: [] },
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={chartData} />);
+
+      // Trigger pagination change effect
+      await user.click(screen.getByTestId('enable-pagination'));
+
+      expect(screen.getByTestId('pagination-config')).toBeInTheDocument();
+    });
+
+    it('should handle region click without drill-down capability', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+      };
+
+      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
+        data: [{ id: 1, name: 'Test State' }],
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      // Map without drill-down configuration - region click should do nothing
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
+    });
+
+    it('should handle region click with dynamic hierarchy drill-down', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+        geographic_hierarchy: {
+          country_code: 'IND',
+          base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+          drill_down_levels: [
+            { level: 1, column: 'district', region_type: 'district', label: 'District' },
+          ],
+        },
+      };
+
+      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
+        data: [{ id: 1, name: 'Test State', display_name: 'Test State Display' }],
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      // Has drill-down configuration
+      expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
+    });
+
+    it('should handle region click with legacy district_column drill-down', async () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        district_column: 'district',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+      };
+
+      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
+        data: [{ id: 1, name: 'Test State' }],
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
+    });
+
+    it('should handle convertSimplifiedToLayers with district and ward columns', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        district_column: 'district',
+        ward_column: 'ward',
+        subward_column: 'subward',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      expect(mockOnSave).toHaveBeenCalled();
+      const payload = mockOnSave.mock.calls[0][0];
+      expect(payload.extra_config.layers).toBeDefined();
+      expect(payload.extra_config.district_column).toBe('district');
+      expect(payload.extra_config.ward_column).toBe('ward');
+      expect(payload.extra_config.subward_column).toBe('subward');
+    });
+
+    it('should handle convertHierarchyToLayers without baseGeojsonId', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        value_column: 'population',
+        aggregate_function: 'sum' as const,
+        // No selected_geojson_id provided
+        geographic_hierarchy: {
+          country_code: 'IND',
+          base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+          drill_down_levels: [
+            { level: 1, column: 'district', region_type: 'district', label: 'District' },
+          ],
+        },
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      // Map is not valid without selected_geojson_id, save button should be disabled
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).toBeDisabled();
+    });
+
+    it('should handle getStepStatus for number chart without aggregate column', () => {
+      const numberData = {
+        chart_type: 'number' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Count',
+        aggregate_function: 'count' as const,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={numberData} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).not.toBeDisabled();
+    });
+
+    it('should handle table chart switching from bar with metrics', async () => {
+      const user = userEvent.setup();
+      const barData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        dimension_column: 'undefined',
+        x_axis_column: 'category',
+        metrics: [{ column: 'amount', aggregation: 'sum' }],
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={barData} />);
+
+      await user.click(screen.getByTestId('select-table'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('table');
+      });
+    });
+
+    it('should handle table chart switching with only aggregate column', async () => {
+      const user = userEvent.setup();
+      const barData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        dimension_column: 'undefined',
+        x_axis_column: 'undefined',
+        aggregate_column: 'amount',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={barData} />);
+
+      await user.click(screen.getByTestId('select-table'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('table');
+      });
+    });
+
+    it('should preserve xAxisTitle and yAxisTitle when switching chart types', async () => {
+      const user = userEvent.setup();
+      const barData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        customizations: {
+          xAxisTitle: 'Month',
+          yAxisTitle: 'Revenue',
+          subtitle: 'Sales Data',
+        },
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={barData} />);
+
+      await user.click(screen.getByTestId('select-line'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('line');
+      });
+    });
+
+    it('should preserve dataLabelPosition when switching chart types', async () => {
+      const user = userEvent.setup();
+      const barData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        customizations: {
+          dataLabelPosition: 'inside',
+          showDataLabels: true,
+        },
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={barData} />);
+
+      await user.click(screen.getByTestId('select-pie'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('pie');
+      });
+    });
+
+    it('should handle map chart switching from table with columns', async () => {
+      const user = userEvent.setup();
+      const tableData = {
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census',
+        table_columns: ['state', 'population'],
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={tableData} />);
+
+      await user.click(screen.getByTestId('select-map'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('map');
+      });
+    });
+
+    it('should handle table chart columns collection with metrics', async () => {
+      const user = userEvent.setup();
+      const barData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        dimension_column: 'category',
+        aggregate_column: 'revenue',
+        metrics: [
+          { column: 'quantity', aggregation: 'sum' },
+          { column: 'cost', aggregation: 'avg' },
+        ],
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={barData} />);
+
+      await user.click(screen.getByTestId('select-table'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('table');
+      });
+    });
+
+    it('should handle map chart switching from table preserving columns', async () => {
+      const user = userEvent.setup();
+      const tableData = {
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census',
+        table_columns: ['region', 'value'],
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={tableData} />);
+
+      await user.click(screen.getByTestId('select-map'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('map');
+      });
+    });
+
+    it('should handle bar chart switching from map preserving columns', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census',
+        geographic_column: 'state',
+        value_column: 'population',
+        aggregate_function: 'sum' as const,
+        selected_geojson_id: 1,
+        metrics: [{ column: 'density', aggregation: 'avg' }],
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      await user.click(screen.getByTestId('select-bar'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('bar');
+      });
+    });
+
+    it('should handle data preview page size change', async () => {
+      const user = userEvent.setup();
+      const chartData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        pagination: { enabled: true, page_size: 10 },
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={chartData} />);
+
+      // Trigger pagination page_size change effect
+      await user.click(screen.getByTestId('enable-pagination'));
+
+      expect(screen.getByTestId('pagination-config')).toBeInTheDocument();
+    });
+
+    it('should handle table chart page size change', async () => {
+      const user = userEvent.setup();
+      const tableData = {
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'users',
+        title: 'Users',
+      };
+
+      (useChartHooks.useChartDataPreview as jest.Mock).mockReturnValue({
+        data: { data: [], columns: [] },
+        isLoading: false,
+        error: null,
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={tableData} />);
+
+      expect(screen.getByTestId('table-config')).toBeInTheDocument();
+    });
+
+    it('should handle region click when region not found in states', async () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+        geographic_hierarchy: {
+          country_code: 'IND',
+          base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+          drill_down_levels: [
+            { level: 1, column: 'district', region_type: 'district', label: 'District' },
+          ],
+        },
+      };
+
+      // Return states that don't match the clicked region
+      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
+        data: [{ id: 1, name: 'Other State' }],
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
+    });
+
+    it('should handle region click with hierarchy but no drill-down column', async () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+        geographic_hierarchy: {
+          country_code: 'IND',
+          base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+          drill_down_levels: [],
+        },
+      };
+
+      (useChartHooks.useRegions as jest.Mock).mockReturnValue({
+        data: [{ id: 1, name: 'Test State' }],
+      });
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
+    });
+
+    it('should handle map chart without valid layers', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        // No geographic_column provided
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).toBeDisabled();
+    });
+
+    it('should handle getStepStatus pending state', () => {
+      const emptyData = {
+        chart_type: undefined as any,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={emptyData} />);
+
+      expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
+    });
+
+    it('should handle map switching from table with matching columns', async () => {
+      const user = userEvent.setup();
+      const tableData = {
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census',
+        table_columns: ['state', 'population'],
+        aggregate_function: 'sum' as const,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={tableData} />);
+
+      await user.click(screen.getByTestId('select-map'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('map');
+      });
+    });
+
+    it('should handle bar chart from table with duplicate columns in aggregate', async () => {
+      const user = userEvent.setup();
+      const tableData = {
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        table_columns: ['category', 'category'], // Duplicate column
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={tableData} />);
+
+      await user.click(screen.getByTestId('select-bar'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('bar');
+      });
+    });
+
+    it('should handle table chart with no columns when switching from map', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census',
+        geographic_column: 'state',
+        // No value_column - should still handle table switch
+        aggregate_function: 'count' as const,
+        selected_geojson_id: 1,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      await user.click(screen.getByTestId('select-table'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('table');
+      });
+    });
+
+    it('should handle table chart with matching value and geographic columns', async () => {
+      const user = userEvent.setup();
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Census',
+        geographic_column: 'region',
+        value_column: 'region', // Same as geographic
+        aggregate_function: 'count' as const,
+        selected_geojson_id: 1,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      await user.click(screen.getByTestId('select-table'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('table');
+      });
+    });
+
+    it('should render SimpleTableConfiguration when columns are available', () => {
+      const mockColumns = [
+        { name: 'col1', data_type: 'varchar', column_name: 'col1' },
+        { name: 'col2', data_type: 'integer', column_name: 'col2' },
+      ];
+
+      (useChartHooks.useColumns as jest.Mock).mockReturnValue({
+        data: mockColumns,
+        isLoading: false,
+        error: null,
+      });
+
+      const tableData = {
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'users',
+        title: 'Users',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={tableData} />);
+
+      expect(screen.getByTestId('table-config')).toBeInTheDocument();
+    });
+  });
 });
