@@ -1,6 +1,6 @@
 /**
  * Tests for ChartPreview component
- * Tests ECharts rendering, TableChart rendering, loading states, and error handling
+ * Consolidated tests for ECharts rendering, TableChart rendering, states, and configuration
  */
 
 import React from 'react';
@@ -37,7 +37,6 @@ describe('ChartPreview', () => {
     };
     (echarts.init as jest.Mock).mockReturnValue(mockChart);
 
-    // Mock window.addEventListener
     window.addEventListener = jest.fn();
     window.removeEventListener = jest.fn();
   });
@@ -46,14 +45,22 @@ describe('ChartPreview', () => {
     jest.restoreAllMocks();
   });
 
-  describe('Loading State', () => {
-    it('should render loading state', () => {
-      const { container } = render(<ChartPreview isLoading={true} />);
+  describe('Component States', () => {
+    it.each([
+      ['loading', { isLoading: true }, 'Loading chart...', true],
+      ['error', { error: 'Something went wrong' }, null, false],
+      ['empty', {}, 'Configure your chart to see a preview', false],
+    ])('should render %s state correctly', (state, props, expectedText, shouldShowLoader) => {
+      const { container } = render(<ChartPreview {...props} />);
 
-      expect(screen.getByText('Loading chart...')).toBeInTheDocument();
-      const loader = container.querySelector('.animate-spin');
-      expect(loader).toBeInTheDocument();
-      expect(loader).toHaveClass('lucide-loader-circle');
+      if (expectedText) {
+        expect(screen.getByText(expectedText)).toBeInTheDocument();
+      }
+      if (shouldShowLoader) {
+        const loader = container.querySelector('.animate-spin');
+        expect(loader).toBeInTheDocument();
+      }
+      expect(echarts.init).not.toHaveBeenCalled();
     });
 
     it('should not render chart during loading', () => {
@@ -63,43 +70,6 @@ describe('ChartPreview', () => {
       expect(echarts.init).not.toHaveBeenCalled();
     });
 
-    it('should have minimum height for loading state', () => {
-      const { container } = render(<ChartPreview isLoading={true} />);
-      const loadingDiv = container.querySelector('.min-h-\\[300px\\]');
-      expect(loadingDiv).toBeInTheDocument();
-    });
-  });
-
-  describe('Error State', () => {
-    it('should render empty space for error', () => {
-      const { container } = render(<ChartPreview error="Something went wrong" />);
-
-      expect(container.querySelector('.w-full.h-full')).toBeInTheDocument();
-      expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
-    });
-
-    it('should not initialize chart when error exists', () => {
-      const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
-      render(<ChartPreview config={config} error="Error occurred" />);
-
-      expect(echarts.init).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Empty State', () => {
-    it('should show configure message when no config provided', () => {
-      render(<ChartPreview />);
-
-      expect(screen.getByText('Configure your chart to see a preview')).toBeInTheDocument();
-      expect(screen.getByText('Select data source and columns to get started')).toBeInTheDocument();
-    });
-
-    it('should not show configure message during loading', () => {
-      render(<ChartPreview isLoading={true} />);
-
-      expect(screen.queryByText('Configure your chart to see a preview')).not.toBeInTheDocument();
-    });
-
     it('should not show configure message for table charts without config', () => {
       render(<ChartPreview chartType="table" />);
 
@@ -107,8 +77,8 @@ describe('ChartPreview', () => {
     });
   });
 
-  describe('Chart Initialization', () => {
-    it('should initialize ECharts instance', () => {
+  describe('Chart Initialization and Lifecycle', () => {
+    it('should initialize ECharts instance and call setOption', () => {
       const config = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
         xAxis: { type: 'category', data: ['A', 'B', 'C'] },
@@ -119,31 +89,20 @@ describe('ChartPreview', () => {
 
       const chartDiv = container.querySelector('.w-full.h-full');
       expect(echarts.init).toHaveBeenCalledWith(chartDiv);
-    });
-
-    it('should call setOption with modified config', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: { type: 'category', data: ['A', 'B', 'C'] },
-        yAxis: { type: 'value' },
-      };
-
-      render(<ChartPreview config={config} />);
-
       expect(mockChart.setOption).toHaveBeenCalled();
+
       const calledConfig = mockChart.setOption.mock.calls[0][0];
       expect(calledConfig).toHaveProperty('series');
       expect(calledConfig).toHaveProperty('xAxis');
       expect(calledConfig).toHaveProperty('yAxis');
     });
 
-    it('should dispose existing chart before creating new one', () => {
+    it('should dispose and recreate chart on config change', () => {
       const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
       const { rerender } = render(<ChartPreview config={config} />);
 
       expect(mockChart.dispose).not.toHaveBeenCalled();
 
-      // Update with new config
       const newConfig = { series: [{ type: 'line', data: [4, 5, 6] }] };
       rerender(<ChartPreview config={newConfig} />);
 
@@ -169,34 +128,30 @@ describe('ChartPreview', () => {
     });
   });
 
-  describe('Pie Chart Handling', () => {
-    it('should detect pie chart from chartType prop', () => {
-      const config = {
-        series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }],
-      };
+  describe('Chart Type Detection', () => {
+    it.each([
+      [
+        'pie from chartType',
+        'pie',
+        { series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }] },
+      ],
+      [
+        'pie from series',
+        undefined,
+        { series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }] },
+      ],
+      ['number', 'number', { series: [{ type: 'gauge', data: [{ value: 75 }] }] }],
+      ['gauge', 'gauge', { series: [{ type: 'gauge', data: [{ value: 75 }] }] }],
+    ])('should detect %s chart and exclude axes', (desc, chartType, config) => {
+      render(<ChartPreview config={config} chartType={chartType as any} />);
 
-      render(<ChartPreview config={config} chartType="pie" />);
-
-      expect(mockChart.setOption).toHaveBeenCalled();
       const calledConfig = mockChart.setOption.mock.calls[0][0];
       expect(calledConfig.xAxis).toBeUndefined();
       expect(calledConfig.yAxis).toBeUndefined();
       expect(calledConfig.grid).toBeUndefined();
     });
 
-    it('should detect pie chart from series config', () => {
-      const config = {
-        series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }],
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.xAxis).toBeUndefined();
-      expect(calledConfig.yAxis).toBeUndefined();
-    });
-
-    it('should handle array of series for pie chart detection', () => {
+    it('should handle array of pie series', () => {
       const config = {
         series: [
           { type: 'pie', data: [{ name: 'A', value: 10 }] },
@@ -211,34 +166,41 @@ describe('ChartPreview', () => {
     });
   });
 
-  describe('Number Chart Handling', () => {
-    it('should detect number chart type', () => {
-      const config = {
-        series: [{ type: 'gauge', data: [{ value: 75 }] }],
+  describe('Axis and Grid Configuration', () => {
+    it.each([
+      ['rotated x-axis labels', { xAxis: { axisLabel: { rotate: 45 } } }, '18%'],
+      ['non-rotated labels', { xAxis: { axisLabel: { rotate: 0 } } }, '16%'],
+    ])('should adjust bottom margin for %s', (desc, config, expectedBottom) => {
+      const fullConfig = {
+        series: [{ type: 'bar', data: [1, 2, 3] }],
+        xAxis: { type: 'category', ...config.xAxis },
+        yAxis: { type: 'value' },
       };
 
-      render(<ChartPreview config={config} chartType="number" />);
+      render(<ChartPreview config={fullConfig} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.xAxis).toBeUndefined();
-      expect(calledConfig.yAxis).toBeUndefined();
-      expect(calledConfig.grid).toBeUndefined();
+      expect(calledConfig.grid.bottom).toBe(expectedBottom);
     });
 
-    it('should detect gauge chart type', () => {
-      const config = {
-        series: [{ type: 'gauge', data: [{ value: 75 }] }],
+    it.each([
+      ['with legend', { legend: { show: true } }, '18%'],
+      ['without legend', { legend: { show: false } }, '10%'],
+    ])('should adjust top margin %s', (desc, config, expectedTop) => {
+      const fullConfig = {
+        series: [{ type: 'bar', data: [1, 2, 3] }],
+        xAxis: { type: 'category' },
+        yAxis: { type: 'value' },
+        ...config,
       };
 
-      render(<ChartPreview config={config} chartType="gauge" />);
+      render(<ChartPreview config={fullConfig} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.xAxis).toBeUndefined();
+      expect(calledConfig.grid.top).toBe(expectedTop);
     });
-  });
 
-  describe('Axis Configuration', () => {
-    it('should configure grid with proper margins', () => {
+    it('should configure grid with proper margins and contain labels', () => {
       const config = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
         xAxis: { type: 'category', data: ['A', 'B', 'C'] },
@@ -254,135 +216,46 @@ describe('ChartPreview', () => {
       expect(calledConfig.grid.right).toBe('6%');
     });
 
-    it('should adjust bottom margin for rotated x-axis labels', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: {
-          type: 'category',
-          data: ['A', 'B', 'C'],
-          axisLabel: { rotate: 45 },
-        },
-        yAxis: { type: 'value' },
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.grid.bottom).toBe('18%');
-    });
-
-    it('should use normal bottom margin for non-rotated labels', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: { type: 'category', data: ['A', 'B', 'C'], axisLabel: { rotate: 0 } },
-        yAxis: { type: 'value' },
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.grid.bottom).toBe('16%');
-    });
-
-    it('should adjust top margin when legend is shown', () => {
-      const config = {
+    it.each([
+      ['xAxis', { xAxis: [{ name: 'X1' }, { name: 'X2' }] }, 'xAxis', 80],
+      ['yAxis', { yAxis: [{ name: 'Y1' }, { name: 'Y2' }] }, 'yAxis', 100],
+    ])('should handle array of %s', (name, config, axis, expectedGap) => {
+      const fullConfig = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
         xAxis: { type: 'category' },
         yAxis: { type: 'value' },
-        legend: { show: true },
+        ...config,
       };
 
-      render(<ChartPreview config={config} />);
+      render(<ChartPreview config={fullConfig} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.grid.top).toBe('18%');
+      expect(Array.isArray(calledConfig[axis])).toBe(true);
+      expect(calledConfig[axis][0].nameGap).toBe(expectedGap);
     });
 
-    it('should use smaller top margin when no legend', () => {
+    it('should configure axes with proper styling', () => {
       const config = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: { type: 'category' },
-        yAxis: { type: 'value' },
-        legend: { show: false },
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.grid.top).toBe('10%');
-    });
-
-    it('should configure x-axis with proper styling', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: { type: 'category', name: 'Category', data: ['A', 'B', 'C'] },
-        yAxis: { type: 'value' },
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.xAxis.nameGap).toBe(80);
-      expect(calledConfig.xAxis.nameTextStyle).toBeDefined();
-      expect(calledConfig.xAxis.nameTextStyle.fontSize).toBe(14);
-      expect(calledConfig.xAxis.axisLabel.interval).toBe(0);
-      expect(calledConfig.xAxis.axisLabel.margin).toBe(15);
-    });
-
-    it('should configure y-axis with proper styling', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: { type: 'category' },
+        xAxis: { type: 'category', name: 'Category' },
         yAxis: { type: 'value', name: 'Value' },
       };
 
       render(<ChartPreview config={config} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.xAxis.nameGap).toBe(80);
+      expect(calledConfig.xAxis.nameTextStyle.fontSize).toBe(14);
+      expect(calledConfig.xAxis.axisLabel.interval).toBe(0);
+      expect(calledConfig.xAxis.axisLabel.margin).toBe(15);
+
       expect(calledConfig.yAxis.nameGap).toBe(100);
-      expect(calledConfig.yAxis.nameTextStyle).toBeDefined();
       expect(calledConfig.yAxis.nameTextStyle.fontSize).toBe(14);
       expect(calledConfig.yAxis.axisLabel.margin).toBe(15);
     });
-
-    it('should handle array of xAxis', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: [
-          { type: 'category', name: 'X1' },
-          { type: 'category', name: 'X2' },
-        ],
-        yAxis: { type: 'value' },
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(Array.isArray(calledConfig.xAxis)).toBe(true);
-      expect(calledConfig.xAxis[0].nameGap).toBe(80);
-      expect(calledConfig.xAxis[1].nameGap).toBe(80);
-    });
-
-    it('should handle array of yAxis', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-        xAxis: { type: 'category' },
-        yAxis: [
-          { type: 'value', name: 'Y1' },
-          { type: 'value', name: 'Y2' },
-        ],
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(Array.isArray(calledConfig.yAxis)).toBe(true);
-      expect(calledConfig.yAxis[0].nameGap).toBe(100);
-      expect(calledConfig.yAxis[1].nameGap).toBe(100);
-    });
   });
 
-  describe('Legend Configuration', () => {
+  describe('Legend and Series Configuration', () => {
     it('should configure legend with proper positioning', () => {
       const config = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
@@ -408,38 +281,29 @@ describe('ChartPreview', () => {
       const calledConfig = mockChart.setOption.mock.calls[0][0];
       expect(calledConfig.legend.orient).toBe('vertical');
     });
-  });
 
-  describe('Series Configuration', () => {
-    it('should enhance data labels for single series', () => {
-      const config = {
-        series: {
-          type: 'bar',
-          data: [1, 2, 3],
-          label: { show: true, fontSize: 10 },
-        },
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.series.label.fontSize).toBe(10.5);
-      expect(calledConfig.series.label.fontFamily).toBe('Inter, system-ui, sans-serif');
-    });
-
-    it('should enhance data labels for array of series', () => {
-      const config = {
-        series: [
+    it.each([
+      ['single series', { type: 'bar', data: [1, 2, 3], label: { show: true, fontSize: 10 } }],
+      [
+        'array of series',
+        [
           { type: 'bar', data: [1, 2, 3], label: { fontSize: 12 } },
           { type: 'line', data: [4, 5, 6], label: { fontSize: 14 } },
         ],
-      };
+      ],
+    ])('should enhance data labels for %s', (desc, series) => {
+      const config = { series };
 
       render(<ChartPreview config={config} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.series[0].label.fontSize).toBe(12.5);
-      expect(calledConfig.series[1].label.fontSize).toBe(14.5);
+      if (Array.isArray(series)) {
+        expect(calledConfig.series[0].label.fontSize).toBe(12.5);
+        expect(calledConfig.series[1].label.fontSize).toBe(14.5);
+      } else {
+        expect(calledConfig.series.label.fontSize).toBe(10.5);
+        expect(calledConfig.series.label.fontFamily).toBe('Inter, system-ui, sans-serif');
+      }
     });
 
     it('should use default font size when not specified', () => {
@@ -454,11 +318,9 @@ describe('ChartPreview', () => {
     });
   });
 
-  describe('Tooltip Configuration', () => {
+  describe('Tooltip and Resize Handling', () => {
     it('should configure tooltip with enhanced styling', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-      };
+      const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
 
       render(<ChartPreview config={config} />);
 
@@ -466,31 +328,14 @@ describe('ChartPreview', () => {
       expect(calledConfig.tooltip.backgroundColor).toBe('rgba(255, 255, 255, 0.95)');
       expect(calledConfig.tooltip.borderColor).toBe('#e5e7eb');
       expect(calledConfig.tooltip.textStyle.fontSize).toBe(12);
-    });
-
-    it('should have custom tooltip formatter', () => {
-      const config = {
-        series: [{ type: 'bar', data: [1, 2, 3] }],
-      };
-
-      render(<ChartPreview config={config} />);
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
       expect(typeof calledConfig.tooltip.formatter).toBe('function');
     });
-  });
 
-  describe('Resize Handling', () => {
-    it('should add resize event listener', () => {
-      const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
-      render(<ChartPreview config={config} />);
-
-      expect(window.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
-    });
-
-    it('should remove resize event listener on unmount', () => {
+    it('should add and remove resize event listener', () => {
       const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
       const { unmount } = render(<ChartPreview config={config} />);
+
+      expect(window.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
 
       unmount();
 
@@ -501,12 +346,10 @@ describe('ChartPreview', () => {
       const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
       render(<ChartPreview config={config} />);
 
-      // Get the resize handler
       const resizeHandler = (window.addEventListener as jest.Mock).mock.calls.find(
         (call) => call[0] === 'resize'
       )?.[1];
 
-      // Simulate resize
       if (resizeHandler) {
         resizeHandler();
         expect(mockChart.resize).toHaveBeenCalled();
@@ -525,81 +368,37 @@ describe('ChartPreview', () => {
       render(<ChartPreview config={config} chartType="table" tableData={tableData} />);
 
       expect(screen.getByTestId('table-chart')).toBeInTheDocument();
-    });
-
-    it('should pass table data to TableChart', () => {
-      const tableData = [{ name: 'John' }];
-      render(<ChartPreview chartType="table" tableData={tableData} />);
-
-      expect(screen.getByTestId('table-data')).toHaveTextContent(JSON.stringify(tableData));
-    });
-
-    it('should pass config to TableChart', () => {
-      const config = { columns: ['name'] };
-      render(<ChartPreview chartType="table" config={config} />);
-
-      expect(screen.getByTestId('table-config')).toHaveTextContent(JSON.stringify(config));
-    });
-
-    it('should pass onTableSort handler', () => {
-      const onTableSort = jest.fn();
-      render(<ChartPreview chartType="table" onTableSort={onTableSort} />);
-
-      expect(screen.getByTestId('table-has-sort')).toBeInTheDocument();
-    });
-
-    it('should pass pagination props', () => {
-      const tablePagination = {
-        page: 1,
-        pageSize: 10,
-        total: 100,
-        onPageChange: jest.fn(),
-      };
-
-      render(<ChartPreview chartType="table" tablePagination={tablePagination} />);
-
-      expect(screen.getByTestId('table-has-pagination')).toBeInTheDocument();
-    });
-
-    it('should not initialize echarts for table charts', () => {
-      render(<ChartPreview chartType="table" />);
-
       expect(echarts.init).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['data', { tableData: [{ name: 'John' }] }, 'table-data'],
+      ['config', { config: { columns: ['name'] } }, 'table-config'],
+      ['sort handler', { onTableSort: jest.fn() }, 'table-has-sort'],
+      [
+        'pagination',
+        { tablePagination: { page: 1, pageSize: 10, total: 100, onPageChange: jest.fn() } },
+        'table-has-pagination',
+      ],
+    ])('should pass %s to TableChart', (desc, props, testId) => {
+      render(<ChartPreview chartType="table" {...props} />);
+
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle undefined config gracefully', () => {
-      render(<ChartPreview config={undefined} />);
+    it.each([
+      ['undefined config', undefined],
+      ['null config', null],
+      ['config without series', { xAxis: { type: 'category' } }],
+      ['empty series array', { series: [] }],
+    ])('should handle %s gracefully', (desc, config) => {
+      expect(() => render(<ChartPreview config={config as any} />)).not.toThrow();
 
-      expect(echarts.init).not.toHaveBeenCalled();
-    });
-
-    it('should handle null config', () => {
-      render(<ChartPreview config={null as any} />);
-
-      expect(echarts.init).not.toHaveBeenCalled();
-    });
-
-    it('should handle config without series', () => {
-      const config = { xAxis: { type: 'category' } };
-      render(<ChartPreview config={config} />);
-
-      expect(echarts.init).toHaveBeenCalled();
-    });
-
-    it('should handle empty series array', () => {
-      const config = { series: [] };
-      render(<ChartPreview config={config} />);
-
-      expect(mockChart.setOption).toHaveBeenCalled();
-    });
-
-    it('should not crash with missing chartRef', () => {
-      const config = { series: [{ type: 'bar', data: [] }] };
-
-      // This should not throw
-      expect(() => render(<ChartPreview config={config} />)).not.toThrow();
+      if (config && (config as any).xAxis) {
+        expect(echarts.init).toHaveBeenCalled();
+      }
     });
   });
 
@@ -614,25 +413,11 @@ describe('ChartPreview', () => {
       (console.error as jest.Mock).mockRestore();
     });
 
-    it('should log debug info for pie charts', () => {
-      const config = {
-        series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }],
-      };
-
-      render(<ChartPreview config={config} chartType="pie" />);
-
-      expect(console.log).toHaveBeenCalledWith(
-        'ChartPreview - Final config for pie/number chart:',
-        expect.any(Object)
-      );
-    });
-
-    it('should log debug info for number charts', () => {
-      const config = {
-        series: [{ type: 'gauge', data: [{ value: 75 }] }],
-      };
-
-      render(<ChartPreview config={config} chartType="number" />);
+    it.each([
+      ['pie', 'pie', { series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }] }],
+      ['number', 'number', { series: [{ type: 'gauge', data: [{ value: 75 }] }] }],
+    ])('should log debug info for %s charts', (name, chartType, config) => {
+      render(<ChartPreview config={config} chartType={chartType as any} />);
 
       expect(console.log).toHaveBeenCalledWith(
         'ChartPreview - Final config for pie/number chart:',

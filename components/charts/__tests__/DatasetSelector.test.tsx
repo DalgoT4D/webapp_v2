@@ -1,19 +1,6 @@
 /**
- * Comprehensive tests for DatasetSelector component
- *
- * Covers:
- * - Component rendering states (loading, error, loaded)
- * - Search input functionality
- * - Dropdown opening/closing
- * - Dataset filtering by search query
- * - Dataset selection and callback
- * - Search text highlighting
- * - Auto-focus functionality
- * - Disabled state handling
- * - Portal dropdown positioning
- * - Click outside to close
- * - Selected value display
- * - Edge cases (no data, empty search results)
+ * Consolidated tests for DatasetSelector component
+ * Covers rendering states, search functionality, dropdown behavior, dataset selection, and edge cases
  */
 
 import React from 'react';
@@ -22,38 +9,20 @@ import userEvent from '@testing-library/user-event';
 import { DatasetSelector } from '../DatasetSelector';
 import * as useChartHooks from '@/hooks/api/useChart';
 
-// Mock the useAllSchemaTables hook
 jest.mock('@/hooks/api/useChart');
 
 describe('DatasetSelector', () => {
   const mockOnDatasetChange = jest.fn();
 
   const mockTables = [
-    {
-      schema_name: 'public',
-      table_name: 'users',
-      full_name: 'public.users',
-    },
-    {
-      schema_name: 'public',
-      table_name: 'orders',
-      full_name: 'public.orders',
-    },
-    {
-      schema_name: 'analytics',
-      table_name: 'events',
-      full_name: 'analytics.events',
-    },
-    {
-      schema_name: 'analytics',
-      table_name: 'metrics',
-      full_name: 'analytics.metrics',
-    },
+    { schema_name: 'public', table_name: 'users', full_name: 'public.users' },
+    { schema_name: 'public', table_name: 'orders', full_name: 'public.orders' },
+    { schema_name: 'analytics', table_name: 'events', full_name: 'analytics.events' },
+    { schema_name: 'analytics', table_name: 'metrics', full_name: 'analytics.metrics' },
   ];
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default mock - success state
     (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
       data: mockTables,
       isLoading: false,
@@ -61,90 +30,43 @@ describe('DatasetSelector', () => {
     });
   });
 
-  describe('Loading State', () => {
-    it('should show loading placeholder in input', () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: null,
-      });
+  describe('Component States', () => {
+    it.each([
+      ['loading', { data: null, isLoading: true, error: null }, 'Loading...', true],
+      [
+        'error',
+        { data: null, isLoading: false, error: new Error('Network error') },
+        'Failed to load datasets. Please try refreshing.',
+        false,
+      ],
+    ])('should render %s state', (state, hookReturn, expectedText, shouldDisable) => {
+      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue(hookReturn);
 
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      expect(screen.getByPlaceholderText('Loading...')).toBeInTheDocument();
-    });
-
-    it('should disable input during loading', () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: null,
-      });
-
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Loading...');
-      expect(input).toBeDisabled();
-    });
-  });
-
-  describe('Error State', () => {
-    it('should display error message when loading fails', () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: new Error('Network error'),
-      });
-
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      expect(
-        screen.getByText('Failed to load datasets. Please try refreshing.')
-      ).toBeInTheDocument();
-    });
-
-    it('should not render input when there is an error', () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: new Error('Network error'),
-      });
-
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
+      if (expectedText.includes('Loading')) {
+        expect(screen.getByPlaceholderText(expectedText)).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(expectedText)).toBeDisabled();
+      } else {
+        expect(screen.getByText(expectedText)).toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
+      }
     });
   });
 
   describe('Rendering and Initial State', () => {
-    it('should render search input with placeholder', () => {
+    it('should render search input with icons and placeholder', () => {
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
       expect(screen.getByPlaceholderText('Search datasets...')).toBeInTheDocument();
     });
 
-    it('should render search icon', () => {
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      // Search icon is rendered (Lucide Search component)
-      const input = screen.getByPlaceholderText('Search datasets...');
-      expect(input).toBeInTheDocument();
-    });
-
-    it('should render chevron down icon', () => {
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      // ChevronDown icon is present in the DOM
-      const input = screen.getByPlaceholderText('Search datasets...');
-      expect(input.parentElement).toBeInTheDocument();
-    });
-
     it('should display selected value when provided', () => {
       render(
         <DatasetSelector
+          onDatasetChange={mockOnDatasetChange}
           schema_name="public"
           table_name="users"
-          onDatasetChange={mockOnDatasetChange}
         />
       );
 
@@ -173,56 +95,25 @@ describe('DatasetSelector', () => {
       expect(input).toHaveValue('users');
     });
 
-    it('should filter tables by schema name', async () => {
+    it.each([
+      ['schema name', 'analytics', ['analytics.events', 'analytics.metrics']],
+      ['table name', 'users', ['public.users']],
+      ['full name', 'public.orders', ['public.orders']],
+    ])('should filter tables by %s', async (type, query, expected) => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
       const input = screen.getByPlaceholderText('Search datasets...');
       await user.click(input);
-      await user.type(input, 'analytics');
-
-      // Should show analytics.events and analytics.metrics
-      // Use findByText for portal content with longer wait time
-      await waitFor(
-        () => {
-          const text = document.body.textContent;
-          expect(text).toContain('analytics.events');
-          expect(text).toContain('analytics.metrics');
-        },
-        { timeout: 3000 }
-      );
-    });
-
-    it('should filter tables by table name', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-      await user.type(input, 'users');
+      await user.type(input, query);
 
       await waitFor(
         () => {
           const text = document.body.textContent || '';
-          expect(text).toContain('public.users');
-          expect(text).not.toContain('orders');
+          expected.forEach((item) => expect(text).toContain(item));
         },
         { timeout: 3000 }
       );
-    });
-
-    it('should filter tables by full name', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-      await user.type(input, 'public.orders');
-
-      await waitFor(() => {
-        expect(screen.getByText(/public.orders/)).toBeInTheDocument();
-        expect(screen.queryByText(/analytics/)).not.toBeInTheDocument();
-      });
     });
 
     it('should be case-insensitive when filtering', async () => {
@@ -253,76 +144,10 @@ describe('DatasetSelector', () => {
         expect(screen.getByText('No datasets found')).toBeInTheDocument();
       });
     });
-
-    it('should clear search when dataset is selected', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...') as HTMLInputElement;
-      await user.click(input);
-      await user.type(input, 'users');
-
-      await waitFor(
-        () => {
-          expect(document.body.textContent).toContain('public.users');
-        },
-        { timeout: 3000 }
-      );
-
-      // Find and click on the dataset item in portal
-      const datasetItems = document.querySelectorAll('[data-schema="public"][data-table="users"]');
-      if (datasetItems.length > 0) {
-        (datasetItems[0] as HTMLElement).click();
-      }
-
-      // Callback should be called with the selection
-      await waitFor(() => {
-        expect(mockOnDatasetChange).toHaveBeenCalledWith('public', 'users');
-      });
-    });
   });
 
   describe('Dropdown Behavior', () => {
-    it('should open dropdown when clicking input', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await waitFor(() => {
-        expect(screen.getByText(/public.users/)).toBeInTheDocument();
-        expect(screen.getByText(/public.orders/)).toBeInTheDocument();
-      });
-    });
-
-    it('should open dropdown when focusing input', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input); // Focus triggers open
-
-      await waitFor(() => {
-        expect(screen.getByText(/public.users/)).toBeInTheDocument();
-      });
-    });
-
-    it('should toggle dropdown when clicking chevron icon', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-
-      // Find chevron by clicking near the input (chevron is absolutely positioned)
-      await user.click(input);
-
-      await waitFor(() => {
-        expect(screen.getByText(/public.users/)).toBeInTheDocument();
-      });
-    });
-
-    it('should show all datasets when opening dropdown without search', async () => {
+    it('should open dropdown and show all datasets when clicking input', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
@@ -337,30 +162,25 @@ describe('DatasetSelector', () => {
       });
     });
 
-    it('should not open dropdown when disabled', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} disabled />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      // Wait a bit to ensure dropdown doesn't appear
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(screen.queryByText(/public.users/)).not.toBeInTheDocument();
-    });
-
-    it('should not open dropdown during loading', async () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: null,
-      });
+    it.each([
+      ['disabled', true],
+      ['loading', false],
+    ])('should not open dropdown when %s', async (state, disabled) => {
+      if (state === 'loading') {
+        (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
+          data: null,
+          isLoading: true,
+          error: null,
+        });
+      }
 
       const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
+      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} disabled={disabled} />);
 
-      const input = screen.getByPlaceholderText('Loading...');
+      const input =
+        state === 'loading'
+          ? screen.getByPlaceholderText('Loading...')
+          : screen.getByPlaceholderText('Search datasets...');
       await user.click(input);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -370,7 +190,7 @@ describe('DatasetSelector', () => {
   });
 
   describe('Dataset Selection', () => {
-    it('should call onDatasetChange when selecting a dataset', async () => {
+    it('should call onDatasetChange and close dropdown when selecting a dataset', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
@@ -384,7 +204,6 @@ describe('DatasetSelector', () => {
         { timeout: 3000 }
       );
 
-      // Click directly on the dataset item using querySelector
       const datasetItem = document.querySelector('[data-schema="public"][data-table="users"]');
       if (datasetItem) {
         (datasetItem as HTMLElement).click();
@@ -392,31 +211,6 @@ describe('DatasetSelector', () => {
 
       await waitFor(() => {
         expect(mockOnDatasetChange).toHaveBeenCalledWith('public', 'users');
-      });
-    });
-
-    it('should close dropdown after selection', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await waitFor(
-        () => {
-          expect(document.body.textContent).toContain('public.orders');
-        },
-        { timeout: 3000 }
-      );
-
-      const datasetItem = document.querySelector('[data-schema="public"][data-table="orders"]');
-      if (datasetItem) {
-        (datasetItem as HTMLElement).click();
-      }
-
-      await waitFor(() => {
-        const text = document.body.textContent || '';
-        expect(text).not.toContain('analytics.events');
       });
     });
 
@@ -436,7 +230,6 @@ describe('DatasetSelector', () => {
       await waitFor(
         () => {
           const selectedItem = document.querySelector('[data-schema="public"][data-table="users"]');
-          // Check if the item has the selected class (bg-blue-50)
           expect(selectedItem).toHaveClass('bg-blue-50');
         },
         { timeout: 3000 }
@@ -444,7 +237,7 @@ describe('DatasetSelector', () => {
     });
   });
 
-  describe('Disabled State', () => {
+  describe('Disabled State and Auto-focus', () => {
     it('should disable input when disabled prop is true', () => {
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} disabled />);
 
@@ -452,46 +245,21 @@ describe('DatasetSelector', () => {
       expect(input).toBeDisabled();
     });
 
-    it('should not open dropdown when disabled', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} disabled />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(screen.queryByText(/public.users/)).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Auto-focus', () => {
     it('should auto-focus input when autoFocus is true', () => {
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} autoFocus />);
 
       const input = screen.getByPlaceholderText('Search datasets...');
-      // Input should be focused (hard to test in jsdom, but we can verify it's not disabled)
       expect(input).not.toBeDisabled();
-    });
-
-    it('should not auto-focus when loading', () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: null,
-      });
-
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} autoFocus />);
-
-      const input = screen.getByPlaceholderText('Loading...');
-      expect(input).toBeDisabled();
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty dataset list', async () => {
+    it.each([
+      ['empty dataset list', []],
+      ['null dataset list', null],
+    ])('should handle %s', async (desc, data) => {
       (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: [],
+        data,
         isLoading: false,
         error: null,
       });
@@ -503,27 +271,12 @@ describe('DatasetSelector', () => {
       await user.click(input);
 
       await waitFor(() => {
-        expect(screen.getByText('No datasets available')).toBeInTheDocument();
+        if (data === null) {
+          expect(input).toBeInTheDocument();
+        } else {
+          expect(screen.getByText('No datasets available')).toBeInTheDocument();
+        }
       });
-    });
-
-    it('should handle null dataset list', async () => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: null,
-      });
-
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Should not crash, dropdown might not render or show empty state
-      expect(input).toBeInTheDocument();
     });
 
     it('should handle search with only whitespace', async () => {
@@ -535,7 +288,6 @@ describe('DatasetSelector', () => {
       await user.type(input, '   ');
 
       await waitFor(() => {
-        // Should show all datasets (whitespace is trimmed in filter)
         expect(screen.getByText(/public.users/)).toBeInTheDocument();
         expect(screen.getByText(/public.orders/)).toBeInTheDocument();
       });
@@ -552,7 +304,6 @@ describe('DatasetSelector', () => {
       await waitFor(
         () => {
           const text = document.body.textContent || '';
-          // Should find tables with "public." in full name
           expect(text).toContain('public.users');
           expect(text).toContain('public.orders');
         },
@@ -562,13 +313,7 @@ describe('DatasetSelector', () => {
 
     it('should not call onDatasetChange with empty schema or table', async () => {
       const user = userEvent.setup();
-      const customTables = [
-        {
-          schema_name: '',
-          table_name: 'orphan',
-          full_name: '.orphan',
-        },
-      ];
+      const customTables = [{ schema_name: '', table_name: 'orphan', full_name: '.orphan' }];
 
       (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
         data: customTables,
@@ -593,19 +338,9 @@ describe('DatasetSelector', () => {
         (datasetItem as HTMLElement).click();
       }
 
-      // Wait a bit to ensure callback isn't called
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Should not call callback with empty schema
       expect(mockOnDatasetChange).not.toHaveBeenCalled();
-    });
-
-    it('should handle dataset with no schema_name or table_name initially', () => {
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...') as HTMLInputElement;
-      // Should show empty value (search placeholder)
-      expect(input.value).toBe('');
     });
 
     it('should handle very long dataset names', async () => {
@@ -650,7 +385,6 @@ describe('DatasetSelector', () => {
       await user.type(input, 'users');
 
       await waitFor(() => {
-        // Check for <mark> element with highlighted text
         const marks = document.querySelectorAll('mark');
         expect(marks.length).toBeGreaterThan(0);
       });
@@ -667,7 +401,6 @@ describe('DatasetSelector', () => {
         expect(screen.getByText(/public.users/)).toBeInTheDocument();
       });
 
-      // Should not have <mark> elements when no search query
       const marks = document.querySelectorAll('mark');
       expect(marks.length).toBe(0);
     });

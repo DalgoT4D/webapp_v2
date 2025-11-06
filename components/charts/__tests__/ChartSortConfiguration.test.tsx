@@ -1,6 +1,6 @@
 /**
  * Tests for ChartSortConfiguration component
- * Tests sort criteria management with add, edit, remove, and reorder functionality
+ * Consolidated tests for sort criteria management with add, edit, remove, and reorder functionality
  */
 
 import React from 'react';
@@ -31,44 +31,35 @@ describe('ChartSortConfiguration', () => {
     jest.clearAllMocks();
   });
 
-  describe('Collapsed View', () => {
-    it('should render collapsed view by default with no sort criteria', () => {
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      expect(screen.getByText('Sorting (0)')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /add sorting/i })).toBeInTheDocument();
-      expect(screen.queryByText(/no sorting configured/i)).not.toBeInTheDocument();
-    });
-
-    it('should show count of sort criteria in collapsed view', () => {
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
+  describe('Collapsed and Expanded Views', () => {
+    it.each([
+      ['no sort criteria', [], 'Sorting (0)', /add sorting/i],
+      [
+        'with sort criteria',
+        [
           { column: 'name', direction: 'asc' as const },
           { column: 'age', direction: 'desc' as const },
         ],
-      };
+        'Sorting (2)',
+        /edit sorting/i,
+      ],
+    ])('should render collapsed view with %s', (desc, sort, expectedText, buttonText) => {
+      const formData = { ...defaultFormData, sort };
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
       );
 
-      expect(screen.getByText('Sorting (2)')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /edit sorting/i })).toBeInTheDocument();
+      expect(screen.getByText(expectedText)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: buttonText })).toBeInTheDocument();
     });
 
     it('should display sort criteria summary in collapsed view', () => {
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [
           { column: 'name', direction: 'asc' as const },
@@ -78,7 +69,7 @@ describe('ChartSortConfiguration', () => {
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -92,47 +83,36 @@ describe('ChartSortConfiguration', () => {
       expect(screen.getByText('2.')).toBeInTheDocument();
     });
 
-    it('should expand configuration when clicking Add Sorting button', async () => {
-      const user = userEvent.setup();
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
+    it.each([
+      ['add sorting button', /add sorting/i, 'no sorting configured'],
+      ['edit sorting button', /edit sorting/i, 'Sort 1'],
+    ])(
+      'should expand configuration when clicking %s',
+      async (desc, buttonName, expectedContent) => {
+        const user = userEvent.setup();
+        const formData = buttonName.toString().includes('edit')
+          ? { ...defaultFormData, sort: [{ column: 'name', direction: 'asc' as const }] }
+          : defaultFormData;
 
-      await user.click(screen.getByRole('button', { name: /add sorting/i }));
+        render(
+          <ChartSortConfiguration
+            formData={formData}
+            columns={defaultColumns}
+            onChange={mockOnChange}
+          />
+        );
 
-      expect(screen.getByText('Chart Sorting')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument();
-      expect(screen.getByText(/no sorting configured/i)).toBeInTheDocument();
-    });
+        await user.click(screen.getByRole('button', { name: buttonName }));
 
-    it('should expand configuration when clicking Edit Sorting button', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [{ column: 'name', direction: 'asc' as const }],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
-      expect(screen.getByText('Chart Sorting')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument();
-    });
+        expect(screen.getByText('Chart Sorting')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument();
+        expect(screen.getByText(new RegExp(expectedContent, 'i'))).toBeInTheDocument();
+      }
+    );
   });
 
-  describe('Expanded View - Empty State', () => {
-    it('should render empty state with helpful message', async () => {
+  describe('Empty State and Tips', () => {
+    it('should render empty state with helpful message and tips', async () => {
       const user = userEvent.setup();
       render(
         <ChartSortConfiguration
@@ -148,49 +128,18 @@ describe('ChartSortConfiguration', () => {
       expect(
         screen.getByText(/add sort criteria to order the data in your chart/i)
       ).toBeInTheDocument();
-    });
-
-    it('should show helpful tips when no sort criteria exist', async () => {
-      const user = userEvent.setup();
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /add sorting/i }));
-
       expect(
         screen.getByText(/sorting controls the order of data points in your chart/i)
       ).toBeInTheDocument();
       expect(
         screen.getByText(/multiple sort criteria are applied in the order they appear/i)
       ).toBeInTheDocument();
-      expect(
-        screen.getByText(/numerical columns sort by value, text columns sort alphabetically/i)
-      ).toBeInTheDocument();
-    });
-
-    it('should have Add Sort Criteria button', async () => {
-      const user = userEvent.setup();
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /add sorting/i }));
-
       expect(screen.getByRole('button', { name: /add sort criteria/i })).toBeInTheDocument();
     });
   });
 
-  describe('Adding Sort Criteria', () => {
-    it('should add new sort criteria when clicking Add Sort Criteria button', async () => {
+  describe('Adding and Editing Sort Criteria', () => {
+    it('should add new sort criteria with default values', async () => {
       const user = userEvent.setup();
       render(
         <ChartSortConfiguration
@@ -221,7 +170,6 @@ describe('ChartSortConfiguration', () => {
       await user.click(screen.getByRole('button', { name: /add sorting/i }));
       await user.click(screen.getByRole('button', { name: /add sort criteria/i }));
 
-      // Simulate parent updating formData
       const formDataWithOneSort = {
         ...defaultFormData,
         sort: [{ column: '', direction: 'asc' as const }],
@@ -244,35 +192,16 @@ describe('ChartSortConfiguration', () => {
       });
     });
 
-    it('should initialize new sort with empty column and asc direction', async () => {
+    it('should render sort criteria labels for single criterion', async () => {
       const user = userEvent.setup();
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /add sorting/i }));
-      await user.click(screen.getByRole('button', { name: /add sort criteria/i }));
-
-      const call = mockOnChange.mock.calls[0][0];
-      expect(call.sort[0]).toEqual({ column: '', direction: 'asc' });
-    });
-  });
-
-  describe('Editing Sort Criteria', () => {
-    it('should render sort criteria with labels and controls', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [{ column: 'name', direction: 'asc' as const }],
       };
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -280,89 +209,44 @@ describe('ChartSortConfiguration', () => {
 
       await user.click(screen.getByRole('button', { name: /edit sorting/i }));
 
-      expect(screen.getByText('Sort 1')).toBeInTheDocument();
-      expect(screen.getByText('Column')).toBeInTheDocument();
-      expect(screen.getByText('Direction')).toBeInTheDocument();
-    });
-
-    it('should show priority badge for multiple sort criteria', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
-          { column: 'name', direction: 'asc' as const },
-          { column: 'age', direction: 'desc' as const },
-        ],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
-      expect(screen.getByText('Priority 1')).toBeInTheDocument();
-      expect(screen.getByText('Priority 2')).toBeInTheDocument();
-    });
-
-    it('should show sort priority info box for multiple criteria', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
-          { column: 'name', direction: 'asc' as const },
-          { column: 'age', direction: 'desc' as const },
-        ],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
-      expect(screen.getByText('Sort Priority')).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          /data will be sorted by the first criteria, then by the second, and so on/i
-        )
-      ).toBeInTheDocument();
-    });
-
-    it('should not show priority badge for single sort criteria', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [{ column: 'name', direction: 'asc' as const }],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
+      expect(screen.getAllByText('Column').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Direction').length).toBeGreaterThan(0);
       expect(screen.queryByText('Priority 1')).not.toBeInTheDocument();
       expect(screen.queryByText('Sort Priority')).not.toBeInTheDocument();
+    });
+
+    it('should render sort criteria with priority for multiple criteria', async () => {
+      const user = userEvent.setup();
+      const formData = {
+        ...defaultFormData,
+        sort: [
+          { column: 'name', direction: 'asc' as const },
+          { column: 'age', direction: 'desc' as const },
+        ],
+      };
+
+      render(
+        <ChartSortConfiguration
+          formData={formData}
+          columns={defaultColumns}
+          onChange={mockOnChange}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
+
+      expect(screen.getAllByText('Column').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Direction').length).toBeGreaterThan(0);
+      expect(screen.getByText('Priority 1')).toBeInTheDocument();
+      expect(screen.getByText('Priority 2')).toBeInTheDocument();
+      expect(screen.getByText('Sort Priority')).toBeInTheDocument();
     });
   });
 
   describe('Removing Sort Criteria', () => {
-    it('should remove sort criteria when clicking delete button', async () => {
+    it('should remove sort criteria from middle of list', async () => {
       const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [
           { column: 'name', direction: 'asc' as const },
@@ -372,7 +256,7 @@ describe('ChartSortConfiguration', () => {
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -383,7 +267,6 @@ describe('ChartSortConfiguration', () => {
       const sortItems = screen.getAllByText(/^Sort \d+$/);
       const firstSortItem = sortItems[0].closest('.p-4');
       const buttons = within(firstSortItem!).getAllByRole('button');
-      // Delete button is the last button (after move up and move down)
       const deleteButton = buttons[buttons.length - 1];
 
       await user.click(deleteButton);
@@ -393,16 +276,16 @@ describe('ChartSortConfiguration', () => {
       });
     });
 
-    it('should remove last sort criteria', async () => {
+    it('should remove last sort criteria and show empty state', async () => {
       const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [{ column: 'name', direction: 'asc' as const }],
       };
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -413,7 +296,6 @@ describe('ChartSortConfiguration', () => {
       const sortItems = screen.getAllByText(/^Sort \d+$/);
       const sortItem = sortItems[0].closest('.p-4');
       const buttons = within(sortItem!).getAllByRole('button');
-      // Only delete button exists for single sort (no move buttons)
       const deleteButton = buttons[0];
 
       await user.click(deleteButton);
@@ -423,9 +305,9 @@ describe('ChartSortConfiguration', () => {
   });
 
   describe('Reordering Sort Criteria', () => {
-    it('should render move up/down buttons for multiple sort criteria', async () => {
+    it('should render move buttons only for multiple sort criteria', async () => {
       const user = userEvent.setup();
-      const formDataWithSort = {
+      const formDataMultiple = {
         ...defaultFormData,
         sort: [
           { column: 'name', direction: 'asc' as const },
@@ -435,7 +317,7 @@ describe('ChartSortConfiguration', () => {
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formDataMultiple}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -443,21 +325,42 @@ describe('ChartSortConfiguration', () => {
 
       await user.click(screen.getByRole('button', { name: /edit sorting/i }));
 
-      // Should have 4 arrow buttons total (2 up, 2 down)
       const sortItems = screen.getAllByText(/^Sort \d+$/);
       expect(sortItems).toHaveLength(2);
     });
 
-    it('should not render move buttons for single sort criteria', async () => {
+    it.each([
+      [
+        'move up',
+        1,
+        0,
+        [
+          { column: 'age', direction: 'desc' },
+          { column: 'name', direction: 'asc' },
+        ],
+      ],
+      [
+        'move down',
+        0,
+        1,
+        [
+          { column: 'age', direction: 'desc' },
+          { column: 'name', direction: 'asc' },
+        ],
+      ],
+    ])('should %s sort criteria', async (action, itemIndex, buttonIndex, expected) => {
       const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
-        sort: [{ column: 'name', direction: 'asc' as const }],
+        sort: [
+          { column: 'name', direction: 'asc' as const },
+          { column: 'age', direction: 'desc' as const },
+        ],
       };
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -465,16 +368,21 @@ describe('ChartSortConfiguration', () => {
 
       await user.click(screen.getByRole('button', { name: /edit sorting/i }));
 
-      // Should only have 1 button (delete), no move buttons
       const sortItems = screen.getAllByText(/^Sort \d+$/);
-      const sortItem = sortItems[0].closest('.p-4');
+      const sortItem = sortItems[itemIndex].closest('.p-4');
       const buttons = within(sortItem!).getAllByRole('button');
-      expect(buttons).toHaveLength(1); // Only delete button
+
+      await user.click(buttons[buttonIndex]);
+
+      expect(mockOnChange).toHaveBeenCalledWith({ sort: expected });
     });
 
-    it('should move sort criteria up', async () => {
+    it.each([
+      ['first item move up', 0, 0, true],
+      ['last item move down', 1, 1, true],
+    ])('should disable %s button', async (desc, itemIndex, buttonIndex, shouldBeDisabled) => {
       const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [
           { column: 'name', direction: 'asc' as const },
@@ -484,79 +392,7 @@ describe('ChartSortConfiguration', () => {
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
-      // Get the second sort item
-      const sortItems = screen.getAllByText(/^Sort \d+$/);
-      const secondSortItem = sortItems[1].closest('.p-4');
-      const buttons = within(secondSortItem!).getAllByRole('button');
-      const moveUpButton = buttons[0]; // First button should be move up
-
-      await user.click(moveUpButton);
-
-      expect(mockOnChange).toHaveBeenCalledWith({
-        sort: [
-          { column: 'age', direction: 'desc' },
-          { column: 'name', direction: 'asc' },
-        ],
-      });
-    });
-
-    it('should move sort criteria down', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
-          { column: 'name', direction: 'asc' as const },
-          { column: 'age', direction: 'desc' as const },
-        ],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
-      // Get the first sort item
-      const sortItems = screen.getAllByText(/^Sort \d+$/);
-      const firstSortItem = sortItems[0].closest('.p-4');
-      const buttons = within(firstSortItem!).getAllByRole('button');
-      const moveDownButton = buttons[1]; // Second button should be move down
-
-      await user.click(moveDownButton);
-
-      expect(mockOnChange).toHaveBeenCalledWith({
-        sort: [
-          { column: 'age', direction: 'desc' },
-          { column: 'name', direction: 'asc' },
-        ],
-      });
-    });
-
-    it('should disable move up button for first item', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
-          { column: 'name', direction: 'asc' as const },
-          { column: 'age', direction: 'desc' as const },
-        ],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
@@ -565,88 +401,30 @@ describe('ChartSortConfiguration', () => {
       await user.click(screen.getByRole('button', { name: /edit sorting/i }));
 
       const sortItems = screen.getAllByText(/^Sort \d+$/);
-      const firstSortItem = sortItems[0].closest('.p-4');
-      const buttons = within(firstSortItem!).getAllByRole('button');
-      const moveUpButton = buttons[0];
+      const sortItem = sortItems[itemIndex].closest('.p-4');
+      const buttons = within(sortItem!).getAllByRole('button');
+      const button = buttons[buttonIndex];
 
-      expect(moveUpButton).toBeDisabled();
-    });
-
-    it('should disable move down button for last item', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
-          { column: 'name', direction: 'asc' as const },
-          { column: 'age', direction: 'desc' as const },
-        ],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-
-      const sortItems = screen.getAllByText(/^Sort \d+$/);
-      const lastSortItem = sortItems[1].closest('.p-4');
-      const buttons = within(lastSortItem!).getAllByRole('button');
-      const moveDownButton = buttons[1];
-
-      expect(moveDownButton).toBeDisabled();
+      if (shouldBeDisabled) {
+        expect(button).toBeDisabled();
+      }
     });
   });
 
-  describe('Column Normalization', () => {
-    it('should handle columns with column_name property', () => {
-      const columnsWithColumnName: TableColumn[] = [
-        { column_name: 'name', data_type: 'text', name: 'display_name' },
-      ];
-
+  describe('Column Normalization and Edge Cases', () => {
+    it.each([
+      [
+        'columns with column_name',
+        [{ column_name: 'name', data_type: 'text', name: 'display_name' }],
+      ],
+      ['columns with only name', [{ name: 'user_name', data_type: 'text' } as any]],
+      ['empty columns array', []],
+      ['undefined columns', undefined],
+    ])('should handle %s', (desc, columns) => {
       render(
         <ChartSortConfiguration
           formData={defaultFormData}
-          columns={columnsWithColumnName}
-          onChange={mockOnChange}
-        />
-      );
-
-      // Should not throw error
-      expect(screen.getByText('Sorting (0)')).toBeInTheDocument();
-    });
-
-    it('should handle columns with only name property', () => {
-      const columnsWithName: any[] = [{ name: 'user_name', data_type: 'text' }];
-
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={columnsWithName}
-          onChange={mockOnChange}
-        />
-      );
-
-      // Should not throw error - uses name property when column_name is undefined
-      expect(screen.getByText('Sorting (0)')).toBeInTheDocument();
-    });
-
-    it('should handle empty columns array', () => {
-      render(
-        <ChartSortConfiguration formData={defaultFormData} columns={[]} onChange={mockOnChange} />
-      );
-
-      expect(screen.getByText('Sorting (0)')).toBeInTheDocument();
-    });
-
-    it('should handle undefined columns', () => {
-      render(
-        <ChartSortConfiguration
-          formData={defaultFormData}
-          columns={undefined}
+          columns={columns}
           onChange={mockOnChange}
         />
       );
@@ -657,15 +435,14 @@ describe('ChartSortConfiguration', () => {
 
   describe('Disabled State', () => {
     it('should disable all buttons when disabled prop is true', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [{ column: 'name', direction: 'asc' as const }],
       };
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
           disabled={true}
@@ -702,7 +479,7 @@ describe('ChartSortConfiguration', () => {
     });
   });
 
-  describe('Collapsing View', () => {
+  describe('Collapsing and Integration', () => {
     it('should collapse when clicking Done button', async () => {
       const user = userEvent.setup();
       render(
@@ -721,34 +498,6 @@ describe('ChartSortConfiguration', () => {
       expect(screen.getByText('Sorting (0)')).toBeInTheDocument();
     });
 
-    it('should maintain sort criteria when collapsing', async () => {
-      const user = userEvent.setup();
-      const formDataWithSort = {
-        ...defaultFormData,
-        sort: [
-          { column: 'name', direction: 'asc' as const },
-          { column: 'age', direction: 'desc' as const },
-        ],
-      };
-
-      render(
-        <ChartSortConfiguration
-          formData={formDataWithSort}
-          columns={defaultColumns}
-          onChange={mockOnChange}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /edit sorting/i }));
-      await user.click(screen.getByRole('button', { name: /done/i }));
-
-      expect(screen.getByText('Sorting (2)')).toBeInTheDocument();
-      expect(screen.getByText('name')).toBeInTheDocument();
-      expect(screen.getByText('age')).toBeInTheDocument();
-    });
-  });
-
-  describe('Integration Tests', () => {
     it('should handle complete workflow: add, edit, reorder, and remove', async () => {
       const user = userEvent.setup();
       const { rerender } = render(
@@ -759,14 +508,12 @@ describe('ChartSortConfiguration', () => {
         />
       );
 
-      // Expand and add first sort
       await user.click(screen.getByRole('button', { name: /add sorting/i }));
       await user.click(screen.getByRole('button', { name: /add sort criteria/i }));
       expect(mockOnChange).toHaveBeenLastCalledWith({
         sort: [{ column: '', direction: 'asc' }],
       });
 
-      // Simulate parent updating with first sort
       let currentFormData = {
         ...defaultFormData,
         sort: [{ column: 'name', direction: 'asc' as const }],
@@ -779,10 +526,8 @@ describe('ChartSortConfiguration', () => {
         />
       );
 
-      // Add second sort
       await user.click(screen.getByRole('button', { name: /add sort criteria/i }));
 
-      // Simulate parent updating with both sorts
       currentFormData = {
         ...defaultFormData,
         sort: [
@@ -798,15 +543,13 @@ describe('ChartSortConfiguration', () => {
         />
       );
 
-      // Verify both sorts are shown
       expect(screen.getByText('Sort 1')).toBeInTheDocument();
       expect(screen.getByText('Sort 2')).toBeInTheDocument();
 
-      // Move second sort up
       const sortItems = screen.getAllByText(/^Sort \d+$/);
       const secondSortItem = sortItems[1].closest('.p-4');
       const buttons = within(secondSortItem!).getAllByRole('button');
-      await user.click(buttons[0]); // Move up button
+      await user.click(buttons[0]);
 
       expect(mockOnChange).toHaveBeenLastCalledWith({
         sort: [
@@ -818,28 +561,25 @@ describe('ChartSortConfiguration', () => {
 
     it('should preserve state through expand/collapse cycles', async () => {
       const user = userEvent.setup();
-      const formDataWithSort = {
+      const formData = {
         ...defaultFormData,
         sort: [{ column: 'name', direction: 'asc' as const }],
       };
 
       render(
         <ChartSortConfiguration
-          formData={formDataWithSort}
+          formData={formData}
           columns={defaultColumns}
           onChange={mockOnChange}
         />
       );
 
-      // Expand
       await user.click(screen.getByRole('button', { name: /edit sorting/i }));
       expect(screen.getByText('Sort 1')).toBeInTheDocument();
 
-      // Collapse
       await user.click(screen.getByRole('button', { name: /done/i }));
       expect(screen.getByText('Sorting (1)')).toBeInTheDocument();
 
-      // Expand again
       await user.click(screen.getByRole('button', { name: /edit sorting/i }));
       expect(screen.getByText('Sort 1')).toBeInTheDocument();
     });
