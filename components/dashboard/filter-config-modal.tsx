@@ -363,7 +363,7 @@ export function FilterConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="!max-w-[900px] !w-[90vw] max-h-[90vh] overflow-hidden">
+      <DialogContent className="!max-w-[900px] !w-[90vw] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />

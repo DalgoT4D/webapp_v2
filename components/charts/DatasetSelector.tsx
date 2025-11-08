@@ -227,14 +227,21 @@ export function DatasetSelector({
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border border-gray-200 rounded shadow-lg max-h-60 overflow-auto"
+            className="fixed bg-white border border-gray-200 rounded shadow-lg"
             style={{
               top: `${dropdownPosition.top}px`,
               left: `${dropdownPosition.left}px`,
               width: `${dropdownPosition.width}px`,
+              maxHeight: '240px',
               marginTop: '4px',
               zIndex: 99999,
-              pointerEvents: 'auto', // Ensure events work
+              pointerEvents: 'auto',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+            }}
+            onWheel={(e) => {
+              // Prevent scroll from bubbling to parent elements
+              e.stopPropagation();
             }}
           >
             {isLoading ? (
