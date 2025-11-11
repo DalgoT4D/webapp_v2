@@ -63,6 +63,7 @@ export function EnhancedDashboardChat({
 }: EnhancedDashboardChatProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Dashboard chat hook
@@ -112,17 +113,10 @@ ${selectedChartId ? `I see you're focusing on a specific chart. ` : ''}What woul
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
-      );
-      if (scrollContainer) {
-        setTimeout(() => {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight;
-        }, 100);
-      }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Focus input when opened
   useEffect(() => {
@@ -292,9 +286,9 @@ What would you like to know about this dashboard?`,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l shadow-lg flex flex-col z-50">
+    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l shadow-lg flex flex-col z-50 h-screen overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
             <Bot className="w-5 h-5 text-blue-600" />
@@ -332,7 +326,7 @@ What would you like to know about this dashboard?`,
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="border-b bg-gray-50 p-4 space-y-4">
+        <div className="border-b bg-gray-50 p-4 space-y-4 flex-shrink-0 max-h-60 overflow-y-auto">
           <div className="flex items-center justify-between">
             <h4 className="font-medium text-sm">Chat Settings</h4>
             <Button variant="outline" size="sm" onClick={clearChat} className="text-xs">
@@ -412,216 +406,223 @@ What would you like to know about this dashboard?`,
       )}
 
       {/* Chat Messages */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+      <div className="flex-1 flex flex-col min-h-0">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 h-0">
+          <div className="space-y-4">
+            {messages.map((message) => (
               <div
-                className={`flex gap-3 max-w-[85%] ${
-                  message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                }`}
+                key={message.id}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {message.role === 'assistant' && (
-                  <Avatar className="h-8 w-8 flex-shrink-0">
+                <div
+                  className={`flex gap-3 max-w-[85%] ${
+                    message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                  }`}
+                >
+                  {message.role === 'assistant' && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-blue-100 text-blue-600">
+                        <Bot className="w-4 h-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+
+                  <div
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-sm',
+                      message.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    )}
+                  >
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+
+                    {/* Message metadata */}
+                    {message.metadata && message.role === 'assistant' && (
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                        {message.metadata.charts_analyzed && (
+                          <Badge variant="outline" className="text-xs">
+                            <BarChart3 className="w-3 h-3 mr-1" />
+                            {message.metadata.charts_analyzed} charts
+                          </Badge>
+                        )}
+                        {message.metadata.data_included && (
+                          <Badge variant="outline" className="text-xs">
+                            <Database className="w-3 h-3 mr-1" />
+                            Data included
+                          </Badge>
+                        )}
+                        {message.metadata.usage?.total_tokens && (
+                          <Badge variant="outline" className="text-xs">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            {message.metadata.usage.total_tokens} tokens
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {message.role === 'user' && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-gray-100 text-gray-600">U</AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Loading indicator */}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="flex gap-3 max-w-[85%]">
+                  <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-blue-100 text-blue-600">
                       <Bot className="w-4 h-4" />
                     </AvatarFallback>
                   </Avatar>
-                )}
-
-                <div
-                  className={cn(
-                    'rounded-lg px-3 py-2 text-sm',
-                    message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'
-                  )}
-                >
-                  <div className="whitespace-pre-wrap">{message.content}</div>
-
-                  {/* Message metadata */}
-                  {message.metadata && message.role === 'assistant' && (
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
-                      {message.metadata.charts_analyzed && (
-                        <Badge variant="outline" className="text-xs">
-                          <BarChart3 className="w-3 h-3 mr-1" />
-                          {message.metadata.charts_analyzed} charts
-                        </Badge>
-                      )}
-                      {message.metadata.data_included && (
-                        <Badge variant="outline" className="text-xs">
-                          <Database className="w-3 h-3 mr-1" />
-                          Data included
-                        </Badge>
-                      )}
-                      {message.metadata.usage?.total_tokens && (
-                        <Badge variant="outline" className="text-xs">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          {message.metadata.usage.total_tokens} tokens
-                        </Badge>
-                      )}
+                  <div className="rounded-lg px-3 py-2 bg-gray-100">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm text-gray-600">Thinking...</span>
                     </div>
-                  )}
-                </div>
-
-                {message.role === 'user' && (
-                  <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback className="bg-gray-100 text-gray-600">U</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex gap-3 max-w-[85%]">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-blue-100 text-blue-600">
-                    <Bot className="w-4 h-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="rounded-lg px-3 py-2 bg-gray-100">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm text-gray-600">Thinking...</span>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Scroll anchor */}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+
+        {/* Quick Actions */}
+        <div className="px-4 py-2 border-t bg-gray-50 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-500">
+              {selectedChartId && (
+                <div className="flex items-center gap-1">
+                  <Eye className="w-3 h-3" />
+                  Focused on chart
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </ScrollArea>
 
-      {/* Quick Actions */}
-      <div className="px-4 py-2 border-t bg-gray-50">
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            {selectedChartId && (
-              <div className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                Focused on chart
-              </div>
-            )}
-          </div>
+            <div className="flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copyLastResponse}
+                      className="w-8 h-8 p-0"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy last response</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-          <div className="flex items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={copyLastResponse}
-                    className="w-8 h-8 p-0"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy last response</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" onClick={exportChat} className="w-8 h-8 p-0">
+                      <Download className="w-3 h-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Export chat</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={exportChat} className="w-8 h-8 p-0">
-                    <Download className="w-3 h-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Export chat</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={loadDashboardContextWrapper}
-                    disabled={isLoading}
-                    className="w-8 h-8 p-0"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-3 h-3" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refresh context</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={loadDashboardContextWrapper}
+                      disabled={isLoading}
+                      className="w-8 h-8 p-0"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh context</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t">
-        <form
-          className="flex gap-2 relative"
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage();
-          }}
-        >
-          <Input
-            ref={inputRef}
-            placeholder={`Ask about ${dashboardTitle}...`}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            className="pr-10"
-          />
-          <div className="absolute right-12 top-1/2 -translate-y-1/2 text-muted-foreground">
-            {!isLoading && inputValue.trim() && <CornerDownLeft className="w-4 h-4 opacity-70" />}
-          </div>
-          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()}>
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </Button>
-        </form>
-
-        {/* Context status */}
-        <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-          <div className="flex items-center gap-2">
-            {settings.include_data ? (
-              <div className="flex items-center gap-1 text-green-600">
-                <Database className="w-3 h-3" />
-                Data sharing enabled
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
-                <Shield className="w-3 h-3" />
-                Schema only
-              </div>
-            )}
-          </div>
-
-          {!dashboardContext && settings.auto_context && (
-            <Button
-              variant="link"
-              size="sm"
-              onClick={loadDashboardContextWrapper}
-              className="h-auto p-0 text-xs"
+        {/* Input Area */}
+        <div className="p-4 border-t flex-shrink-0">
+          <form
+            className="flex gap-2 relative"
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
+          >
+            <Input
+              ref={inputRef}
+              placeholder={`Ask about ${dashboardTitle}...`}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
               disabled={isLoading}
-            >
-              Load context
+              className="pr-10"
+            />
+            <div className="absolute right-12 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {!isLoading && inputValue.trim() && <CornerDownLeft className="w-4 h-4 opacity-70" />}
+            </div>
+            <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()}>
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </Button>
-          )}
+          </form>
+
+          {/* Context status */}
+          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              {settings.include_data ? (
+                <div className="flex items-center gap-1 text-green-600">
+                  <Database className="w-3 h-3" />
+                  Data sharing enabled
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  Schema only
+                </div>
+              )}
+            </div>
+
+            {!dashboardContext && settings.auto_context && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={loadDashboardContextWrapper}
+                className="h-auto p-0 text-xs"
+                disabled={isLoading}
+              >
+                Load context
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
