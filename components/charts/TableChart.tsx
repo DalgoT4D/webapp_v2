@@ -10,6 +10,7 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
+  Home,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -28,6 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import type { DrillDownConfig, DrillDownPathStep } from '@/types/charts';
 
 interface TableChartProps {
   data?: Record<string, any>[];
@@ -50,6 +53,7 @@ interface TableChartProps {
       enabled: boolean;
       page_size: number;
     };
+    drill_down_config?: DrillDownConfig;
   };
   onSort?: (column: string, direction: 'asc' | 'desc') => void;
   isLoading?: boolean;
@@ -61,6 +65,12 @@ interface TableChartProps {
     onPageChange: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
   };
+  // Drill-down support
+  drillDownPath?: DrillDownPathStep[];
+  onDrillDown?: (column: string, value: any) => void;
+  onDrillUp?: (level?: number) => void;
+  onRowDoubleClick?: (row: Record<string, any>) => void;
+  drillDownEnabled?: boolean;
 }
 
 export function TableChart({
@@ -70,8 +80,30 @@ export function TableChart({
   isLoading,
   error,
   pagination,
+  drillDownPath = [],
+  onDrillDown,
+  onDrillUp,
+  onRowDoubleClick,
+  drillDownEnabled = false,
 }: TableChartProps) {
-  const { table_columns, column_formatting = {}, sort = [], pagination: configPagination } = config;
+  const {
+    table_columns,
+    column_formatting = {},
+    sort = [],
+    pagination: configPagination,
+    drill_down_config,
+  } = config;
+
+  // Extract drill-down configuration
+  const isDrillDownConfigured =
+    drill_down_config?.enabled && drill_down_config?.hierarchy?.length > 0;
+
+  // Determine which column should be clickable based on current drill level
+  // At root (level 0): hierarchy[0].column is clickable
+  // At level 1 (after 1 click): hierarchy[1].column is clickable
+  // etc.
+  const currentDrillLevel = drillDownPath.length;
+  const drillDownColumn = drill_down_config?.hierarchy?.[currentDrillLevel]?.column;
 
   // Determine if we're using server-side pagination (pagination prop provided) or fallback to client-side
   const isServerSidePagination = !!pagination;
@@ -173,6 +205,24 @@ export function TableChart({
     onSort(column, newDirection);
   };
 
+  // Handle drill-down cell click
+  const handleDrillDownClick = (column: string, value: any) => {
+    if (!isDrillDownConfigured || !onDrillDown || !drillDownColumn) {
+      return;
+    }
+
+    // Only allow drill-down if:
+    // 1. The clicked column is the current drill-down column
+    // 2. There's a next level in the hierarchy
+    const nextLevel = currentDrillLevel + 1;
+    const hasNextLevel =
+      drill_down_config?.hierarchy && drill_down_config.hierarchy.length > nextLevel;
+
+    if (column === drillDownColumn && hasNextLevel) {
+      onDrillDown(column, value);
+    }
+  };
+
   // Handle loading state
   if (isLoading) {
     return (
@@ -228,6 +278,36 @@ export function TableChart({
 
   return (
     <div className="w-full h-full flex flex-col">
+      {/* Breadcrumb Navigation */}
+      {isDrillDownConfigured && drillDownPath.length > 0 && onDrillUp && (
+        <div className="border-b px-4 py-2 bg-gray-50">
+          <div className="flex items-center gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => onDrillUp(0)}
+              className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+              title="Back to root"
+            >
+              <Home className="h-3 w-3" />
+              <span>Root</span>
+            </button>
+            {drillDownPath.map((step, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <span className="text-gray-400">/</span>
+                <button
+                  type="button"
+                  onClick={() => onDrillUp(index + 1)}
+                  className="text-blue-600 hover:text-blue-800 hover:underline"
+                  title={`Back to ${step.display_name}`}
+                >
+                  {step.value}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto">
         <Table className="h-auto">
           <TableHeader>
@@ -264,12 +344,40 @@ export function TableChart({
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => (
-              <TableRow key={index}>
-                {columns.map((column) => (
-                  <TableCell key={column} className="py-1.5 px-2">
-                    {formatCellValue(row[column], column)}
-                  </TableCell>
-                ))}
+              <TableRow
+                key={index}
+                onDoubleClick={() => onRowDoubleClick?.(row)}
+                className={cn(
+                  drillDownEnabled && 'cursor-pointer hover:bg-gray-50 transition-colors'
+                )}
+                title={drillDownEnabled ? 'Double-click to drill down' : ''}
+              >
+                {columns.map((column) => {
+                  // Check if this cell should be clickable for drill-down
+                  const nextLevel = currentDrillLevel + 1;
+                  const hasNextLevel =
+                    drill_down_config?.hierarchy && drill_down_config.hierarchy.length > nextLevel;
+                  const isDrillDownCell =
+                    isDrillDownConfigured && column === drillDownColumn && hasNextLevel;
+                  const cellValue = formatCellValue(row[column], column);
+
+                  return (
+                    <TableCell key={column} className="py-1.5 px-2">
+                      {isDrillDownCell ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDrillDownClick(column, row[column])}
+                          className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                          title="Click to drill down"
+                        >
+                          {cellValue}
+                        </button>
+                      ) : (
+                        cellValue
+                      )}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>

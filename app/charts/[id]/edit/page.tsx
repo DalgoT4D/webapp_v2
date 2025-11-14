@@ -13,6 +13,7 @@ import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
+import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
@@ -194,6 +195,16 @@ function EditChartPageContent() {
     }>
   >([]);
 
+  // Table drill-down state management
+  const [tableDrillDownPath, setTableDrillDownPath] = useState<
+    Array<{
+      level: number;
+      column: string;
+      value: any;
+      display_name: string;
+    }>
+  >([]);
+
   // Helper to convert layers structure back to simplified fields for UI
   const convertLayersToSimplified = (layers: any[]) => {
     if (!layers || layers.length === 0) {
@@ -290,6 +301,8 @@ function EditChartPageContent() {
         geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
         // Include table_columns for table charts
         table_columns: chart.extra_config?.table_columns || [],
+        // Include drill_down_config for table charts
+        drill_down_config: chart.extra_config?.drill_down_config,
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -408,49 +421,169 @@ function EditChartPageContent() {
   };
 
   // Build payload for chart data
-  const chartDataPayload: ChartDataPayload | null = isChartDataReady()
-    ? {
-        chart_type: formData.chart_type!,
-        computation_type: formData.computation_type!,
-        schema_name: formData.schema_name!,
-        table_name: formData.table_name!,
-        ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
-        ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
-        ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
-        ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
-        ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
-        ...(formData.extra_dimension_column && {
-          extra_dimension: formData.extra_dimension_column,
-        }),
-        ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-        ...(formData.value_column && { value_column: formData.value_column }),
-        ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
-        ...(formData.chart_type === 'map' &&
-          formData.layers?.[0]?.geojson_id && {
-            selected_geojson_id: formData.layers[0].geojson_id,
-          }),
-        ...(formData.chart_type === 'map' && {
-          ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
-          ...((formData.aggregate_column || formData.value_column) && {
-            aggregate_col: formData.aggregate_column || formData.value_column,
-          }),
-        }),
-        // For table charts, pass selected columns
-        ...(formData.chart_type === 'table' && {
-          table_columns: formData.table_columns,
-        }),
-        // Include metrics for multiple metrics support
-        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-        customizations: formData.customizations,
-        extra_config: {
-          filters: formData.filters,
-          pagination: formData.pagination,
-          sort: formData.sort,
-          time_grain: formData.time_grain,
-          table_columns: formData.table_columns,
-        },
+  const chartDataPayload: ChartDataPayload | null = useMemo(() => {
+    // Check if basic data is ready
+    if (!formData.schema_name || !formData.table_name || !formData.chart_type) {
+      return null;
+    }
+
+    // Check chart-type specific requirements
+    if (formData.chart_type === 'number') {
+      const needsAggregateColumn = formData.aggregate_function !== 'count';
+      if (!formData.aggregate_function || (needsAggregateColumn && !formData.aggregate_column)) {
+        return null;
       }
-    : null;
+    } else if (formData.chart_type === 'map') {
+      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
+      if (
+        !formData.geographic_column ||
+        !formData.aggregate_function ||
+        !formData.selected_geojson_id ||
+        (needsValueColumn && !formData.value_column)
+      ) {
+        return null;
+      }
+    } else if (formData.chart_type !== 'table') {
+      // For bar/line/pie charts with multiple metrics
+      if (formData.metrics && formData.metrics.length > 0) {
+        if (!formData.dimension_column) return null;
+        for (const metric of formData.metrics) {
+          if (
+            !metric.aggregation ||
+            (metric.aggregation.toLowerCase() !== 'count' && !metric.column)
+          ) {
+            return null;
+          }
+        }
+      } else {
+        // Legacy single metric approach
+        const needsAggregateColumn = formData.aggregate_function !== 'count';
+        if (
+          !formData.dimension_column ||
+          !formData.aggregate_function ||
+          (needsAggregateColumn && !formData.aggregate_column)
+        ) {
+          return null;
+        }
+      }
+    }
+
+    // Build base filters from form data
+    const baseFilters = formData.filters || [];
+
+    // Add table drill-down filters if drill-down path exists
+    const drillDownFilters = tableDrillDownPath.map((step) => ({
+      column: step.column,
+      operator: 'equals', // Backend expects 'equals', not '='
+      value: step.value,
+    }));
+
+    const allFilters = [...baseFilters, ...drillDownFilters];
+
+    // For table drill-down: determine which column to group by based on drill-down level
+    let dimensionColumn = formData.dimension_column;
+    let tableColumns = formData.table_columns;
+    let metrics = formData.metrics;
+
+    if (formData.chart_type === 'table' && formData.drill_down_config?.enabled) {
+      const hierarchyLevels = formData.drill_down_config.hierarchy || [];
+
+      // Determine which level we're at (0 = root, 1 = first drill, etc.)
+      const currentLevel = tableDrillDownPath.length;
+
+      // Get the hierarchy configuration for the current level to display
+      const currentHierarchyLevel = hierarchyLevels[currentLevel];
+
+      if (currentHierarchyLevel) {
+        // Use the column from the hierarchy configuration
+        dimensionColumn = currentHierarchyLevel.column;
+
+        // Get aggregation columns (use from current level, fallback to first level for consistency)
+        const aggregationColumns =
+          currentHierarchyLevel.aggregation_columns ||
+          hierarchyLevels[0]?.aggregation_columns ||
+          [];
+
+        // Create metrics for aggregation columns
+        if (aggregationColumns.length > 0) {
+          metrics = aggregationColumns.map((col) => ({
+            column: col,
+            aggregation: 'sum',
+            alias: `sum_${col}`,
+          }));
+        }
+
+        // Update table columns to show dimension + aggregation columns (with aliases)
+        tableColumns = [dimensionColumn, ...aggregationColumns.map((col) => `sum_${col}`)];
+      }
+    }
+
+    return {
+      chart_type: formData.chart_type!,
+      computation_type: formData.computation_type!,
+      schema_name: formData.schema_name!,
+      table_name: formData.table_name!,
+      ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
+      ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
+      ...(dimensionColumn && { dimension_col: dimensionColumn }),
+      ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
+      ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
+      ...(formData.extra_dimension_column && {
+        extra_dimension: formData.extra_dimension_column,
+      }),
+      ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
+      ...(formData.value_column && { value_column: formData.value_column }),
+      ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
+      ...(formData.chart_type === 'map' &&
+        formData.layers?.[0]?.geojson_id && {
+          selected_geojson_id: formData.layers[0].geojson_id,
+        }),
+      ...(formData.chart_type === 'map' && {
+        ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
+        ...((formData.aggregate_column || formData.value_column) && {
+          aggregate_col: formData.aggregate_column || formData.value_column,
+        }),
+      }),
+      // For table charts, pass selected columns
+      ...(formData.chart_type === 'table' && {
+        table_columns: tableColumns,
+      }),
+      // Include metrics for multiple metrics support
+      ...(metrics && metrics.length > 0 && { metrics }),
+      customizations: formData.customizations,
+      extra_config: {
+        filters: allFilters,
+        pagination: formData.pagination,
+        sort: formData.sort,
+        time_grain: formData.time_grain,
+        table_columns: tableColumns,
+      },
+    };
+  }, [
+    formData.chart_type,
+    formData.computation_type,
+    formData.schema_name,
+    formData.table_name,
+    formData.x_axis_column,
+    formData.y_axis_column,
+    formData.dimension_column,
+    formData.aggregate_column,
+    formData.aggregate_function,
+    formData.extra_dimension_column,
+    formData.geographic_column,
+    formData.value_column,
+    formData.selected_geojson_id,
+    formData.layers,
+    formData.table_columns,
+    formData.metrics,
+    formData.filters,
+    formData.pagination,
+    formData.sort,
+    formData.time_grain,
+    formData.customizations,
+    formData.drill_down_config,
+    tableDrillDownPath,
+  ]);
 
   // Fetch chart data (including tables)
   const {
@@ -743,6 +876,35 @@ function EditChartPageContent() {
   const handleDrillHome = useCallback(() => {
     setDrillDownPath([]);
   }, []);
+
+  // Table drill-down handlers
+  const handleTableDrillDown = useCallback(
+    (column: string, value: any) => {
+      console.log('🔽 Table drill-down:', { column, value, currentPath: tableDrillDownPath });
+      setTableDrillDownPath((prev) => [
+        ...prev,
+        {
+          level: prev.length,
+          column,
+          value,
+          display_name: column,
+        },
+      ]);
+    },
+    [tableDrillDownPath]
+  );
+
+  const handleTableDrillUp = useCallback(
+    (level?: number) => {
+      console.log('🔼 Table drill-up:', { level, currentPath: tableDrillDownPath });
+      if (level === undefined || level === 0) {
+        setTableDrillDownPath([]);
+      } else {
+        setTableDrillDownPath((prev) => prev.slice(0, level));
+      }
+    },
+    [tableDrillDownPath]
+  );
 
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
@@ -1069,6 +1231,8 @@ function EditChartPageContent() {
         time_grain: formData.time_grain,
         // Include table_columns for table charts
         table_columns: formData.table_columns,
+        // Include drill_down_config for table charts
+        drill_down_config: formData.drill_down_config,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
@@ -1319,18 +1483,41 @@ function EditChartPageContent() {
                 value="configuration"
                 className="mt-6 h-[calc(100%-73px)] overflow-y-auto"
               >
-                <div className="p-4">
+                <div className="p-4 space-y-6">
                   {formData.chart_type === 'map' ? (
                     <MapDataConfigurationV3
                       formData={formData}
                       onFormDataChange={handleFormChange}
                     />
                   ) : (
-                    <ChartDataConfigurationV3
-                      formData={formData}
-                      onChange={handleFormChange}
-                      disabled={false}
-                    />
+                    <>
+                      <ChartDataConfigurationV3
+                        formData={formData}
+                        onChange={handleFormChange}
+                        disabled={false}
+                      />
+                      {/* Table-specific column configuration with drill-down */}
+                      {formData.chart_type === 'table' &&
+                        formData.schema_name &&
+                        formData.table_name &&
+                        columns && (
+                          <SimpleTableConfiguration
+                            availableColumns={columns?.map((col) => col.name) || []}
+                            columnTypes={
+                              columns?.reduce(
+                                (acc, col) => ({ ...acc, [col.name]: col.data_type }),
+                                {}
+                              ) || {}
+                            }
+                            selectedColumns={formData.table_columns || []}
+                            onColumnsChange={(table_columns) => handleFormChange({ table_columns })}
+                            drillDownConfig={formData.drill_down_config}
+                            onDrillDownConfigChange={(drill_down_config) =>
+                              handleFormChange({ drill_down_config })
+                            }
+                          />
+                        )}
+                    </>
                   )}
                 </div>
               </TabsContent>
@@ -1425,6 +1612,7 @@ function EditChartPageContent() {
                           column_formatting: {},
                           sort: formData.sort,
                           pagination: formData.pagination || { enabled: true, page_size: 20 },
+                          drill_down_config: formData.drill_down_config,
                         }}
                         isLoading={tableChartLoading}
                         error={tableChartError}
@@ -1439,6 +1627,9 @@ function EditChartPageContent() {
                               }
                             : undefined
                         }
+                        drillDownPath={tableDrillDownPath}
+                        onDrillDown={handleTableDrillDown}
+                        onDrillUp={handleTableDrillUp}
                       />
                     </div>
                   ) : (

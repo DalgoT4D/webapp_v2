@@ -614,6 +614,8 @@ export function ChartBuilder({
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        // Drill-down configuration (table charts only)
+        drill_down_config: formData.extra_config?.drill_down_config,
       },
     };
 
@@ -883,10 +885,17 @@ export function ChartBuilder({
                   ...preservedFields,
                 };
 
-                // Preserve chart-level filters, pagination, and sorting
+                // Preserve chart-level filters, pagination, sorting, and drill-down config
                 if (formData.filters) updates.filters = formData.filters;
                 if (formData.pagination) updates.pagination = formData.pagination;
                 if (formData.sort) updates.sort = formData.sort;
+                // Preserve drill-down config for table charts
+                if (newChartType === 'table' && formData.extra_config?.drill_down_config) {
+                  updates.extra_config = {
+                    ...updates.extra_config,
+                    drill_down_config: formData.extra_config.drill_down_config,
+                  };
+                }
 
                 handleFormChange(updates);
               }}
@@ -898,6 +907,12 @@ export function ChartBuilder({
             className={`transition-opacity ${getStepStatus(2) === 'pending' ? 'opacity-50' : ''}`}
           >
             <h3 className="text-lg font-semibold mb-6">2. Configure Chart</h3>
+            {/* DEBUG: Chart Type Check */}
+            <div className="bg-red-500 text-white p-3 mb-4 text-sm">
+              DEBUG: chart_type = "{formData.chart_type}" | Is Table?{' '}
+              {formData.chart_type === 'table' ? 'YES' : 'NO'} | typeof ={' '}
+              {typeof formData.chart_type}
+            </div>
             {formData.chart_type === 'map' ? (
               <div className="space-y-6">
                 <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
@@ -912,6 +927,16 @@ export function ChartBuilder({
               </div>
             ) : formData.chart_type === 'table' ? (
               <div className="space-y-6">
+                {/* DEBUG */}
+                <div className="bg-green-500 text-white p-4 text-center font-bold">
+                  ✅ TABLE CHART TYPE DETECTED: {formData.chart_type}
+                  <br />
+                  Schema: {formData.schema_name} | Table: {formData.table_name}
+                  <br />
+                  Columns: {columns?.length || 0} | Has extra_config:{' '}
+                  {formData.extra_config ? 'YES' : 'NO'}
+                </div>
+
                 {/* Table configuration - same as other charts but simpler */}
                 <ChartDataConfigurationV3
                   formData={formData}
@@ -923,8 +948,21 @@ export function ChartBuilder({
                 {formData.schema_name && formData.table_name && (
                   <SimpleTableConfiguration
                     availableColumns={columns?.map((col) => col.name) || []}
+                    columnTypes={
+                      columns?.reduce((acc, col) => ({ ...acc, [col.name]: col.data_type }), {}) ||
+                      {}
+                    }
                     selectedColumns={formData.table_columns || []}
                     onColumnsChange={(table_columns) => handleFormChange({ table_columns })}
+                    drillDownConfig={formData.extra_config?.drill_down_config}
+                    onDrillDownConfigChange={(drill_down_config) =>
+                      handleFormChange({
+                        extra_config: {
+                          ...formData.extra_config,
+                          drill_down_config,
+                        },
+                      })
+                    }
                   />
                 )}
               </div>
