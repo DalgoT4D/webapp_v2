@@ -46,6 +46,40 @@ import {
   type DashboardChatSettings,
 } from '@/hooks/api/useDashboardChat';
 
+// Component to format AI responses with better styling
+const FormattedMessage = ({ content }: { content: string }) => {
+  // Split content by lines and apply formatting
+  const formatContent = (text: string) => {
+    return (
+      text
+        // Convert **bold** to actual bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        // Convert ## headings to styled headings
+        .replace(
+          /^## (.*$)/gm,
+          '<h3 class="font-semibold text-gray-900 mb-2 mt-3 flex items-center gap-2">$1</h3>'
+        )
+        // Convert > callouts to styled callouts
+        .replace(
+          /^> (.*$)/gm,
+          '<div class="bg-blue-50 border-l-4 border-blue-500 p-3 my-2 rounded-r"><p class="text-blue-700 font-medium">$1</p></div>'
+        )
+        // Convert bullet points with emojis to styled lists
+        .replace(/^- (.*$)/gm, '<li class="ml-4 mb-1">$1</li>')
+        // Convert numbered lists
+        .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 mb-2 font-medium">$2</li>')
+        // Handle line breaks
+        .replace(/\n/g, '<br/>')
+    );
+  };
+
+  const formattedContent = formatContent(content);
+
+  return (
+    <div className="formatted-message" dangerouslySetInnerHTML={{ __html: formattedContent }} />
+  );
+};
+
 interface EnhancedDashboardChatProps {
   dashboardId: number;
   dashboardTitle?: string;
@@ -435,7 +469,27 @@ What would you like to know about this dashboard?`,
                         : 'bg-gray-100 text-gray-900'
                     )}
                   >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
+                    <div className="prose prose-sm max-w-none">
+                      <FormattedMessage content={message.content} />
+                    </div>
+
+                    <style jsx>{`
+                      .formatted-message ul {
+                        list-style: none;
+                        margin: 0.5rem 0;
+                        padding: 0;
+                      }
+                      .formatted-message li {
+                        margin: 0.25rem 0;
+                        padding-left: 1rem;
+                      }
+                      .formatted-message h3 {
+                        color: #1f2937;
+                        font-size: 1rem;
+                        font-weight: 600;
+                        margin: 1rem 0 0.5rem 0;
+                      }
+                    `}</style>
 
                     {/* Message metadata */}
                     {message.metadata && message.role === 'assistant' && (
