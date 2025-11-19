@@ -45,6 +45,7 @@ import {
   type ChatMessage,
   type DashboardChatSettings,
 } from '@/hooks/api/useDashboardChat';
+import { useAIStatus } from '@/hooks/api/useAIStatus';
 
 // Component to format AI responses with better styling
 const FormattedMessage = ({ content }: { content: string }) => {
@@ -100,6 +101,9 @@ export function EnhancedDashboardChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // AI status from org settings
+  const { aiEnabled, dataSharingEnabled } = useAIStatus();
+
   // Dashboard chat hook
   const {
     isLoading,
@@ -116,13 +120,21 @@ export function EnhancedDashboardChat({
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Chat settings
+  // Chat settings - Initialize include_data based on org settings
   const [settings, setSettings] = useState<DashboardChatSettings>({
-    include_data: false,
+    include_data: dataSharingEnabled, // Set to true if org has enabled data sharing
     max_rows: 100,
     provider_type: undefined, // Use default
     auto_context: true,
   });
+
+  // Update include_data when dataSharingEnabled changes
+  useEffect(() => {
+    setSettings((prev) => ({
+      ...prev,
+      include_data: dataSharingEnabled,
+    }));
+  }, [dataSharingEnabled]);
 
   // Initialize chat with welcome message
   useEffect(() => {
@@ -179,6 +191,20 @@ ${selectedChartId ? `I see you're focusing on a specific chart. ` : ''}What woul
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
+
+    // Check if AI is still enabled before processing the request
+    if (!aiEnabled) {
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content:
+          'I am sorry. AI chat is disabled. Please ask your Account Manager to enable AI chat in Dalgo',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      setInputValue('');
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
