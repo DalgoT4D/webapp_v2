@@ -24,6 +24,7 @@ import {
   Info,
   CreditCard,
   Users,
+  Building2,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -35,6 +36,7 @@ import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformType, useTransformType } from '@/hooks/api/useTransformType';
+import { usePermissions } from '@/hooks/usePermissions';
 import Image from 'next/image';
 
 // Define types for navigation items
@@ -93,7 +95,8 @@ const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
-  transformType?: string
+  transformType?: string,
+  hasPermission?: (permission: string) => boolean
 ): NavItemType[] => {
   // Build dashboard children based on feature flags AND Superset setup
   const dashboardChildren: NavItemType[] = [];
@@ -212,6 +215,13 @@ const getNavItems = (
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
+        },
+        {
+          title: 'Org Settings',
+          href: '/settings/organization',
+          icon: Building2,
+          isActive: currentPath.startsWith('/settings/organization'),
+          hide: !(hasPermission?.('can_manage_org_settings') ?? false),
         },
         {
           title: 'About',
@@ -644,8 +654,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { currentOrg } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
+  const { hasPermission } = usePermissions();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
+  const navItems = getNavItems(
+    pathname,
+    hasSupersetSetup,
+    isFeatureFlagEnabled,
+    transformType,
+    hasPermission
+  );
   const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
 
   // Toggle menu expansion state
