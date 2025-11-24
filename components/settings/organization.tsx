@@ -97,19 +97,11 @@ export default function OrganizationSettings() {
       setIsSaving(true);
       setError(null);
 
-      // Only send non-empty values
+      // Only send AI settings - organization name and website are read-only
       const updateData: any = {
         ai_data_sharing_enabled: settings.ai_data_sharing_enabled,
         ai_logging_acknowledged: settings.ai_logging_acknowledged,
       };
-
-      if (settings.organization_name && settings.organization_name.trim()) {
-        updateData.organization_name = settings.organization_name.trim();
-      }
-
-      if (settings.website && settings.website.trim()) {
-        updateData.website = settings.website.trim();
-      }
 
       const response = await apiPut('/api/org-settings/', updateData);
 
@@ -276,10 +268,57 @@ export default function OrganizationSettings() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Organization Settings</h1>
-          <p className="text-muted-foreground">
-            Configure your organization details and AI preferences
-          </p>
+          <p className="text-muted-foreground">Manage your organization logo and AI preferences</p>
         </div>
+
+        {/* Organization Info Display - Read Only */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Organization Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Organization Name
+                </Label>
+                <div className="text-lg font-medium">
+                  {settings.organization_name || 'Not specified'}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Globe className="h-4 w-4" />
+                  Website
+                </Label>
+                <div className="text-lg">
+                  {settings.website ? (
+                    <a
+                      href={settings.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {settings.website}
+                    </a>
+                  ) : (
+                    'Not specified'
+                  )}
+                </div>
+              </div>
+            </div>
+            <Alert className="mt-4">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Organization name and website are managed by system administrators. Contact your
+                admin to update these details.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
 
         {error && (
           <Alert variant="destructive" className="mb-6">
@@ -289,100 +328,65 @@ export default function OrganizationSettings() {
         )}
 
         <div className="space-y-6">
-          {/* Organization Details */}
+          {/* Logo Management */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Organization Details
+                <ImageIcon className="h-5 w-5" />
+                Organization Logo
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="organization_name">Organization Name (Optional)</Label>
-                <Input
-                  id="organization_name"
-                  placeholder="Enter organization name"
-                  value={settings.organization_name || ''}
-                  onChange={(e) => handleInputChange('organization_name', e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  The display name for your organization
-                </p>
-              </div>
+              {/* Logo Preview */}
+              {logoPreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={logoPreview}
+                    alt="Organization Logo"
+                    className="w-32 h-32 object-contain border rounded-lg bg-gray-50"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute -top-2 -right-2 rounded-full w-6 h-6 p-0"
+                    onClick={handleRemoveLogo}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="website" className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  Website (Optional)
-                </Label>
-                <Input
-                  id="website"
-                  type="url"
-                  placeholder="https://example.com"
-                  value={settings.website || ''}
-                  onChange={(e) => handleInputChange('website', e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">Your organization's website URL</p>
-              </div>
-
-              <div className="space-y-4">
-                <Label className="flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Organization Logo (Optional)
-                </Label>
-
-                {/* Logo Preview */}
-                {logoPreview && (
-                  <div className="relative inline-block">
-                    <img
-                      src={logoPreview}
-                      alt="Organization Logo"
-                      className="w-32 h-32 object-contain border rounded-lg bg-gray-50"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 rounded-full w-6 h-6 p-0"
-                      onClick={handleRemoveLogo}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-
-                {/* File Upload */}
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      disabled={isUploadingLogo}
-                      className="hidden"
-                      id="logo-upload"
-                    />
-                    <Label
-                      htmlFor="logo-upload"
-                      className={`flex items-center gap-2 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <Upload className="h-4 w-4" />
-                      {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
-                    </Label>
-                  </div>
-
-                  {settings.organization_logo_filename && (
-                    <span className="text-sm text-muted-foreground">
-                      Current: {settings.organization_logo_filename}
-                    </span>
-                  )}
+              {/* File Upload */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={isUploadingLogo}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <Label
+                    htmlFor="logo-upload"
+                    className={`flex items-center gap-2 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Upload className="h-4 w-4" />
+                    {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
+                  </Label>
                 </div>
 
-                <p className="text-sm text-muted-foreground">
-                  Upload your organization's logo image (JPEG, PNG, GIF, or WebP, max 10MB)
-                </p>
+                {settings.organization_logo_filename && (
+                  <span className="text-sm text-muted-foreground">
+                    Current: {settings.organization_logo_filename}
+                  </span>
+                )}
               </div>
+
+              <p className="text-sm text-muted-foreground">
+                Upload your organization's logo image (JPEG, PNG, GIF, or WebP, max 10MB)
+              </p>
             </CardContent>
           </Card>
 
