@@ -568,11 +568,11 @@ export function DashboardNativeView({
             />
             {/* Chat selection indicator */}
             {selectedChartForChat === componentId ? (
-              <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full shadow-lg z-10">
+              <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full shadow-lg z-10">
                 Selected for AI
               </div>
             ) : (
-              <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-5">
                 Click to select for AI
               </div>
             )}
