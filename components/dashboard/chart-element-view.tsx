@@ -137,6 +137,16 @@ export function ChartElementView({
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
 
+  // Table drill-down state (separate from map drill-down)
+  const [tableDrillDownPath, setTableDrillDownPath] = useState<
+    Array<{
+      level: number;
+      column: string;
+      value: any;
+      display_name: string;
+    }>
+  >([]);
+
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
 
@@ -305,58 +315,107 @@ export function ChartElementView({
       : null;
 
   // Build chartDataPayload for ALL chart types (for CSV export and table data)
-  const chartDataPayload: ChartDataPayload | null = effectiveChart
-    ? {
-        chart_type: effectiveChart.chart_type,
-        computation_type: effectiveChart.computation_type as 'raw' | 'aggregated',
-        schema_name: effectiveChart.schema_name,
-        table_name: effectiveChart.table_name,
-        x_axis: effectiveChart.extra_config?.x_axis_column,
-        y_axis: effectiveChart.extra_config?.y_axis_column,
-        // For map charts, use geographic_column as dimension_col
-        dimension_col:
-          effectiveChart.chart_type === 'map'
-            ? effectiveChart.extra_config?.geographic_column
-            : effectiveChart.extra_config?.dimension_column,
-        // For map charts, use value_column or aggregate_column
-        aggregate_col:
-          effectiveChart.chart_type === 'map'
-            ? effectiveChart.extra_config?.value_column ||
-              effectiveChart.extra_config?.aggregate_column
-            : effectiveChart.extra_config?.aggregate_column,
-        aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
-        extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
-        metrics: effectiveChart.extra_config?.metrics,
-        geographic_column: effectiveChart.extra_config?.geographic_column,
-        value_column: effectiveChart.extra_config?.value_column,
-        selected_geojson_id: effectiveChart.extra_config?.selected_geojson_id,
-        customizations: effectiveChart.extra_config?.customizations,
-        extra_config: {
-          filters: [
-            // Include chart-level filters
-            ...(effectiveChart.extra_config?.filters || []),
-            // Include resolved dashboard filters for all chart types
-            ...formatAsChartFilters(
-              resolvedDashboardFilters.filter(
-                (filter) =>
-                  filter.schema_name === effectiveChart.schema_name &&
-                  filter.table_name === effectiveChart.table_name
-              )
-            ),
-          ],
-          pagination: effectiveChart.extra_config?.pagination,
-          sort: effectiveChart.extra_config?.sort,
-        },
-        // Dashboard filters passed separately
-        dashboard_filters:
-          Object.keys(dashboardFilters).length > 0
-            ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
-                filter_id,
-                value,
-              }))
-            : undefined,
+  const chartDataPayload: ChartDataPayload | null = useMemo(() => {
+    if (!effectiveChart) return null;
+
+    // For drill-down tables, determine dimension_col based on current level
+    const currentDrillLevel = tableDrillDownPath.length;
+    const levelConfig =
+      effectiveChart.extra_config?.drill_down_config?.hierarchy?.[currentDrillLevel];
+
+    // Determine dimension column (for drill-down tables, use level config)
+    let dimensionCol;
+    if (effectiveChart.chart_type === 'map') {
+      dimensionCol = effectiveChart.extra_config?.geographic_column;
+    } else if (levelConfig?.column) {
+      dimensionCol = levelConfig.column;
+    } else {
+      dimensionCol = effectiveChart.extra_config?.dimension_column;
+    }
+
+    // For drill-down tables, get metrics from the level config (only if it has values)
+    const metrics =
+      levelConfig?.aggregation_columns?.length > 0
+        ? levelConfig.aggregation_columns.map((col: string) => ({
+            column: col,
+            aggregation: 'sum',
+            alias: `sum_${col}`,
+          }))
+        : effectiveChart.extra_config?.metrics;
+
+    let computationType = effectiveChart.computation_type;
+    if (
+      effectiveChart.chart_type === 'table' &&
+      effectiveChart.extra_config?.drill_down_config?.enabled
+    ) {
+      if (!metrics || (Array.isArray(metrics) && metrics.length === 0)) {
+        computationType = 'raw';
       }
-    : null;
+    } else if (
+      effectiveChart.computation_type === 'aggregated' &&
+      (!metrics || (Array.isArray(metrics) && metrics.length === 0))
+    ) {
+      console.error('⚠️ [DASHBOARD-VIEW] Aggregated chart has no metrics!', {
+        chartId: effectiveChart.id,
+        levelConfig,
+        originalMetrics: effectiveChart.extra_config?.metrics,
+      });
+    }
+
+    return {
+      chart_type: effectiveChart.chart_type,
+      computation_type: computationType as 'raw' | 'aggregated',
+      schema_name: effectiveChart.schema_name,
+      table_name: effectiveChart.table_name,
+      x_axis: effectiveChart.extra_config?.x_axis_column,
+      y_axis: effectiveChart.extra_config?.y_axis_column,
+      dimension_col: dimensionCol,
+      // For map charts, use value_column or aggregate_column
+      aggregate_col:
+        effectiveChart.chart_type === 'map'
+          ? effectiveChart.extra_config?.value_column ||
+            effectiveChart.extra_config?.aggregate_column
+          : effectiveChart.extra_config?.aggregate_column,
+      aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
+      extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
+      metrics: metrics && Array.isArray(metrics) && metrics.length > 0 ? metrics : undefined,
+      geographic_column: effectiveChart.extra_config?.geographic_column,
+      value_column: effectiveChart.extra_config?.value_column,
+      selected_geojson_id: effectiveChart.extra_config?.selected_geojson_id,
+      customizations: effectiveChart.extra_config?.customizations,
+      extra_config: {
+        filters: [
+          // Include chart-level filters
+          ...(effectiveChart.extra_config?.filters || []),
+          // Include resolved dashboard filters for all chart types
+          ...formatAsChartFilters(
+            resolvedDashboardFilters.filter(
+              (filter) =>
+                filter.schema_name === effectiveChart.schema_name &&
+                filter.table_name === effectiveChart.table_name
+            )
+          ),
+          // ✅ FIX: Include table drill-down filters
+          ...tableDrillDownPath.map((step) => ({
+            column: step.column,
+            operator: 'equals' as const,
+            value: step.value,
+          })),
+        ],
+        pagination: effectiveChart.extra_config?.pagination,
+        sort: effectiveChart.extra_config?.sort,
+        drill_down_config: effectiveChart.extra_config?.drill_down_config,
+      },
+      // Dashboard filters passed separately
+      dashboard_filters:
+        Object.keys(dashboardFilters).length > 0
+          ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
+              filter_id,
+              value,
+            }))
+          : undefined,
+    };
+  }, [effectiveChart, resolvedDashboardFilters, tableDrillDownPath, dashboardFilters]);
 
   // For table charts - public vs private mode
   const publicTableDataUrl =
@@ -370,15 +429,23 @@ export function ChartElementView({
     isLoading: publicTableLoading,
   } = useSWR(
     publicTableDataUrl
-      ? [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
+      ? [
+          publicTableDataUrl,
+          chartDataPayload,
+          tablePage,
+          tablePageSize,
+          dashboardFilters,
+          tableDrillDownPath,
+        ]
       : null,
     isPublicMode && isTableChart
-      ? async ([url, payload, page, size, filters]: [
+      ? async ([url, payload, page, size, filters, drillPath]: [
           string,
           ChartDataPayload,
           number,
           number,
           Record<string, any>,
+          Array<any>,
         ]) => {
           // Send page and limit as query parameters (0-based page for backend)
           const queryParams = new URLSearchParams({
@@ -415,13 +482,15 @@ export function ChartElementView({
     !isPublicMode ? chartDataPayload : null,
     tablePage,
     tablePageSize,
-    dashboardFilters
+    dashboardFilters,
+    tableDrillDownPath
   );
 
   // Get total rows for table pagination (private mode)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
     !isPublicMode ? chartDataPayload : null,
-    dashboardFilters
+    dashboardFilters,
+    tableDrillDownPath
   );
 
   // Get total rows for table pagination (public mode) - POST call like data-preview
@@ -431,9 +500,16 @@ export function ChartElementView({
       : null;
 
   const { data: publicTableTotalRowsData } = useSWR(
-    publicTableTotalRowsUrl ? [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters] : null,
+    publicTableTotalRowsUrl
+      ? [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters, tableDrillDownPath]
+      : null,
     isPublicMode && isTableChart
-      ? async ([url, payload, filters]: [string, ChartDataPayload, Record<string, any>]) => {
+      ? async ([url, payload, filters, drillPath]: [
+          string,
+          ChartDataPayload,
+          Record<string, any>,
+          Array<any>,
+        ]) => {
           // Add dashboard filters as query parameters if present
           const queryParams = new URLSearchParams();
           if (Object.keys(filters).length > 0) {
@@ -865,6 +941,40 @@ export function ChartElementView({
   // Handle drill to home (first level)
   const handleDrillHome = () => {
     setDrillDownPath([]);
+  };
+
+  const handleTableDrillDown = (column: string, value: any) => {
+    if (!effectiveChart?.extra_config?.drill_down_config) {
+      return;
+    }
+
+    const currentLevel = tableDrillDownPath.length;
+    const levelConfig = effectiveChart.extra_config.drill_down_config.hierarchy[currentLevel];
+
+    if (!levelConfig) {
+      return;
+    }
+
+    const newPath = [
+      ...tableDrillDownPath,
+      {
+        level: currentLevel,
+        column: levelConfig.column,
+        value: value,
+        display_name: levelConfig.display_name,
+      },
+    ];
+
+    setTableDrillDownPath(newPath);
+    setTablePage(1);
+  };
+
+  const handleTableDrillUp = (level?: number) => {
+    if (level === undefined || level === tableDrillDownPath.length) return;
+
+    const newPath = tableDrillDownPath.slice(0, level);
+    setTableDrillDownPath(newPath);
+    setTablePage(1); // Reset pagination when drilling up
   };
 
   // Initialize and update chart
@@ -1506,6 +1616,7 @@ export function ChartElementView({
                 enabled: true,
                 page_size: 20,
               },
+              drill_down_config: effectiveChart?.extra_config?.drill_down_config,
             }}
             isLoading={tableLoading}
             error={tableError}
@@ -1520,6 +1631,9 @@ export function ChartElementView({
                   }
                 : undefined
             }
+            drillDownPath={tableDrillDownPath}
+            onDrillDown={handleTableDrillDown}
+            onDrillUp={handleTableDrillUp}
           />
         </div>
       ) : isMapChart ? (

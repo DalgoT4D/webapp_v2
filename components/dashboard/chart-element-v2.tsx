@@ -104,10 +104,54 @@ export function ChartElementV2({
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
 
+  // Table drill-down state (separate from map drill-down)
+  const [tableDrillDownPath, setTableDrillDownPath] = useState<
+    Array<{
+      level: number;
+      column: string;
+      value: any;
+      display_name: string;
+    }>
+  >([]);
+
   // Handle table pagination page size change
   const handleTablePageSizeChange = (newPageSize: number) => {
     setTablePageSize(newPageSize);
     setTablePage(1); // Reset to first page when page size changes
+  };
+
+  const handleTableDrillDown = (column: string, value: any) => {
+    if (!chart?.extra_config?.drill_down_config) {
+      return;
+    }
+
+    const currentLevel = tableDrillDownPath.length;
+    const levelConfig = chart.extra_config.drill_down_config.hierarchy[currentLevel];
+
+    if (!levelConfig) {
+      return;
+    }
+
+    const newPath = [
+      ...tableDrillDownPath,
+      {
+        level: currentLevel,
+        column: levelConfig.column,
+        value: value,
+        display_name: levelConfig.display_name,
+      },
+    ];
+
+    setTableDrillDownPath(newPath);
+    setTablePage(1);
+  };
+
+  const handleTableDrillUp = (level?: number) => {
+    if (level === undefined || level === tableDrillDownPath.length) return;
+
+    const newPath = tableDrillDownPath.slice(0, level);
+    setTableDrillDownPath(newPath);
+    setTablePage(1); // Reset pagination when drilling up
   };
 
   // Resolve dashboard filters to complete column information for maps and tables
@@ -357,38 +401,89 @@ export function ChartElementV2({
         existingFilters: chart.extra_config?.filters || [],
       });
 
+      // For drill-down tables, determine dimension_col based on current level
+      const currentLevel = tableDrillDownPath.length;
+      const levelConfig = chart.extra_config?.drill_down_config?.hierarchy?.[currentLevel];
+      const dimensionCol = levelConfig?.column || chart.extra_config?.dimension_column;
+
+      // For drill-down tables, get metrics from the level config (only if it has values)
+      const metrics =
+        levelConfig?.aggregation_columns?.length > 0
+          ? levelConfig.aggregation_columns.map((col: string) => ({
+              column: col,
+              aggregation: 'sum',
+              alias: `sum_${col}`,
+            }))
+          : chart.extra_config?.metrics;
+
+      let computationType = chart.computation_type;
+      if (chart.chart_type === 'table' && chart.extra_config?.drill_down_config?.enabled) {
+        if (!metrics || (Array.isArray(metrics) && metrics.length === 0)) {
+          computationType = 'raw';
+        }
+      } else if (
+        chart.computation_type === 'aggregated' &&
+        (!metrics || (Array.isArray(metrics) && metrics.length === 0))
+      ) {
+        console.error('⚠️ [EDIT-MODE] Aggregated chart has no metrics!', {
+          chartId: chart.id,
+          levelConfig,
+          originalMetrics: chart.extra_config?.metrics,
+        });
+      }
+
       return {
         chart_type: chart.chart_type,
-        computation_type: chart.computation_type as 'raw' | 'aggregated',
+        computation_type: computationType as 'raw' | 'aggregated',
         schema_name: chart.schema_name,
         table_name: chart.table_name,
         x_axis: chart.extra_config?.x_axis_column,
         y_axis: chart.extra_config?.y_axis_column,
-        dimension_col: chart.extra_config?.dimension_column,
+        dimension_col: dimensionCol,
         aggregate_col: chart.extra_config?.aggregate_column,
         aggregate_func: chart.extra_config?.aggregate_function || 'sum',
         extra_dimension: chart.extra_config?.extra_dimension_column,
-        metrics: chart.extra_config?.metrics,
+        metrics: metrics && Array.isArray(metrics) && metrics.length > 0 ? metrics : undefined,
         extra_config: {
-          filters: [...(chart.extra_config?.filters || []), ...formattedFilters],
+          filters: [
+            ...(chart.extra_config?.filters || []),
+            ...formattedFilters,
+            // Include table drill-down filters
+            ...tableDrillDownPath.map((step) => ({
+              column: step.column,
+              operator: 'equals' as const,
+              value: step.value,
+            })),
+          ],
           pagination: chart.extra_config?.pagination,
           sort: chart.extra_config?.sort,
+          drill_down_config: chart.extra_config?.drill_down_config,
         },
         // Remove dashboard_filters since we're using filters in extra_config now
       };
     }
     return null;
-  }, [chart, resolvedDashboardFilters, chartId]);
+  }, [chart, resolvedDashboardFilters, chartId, tableDrillDownPath]);
 
   const {
     data: tableData,
     error: tableError,
     isLoading: tableLoading,
     mutate: mutateTableData,
-  } = useChartDataPreview(chartDataPayload, tablePage, tablePageSize, appliedFilters);
+  } = useChartDataPreview(
+    chartDataPayload,
+    tablePage,
+    tablePageSize,
+    appliedFilters,
+    tableDrillDownPath
+  );
 
   // Get total rows for table pagination
-  const { data: tableTotalRows } = useChartDataPreviewTotalRows(chartDataPayload, appliedFilters);
+  const { data: tableTotalRows } = useChartDataPreviewTotalRows(
+    chartDataPayload,
+    appliedFilters,
+    tableDrillDownPath
+  );
 
   // Compute derived state
   const isLoading =
@@ -1044,6 +1139,7 @@ export function ChartElementV2({
                   column_formatting: {},
                   sort: chart?.extra_config?.sort || [],
                   pagination: chart?.extra_config?.pagination || { enabled: true, page_size: 20 },
+                  drill_down_config: chart?.extra_config?.drill_down_config,
                 }}
                 isLoading={tableLoading}
                 error={tableError}
@@ -1058,6 +1154,9 @@ export function ChartElementV2({
                       }
                     : undefined
                 }
+                drillDownPath={tableDrillDownPath}
+                onDrillDown={handleTableDrillDown}
+                onDrillUp={handleTableDrillUp}
               />
             ) : chart?.chart_type === 'map' ? (
               <MapPreview

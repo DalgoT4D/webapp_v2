@@ -72,11 +72,13 @@ export function SimpleTableConfiguration({
   const handleHierarchyLevelChange = (levelIndex: number, column: string) => {
     if (onDrillDownConfigChange) {
       const newHierarchy = [...hierarchyLevels];
+      // ✅ FIX: Preserve aggregation columns from level 0 (shared across all levels)
+      const sharedAggCols = hierarchyLevels[0]?.aggregation_columns || [];
       newHierarchy[levelIndex] = {
         level: levelIndex,
         column,
         display_name: column,
-        aggregation_columns: newHierarchy[levelIndex]?.aggregation_columns || [],
+        aggregation_columns: sharedAggCols,
       };
       onDrillDownConfigChange({
         enabled: isDrillDownEnabled,
@@ -87,11 +89,13 @@ export function SimpleTableConfiguration({
 
   const handleAddLevel = () => {
     if (onDrillDownConfigChange && hierarchyLevels.length < 5) {
+      // ✅ FIX: New levels should inherit aggregation columns from level 0
+      const sharedAggCols = hierarchyLevels[0]?.aggregation_columns || [];
       const newLevel = {
         level: hierarchyLevels.length,
         column: availableColumns[0] || '',
         display_name: availableColumns[0] || '',
-        aggregation_columns: [],
+        aggregation_columns: sharedAggCols,
       };
       onDrillDownConfigChange({
         enabled: isDrillDownEnabled,
@@ -127,44 +131,12 @@ export function SimpleTableConfiguration({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Table Columns</CardTitle>
+        <CardTitle className="text-base">Table Configuration</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2 mb-4">
-          <Button variant="outline" size="sm" onClick={handleSelectAllColumns}>
-            Select All
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleClearAllColumns}>
-            Clear All
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-          {availableColumns.map((column) => (
-            <div key={column} className="flex items-center space-x-2">
-              <Checkbox
-                id={column}
-                checked={selectedColumns.includes(column)}
-                onCheckedChange={(checked) => handleColumnToggle(column, checked as boolean)}
-              />
-              <Label
-                htmlFor={column}
-                className="text-sm font-normal cursor-pointer truncate"
-                title={column}
-              >
-                {column}
-              </Label>
-            </div>
-          ))}
-        </div>
-
-        <div className="text-sm text-muted-foreground">
-          Selected {selectedColumns.length} of {availableColumns.length} columns
-        </div>
-
         {/* Drill-down Configuration */}
         {onDrillDownConfigChange && (
-          <div className="pt-6 mt-6 border-t space-y-4">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-medium">Drill-Down</h4>
@@ -267,11 +239,11 @@ export function SimpleTableConfiguration({
                                   ? [...currentAggCols, column]
                                   : currentAggCols.filter((c) => c !== column);
 
-                                const newHierarchy = [...hierarchyLevels];
-                                newHierarchy[0] = {
-                                  ...newHierarchy[0],
+                                // ✅ FIX: Apply aggregation columns to ALL hierarchy levels
+                                const newHierarchy = hierarchyLevels.map((level) => ({
+                                  ...level,
                                   aggregation_columns: newAggCols,
-                                };
+                                }));
 
                                 onDrillDownConfigChange({
                                   enabled: isDrillDownEnabled,

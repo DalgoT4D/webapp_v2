@@ -69,8 +69,6 @@ interface TableChartProps {
   drillDownPath?: DrillDownPathStep[];
   onDrillDown?: (column: string, value: any) => void;
   onDrillUp?: (level?: number) => void;
-  onRowDoubleClick?: (row: Record<string, any>) => void;
-  drillDownEnabled?: boolean;
 }
 
 export function TableChart({
@@ -83,8 +81,6 @@ export function TableChart({
   drillDownPath = [],
   onDrillDown,
   onDrillUp,
-  onRowDoubleClick,
-  drillDownEnabled = false,
 }: TableChartProps) {
   const {
     table_columns,
@@ -280,24 +276,24 @@ export function TableChart({
     <div className="w-full h-full flex flex-col">
       {/* Breadcrumb Navigation */}
       {isDrillDownConfigured && drillDownPath.length > 0 && onDrillUp && (
-        <div className="border-b px-4 py-2 bg-gray-50">
-          <div className="flex items-center gap-2 text-sm">
+        <div className="border-b px-2 sm:px-4 py-2 bg-gray-50">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm overflow-x-auto">
             <button
               type="button"
               onClick={() => onDrillUp(0)}
-              className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+              className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 whitespace-nowrap"
               title="Back to root"
             >
-              <Home className="h-3 w-3" />
+              <Home className="h-3 w-3 flex-shrink-0" />
               <span>Root</span>
             </button>
             {drillDownPath.map((step, index) => (
-              <div key={index} className="flex items-center gap-2">
+              <div key={index} className="flex items-center gap-1 sm:gap-2">
                 <span className="text-gray-400">/</span>
                 <button
                   type="button"
                   onClick={() => onDrillUp(index + 1)}
-                  className="text-blue-600 hover:text-blue-800 hover:underline"
+                  className="text-blue-600 hover:text-blue-800 hover:underline whitespace-nowrap"
                   title={`Back to ${step.display_name}`}
                 >
                   {step.value}
@@ -308,8 +304,8 @@ export function TableChart({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto">
-        <Table className="h-auto">
+      <div className="flex-1 overflow-x-auto overflow-y-auto">
+        <Table className="h-auto min-w-full">
           <TableHeader>
             <TableRow>
               {columns.map((column) => {
@@ -317,12 +313,15 @@ export function TableChart({
                 const canSort = !!onSort;
 
                 return (
-                  <TableHead key={column} className="font-semibold py-2 px-2">
+                  <TableHead
+                    key={column}
+                    className="font-semibold py-2 px-1.5 sm:px-2 text-xs sm:text-sm whitespace-nowrap"
+                  >
                     {canSort ? (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        className="h-auto p-0 font-semibold hover:bg-transparent text-xs sm:text-sm"
                         onClick={() => handleSort(column)}
                       >
                         <span className="mr-1">{column}</span>
@@ -344,25 +343,27 @@ export function TableChart({
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => (
-              <TableRow
-                key={index}
-                onDoubleClick={() => onRowDoubleClick?.(row)}
-                className={cn(
-                  drillDownEnabled && 'cursor-pointer hover:bg-gray-50 transition-colors'
-                )}
-                title={drillDownEnabled ? 'Double-click to drill down' : ''}
-              >
+              <TableRow key={index}>
                 {columns.map((column) => {
                   // Check if this cell should be clickable for drill-down
                   const nextLevel = currentDrillLevel + 1;
-                  const hasNextLevel =
-                    drill_down_config?.hierarchy && drill_down_config.hierarchy.length > nextLevel;
-                  const isDrillDownCell =
-                    isDrillDownConfigured && column === drillDownColumn && hasNextLevel;
+                  const hasNextLevel = Boolean(
+                    drill_down_config?.hierarchy && drill_down_config.hierarchy.length > nextLevel
+                  );
+                  const columnMatches = column === drillDownColumn;
+                  const isDrillDownCell = Boolean(
+                    isDrillDownConfigured === true &&
+                      columnMatches === true &&
+                      hasNextLevel === true &&
+                      onDrillDown !== undefined
+                  );
                   const cellValue = formatCellValue(row[column], column);
 
                   return (
-                    <TableCell key={column} className="py-1.5 px-2">
+                    <TableCell
+                      key={column}
+                      className="py-1 sm:py-1.5 px-1.5 sm:px-2 text-xs sm:text-sm whitespace-nowrap"
+                    >
                       {isDrillDownCell ? (
                         <button
                           type="button"
@@ -386,10 +387,10 @@ export function TableChart({
 
       {/* Pagination Controls */}
       {(isServerSidePagination ? (pagination?.total || 0) > 0 : data.length > 0) && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 border-t px-2 sm:px-4 py-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-6 w-full sm:w-auto">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                 {isServerSidePagination ? (
                   <>
                     Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
@@ -434,12 +435,12 @@ export function TableChart({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
             <div className="flex items-center gap-1">
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
                 onClick={() => {
                   if (isServerSidePagination) {
                     pagination?.onPageChange(1);
@@ -449,13 +450,13 @@ export function TableChart({
                 }}
                 disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
               >
-                <ChevronFirst className="h-4 w-4" />
+                <ChevronFirst className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="sr-only">First page</span>
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={() => {
                   if (isServerSidePagination) {
                     pagination?.onPageChange(pagination.page - 1);
@@ -465,13 +466,13 @@ export function TableChart({
                 }}
                 disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="sr-only">Previous page</span>
               </Button>
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">
+              <span className="text-xs sm:text-sm font-medium whitespace-nowrap">
                 Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
               </span>
             </div>
@@ -480,7 +481,7 @@ export function TableChart({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={() => {
                   if (isServerSidePagination) {
                     pagination?.onPageChange(pagination.page + 1);
@@ -494,13 +495,13 @@ export function TableChart({
                     : currentPage === totalPages
                 }
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="sr-only">Next page</span>
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
                 onClick={() => {
                   if (isServerSidePagination) {
                     pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
@@ -514,7 +515,7 @@ export function TableChart({
                     : currentPage === totalPages
                 }
               >
-                <ChevronLast className="h-4 w-4" />
+                <ChevronLast className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="sr-only">Last page</span>
               </Button>
             </div>

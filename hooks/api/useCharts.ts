@@ -78,8 +78,21 @@ export function useChart(id: number) {
       // Retry after 1 second
       setTimeout(() => revalidate({ retryCount }), 1000);
     },
+    onSuccess: (data) => {
+      console.log('📥 [useChart] Received chart from API:', {
+        id: data?.id,
+        title: data?.title,
+        chart_type: data?.chart_type,
+        hasDrillDownConfig: !!data?.extra_config?.drill_down_config,
+        drillDownEnabled: data?.extra_config?.drill_down_config?.enabled,
+        hierarchyLevels: data?.extra_config?.drill_down_config?.hierarchy?.length,
+        fullDrillDownConfig: data?.extra_config?.drill_down_config,
+        fullExtraConfig: data?.extra_config,
+      });
+    },
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
+    dedupingInterval: 0, // ✅ FIX: Disable caching to always get fresh data
   });
 
   return {

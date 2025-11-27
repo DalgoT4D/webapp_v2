@@ -15,7 +15,6 @@ import {
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
-import { DrillDownTable } from '@/components/charts/DrillDownTable';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -214,10 +213,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     setTableChartPage(1); // Reset to first page when page size changes
   }, []);
 
-  // Table drill-down handlers
   const handleTableDrillDown = useCallback(
     (column: string, value: any) => {
-      console.log('🔽 Table drill-down:', { column, value, currentPath: tableDrillDownPath });
       setTableDrillDownPath((prev) => [
         ...prev,
         {
@@ -233,7 +230,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   const handleTableDrillUp = useCallback(
     (level?: number) => {
-      console.log('🔼 Table drill-up:', { level, currentPath: tableDrillDownPath });
       if (level === undefined || level === 0) {
         setTableDrillDownPath([]);
       } else {
@@ -268,9 +264,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       activeGeographicColumn = lastDrillDown.geographic_column;
 
       if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
         activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
       } else {
         // Fallback to the stored geojson_id (if any)
         activeGeojsonId = lastDrillDown.geojson_id;
@@ -679,18 +673,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               chartType={chart.chart_type}
               chartDataPayload={chartDataPayload}
               tableData={
-                (chart.chart_type === 'table' || chart.chart_type === 'drilldown') && tableData
+                chart.chart_type === 'table' && tableData
                   ? {
                       data: tableData.data || [],
                       columns: tableData.columns || [],
                     }
                   : undefined
               }
-              tableElement={
-                chart.chart_type === 'table' || chart.chart_type === 'drilldown'
-                  ? chartContentRef.current
-                  : undefined
-              }
+              tableElement={chart.chart_type === 'table' ? chartContentRef.current : undefined}
             />
           </div>
         </div>
@@ -718,51 +708,36 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   onDrillUp={handleDrillUp}
                   onDrillHome={handleDrillHome}
                 />
-              ) : chart?.chart_type === 'drilldown' ? (
-                <DrillDownTable
-                  chartId={chartId}
-                  config={chart.extra_config?.drill_down_config}
-                  initialFilters={chart.extra_config?.filters || []}
-                />
               ) : chart?.chart_type === 'table' ? (
-                // Check if drill-down is enabled for this table
-                chart.extra_config?.drill_down_config?.enabled ? (
-                  <DrillDownTable
-                    chartId={chartId}
-                    config={chart.extra_config.drill_down_config}
-                    initialFilters={chart.extra_config?.filters || []}
-                  />
-                ) : (
-                  <TableChart
-                    data={Array.isArray(tableData?.data) ? tableData.data : []}
-                    config={{
-                      table_columns: tableData?.columns || chart.extra_config?.table_columns || [],
-                      column_formatting: {},
-                      sort: chart.extra_config?.sort || [],
-                      pagination: chart.extra_config?.pagination || {
-                        enabled: true,
-                        page_size: 20,
-                      },
-                      drill_down_config: chart.extra_config?.drill_down_config,
-                    }}
-                    isLoading={tableLoading}
-                    error={tableError}
-                    pagination={
-                      chartDataPayload && tableData
-                        ? {
-                            page: tableChartPage,
-                            pageSize: tableChartPageSize,
-                            total: tableDataTotalRows || 0,
-                            onPageChange: setTableChartPage,
-                            onPageSizeChange: handleTableChartPageSizeChange,
-                          }
-                        : undefined
-                    }
-                    drillDownPath={tableDrillDownPath}
-                    onDrillDown={handleTableDrillDown}
-                    onDrillUp={handleTableDrillUp}
-                  />
-                )
+                <TableChart
+                  data={Array.isArray(tableData?.data) ? tableData.data : []}
+                  config={{
+                    table_columns: tableData?.columns || chart.extra_config?.table_columns || [],
+                    column_formatting: {},
+                    sort: chart.extra_config?.sort || [],
+                    pagination: chart.extra_config?.pagination || {
+                      enabled: true,
+                      page_size: 20,
+                    },
+                    drill_down_config: chart.extra_config?.drill_down_config,
+                  }}
+                  isLoading={tableLoading}
+                  error={tableError}
+                  pagination={
+                    chartDataPayload && tableData
+                      ? {
+                          page: tableChartPage,
+                          pageSize: tableChartPageSize,
+                          total: tableDataTotalRows || 0,
+                          onPageChange: setTableChartPage,
+                          onPageSizeChange: handleTableChartPageSizeChange,
+                        }
+                      : undefined
+                  }
+                  drillDownPath={tableDrillDownPath}
+                  onDrillDown={handleTableDrillDown}
+                  onDrillUp={handleTableDrillUp}
+                />
               ) : (
                 <ChartPreview
                   config={chartData?.echarts_config}

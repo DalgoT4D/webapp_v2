@@ -301,8 +301,11 @@ function EditChartPageContent() {
         geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
         // Include table_columns for table charts
         table_columns: chart.extra_config?.table_columns || [],
-        // Include drill_down_config for table charts
-        drill_down_config: chart.extra_config?.drill_down_config,
+        // Include extra_config with drill_down_config for table charts
+        extra_config: {
+          ...chart.extra_config,
+          drill_down_config: chart.extra_config?.drill_down_config,
+        },
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -485,8 +488,8 @@ function EditChartPageContent() {
     let tableColumns = formData.table_columns;
     let metrics = formData.metrics;
 
-    if (formData.chart_type === 'table' && formData.drill_down_config?.enabled) {
-      const hierarchyLevels = formData.drill_down_config.hierarchy || [];
+    if (formData.chart_type === 'table' && formData.extra_config?.drill_down_config?.enabled) {
+      const hierarchyLevels = formData.extra_config.drill_down_config.hierarchy || [];
 
       // Determine which level we're at (0 = root, 1 = first drill, etc.)
       const currentLevel = tableDrillDownPath.length;
@@ -557,6 +560,7 @@ function EditChartPageContent() {
         sort: formData.sort,
         time_grain: formData.time_grain,
         table_columns: tableColumns,
+        drill_down_config: formData.extra_config?.drill_down_config,
       },
     };
   }, [
@@ -581,7 +585,7 @@ function EditChartPageContent() {
     formData.sort,
     formData.time_grain,
     formData.customizations,
-    formData.drill_down_config,
+    formData.extra_config?.drill_down_config,
     tableDrillDownPath,
   ]);
 
@@ -1232,7 +1236,7 @@ function EditChartPageContent() {
         // Include table_columns for table charts
         table_columns: formData.table_columns,
         // Include drill_down_config for table charts
-        drill_down_config: formData.drill_down_config,
+        drill_down_config: formData.extra_config?.drill_down_config,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
       },
@@ -1511,9 +1515,14 @@ function EditChartPageContent() {
                             }
                             selectedColumns={formData.table_columns || []}
                             onColumnsChange={(table_columns) => handleFormChange({ table_columns })}
-                            drillDownConfig={formData.drill_down_config}
+                            drillDownConfig={formData.extra_config?.drill_down_config}
                             onDrillDownConfigChange={(drill_down_config) =>
-                              handleFormChange({ drill_down_config })
+                              handleFormChange({
+                                extra_config: {
+                                  ...formData.extra_config,
+                                  drill_down_config,
+                                },
+                              })
                             }
                           />
                         )}
@@ -1612,7 +1621,7 @@ function EditChartPageContent() {
                           column_formatting: {},
                           sort: formData.sort,
                           pagination: formData.pagination || { enabled: true, page_size: 20 },
-                          drill_down_config: formData.drill_down_config,
+                          drill_down_config: formData.extra_config?.drill_down_config,
                         }}
                         isLoading={tableChartLoading}
                         error={tableChartError}

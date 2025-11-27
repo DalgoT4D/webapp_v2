@@ -355,8 +355,8 @@ function ConfigureChartPageContent() {
     let tableColumns = formData.table_columns;
     let metrics = formData.metrics;
 
-    if (formData.chart_type === 'table' && formData.drill_down_config?.enabled) {
-      const hierarchyLevels = formData.drill_down_config.hierarchy || [];
+    if (formData.chart_type === 'table' && formData.extra_config?.drill_down_config?.enabled) {
+      const hierarchyLevels = formData.extra_config.drill_down_config.hierarchy || [];
 
       // Determine which level we're at (0 = root, 1 = first drill, etc.)
       const currentLevel = tableDrillDownPath.length;
@@ -436,6 +436,7 @@ function ConfigureChartPageContent() {
         sort: formData.sort,
         time_grain: formData.time_grain,
         table_columns: tableColumns,
+        drill_down_config: formData.extra_config?.drill_down_config,
       },
     };
   }, [
@@ -460,7 +461,7 @@ function ConfigureChartPageContent() {
     formData.time_grain,
     formData.customizations,
     formData.table_columns,
-    formData.drill_down_config,
+    formData.extra_config?.drill_down_config,
     tableDrillDownPath,
   ]);
 
@@ -622,7 +623,20 @@ function ConfigureChartPageContent() {
 
   const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
     console.log('🔄 [CREATE-MODE] Form data change:', updates);
-    setFormData((prev) => ({ ...prev, ...updates }));
+    setFormData((prev) => {
+      // Special handling for extra_config to merge deeply instead of replace
+      if (updates.extra_config) {
+        return {
+          ...prev,
+          ...updates,
+          extra_config: {
+            ...prev.extra_config,
+            ...updates.extra_config,
+          },
+        };
+      }
+      return { ...prev, ...updates };
+    });
   };
 
   // Auto-prefill when columns are loaded
@@ -935,32 +949,42 @@ function ConfigureChartPageContent() {
         pagination: formData.pagination,
         sort: formData.sort,
         time_grain: formData.time_grain,
+        // Table-specific fields
+        table_columns: formData.table_columns,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         // ✅ FIX: Include geographic_hierarchy for drill-down functionality
         ...(formData.geographic_hierarchy && {
           geographic_hierarchy: formData.geographic_hierarchy,
         }),
+        // ✅ FIX: Include drill_down_config for table drill-down
+        ...(formData.extra_config?.drill_down_config && {
+          drill_down_config: formData.extra_config.drill_down_config,
+        }),
       },
     };
 
-    // ✅ LOG: Track what geographic_hierarchy data is being saved
-    console.log('💾 [CREATE-MODE] Saving chart with geographic_hierarchy:', {
+    // ✅ LOG: Track what drill-down data is being saved
+    console.log('💾 [CREATE-MODE] Saving chart:', {
       chart_type: chartData.chart_type,
       geographic_column: chartData.extra_config.geographic_column,
       geographic_hierarchy: chartData.extra_config.geographic_hierarchy,
-      drill_down_levels_count:
-        chartData.extra_config.geographic_hierarchy?.drill_down_levels?.length || 0,
+      drill_down_config: chartData.extra_config.drill_down_config,
+      drill_down_enabled: chartData.extra_config.drill_down_config?.enabled,
+      hierarchy_levels_count: chartData.extra_config.drill_down_config?.hierarchy?.length || 0,
       full_chartData: chartData,
     });
 
     try {
+      console.log('📤 [CREATE-MODE] Sending to backend:', JSON.stringify(chartData, null, 2));
       const result = await createChart(chartData);
+      console.log('✅ [CREATE-MODE] Backend response:', result);
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
       router.push(`/charts/${result.id}`);
     } catch (error) {
+      console.error('❌ [CREATE-MODE] Save failed:', error);
       toastError.create(error, 'chart');
     }
   };
@@ -1182,7 +1206,7 @@ function ConfigureChartPageContent() {
                           column_formatting: {},
                           sort: formData.sort || [],
                           pagination: formData.pagination || { enabled: true, page_size: 20 },
-                          drill_down_config: formData.drill_down_config,
+                          drill_down_config: formData.extra_config?.drill_down_config,
                         }}
                         isLoading={tableChartLoading}
                         error={tableChartError}
