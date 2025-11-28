@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -11,11 +10,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUsers, useRoles, useUserActions } from '@/hooks/api/useUserManagement';
 import { useAuthStore } from '@/stores/authStore';
-import { User, Info, Save, X, Trash2 } from 'lucide-react';
+import { User, Save, X, Trash2, AlertCircle, Edit } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   DataTable,
@@ -52,8 +50,8 @@ const skeletonConfig: SkeletonConfig = {
   rowCount: 5,
   columns: [
     { width: 'w-[50%]', cellType: 'text' },
-    { width: 'w-[30%]', cellType: 'badge' },
-    { width: 'w-[20%]', cellType: 'actions' },
+    { width: 'w-[35%]', cellType: 'badge' },
+    { width: 'w-[15%]', cellType: 'actions' },
   ],
 };
 
@@ -64,7 +62,7 @@ const initialFilterState: FilterState = {
 };
 
 export function UsersTable() {
-  const { users, isLoading, mutate } = useUsers();
+  const { users, isLoading, error, mutate } = useUsers();
   const { roles } = useRoles();
   const { updateUserRole } = useUserActions();
   const { hasPermission } = useUserPermissions();
@@ -221,7 +219,7 @@ export function UsersTable() {
         ),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
+            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="font-medium">{row.original.email}</span>
           </div>
         ),
@@ -253,7 +251,7 @@ export function UsersTable() {
             return (
               <div className="flex items-center gap-2">
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-40 h-8">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -264,12 +262,18 @@ export function UsersTable() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button size="sm" onClick={handleSaveRole} disabled={isUpdating}>
+                <Button
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={handleSaveRole}
+                  disabled={isUpdating}
+                >
                   <Save className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
+                  className="h-8 w-8 p-0"
                   onClick={handleCancelEdit}
                   disabled={isUpdating}
                 >
@@ -282,12 +286,12 @@ export function UsersTable() {
           return <Badge variant="secondary">{formatRoleName(user.new_role_slug)}</Badge>;
         },
         meta: {
-          headerClassName: 'w-[30%]',
+          headerClassName: 'w-[35%]',
         },
       },
       {
         id: 'actions',
-        header: () => <span className="font-medium text-base text-right block">Actions</span>,
+        header: () => <span className="font-medium text-base">Actions</span>,
         cell: ({ row }) => {
           const user = row.original;
 
@@ -303,12 +307,6 @@ export function UsersTable() {
 
           const actions: ActionMenuItem<UserData>[] = [
             {
-              id: 'edit-role',
-              label: 'Edit Role',
-              onClick: () => handleEditRole(user.email, user.new_role_slug),
-              hidden: !canEditUser,
-            },
-            {
               id: 'delete',
               label: 'Delete User',
               icon: <Trash2 className="w-4 h-4" />,
@@ -319,13 +317,27 @@ export function UsersTable() {
           ];
 
           return (
-            <div className="text-right">
-              <ActionsCell row={user} actions={actions} moreIconVariant="horizontal" />
-            </div>
+            <ActionsCell
+              row={user}
+              actions={actions}
+              moreIconVariant="horizontal"
+              renderPrimaryActions={() =>
+                canEditUser ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    onClick={() => handleEditRole(user.email, user.new_role_slug)}
+                  >
+                    <Edit className="w-4 h-4 text-gray-600" />
+                  </Button>
+                ) : null
+              }
+            />
           );
         },
         meta: {
-          headerClassName: 'w-[20%]',
+          headerClassName: 'w-[15%]',
         },
       },
     ],
@@ -347,79 +359,41 @@ export function UsersTable() {
     ]
   );
 
-  if (isLoading) {
+  // Error state
+  if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertCircle className="w-12 h-12 text-destructive" />
+        <p className="text-muted-foreground">Failed to load users</p>
+        <Button variant="outline" onClick={() => mutate()}>
+          Retry
+        </Button>
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Users
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
-                      management
-                    </div>
-                    <div>
-                      <strong>Pipeline Manager:</strong> Org team member responsible for creating
-                      pipelines & DBT models
-                    </div>
-                    <div>
-                      <strong>Analyst:</strong> M&E team member working on transformation models
-                    </div>
-                    <div>
-                      <strong>Guest:</strong> Able to view the platform and usage dashboard
-                    </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <DataTable
-            data={filteredAndSortedUsers}
-            columns={columns}
-            isLoading={false}
-            getRowId={(row) => row.email}
-            sortState={sortState}
-            onSortChange={setSortState}
-            filterState={filterState}
-            onFilterChange={setFilterState}
-            filterConfigs={filterConfigs}
-            activeFilterCount={getActiveFilterCount()}
-            onClearAllFilters={clearAllFilters}
-            emptyState={{
-              icon: <User className="w-12 h-12" />,
-              title: 'No users found',
-              filteredTitle: 'No users match the current filters',
-            }}
-            skeleton={skeletonConfig}
-            idPrefix="users"
-            className="border-0"
-            tableClassName="border-0 rounded-none"
-          />
-        </CardContent>
-      </Card>
+      <DataTable
+        data={filteredAndSortedUsers}
+        columns={columns}
+        isLoading={isLoading}
+        getRowId={(row) => row.email}
+        sortState={sortState}
+        onSortChange={setSortState}
+        filterState={filterState}
+        onFilterChange={setFilterState}
+        filterConfigs={filterConfigs}
+        activeFilterCount={getActiveFilterCount()}
+        onClearAllFilters={clearAllFilters}
+        emptyState={{
+          icon: <User className="w-12 h-12" />,
+          title: 'No users found',
+          filteredTitle: 'No users match the current filters',
+        }}
+        skeleton={skeletonConfig}
+        idPrefix="users"
+      />
 
       <DeleteUserDialog
         open={!!deleteUser}
