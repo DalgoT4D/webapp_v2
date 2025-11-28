@@ -58,6 +58,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
+  // Table drill-down state management
+  const [tableDrillDownPath, setTableDrillDownPath] = useState<
+    Array<{
+      level: number;
+      column: string;
+      value: any;
+      display_name: string;
+    }>
+  >([]);
+
   // Check if user has view permissions
   if (!hasPermission('can_view_charts')) {
     return (
@@ -81,46 +91,98 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const { data: regions } = useRegions('IND', 'state');
 
   // Build payload for chart data
-  const chartDataPayload: ChartDataPayload | null = chart
-    ? {
-        chart_type: chart.chart_type,
-        computation_type: chart.computation_type,
-        schema_name: chart.schema_name,
-        table_name: chart.table_name,
-        x_axis: chart.extra_config?.x_axis_column,
-        y_axis: chart.extra_config?.y_axis_column,
-        dimension_col: chart.extra_config?.dimension_column,
-        aggregate_col: chart.extra_config?.aggregate_column,
-        aggregate_func: chart.extra_config?.aggregate_function || 'sum',
-        extra_dimension: chart.extra_config?.extra_dimension_column,
-        // Map-specific fields
-        geographic_column: chart.extra_config?.geographic_column,
-        value_column: chart.extra_config?.value_column,
-        selected_geojson_id:
-          chart.extra_config?.selected_geojson_id ||
-          (chart.chart_type === 'map' && chart.extra_config?.layers?.[0]?.geojson_id
-            ? chart.extra_config.layers[0].geojson_id
-            : undefined),
-        // For map charts, also set dimension_col to geographic_column for compatibility
-        ...(chart.chart_type === 'map' && {
-          dimension_col: chart.extra_config?.geographic_column,
-          aggregate_col: chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
-        }),
-        // For table charts, pass selected columns
-        ...(chart.chart_type === 'table' && {
-          table_columns: chart.extra_config?.table_columns,
-        }),
-        customizations: chart.extra_config?.customizations || {},
-        // Include metrics for multiple metrics support
-        metrics: chart.extra_config?.metrics,
-        extra_config: {
-          filters: chart.extra_config?.filters,
-          pagination: chart.extra_config?.pagination,
-          sort: chart.extra_config?.sort,
-          table_columns: chart.extra_config?.table_columns,
-        },
+  const chartDataPayload: ChartDataPayload | null = useMemo(() => {
+    if (!chart) return null;
+
+    // Build base filters from chart config
+    const baseFilters = chart.extra_config?.filters || [];
+
+    // Add table drill-down filters if drill-down path exists
+    const drillDownFilters = tableDrillDownPath.map((step) => ({
+      column: step.column,
+      operator: 'equals', // Backend expects 'equals', not '='
+      value: step.value,
+    }));
+
+    const allFilters = [...baseFilters, ...drillDownFilters];
+
+    // For table drill-down: determine which column to group by based on drill-down level
+    let dimensionColumn = chart.extra_config?.dimension_column;
+    let tableColumns = chart.extra_config?.table_columns;
+    let metrics = chart.extra_config?.metrics;
+
+    if (chart.chart_type === 'table' && chart.extra_config?.drill_down_config?.enabled) {
+      const hierarchyLevels = chart.extra_config.drill_down_config.hierarchy || [];
+
+      // Determine which level we're at (0 = root, 1 = first drill, etc.)
+      const currentLevel = tableDrillDownPath.length;
+
+      // Get the hierarchy configuration for the current level to display
+      const currentHierarchyLevel = hierarchyLevels[currentLevel];
+
+      if (currentHierarchyLevel) {
+        // Use the column from the hierarchy configuration
+        dimensionColumn = currentHierarchyLevel.column;
+
+        // Get aggregation columns (use from current level, fallback to first level for consistency)
+        const aggregationColumns =
+          currentHierarchyLevel.aggregation_columns ||
+          hierarchyLevels[0]?.aggregation_columns ||
+          [];
+
+        // Create metrics for aggregation columns
+        if (aggregationColumns.length > 0) {
+          metrics = aggregationColumns.map((col) => ({
+            column: col,
+            aggregation: 'sum',
+            alias: `sum_${col}`,
+          }));
+        }
+
+        // Update table columns to show dimension + aggregation columns (with aliases)
+        tableColumns = [dimensionColumn, ...aggregationColumns.map((col) => `sum_${col}`)];
       }
-    : null;
+    }
+
+    return {
+      chart_type: chart.chart_type,
+      computation_type: chart.computation_type,
+      schema_name: chart.schema_name,
+      table_name: chart.table_name,
+      x_axis: chart.extra_config?.x_axis_column,
+      y_axis: chart.extra_config?.y_axis_column,
+      dimension_col: dimensionColumn,
+      aggregate_col: chart.extra_config?.aggregate_column,
+      aggregate_func: chart.extra_config?.aggregate_function || 'sum',
+      extra_dimension: chart.extra_config?.extra_dimension_column,
+      // Map-specific fields
+      geographic_column: chart.extra_config?.geographic_column,
+      value_column: chart.extra_config?.value_column,
+      selected_geojson_id:
+        chart.extra_config?.selected_geojson_id ||
+        (chart.chart_type === 'map' && chart.extra_config?.layers?.[0]?.geojson_id
+          ? chart.extra_config.layers[0].geojson_id
+          : undefined),
+      // For map charts, also set dimension_col to geographic_column for compatibility
+      ...(chart.chart_type === 'map' && {
+        dimension_col: chart.extra_config?.geographic_column,
+        aggregate_col: chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
+      }),
+      // For table charts, pass selected columns
+      ...(chart.chart_type === 'table' && {
+        table_columns: tableColumns,
+      }),
+      customizations: chart.extra_config?.customizations || {},
+      // Include metrics for multiple metrics support
+      ...(metrics && metrics.length > 0 && { metrics }),
+      extra_config: {
+        filters: allFilters,
+        pagination: chart.extra_config?.pagination,
+        sort: chart.extra_config?.sort,
+        table_columns: tableColumns,
+      },
+    };
+  }, [chart, tableDrillDownPath]);
 
   // For non-map charts (including tables), use the standard chart data hook
   const {
@@ -151,6 +213,32 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     setTableChartPage(1); // Reset to first page when page size changes
   }, []);
 
+  const handleTableDrillDown = useCallback(
+    (column: string, value: any) => {
+      setTableDrillDownPath((prev) => [
+        ...prev,
+        {
+          level: prev.length,
+          column,
+          value,
+          display_name: column,
+        },
+      ]);
+    },
+    [tableDrillDownPath]
+  );
+
+  const handleTableDrillUp = useCallback(
+    (level?: number) => {
+      if (level === undefined || level === 0) {
+        setTableDrillDownPath([]);
+      } else {
+        setTableDrillDownPath((prev) => prev.slice(0, level));
+      }
+    },
+    [tableDrillDownPath]
+  );
+
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
@@ -176,9 +264,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       activeGeographicColumn = lastDrillDown.geographic_column;
 
       if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
         activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
       } else {
         // Fallback to the stored geojson_id (if any)
         activeGeojsonId = lastDrillDown.geojson_id;
@@ -629,7 +715,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     table_columns: tableData?.columns || chart.extra_config?.table_columns || [],
                     column_formatting: {},
                     sort: chart.extra_config?.sort || [],
-                    pagination: chart.extra_config?.pagination || { enabled: true, page_size: 20 },
+                    pagination: chart.extra_config?.pagination || {
+                      enabled: true,
+                      page_size: 20,
+                    },
+                    drill_down_config: chart.extra_config?.drill_down_config,
                   }}
                   isLoading={tableLoading}
                   error={tableError}
@@ -644,6 +734,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         }
                       : undefined
                   }
+                  drillDownPath={tableDrillDownPath}
+                  onDrillDown={handleTableDrillDown}
+                  onDrillUp={handleTableDrillUp}
                 />
               ) : (
                 <ChartPreview

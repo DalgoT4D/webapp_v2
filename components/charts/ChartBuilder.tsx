@@ -148,49 +148,84 @@ export function ChartBuilder({
   } | null>(null);
 
   // Build payload for chart data - include tables for chart data endpoint
-  const chartDataPayload: ChartDataPayload | null =
-    formData.schema_name && formData.table_name
-      ? {
-          chart_type: formData.chart_type!,
-          computation_type: formData.computation_type || 'aggregated',
-          schema_name: formData.schema_name,
-          table_name: formData.table_name,
-          x_axis: formData.x_axis_column,
-          y_axis: formData.y_axis_column,
-          dimension_col: formData.dimension_column,
-          aggregate_col: formData.aggregate_column,
-          aggregate_func: formData.aggregate_function,
-          extra_dimension: formData.extra_dimension_column,
-          // Multiple metrics for bar/line charts
-          metrics: formData.metrics,
-          // Map-specific fields - also populate dimension_col for map charts
-          geographic_column: formData.geographic_column,
-          value_column: formData.value_column,
-          selected_geojson_id:
-            formData.selected_geojson_id ||
-            (formData.chart_type === 'map' && formData.layers?.[0]?.geojson_id
-              ? formData.layers[0].geojson_id
-              : undefined),
-          // For map charts, also set dimension_col to geographic_column for compatibility
-          ...(formData.chart_type === 'map' && {
-            dimension_col: formData.geographic_column,
-            aggregate_col: formData.aggregate_column || formData.value_column,
-          }),
-          // For table charts, pass selected columns
-          ...(formData.chart_type === 'table' && {
-            table_columns: formData.table_columns,
-          }),
-          // Include extra_config for time_grain and other configurations
-          extra_config: {
-            time_grain: formData.time_grain,
-            filters: formData.filters,
-            sort: formData.sort,
-            pagination: formData.pagination,
-            customizations: formData.customizations,
-            table_columns: formData.table_columns,
-          },
-        }
-      : null;
+  const chartDataPayload: ChartDataPayload | null = (() => {
+    if (!formData.schema_name || !formData.table_name || !formData.chart_type) {
+      return null;
+    }
+
+    // Special handling for table charts with drill-down
+    const isDrillDownTable =
+      formData.chart_type === 'table' && formData.extra_config?.drill_down_config?.enabled;
+
+    let dimensionCol = formData.dimension_column;
+    let metrics = formData.metrics;
+
+    if (isDrillDownTable) {
+      const hierarchy = formData.extra_config?.drill_down_config?.hierarchy || [];
+
+      // Don't generate payload if hierarchy is not configured
+      if (hierarchy.length === 0 || !hierarchy[0].column) {
+        return null;
+      }
+
+      // Use first hierarchy level as dimension
+      dimensionCol = hierarchy[0].column;
+
+      // Build metrics from aggregation columns
+      const aggColumns = hierarchy[0].aggregation_columns || [];
+      if (aggColumns.length > 0) {
+        metrics = aggColumns.map((col) => ({
+          column: col,
+          aggregation: 'sum',
+          alias: `sum_${col}`,
+        }));
+      }
+    }
+
+    return {
+      chart_type: formData.chart_type,
+      computation_type: formData.computation_type || 'aggregated',
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+      x_axis: formData.x_axis_column,
+      y_axis: formData.y_axis_column,
+      dimension_col: dimensionCol,
+      aggregate_col: formData.aggregate_column,
+      aggregate_func: formData.aggregate_function,
+      extra_dimension: formData.extra_dimension_column,
+      // Multiple metrics for bar/line charts or drill-down tables
+      metrics: metrics,
+      // Map-specific fields - also populate dimension_col for map charts
+      geographic_column: formData.geographic_column,
+      value_column: formData.value_column,
+      selected_geojson_id:
+        formData.selected_geojson_id ||
+        (formData.chart_type === 'map' && formData.layers?.[0]?.geojson_id
+          ? formData.layers[0].geojson_id
+          : undefined),
+      // For map charts, also set dimension_col to geographic_column for compatibility
+      ...(formData.chart_type === 'map' && {
+        dimension_col: formData.geographic_column,
+        aggregate_col: formData.aggregate_column || formData.value_column,
+      }),
+      // For table charts, pass selected columns
+      ...(formData.chart_type === 'table' && {
+        table_columns: isDrillDownTable
+          ? [dimensionCol, ...(metrics?.map((m) => m.alias || m.column) || [])].filter(Boolean)
+          : formData.table_columns,
+      }),
+      // Include extra_config for time_grain and other configurations
+      extra_config: {
+        time_grain: formData.time_grain,
+        filters: formData.filters,
+        sort: formData.sort,
+        pagination: formData.pagination,
+        customizations: formData.customizations,
+        table_columns: formData.table_columns,
+        drill_down_config: formData.extra_config?.drill_down_config,
+      },
+    };
+  })();
 
   // Fetch chart data - use different hooks for maps vs regular charts (including tables)
   const {
@@ -336,7 +371,21 @@ export function ChartBuilder({
         updates.customizations = newCustomizations;
       }
 
-      const newFormData = { ...formData, ...updates };
+      // Special handling for extra_config to merge deeply instead of replace
+      let newFormData;
+      if (updates.extra_config) {
+        newFormData = {
+          ...formData,
+          ...updates,
+          extra_config: {
+            ...formData.extra_config,
+            ...updates.extra_config,
+          },
+        };
+      } else {
+        newFormData = { ...formData, ...updates };
+      }
+
       setFormData(newFormData);
     },
     [formData]
@@ -614,6 +663,8 @@ export function ChartBuilder({
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
+        // Drill-down configuration (table charts only)
+        drill_down_config: formData.extra_config?.drill_down_config,
       },
     };
 
@@ -883,10 +934,17 @@ export function ChartBuilder({
                   ...preservedFields,
                 };
 
-                // Preserve chart-level filters, pagination, and sorting
+                // Preserve chart-level filters, pagination, sorting, and drill-down config
                 if (formData.filters) updates.filters = formData.filters;
                 if (formData.pagination) updates.pagination = formData.pagination;
                 if (formData.sort) updates.sort = formData.sort;
+                // Preserve drill-down config for table charts
+                if (newChartType === 'table' && formData.extra_config?.drill_down_config) {
+                  updates.extra_config = {
+                    ...updates.extra_config,
+                    drill_down_config: formData.extra_config.drill_down_config,
+                  };
+                }
 
                 handleFormChange(updates);
               }}
@@ -923,8 +981,21 @@ export function ChartBuilder({
                 {formData.schema_name && formData.table_name && (
                   <SimpleTableConfiguration
                     availableColumns={columns?.map((col) => col.name) || []}
+                    columnTypes={
+                      columns?.reduce((acc, col) => ({ ...acc, [col.name]: col.data_type }), {}) ||
+                      {}
+                    }
                     selectedColumns={formData.table_columns || []}
                     onColumnsChange={(table_columns) => handleFormChange({ table_columns })}
+                    drillDownConfig={formData.extra_config?.drill_down_config}
+                    onDrillDownConfigChange={(drill_down_config) =>
+                      handleFormChange({
+                        extra_config: {
+                          ...formData.extra_config,
+                          drill_down_config,
+                        },
+                      })
+                    }
                   />
                 )}
               </div>

@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table, Lock } from 'lucide-react';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { BarChart2, PieChart, LineChart, Hash, MapPin, Table, Lock, ArrowLeft } from 'lucide-react';
 
 // Chart type definitions with descriptions
 const chartTypes = [
