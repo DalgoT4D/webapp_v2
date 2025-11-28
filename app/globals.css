@@ -632,10 +632,6 @@
   min-height: 600px;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Custom utilities for chart thumbnails */
 .line-clamp-2 {
   display: -webkit-box;

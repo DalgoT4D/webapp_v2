@@ -33,6 +33,8 @@ import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { usePagination } from '@/hooks/usePagination';
+import { isChartFormValid, buildChartDataPayload } from '@/lib/chart-validation';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -116,6 +118,311 @@ function generateDefaultChartName(chartType: string, table: string): string {
   return `${typeNames[chartType as keyof typeof typeNames] || 'Chart'} - ${table} ${timestamp}`;
 }
 
+// Left Panel Component - Configuration and Styling tabs
+interface LeftPanelProps {
+  formData: ChartBuilderFormData;
+  onFormChange: (updates: Partial<ChartBuilderFormData>) => void;
+}
+
+function LeftPanel({ formData, onFormChange }: LeftPanelProps) {
+  return (
+    <div className="w-[30%] border-r">
+      <Tabs defaultValue="configuration" className="h-full">
+        <div className="px-4 pt-4">
+          <TabsList
+            className={`grid w-full h-11 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+          >
+            <TabsTrigger
+              value="configuration"
+              className="flex items-center justify-center gap-2 text-sm h-full"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Data Configuration
+            </TabsTrigger>
+            {formData.chart_type !== 'table' && (
+              <TabsTrigger
+                value="styling"
+                className="flex items-center justify-center gap-2 text-sm h-full"
+              >
+                <Database className="h-4 w-4" />
+                Chart Styling
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
+
+        <TabsContent value="configuration" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
+          <div className="p-4">
+            {formData.chart_type === 'map' ? (
+              <MapDataConfigurationV3 formData={formData} onFormDataChange={onFormChange} />
+            ) : (
+              <ChartDataConfigurationV3
+                formData={formData}
+                onChange={onFormChange}
+                disabled={false}
+              />
+            )}
+          </div>
+        </TabsContent>
+
+        {formData.chart_type !== 'table' && (
+          <TabsContent value="styling" className="h-[calc(100%-73px)] overflow-y-auto">
+            <div className="p-4">
+              {formData.chart_type === 'map' ? (
+                <MapCustomizations formData={formData} onFormDataChange={onFormChange} />
+              ) : (
+                <ChartCustomizations
+                  chartType={formData.chart_type || 'bar'}
+                  formData={formData}
+                  onChange={onFormChange}
+                />
+              )}
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}
+
+// Right Panel Component - Chart Preview and Data tabs
+interface RightPanelProps {
+  formData: ChartBuilderFormData;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  // Chart preview data
+  chartData: any;
+  chartLoading: boolean;
+  chartError: any;
+  // Map preview data
+  geojsonData: any;
+  geojsonLoading: boolean;
+  geojsonError: any;
+  mapDataOverlay: any;
+  mapDataLoading: boolean;
+  mapDataError: any;
+  // Table chart data
+  tableChartData: any;
+  tableChartLoading: boolean;
+  tableChartError: any;
+  tableChartPage: number;
+  tableChartPageSize: number;
+  tableChartTotalRows: number;
+  onTableChartPageChange: (page: number) => void;
+  onTableChartPageSizeChange: (pageSize: number) => void;
+  // Chart data preview
+  dataPreview: any;
+  previewLoading: boolean;
+  previewError: any;
+  dataPreviewPage: number;
+  dataPreviewPageSize: number;
+  chartDataTotalRows: number;
+  onDataPreviewPageChange: (page: number) => void;
+  onDataPreviewPageSizeChange: (pageSize: number) => void;
+  // Raw data preview
+  rawTableData: any;
+  rawDataLoading: boolean;
+  rawDataError: any;
+  rawDataPage: number;
+  rawDataPageSize: number;
+  tableCount: any;
+  onRawDataPageChange: (page: number) => void;
+  onRawDataPageSizeChange: (pageSize: number) => void;
+  // Drill-down handlers
+  drillDownPath: Array<{
+    level: number;
+    name: string;
+    geographic_column: string;
+    parent_selections: Array<{ column: string; value: string }>;
+    region_id: number;
+  }>;
+  onMapRegionClick: (regionName: string, regionData: any) => void;
+  onDrillUp: (targetLevel: number) => void;
+  onDrillHome: () => void;
+}
+
+function RightPanel({
+  formData,
+  activeTab,
+  onTabChange,
+  chartData,
+  chartLoading,
+  chartError,
+  geojsonData,
+  geojsonLoading,
+  geojsonError,
+  mapDataOverlay,
+  mapDataLoading,
+  mapDataError,
+  tableChartData,
+  tableChartLoading,
+  tableChartError,
+  tableChartPage,
+  tableChartPageSize,
+  tableChartTotalRows,
+  onTableChartPageChange,
+  onTableChartPageSizeChange,
+  dataPreview,
+  previewLoading,
+  previewError,
+  dataPreviewPage,
+  dataPreviewPageSize,
+  chartDataTotalRows,
+  onDataPreviewPageChange,
+  onDataPreviewPageSizeChange,
+  rawTableData,
+  rawDataLoading,
+  rawDataError,
+  rawDataPage,
+  rawDataPageSize,
+  tableCount,
+  onRawDataPageChange,
+  onRawDataPageSizeChange,
+  drillDownPath,
+  onMapRegionClick,
+  onDrillUp,
+  onDrillHome,
+}: RightPanelProps) {
+  return (
+    <div className="w-[70%]">
+      <Tabs value={activeTab} onValueChange={onTabChange} className="h-full">
+        <div className="px-4">
+          <TabsList className="grid grid-cols-2">
+            <TabsTrigger value="chart" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              CHART
+            </TabsTrigger>
+            <TabsTrigger value="data" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              DATA
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto">
+          <div className="p-4 h-full">
+            {formData.chart_type === 'map' ? (
+              <div className="w-full h-full">
+                <MapPreview
+                  geojsonData={geojsonData?.geojson_data}
+                  geojsonLoading={geojsonLoading}
+                  geojsonError={geojsonError}
+                  mapData={mapDataOverlay?.data}
+                  mapDataLoading={mapDataLoading}
+                  mapDataError={mapDataError}
+                  valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
+                  customizations={formData.customizations}
+                  onRegionClick={onMapRegionClick}
+                  drillDownPath={drillDownPath}
+                  onDrillUp={onDrillUp}
+                  onDrillHome={onDrillHome}
+                  showBreadcrumbs={true}
+                />
+              </div>
+            ) : formData.chart_type === 'table' ? (
+              <div className="w-full h-full">
+                <TableChart
+                  data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
+                  config={{
+                    table_columns: tableChartData?.columns || formData.table_columns || [],
+                    column_formatting: {},
+                    sort: formData.sort || [],
+                    pagination: formData.pagination || { enabled: true, page_size: 20 },
+                  }}
+                  isLoading={tableChartLoading}
+                  error={tableChartError}
+                  pagination={{
+                    page: tableChartPage,
+                    pageSize: tableChartPageSize,
+                    total: tableChartTotalRows,
+                    onPageChange: onTableChartPageChange,
+                    onPageSizeChange: onTableChartPageSizeChange,
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="w-full h-full">
+                <ChartPreview
+                  key={`${formData.schema_name}-${formData.table_name}`}
+                  config={chartData?.echarts_config}
+                  isLoading={chartLoading}
+                  error={chartError}
+                />
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
+          <div className="p-4">
+            <Tabs
+              defaultValue={formData.chart_type === 'table' ? 'raw-data' : 'chart-data'}
+              className="h-full flex flex-col"
+            >
+              <TabsList
+                className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+              >
+                {formData.chart_type !== 'table' && (
+                  <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Chart Data
+                  </TabsTrigger>
+                )}
+                <TabsTrigger value="raw-data" className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Raw Data
+                </TabsTrigger>
+              </TabsList>
+
+              {formData.chart_type !== 'table' && (
+                <TabsContent value="chart-data" className="flex-1">
+                  <DataPreview
+                    data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                    columns={dataPreview?.columns || []}
+                    columnTypes={dataPreview?.column_types || {}}
+                    isLoading={previewLoading}
+                    error={previewError}
+                    pagination={{
+                      page: dataPreviewPage,
+                      pageSize: dataPreviewPageSize,
+                      total: chartDataTotalRows,
+                      onPageChange: onDataPreviewPageChange,
+                      onPageSizeChange: onDataPreviewPageSizeChange,
+                    }}
+                  />
+                </TabsContent>
+              )}
+
+              <TabsContent value="raw-data" className="flex-1">
+                <DataPreview
+                  data={Array.isArray(rawTableData) ? rawTableData : []}
+                  columns={
+                    rawTableData && rawTableData.length > 0 ? Object.keys(rawTableData[0]) : []
+                  }
+                  columnTypes={{}}
+                  isLoading={rawDataLoading}
+                  error={rawDataError}
+                  pagination={
+                    tableCount
+                      ? {
+                          page: rawDataPage,
+                          pageSize: rawDataPageSize,
+                          total: tableCount.total_rows || 0,
+                          onPageChange: onRawDataPageChange,
+                          onPageSizeChange: onRawDataPageSizeChange,
+                        }
+                      : undefined
+                  }
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 function ConfigureChartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -154,12 +461,11 @@ function ConfigureChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
-  const [dataPreviewPage, setDataPreviewPage] = useState(1);
-  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(20);
-  const [rawDataPage, setRawDataPage] = useState(1);
-  const [rawDataPageSize, setRawDataPageSize] = useState(20);
-  const [tableChartPage, setTableChartPage] = useState(1);
-  const [tableChartPageSize, setTableChartPageSize] = useState(20);
+
+  // Pagination states using custom hook
+  const dataPreviewPagination = usePagination(1, 20);
+  const rawDataPagination = usePagination(1, 20);
+  const tableChartPagination = usePagination(1, 20);
 
   // Unsaved changes detection state
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -232,92 +538,8 @@ function ConfigureChartPageContent() {
     };
   }, [hasUnsavedChanges]);
 
-  // Check if form data is complete enough to generate chart data
-  const isChartDataReady = () => {
-    if (!formData.schema_name || !formData.table_name || !formData.chart_type) {
-      return false;
-    }
-
-    if (formData.chart_type === 'number') {
-      return !!(
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
-      );
-    }
-
-    if (formData.chart_type === 'map') {
-      return !!(
-        formData.geographic_column &&
-        formData.value_column &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
-      );
-    }
-
-    {
-      // For bar/line/table charts with multiple metrics
-      if (
-        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
-          )
-        );
-      }
-
-      // For single metric charts
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
-      );
-    }
-  };
-
-  // Build payload for chart data
-  const chartDataPayload: ChartDataPayload | null = isChartDataReady()
-    ? {
-        chart_type: formData.chart_type!,
-        computation_type: formData.computation_type!,
-        schema_name: formData.schema_name!,
-        table_name: formData.table_name!,
-        ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
-        ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
-        ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
-        ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
-        ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
-        ...(formData.extra_dimension_column && {
-          extra_dimension: formData.extra_dimension_column,
-        }),
-        // Multiple metrics for bar/line charts
-        ...(formData.metrics && { metrics: formData.metrics }),
-        ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-        ...(formData.value_column && { value_column: formData.value_column }),
-        ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
-        ...(formData.chart_type === 'map' &&
-          formData.layers?.[0]?.geojson_id && {
-            selected_geojson_id: formData.layers[0].geojson_id,
-          }),
-        ...(formData.chart_type === 'map' && {
-          ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
-          ...((formData.aggregate_column || formData.value_column) && {
-            aggregate_col: formData.aggregate_column || formData.value_column,
-          }),
-        }),
-        customizations: formData.customizations,
-        extra_config: {
-          filters: formData.filters,
-          pagination: formData.pagination,
-          sort: formData.sort,
-          time_grain: formData.time_grain,
-        },
-      }
-    : null;
+  // Build payload for chart data using utility function
+  const chartDataPayload: ChartDataPayload | null = buildChartDataPayload(formData);
 
   // Fetch chart data
   const {
@@ -410,7 +632,11 @@ function ConfigureChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+  } = useChartDataPreview(
+    chartDataPayload,
+    dataPreviewPagination.page,
+    dataPreviewPagination.pageSize
+  );
 
   // Fetch total rows for chart data preview pagination
   const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
@@ -422,8 +648,8 @@ function ConfigureChartPageContent() {
     isLoading: tableChartLoading,
   } = useChartDataPreview(
     formData.chart_type === 'table' ? chartDataPayload : null,
-    tableChartPage,
-    tableChartPageSize
+    tableChartPagination.page,
+    tableChartPagination.pageSize
   );
 
   // Fetch total rows for table chart pagination
@@ -439,8 +665,8 @@ function ConfigureChartPageContent() {
   } = useRawTableData(
     formData.schema_name || null,
     formData.table_name || null,
-    rawDataPage,
-    rawDataPageSize
+    rawDataPagination.page,
+    rawDataPagination.pageSize
   );
 
   // Get table count for raw data pagination
@@ -577,22 +803,6 @@ function ConfigureChartPageContent() {
     JSON.stringify(formData.dataOverlayPayload || {}),
   ]);
 
-  const handleDataPreviewPageSizeChange = (newPageSize: number) => {
-    setDataPreviewPageSize(newPageSize);
-    setDataPreviewPage(1); // Reset to first page when page size changes
-  };
-
-  const handleRawDataPageSizeChange = (newPageSize: number) => {
-    setRawDataPageSize(newPageSize);
-    setRawDataPage(1); // Reset to first page when page size changes
-  };
-
-  // Handle table chart pagination page size change
-  const handleTableChartPageSizeChange = (newPageSize: number) => {
-    setTableChartPageSize(newPageSize);
-    setTableChartPage(1); // Reset to first page when page size changes
-  };
-
   // FIX #3: Handle map region click for drill-down in create mode
   // Handle map region click for drill-down in create mode
   const handleMapRegionClick = useCallback(
@@ -649,62 +859,8 @@ function ConfigureChartPageContent() {
     ]
   );
 
-  const isFormValid = () => {
-    if (!formData.title || !formData.chart_type || !formData.schema_name || !formData.table_name) {
-      return false;
-    }
-
-    if (formData.chart_type === 'number') {
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
-      return !!(
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
-      );
-    }
-
-    if (formData.chart_type === 'map') {
-      // Count(*) doesn't need a value_column, similar to other chart types
-      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
-      return !!(
-        formData.geographic_column &&
-        (!needsValueColumn || formData.value_column) &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
-      );
-    }
-
-    if (formData.chart_type === 'table') {
-      return true; // Tables just need schema, table, title which are already checked above
-    }
-
-    {
-      // For bar/line/table charts with multiple metrics
-      if (
-        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
-          )
-        );
-      }
-
-      // Legacy single metric approach
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
-      );
-    }
-  };
-
   const handleSave = async () => {
-    if (!isFormValid()) {
+    if (!isChartFormValid(formData)) {
       return;
     }
 
@@ -831,7 +987,7 @@ function ConfigureChartPageContent() {
           <div className="flex items-center gap-4">
             <Button
               onClick={handleSave}
-              disabled={!isFormValid() || isMutating}
+              disabled={!isChartFormValid(formData) || isMutating}
               className="px-8 h-11 text-white hover:opacity-90"
               style={{ backgroundColor: '#06887b' }}
             >
@@ -844,216 +1000,49 @@ function ConfigureChartPageContent() {
       {/* Main Content Area with 2rem margin container */}
       <div className="p-8 h-[calc(100vh-144px)]">
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-          {/* Left Panel - 30% */}
-          <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
-              <div className="px-4 pt-4">
-                <TabsList
-                  className={`grid w-full h-11 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-                >
-                  <TabsTrigger
-                    value="configuration"
-                    className="flex items-center justify-center gap-2 text-sm h-full"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    Data Configuration
-                  </TabsTrigger>
-                  {formData.chart_type !== 'table' && (
-                    <TabsTrigger
-                      value="styling"
-                      className="flex items-center justify-center gap-2 text-sm h-full"
-                    >
-                      <Database className="h-4 w-4" />
-                      Chart Styling
-                    </TabsTrigger>
-                  )}
-                </TabsList>
-              </div>
-
-              <TabsContent
-                value="configuration"
-                className="mt-6 h-[calc(100%-73px)] overflow-y-auto"
-              >
-                <div className="p-4">
-                  {formData.chart_type === 'map' ? (
-                    <MapDataConfigurationV3
-                      formData={formData}
-                      onFormDataChange={handleFormChange}
-                    />
-                  ) : formData.chart_type === 'table' ? (
-                    <ChartDataConfigurationV3
-                      formData={formData}
-                      onChange={handleFormChange}
-                      disabled={false}
-                    />
-                  ) : (
-                    <ChartDataConfigurationV3
-                      formData={formData}
-                      onChange={handleFormChange}
-                      disabled={false}
-                    />
-                  )}
-                </div>
-              </TabsContent>
-
-              {formData.chart_type !== 'table' && (
-                <TabsContent value="styling" className="h-[calc(100%-73px)] overflow-y-auto">
-                  <div className="p-4">
-                    {formData.chart_type === 'map' ? (
-                      <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                    ) : (
-                      <ChartCustomizations
-                        chartType={formData.chart_type || 'bar'}
-                        formData={formData}
-                        onChange={handleFormChange}
-                      />
-                    )}
-                  </div>
-                </TabsContent>
-              )}
-            </Tabs>
-          </div>
-
-          {/* Right Panel - 70% */}
-          <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-              <div className="px-4">
-                <TabsList className="grid grid-cols-2">
-                  <TabsTrigger value="chart" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    CHART
-                  </TabsTrigger>
-                  <TabsTrigger value="data" className="flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    DATA
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto">
-                <div className="p-4 h-full">
-                  {formData.chart_type === 'map' ? (
-                    <div className="w-full h-full">
-                      <MapPreview
-                        geojsonData={geojsonData?.geojson_data}
-                        geojsonLoading={geojsonLoading}
-                        geojsonError={geojsonError}
-                        mapData={mapDataOverlay?.data}
-                        mapDataLoading={mapDataLoading}
-                        mapDataError={mapDataError}
-                        valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
-                        customizations={formData.customizations}
-                        // ✅ UPDATE: Complete drill-down support in create mode
-                        onRegionClick={handleMapRegionClick}
-                        drillDownPath={drillDownPath}
-                        onDrillUp={handleDrillUp}
-                        onDrillHome={handleDrillHome}
-                        showBreadcrumbs={true}
-                      />
-                    </div>
-                  ) : formData.chart_type === 'table' ? (
-                    <div className="w-full h-full">
-                      <TableChart
-                        data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
-                        config={{
-                          table_columns: tableChartData?.columns || formData.table_columns || [],
-                          column_formatting: {},
-                          sort: formData.sort || [],
-                          pagination: formData.pagination || { enabled: true, page_size: 20 },
-                        }}
-                        isLoading={tableChartLoading}
-                        error={tableChartError}
-                        pagination={{
-                          page: tableChartPage,
-                          pageSize: tableChartPageSize,
-                          total: tableChartDataTotalRows || 0,
-                          onPageChange: setTableChartPage,
-                          onPageSizeChange: handleTableChartPageSizeChange,
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full">
-                      <ChartPreview
-                        key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config}
-                        isLoading={chartLoading}
-                        error={chartError}
-                      />
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
-                <div className="p-4">
-                  <Tabs
-                    defaultValue={formData.chart_type === 'table' ? 'raw-data' : 'chart-data'}
-                    className="h-full flex flex-col"
-                  >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-                    >
-                      {formData.chart_type !== 'table' && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
-                      <TabsTrigger value="raw-data" className="flex items-center gap-2">
-                        <Database className="h-4 w-4" />
-                        Raw Data
-                      </TabsTrigger>
-                    </TabsList>
-
-                    {formData.chart_type !== 'table' && (
-                      <TabsContent value="chart-data" className="flex-1">
-                        <DataPreview
-                          data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                          columns={dataPreview?.columns || []}
-                          columnTypes={dataPreview?.column_types || {}}
-                          isLoading={previewLoading}
-                          error={previewError}
-                          pagination={{
-                            page: dataPreviewPage,
-                            pageSize: dataPreviewPageSize,
-                            total: chartDataTotalRows || 0,
-                            onPageChange: setDataPreviewPage,
-                            onPageSizeChange: handleDataPreviewPageSizeChange,
-                          }}
-                        />
-                      </TabsContent>
-                    )}
-
-                    <TabsContent value="raw-data" className="flex-1">
-                      <DataPreview
-                        data={Array.isArray(rawTableData) ? rawTableData : []}
-                        columns={
-                          rawTableData && rawTableData.length > 0
-                            ? Object.keys(rawTableData[0])
-                            : []
-                        }
-                        columnTypes={{}}
-                        isLoading={rawDataLoading}
-                        error={rawDataError}
-                        pagination={
-                          tableCount
-                            ? {
-                                page: rawDataPage,
-                                pageSize: rawDataPageSize,
-                                total: tableCount.total_rows || 0,
-                                onPageChange: setRawDataPage,
-                                onPageSizeChange: handleRawDataPageSizeChange,
-                              }
-                            : undefined
-                        }
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
+          <LeftPanel formData={formData} onFormChange={handleFormChange} />
+          <RightPanel
+            formData={formData}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            chartData={chartData}
+            chartLoading={chartLoading}
+            chartError={chartError}
+            geojsonData={geojsonData}
+            geojsonLoading={geojsonLoading}
+            geojsonError={geojsonError}
+            mapDataOverlay={mapDataOverlay}
+            mapDataLoading={mapDataLoading}
+            mapDataError={mapDataError}
+            tableChartData={tableChartData}
+            tableChartLoading={tableChartLoading}
+            tableChartError={tableChartError}
+            tableChartPage={tableChartPagination.page}
+            tableChartPageSize={tableChartPagination.pageSize}
+            tableChartTotalRows={tableChartDataTotalRows || 0}
+            onTableChartPageChange={tableChartPagination.setPage}
+            onTableChartPageSizeChange={tableChartPagination.handlePageSizeChange}
+            dataPreview={dataPreview}
+            previewLoading={previewLoading}
+            previewError={previewError}
+            dataPreviewPage={dataPreviewPagination.page}
+            dataPreviewPageSize={dataPreviewPagination.pageSize}
+            chartDataTotalRows={chartDataTotalRows || 0}
+            onDataPreviewPageChange={dataPreviewPagination.setPage}
+            onDataPreviewPageSizeChange={dataPreviewPagination.handlePageSizeChange}
+            rawTableData={rawTableData}
+            rawDataLoading={rawDataLoading}
+            rawDataError={rawDataError}
+            rawDataPage={rawDataPagination.page}
+            rawDataPageSize={rawDataPagination.pageSize}
+            tableCount={tableCount}
+            onRawDataPageChange={rawDataPagination.setPage}
+            onRawDataPageSizeChange={rawDataPagination.handlePageSizeChange}
+            drillDownPath={drillDownPath}
+            onMapRegionClick={handleMapRegionClick}
+            onDrillUp={handleDrillUp}
+            onDrillHome={handleDrillHome}
+          />
         </div>
       </div>
 
