@@ -19,14 +19,22 @@ This document tracks the progress of refactoring the table components across Cha
 
 **Goal**: Create a single, reusable `DataTable` component using TanStack Table that can replace the table implementations in:
 1. `app/charts/page.tsx` ✅ COMPLETED
-2. `components/dashboard/dashboard-list-v2.tsx` ⏳ PENDING
-3. `components/settings/user-management/UsersTable.tsx` ⏳ PENDING
+2. `components/dashboard/dashboard-list-v2.tsx` ✅ COMPLETED
+3. `components/settings/user-management/UsersTable.tsx` ✅ COMPLETED
 
 **Benefits**:
-- Reduced code duplication (~3000+ lines → ~1500 lines)
+- Reduced code duplication (~4000 lines → ~2041 lines, 49% reduction)
 - Consistent UX across all tables
 - Easier maintenance and feature additions
 - Type-safe with TypeScript generics
+
+**Line Count Summary**:
+| Component | Before | After | Reduction |
+|-----------|--------|-------|-----------|
+| Charts Page | ~1450 | ~822 | 43% |
+| Dashboard List | ~2030 | ~789 | 61% |
+| Users Table | ~500 | ~430 | 14% |
+| **Total** | **~3980** | **~2041** | **49%** |
 
 ---
 
@@ -38,10 +46,10 @@ This document tracks the progress of refactoring the table components across Cha
 | Install TanStack Table | ✅ Done | `@tanstack/react-table@8.21.3` |
 | Create base DataTable component | ✅ Done | See `components/ui/data-table/` |
 | Create filter components | ✅ Done | Text, Checkbox, Date filters |
-| Migrate Charts page | ✅ Done | ~1450 lines → ~820 lines |
+| Migrate Charts page | ✅ Done | ~1450 lines → ~822 lines |
 | Refactor pagination to use TanStack built-in | ✅ Done | Uses `getPaginationRowModel()` |
-| Migrate Dashboard list | ⏳ Pending | ~2030 lines (complex with pinning) |
-| Migrate Users table | ⏳ Pending | ~500 lines (simpler) |
+| Migrate Dashboard list | ✅ Done | ~2030 lines → ~789 lines |
+| Migrate Users table | ✅ Done | ~500 lines → ~430 lines |
 | Enhance DateFilter with react-day-picker | ⏳ Pending | Package already installed |
 | Test functionality parity | ⏳ Pending | Manual testing required |
 
@@ -192,72 +200,72 @@ const table = useReactTable({
 
 ---
 
-### Dashboard List (`components/dashboard/dashboard-list-v2.tsx`) ⏳ PENDING
+### Dashboard List (`components/dashboard/dashboard-list-v2.tsx`) ✅ MIGRATED
 
 #### Header Section
-- [ ] Page title "Dashboards" with description
-- [ ] "CREATE DASHBOARD" button
+- [x] Page title "Dashboards" with description
+- [x] "CREATE DASHBOARD" button
 
 #### Sorting (3 columns)
-- [ ] Sort by Name, Owner, Last Modified
+- [x] Sort by Name, Owner, Last Modified
 
 #### Filtering
-- [ ] Name Filter: Text + favorites + locked + shared checkboxes
-- [ ] Owner Filter: Searchable checkbox list
-- [ ] Date Filter: Same as charts
+- [x] Name Filter: Text + favorites + locked + shared checkboxes
+- [x] Owner Filter: Searchable checkbox list
+- [x] Date Filter: Same as charts
 
 #### Table Columns
-- [ ] Name: Star + title + badges (My Landing, Org Default, Locked)
-- [ ] Owner: Avatar + name
-- [ ] Last Modified: Relative time
-- [ ] Actions: Edit + Share + 3-dot dropdown
+- [x] Name: Star + title + badges (My Landing, Org Default, Locked)
+- [x] Owner: Avatar + name
+- [x] Last Modified: Relative time
+- [x] Actions: Edit + Share + 3-dot dropdown
 
 #### Actions Dropdown
-- [ ] "Landing Page" section header
-- [ ] Set/Remove as my landing page
-- [ ] Set as org default (permission check)
-- [ ] Duplicate with loading state
-- [ ] Delete with AlertDialog
+- [x] "Landing Page" section header
+- [x] Set/Remove as my landing page
+- [x] Set as org default (permission check)
+- [x] Duplicate with loading state
+- [x] Delete with AlertDialog
 
 #### Pinned Rows (Special Feature)
-- [ ] Personal landing page pinned at top
-- [ ] Org default pinned at top
-- [ ] Pinned rows NOT paginated out
+- [x] Personal landing page pinned at top
+- [x] Org default pinned at top
+- [x] Pinned rows NOT paginated out
 
 #### Other
-- [ ] Share modal integration
-- [ ] Landing page API integration
-- [ ] Grid/List view (currently hidden, table only)
+- [x] Share modal integration
+- [x] Landing page API integration
+- [x] Pagination with TanStack Table
 
 ---
 
-### Users Table (`components/settings/user-management/UsersTable.tsx`) ⏳ PENDING
+### Users Table (`components/settings/user-management/UsersTable.tsx`) ✅ MIGRATED
 
 #### Sorting (2 columns)
-- [ ] Sort by Email, Role
+- [x] Sort by Email, Role
 
 #### Filtering
-- [ ] Email Filter: Text search
-- [ ] Role Filter: Checkbox list
+- [x] Email Filter: Text search
+- [x] Role Filter: Checkbox list
 
 #### Table Columns
-- [ ] Email: User icon + email
-- [ ] Role: Badge OR inline editor
-- [ ] Actions: 3-dot dropdown (right-aligned)
+- [x] Email: User icon + email
+- [x] Role: Badge OR inline editor
+- [x] Actions: 3-dot dropdown (right-aligned)
 
 #### Inline Role Editing
-- [ ] Edit Role → Shows Select dropdown
-- [ ] Save/Cancel buttons
-- [ ] Loading state
+- [x] Edit Role → Shows Select dropdown
+- [x] Save/Cancel buttons
+- [x] Loading state
 
 #### Actions Dropdown
-- [ ] Edit Role (permission check)
-- [ ] Delete User with dialog
-- [ ] Hide actions for current user
+- [x] Edit Role (permission check)
+- [x] Delete User with dialog
+- [x] Hide actions for current user
 
 #### Other
-- [ ] No pagination (shows all users)
-- [ ] Card wrapper with title + tooltip
+- [x] No pagination (shows all users)
+- [x] Card wrapper with title + tooltip
 
 ---
 
@@ -302,13 +310,9 @@ components/ui/data-table/
 
 ### Modified Files
 ```
-app/charts/page.tsx         ✅ Migrated (~1450 → ~835 lines)
-```
-
-### Files To Modify
-```
-components/dashboard/dashboard-list-v2.tsx  ⏳ Pending (~2030 lines)
-components/settings/user-management/UsersTable.tsx ⏳ Pending (~500 lines)
+app/charts/page.tsx                              ✅ Migrated (~1450 → ~822 lines)
+components/dashboard/dashboard-list-v2.tsx       ✅ Migrated (~2030 → ~789 lines)
+components/settings/user-management/UsersTable.tsx ✅ Migrated (~500 → ~430 lines)
 ```
 
 ---
@@ -391,34 +395,43 @@ const regularRows = dashboards.filter(d => !pinnedRows.includes(d));
 />
 ```
 
+### Without Pagination (Users Table Pattern)
+
+```tsx
+<DataTable
+  data={filteredAndSortedUsers}
+  columns={columns}
+  isLoading={false}
+  getRowId={(row) => row.email}
+  sortState={sortState}
+  onSortChange={setSortState}
+  filterState={filterState}
+  onFilterChange={setFilterState}
+  filterConfigs={filterConfigs}
+  activeFilterCount={getActiveFilterCount()}
+  onClearAllFilters={clearAllFilters}
+  emptyState={emptyStateConfig}
+  skeleton={skeletonConfig}
+  // No pagination prop = all rows shown
+/>
+```
+
 ---
 
 ## Remaining Work
 
-### Priority 1: Migrate Dashboard List
-1. Read `dashboard-list-v2.tsx` thoroughly
-2. Extract column definitions similar to charts
-3. Handle pinned rows for landing page dashboards
-4. Integrate share modal
-5. Handle landing page API calls
-
-### Priority 2: Migrate Users Table
-1. Simpler migration (no pagination, no selection)
-2. Handle inline role editing
-3. Integrate DeleteUserDialog
-
-### Priority 3: Enhancements
-1. Update `DateFilter.tsx` to use `react-day-picker` for better UX
-2. ~~Add TanStack Table's built-in pagination model~~ ✅ DONE
-3. Consider virtual scrolling for large datasets
-4. Add column visibility toggle (optional)
-
-### Priority 4: Testing
+### Priority 1: Testing ⏳
 1. Verify all filter types work correctly
 2. Test pagination edge cases
 3. Test selection mode and bulk actions
 4. Test empty states and loading states
 5. Cross-browser testing
+
+### Priority 2: Enhancements (Optional)
+1. Update `DateFilter.tsx` to use `react-day-picker` for better UX
+2. Consider virtual scrolling for large datasets
+3. Add column visibility toggle
+4. Add column resizing
 
 ---
 
@@ -433,21 +446,14 @@ const regularRows = dashboards.filter(d => !pinnedRows.includes(d));
    # Verify DataTable components exist
    ls components/ui/data-table/
 
-   # Check if charts page is migrated
-   wc -l app/charts/page.tsx  # Should be ~835 lines
+   # Check line counts
+   wc -l app/charts/page.tsx components/dashboard/dashboard-list-v2.tsx components/settings/user-management/UsersTable.tsx
    ```
 
-3. **Pick up where we left off**:
-   - Dashboard list migration is next
-   - Start by reading the full `dashboard-list-v2.tsx`
-   - Create column definitions similar to `app/charts/page.tsx`
-
-### Key Considerations for Dashboard Migration
-
-1. **Pinned Rows**: Dashboards have "My Landing" and "Org Default" that must appear at top
-2. **Share Modal**: External component that needs to be integrated
-3. **Landing Page API**: Uses `useLandingPage` hook for set/remove landing page
-4. **Grid/List Views**: Currently hidden (fixed to table), but code exists for future
+3. **Run TypeScript check**:
+   ```bash
+   npx tsc --noEmit 2>&1 | grep -E "dashboard-list-v2|UsersTable|charts/page"
+   ```
 
 ### Commands
 
@@ -458,11 +464,11 @@ npm run dev
 # Type check
 npx tsc --noEmit
 
-# Check for DataTable-specific errors
-npx tsc --noEmit 2>&1 | grep -E "data-table|charts/page"
-
 # Lint
 npm run lint
+
+# Run tests
+npm run test
 ```
 
 ---
@@ -477,4 +483,4 @@ npm run lint
 ---
 
 *Last Updated: November 28, 2024*
-*Session: Charts page migration completed + TanStack pagination refactoring. Dashboard and Users pending.*
+*Session: All migrations completed - Charts, Dashboard, and Users tables now use unified DataTable component.*
