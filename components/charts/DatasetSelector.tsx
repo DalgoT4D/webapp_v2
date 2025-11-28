@@ -1,10 +1,20 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Input } from '@/components/ui/input';
-import { Search, ChevronDown } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import Select, {
+  type SingleValue,
+  type StylesConfig,
+  type GroupBase,
+  type InputActionMeta,
+} from 'react-select';
 import { useAllSchemaTables } from '@/hooks/api/useChart';
+
+interface DatasetOption {
+  value: string;
+  label: string;
+  schema_name: string;
+  table_name: string;
+}
 
 interface DatasetSelectorProps {
   schema_name?: string;
@@ -15,22 +25,126 @@ interface DatasetSelectorProps {
   autoFocus?: boolean;
 }
 
-// Helper function to highlight search text in results
-const highlightText = (text: string, searchQuery: string) => {
-  if (!searchQuery.trim()) return text;
+// Primary green color from the app
+const PRIMARY_COLOR = '#00897B';
+const PRIMARY_LIGHT = '#e0f2f1'; // Light teal for hover
 
-  const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  const parts = text.split(regex);
-
-  return parts.map((part, index) =>
-    regex.test(part) ? (
-      <mark key={index} className="bg-yellow-200 text-yellow-900 font-medium">
-        {part}
-      </mark>
-    ) : (
-      part
-    )
-  );
+// Custom styles with fixed colors
+const customStyles: StylesConfig<DatasetOption, false, GroupBase<DatasetOption>> = {
+  container: (base) => ({
+    ...base,
+    position: 'relative',
+  }),
+  control: (base, state) => ({
+    ...base,
+    minHeight: '40px',
+    height: '40px',
+    borderColor: state.isFocused ? PRIMARY_COLOR : '#e5e7eb',
+    boxShadow: state.isFocused ? `0 0 0 2px ${PRIMARY_COLOR}33` : 'none',
+    '&:hover': {
+      borderColor: state.isFocused ? PRIMARY_COLOR : '#d1d5db',
+    },
+    borderRadius: '6px',
+    backgroundColor: '#ffffff',
+    fontSize: '14px',
+    cursor: 'pointer',
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: '0 12px',
+  }),
+  menu: (base) => ({
+    ...base,
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+    overflow: 'hidden',
+    zIndex: 9999,
+    marginTop: '4px',
+  }),
+  menuList: (base) => ({
+    ...base,
+    padding: '4px',
+    maxHeight: '200px',
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? PRIMARY_COLOR : state.isFocused ? PRIMARY_LIGHT : '#ffffff',
+    color: state.isSelected ? '#ffffff' : '#1f2937',
+    cursor: 'pointer',
+    fontFamily:
+      'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+    fontSize: '13px',
+    padding: '10px 12px',
+    borderRadius: '4px',
+    '&:active': {
+      backgroundColor: state.isSelected ? PRIMARY_COLOR : '#d1d5db',
+    },
+  }),
+  singleValue: (base, state) => ({
+    ...base,
+    color: '#1f2937',
+    fontFamily:
+      'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+    fontSize: '13px',
+    // Hide when menu is open and user is typing
+    opacity: state.selectProps.menuIsOpen && state.selectProps.inputValue ? 0 : 1,
+    transition: 'opacity 0.1s',
+  }),
+  input: (base) => ({
+    ...base,
+    color: '#1f2937',
+    fontFamily:
+      'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+    fontSize: '13px',
+    margin: 0,
+    padding: 0,
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: '#9ca3af',
+    fontSize: '14px',
+  }),
+  indicatorSeparator: () => ({
+    display: 'none',
+  }),
+  dropdownIndicator: (base, state) => ({
+    ...base,
+    color: '#9ca3af',
+    padding: '8px',
+    transition: 'transform 0.2s',
+    transform: state.selectProps.menuIsOpen ? 'rotate(180deg)' : undefined,
+    '&:hover': {
+      color: '#6b7280',
+    },
+  }),
+  clearIndicator: (base) => ({
+    ...base,
+    color: '#9ca3af',
+    padding: '8px',
+    cursor: 'pointer',
+    '&:hover': {
+      color: '#ef4444',
+    },
+  }),
+  noOptionsMessage: (base) => ({
+    ...base,
+    color: '#9ca3af',
+    fontSize: '14px',
+    padding: '12px',
+  }),
+  loadingMessage: (base) => ({
+    ...base,
+    color: '#9ca3af',
+    fontSize: '14px',
+    padding: '12px',
+  }),
+  loadingIndicator: (base) => ({
+    ...base,
+    color: PRIMARY_COLOR,
+  }),
 };
 
 export function DatasetSelector({
@@ -42,134 +156,71 @@ export function DatasetSelector({
   autoFocus = false,
 }: DatasetSelectorProps) {
   const { data: allTables, isLoading, error } = useAllSchemaTables();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(autoFocus);
-  const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
-  const isSelectingRef = useRef(false); // Flag to prevent close during selection
+  const [inputValue, setInputValue] = useState('');
 
-  // Current selected value for display
-  const selectedFullName = schema_name && table_name ? `${schema_name}.${table_name}` : '';
+  // Convert tables to react-select options
+  const options: DatasetOption[] =
+    allTables?.map((table) => ({
+      value: table.full_name,
+      label: table.full_name,
+      schema_name: table.schema_name,
+      table_name: table.table_name,
+    })) || [];
 
-  // Auto-focus the input when autoFocus is enabled
-  useEffect(() => {
-    if (autoFocus && inputRef.current && !isLoading) {
-      inputRef.current.focus();
+  // Find current selected option
+  const selectedOption =
+    schema_name && table_name
+      ? options.find((opt) => opt.schema_name === schema_name && opt.table_name === table_name) ||
+        null
+      : null;
+
+  const handleChange = (option: SingleValue<DatasetOption>) => {
+    if (option) {
+      onDatasetChange(option.schema_name, option.table_name);
+    } else {
+      // Clear selection
+      onDatasetChange('', '');
     }
-  }, [autoFocus, isLoading]);
-
-  // Calculate dropdown position when it opens
-  useEffect(() => {
-    const updatePosition = () => {
-      if (containerRef.current && isDropdownOpen) {
-        const rect = containerRef.current.getBoundingClientRect();
-        setDropdownPosition({
-          top: rect.bottom, // position: fixed uses viewport coordinates
-          left: rect.left, // no need for scrollY/scrollX
-          width: rect.width,
-        });
-      }
-    };
-
-    if (isDropdownOpen) {
-      updatePosition();
-      // Update position on scroll or resize
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
-      return () => {
-        window.removeEventListener('scroll', updatePosition, true);
-        window.removeEventListener('resize', updatePosition);
-      };
-    }
-  }, [isDropdownOpen]);
-
-  // Filter tables based on search query
-  const filteredTables = allTables?.filter((table) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      table.schema_name.toLowerCase().includes(query) ||
-      table.table_name.toLowerCase().includes(query) ||
-      table.full_name.toLowerCase().includes(query)
-    );
-  });
-
-  const handleTableSelect = (schema: string, table: string) => {
-    if (!schema || !table) return;
-
-    onDatasetChange(schema, table);
-    setSearchQuery('');
-    setIsDropdownOpen(false);
-
-    // Reset the selecting flag after selection completes
-    setTimeout(() => {
-      isSelectingRef.current = false;
-    }, 0);
+    // Clear the input value after selection
+    setInputValue('');
   };
 
-  // Attach native click handlers to dropdown items (Portal event fix)
-  useEffect(() => {
-    if (!isDropdownOpen || !dropdownRef.current) return;
+  const handleInputChange = (newValue: string, actionMeta: InputActionMeta) => {
+    // Only update input value for user input actions
+    if (actionMeta.action === 'input-change') {
+      setInputValue(newValue);
+    }
+    // Clear input when menu closes
+    if (actionMeta.action === 'menu-close') {
+      setInputValue('');
+    }
+  };
 
-    const handleItemClick = (event: Event) => {
-      const target = event.target as HTMLElement;
-      const item = target.closest('.dataset-item') as HTMLElement;
+  const handleMenuOpen = () => {
+    // When menu opens, populate input with current selected value
+    // so user can edit from the end
+    if (selectedOption) {
+      setInputValue(selectedOption.label);
+      // Scroll to the selected option after a short delay to ensure menu is rendered
+      setTimeout(() => {
+        const focusedOption = containerRef.current?.querySelector(
+          '[class*="option"][class*="is-selected"], [class*="option"][aria-selected="true"]'
+        );
+        focusedOption?.scrollIntoView({ block: 'nearest' });
+      }, 10);
+    }
+  };
 
-      if (item) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const schema = item.getAttribute('data-schema');
-        const table = item.getAttribute('data-table');
-
-        if (schema && table) {
-          isSelectingRef.current = true;
-          handleTableSelect(schema, table);
-        }
-      }
-    };
-
-    const dropdown = dropdownRef.current;
-    dropdown.addEventListener('click', handleItemClick, true);
-
-    return () => {
-      dropdown.removeEventListener('click', handleItemClick, true);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDropdownOpen, filteredTables]);
-
-  // Close dropdown when clicking outside (both input and dropdown)
-  useEffect(() => {
-    if (!isDropdownOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      // Don't close if we're in the middle of selecting an item
-      if (isSelectingRef.current) {
-        return;
-      }
-
-      const target = event.target as Node;
-      const clickedInside =
-        (containerRef.current && containerRef.current.contains(target)) ||
-        (dropdownRef.current && dropdownRef.current.contains(target));
-
-      if (!clickedInside) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    // Use a longer delay to ensure Portal has rendered and ref is attached
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
+  // Custom filter: show all options when input matches selected value exactly
+  const filterOption = (option: { data: DatasetOption }, inputVal: string) => {
+    // If input matches selected value exactly, show all options
+    if (selectedOption && inputVal === selectedOption.label) {
+      return true;
+    }
+    // Otherwise, filter normally
+    return option.data.label.toLowerCase().includes(inputVal.toLowerCase());
+  };
 
   if (error) {
     return (
@@ -182,97 +233,38 @@ export function DatasetSelector({
   }
 
   return (
-    <div className={className} ref={containerRef}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
-        <Input
-          ref={inputRef}
-          placeholder={isLoading ? 'Loading...' : 'Search datasets...'}
-          value={!isDropdownOpen && selectedFullName ? selectedFullName : searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setIsDropdownOpen(true);
-          }}
-          className="pl-9 pr-8 h-10 w-full bg-white cursor-pointer"
-          disabled={disabled || isLoading}
-          onClick={() => {
-            if (!isDropdownOpen) {
-              setIsDropdownOpen(true);
-            }
-          }}
-          onFocus={() => {
-            setIsDropdownOpen(true);
-            // Clear search to show all options when focusing on selected value
-            if (selectedFullName && !searchQuery) {
-              setSearchQuery('');
-            }
-          }}
-        />
-        <ChevronDown
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 cursor-pointer"
-          onClick={() => {
-            if (!disabled && !isLoading) {
-              setIsDropdownOpen(!isDropdownOpen);
-              inputRef.current?.focus();
-            }
-          }}
-        />
-      </div>
-
-      {/* Dropdown rendered as Portal to escape Dialog overflow constraints */}
-      {isDropdownOpen &&
-        !disabled &&
-        !isLoading &&
-        typeof window !== 'undefined' &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            className="fixed bg-white border border-gray-200 rounded shadow-lg"
-            style={{
-              top: `${dropdownPosition.top}px`,
-              left: `${dropdownPosition.left}px`,
-              width: `${dropdownPosition.width}px`,
-              maxHeight: '240px',
-              marginTop: '4px',
-              zIndex: 99999,
-              pointerEvents: 'auto',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-            }}
-            onWheel={(e) => {
-              // Prevent scroll from bubbling to parent elements
-              e.stopPropagation();
-            }}
-          >
-            {isLoading ? (
-              <div className="p-3 text-center text-sm text-gray-500">Loading...</div>
-            ) : filteredTables?.length === 0 ? (
-              <div className="p-3 text-center text-sm text-gray-500">
-                {searchQuery ? 'No datasets found' : 'No datasets available'}
-              </div>
-            ) : (
-              filteredTables?.map((tableItem) => {
-                const isSelected = tableItem.full_name === selectedFullName;
-                return (
-                  <div
-                    key={tableItem.full_name}
-                    data-schema={tableItem.schema_name}
-                    data-table={tableItem.table_name}
-                    className={`dataset-item px-3 py-2 cursor-pointer text-sm border-b border-gray-100 last:border-b-0 ${
-                      isSelected ? 'bg-blue-50 text-blue-900' : 'hover:bg-gray-50'
-                    }`}
-                    style={{ userSelect: 'none' }}
-                  >
-                    <div className="font-mono font-medium" style={{ pointerEvents: 'none' }}>
-                      {highlightText(tableItem.full_name, searchQuery)}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>,
-          document.body
-        )}
+    <div className={className} ref={containerRef} style={{ position: 'relative' }}>
+      <Select<DatasetOption, false>
+        instanceId="dataset-selector"
+        value={selectedOption}
+        onChange={handleChange}
+        options={options}
+        isLoading={isLoading}
+        isDisabled={disabled || isLoading}
+        placeholder={isLoading ? 'Loading...' : 'Search and select dataset...'}
+        noOptionsMessage={() => 'No datasets found'}
+        loadingMessage={() => 'Loading datasets...'}
+        styles={customStyles}
+        inputValue={inputValue}
+        onInputChange={handleInputChange}
+        onMenuOpen={handleMenuOpen}
+        filterOption={filterOption}
+        // Don't use portal - render menu inline to work inside modals
+        menuPortalTarget={null}
+        menuPosition="absolute"
+        menuPlacement="auto"
+        autoFocus={autoFocus}
+        isClearable={true}
+        backspaceRemovesValue={true}
+        isSearchable={true}
+        openMenuOnFocus={true}
+        blurInputOnSelect={true}
+        closeMenuOnSelect={true}
+        tabSelectsValue={true}
+        captureMenuScroll={true}
+        menuShouldScrollIntoView={true}
+        classNamePrefix="dataset-select"
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Consolidated tests for DatasetSelector component
+ * Tests for DatasetSelector component (using react-select)
  * Covers rendering states, search functionality, dropdown behavior, dataset selection, and edge cases
  */
 
@@ -31,34 +31,38 @@ describe('DatasetSelector', () => {
   });
 
   describe('Component States', () => {
-    it.each([
-      ['loading', { data: null, isLoading: true, error: null }, 'Loading...', true],
-      [
-        'error',
-        { data: null, isLoading: false, error: new Error('Network error') },
-        'Failed to load datasets. Please try refreshing.',
-        false,
-      ],
-    ])('should render %s state', (state, hookReturn, expectedText, shouldDisable) => {
-      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue(hookReturn);
+    it('should render loading state', () => {
+      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+      });
 
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      if (expectedText.includes('Loading')) {
-        expect(screen.getByPlaceholderText(expectedText)).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(expectedText)).toBeDisabled();
-      } else {
-        expect(screen.getByText(expectedText)).toBeInTheDocument();
-        expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
-      }
+      expect(screen.getByText('Loading...')).toBeInTheDocument();
+    });
+
+    it('should render error state', () => {
+      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: new Error('Network error'),
+      });
+
+      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
+
+      expect(
+        screen.getByText('Failed to load datasets. Please try refreshing.')
+      ).toBeInTheDocument();
     });
   });
 
   describe('Rendering and Initial State', () => {
-    it('should render search input with icons and placeholder', () => {
+    it('should render select with placeholder', () => {
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      expect(screen.getByPlaceholderText('Search datasets...')).toBeInTheDocument();
+      expect(screen.getByText('Search and select dataset...')).toBeInTheDocument();
     });
 
     it('should display selected value when provided', () => {
@@ -70,8 +74,7 @@ describe('DatasetSelector', () => {
         />
       );
 
-      const input = screen.getByPlaceholderText('Search datasets...') as HTMLInputElement;
-      expect(input.value).toBe('public.users');
+      expect(screen.getByText('public.users')).toBeInTheDocument();
     });
 
     it('should apply custom className', () => {
@@ -79,64 +82,59 @@ describe('DatasetSelector', () => {
         <DatasetSelector onDatasetChange={mockOnDatasetChange} className="custom-class" />
       );
 
-      const wrapper = container.querySelector('.custom-class');
-      expect(wrapper).toBeInTheDocument();
+      expect(container.querySelector('.custom-class')).toBeInTheDocument();
     });
   });
 
-  describe('Search Functionality', () => {
-    it('should update search query when typing', async () => {
+  describe('Search and Selection', () => {
+    it('should open dropdown and show options when clicking', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.type(input, 'users');
+      const input = screen.getByRole('combobox');
+      await user.click(input);
 
-      expect(input).toHaveValue('users');
+      await waitFor(() => {
+        expect(screen.getByText('public.users')).toBeInTheDocument();
+        expect(screen.getByText('public.orders')).toBeInTheDocument();
+        expect(screen.getByText('analytics.events')).toBeInTheDocument();
+        expect(screen.getByText('analytics.metrics')).toBeInTheDocument();
+      });
     });
 
-    it.each([
-      ['schema name', 'analytics', ['analytics.events', 'analytics.metrics']],
-      ['table name', 'users', ['public.users']],
-      ['full name', 'public.orders', ['public.orders']],
-    ])('should filter tables by %s', async (type, query, expected) => {
+    it('should filter options when typing', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
-      await user.type(input, query);
+      await user.type(input, 'users');
 
-      await waitFor(
-        () => {
-          const text = document.body.textContent || '';
-          expected.forEach((item) => expect(text).toContain(item));
-        },
-        { timeout: 3000 }
-      );
+      await waitFor(() => {
+        expect(screen.getByText('public.users')).toBeInTheDocument();
+        // Other options should be filtered out
+        expect(screen.queryByText('public.orders')).not.toBeInTheDocument();
+      });
     });
 
     it('should be case-insensitive when filtering', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
       await user.type(input, 'USERS');
 
-      await waitFor(
-        () => {
-          expect(document.body.textContent).toContain('public.users');
-        },
-        { timeout: 3000 }
-      );
+      await waitFor(() => {
+        expect(screen.getByText('public.users')).toBeInTheDocument();
+      });
     });
 
     it('should show "No datasets found" when search has no results', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
       await user.type(input, 'nonexistent');
 
@@ -144,122 +142,60 @@ describe('DatasetSelector', () => {
         expect(screen.getByText('No datasets found')).toBeInTheDocument();
       });
     });
-  });
 
-  describe('Dropdown Behavior', () => {
-    it('should open dropdown and show all datasets when clicking input', async () => {
+    it('should call onDatasetChange when selecting an option', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
 
       await waitFor(() => {
-        expect(screen.getByText(/public.users/)).toBeInTheDocument();
-        expect(screen.getByText(/public.orders/)).toBeInTheDocument();
-        expect(screen.getByText(/analytics.events/)).toBeInTheDocument();
-        expect(screen.getByText(/analytics.metrics/)).toBeInTheDocument();
+        expect(screen.getByText('public.users')).toBeInTheDocument();
       });
-    });
 
-    it.each([
-      ['disabled', true],
-      ['loading', false],
-    ])('should not open dropdown when %s', async (state, disabled) => {
-      if (state === 'loading') {
-        (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-          data: null,
-          isLoading: true,
-          error: null,
-        });
-      }
+      await user.click(screen.getByText('public.users'));
 
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} disabled={disabled} />);
-
-      const input =
-        state === 'loading'
-          ? screen.getByPlaceholderText('Loading...')
-          : screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(screen.queryByText(/public.users/)).not.toBeInTheDocument();
+      expect(mockOnDatasetChange).toHaveBeenCalledWith('public', 'users');
     });
   });
 
-  describe('Dataset Selection', () => {
-    it('should call onDatasetChange and close dropdown when selecting a dataset', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await waitFor(
-        () => {
-          expect(document.body.textContent).toContain('public.users');
-        },
-        { timeout: 3000 }
+  describe('Disabled State', () => {
+    it('should be disabled when disabled prop is true', () => {
+      const { container } = render(
+        <DatasetSelector onDatasetChange={mockOnDatasetChange} disabled />
       );
 
-      const datasetItem = document.querySelector('[data-schema="public"][data-table="users"]');
-      if (datasetItem) {
-        (datasetItem as HTMLElement).click();
-      }
-
-      await waitFor(() => {
-        expect(mockOnDatasetChange).toHaveBeenCalledWith('public', 'users');
-      });
-    });
-
-    it('should highlight selected dataset in dropdown', async () => {
-      const user = userEvent.setup();
-      render(
-        <DatasetSelector
-          schema_name="public"
-          table_name="users"
-          onDatasetChange={mockOnDatasetChange}
-        />
-      );
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await waitFor(
-        () => {
-          const selectedItem = document.querySelector('[data-schema="public"][data-table="users"]');
-          expect(selectedItem).toHaveClass('bg-blue-50');
-        },
-        { timeout: 3000 }
-      );
-    });
-  });
-
-  describe('Disabled State and Auto-focus', () => {
-    it('should disable input when disabled prop is true', () => {
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} disabled />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
+      // Check for the disabled class on the container
+      const control = container.querySelector('.dataset-select--is-disabled');
+      expect(control).toBeInTheDocument();
+      // Check the input is disabled
+      const input = container.querySelector('input');
       expect(input).toBeDisabled();
     });
 
-    it('should auto-focus input when autoFocus is true', () => {
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} autoFocus />);
+    it('should be disabled when loading', () => {
+      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+      });
 
-      const input = screen.getByPlaceholderText('Search datasets...');
-      expect(input).not.toBeDisabled();
+      const { container } = render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
+
+      // Check for the disabled class on the container
+      const control = container.querySelector('.dataset-select--is-disabled');
+      expect(control).toBeInTheDocument();
+      // Check the input is disabled
+      const input = container.querySelector('input');
+      expect(input).toBeDisabled();
     });
   });
 
   describe('Edge Cases', () => {
-    it.each([
-      ['empty dataset list', []],
-      ['null dataset list', null],
-    ])('should handle %s', async (desc, data) => {
+    it('should handle empty dataset list', async () => {
       (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data,
+        data: [],
         isLoading: false,
         error: null,
       });
@@ -267,89 +203,53 @@ describe('DatasetSelector', () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
 
       await waitFor(() => {
-        if (data === null) {
-          expect(input).toBeInTheDocument();
-        } else {
-          expect(screen.getByText('No datasets available')).toBeInTheDocument();
-        }
+        expect(screen.getByText('No datasets found')).toBeInTheDocument();
       });
     });
 
-    it('should handle search with only whitespace', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-      await user.type(input, '   ');
-
-      await waitFor(() => {
-        expect(screen.getByText(/public.users/)).toBeInTheDocument();
-        expect(screen.getByText(/public.orders/)).toBeInTheDocument();
-      });
-    });
-
-    it('should handle special characters in search', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-      await user.type(input, 'public.');
-
-      await waitFor(
-        () => {
-          const text = document.body.textContent || '';
-          expect(text).toContain('public.users');
-          expect(text).toContain('public.orders');
-        },
-        { timeout: 3000 }
-      );
-    });
-
-    it('should not call onDatasetChange with empty schema or table', async () => {
-      const user = userEvent.setup();
-      const customTables = [{ schema_name: '', table_name: 'orphan', full_name: '.orphan' }];
-
+    it('should handle null dataset list', async () => {
       (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
-        data: customTables,
+        data: null,
         isLoading: false,
         error: null,
       });
 
+      const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
 
-      await waitFor(
-        () => {
-          expect(document.body.textContent).toContain('.orphan');
-        },
-        { timeout: 3000 }
-      );
+      await waitFor(() => {
+        expect(screen.getByText('No datasets found')).toBeInTheDocument();
+      });
+    });
 
-      const datasetItem = document.querySelector('[data-schema=""][data-table="orphan"]');
-      if (datasetItem) {
-        (datasetItem as HTMLElement).click();
-      }
+    it('should filter by schema name', async () => {
+      const user = userEvent.setup();
+      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      const input = screen.getByRole('combobox');
+      await user.click(input);
+      await user.type(input, 'analytics');
 
-      expect(mockOnDatasetChange).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(screen.getByText('analytics.events')).toBeInTheDocument();
+        expect(screen.getByText('analytics.metrics')).toBeInTheDocument();
+        expect(screen.queryByText('public.users')).not.toBeInTheDocument();
+      });
     });
 
     it('should handle very long dataset names', async () => {
       const longTables = [
         {
-          schema_name: 'very_long_schema_name_that_exceeds_normal_length',
-          table_name: 'very_long_table_name_that_also_exceeds_normal_length',
-          full_name:
-            'very_long_schema_name_that_exceeds_normal_length.very_long_table_name_that_also_exceeds_normal_length',
+          schema_name: 'very_long_schema_name',
+          table_name: 'very_long_table_name',
+          full_name: 'very_long_schema_name.very_long_table_name',
         },
       ];
 
@@ -362,47 +262,12 @@ describe('DatasetSelector', () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
-      const input = screen.getByPlaceholderText('Search datasets...');
+      const input = screen.getByRole('combobox');
       await user.click(input);
 
       await waitFor(() => {
-        expect(
-          screen.getByText(
-            /very_long_schema_name_that_exceeds_normal_length.very_long_table_name_that_also_exceeds_normal_length/
-          )
-        ).toBeInTheDocument();
+        expect(screen.getByText('very_long_schema_name.very_long_table_name')).toBeInTheDocument();
       });
-    });
-  });
-
-  describe('Search Highlighting', () => {
-    it('should highlight matched text in search results', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-      await user.type(input, 'users');
-
-      await waitFor(() => {
-        const marks = document.querySelectorAll('mark');
-        expect(marks.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should not highlight when search is empty', async () => {
-      const user = userEvent.setup();
-      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
-
-      const input = screen.getByPlaceholderText('Search datasets...');
-      await user.click(input);
-
-      await waitFor(() => {
-        expect(screen.getByText(/public.users/)).toBeInTheDocument();
-      });
-
-      const marks = document.querySelectorAll('mark');
-      expect(marks.length).toBe(0);
     });
   });
 });

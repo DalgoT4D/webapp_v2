@@ -379,7 +379,7 @@ export function FilterConfigModal({
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-visible">
             <Tabs defaultValue="info" className="h-full flex flex-col">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="info">Info</TabsTrigger>
@@ -388,8 +388,8 @@ export function FilterConfigModal({
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-hidden mt-4">
-                <TabsContent value="info" className="h-full overflow-auto">
+              <div className="flex-1 overflow-visible mt-4">
+                <TabsContent value="info" className="h-full overflow-visible">
                   <div className="space-y-6">
                     <div className="grid gap-4">
                       <div>
@@ -404,7 +404,7 @@ export function FilterConfigModal({
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                        <div style={{ position: 'relative', zIndex: 10 }}>
                           <Label>Dataset</Label>
                           <DatasetSelector
                             schema_name={schemaName}
