@@ -8,7 +8,6 @@ import {
   LineChart,
   Trash,
   Copy,
-  AlertCircle,
   MapPin,
   Hash,
   CheckSquare,
@@ -30,12 +29,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import { generateDuplicateTitle } from '@/lib/form-utils';
 import {
   DataTable,
   ColumnHeader,
   ActionsCell,
   type ActionMenuItem,
-  type SortState,
   type FilterState,
   type TextFilterValue,
   type DateFilterValue,
@@ -43,6 +42,19 @@ import {
   type SkeletonConfig,
 } from '@/components/ui/data-table';
 
+// Hooks and utilities
+import { useTableState } from '@/hooks/useTableState';
+import { useFavorites } from '@/hooks/useFavorites';
+import { ErrorState } from '@/components/ui/error-state';
+import { PageHeader } from '@/components/ui/page-header';
+import {
+  matchesTextFilter,
+  matchesCheckboxFilter,
+  matchesDateFilter,
+  extractUniqueValues,
+} from '@/lib/table-utils';
+
+// Chart type icons mapping
 const chartIcons = {
   bar: BarChart2,
   pie: PieChart,
@@ -90,19 +102,15 @@ const initialFilterState: FilterState = {
   updated_at: { range: 'all', customStart: null, customEnd: null } as DateFilterValue,
 };
 
+// Sort accessors for each sortable column
+const sortAccessors: Record<string, (item: Chart) => string | number | Date | null> = {
+  title: (item) => (item.title || '').toLowerCase(),
+  updated_at: (item) => (item.updated_at ? new Date(item.updated_at) : null),
+  chart_type: (item) => (item.chart_type || '').toLowerCase(),
+  data_source: (item) => `${item.schema_name}.${item.table_name}`.toLowerCase(),
+};
+
 export default function ChartsPage() {
-  // Sorting state
-  const [sortState, setSortState] = useState<SortState>({
-    column: 'updated_at',
-    direction: 'desc',
-  });
-
-  // Filter state
-  const [filterState, setFilterState] = useState<FilterState>(initialFilterState);
-
-  // Favorites (local state)
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
-
   // Selection mode state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
@@ -112,177 +120,97 @@ export default function ChartsPage() {
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
 
-  // API hooks - fetch all charts, pagination handled by TanStack Table
+  // API hooks
   const { data: allCharts, isLoading, isError, mutate } = useCharts();
-
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
   const { confirm, DialogComponent } = useConfirmationDialog();
   const { hasPermission } = useUserPermissions();
 
-  // Memoize charts to prevent unnecessary re-renders
+  // Favorites hook
+  const { toggleFavorite, isFavorited } = useFavorites();
+
+  // Memoize charts array
   const charts = useMemo(() => allCharts || [], [allCharts]);
 
-  // Get unique data sources for filter options
-  const uniqueDataSources = useMemo(() => {
-    const dataSources = new Set<string>();
-    charts.forEach((chart) => {
-      const dataSource = `${chart.schema_name}.${chart.table_name}`;
-      if (dataSource && dataSource !== '.') {
-        dataSources.add(dataSource);
-      }
-    });
-    return Array.from(dataSources)
-      .sort()
-      .map((ds) => ({ value: ds, label: ds }));
-  }, [charts]);
+  // Filter function using new utilities
+  const filterFn = useCallback(
+    (chart: Chart, filterState: FilterState): boolean => {
+      const titleFilter = filterState.title as TextFilterValue;
+      const dataSourceFilter = filterState.data_source as string[];
+      const chartTypeFilter = filterState.chart_type as string[];
+      const dateFilter = filterState.updated_at as DateFilterValue;
 
-  // Get unique chart types for filter options
-  const uniqueChartTypes = useMemo(() => {
-    const chartTypes = new Set<string>();
-    charts.forEach((chart) => {
-      if (chart.chart_type) {
-        chartTypes.add(chart.chart_type);
-      }
-    });
-    return Array.from(chartTypes)
-      .sort()
-      .map((ct) => ({ value: ct, label: ct.charAt(0).toUpperCase() + ct.slice(1) }));
-  }, [charts]);
-
-  // Apply filters and sort charts
-  const filteredAndSortedCharts = useMemo(() => {
-    const titleFilter = filterState.title as TextFilterValue;
-    const dataSourceFilter = filterState.data_source as string[];
-    const chartTypeFilter = filterState.chart_type as string[];
-    const dateFilter = filterState.updated_at as DateFilterValue;
-
-    // Apply filters
-    const filtered = charts.filter((chart) => {
       // Name/title filter
-      if (titleFilter?.text) {
-        const title = (chart.title || '').toLowerCase();
-        if (!title.includes(titleFilter.text.toLowerCase())) {
-          return false;
-        }
+      if (!matchesTextFilter(chart.title, titleFilter?.text || '')) {
+        return false;
       }
 
       // Favorites filter
-      if (titleFilter?.showFavorites && !favorites.has(chart.id)) {
+      if (titleFilter?.showFavorites && !isFavorited(chart.id)) {
         return false;
       }
 
       // Data source filter
-      if (dataSourceFilter.length > 0) {
-        const dataSource = `${chart.schema_name}.${chart.table_name}`;
-        if (!dataSourceFilter.includes(dataSource)) {
-          return false;
-        }
+      const dataSource = `${chart.schema_name}.${chart.table_name}`;
+      if (!matchesCheckboxFilter(dataSource, dataSourceFilter)) {
+        return false;
       }
 
       // Chart type filter
-      if (chartTypeFilter.length > 0) {
-        if (!chartTypeFilter.includes(chart.chart_type)) {
-          return false;
-        }
+      if (!matchesCheckboxFilter(chart.chart_type, chartTypeFilter)) {
+        return false;
       }
 
       // Date filter
-      if (dateFilter.range !== 'all' && chart.updated_at) {
-        const updatedDate = new Date(chart.updated_at);
-        const now = new Date();
-
-        switch (dateFilter.range) {
-          case 'today': {
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            if (updatedDate < today) return false;
-            break;
-          }
-          case 'week': {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            if (updatedDate < weekAgo) return false;
-            break;
-          }
-          case 'month': {
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            if (updatedDate < monthAgo) return false;
-            break;
-          }
-          case 'custom': {
-            if (dateFilter.customStart && updatedDate < dateFilter.customStart) return false;
-            if (dateFilter.customEnd && updatedDate > dateFilter.customEnd) return false;
-            break;
-          }
-        }
+      if (!matchesDateFilter(chart.updated_at, dateFilter)) {
+        return false;
       }
 
       return true;
-    });
+    },
+    [isFavorited]
+  );
 
-    // Sort
-    return [...filtered].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
+  // Table state hook
+  const {
+    sortState,
+    setSortState,
+    filterState,
+    setFilterState,
+    filteredAndSortedData: filteredAndSortedCharts,
+    activeFilterCount,
+    clearAllFilters,
+  } = useTableState({
+    data: charts,
+    initialSort: { column: 'updated_at', direction: 'desc' },
+    initialFilters: initialFilterState,
+    filterConfigs,
+    sortAccessors,
+    filterFn,
+  });
 
-      switch (sortState.column) {
-        case 'title':
-          aValue = (a.title || '').toLowerCase();
-          bValue = (b.title || '').toLowerCase();
-          break;
-        case 'updated_at':
-          aValue = new Date(a.updated_at || 0).getTime();
-          bValue = new Date(b.updated_at || 0).getTime();
-          break;
-        case 'chart_type':
-          aValue = (a.chart_type || '').toLowerCase();
-          bValue = (b.chart_type || '').toLowerCase();
-          break;
-        case 'data_source':
-          aValue = `${a.schema_name}.${a.table_name}`.toLowerCase();
-          bValue = `${b.schema_name}.${b.table_name}`.toLowerCase();
-          break;
-        default:
-          return 0;
-      }
+  // Get unique data sources for filter options
+  const uniqueDataSources = useMemo(
+    () =>
+      extractUniqueValues(charts, (chart) => {
+        const dataSource = `${chart.schema_name}.${chart.table_name}`;
+        return dataSource !== '.' ? dataSource : null;
+      }),
+    [charts]
+  );
 
-      if (sortState.direction === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-  }, [charts, filterState, favorites, sortState]);
-
-  // Get active filter count
-  const getActiveFilterCount = useCallback(() => {
-    let count = 0;
-    const titleFilter = filterState.title as TextFilterValue;
-    if (titleFilter?.text || titleFilter?.showFavorites) count++;
-    if ((filterState.data_source as string[]).length > 0) count++;
-    if ((filterState.chart_type as string[]).length > 0) count++;
-    const dateFilter = filterState.updated_at as DateFilterValue;
-    if (dateFilter?.range !== 'all') count++;
-    return count;
-  }, [filterState]);
-
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setFilterState(initialFilterState);
-  }, []);
-
-  // Favorites toggle
-  const handleToggleFavorite = useCallback((chartId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(chartId)) {
-        newFavorites.delete(chartId);
-      } else {
-        newFavorites.add(chartId);
-      }
-      return newFavorites;
-    });
-  }, []);
+  // Get unique chart types for filter options
+  const uniqueChartTypes = useMemo(
+    () =>
+      extractUniqueValues(
+        charts,
+        (chart) => chart.chart_type,
+        (type) => type.charAt(0).toUpperCase() + type.slice(1)
+      ),
+    [charts]
+  );
 
   // Selection mode functions
   const enterSelectionMode = useCallback(() => {
@@ -293,18 +221,6 @@ export default function ChartsPage() {
   const exitSelectionMode = useCallback(() => {
     setIsSelectionMode(false);
     setSelectedCharts(new Set());
-  }, []);
-
-  const toggleChartSelection = useCallback((chartId: number) => {
-    setSelectedCharts((prev) => {
-      const newSelection = new Set(prev);
-      if (newSelection.has(chartId)) {
-        newSelection.delete(chartId);
-      } else {
-        newSelection.add(chartId);
-      }
-      return newSelection;
-    });
   }, []);
 
   const selectAllCharts = useCallback(() => {
@@ -332,40 +248,6 @@ export default function ChartsPage() {
       }
     },
     [deleteChart, mutate]
-  );
-
-  // Duplicate title generator
-  const generateDuplicateTitle = useCallback(
-    (originalTitle: string, existingTitles: string[]): string => {
-      let baseName = originalTitle;
-      let copyNumber = 1;
-
-      if (originalTitle.startsWith('Copy of ')) {
-        baseName = originalTitle;
-      } else {
-        baseName = `Copy of ${originalTitle}`;
-      }
-
-      let newTitle = baseName;
-
-      while (existingTitles.includes(newTitle)) {
-        copyNumber++;
-        if (originalTitle.startsWith('Copy of ')) {
-          const match = originalTitle.match(/^Copy of (.+?)( \((\d+)\))?$/);
-          if (match) {
-            const baseTitle = match[1];
-            newTitle = `Copy of ${baseTitle} (${copyNumber})`;
-          } else {
-            newTitle = `${originalTitle} (${copyNumber})`;
-          }
-        } else {
-          newTitle = `Copy of ${originalTitle} (${copyNumber})`;
-        }
-      }
-
-      return newTitle;
-    },
-    []
   );
 
   // Duplicate handler
@@ -410,7 +292,7 @@ export default function ChartsPage() {
         setIsDuplicating(null);
       }
     },
-    [charts, createChart, mutate, generateDuplicateTitle]
+    [charts, createChart, mutate]
   );
 
   // Bulk delete handler
@@ -490,7 +372,7 @@ export default function ChartsPage() {
         ),
         cell: ({ row }) => {
           const chart = row.original;
-          const isFavorited = favorites.has(chart.id);
+          const chartIsFavorited = isFavorited(chart.id);
 
           return (
             <div className="flex items-center gap-3">
@@ -500,10 +382,10 @@ export default function ChartsPage() {
                 className="h-8 w-8 p-0 hover:bg-yellow-50"
                 onClick={(e) => {
                   e.preventDefault();
-                  handleToggleFavorite(chart.id);
+                  toggleFavorite(chart.id);
                 }}
               >
-                {isFavorited ? (
+                {chartIsFavorited ? (
                   <Star className="w-4 h-4 text-yellow-500 fill-current" />
                 ) : (
                   <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
@@ -707,63 +589,42 @@ export default function ChartsPage() {
     [
       sortState,
       filterState,
-      favorites,
       uniqueDataSources,
       uniqueChartTypes,
       isDeleting,
       isDuplicating,
       hasPermission,
-      handleToggleFavorite,
+      isFavorited,
+      toggleFavorite,
       handleDuplicateChart,
       handleDeleteChart,
       enterSelectionMode,
+      setSortState,
+      setFilterState,
     ]
   );
 
+  // Error state
   if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <AlertCircle className="w-12 h-12 text-destructive" />
-        <p className="text-muted-foreground">Failed to load charts</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
-      </div>
-    );
+    return <ErrorState title="Failed to load charts" onRetry={() => mutate()} />;
   }
 
   return (
     <div id="charts-list-container" className="h-full flex flex-col">
-      {/* Fixed Header */}
-      <div id="charts-header" className="flex-shrink-0 border-b bg-background">
-        {/* Title Section */}
-        <div id="charts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
-          <div id="charts-title-wrapper">
-            <h1 id="charts-page-title" className="text-3xl font-bold">
-              Charts
-            </h1>
-            <p id="charts-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Visualizations
-            </p>
-          </div>
+      {/* Page Header */}
+      <PageHeader
+        title="Charts"
+        description="Create And Manage Your Visualizations"
+        idPrefix="charts"
+        action={{
+          label: 'CREATE CHART',
+          href: '/charts/new',
+          icon: <Plus className="w-4 h-4" />,
+          visible: hasPermission('can_create_charts'),
+        }}
+      />
 
-          {hasPermission('can_create_charts') && (
-            <Link id="charts-create-link" href="/charts/new">
-              <Button
-                id="charts-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
-              >
-                <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
-                CREATE CHART
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* DataTable - pass all filtered data, TanStack handles pagination */}
+      {/* DataTable */}
       <DataTable
         data={filteredAndSortedCharts}
         columns={columns}
@@ -774,7 +635,7 @@ export default function ChartsPage() {
         filterState={filterState}
         onFilterChange={setFilterState}
         filterConfigs={filterConfigs}
-        activeFilterCount={getActiveFilterCount()}
+        activeFilterCount={activeFilterCount}
         onClearAllFilters={clearAllFilters}
         selection={
           isSelectionMode

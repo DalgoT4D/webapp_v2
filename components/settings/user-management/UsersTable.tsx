@@ -13,20 +13,29 @@ import { Badge } from '@/components/ui/badge';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUsers, useRoles, useUserActions } from '@/hooks/api/useUserManagement';
 import { useAuthStore } from '@/stores/authStore';
-import { User, Save, X, Trash2, AlertCircle, Edit } from 'lucide-react';
+import { User, Save, X, Trash2, Edit } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   DataTable,
   ColumnHeader,
   ActionsCell,
   type ActionMenuItem,
-  type SortState,
   type FilterState,
   type TextFilterValue,
   type FilterConfig,
   type SkeletonConfig,
 } from '@/components/ui/data-table';
 import { DeleteUserDialog } from './DeleteUserDialog';
+
+// Hooks and utilities
+import { useTableState } from '@/hooks/useTableState';
+import { ErrorState } from '@/components/ui/error-state';
+import {
+  matchesTextFilter,
+  matchesCheckboxFilter,
+  extractUniqueValues,
+  formatRoleName,
+} from '@/lib/table-utils';
 
 // User type
 interface UserData {
@@ -61,6 +70,12 @@ const initialFilterState: FilterState = {
   role: [] as string[],
 };
 
+// Sort accessors for each sortable column
+const sortAccessors: Record<string, (item: UserData) => string | number | Date | null> = {
+  email: (item) => item.email.toLowerCase(),
+  role: (item) => formatRoleName(item.new_role_slug).toLowerCase(),
+};
+
 export function UsersTable() {
   const { users, isLoading, error, mutate } = useUsers();
   const { roles } = useRoles();
@@ -76,92 +91,54 @@ export function UsersTable() {
   // Delete dialog state
   const [deleteUser, setDeleteUser] = useState<string | null>(null);
 
-  // Sorting state
-  const [sortState, setSortState] = useState<SortState>({
-    column: 'email',
-    direction: 'asc',
-  });
-
-  // Filter state
-  const [filterState, setFilterState] = useState<FilterState>(initialFilterState);
-
   const currentUser = getCurrentOrgUser();
   const canEditUser = hasPermission('can_edit_orguser');
   const canDeleteUser = hasPermission('can_delete_orguser');
 
-  const formatRoleName = useCallback((roleSlug: string) => {
-    return roleSlug.replace('-', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-  }, []);
+  // Memoize users array
+  const usersList = useMemo(() => users || [], [users]);
 
-  // Get unique roles for filter options
-  const uniqueRoles = useMemo(() => {
-    if (!users) return [];
-    const roleSet = new Set(users.map((user: UserData) => user.new_role_slug));
-    return Array.from(roleSet)
-      .sort()
-      .map((r) => ({ value: r, label: formatRoleName(r) }));
-  }, [users, formatRoleName]);
-
-  // Apply filters and sort users
-  const filteredAndSortedUsers = useMemo(() => {
-    if (!users) return [];
-
+  // Filter function using new utilities
+  const filterFn = useCallback((user: UserData, filterState: FilterState): boolean => {
     const emailFilter = filterState.email as TextFilterValue;
     const roleFilter = filterState.role as string[];
 
-    // Apply filters
-    const filtered = users.filter((user: UserData) => {
-      // Email filter
-      if (emailFilter?.text) {
-        if (!user.email.toLowerCase().includes(emailFilter.text.toLowerCase())) {
-          return false;
-        }
-      }
+    // Email filter
+    if (!matchesTextFilter(user.email, emailFilter?.text || '')) {
+      return false;
+    }
 
-      // Role filter
-      if (roleFilter.length > 0) {
-        if (!roleFilter.includes(user.new_role_slug)) {
-          return false;
-        }
-      }
+    // Role filter
+    if (!matchesCheckboxFilter(user.new_role_slug, roleFilter)) {
+      return false;
+    }
 
-      return true;
-    });
-
-    // Sort
-    return [...filtered].sort((a: UserData, b: UserData) => {
-      let aValue: string;
-      let bValue: string;
-
-      if (sortState.column === 'email') {
-        aValue = a.email.toLowerCase();
-        bValue = b.email.toLowerCase();
-      } else {
-        aValue = formatRoleName(a.new_role_slug).toLowerCase();
-        bValue = formatRoleName(b.new_role_slug).toLowerCase();
-      }
-
-      if (sortState.direction === 'asc') {
-        return aValue.localeCompare(bValue);
-      } else {
-        return bValue.localeCompare(aValue);
-      }
-    });
-  }, [users, filterState, sortState, formatRoleName]);
-
-  // Get active filter count
-  const getActiveFilterCount = useCallback(() => {
-    let count = 0;
-    const emailFilter = filterState.email as TextFilterValue;
-    if (emailFilter?.text) count++;
-    if ((filterState.role as string[]).length > 0) count++;
-    return count;
-  }, [filterState]);
-
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setFilterState(initialFilterState);
+    return true;
   }, []);
+
+  // Table state hook
+  const {
+    sortState,
+    setSortState,
+    filterState,
+    setFilterState,
+    filteredAndSortedData: filteredAndSortedUsers,
+    activeFilterCount,
+    clearAllFilters,
+  } = useTableState({
+    data: usersList,
+    initialSort: { column: 'email', direction: 'asc' },
+    initialFilters: initialFilterState,
+    filterConfigs,
+    sortAccessors,
+    filterFn,
+  });
+
+  // Get unique roles for filter options
+  const uniqueRoles = useMemo(
+    () => extractUniqueValues(usersList, (user) => user.new_role_slug, formatRoleName),
+    [usersList]
+  );
 
   // Edit role handlers
   const handleEditRole = useCallback(
@@ -352,24 +329,17 @@ export function UsersTable() {
       currentUser,
       canEditUser,
       canDeleteUser,
-      formatRoleName,
       handleEditRole,
       handleSaveRole,
       handleCancelEdit,
+      setSortState,
+      setFilterState,
     ]
   );
 
   // Error state
   if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <AlertCircle className="w-12 h-12 text-destructive" />
-        <p className="text-muted-foreground">Failed to load users</p>
-        <Button variant="outline" onClick={() => mutate()}>
-          Retry
-        </Button>
-      </div>
-    );
+    return <ErrorState title="Failed to load users" onRetry={() => mutate()} />;
   }
 
   return (
@@ -384,7 +354,7 @@ export function UsersTable() {
         filterState={filterState}
         onFilterChange={setFilterState}
         filterConfigs={filterConfigs}
-        activeFilterCount={getActiveFilterCount()}
+        activeFilterCount={activeFilterCount}
         onClearAllFilters={clearAllFilters}
         emptyState={{
           icon: <User className="w-12 h-12" />,

@@ -14,10 +14,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import {
   Plus,
-  AlertCircle,
   Layout,
   User,
   Lock,
@@ -51,13 +49,24 @@ import {
   ColumnHeader,
   ActionsCell,
   type ActionMenuItem,
-  type SortState,
   type FilterState,
   type TextFilterValue,
   type DateFilterValue,
   type FilterConfig,
   type SkeletonConfig,
 } from '@/components/ui/data-table';
+
+// Hooks and utilities
+import { useTableState } from '@/hooks/useTableState';
+import { useFavorites } from '@/hooks/useFavorites';
+import { ErrorState } from '@/components/ui/error-state';
+import { PageHeader } from '@/components/ui/page-header';
+import {
+  matchesTextFilter,
+  matchesCheckboxFilter,
+  matchesDateFilter,
+  extractUniqueValues,
+} from '@/lib/table-utils';
 
 // Extended Dashboard type for list display (includes legacy field aliases from API)
 type DashboardListItem = Dashboard & {
@@ -102,19 +111,14 @@ const initialFilterState: FilterState = {
   updated_at: { range: 'all', customStart: null, customEnd: null } as DateFilterValue,
 };
 
+// Sort accessors for each sortable column
+const sortAccessors: Record<string, (item: DashboardListItem) => string | number | Date | null> = {
+  name: (item) => (item.title || item.dashboard_title || '').toLowerCase(),
+  owner: (item) => (item.created_by || '').toLowerCase(),
+  updated_at: (item) => (item.updated_at ? new Date(item.updated_at) : null),
+};
+
 export function DashboardListV2() {
-  // Sorting state
-  const [sortState, setSortState] = useState<SortState>({
-    column: 'updated_at',
-    direction: 'desc',
-  });
-
-  // Filter state
-  const [filterState, setFilterState] = useState<FilterState>(initialFilterState);
-
-  // Favorites (local state)
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
-
   // Action loading states
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
@@ -152,40 +156,26 @@ export function DashboardListV2() {
   // Fetch dashboards
   const { data: allDashboards, isLoading, isError, mutate } = useDashboards({});
 
+  // Favorites hook
+  const { toggleFavorite, isFavorited } = useFavorites();
+
   const dashboards: DashboardListItem[] = useMemo(() => allDashboards || [], [allDashboards]);
 
-  // Get unique owners for filter options
-  const uniqueOwners = useMemo(() => {
-    const owners = new Set<string>();
-    dashboards.forEach((dashboard) => {
-      const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
-      if (owner && owner !== 'Unknown') {
-        owners.add(owner);
-      }
-    });
-    return Array.from(owners)
-      .sort()
-      .map((o) => ({ value: o, label: o }));
-  }, [dashboards]);
+  // Filter function using new utilities
+  const filterFn = useCallback(
+    (dashboard: DashboardListItem, filterState: FilterState): boolean => {
+      const nameFilter = filterState.name as TextFilterValue;
+      const ownerFilter = filterState.owner as string[];
+      const dateFilter = filterState.updated_at as DateFilterValue;
 
-  // Apply filters and sort dashboards
-  const filteredAndSortedDashboards = useMemo(() => {
-    const nameFilter = filterState.name as TextFilterValue;
-    const ownerFilter = filterState.owner as string[];
-    const dateFilter = filterState.updated_at as DateFilterValue;
-
-    // Apply filters
-    const filtered = dashboards.filter((dashboard) => {
       // Name filter
-      if (nameFilter?.text) {
-        const title = (dashboard.title || dashboard.dashboard_title || '').toLowerCase();
-        if (!title.includes(nameFilter.text.toLowerCase())) {
-          return false;
-        }
+      const title = dashboard.title || dashboard.dashboard_title || '';
+      if (!matchesTextFilter(title, nameFilter?.text || '')) {
+        return false;
       }
 
       // Favorites filter
-      if (nameFilter?.showFavorites && !favorites.has(dashboard.id)) {
+      if (nameFilter?.showFavorites && !isFavorited(dashboard.id)) {
         return false;
       }
 
@@ -200,74 +190,48 @@ export function DashboardListV2() {
       }
 
       // Owner filter
-      if (ownerFilter.length > 0) {
-        const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
-        if (!ownerFilter.includes(owner)) {
-          return false;
-        }
+      const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
+      if (!matchesCheckboxFilter(owner, ownerFilter)) {
+        return false;
       }
 
       // Date filter
-      if (dateFilter.range !== 'all' && dashboard.updated_at) {
-        const updatedDate = new Date(dashboard.updated_at);
-        const now = new Date();
-
-        switch (dateFilter.range) {
-          case 'today': {
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            if (updatedDate < today) return false;
-            break;
-          }
-          case 'week': {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            if (updatedDate < weekAgo) return false;
-            break;
-          }
-          case 'month': {
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            if (updatedDate < monthAgo) return false;
-            break;
-          }
-          case 'custom': {
-            if (dateFilter.customStart && updatedDate < dateFilter.customStart) return false;
-            if (dateFilter.customEnd && updatedDate > dateFilter.customEnd) return false;
-            break;
-          }
-        }
+      if (!matchesDateFilter(dashboard.updated_at, dateFilter)) {
+        return false;
       }
 
       return true;
-    });
+    },
+    [isFavorited]
+  );
 
-    // Sort
-    return [...filtered].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
+  // Table state hook
+  const {
+    sortState,
+    setSortState,
+    filterState,
+    setFilterState,
+    filteredAndSortedData: filteredAndSortedDashboards,
+    activeFilterCount,
+    clearAllFilters,
+  } = useTableState({
+    data: dashboards,
+    initialSort: { column: 'updated_at', direction: 'desc' },
+    initialFilters: initialFilterState,
+    filterConfigs,
+    sortAccessors,
+    filterFn,
+  });
 
-      switch (sortState.column) {
-        case 'name':
-          aValue = (a.title || a.dashboard_title || '').toLowerCase();
-          bValue = (b.title || b.dashboard_title || '').toLowerCase();
-          break;
-        case 'owner':
-          aValue = (a.created_by || '').toLowerCase();
-          bValue = (b.created_by || '').toLowerCase();
-          break;
-        case 'updated_at':
-          aValue = new Date(a.updated_at || 0).getTime();
-          bValue = new Date(b.updated_at || 0).getTime();
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortState.direction === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-  }, [dashboards, filterState, favorites, sortState]);
+  // Get unique owners for filter options
+  const uniqueOwners = useMemo(
+    () =>
+      extractUniqueValues(dashboards, (dashboard) => {
+        const owner = dashboard.created_by || dashboard.changed_by_name;
+        return owner && owner !== 'Unknown' ? owner : null;
+      }),
+    [dashboards]
+  );
 
   // Separate pinned dashboards
   const pinnedDashboards = useMemo(() => {
@@ -286,41 +250,6 @@ export function DashboardListV2() {
       return !(isPersonalLanding || isOrgDefault);
     });
   }, [filteredAndSortedDashboards, currentUser]);
-
-  // Get active filter count
-  const getActiveFilterCount = useCallback(() => {
-    let count = 0;
-    const nameFilter = filterState.name as TextFilterValue;
-    if (
-      nameFilter?.text ||
-      nameFilter?.showFavorites ||
-      nameFilter?.showLocked ||
-      nameFilter?.showShared
-    )
-      count++;
-    if ((filterState.owner as string[]).length > 0) count++;
-    const dateFilter = filterState.updated_at as DateFilterValue;
-    if (dateFilter?.range !== 'all') count++;
-    return count;
-  }, [filterState]);
-
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setFilterState(initialFilterState);
-  }, []);
-
-  // Toggle favorites
-  const handleToggleFavorite = useCallback((dashboardId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(dashboardId)) {
-        newFavorites.delete(dashboardId);
-      } else {
-        newFavorites.add(dashboardId);
-      }
-      return newFavorites;
-    });
-  }, []);
 
   // Delete handler
   const handleDeleteDashboard = useCallback(
@@ -420,7 +349,7 @@ export function DashboardListV2() {
         ),
         cell: ({ row }) => {
           const dashboard = row.original;
-          const isFavorited = favorites.has(dashboard.id);
+          const dashboardIsFavorited = isFavorited(dashboard.id);
           const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
           const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
           const isLocked = dashboard.is_locked;
@@ -435,10 +364,10 @@ export function DashboardListV2() {
                 className="h-8 w-8 p-0 hover:bg-yellow-50"
                 onClick={(e) => {
                   e.preventDefault();
-                  handleToggleFavorite(dashboard.id);
+                  toggleFavorite(dashboard.id);
                 }}
               >
-                {isFavorited ? (
+                {dashboardIsFavorited ? (
                   <Star className="w-4 h-4 text-yellow-500 fill-current" />
                 ) : (
                   <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
@@ -678,68 +607,43 @@ export function DashboardListV2() {
     [
       sortState,
       filterState,
-      favorites,
       uniqueOwners,
       currentUser,
       isDeleting,
       isDuplicating,
       landingPageLoading,
       hasPermission,
-      handleToggleFavorite,
+      isFavorited,
+      toggleFavorite,
       handleDuplicateDashboard,
       handleDeleteDashboard,
       handleShareDashboard,
       handleSetPersonalLanding,
       handleRemovePersonalLanding,
       handleSetOrgDefault,
+      setSortState,
+      setFilterState,
     ]
   );
 
   if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <AlertCircle className="w-12 h-12 text-destructive" />
-        <p className="text-muted-foreground">Failed to load dashboards</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
-      </div>
-    );
+    return <ErrorState title="Failed to load dashboards" onRetry={() => mutate()} />;
   }
 
   return (
     <div id="dashboard-list-container" className="h-full flex flex-col">
-      {/* Fixed Header */}
-      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background">
-        {/* Title Section */}
-        <div
-          id="dashboard-title-section"
-          className="flex items-center justify-between mb-6 p-6 pb-0"
-        >
-          <div id="dashboard-title-wrapper">
-            <h1 id="dashboard-page-title" className="text-3xl font-bold">
-              Dashboards
-            </h1>
-            <p id="dashboard-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Dashboards
-            </p>
-          </div>
-
-          {hasPermission('can_create_dashboards') && (
-            <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button
-                id="dashboard-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
-              >
-                <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                CREATE DASHBOARD
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
+      {/* Page Header */}
+      <PageHeader
+        title="Dashboards"
+        description="Create And Manage Your Dashboards"
+        idPrefix="dashboard"
+        action={{
+          label: 'CREATE DASHBOARD',
+          href: '/dashboards/create',
+          icon: <Plus className="w-4 h-4" />,
+          visible: hasPermission('can_create_dashboards'),
+        }}
+      />
 
       {/* DataTable with pinned rows support */}
       <DataTable
@@ -753,7 +657,7 @@ export function DashboardListV2() {
         filterState={filterState}
         onFilterChange={setFilterState}
         filterConfigs={filterConfigs}
-        activeFilterCount={getActiveFilterCount()}
+        activeFilterCount={activeFilterCount}
         onClearAllFilters={clearAllFilters}
         pagination={{
           totalRows: regularDashboards.length,
