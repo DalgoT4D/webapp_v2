@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,108 +15,16 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
-import {
-  useChartData,
-  useChartDataPreview,
-  useChartDataPreviewTotalRows,
-  useCreateChart,
-  useGeoJSONData,
-  useMapDataOverlay,
-  useRawTableData,
-  useTableCount,
-  useColumns,
-  useRegions,
-  useChildRegions,
-  useRegionGeoJSONs,
-} from '@/hooks/api/useChart';
-import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
+import { useCreateChart } from '@/hooks/api/useChart';
+import { toastSuccess, toastError } from '@/lib/toast';
+import type { ChartCreate, ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
-import { deepEqual } from '@/lib/form-utils';
 import { usePagination } from '@/hooks/usePagination';
-import { isChartFormValid, buildChartDataPayload } from '@/lib/chart-validation';
-
-// Default customizations for each chart type
-function getDefaultCustomizations(chartType: string): Record<string, any> {
-  switch (chartType) {
-    case 'bar':
-      return {
-        orientation: 'vertical',
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        stacked: false,
-        showTooltip: true,
-        showLegend: true,
-        xAxisTitle: '',
-        yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case 'pie':
-      return {
-        chartStyle: 'donut',
-        labelFormat: 'percentage',
-        showDataLabels: true,
-        dataLabelPosition: 'outside',
-        showTooltip: true,
-        showLegend: true,
-        legendPosition: 'right',
-      };
-    case 'line':
-      return {
-        lineStyle: 'smooth',
-        showDataPoints: true,
-        showTooltip: true,
-        showLegend: true,
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        xAxisTitle: '',
-        yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case 'number':
-      return {
-        numberSize: 'medium',
-        subtitle: '',
-        numberFormat: 'default',
-        decimalPlaces: 0,
-        numberPrefix: '',
-        numberSuffix: '',
-      };
-    case 'map':
-      return {
-        colorScheme: 'Blues',
-        showTooltip: true,
-        showLegend: true,
-        nullValueLabel: 'No Data',
-        title: '',
-      };
-    default:
-      return {};
-  }
-}
-
-// Generate default chart name
-function generateDefaultChartName(chartType: string, table: string): string {
-  const timestamp = new Date().toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-
-  const typeNames = {
-    bar: 'Bar chart',
-    line: 'Line chart',
-    pie: 'Pie chart',
-    number: 'Number card',
-    map: 'Map chart',
-  };
-
-  return `${typeNames[chartType as keyof typeof typeNames] || 'Chart'} - ${table} ${timestamp}`;
-}
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { useChartForm } from '@/hooks/useChartForm';
+import { useMapDrillDown } from '@/hooks/useMapDrillDown';
+import { useChartDataSources } from '@/hooks/useChartDataSources';
+import { isChartFormValid } from '@/lib/chart-validation';
 
 // Left Panel Component - Configuration and Styling tabs
 interface LeftPanelProps {
@@ -236,7 +144,7 @@ interface RightPanelProps {
     parent_selections: Array<{ column: string; value: string }>;
     region_id: number;
   }>;
-  onMapRegionClick: (regionName: string, regionData: any) => void;
+  onMapRegionClick: (regionName: string, regionData?: any) => void;
   onDrillUp: (targetLevel: number) => void;
   onDrillHome: () => void;
 }
@@ -428,265 +336,61 @@ function ConfigureChartPageContent() {
   const searchParams = useSearchParams();
   const { trigger: createChart, isMutating } = useCreateChart();
 
-  // ✅ ADD: Drill-up and drill-home handlers for create mode
-  const handleDrillUp = useCallback((targetLevel: number) => {
-    console.log('🔙 [CREATE-MODE] Drill up to level:', targetLevel);
-    if (targetLevel < 0) {
-      setDrillDownPath([]);
-    } else {
-      setDrillDownPath((prev) => prev.slice(0, targetLevel + 1));
-    }
-  }, []);
-
-  const handleDrillHome = useCallback(() => {
-    console.log('🏠 [CREATE-MODE] Drill home - resetting to base level');
-    setDrillDownPath([]);
-  }, []);
-
   // Get parameters from URL
   const schema = searchParams.get('schema') || '';
   const table = searchParams.get('table') || '';
   const chartType = searchParams.get('type') || 'bar';
 
-  // Initialize form data
-  const [formData, setFormData] = useState<ChartBuilderFormData>({
-    title: generateDefaultChartName(chartType, table),
-    chart_type: chartType as ChartBuilderFormData['chart_type'],
-    schema_name: schema,
-    table_name: table,
-    computation_type: 'aggregated',
-    customizations: getDefaultCustomizations(chartType),
-    // Set default aggregate function to prevent API errors
-    aggregate_function: 'count',
+  // UI state
+  const [activeTab, setActiveTab] = useState('chart');
+  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string>('/charts');
+
+  // Form state management
+  const { formData, hasUnsavedChanges, handleFormChange, setFormData } = useChartForm({
+    schema,
+    table,
+    chartType,
   });
 
-  const [activeTab, setActiveTab] = useState('chart');
+  // Map drill-down state
+  const {
+    drillDownPath,
+    currentGeojsonId,
+    drillDownFilters,
+    handleRegionClick,
+    handleDrillUp,
+    handleDrillHome,
+  } = useMapDrillDown({ formData, enabled: formData.chart_type === 'map' });
 
-  // Pagination states using custom hook
+  // Pagination states
   const dataPreviewPagination = usePagination(1, 20);
   const rawDataPagination = usePagination(1, 20);
   const tableChartPagination = usePagination(1, 20);
 
-  // Unsaved changes detection state
-  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
-  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string>('/charts');
-
-  // ✅ ADD: Drill-down state management for create mode
-  const [drillDownPath, setDrillDownPath] = useState<
-    Array<{
-      level: number;
-      name: string;
-      geographic_column: string;
-      parent_selections: Array<{
-        column: string;
-        value: string;
-      }>;
-      region_id: number;
-    }>
-  >([]);
-
-  // ✅ ADD: Fetch regions for drill-down functionality (match edit mode exactly)
-  const { data: states } = useRegions('IND', 'state');
-  const { data: districts } = useChildRegions(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
-    drillDownPath.length > 0
-  );
-  const { data: regionGeojsons } = useRegionGeoJSONs(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
-  );
-
-  // Initialize original form data for unsaved changes detection
-  useEffect(() => {
-    if (!originalFormData) {
-      console.log('🔍 [CREATE-MODE] Initializing original form data for unsaved changes detection');
-      setOriginalFormData({ ...formData });
-    }
-  }, [formData.schema_name, formData.table_name, formData.chart_type, originalFormData]);
-
-  // Check for unsaved changes
-  const hasUnsavedChanges = useMemo(() => {
-    if (!originalFormData) return false;
-
-    const hasChanges = !deepEqual(formData, originalFormData);
-    console.log('🔍 [CREATE-MODE] Unsaved changes detection:', {
-      hasOriginalFormData: !!originalFormData,
-      hasChanges,
-      formDataTitle: formData.title,
-      originalTitle: originalFormData?.title,
-      formDataDimension: formData.dimension_column,
-      originalDimension: originalFormData?.dimension_column,
-    });
-
-    return hasChanges;
-  }, [formData, originalFormData]);
-
-  // Handle browser navigation (refresh, close tab, external links)
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
-      }
-      return undefined;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges]);
-
-  // Build payload for chart data using utility function
-  const chartDataPayload: ChartDataPayload | null = buildChartDataPayload(formData);
-
-  // Fetch chart data
-  const {
-    data: chartData,
-    error: chartError,
-    isLoading: chartLoading,
-  } = useChartData(
-    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
-  );
-
-  // Fetch GeoJSON data for maps
-  // Make geojsonId drill-down aware
-  const geojsonId = useMemo(() => {
-    if (formData.chart_type !== 'map') return null;
-
-    // If we're in drill-down mode and have region geojsons, use the first one
-    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
-      return regionGeojsons[0].id;
-    }
-
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
-  }, [
-    formData.chart_type,
-    formData.geojsonPreviewPayload?.geojsonId,
+  // Data fetching
+  const dataSources = useChartDataSources({
+    formData,
     drillDownPath,
-    regionGeojsons,
-  ]);
+    drillDownFilters,
+    currentGeojsonId,
+    dataPreviewPagination: {
+      page: dataPreviewPagination.page,
+      pageSize: dataPreviewPagination.pageSize,
+    },
+    rawDataPagination: { page: rawDataPagination.page, pageSize: rawDataPagination.pageSize },
+    tableChartPagination: {
+      page: tableChartPagination.page,
+      pageSize: tableChartPagination.pageSize,
+    },
+  });
 
-  const {
-    data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
-  } = useGeoJSONData(geojsonId);
-
-  // Fetch map data overlay
-  // ✅ FIXED: Keep original data overlay logic, just make it drill-down aware
-  const baseDataOverlayPayload =
-    formData.chart_type === 'map' && formData.dataOverlayPayload
-      ? formData.dataOverlayPayload
-      : null;
-
-  const dataOverlayPayload = useMemo(() => {
-    if (!baseDataOverlayPayload) return null;
-
-    // If no drill-down, use original payload
-    if (drillDownPath.length === 0) {
-      return baseDataOverlayPayload;
-    }
-
-    // If drill-down active, modify payload for drill-down level
-    const drillDownFilters: Record<string, string> = {};
-    drillDownPath.forEach((level) => {
-      level.parent_selections.forEach((selection) => {
-        drillDownFilters[selection.column] = selection.value;
-      });
-    });
-
-    // Determine active geographic column for drill-down
-    const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels?.length > 0;
-    const drillDownColumn = hasDynamicDrillDown
-      ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-      : formData.district_column;
-
-    const drillDownPayload = {
-      ...baseDataOverlayPayload,
-      geographic_column: drillDownColumn || baseDataOverlayPayload.geographic_column,
-      filters: {
-        ...baseDataOverlayPayload.filters,
-        ...drillDownFilters,
-      },
-    };
-
-    return drillDownPayload;
-  }, [
-    baseDataOverlayPayload,
-    drillDownPath,
-    formData.geographic_hierarchy,
-    formData.district_column,
-  ]);
-
-  const {
-    data: mapDataOverlay,
-    error: mapDataError,
-    isLoading: mapDataLoading,
-  } = useMapDataOverlay(dataOverlayPayload);
-
-  // Fetch data preview
-  const {
-    data: dataPreview,
-    error: previewError,
-    isLoading: previewLoading,
-  } = useChartDataPreview(
-    chartDataPayload,
-    dataPreviewPagination.page,
-    dataPreviewPagination.pageSize
-  );
-
-  // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
-
-  // Fetch table chart data for table charts with server-side pagination
-  const {
-    data: tableChartData,
-    error: tableChartError,
-    isLoading: tableChartLoading,
-  } = useChartDataPreview(
-    formData.chart_type === 'table' ? chartDataPayload : null,
-    tableChartPagination.page,
-    tableChartPagination.pageSize
-  );
-
-  // Fetch total rows for table chart pagination
-  const { data: tableChartDataTotalRows } = useChartDataPreviewTotalRows(
-    formData.chart_type === 'table' ? chartDataPayload : null
-  );
-
-  // Fetch raw table data
-  const {
-    data: rawTableData,
-    error: rawDataError,
-    isLoading: rawDataLoading,
-  } = useRawTableData(
-    formData.schema_name || null,
-    formData.table_name || null,
-    rawDataPagination.page,
-    rawDataPagination.pageSize
-  );
-
-  // Get table count for raw data pagination
-  const { data: tableCount } = useTableCount(
-    formData.schema_name || null,
-    formData.table_name || null
-  );
-
-  // Get all columns for raw data
-  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
-
-  const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
-    console.log('🔄 [CREATE-MODE] Form data change:', updates);
-    setFormData((prev) => ({ ...prev, ...updates }));
-  };
+  // Browser navigation protection
+  const { navigateWithoutWarning } = useUnsavedChanges(hasUnsavedChanges);
 
   // Auto-prefill when columns are loaded
   useEffect(() => {
-    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
-      // Check if we should auto-prefill (no existing configuration)
+    if (dataSources.columns && formData.schema_name && formData.table_name && formData.chart_type) {
       const hasExistingConfig = !!(
         formData.dimension_column ||
         formData.aggregate_column ||
@@ -698,29 +402,16 @@ function ConfigureChartPageContent() {
       );
 
       if (!hasExistingConfig) {
-        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
+        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, dataSources.columns);
         if (Object.keys(autoConfig).length > 0) {
-          console.log('🤖 [CREATE-MODE] Auto-prefilling configuration:', autoConfig);
           handleFormChange(autoConfig);
         }
       }
     }
-  }, [columns, formData.schema_name, formData.table_name, formData.chart_type]);
+  }, [dataSources.columns, formData.schema_name, formData.table_name, formData.chart_type]);
 
-  // FIX #1: Generate map preview payloads in create mode with detailed logging
+  // Generate map preview payloads
   useEffect(() => {
-    console.log('🔍 [CREATE-MODE] Checking payload generation conditions:', {
-      chart_type: formData.chart_type,
-      geographic_column: formData.geographic_column,
-      selected_geojson_id: formData.selected_geojson_id,
-      aggregate_column: formData.aggregate_column,
-      aggregate_function: formData.aggregate_function,
-      schema_name: formData.schema_name,
-      table_name: formData.table_name,
-      current_geojsonPreviewPayload: formData.geojsonPreviewPayload,
-      current_dataOverlayPayload: formData.dataOverlayPayload,
-    });
-
     if (
       formData.chart_type === 'map' &&
       formData.geographic_column &&
@@ -730,62 +421,28 @@ function ConfigureChartPageContent() {
       formData.schema_name &&
       formData.table_name
     ) {
-      // Check if payloads need updating
       const needsUpdate =
         !formData.geojsonPreviewPayload ||
         !formData.dataOverlayPayload ||
         formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
         formData.dataOverlayPayload.geographic_column !== formData.geographic_column;
 
-      console.log('✅ [CREATE-MODE] All conditions met for payload generation:', {
-        needsUpdate,
-        reasons: {
-          no_geojson_payload: !formData.geojsonPreviewPayload,
-          no_data_payload: !formData.dataOverlayPayload,
-          geojson_id_mismatch:
-            formData.geojsonPreviewPayload?.geojsonId !== formData.selected_geojson_id,
-          geographic_column_mismatch:
-            formData.dataOverlayPayload?.geographic_column !== formData.geographic_column,
-        },
-      });
-
       if (needsUpdate) {
-        const geojsonPayload = {
-          geojsonId: formData.selected_geojson_id,
-        };
-
-        const dataOverlayPayload = {
-          schema_name: formData.schema_name,
-          table_name: formData.table_name,
-          geographic_column: formData.geographic_column,
-          value_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function,
-          selected_geojson_id: formData.selected_geojson_id,
-          filters: {},
-          chart_filters: formData.filters || [],
-        };
-
-        console.log('🚀 [CREATE-MODE] Generating payloads:', {
-          geojsonPayload,
-          dataOverlayPayload,
-          drillDownConfig: {
-            district_column: formData.district_column,
-            drill_down_enabled: formData.drill_down_enabled,
-          },
-        });
-
         setFormData((prev) => ({
           ...prev,
-          geojsonPreviewPayload: geojsonPayload,
-          dataOverlayPayload: dataOverlayPayload,
+          geojsonPreviewPayload: { geojsonId: formData.selected_geojson_id! },
+          dataOverlayPayload: {
+            schema_name: formData.schema_name!,
+            table_name: formData.table_name!,
+            geographic_column: formData.geographic_column!,
+            value_column: formData.aggregate_column,
+            aggregate_function: formData.aggregate_function!,
+            selected_geojson_id: formData.selected_geojson_id!,
+            filters: {},
+            chart_filters: formData.filters || [],
+          },
         }));
-
-        console.log('✅ [CREATE-MODE] Payloads set successfully');
-      } else {
-        console.log('⏭️ [CREATE-MODE] Payloads up to date, skipping update');
       }
-    } else {
-      console.log('❌ [CREATE-MODE] Conditions not met for payload generation');
     }
   }, [
     formData.chart_type,
@@ -796,68 +453,10 @@ function ConfigureChartPageContent() {
     formData.schema_name,
     formData.table_name,
     formData.filters,
-    // ✅ FIX: Include geographic_hierarchy to regenerate payloads when drill-down config changes
     JSON.stringify(formData.geographic_hierarchy || {}),
-    // Stringify payloads to prevent infinite loops
     JSON.stringify(formData.geojsonPreviewPayload || {}),
     JSON.stringify(formData.dataOverlayPayload || {}),
   ]);
-
-  // FIX #3: Handle map region click for drill-down in create mode
-  // Handle map region click for drill-down in create mode
-  const handleMapRegionClick = useCallback(
-    (regionName: string, regionData: any) => {
-      // Check if drill-down is available - support both dynamic and legacy systems
-      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels?.length > 0;
-      const hasLegacyDrillDown = formData.district_column;
-
-      if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
-        toastInfo.generic('Configure drill-down levels to enable region drilling');
-        return;
-      }
-
-      // Determine drill-down column based on system type
-      const drillDownColumn = hasDynamicDrillDown
-        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-        : formData.district_column;
-
-      if (!drillDownColumn) {
-        return;
-      }
-
-      // Find the region that was clicked
-      const clickedRegion = states?.find(
-        (state: any) => state.name === regionName || state.display_name === regionName
-      );
-
-      if (clickedRegion) {
-        const newDrillDownLevel = {
-          level: 1,
-          name: regionName,
-          geographic_column: drillDownColumn,
-          parent_selections: [
-            {
-              column: formData.geographic_column || '',
-              value: regionName,
-            },
-          ],
-          region_id: clickedRegion.id,
-        };
-
-        setDrillDownPath([newDrillDownLevel]);
-        toastSuccess.generic(`✨ Drilling down to ${regionName} districts!`);
-      } else {
-        toastError.api(`Region "${regionName}" not found for drill-down`);
-      }
-    },
-    [
-      formData.geographic_hierarchy,
-      formData.district_column,
-      formData.geographic_column,
-      states,
-      drillDownPath,
-    ]
-  );
 
   const handleSave = async () => {
     if (!isChartFormValid(formData)) {
@@ -894,88 +493,46 @@ function ConfigureChartPageContent() {
         pagination: formData.pagination,
         sort: formData.sort,
         time_grain: formData.time_grain,
-        // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-        // ✅ FIX: Include geographic_hierarchy for drill-down functionality
         ...(formData.geographic_hierarchy && {
           geographic_hierarchy: formData.geographic_hierarchy,
         }),
       },
     };
 
-    // ✅ LOG: Track what geographic_hierarchy data is being saved
-    console.log('💾 [CREATE-MODE] Saving chart with geographic_hierarchy:', {
-      chart_type: chartData.chart_type,
-      geographic_column: chartData.extra_config.geographic_column,
-      geographic_hierarchy: chartData.extra_config.geographic_hierarchy,
-      drill_down_levels_count:
-        chartData.extra_config.geographic_hierarchy?.drill_down_levels?.length || 0,
-      full_chartData: chartData,
-    });
-
     try {
       const result = await createChart(chartData);
-      // Reset unsaved changes state after successful save
-      setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
-      router.push(`/charts/${result.id}`);
+      navigateWithoutWarning(`/charts/${result.id}`);
     } catch (error) {
       toastError.create(error, 'chart');
     }
   };
 
-  const handleCancel = () => {
-    console.log('🔙 [CREATE-MODE] Cancel button clicked. hasUnsavedChanges:', hasUnsavedChanges);
+  const handleNavigateWithCheck = (destination: string) => {
     if (hasUnsavedChanges) {
-      setPendingNavigation('/charts');
+      setPendingNavigation(destination);
       setShowUnsavedChangesDialog(true);
     } else {
-      router.push('/charts');
+      router.push(destination);
     }
-  };
-
-  const handleUnsavedChangesLeave = () => {
-    setShowUnsavedChangesDialog(false);
-    router.push(pendingNavigation);
-  };
-
-  const handleUnsavedChangesSave = async () => {
-    await handleSave();
-    // handleSave will navigate away after successful save
-  };
-
-  const handleUnsavedChangesStay = () => {
-    setShowUnsavedChangesDialog(false);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Single Header with Everything */}
+      {/* Header */}
       <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Back Button */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                console.log(
-                  '🔙 [CREATE-MODE] Back button clicked. hasUnsavedChanges:',
-                  hasUnsavedChanges
-                );
-                if (hasUnsavedChanges) {
-                  setPendingNavigation('/charts/new');
-                  setShowUnsavedChangesDialog(true);
-                } else {
-                  router.push('/charts/new');
-                }
-              }}
+              onClick={() => handleNavigateWithCheck('/charts/new')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
 
-            {/* Chart Title Input */}
             <Input
               value={formData.title}
               onChange={(e) => handleFormChange({ title: e.target.value })}
@@ -997,7 +554,7 @@ function ConfigureChartPageContent() {
         </div>
       </div>
 
-      {/* Main Content Area with 2rem margin container */}
+      {/* Main Content */}
       <div className="p-8 h-[calc(100vh-144px)]">
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           <LeftPanel formData={formData} onFormChange={handleFormChange} />
@@ -1005,41 +562,41 @@ function ConfigureChartPageContent() {
             formData={formData}
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            chartData={chartData}
-            chartLoading={chartLoading}
-            chartError={chartError}
-            geojsonData={geojsonData}
-            geojsonLoading={geojsonLoading}
-            geojsonError={geojsonError}
-            mapDataOverlay={mapDataOverlay}
-            mapDataLoading={mapDataLoading}
-            mapDataError={mapDataError}
-            tableChartData={tableChartData}
-            tableChartLoading={tableChartLoading}
-            tableChartError={tableChartError}
+            chartData={dataSources.chartData.data}
+            chartLoading={dataSources.chartData.isLoading}
+            chartError={dataSources.chartData.error}
+            geojsonData={dataSources.geojsonData.data}
+            geojsonLoading={dataSources.geojsonData.isLoading}
+            geojsonError={dataSources.geojsonData.error}
+            mapDataOverlay={dataSources.mapDataOverlay.data}
+            mapDataLoading={dataSources.mapDataOverlay.isLoading}
+            mapDataError={dataSources.mapDataOverlay.error}
+            tableChartData={dataSources.tableChartData.data}
+            tableChartLoading={dataSources.tableChartData.isLoading}
+            tableChartError={dataSources.tableChartData.error}
             tableChartPage={tableChartPagination.page}
             tableChartPageSize={tableChartPagination.pageSize}
-            tableChartTotalRows={tableChartDataTotalRows || 0}
+            tableChartTotalRows={dataSources.tableChartTotalRows}
             onTableChartPageChange={tableChartPagination.setPage}
             onTableChartPageSizeChange={tableChartPagination.handlePageSizeChange}
-            dataPreview={dataPreview}
-            previewLoading={previewLoading}
-            previewError={previewError}
+            dataPreview={dataSources.dataPreview.data}
+            previewLoading={dataSources.dataPreview.isLoading}
+            previewError={dataSources.dataPreview.error}
             dataPreviewPage={dataPreviewPagination.page}
             dataPreviewPageSize={dataPreviewPagination.pageSize}
-            chartDataTotalRows={chartDataTotalRows || 0}
+            chartDataTotalRows={dataSources.chartDataTotalRows}
             onDataPreviewPageChange={dataPreviewPagination.setPage}
             onDataPreviewPageSizeChange={dataPreviewPagination.handlePageSizeChange}
-            rawTableData={rawTableData}
-            rawDataLoading={rawDataLoading}
-            rawDataError={rawDataError}
+            rawTableData={dataSources.rawTableData.data}
+            rawDataLoading={dataSources.rawTableData.isLoading}
+            rawDataError={dataSources.rawTableData.error}
             rawDataPage={rawDataPagination.page}
             rawDataPageSize={rawDataPagination.pageSize}
-            tableCount={tableCount}
+            tableCount={dataSources.tableCount}
             onRawDataPageChange={rawDataPagination.setPage}
             onRawDataPageSizeChange={rawDataPagination.handlePageSizeChange}
             drillDownPath={drillDownPath}
-            onMapRegionClick={handleMapRegionClick}
+            onMapRegionClick={handleRegionClick}
             onDrillUp={handleDrillUp}
             onDrillHome={handleDrillHome}
           />
@@ -1050,9 +607,12 @@ function ConfigureChartPageContent() {
       <UnsavedChangesExitDialog
         open={showUnsavedChangesDialog}
         onOpenChange={setShowUnsavedChangesDialog}
-        onSave={handleUnsavedChangesSave}
-        onLeave={handleUnsavedChangesLeave}
-        onStay={handleUnsavedChangesStay}
+        onSave={handleSave}
+        onLeave={() => {
+          setShowUnsavedChangesDialog(false);
+          navigateWithoutWarning(pendingNavigation);
+        }}
+        onStay={() => setShowUnsavedChangesDialog(false)}
         isSaving={isMutating}
       />
     </div>
