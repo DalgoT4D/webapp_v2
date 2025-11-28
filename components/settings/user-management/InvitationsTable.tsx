@@ -21,16 +21,7 @@ import {
   type SkeletonConfig,
 } from '@/components/ui/data-table';
 import { DeleteInvitationDialog } from './DeleteInvitationDialog';
-
-// Invitation type
-interface Invitation {
-  id: number;
-  invited_email: string;
-  invited_role: {
-    name: string;
-  };
-  invited_on: string;
-}
+import type { Invitation } from '@/types/user-management';
 
 // Filter configurations
 const filterConfigs: Record<string, FilterConfig> = {

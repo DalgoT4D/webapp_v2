@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +12,8 @@ interface DateFilterProps {
   onChange: (value: DateFilterValue) => void;
   onClear: () => void;
   title?: string;
+  /** Prefix for element IDs to ensure uniqueness when multiple DateFilters exist */
+  idPrefix?: string;
 }
 
 const DATE_RANGE_OPTIONS = [
@@ -26,9 +29,19 @@ export function DateFilter({
   onChange,
   onClear,
   title = 'Filter by Date Modified',
+  idPrefix,
 }: DateFilterProps) {
+  // Generate a stable unique ID if no prefix provided
+  const generatedId = useId();
+  const prefix = idPrefix || generatedId;
+
   const handleRangeChange = (range: DateFilterValue['range']) => {
-    onChange({ ...value, range });
+    // Reset custom dates when switching away from 'custom' range
+    if (range !== 'custom') {
+      onChange({ range, customStart: null, customEnd: null });
+    } else {
+      onChange({ ...value, range });
+    }
   };
 
   return (
@@ -47,21 +60,24 @@ export function DateFilter({
         </div>
 
         <div className="space-y-2">
-          {DATE_RANGE_OPTIONS.map((option) => (
-            <div key={option.value} className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id={option.value}
-                name="dateRange"
-                checked={value.range === option.value}
-                onChange={() => handleRangeChange(option.value)}
-                className="w-4 h-4 text-teal-600"
-              />
-              <Label htmlFor={option.value} className="text-sm cursor-pointer">
-                {option.label}
-              </Label>
-            </div>
-          ))}
+          {DATE_RANGE_OPTIONS.map((option) => {
+            const radioId = `${prefix}-${option.value}`;
+            return (
+              <div key={option.value} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id={radioId}
+                  name={`${prefix}-dateRange`}
+                  checked={value.range === option.value}
+                  onChange={() => handleRangeChange(option.value)}
+                  className="w-4 h-4 text-teal-600"
+                />
+                <Label htmlFor={radioId} className="text-sm cursor-pointer">
+                  {option.label}
+                </Label>
+              </div>
+            );
+          })}
         </div>
 
         {value.range === 'custom' && (
@@ -69,8 +85,11 @@ export function DateFilter({
             <Label className="text-xs text-gray-600">Custom Date Range</Label>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs">From</Label>
+                <Label htmlFor={`${prefix}-customStart`} className="text-xs">
+                  From
+                </Label>
                 <Input
+                  id={`${prefix}-customStart`}
                   type="date"
                   value={value.customStart ? value.customStart.toISOString().split('T')[0] : ''}
                   onChange={(e) =>
@@ -83,8 +102,11 @@ export function DateFilter({
                 />
               </div>
               <div>
-                <Label className="text-xs">To</Label>
+                <Label htmlFor={`${prefix}-customEnd`} className="text-xs">
+                  To
+                </Label>
                 <Input
+                  id={`${prefix}-customEnd`}
                   type="date"
                   value={value.customEnd ? value.customEnd.toISOString().split('T')[0] : ''}
                   onChange={(e) =>
