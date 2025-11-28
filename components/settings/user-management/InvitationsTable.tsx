@@ -25,16 +25,9 @@ import type { Invitation } from '@/types/user-management';
 
 // Filter configurations
 const filterConfigs: Record<string, FilterConfig> = {
-  email: {
-    type: 'text',
-    placeholder: 'Search email...',
-  },
-  role: {
-    type: 'checkbox',
-  },
-  sent_on: {
-    type: 'date',
-  },
+  email: { type: 'text', placeholder: 'Search email...' },
+  role: { type: 'checkbox' },
+  sent_on: { type: 'date' },
 };
 
 // Skeleton configuration
@@ -55,6 +48,135 @@ const initialFilterState: FilterState = {
   sent_on: { range: 'all', customStart: null, customEnd: null } as DateFilterValue,
 };
 
+// Column params interface
+interface InvitationsColumnParams {
+  sortState: SortState;
+  setSortState: (state: SortState) => void;
+  filterState: FilterState;
+  setFilterState: (state: FilterState | ((prev: FilterState) => FilterState)) => void;
+  uniqueRoles: { value: string; label: string }[];
+  resendingId: number | null;
+  canResendInvitation: boolean;
+  canDeleteInvitation: boolean;
+  handleResendInvitation: (id: number) => void;
+  setDeleteInvitation: (id: number | null) => void;
+}
+
+// Column definitions function (extracted outside component)
+function getInvitationsColumns(params: InvitationsColumnParams): ColumnDef<Invitation>[] {
+  const {
+    sortState,
+    setSortState,
+    filterState,
+    setFilterState,
+    uniqueRoles,
+    resendingId,
+    canResendInvitation,
+    canDeleteInvitation,
+    handleResendInvitation,
+    setDeleteInvitation,
+  } = params;
+
+  return [
+    {
+      id: 'email',
+      accessorKey: 'invited_email',
+      header: () => (
+        <ColumnHeader
+          columnId="email"
+          title="Email"
+          sortable
+          sortState={sortState}
+          onSortChange={setSortState}
+          filterConfig={filterConfigs.email}
+          filterState={filterState}
+          onFilterChange={setFilterState}
+        />
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="font-medium truncate">{row.original.invited_email}</span>
+        </div>
+      ),
+      meta: { headerClassName: 'w-[40%]', cellClassName: 'py-3' },
+    },
+    {
+      id: 'role',
+      accessorFn: (row) => row.invited_role.name,
+      header: () => (
+        <ColumnHeader
+          columnId="role"
+          title="Role"
+          sortable
+          sortState={sortState}
+          onSortChange={setSortState}
+          filterConfig={filterConfigs.role}
+          filterState={filterState}
+          onFilterChange={setFilterState}
+          filterOptions={uniqueRoles}
+        />
+      ),
+      cell: ({ row }) => <Badge variant="outline">{row.original.invited_role.name}</Badge>,
+      meta: { headerClassName: 'w-[25%]', cellClassName: 'py-3' },
+    },
+    {
+      id: 'sent_on',
+      accessorKey: 'invited_on',
+      header: () => (
+        <ColumnHeader
+          columnId="sent_on"
+          title="Sent On"
+          sortable
+          sortState={sortState}
+          onSortChange={setSortState}
+          filterConfig={filterConfigs.sent_on}
+          filterState={filterState}
+          onFilterChange={setFilterState}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.invited_on && Number.isFinite(new Date(row.original.invited_on).getTime())
+            ? format(new Date(row.original.invited_on), 'MMM dd, yyyy')
+            : '—'}
+        </span>
+      ),
+      meta: { headerClassName: 'w-[20%]', cellClassName: 'py-3' },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="font-medium text-base">Actions</span>,
+      cell: ({ row }) => {
+        const invitation = row.original;
+        if (!canResendInvitation && !canDeleteInvitation) return null;
+
+        const actions: ActionMenuItem<Invitation>[] = [
+          {
+            id: 'resend',
+            label: resendingId === invitation.id ? 'Resending...' : 'Resend',
+            icon: <Send className="w-4 h-4" />,
+            onClick: () => handleResendInvitation(invitation.id),
+            disabled: resendingId === invitation.id,
+            hidden: !canResendInvitation,
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            icon: <Trash2 className="w-4 h-4" />,
+            variant: 'destructive',
+            onClick: () => setDeleteInvitation(invitation.id),
+            hidden: !canDeleteInvitation,
+          },
+        ];
+
+        return <ActionsCell row={invitation} actions={actions} moreIconVariant="horizontal" />;
+      },
+      meta: { headerClassName: 'w-[15%]', cellClassName: 'py-3' },
+    },
+  ];
+}
+
 export function InvitationsTable() {
   const { invitations, isLoading, error, mutate } = useInvitations();
   const { resendInvitation } = useInvitationActions();
@@ -62,20 +184,12 @@ export function InvitationsTable() {
 
   const [deleteInvitation, setDeleteInvitation] = useState<number | null>(null);
   const [resendingId, setResendingId] = useState<number | null>(null);
-
-  // Sorting state
-  const [sortState, setSortState] = useState<SortState>({
-    column: 'sent_on',
-    direction: 'desc',
-  });
-
-  // Filter state
+  const [sortState, setSortState] = useState<SortState>({ column: 'sent_on', direction: 'desc' });
   const [filterState, setFilterState] = useState<FilterState>(initialFilterState);
 
   const canDeleteInvitation = hasPermission('can_delete_invitation');
   const canResendInvitation = hasPermission('can_resend_email_verification');
 
-  // Get unique roles for filter options
   const uniqueRoles = useMemo(() => {
     if (!invitations) return [];
     const roleSet = new Set(invitations.map((inv: Invitation) => inv.invited_role.name));
@@ -84,35 +198,22 @@ export function InvitationsTable() {
       .map((r) => ({ value: r, label: r }));
   }, [invitations]);
 
-  // Apply filters and sort invitations
   const filteredAndSortedInvitations = useMemo(() => {
     if (!invitations) return [];
-
     const emailFilter = filterState.email as TextFilterValue;
     const roleFilter = filterState.role as string[];
     const dateFilter = filterState.sent_on as DateFilterValue;
 
-    // Apply filters
     const filtered = invitations.filter((invitation: Invitation) => {
-      // Email filter
-      if (emailFilter?.text) {
-        if (!invitation.invited_email.toLowerCase().includes(emailFilter.text.toLowerCase())) {
-          return false;
-        }
-      }
-
-      // Role filter
-      if (roleFilter.length > 0) {
-        if (!roleFilter.includes(invitation.invited_role.name)) {
-          return false;
-        }
-      }
-
-      // Date filter
+      if (
+        emailFilter?.text &&
+        !invitation.invited_email.toLowerCase().includes(emailFilter.text.toLowerCase())
+      )
+        return false;
+      if (roleFilter.length > 0 && !roleFilter.includes(invitation.invited_role.name)) return false;
       if (dateFilter.range !== 'all' && invitation.invited_on) {
         const invitedDate = new Date(invitation.invited_on);
         const now = new Date();
-
         switch (dateFilter.range) {
           case 'today': {
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -136,11 +237,9 @@ export function InvitationsTable() {
           }
         }
       }
-
       return true;
     });
 
-    // Sort
     return [...filtered].sort((a: Invitation, b: Invitation) => {
       if (sortState.column === 'sent_on') {
         const toTs = (v: string) => {
@@ -151,11 +250,10 @@ export function InvitationsTable() {
               ? Number.MAX_SAFE_INTEGER
               : Number.MIN_SAFE_INTEGER;
         };
-        const aTs = toTs(a.invited_on);
-        const bTs = toTs(b.invited_on);
-        return sortState.direction === 'asc' ? aTs - bTs : bTs - aTs;
+        return sortState.direction === 'asc'
+          ? toTs(a.invited_on) - toTs(b.invited_on)
+          : toTs(b.invited_on) - toTs(a.invited_on);
       }
-
       const aStr =
         sortState.column === 'email'
           ? a.invited_email.toLowerCase()
@@ -164,35 +262,28 @@ export function InvitationsTable() {
         sortState.column === 'email'
           ? b.invited_email.toLowerCase()
           : b.invited_role.name.toLowerCase();
-
       return sortState.direction === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
   }, [invitations, filterState, sortState]);
 
-  // Get active filter count
   const getActiveFilterCount = useCallback(() => {
     let count = 0;
     const emailFilter = filterState.email as TextFilterValue;
     if (emailFilter?.text) count++;
     if ((filterState.role as string[]).length > 0) count++;
-    const dateFilter = filterState.sent_on as DateFilterValue;
-    if (dateFilter?.range !== 'all') count++;
+    if ((filterState.sent_on as DateFilterValue)?.range !== 'all') count++;
     return count;
   }, [filterState]);
 
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setFilterState(initialFilterState);
-  }, []);
+  const clearAllFilters = useCallback(() => setFilterState(initialFilterState), []);
 
-  // Resend invitation handler
   const handleResendInvitation = useCallback(
     async (invitationId: number) => {
       setResendingId(invitationId);
       try {
         await resendInvitation(invitationId);
       } catch {
-        // Error is handled in the hook
+        /* Error handled in hook */
       } finally {
         setResendingId(null);
       }
@@ -200,121 +291,20 @@ export function InvitationsTable() {
     [resendInvitation]
   );
 
-  // Define columns
-  const columns: ColumnDef<Invitation>[] = useMemo(
-    () => [
-      {
-        id: 'email',
-        accessorKey: 'invited_email',
-        header: () => (
-          <ColumnHeader
-            columnId="email"
-            title="Email"
-            sortable
-            sortState={sortState}
-            onSortChange={setSortState}
-            filterConfig={filterConfigs.email}
-            filterState={filterState}
-            onFilterChange={setFilterState}
-          />
-        ),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="font-medium truncate">{row.original.invited_email}</span>
-          </div>
-        ),
-        meta: {
-          headerClassName: 'w-[40%]',
-          cellClassName: 'py-3',
-        },
-      },
-      {
-        id: 'role',
-        accessorFn: (row) => row.invited_role.name,
-        header: () => (
-          <ColumnHeader
-            columnId="role"
-            title="Role"
-            sortable
-            sortState={sortState}
-            onSortChange={setSortState}
-            filterConfig={filterConfigs.role}
-            filterState={filterState}
-            onFilterChange={setFilterState}
-            filterOptions={uniqueRoles}
-          />
-        ),
-        cell: ({ row }) => <Badge variant="outline">{row.original.invited_role.name}</Badge>,
-        meta: {
-          headerClassName: 'w-[25%]',
-          cellClassName: 'py-3',
-        },
-      },
-      {
-        id: 'sent_on',
-        accessorKey: 'invited_on',
-        header: () => (
-          <ColumnHeader
-            columnId="sent_on"
-            title="Sent On"
-            sortable
-            sortState={sortState}
-            onSortChange={setSortState}
-            filterConfig={filterConfigs.sent_on}
-            filterState={filterState}
-            onFilterChange={setFilterState}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {row.original.invited_on && Number.isFinite(new Date(row.original.invited_on).getTime())
-              ? format(new Date(row.original.invited_on), 'MMM dd, yyyy')
-              : '—'}
-          </span>
-        ),
-        meta: {
-          headerClassName: 'w-[20%]',
-          cellClassName: 'py-3',
-        },
-      },
-      {
-        id: 'actions',
-        header: () => <span className="font-medium text-base">Actions</span>,
-        cell: ({ row }) => {
-          const invitation = row.original;
-
-          if (!canResendInvitation && !canDeleteInvitation) {
-            return null;
-          }
-
-          const actions: ActionMenuItem<Invitation>[] = [
-            {
-              id: 'resend',
-              label: resendingId === invitation.id ? 'Resending...' : 'Resend',
-              icon: <Send className="w-4 h-4" />,
-              onClick: () => handleResendInvitation(invitation.id),
-              disabled: resendingId === invitation.id,
-              hidden: !canResendInvitation,
-            },
-            {
-              id: 'delete',
-              label: 'Delete',
-              icon: <Trash2 className="w-4 h-4" />,
-              variant: 'destructive',
-              onClick: () => setDeleteInvitation(invitation.id),
-              hidden: !canDeleteInvitation,
-            },
-          ];
-
-          return <ActionsCell row={invitation} actions={actions} moreIconVariant="horizontal" />;
-        },
-        meta: {
-          headerClassName: 'w-[15%]',
-          cellClassName: 'py-3',
-        },
-      },
-    ],
+  const columns = useMemo(
+    () =>
+      getInvitationsColumns({
+        sortState,
+        setSortState,
+        filterState,
+        setFilterState,
+        uniqueRoles,
+        resendingId,
+        canResendInvitation,
+        canDeleteInvitation,
+        handleResendInvitation,
+        setDeleteInvitation,
+      }),
     [
       sortState,
       filterState,
@@ -326,7 +316,6 @@ export function InvitationsTable() {
     ]
   );
 
-  // Error state
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -361,7 +350,6 @@ export function InvitationsTable() {
         skeleton={skeletonConfig}
         idPrefix="invitations"
       />
-
       <DeleteInvitationDialog
         open={!!deleteInvitation}
         onOpenChange={(open) => !open && setDeleteInvitation(null)}

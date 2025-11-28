@@ -24,10 +24,9 @@ import {
   type TextFilterValue,
   type FilterConfig,
   type SkeletonConfig,
+  type SortState,
 } from '@/components/ui/data-table';
 import { DeleteUserDialog } from './DeleteUserDialog';
-
-// Hooks and utilities
 import { useTableState } from '@/hooks/useTableState';
 import { ErrorState } from '@/components/ui/error-state';
 import {
@@ -45,13 +44,8 @@ interface UserData {
 
 // Filter configurations
 const filterConfigs: Record<string, FilterConfig> = {
-  email: {
-    type: 'text',
-    placeholder: 'Search email...',
-  },
-  role: {
-    type: 'checkbox',
-  },
+  email: { type: 'text', placeholder: 'Search email...' },
+  role: { type: 'checkbox' },
 };
 
 // Skeleton configuration
@@ -70,11 +64,179 @@ const initialFilterState: FilterState = {
   role: [] as string[],
 };
 
-// Sort accessors for each sortable column
+// Sort accessors
 const sortAccessors: Record<string, (item: UserData) => string | number | Date | null> = {
   email: (item) => item.email.toLowerCase(),
   role: (item) => formatRoleName(item.new_role_slug).toLowerCase(),
 };
+
+// Column params interface
+interface UsersColumnParams {
+  sortState: SortState;
+  setSortState: (state: SortState) => void;
+  filterState: FilterState;
+  setFilterState: (state: FilterState | ((prev: FilterState) => FilterState)) => void;
+  uniqueRoles: { value: string; label: string }[];
+  editingUser: string | null;
+  selectedRole: string;
+  setSelectedRole: (role: string) => void;
+  isUpdating: boolean;
+  roles: { uuid: string; name: string }[] | undefined;
+  currentUser: { email?: string } | null;
+  canEditUser: boolean;
+  canDeleteUser: boolean;
+  handleEditRole: (email: string, roleSlug: string) => void;
+  handleSaveRole: () => void;
+  handleCancelEdit: () => void;
+  setDeleteUser: (email: string | null) => void;
+}
+
+// Column definitions function (extracted outside component)
+function getUsersColumns(params: UsersColumnParams): ColumnDef<UserData>[] {
+  const {
+    sortState,
+    setSortState,
+    filterState,
+    setFilterState,
+    uniqueRoles,
+    editingUser,
+    selectedRole,
+    setSelectedRole,
+    isUpdating,
+    roles,
+    currentUser,
+    canEditUser,
+    canDeleteUser,
+    handleEditRole,
+    handleSaveRole,
+    handleCancelEdit,
+    setDeleteUser,
+  } = params;
+
+  return [
+    {
+      id: 'email',
+      accessorKey: 'email',
+      header: () => (
+        <ColumnHeader
+          columnId="email"
+          title="Email"
+          sortable
+          sortState={sortState}
+          onSortChange={setSortState}
+          filterConfig={filterConfigs.email}
+          filterState={filterState}
+          onFilterChange={setFilterState}
+        />
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="font-medium">{row.original.email}</span>
+        </div>
+      ),
+      meta: { headerClassName: 'w-[50%]' },
+    },
+    {
+      id: 'role',
+      accessorFn: (row) => formatRoleName(row.new_role_slug),
+      header: () => (
+        <ColumnHeader
+          columnId="role"
+          title="Role"
+          sortable
+          sortState={sortState}
+          onSortChange={setSortState}
+          filterConfig={filterConfigs.role}
+          filterState={filterState}
+          onFilterChange={setFilterState}
+          filterOptions={uniqueRoles}
+        />
+      ),
+      cell: ({ row }) => {
+        const user = row.original;
+        if (editingUser === user.email) {
+          return (
+            <div className="flex items-center gap-2">
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger className="w-40 h-8">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles?.map((role) => (
+                    <SelectItem key={role.uuid} value={role.uuid}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={handleSaveRole}
+                disabled={isUpdating}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={handleCancelEdit}
+                disabled={isUpdating}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        }
+        return <Badge variant="secondary">{formatRoleName(user.new_role_slug)}</Badge>;
+      },
+      meta: { headerClassName: 'w-[35%]' },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="font-medium text-base">Actions</span>,
+      cell: ({ row }) => {
+        const user = row.original;
+        if (user.email === currentUser?.email) return null;
+        if (!canEditUser && !canDeleteUser) return null;
+
+        const actions: ActionMenuItem<UserData>[] = [
+          {
+            id: 'delete',
+            label: 'Delete User',
+            icon: <Trash2 className="w-4 h-4" />,
+            variant: 'destructive',
+            onClick: () => setDeleteUser(user.email),
+            hidden: !canDeleteUser,
+          },
+        ];
+
+        return (
+          <ActionsCell
+            row={user}
+            actions={actions}
+            moreIconVariant="horizontal"
+            renderPrimaryActions={() =>
+              canEditUser ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  onClick={() => handleEditRole(user.email, user.new_role_slug)}
+                >
+                  <Edit className="w-4 h-4 text-gray-600" />
+                </Button>
+              ) : null
+            }
+          />
+        );
+      },
+      meta: { headerClassName: 'w-[15%]' },
+    },
+  ];
+}
 
 export function UsersTable() {
   const { users, isLoading, error, mutate } = useUsers();
@@ -83,40 +245,25 @@ export function UsersTable() {
   const { hasPermission } = useUserPermissions();
   const { getCurrentOrgUser } = useAuthStore();
 
-  // Editing state
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Delete dialog state
   const [deleteUser, setDeleteUser] = useState<string | null>(null);
 
   const currentUser = getCurrentOrgUser();
   const canEditUser = hasPermission('can_edit_orguser');
   const canDeleteUser = hasPermission('can_delete_orguser');
 
-  // Memoize users array
   const usersList = useMemo(() => users || [], [users]);
 
-  // Filter function using new utilities
   const filterFn = useCallback((user: UserData, filterState: FilterState): boolean => {
     const emailFilter = filterState.email as TextFilterValue;
     const roleFilter = filterState.role as string[];
-
-    // Email filter
-    if (!matchesTextFilter(user.email, emailFilter?.text || '')) {
-      return false;
-    }
-
-    // Role filter
-    if (!matchesCheckboxFilter(user.new_role_slug, roleFilter)) {
-      return false;
-    }
-
+    if (!matchesTextFilter(user.email, emailFilter?.text || '')) return false;
+    if (!matchesCheckboxFilter(user.new_role_slug, roleFilter)) return false;
     return true;
   }, []);
 
-  // Table state hook
   const {
     sortState,
     setSortState,
@@ -134,13 +281,11 @@ export function UsersTable() {
     filterFn,
   });
 
-  // Get unique roles for filter options
   const uniqueRoles = useMemo(
     () => extractUniqueValues(usersList, (user) => user.new_role_slug, formatRoleName),
     [usersList]
   );
 
-  // Edit role handlers
   const handleEditRole = useCallback(
     (userEmail: string, currentRoleSlug: string) => {
       const role = roles?.find((r: { slug: string; uuid: string }) => r.slug === currentRoleSlug);
@@ -154,18 +299,14 @@ export function UsersTable() {
 
   const handleSaveRole = useCallback(async () => {
     if (!editingUser || !selectedRole) return;
-
     setIsUpdating(true);
     try {
-      await updateUserRole({
-        toupdate_email: editingUser,
-        role_uuid: selectedRole,
-      });
+      await updateUserRole({ toupdate_email: editingUser, role_uuid: selectedRole });
       mutate();
       setEditingUser(null);
       setSelectedRole('');
     } catch {
-      // Error is handled in the hook
+      /* Error handled in hook */
     } finally {
       setIsUpdating(false);
     }
@@ -176,151 +317,32 @@ export function UsersTable() {
     setSelectedRole('');
   }, []);
 
-  // Define columns
-  const columns: ColumnDef<UserData>[] = useMemo(
-    () => [
-      {
-        id: 'email',
-        accessorKey: 'email',
-        header: () => (
-          <ColumnHeader
-            columnId="email"
-            title="Email"
-            sortable
-            sortState={sortState}
-            onSortChange={setSortState}
-            filterConfig={filterConfigs.email}
-            filterState={filterState}
-            onFilterChange={setFilterState}
-          />
-        ),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="font-medium">{row.original.email}</span>
-          </div>
-        ),
-        meta: {
-          headerClassName: 'w-[50%]',
-        },
-      },
-      {
-        id: 'role',
-        accessorFn: (row) => formatRoleName(row.new_role_slug),
-        header: () => (
-          <ColumnHeader
-            columnId="role"
-            title="Role"
-            sortable
-            sortState={sortState}
-            onSortChange={setSortState}
-            filterConfig={filterConfigs.role}
-            filterState={filterState}
-            onFilterChange={setFilterState}
-            filterOptions={uniqueRoles}
-          />
-        ),
-        cell: ({ row }) => {
-          const user = row.original;
-
-          // Inline editing mode
-          if (editingUser === user.email) {
-            return (
-              <div className="flex items-center gap-2">
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger className="w-40 h-8">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles?.map((role: { uuid: string; name: string }) => (
-                      <SelectItem key={role.uuid} value={role.uuid}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={handleSaveRole}
-                  disabled={isUpdating}
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                  onClick={handleCancelEdit}
-                  disabled={isUpdating}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            );
-          }
-
-          return <Badge variant="secondary">{formatRoleName(user.new_role_slug)}</Badge>;
-        },
-        meta: {
-          headerClassName: 'w-[35%]',
-        },
-      },
-      {
-        id: 'actions',
-        header: () => <span className="font-medium text-base">Actions</span>,
-        cell: ({ row }) => {
-          const user = row.original;
-
-          // Hide actions for current user
-          if (user.email === currentUser?.email) {
-            return null;
-          }
-
-          // Hide if no permissions
-          if (!canEditUser && !canDeleteUser) {
-            return null;
-          }
-
-          const actions: ActionMenuItem<UserData>[] = [
-            {
-              id: 'delete',
-              label: 'Delete User',
-              icon: <Trash2 className="w-4 h-4" />,
-              variant: 'destructive',
-              onClick: () => setDeleteUser(user.email),
-              hidden: !canDeleteUser,
-            },
-          ];
-
-          return (
-            <ActionsCell
-              row={user}
-              actions={actions}
-              moreIconVariant="horizontal"
-              renderPrimaryActions={() =>
-                canEditUser ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 p-0 hover:bg-gray-100"
-                    onClick={() => handleEditRole(user.email, user.new_role_slug)}
-                  >
-                    <Edit className="w-4 h-4 text-gray-600" />
-                  </Button>
-                ) : null
-              }
-            />
-          );
-        },
-        meta: {
-          headerClassName: 'w-[15%]',
-        },
-      },
-    ],
+  const columns = useMemo(
+    () =>
+      getUsersColumns({
+        sortState,
+        setSortState,
+        filterState,
+        setFilterState,
+        uniqueRoles,
+        editingUser,
+        selectedRole,
+        setSelectedRole,
+        isUpdating,
+        roles,
+        currentUser,
+        canEditUser,
+        canDeleteUser,
+        handleEditRole,
+        handleSaveRole,
+        handleCancelEdit,
+        setDeleteUser,
+      }),
     [
       sortState,
+      setSortState,
       filterState,
+      setFilterState,
       uniqueRoles,
       editingUser,
       selectedRole,
@@ -332,15 +354,10 @@ export function UsersTable() {
       handleEditRole,
       handleSaveRole,
       handleCancelEdit,
-      setSortState,
-      setFilterState,
     ]
   );
 
-  // Error state
-  if (error) {
-    return <ErrorState title="Failed to load users" onRetry={() => mutate()} />;
-  }
+  if (error) return <ErrorState title="Failed to load users" onRetry={() => mutate()} />;
 
   return (
     <>
@@ -364,7 +381,6 @@ export function UsersTable() {
         skeleton={skeletonConfig}
         idPrefix="users"
       />
-
       <DeleteUserDialog
         open={!!deleteUser}
         onOpenChange={(open) => !open && setDeleteUser(null)}
