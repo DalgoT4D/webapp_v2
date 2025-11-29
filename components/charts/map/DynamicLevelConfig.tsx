@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,15 +10,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronRight, Navigation, CheckCircle, Loader2, Download } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import {
   useColumns,
   useAvailableRegionTypes,
   useRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
+import {
+  useRegionTypeHierarchy,
+  useMapAutoPreview,
+  useAutoSelectDefaultGeoJSON,
+} from '@/hooks/useMapHooks';
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/config';
@@ -46,13 +49,23 @@ export function DynamicLevelConfig({
   // Fetch available region types from backend
   const { data: regionTypes = [], isLoading: regionTypesLoading } = useAvailableRegionTypes('IND');
 
-  // Get regions and GeoJSONs for automatic preview (copied from CountryLevelConfig)
+  // Get regions and GeoJSONs for automatic preview
   const countryCode = formData.country_code || 'IND';
   const { data: regions } = useRegions(countryCode, undefined);
   const countryRegionId = regions?.find((r: any) => r.type === 'country')?.id || 1;
   const { data: geojsons } = useRegionGeoJSONs(countryRegionId);
 
-  // Handle state column selection (copy logic from CountryLevelConfig)
+  // Use extracted hooks
+  const regionHierarchy = useRegionTypeHierarchy(regionTypes);
+  useMapAutoPreview(formData, onChange);
+  useAutoSelectDefaultGeoJSON(
+    formData.geographic_column,
+    geojsons,
+    formData.selected_geojson_id,
+    onChange
+  );
+
+  // Handle state column selection
   const handleGeographicColumnChange = (column: string) => {
     onChange({
       geographic_column: column,
@@ -60,18 +73,16 @@ export function DynamicLevelConfig({
       district_column: undefined,
       ward_column: undefined,
       subward_column: undefined,
-      geographic_hierarchy: undefined, // Reset hierarchy when base column changes
+      geographic_hierarchy: undefined,
     });
   };
 
   // Handle CSV download
   const handleDownloadRegionNames = async (regionType: 'state' | 'district') => {
-    const countryCode = formData.country_code || 'IND';
     const setLoading = regionType === 'state' ? setDownloadingStates : setDownloadingDistricts;
 
     try {
       setLoading(true);
-
       await downloadRegionNames(API_BASE_URL, countryCode, regionType, {
         onSuccess: (message) => {
           toast({
@@ -80,8 +91,7 @@ export function DynamicLevelConfig({
           });
         },
       });
-    } catch (error) {
-      console.error(`Error downloading ${regionType}s:`, error);
+    } catch {
       toast({
         title: 'Download failed',
         description: `Failed to download ${regionType} names. Please try again.`,
@@ -92,91 +102,21 @@ export function DynamicLevelConfig({
     }
   };
 
-  // Get available columns (all types, exclude already used columns)
-  const getAvailableColumns = (excludeColumns: string[]) => {
+  // Get available columns (exclude already used columns)
+  const getAvailableColumns = (excludeColumns: (string | undefined)[]) => {
     return columns.filter((col: any) => {
       const columnName = col.column_name || col.name;
       return columnName && !excludeColumns.includes(columnName);
     });
   };
 
-  // Build actual hierarchical chain by analyzing parent-child relationships
-  const getRegionTypeHierarchy = () => {
-    if (!regionTypes || regionTypes.length === 0) return [];
-
-    // Build parent-child relationship map
-    const parentChildMap = new Map<string, string[]>();
-    const childParentMap = new Map<string, string>();
-
-    // First pass: build the relationships
-    regionTypes.forEach((region: any) => {
-      const type = region.type;
-      if (!type) return;
-
-      if (region.parent_id) {
-        // Find parent region
-        const parentRegion = regionTypes.find((r: any) => r.id === region.parent_id);
-        if (parentRegion && parentRegion.type) {
-          const parentType = parentRegion.type;
-
-          // Add to parent-child map
-          if (!parentChildMap.has(parentType)) {
-            parentChildMap.set(parentType, []);
-          }
-          if (!parentChildMap.get(parentType)!.includes(type)) {
-            parentChildMap.get(parentType)!.push(type);
-          }
-
-          // Add to child-parent map
-          childParentMap.set(type, parentType);
-        }
-      }
-    });
-
-    // Find the root type (type with no parent)
-    const allTypes = new Set(regionTypes.map((r: any) => r.type).filter(Boolean));
-    const rootTypes = Array.from(allTypes).filter((type) => !childParentMap.has(type as string));
-
-    // Build the hierarchical chain starting from root
-    const buildHierarchyChain = (startType: string): string[] => {
-      const chain = [startType];
-      let currentType = startType;
-
-      while (parentChildMap.has(currentType) && parentChildMap.get(currentType)!.length > 0) {
-        // Get the first child type (assuming linear hierarchy for now)
-        const children = parentChildMap.get(currentType)!;
-        currentType = children[0]; // Take first child
-        chain.push(currentType);
-      }
-
-      return chain;
-    };
-
-    // Build hierarchy starting from the first root type
-    if (rootTypes.length > 0) {
-      return buildHierarchyChain(rootTypes[0] as string);
-    }
-
-    return [];
-  };
-
-  const regionHierarchy = getRegionTypeHierarchy();
-
   // Get current drill-down levels
   const currentLevels = formData.geographic_hierarchy?.drill_down_levels || [];
-  const usedColumns = [
-    formData.geographic_column,
-    // Don't exclude columns that are already configured in drill-down levels
-    // Just exclude the base geographic column
-  ];
+  const usedColumns = [formData.geographic_column];
 
   const updateLevel = (levelIndex: number, column: string) => {
-    // levelIndex corresponds to drill-down levels, so we need to add 1 to get the correct hierarchy position
     const regionType = regionHierarchy[levelIndex + 1];
-
-    if (!regionType) {
-      return;
-    }
+    if (!regionType) return;
 
     // Create base hierarchy using the actual first level from the hierarchy
     const baseRegionType = regionHierarchy[0] || 'region';
@@ -222,106 +162,18 @@ export function DynamicLevelConfig({
       }
     }
 
-    const updateData = {
+    onChange({
       geographic_hierarchy: baseHierarchy,
-      // Legacy support
       district_column: baseHierarchy.drill_down_levels[0]?.column || undefined,
-    };
-
-    onChange(updateData);
-  };
-
-  // Auto-select default GeoJSON when geographic column is selected (copied from CountryLevelConfig)
-  useEffect(() => {
-    if (formData.geographic_column && geojsons && !formData.selected_geojson_id) {
-      const defaultGeojson = geojsons.find((g: any) => g.is_default);
-      if (defaultGeojson) {
-        onChange({
-          selected_geojson_id: defaultGeojson.id,
-        });
-      }
-    }
-  }, [formData.geographic_column, geojsons, formData.selected_geojson_id, onChange]);
-
-  // Auto-generate preview when all required fields are configured (copied from CountryLevelConfig)
-  useEffect(() => {
-    // For count operations, aggregate_column is not required (same pattern as bar charts)
-    const needsAggregateColumn = formData.aggregate_function !== 'count';
-
-    if (
-      formData.geographic_column &&
-      formData.selected_geojson_id &&
-      (!needsAggregateColumn || formData.aggregate_column) &&
-      formData.aggregate_function &&
-      formData.schema_name &&
-      formData.table_name
-    ) {
-      // Check if we need to update preview payloads
-      const currentFiltersHash = JSON.stringify(formData.filters || []);
-      const payloadFiltersHash = JSON.stringify(formData.dataOverlayPayload?.chart_filters || []);
-
-      const hasValidPayloads =
-        formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
-        formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
-        formData.dataOverlayPayload?.value_column ===
-          (formData.aggregate_column || formData.value_column || formData.geographic_column) &&
-        formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
-        currentFiltersHash === payloadFiltersHash;
-
-      if (!hasValidPayloads) {
-        const geojsonPayload = {
-          geojsonId: formData.selected_geojson_id,
-        };
-
-        const dataOverlayPayload = {
-          schema_name: formData.schema_name,
-          table_name: formData.table_name,
-          geographic_column: formData.geographic_column,
-          // For count operations without a column, fall back to geographic_column
-          value_column:
-            formData.aggregate_column || formData.value_column || formData.geographic_column,
-          aggregate_function: formData.aggregate_function,
-          selected_geojson_id: formData.selected_geojson_id,
-          filters: {},
-          chart_filters: formData.filters || [],
-        };
-
-        onChange({
-          geojsonPreviewPayload: geojsonPayload,
-          dataOverlayPayload: dataOverlayPayload,
-        });
-      }
-    }
-  }, [
-    formData.geographic_column,
-    formData.selected_geojson_id,
-    formData.aggregate_column,
-    formData.aggregate_function,
-    formData.schema_name,
-    formData.table_name,
-    JSON.stringify(formData.filters || []),
-    JSON.stringify(formData.geojsonPreviewPayload || {}),
-    JSON.stringify(formData.dataOverlayPayload || {}),
-  ]);
-
-  const shouldShowLevel = (levelIndex: number) => {
-    // Show first level always (next level after geographic column)
-    if (levelIndex === 0) return true;
-
-    // Show subsequent levels only if previous level is configured
-    return currentLevels[levelIndex - 1]?.column;
+    });
   };
 
   if (regionTypesLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading Geographic Levels...
-          </CardTitle>
-        </CardHeader>
-      </Card>
+      <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm text-gray-600">Loading Geographic Levels...</span>
+      </div>
     );
   }
 
@@ -441,9 +293,7 @@ export function DynamicLevelConfig({
           </div>
           <Select
             value={currentLevels[0]?.column || ''}
-            onValueChange={(value) => {
-              updateLevel(0, value === '__none__' ? '' : value);
-            }}
+            onValueChange={(value) => updateLevel(0, value === '__none__' ? '' : value)}
             disabled={disabled}
           >
             <SelectTrigger className="w-full">
