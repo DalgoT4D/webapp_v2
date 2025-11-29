@@ -1,7 +1,7 @@
 'use client';
 
 import { Label } from '@/components/ui/label';
-import { SimpleSelect, type SelectOption } from './SimpleSelect';
+import { SimpleSelect, type SelectOption } from '@/components/ui/simple-select';
 import { PAGINATION_OPTIONS } from './constants';
 
 interface PaginationConfig {

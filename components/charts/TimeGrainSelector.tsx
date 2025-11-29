@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Label } from '@/components/ui/label';
-import { SimpleSelect, type SelectOption } from './chart-data-config/SimpleSelect';
+import { SimpleSelect, type SelectOption } from '@/components/ui/simple-select';
 
 interface TimeGrainSelectorProps {
   value: string | null;

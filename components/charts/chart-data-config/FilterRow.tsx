@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
 import { ColumnSelector } from './ColumnSelector';
-import { SimpleSelect } from './SimpleSelect';
+import { SimpleSelect } from '@/components/ui/simple-select';
 import { SearchableValueInput } from './SearchableValueInput';
 import { FILTER_OPERATORS } from './constants';
 import type { ChartFilter } from '@/types/charts';

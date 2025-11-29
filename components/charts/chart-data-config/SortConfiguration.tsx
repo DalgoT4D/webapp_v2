@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
-import { SimpleSelect, type SelectOption } from './SimpleSelect';
+import { SimpleSelect, type SelectOption } from '@/components/ui/simple-select';
 import { SORT_DIRECTIONS } from './constants';
 import type { ChartMetric, ChartSort } from '@/types/charts';
 

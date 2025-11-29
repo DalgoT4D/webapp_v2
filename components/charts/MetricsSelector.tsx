@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { X, Plus } from 'lucide-react';
-import { SimpleSelect, type SelectOption } from './chart-data-config/SimpleSelect';
+import { SimpleSelect, type SelectOption } from '@/components/ui/simple-select';
 import { ColumnSelector } from './chart-data-config/ColumnSelector';
 import type { ChartMetric } from '@/types/charts';
 
