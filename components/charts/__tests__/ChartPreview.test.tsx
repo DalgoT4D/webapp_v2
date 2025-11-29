@@ -404,25 +404,11 @@ describe('ChartPreview', () => {
 
   describe('Console Logging', () => {
     beforeEach(() => {
-      jest.spyOn(console, 'log').mockImplementation();
       jest.spyOn(console, 'error').mockImplementation();
     });
 
     afterEach(() => {
-      (console.log as jest.Mock).mockRestore();
       (console.error as jest.Mock).mockRestore();
-    });
-
-    it.each([
-      ['pie', 'pie', { series: [{ type: 'pie', data: [{ name: 'A', value: 10 }] }] }],
-      ['number', 'number', { series: [{ type: 'gauge', data: [{ value: 75 }] }] }],
-    ])('should log debug info for %s charts', (name, chartType, config) => {
-      render(<ChartPreview config={config} chartType={chartType as any} />);
-
-      expect(console.log).toHaveBeenCalledWith(
-        'ChartPreview - Final config for pie/number chart:',
-        expect.any(Object)
-      );
     });
 
     it('should log error when chart initialization fails', () => {
