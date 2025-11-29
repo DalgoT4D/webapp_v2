@@ -1,17 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import {
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-  AlertCircle,
-  ChevronFirst,
-  ChevronLast,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useMemo, useEffect, useRef } from 'react';
+import { ChevronUp, ChevronDown, TableIcon } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -21,27 +11,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { usePagination } from '@/hooks/usePagination';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  formatCellValue,
+  getSortDirection,
+  toggleSortDirection,
+  extractDisplayColumns,
+  type ColumnFormattingConfig,
+} from '@/lib/column-formatters';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './common/ChartStateRenderers';
+import { PaginationControls } from './common/PaginationControls';
 
 interface TableChartProps {
   data?: Record<string, any>[];
   config?: {
     table_columns?: string[];
-    column_formatting?: Record<
-      string,
-      {
-        type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
-        precision?: number;
-        prefix?: string;
-        suffix?: string;
-      }
-    >;
+    column_formatting?: ColumnFormattingConfig;
     sort?: Array<{
       column: string;
       direction: 'asc' | 'desc';
@@ -69,160 +54,88 @@ export function TableChart({
   onSort,
   isLoading,
   error,
-  pagination,
+  pagination: serverPagination,
 }: TableChartProps) {
   const { table_columns, column_formatting = {}, sort = [], pagination: configPagination } = config;
 
-  // Determine if we're using server-side pagination (pagination prop provided) or fallback to client-side
-  const isServerSidePagination = !!pagination;
+  // Use the reusable pagination hook for client-side fallback
+  const clientPagination = usePagination(1, configPagination?.page_size || 10);
 
-  // Client-side pagination state (fallback when no server-side pagination)
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(configPagination?.page_size || 10);
+  // Determine if we're using server-side pagination
+  const isServerSidePagination = !!serverPagination;
 
-  // Get columns to display - either from config or all available columns
-  const columns = useMemo(() => {
-    if (table_columns && table_columns.length > 0) {
-      return table_columns;
-    }
-    if (data.length > 0) {
-      return Object.keys(data[0]);
-    }
-    return [];
-  }, [data, table_columns]);
+  // Get columns to display
+  const columns = useMemo(() => extractDisplayColumns(data, table_columns), [data, table_columns]);
 
   // Calculate paginated data
   const paginatedData = useMemo(() => {
     if (isServerSidePagination) {
-      // For server-side pagination, data is already paginated
       return data;
     }
-
-    // Client-side pagination fallback
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return data.slice(startIndex, endIndex);
-  }, [data, currentPage, pageSize, isServerSidePagination]);
+    // Client-side pagination
+    const startIndex = (clientPagination.page - 1) * clientPagination.pageSize;
+    return data.slice(startIndex, startIndex + clientPagination.pageSize);
+  }, [data, clientPagination.page, clientPagination.pageSize, isServerSidePagination]);
 
   // Calculate total pages
   const totalPages = useMemo(() => {
     if (isServerSidePagination) {
-      return Math.ceil((pagination?.total || 0) / (pagination?.pageSize || 10));
+      return Math.ceil((serverPagination?.total || 0) / (serverPagination?.pageSize || 10));
     }
-    // Client-side pagination fallback
     if (data.length === 0) return 1;
-    return Math.ceil(data.length / pageSize);
-  }, [data.length, pageSize, isServerSidePagination, pagination?.total, pagination?.pageSize]);
+    return Math.ceil(data.length / clientPagination.pageSize);
+  }, [data.length, clientPagination.pageSize, isServerSidePagination, serverPagination]);
 
-  // Reset to page 1 when data changes (client-side only)
-  useMemo(() => {
-    if (!isServerSidePagination) {
-      setCurrentPage(1);
+  // Reset client-side page when data changes
+  const prevDataRef = useRef(data);
+  useEffect(() => {
+    if (!isServerSidePagination && prevDataRef.current !== data) {
+      clientPagination.resetPage();
+      prevDataRef.current = data;
     }
-  }, [data, isServerSidePagination]);
-
-  // Format cell value based on column formatting config
-  const formatCellValue = (value: any, column: string) => {
-    const formatting = column_formatting[column];
-
-    if (!formatting || value == null) {
-      return value?.toString() || '';
-    }
-
-    const { type, precision = 2, prefix = '', suffix = '' } = formatting;
-
-    switch (type) {
-      case 'currency':
-        const currencyValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}$${currencyValue.toFixed(precision)}${suffix}`;
-
-      case 'percentage':
-        const percentValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}${(percentValue * 100).toFixed(precision)}%${suffix}`;
-
-      case 'number':
-        const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}${numValue.toFixed(precision)}${suffix}`;
-
-      case 'date':
-        try {
-          const dateValue = new Date(value);
-          return `${prefix}${dateValue.toLocaleDateString()}${suffix}`;
-        } catch {
-          return value?.toString() || '';
-        }
-
-      case 'text':
-      default:
-        return `${prefix}${value?.toString() || ''}${suffix}`;
-    }
-  };
-
-  // Get sort direction for a column
-  const getSortDirection = (column: string) => {
-    const sortConfig = sort.find((s) => s.column === column);
-    return sortConfig?.direction;
-  };
+  }, [data, isServerSidePagination, clientPagination]);
 
   // Handle column header click for sorting
   const handleSort = (column: string) => {
     if (!onSort) return;
-
-    const currentDirection = getSortDirection(column);
-    const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+    const currentDirection = getSortDirection(column, sort);
+    const newDirection = toggleSortDirection(currentDirection);
     onSort(column, newDirection);
   };
 
-  // Handle loading state
+  // Pagination values (server-side or client-side)
+  const currentPage = isServerSidePagination ? serverPagination!.page : clientPagination.page;
+  const pageSize = isServerSidePagination ? serverPagination!.pageSize : clientPagination.pageSize;
+  const totalRows = isServerSidePagination ? serverPagination!.total : data.length;
+
+  // State rendering
   if (isLoading) {
-    return (
-      <div className="relative w-full h-full min-h-[300px]">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-sm text-muted-foreground">Loading table data...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ChartLoadingState message="Loading table data..." />;
   }
 
-  // Handle error state
   if (error) {
     return (
-      <div className="relative h-full">
-        <div className="absolute top-0 left-0 right-0 z-10 p-4">
-          <Alert variant="warning">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Table configuration needs a small adjustment. Please review your settings and try
-              again.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
+      <ChartErrorState message="Table configuration needs a small adjustment. Please review your settings and try again." />
     );
   }
 
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <div className="text-center text-muted-foreground">
-          <p>No data available</p>
-          <p className="text-sm mt-2">Configure your table to display data</p>
-        </div>
-      </div>
+      <ChartEmptyState
+        icon={TableIcon}
+        title="No data available"
+        subtitle="Configure your table to display data"
+      />
     );
   }
 
   if (columns.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <div className="text-center text-muted-foreground">
-          <p>No columns configured</p>
-          <p className="text-sm mt-2">Select columns to display in the table</p>
-        </div>
-      </div>
+      <ChartEmptyState
+        icon={TableIcon}
+        title="No columns configured"
+        subtitle="Select columns to display in the table"
+      />
     );
   }
 
@@ -233,7 +146,7 @@ export function TableChart({
           <TableHeader>
             <TableRow>
               {columns.map((column) => {
-                const sortDirection = getSortDirection(column);
+                const sortDirection = getSortDirection(column, sort);
                 const canSort = !!onSort;
 
                 return (
@@ -267,7 +180,7 @@ export function TableChart({
               <TableRow key={index}>
                 {columns.map((column) => (
                   <TableCell key={column} className="py-1.5 px-2">
-                    {formatCellValue(row[column], column)}
+                    {formatCellValue(row[column], column, column_formatting)}
                   </TableCell>
                 ))}
               </TableRow>
@@ -277,141 +190,21 @@ export function TableChart({
       </div>
 
       {/* Pagination Controls */}
-      {(isServerSidePagination ? (pagination?.total || 0) > 0 : data.length > 0) && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {isServerSidePagination ? (
-                  <>
-                    Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
-                    {Math.min(pagination!.page * pagination!.pageSize, pagination!.total)} of{' '}
-                    {pagination!.total.toLocaleString()} rows
-                  </>
-                ) : (
-                  <>
-                    Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                    {Math.min(currentPage * pageSize, data.length)} of{' '}
-                    {data.length.toLocaleString()} rows
-                  </>
-                )}
-              </span>
-              {(isServerSidePagination ? pagination?.onPageSizeChange : true) && (
-                <Select
-                  value={
-                    isServerSidePagination ? pagination!.pageSize.toString() : pageSize.toString()
-                  }
-                  onValueChange={(value) => {
-                    const newPageSize = parseInt(value);
-                    if (isServerSidePagination) {
-                      pagination?.onPageSizeChange?.(newPageSize);
-                    } else {
-                      setPageSize(newPageSize);
-                      setCurrentPage(1);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(1);
-                  } else {
-                    setCurrentPage(1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-              >
-                <ChevronFirst className="h-4 w-4" />
-                <span className="sr-only">First page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(pagination.page - 1);
-                  } else {
-                    setCurrentPage(currentPage - 1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous page</span>
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">
-                Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(pagination.page + 1);
-                  } else {
-                    setCurrentPage(currentPage + 1);
-                  }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-              >
-                <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Next page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
-                  } else {
-                    setCurrentPage(totalPages);
-                  }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-              >
-                <ChevronLast className="h-4 w-4" />
-                <span className="sr-only">Last page</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+      {totalRows > 0 && (
+        <PaginationControls
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalRows={totalRows}
+          totalPages={totalPages}
+          onPageChange={
+            isServerSidePagination ? serverPagination!.onPageChange : clientPagination.setPage
+          }
+          onPageSizeChange={
+            isServerSidePagination
+              ? serverPagination?.onPageSizeChange
+              : clientPagination.handlePageSizeChange
+          }
+        />
       )}
     </div>
   );
