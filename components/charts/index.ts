@@ -44,4 +44,4 @@ export { MapPreview } from './map/MapPreview';
 // Common
 export * from './common/ChartStateRenderers';
 export { PaginationControls } from './common/PaginationControls';
-export { MapControls } from './common/MapControls';
+export { MapBreadcrumbs, MapZoomControls } from './common/MapControls';

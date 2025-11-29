@@ -1,6 +1,102 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { ChartBuilderFormData } from '@/types/charts';
+import type { ChartBuilderFormData, Chart } from '@/types/charts';
 import { deepEqual } from '@/lib/form-utils';
+
+/**
+ * Convert layers structure to simplified fields for UI.
+ * Used when loading a chart for editing.
+ */
+function convertLayersToSimplified(layers: any[]): Record<string, any> {
+  if (!layers || layers.length === 0) {
+    return {};
+  }
+
+  const simplified: Record<string, any> = {};
+
+  // Level 0: Geographic column (states/counties/provinces)
+  if (layers[0]?.geographic_column) {
+    simplified.geographic_column = layers[0].geographic_column;
+    simplified.selected_geojson_id = layers[0].geojson_id;
+  }
+
+  // Level 1+: Additional drill-down levels
+  const levelMappings = [
+    { level: 1, field: 'district_column' },
+    { level: 2, field: 'ward_column' },
+    { level: 3, field: 'subward_column' },
+  ];
+
+  levelMappings.forEach((mapping) => {
+    const layer = layers.find((l) => l.level === mapping.level);
+    if (layer?.geographic_column) {
+      simplified[mapping.field] = layer.geographic_column;
+    }
+  });
+
+  // Set drill_down_enabled if we have any additional levels
+  simplified.drill_down_enabled = layers.length > 1;
+
+  return simplified;
+}
+
+/**
+ * Convert chart API response to ChartBuilderFormData.
+ * Handles all chart types including maps with layers.
+ */
+export function chartToFormData(chart: Chart): ChartBuilderFormData {
+  // Convert layers to simplified fields if they exist
+  const simplifiedFromLayers = chart.extra_config?.layers
+    ? convertLayersToSimplified(chart.extra_config.layers)
+    : {};
+
+  return {
+    title: chart.title,
+    chart_type: chart.chart_type as ChartBuilderFormData['chart_type'],
+    computation_type: chart.computation_type as 'raw' | 'aggregated',
+    schema_name: chart.schema_name,
+    table_name: chart.table_name,
+    x_axis_column: chart.extra_config?.x_axis_column,
+    y_axis_column: chart.extra_config?.y_axis_column,
+    dimension_column: chart.extra_config?.dimension_column,
+    aggregate_column: chart.extra_config?.aggregate_column,
+    aggregate_function: chart.extra_config?.aggregate_function,
+    extra_dimension_column: chart.extra_config?.extra_dimension_column,
+    metrics: chart.extra_config?.metrics,
+    time_grain: chart.extra_config?.time_grain,
+    // Use converted simplified fields, fallback to direct extra_config values
+    geographic_column:
+      simplifiedFromLayers.geographic_column || chart.extra_config?.geographic_column,
+    value_column: chart.extra_config?.value_column,
+    selected_geojson_id:
+      simplifiedFromLayers.selected_geojson_id || chart.extra_config?.selected_geojson_id,
+    // Simplified map drill-down fields
+    district_column: simplifiedFromLayers.district_column || chart.extra_config?.district_column,
+    ward_column: simplifiedFromLayers.ward_column || chart.extra_config?.ward_column,
+    subward_column: simplifiedFromLayers.subward_column || chart.extra_config?.subward_column,
+    drill_down_enabled:
+      simplifiedFromLayers.drill_down_enabled || chart.extra_config?.drill_down_enabled,
+    country_code: chart.extra_config?.country_code || 'IND',
+    layers:
+      chart.extra_config?.layers ||
+      (chart.chart_type === 'map'
+        ? [
+            {
+              id: '0',
+              level: 0,
+              geographic_column: chart.extra_config?.geographic_column,
+              geojson_id: chart.extra_config?.selected_geojson_id,
+            },
+          ]
+        : undefined),
+    customizations:
+      chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
+    filters: chart.extra_config?.filters || [],
+    pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
+    sort: chart.extra_config?.sort || [],
+    geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
+    table_columns: chart.extra_config?.table_columns || [],
+  };
+}
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, unknown> {
