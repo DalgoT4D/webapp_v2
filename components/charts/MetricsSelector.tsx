@@ -1,17 +1,12 @@
 'use client';
 
 import React from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { X, Plus } from 'lucide-react';
+import { SimpleSelect, type SelectOption } from './chart-data-config/SimpleSelect';
+import { ColumnSelector } from './chart-data-config/ColumnSelector';
 import type { ChartMetric } from '@/types/charts';
 
 interface MetricsSelectorProps {
@@ -23,7 +18,7 @@ interface MetricsSelectorProps {
   maxMetrics?: number;
 }
 
-const AGGREGATE_FUNCTIONS = [
+const AGGREGATE_FUNCTIONS: SelectOption[] = [
   { value: 'count', label: 'Count' },
   { value: 'sum', label: 'Sum' },
   { value: 'avg', label: 'Average' },
@@ -162,17 +157,19 @@ export function MetricsSelector({
                 {/* Aggregation Function - Now First */}
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">{labels.function}</Label>
-                  <Select
+                  <SimpleSelect
+                    options={AGGREGATE_FUNCTIONS}
                     value={metric.aggregation}
-                    onValueChange={(value) => {
-                      const updates: Partial<ChartMetric> = { aggregation: value };
+                    onChange={(value) => {
+                      const newValue = value || 'count';
+                      const updates: Partial<ChartMetric> = { aggregation: newValue };
 
-                      if (value === 'count') {
+                      if (newValue === 'count') {
                         // Count: set to null (displays as '*')
                         updates.column = null;
                       } else {
                         // For other functions, auto-select first valid column
-                        const availableColumns = getAvailableColumns(value);
+                        const availableColumns = getAvailableColumns(newValue);
                         const firstValidColumn = availableColumns.find((col) => !col.disabled);
 
                         if (firstValidColumn) {
@@ -185,67 +182,41 @@ export function MetricsSelector({
 
                       updateMetric(index, updates);
                     }}
+                    placeholder="Function"
                     disabled={disabled}
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue placeholder="Function" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AGGREGATE_FUNCTIONS.map((func) => (
-                        <SelectItem key={func.value} value={func.value}>
-                          {func.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    height="sm"
+                  />
                 </div>
 
                 {/* Column Selection - Now Second */}
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">{labels.column}</Label>
-                  <Select
+                  <ColumnSelector
+                    columns={getAvailableColumns(metric.aggregation)}
                     value={
                       metric.aggregation?.toLowerCase() === 'count' && !metric.column
                         ? '*'
-                        : metric.column || ''
+                        : metric.column || undefined
                     }
-                    onValueChange={(value) =>
-                      updateMetric(index, { column: value === '*' ? null : value })
+                    onChange={(value) =>
+                      updateMetric(index, { column: value === '*' ? null : value || '' })
                     }
+                    placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
                     disabled={disabled || !metric.aggregation}
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue
-                        placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getAvailableColumns(metric.aggregation).map((col) => (
-                        <SelectItem
-                          key={col.column_name}
-                          value={col.column_name}
-                          disabled={col.disabled}
-                          className={col.disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                        >
-                          <span
-                            className={`truncate ${col.disabled ? 'text-gray-400' : ''}`}
-                            title={
-                              col.column_name === '*'
-                                ? '* (Count all rows)'
-                                : col.disabled
-                                  ? `${col.column_name} (Not compatible with ${metric.aggregation})`
-                                  : col.column_name
-                            }
-                          >
-                            {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
-                            {col.disabled && (
-                              <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    disabledFn={(col) =>
+                      !['count', 'count_distinct'].includes(metric.aggregation) &&
+                      ![
+                        'integer',
+                        'bigint',
+                        'numeric',
+                        'double precision',
+                        'real',
+                        'float',
+                        'decimal',
+                      ].includes(col.data_type.toLowerCase())
+                    }
+                    height="sm"
+                  />
                 </div>
               </div>
 

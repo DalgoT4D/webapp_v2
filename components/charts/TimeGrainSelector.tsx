@@ -1,14 +1,8 @@
 'use client';
 
 import React from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { SimpleSelect, type SelectOption } from './chart-data-config/SimpleSelect';
 
 interface TimeGrainSelectorProps {
   value: string | null;
@@ -16,8 +10,7 @@ interface TimeGrainSelectorProps {
   disabled?: boolean;
 }
 
-const TIME_GRAIN_OPTIONS = [
-  { value: '__none__', label: 'None' },
+const TIME_GRAIN_OPTIONS: SelectOption[] = [
   { value: 'year', label: 'Year' },
   { value: 'month', label: 'Month' },
   { value: 'day', label: 'Day' },
@@ -27,25 +20,23 @@ const TIME_GRAIN_OPTIONS = [
 ];
 
 export function TimeGrainSelector({ value, onChange, disabled }: TimeGrainSelectorProps) {
-  const handleValueChange = (selectedValue: string) => {
-    onChange(selectedValue === '__none__' ? null : selectedValue);
+  const handleValueChange = (selectedValue: string | undefined) => {
+    onChange(selectedValue || null);
   };
 
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium text-gray-900">Time Grain</Label>
-      <Select value={value || '__none__'} onValueChange={handleValueChange} disabled={disabled}>
-        <SelectTrigger className="h-8">
-          <SelectValue placeholder="Select time grain" />
-        </SelectTrigger>
-        <SelectContent>
-          {TIME_GRAIN_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SimpleSelect
+        options={TIME_GRAIN_OPTIONS}
+        value={value || undefined}
+        onChange={handleValueChange}
+        placeholder="Select time grain"
+        disabled={disabled}
+        height="sm"
+        includeNone
+        noneLabel="None"
+      />
     </div>
   );
 }
