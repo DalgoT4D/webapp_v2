@@ -406,7 +406,7 @@ describe('MapCustomizations', () => {
    * Integration Tests
    */
   describe('Integration', () => {
-    it('should preserve unrelated formData fields when updating customizations', async () => {
+    it('should only pass customizations partial update (not entire formData)', async () => {
       const user = userEvent.setup();
       const formDataWithExtras = {
         ...defaultFormData,
@@ -425,8 +425,9 @@ describe('MapCustomizations', () => {
       expect(tooltipSwitch).toBeInTheDocument();
       await user.click(tooltipSwitch!);
 
+      // Should only pass the customizations update, not the entire formData
+      // This is the correct pattern for React partial state updates
       expect(mockOnFormDataChange).toHaveBeenCalledWith({
-        ...formDataWithExtras,
         customizations: {
           ...formDataWithExtras.customizations,
           showTooltip: false,

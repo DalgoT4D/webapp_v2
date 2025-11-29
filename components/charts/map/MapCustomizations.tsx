@@ -11,23 +11,41 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { ChartBuilderFormData } from '@/types/charts';
+
+// Map-specific customization options
+interface MapCustomizationOptions {
+  colorScheme?: string;
+  showTooltip?: boolean;
+  showLegend?: boolean;
+  select?: boolean;
+  nullValueLabel?: string;
+  legendPosition?: 'left' | 'right' | 'top' | 'bottom';
+  showLabels?: boolean;
+  emphasis?: boolean;
+  borderWidth?: number;
+  borderColor?: string;
+  animation?: boolean;
+}
 
 interface MapCustomizationsProps {
-  formData: any;
-  onFormDataChange: (data: any) => void;
+  formData: ChartBuilderFormData;
+  onFormDataChange: (data: Partial<ChartBuilderFormData>) => void;
 }
 
 export function MapCustomizations({ formData, onFormDataChange }: MapCustomizationsProps) {
-  const customizations = formData.customizations || {};
+  const customizations: MapCustomizationOptions = formData.customizations || {};
 
-  const updateCustomization = (key: string, value: any) => {
-    const newCustomizations = {
+  const updateCustomization = <K extends keyof MapCustomizationOptions>(
+    key: K,
+    value: MapCustomizationOptions[K]
+  ) => {
+    const newCustomizations: MapCustomizationOptions = {
       ...customizations,
       [key]: value,
     };
 
     onFormDataChange({
-      ...formData,
       customizations: newCustomizations,
     });
   };
@@ -137,7 +155,9 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
             <Label className="text-sm font-medium">Legend Position</Label>
             <Select
               value={customizations.legendPosition || 'left'}
-              onValueChange={(value) => updateCustomization('legendPosition', value)}
+              onValueChange={(value) =>
+                updateCustomization('legendPosition', value as 'left' | 'right' | 'top' | 'bottom')
+              }
             >
               <SelectTrigger>
                 <SelectValue />
