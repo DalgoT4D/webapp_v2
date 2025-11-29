@@ -4,17 +4,13 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Database, BarChart3, ArrowLeft } from 'lucide-react';
-import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
-import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
-import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
+import { ArrowLeft } from 'lucide-react';
+import { LeftPanel } from '@/components/charts/LeftPanel';
 import { RightPanel } from '@/components/charts/RightPanel';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
 import { useCreateChart } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
-import type { ChartCreate, ChartBuilderFormData } from '@/types/charts';
+import type { ChartCreate } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { usePagination } from '@/hooks/usePagination';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -22,73 +18,6 @@ import { useChartForm } from '@/hooks/useChartForm';
 import { useMapDrillDown } from '@/hooks/useMapDrillDown';
 import { useChartDataSources } from '@/hooks/useChartDataSources';
 import { isChartFormValid } from '@/lib/chart-validation';
-
-// Left Panel Component - Configuration and Styling tabs
-interface LeftPanelProps {
-  formData: ChartBuilderFormData;
-  onFormChange: (updates: Partial<ChartBuilderFormData>) => void;
-}
-
-function LeftPanel({ formData, onFormChange }: LeftPanelProps) {
-  return (
-    <div className="w-[30%] border-r">
-      <Tabs defaultValue="configuration" className="h-full">
-        <div className="px-4 pt-4">
-          <TabsList
-            className={`grid w-full h-11 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-          >
-            <TabsTrigger
-              value="configuration"
-              className="flex items-center justify-center gap-2 text-sm h-full"
-            >
-              <BarChart3 className="h-4 w-4" />
-              Data Configuration
-            </TabsTrigger>
-            {formData.chart_type !== 'table' && (
-              <TabsTrigger
-                value="styling"
-                className="flex items-center justify-center gap-2 text-sm h-full"
-              >
-                <Database className="h-4 w-4" />
-                Chart Styling
-              </TabsTrigger>
-            )}
-          </TabsList>
-        </div>
-
-        <TabsContent value="configuration" className="mt-6 h-[calc(100%-73px)] overflow-y-auto">
-          <div className="p-4">
-            {formData.chart_type === 'map' ? (
-              <MapDataConfigurationV3 formData={formData} onFormDataChange={onFormChange} />
-            ) : (
-              <ChartDataConfigurationV3
-                formData={formData}
-                onChange={onFormChange}
-                disabled={false}
-              />
-            )}
-          </div>
-        </TabsContent>
-
-        {formData.chart_type !== 'table' && (
-          <TabsContent value="styling" className="h-[calc(100%-73px)] overflow-y-auto">
-            <div className="p-4">
-              {formData.chart_type === 'map' ? (
-                <MapCustomizations formData={formData} onFormDataChange={onFormChange} />
-              ) : (
-                <ChartCustomizations
-                  chartType={formData.chart_type || 'bar'}
-                  formData={formData}
-                  onChange={onFormChange}
-                />
-              )}
-            </div>
-          </TabsContent>
-        )}
-      </Tabs>
-    </div>
-  );
-}
 
 function ConfigureChartPageContent() {
   const router = useRouter();
