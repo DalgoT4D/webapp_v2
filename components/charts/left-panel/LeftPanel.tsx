@@ -2,8 +2,8 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database, BarChart3 } from 'lucide-react';
-import { ConfigurationTabRenderer } from './left-panel/ConfigurationTabRenderer';
-import { StylingTabRenderer, hasStylingTab } from './left-panel/StylingTabRenderer';
+import { ConfigurationTabRenderer } from './ConfigurationTabRenderer';
+import { StylingTabRenderer, hasStylingTab } from './StylingTabRenderer';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 export interface LeftPanelProps {

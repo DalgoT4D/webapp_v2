@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 import { apiGet, apiPost } from '@/lib/api';
 import useSWR from 'swr';
 import { useColumns } from '@/hooks/api/useChart';
-import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { DatasetSelector } from '@/components/charts/left-panel';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { useDashboardFilter } from '@/hooks/api/useDashboards';
 import type {

@@ -8,16 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
-import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { ChartPreview } from '@/components/charts/ChartPreview';
-import { DataPreview } from '@/components/charts/DataPreview';
-import { TableChart } from '@/components/charts/TableChart';
-import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
-import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
-import { MapPreview } from '@/components/charts/map/MapPreview';
-import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
-import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
+import { ChartDataConfigurationV3, ChartCustomizations } from '@/components/charts/left-panel';
+import { ChartPreview, DataPreview } from '@/components/charts/right-panel';
+import { TableChart } from '@/components/charts/renderers';
+import { MapDataConfigurationV3, MapCustomizations, MapPreview } from '@/components/charts/map';
+import { SaveOptionsDialog, UnsavedChangesExitDialog } from '@/components/charts/dialogs';
 import {
   useChart,
   useUpdateChart,

@@ -1,7 +1,7 @@
 'use client';
 
-import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
-import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
+import { ChartDataConfigurationV3 } from './ChartDataConfigurationV3';
+import { MapDataConfigurationV3 } from '../map/MapDataConfigurationV3';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 interface ConfigurationTabRendererProps {

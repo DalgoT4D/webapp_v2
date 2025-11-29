@@ -1,8 +1,8 @@
 'use client';
 
 import { ChartPreview } from './ChartPreview';
-import { TableChart } from './TableChart';
-import { MapPreview } from './map/MapPreview';
+import { TableChart } from '../renderers/TableChart';
+import { MapPreview } from '../map/MapPreview';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 // Grouped props for each chart type

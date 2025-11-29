@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table, Lock } from 'lucide-react';
-import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { DatasetSelector } from '@/components/charts/left-panel';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useUserPermissions } from '@/hooks/api/usePermissions';

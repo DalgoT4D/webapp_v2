@@ -19,8 +19,8 @@ import {
   extractDisplayColumns,
   type ColumnFormattingConfig,
 } from '@/lib/column-formatters';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './common/ChartStateRenderers';
-import { PaginationControls } from './common/PaginationControls';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState } from '../common/ChartStateRenderers';
+import { PaginationControls } from '../common/PaginationControls';
 
 interface TableChartProps {
   data?: Record<string, any>[];

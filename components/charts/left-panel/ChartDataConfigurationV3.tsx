@@ -2,10 +2,10 @@
 
 import { Label } from '@/components/ui/label';
 import { useColumns } from '@/hooks/api/useChart';
-import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
-import { MetricsSelector } from '@/components/charts/MetricsSelector';
-import { DatasetSelector } from '@/components/charts/DatasetSelector';
-import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
+import { ChartTypeSelector } from './ChartTypeSelector';
+import { MetricsSelector } from './MetricsSelector';
+import { DatasetSelector } from './DatasetSelector';
+import { TimeGrainSelector } from './TimeGrainSelector';
 import {
   DimensionSelector,
   ExtraDimensionSelector,
@@ -15,7 +15,7 @@ import {
   useChartFormEffects,
   useChartTypeChange,
   DATETIME_COLUMN_TYPES,
-} from './chart-data-config';
+} from '../chart-data-config';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 interface ChartDataConfigurationV3Props {

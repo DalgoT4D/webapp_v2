@@ -79,13 +79,7 @@ jest.mock('../TimeGrainSelector', () => ({
   ),
 }));
 
-jest.mock('../SimpleTableConfiguration', () => ({
-  SimpleTableConfiguration: ({ selectedColumns }: any) => (
-    <div data-testid="simple-table-config">
-      <span>Selected: {selectedColumns?.length || 0}</span>
-    </div>
-  ),
-}));
+// SimpleTableConfiguration was removed - no longer needed
 
 describe('ChartDataConfigurationV3', () => {
   const mockOnChange = jest.fn();

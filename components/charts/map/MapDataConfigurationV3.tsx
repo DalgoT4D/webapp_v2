@@ -2,10 +2,8 @@
 
 import React from 'react';
 import { Label } from '@/components/ui/label';
-import { MetricsSelector } from '@/components/charts/MetricsSelector';
-import { DatasetSelector } from '@/components/charts/DatasetSelector';
-import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
-import { FiltersSection } from '@/components/charts/chart-data-config';
+import { MetricsSelector, DatasetSelector, ChartTypeSelector } from '../left-panel';
+import { FiltersSection } from '../chart-data-config';
 import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';

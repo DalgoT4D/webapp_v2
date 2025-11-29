@@ -14,7 +14,7 @@ jest.mock('echarts', () => ({
 }));
 
 // Mock TableChart component
-jest.mock('../TableChart', () => ({
+jest.mock('../../renderers/TableChart', () => ({
   TableChart: jest.fn(({ data, config, onSort, pagination }) => (
     <div data-testid="table-chart">
       <div data-testid="table-data">{JSON.stringify(data)}</div>

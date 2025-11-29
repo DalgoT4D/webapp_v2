@@ -1,7 +1,7 @@
 'use client';
 
-import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
+import { ChartCustomizations } from './ChartCustomizations';
+import { MapCustomizations } from '../map/MapCustomizations';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 interface StylingTabRendererProps {

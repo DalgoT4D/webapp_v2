@@ -8,8 +8,8 @@ import {
   ChartLoadingState,
   ChartSilentErrorState,
   ChartEmptyState,
-} from './common/ChartStateRenderers';
-import { TableChart } from './TableChart';
+} from '../common/ChartStateRenderers';
+import { TableChart } from '../renderers/TableChart';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
