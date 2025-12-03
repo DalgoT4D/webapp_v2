@@ -475,7 +475,7 @@ What would you like to know about this dashboard?`,
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`flex gap-3 max-w-[85%] ${
+                  className={`flex gap-3 max-w-[90%] w-full ${
                     message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                   }`}
                 >
@@ -489,17 +489,23 @@ What would you like to know about this dashboard?`,
 
                   <div
                     className={cn(
-                      'rounded-lg px-3 py-2 text-sm',
+                      'rounded-lg px-3 py-2 text-sm flex-1 min-w-0',
                       message.role === 'user'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-900'
                     )}
                   >
-                    <div className="prose prose-sm max-w-none">
+                    <div className="prose prose-sm max-w-none break-words">
                       <FormattedMessage content={message.content} />
                     </div>
 
                     <style jsx>{`
+                      .formatted-message {
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
+                        hyphens: auto;
+                        white-space: pre-wrap;
+                      }
                       .formatted-message ul {
                         list-style: none;
                         margin: 0.5rem 0;
@@ -508,12 +514,17 @@ What would you like to know about this dashboard?`,
                       .formatted-message li {
                         margin: 0.25rem 0;
                         padding-left: 1rem;
+                        word-wrap: break-word;
                       }
                       .formatted-message h3 {
                         color: #1f2937;
                         font-size: 1rem;
                         font-weight: 600;
                         margin: 1rem 0 0.5rem 0;
+                        word-wrap: break-word;
+                      }
+                      .formatted-message strong {
+                        word-wrap: break-word;
                       }
                     `}</style>
 
@@ -554,13 +565,13 @@ What would you like to know about this dashboard?`,
             {/* Loading indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="flex gap-3 max-w-[85%]">
-                  <Avatar className="h-8 w-8">
+                <div className="flex gap-3 max-w-[90%] w-full">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="bg-blue-100 text-blue-600">
                       <Bot className="w-4 h-4" />
                     </AvatarFallback>
                   </Avatar>
-                  <div className="rounded-lg px-3 py-2 bg-gray-100">
+                  <div className="rounded-lg px-3 py-2 bg-gray-100 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm text-gray-600">Thinking...</span>
