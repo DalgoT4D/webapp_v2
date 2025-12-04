@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useCharts } from '@/hooks/api/useCharts';
-import { StaticChartPreview } from '@/components/charts/StaticChartPreview';
+import { StaticChartPreview } from '@/components/charts/renderers';
 import { Loader2, Search, Plus, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
