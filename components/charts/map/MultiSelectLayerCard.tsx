@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react';
 import { useChildRegions, useRegionGeoJSONs, useRegionHierarchy } from '@/hooks/api/useChart';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { useCascadingFilters } from '../../../hooks/useCascadingFilters';
 import type { ChartBuilderFormData } from '@/types/charts';
 
@@ -283,9 +284,12 @@ export function MultiSelectLayerCard({
                   const columnName = column.name || column.column_name;
                   return (
                     <SelectItem key={columnName} value={columnName}>
-                      <span className="truncate" title={`${columnName} (${column.data_type})`}>
-                        {columnName} ({column.data_type})
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ColumnTypeIcon dataType={column.data_type} className="w-4 h-4" />
+                        <span className="truncate" title={`${columnName} (${column.data_type})`}>
+                          {columnName}
+                        </span>
+                      </div>
                     </SelectItem>
                   );
                 })}

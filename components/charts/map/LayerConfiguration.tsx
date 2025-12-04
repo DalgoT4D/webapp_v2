@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { useRegions, useChildRegions, useRegionGeoJSONs, useColumns } from '@/hooks/api/useChart';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 
 interface Layer {
   id: string;
@@ -227,12 +228,15 @@ function LayerCard({
               <SelectContent>
                 {columns.map((column) => (
                   <SelectItem key={column.column_name} value={column.column_name}>
-                    <span
-                      className="truncate"
-                      title={`${column.column_name} (${column.data_type})`}
-                    >
-                      {column.column_name} ({column.data_type})
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ColumnTypeIcon dataType={column.data_type} className="w-4 h-4" />
+                      <span
+                        className="truncate"
+                        title={`${column.column_name} (${column.data_type})`}
+                      >
+                        {column.column_name}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

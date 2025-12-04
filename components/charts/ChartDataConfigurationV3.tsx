@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, PieChart, LineChart, Hash, MapPin, Check } from 'lucide-react';
 import { useColumns, useColumnValues } from '@/hooks/api/useChart';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
@@ -471,9 +472,12 @@ export function ChartDataConfigurationV3({
             <SelectContent>
               {allColumns.map((col) => (
                 <SelectItem key={col.column_name} value={col.column_name}>
-                  <span className="truncate" title={col.column_name}>
-                    {col.column_name}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                    <span className="truncate" title={`${col.column_name} (${col.data_type})`}>
+                      {col.column_name}
+                    </span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -537,19 +541,22 @@ export function ChartDataConfigurationV3({
                       disabled={isDisabled}
                       className={isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
                     >
-                      <span
-                        className={`truncate ${isDisabled ? 'text-gray-400' : ''}`}
-                        title={
-                          isDisabled
-                            ? `${col.column_name} (Not compatible with ${formData.aggregate_function})`
-                            : col.column_name
-                        }
-                      >
-                        {col.column_name}
-                        {isDisabled && (
-                          <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
-                        )}
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                        <span
+                          className={`truncate ${isDisabled ? 'text-gray-400' : ''}`}
+                          title={
+                            isDisabled
+                              ? `${col.column_name} (${col.data_type}) - Not compatible with ${formData.aggregate_function}`
+                              : `${col.column_name} (${col.data_type})`
+                          }
+                        >
+                          {col.column_name}
+                          {isDisabled && (
+                            <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
+                          )}
+                        </span>
+                      </div>
                     </SelectItem>
                   );
                 })}
@@ -630,9 +637,12 @@ export function ChartDataConfigurationV3({
                 })
                 .map((col) => (
                   <SelectItem key={col.column_name} value={col.column_name}>
-                    <span className="truncate" title={col.column_name}>
-                      {col.column_name}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                      <span className="truncate" title={`${col.column_name} (${col.data_type})`}>
+                        {col.column_name}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
             </SelectContent>
@@ -662,9 +672,15 @@ export function ChartDataConfigurationV3({
                   <SelectContent>
                     {allColumns.map((col) => (
                       <SelectItem key={col.column_name} value={col.column_name}>
-                        <span className="truncate" title={col.column_name}>
-                          {col.column_name}
-                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                          <span
+                            className="truncate"
+                            title={`${col.column_name} (${col.data_type})`}
+                          >
+                            {col.column_name}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
