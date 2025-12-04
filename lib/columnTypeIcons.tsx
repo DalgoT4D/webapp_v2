@@ -1,5 +1,6 @@
 import { Hash, CaseLower, Clock, Binary, Braces, HelpCircle } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type ColumnDataType =
   | 'integer'
@@ -114,5 +115,16 @@ export function ColumnTypeIcon({ dataType, className = 'w-4 h-4' }: ColumnTypeIc
   const config = getColumnTypeConfig(dataType);
   const Icon = config.icon;
 
-  return <Icon className={`${config.color} ${className} flex-shrink-0`} aria-hidden="true" />;
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <span className="inline-flex pointer-events-auto cursor-help">
+          <Icon className={`${config.color} ${className} shrink-0`} aria-hidden="true" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {dataType}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
