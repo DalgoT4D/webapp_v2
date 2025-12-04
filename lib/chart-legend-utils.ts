@@ -158,8 +158,12 @@ export function applyLegendPosition(
 
   // For pie charts, also adjust the series center position
   if (chartType === 'pie' && modifiedConfig.series) {
-    const isDonut =
-      config.series?.[0]?.radius?.[0] !== '0%' && config.series?.[0]?.radius?.[0] !== 0;
+    // Safely determine if this is a donut chart by checking the inner radius
+    const firstSeries = Array.isArray(config.series) ? config.series[0] : config.series;
+    const radius = firstSeries?.radius;
+    const innerRadius = Array.isArray(radius) && radius.length > 0 ? radius[0] : null;
+    // It's a donut if inner radius exists and is not '0%' or 0
+    const isDonut = innerRadius !== null && innerRadius !== '0%' && innerRadius !== 0;
     const piePosition = getPieSeriesPosition(legendPosition, isDonut);
 
     if (Array.isArray(modifiedConfig.series)) {
