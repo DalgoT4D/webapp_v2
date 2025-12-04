@@ -27,6 +27,7 @@ interface ChartPreviewProps {
     onPageChange: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
   };
+  customizations?: Record<string, any>;
 }
 
 export function ChartPreview({
@@ -38,6 +39,7 @@ export function ChartPreview({
   tableData,
   onTableSort,
   tablePagination,
+  customizations: propCustomizations,
 }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -79,8 +81,9 @@ export function ChartPreview({
       // Create new instance
       chartInstance.current = echarts.init(chartRef.current);
 
-      // Extract legend position from config's customizations if available
-      const customizations = config.extra_config?.customizations || config.customizations || {};
+      // Extract legend position from props or config's customizations
+      const customizations =
+        propCustomizations || config.extra_config?.customizations || config.customizations || {};
       const legendPosition = extractLegendPosition(customizations, config) as LegendPosition;
       const isPaginated = isLegendPaginated(customizations);
 
@@ -285,7 +288,7 @@ export function ChartPreview({
     } catch (err) {
       console.error('Error initializing chart:', err);
     }
-  }, [config, onChartReady, chartType]);
+  }, [config, onChartReady, chartType, propCustomizations]);
 
   useEffect(() => {
     initializeChart();
