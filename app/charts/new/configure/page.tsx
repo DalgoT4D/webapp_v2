@@ -979,6 +979,7 @@ function ConfigureChartPageContent() {
                         config={chartData?.echarts_config}
                         isLoading={chartLoading}
                         error={chartError}
+                        customizations={formData.customizations}
                       />
                     </div>
                   )}

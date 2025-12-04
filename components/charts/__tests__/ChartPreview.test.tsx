@@ -184,8 +184,10 @@ describe('ChartPreview', () => {
     });
 
     it.each([
-      ['with legend', { legend: { show: true } }, '18%'],
+      // Default legend position is 'right', so top margin is '10%' regardless of legend visibility
+      ['with legend (right position)', { legend: { show: true } }, '10%'],
       ['without legend', { legend: { show: false } }, '10%'],
+      // With top legend position via customizations, top margin should be '18%'
     ])('should adjust top margin %s', (desc, config, expectedTop) => {
       const fullConfig = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
@@ -201,10 +203,12 @@ describe('ChartPreview', () => {
     });
 
     it('should configure grid with proper margins and contain labels', () => {
+      // Default legend position is 'right', so right margin is '15%' to accommodate legend
       const config = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
         xAxis: { type: 'category', data: ['A', 'B', 'C'] },
         yAxis: { type: 'value' },
+        legend: { show: true },
       };
 
       render(<ChartPreview config={config} />);
@@ -213,7 +217,7 @@ describe('ChartPreview', () => {
       expect(calledConfig.grid).toBeDefined();
       expect(calledConfig.grid.containLabel).toBe(true);
       expect(calledConfig.grid.left).toBe('10%');
-      expect(calledConfig.grid.right).toBe('6%');
+      expect(calledConfig.grid.right).toBe('15%'); // Right margin increased for right-positioned legend
     });
 
     it.each([
@@ -256,7 +260,8 @@ describe('ChartPreview', () => {
   });
 
   describe('Legend and Series Configuration', () => {
-    it('should configure legend with proper positioning', () => {
+    it('should configure legend with proper positioning (default: right)', () => {
+      // Default legend position is 'right', so legend should be on the right side
       const config = {
         series: [{ type: 'bar', data: [1, 2, 3] }],
         legend: { data: ['Series 1'] },
@@ -265,9 +270,10 @@ describe('ChartPreview', () => {
       render(<ChartPreview config={config} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.legend.top).toBe('5%');
-      expect(calledConfig.legend.left).toBe('center');
-      expect(calledConfig.legend.orient).toBe('horizontal');
+      // With default 'right' position: top='center', right='3%', orient='vertical'
+      expect(calledConfig.legend.top).toBe('center');
+      expect(calledConfig.legend.right).toBe('3%');
+      expect(calledConfig.legend.orient).toBe('vertical');
     });
 
     it('should preserve custom legend orient', () => {
