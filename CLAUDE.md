@@ -19,10 +19,6 @@ npm run test                   # Run Jest unit tests
 npm run test:watch             # Run tests in watch mode
 npm run test:coverage          # Generate coverage report
 npm run test:ci                # Run tests in CI mode with coverage
-npm run test:e2e               # Run Playwright E2E tests
-npm run test:e2e:ui            # Run E2E tests with UI
-npm run test:e2e:debug         # Debug E2E tests
-npm run test:e2e:headed        # Run E2E tests in headed mode
 
 # Code Quality
 npm run lint                   # Run ESLint linting
@@ -41,7 +37,7 @@ npm run format:write           # Format code and auto-stage changes
 - **UI Components**: Radix UI headless components with custom styling
 - **Charts**: Multi-library approach (ECharts, Nivo, Recharts)
 - **Forms**: React Hook Form with validation
-- **Testing**: Jest + React Testing Library + Playwright
+- **Testing**: Jest + React Testing Library
 - **Development**: Turbopack for fast builds, Husky for Git hooks
 
 ### Directory Structure
@@ -135,7 +131,6 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 #### Testing Setup
 - **Jest Configuration**: Custom setup with module name mapping for path aliases
 - **Coverage Collection**: Includes components, app, lib, hooks, and stores directories
-- **E2E Testing**: Playwright configured for comprehensive end-to-end testing
 - **Component Testing**: React Testing Library with jsdom environment
 
 #### Environment & API
@@ -192,15 +187,10 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 - Mock API calls using SWR's testing utilities
 - Focus on logic and edge cases rather than implementation details
 
-### Component Tests  
+### Component Tests
 - Use React Testing Library for user-centric testing
 - Test component behavior and user interactions
 - Mock complex dependencies like chart libraries
-
-### E2E Tests
-- Use Playwright for full user journey testing
-- Test critical paths like authentication and dashboard creation
-- Ensure cross-browser compatibility
 
 ## Common Gotchas
 

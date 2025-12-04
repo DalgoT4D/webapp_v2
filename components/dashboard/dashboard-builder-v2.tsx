@@ -57,7 +57,6 @@ import { ChartElementV2 } from './chart-element-v2';
 import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
-import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
