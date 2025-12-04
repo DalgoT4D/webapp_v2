@@ -207,7 +207,7 @@ export function extractLegendPosition(
     if (config.legend.right !== undefined) return 'right';
   }
 
-  return 'top'; // Default
+  return 'right'; // Default
 }
 
 /**
