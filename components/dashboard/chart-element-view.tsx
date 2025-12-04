@@ -922,14 +922,19 @@ export function ChartElementView({
     // Get base config (already includes map registration for map charts)
     let baseConfig = activeChartData.echarts_config;
 
-    // Extract legend position from chart's customizations
-    const customizations = chart?.extra_config?.customizations || {};
+    // Extract legend position from chart's customizations (use effectiveChart for public mode support)
+    const customizations = effectiveChart?.extra_config?.customizations || {};
     const legendPosition = extractLegendPosition(customizations, baseConfig) as LegendPosition;
     const isPaginatedLegend = isLegendPaginated(customizations);
 
     // Apply legend positioning (handles both legend config and pie chart center adjustment)
     const configWithLegend = baseConfig.legend
-      ? applyLegendPosition(baseConfig, legendPosition, isPaginatedLegend, chart?.chart_type)
+      ? applyLegendPosition(
+          baseConfig,
+          legendPosition,
+          isPaginatedLegend,
+          effectiveChart?.chart_type
+        )
       : baseConfig;
 
     // Apply beautiful theme and styling
