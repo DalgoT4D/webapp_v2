@@ -1,8 +1,8 @@
 'use client';
 
-import { BarChart2, LineChart, Table, PieChart, Hash, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import { BarChart2, LineChart, PieChart, Hash, MapPin, Table } from 'lucide-react';
 
 interface ChartTypeSelectorProps {
   value?: string;

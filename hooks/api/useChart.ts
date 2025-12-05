@@ -67,22 +67,25 @@ export function useChartDataPreview(
   payload: ChartDataPayload | null,
   page: number = 1,
   pageSize: number = 50,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  drillDownPath: Array<any> = []
 ) {
-  // Create a stable key that includes pagination parameters and dashboard filters
+  // Create a stable key that includes pagination parameters, dashboard filters, and drill-down path
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
+  const drillPathHash = drillDownPath.length > 0 ? JSON.stringify(drillDownPath) : '';
   const swrKey = payload
-    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash]
+    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash, drillPathHash]
     : null;
 
   return useSWR(
     swrKey,
-    async ([url, data, pageNum, limit, filters]: [
+    async ([url, data, pageNum, limit, filters, drillPath]: [
       string,
       ChartDataPayload,
       number,
       number,
+      string,
       string,
     ]) => {
       // Send page and limit as query parameters, payload as body
@@ -105,25 +108,30 @@ export function useChartDataPreview(
 // Chart data preview total rows hook
 export function useChartDataPreviewTotalRows(
   payload: ChartDataPayload | null,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  drillDownPath: Array<any> = []
 ) {
-  // Create a stable key that includes dashboard filters
+  // Create a stable key that includes dashboard filters and drill-down path
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
+  const drillPathHash = drillDownPath.length > 0 ? JSON.stringify(drillDownPath) : '';
   const swrKey = payload
-    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash]
+    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash, drillPathHash]
     : null;
 
-  return useSWR(swrKey, ([url, data, filters]: [string, ChartDataPayload, string]) => {
-    // Add dashboard filters as query parameters if present
-    const queryParams = new URLSearchParams();
-    if (filters && Object.keys(dashboardFilters).length > 0) {
-      queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
-    }
+  return useSWR(
+    swrKey,
+    ([url, data, filters, drillPath]: [string, ChartDataPayload, string, string]) => {
+      // Add dashboard filters as query parameters if present
+      const queryParams = new URLSearchParams();
+      if (filters && Object.keys(dashboardFilters).length > 0) {
+        queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+      }
 
-    // Use the centralized API client with query parameters
-    return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
-  });
+      // Use the centralized API client with query parameters
+      return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
+    }
+  );
 }
 
 // Chart export hook
