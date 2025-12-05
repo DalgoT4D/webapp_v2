@@ -132,8 +132,8 @@ export function useAllSchemaTables() {
 
     return syncTablesData.map((item: any) => ({
       schema_name: item.schema,
-      table_name: item.input_name,
-      full_name: `${item.schema}.${item.input_name}`, // Format: "schema.table"
+      table_name: item.name,
+      full_name: `${item.schema}.${item.name}`, // Format: "schema.table"
     }));
   }, [syncTablesData]);
 
