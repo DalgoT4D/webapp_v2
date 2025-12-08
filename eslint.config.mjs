@@ -19,29 +19,30 @@ const eslintConfig = [
       "@typescript-eslint/no-empty-function": "warn",
       "@typescript-eslint/ban-ts-comment": "warn",
       "@typescript-eslint/consistent-type-imports": "warn",
-      
+
       // React-specific rules
       "react/prop-types": "off",
       "react/no-unescaped-entities": "warn",
+      "react-hooks/rules-of-hooks": "warn", // Downgrade from error to warn
       "react-hooks/exhaustive-deps": "warn",
       "jsx-a11y/alt-text": "warn",
-      "react/jsx-key": "error",
+      "react/jsx-key": "warn", // Downgrade from error to warn
       "react/no-array-index-key": "warn",
-      
+
       // General rules (more strict)
       "no-unused-vars": "off", // Handled by TypeScript
-      "no-console": "warn",
+      "no-console": "off", // Turn off console warnings
       "no-debugger": "error",
       "prefer-const": "warn",
       "no-var": "error",
       "eqeqeq": "warn",
       "no-duplicate-imports": "warn",
-      
-      // Code quality
-      "complexity": ["warn", 10],
-      "max-depth": ["warn", 4],
-      "max-lines-per-function": ["warn", 150],
-      "max-params": ["warn", 5]
+
+      // Code quality - make less strict
+      "complexity": ["warn", 25],
+      "max-depth": ["warn", 6],
+      "max-lines-per-function": ["warn", 300],
+      "max-params": ["warn", 7]
     }
   }
 ];

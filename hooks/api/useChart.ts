@@ -66,19 +66,35 @@ export function useChartData(payload: ChartDataPayload | null) {
 export function useChartDataPreview(
   payload: ChartDataPayload | null,
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 50,
+  dashboardFilters: Record<string, any> = {}
 ) {
-  // Create a stable key that includes pagination parameters
-  const swrKey = payload ? [`/api/charts/chart-data-preview/`, payload, page, pageSize] : null;
+  // Create a stable key that includes pagination parameters and dashboard filters
+  const filterHash =
+    Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
+  const swrKey = payload
+    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash]
+    : null;
 
   return useSWR(
     swrKey,
-    async ([url, data, pageNum, limit]: [string, ChartDataPayload, number, number]) => {
+    async ([url, data, pageNum, limit, filters]: [
+      string,
+      ChartDataPayload,
+      number,
+      number,
+      string,
+    ]) => {
       // Send page and limit as query parameters, payload as body
       const queryParams = new URLSearchParams({
         page: (pageNum - 1).toString(), // Backend expects 0-based page
         limit: limit.toString(),
       });
+
+      // Add dashboard filters if present
+      if (filters && Object.keys(dashboardFilters).length > 0) {
+        queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+      }
 
       // Use the centralized API client with query parameters
       return apiPost(`${url}?${queryParams}`, data);
@@ -87,11 +103,27 @@ export function useChartDataPreview(
 }
 
 // Chart data preview total rows hook
-export function useChartDataPreviewTotalRows(payload: ChartDataPayload | null) {
-  return useSWR(
-    payload ? ['/api/charts/chart-data-preview/total-rows/', payload] : null,
-    ([url, data]: [string, ChartDataPayload]) => apiPost(url, data)
-  );
+export function useChartDataPreviewTotalRows(
+  payload: ChartDataPayload | null,
+  dashboardFilters: Record<string, any> = {}
+) {
+  // Create a stable key that includes dashboard filters
+  const filterHash =
+    Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
+  const swrKey = payload
+    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash]
+    : null;
+
+  return useSWR(swrKey, ([url, data, filters]: [string, ChartDataPayload, string]) => {
+    // Add dashboard filters as query parameters if present
+    const queryParams = new URLSearchParams();
+    if (filters && Object.keys(dashboardFilters).length > 0) {
+      queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+    }
+
+    // Use the centralized API client with query parameters
+    return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
+  });
 }
 
 // Chart export hook

@@ -18,6 +18,7 @@ import {
   updateDashboardFilter,
   createDashboardFilter,
   deleteDashboardFilter,
+  useDashboard,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -450,9 +451,32 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Load responsive layouts if available, otherwise they'll be generated later
     const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
+    // Fetch live dashboard data to get updated filters
+    const {
+      data: liveDashboardData,
+      isLoading: isLoadingLiveDashboard,
+      isError: isErrorLiveDashboard,
+    } = useDashboard(dashboardId!);
+
+    // Log error if live dashboard fetch fails
+    if (isErrorLiveDashboard) {
+      console.error('Failed to fetch live dashboard data:', {
+        dashboardId,
+        error: isErrorLiveDashboard,
+        context: 'Dashboard filter synchronization',
+      });
+      // TODO: Add telemetry/error reporting here if available
+    }
+
+    // Stable filter source selection: use initialData while loading to avoid mid-lifecycle switches
+    // Once loaded, use live data with fallback to initial data
+    const dashboardFilters = isLoadingLiveDashboard
+      ? initialData?.filters // Stable: don't switch sources while loading
+      : liveDashboardData?.filters || initialData?.filters; // Live data once loaded
+
     // Load filters from backend with proper error handling
-    const initialFilters = Array.isArray(initialData?.filters)
-      ? initialData.filters
+    const initialFilters = Array.isArray(dashboardFilters)
+      ? dashboardFilters
           .map((filter: any) => {
             // Validate filter data before processing
             if (
@@ -479,8 +503,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           .filter(Boolean) // Remove null entries
       : [];
 
-    console.log('🎛️ Dashboard Builder - Initial Filters:', {
+    console.log('🎛️ Dashboard Builder - Filter Sync Status:', {
+      isLoadingLiveDashboard,
+      isErrorLiveDashboard,
       initialDataFilters: initialData?.filters,
+      liveDashboardFilters: liveDashboardData?.filters,
+      selectedSource: isLoadingLiveDashboard ? 'initialData (loading)' : 'liveDashboardData',
+      dashboardFilters,
       processedFilters: initialFilters,
     });
 

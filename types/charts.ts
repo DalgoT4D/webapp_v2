@@ -207,6 +207,7 @@ export interface ChartDataPayload {
 
   // Chart-level configuration
   extra_config?: {
+    time_grain?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | null;
     filters?: ChartFilter[];
     pagination?: ChartPagination;
     sort?: ChartSort[];

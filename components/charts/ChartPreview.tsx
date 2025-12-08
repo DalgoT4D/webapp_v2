@@ -14,6 +14,13 @@ interface ChartPreviewProps {
   chartType?: string;
   tableData?: Record<string, any>[];
   onTableSort?: (column: string, direction: 'asc' | 'desc') => void;
+  tablePagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
+  };
 }
 
 export function ChartPreview({
@@ -24,6 +31,7 @@ export function ChartPreview({
   chartType,
   tableData,
   onTableSort,
+  tablePagination,
 }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -321,7 +329,14 @@ export function ChartPreview({
 
   // Render table chart
   if (chartType === 'table') {
-    return <TableChart data={tableData} config={config} onSort={onTableSort} />;
+    return (
+      <TableChart
+        data={tableData}
+        config={config}
+        onSort={onTableSort}
+        pagination={tablePagination}
+      />
+    );
   }
 
   // Render ECharts-based charts

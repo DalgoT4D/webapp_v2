@@ -19,7 +19,7 @@ export default function ChartTestPage() {
       {
         name: 'Navigate to Chart Builder',
         run: async () => {
-          router.push('/charts/builder');
+          router.push('/charts/new/configure');
           return { success: true, message: 'Navigation successful' };
         },
       },
@@ -123,7 +123,7 @@ export default function ChartTestPage() {
 
             <div className="flex space-x-4">
               <Button
-                onClick={() => router.push('/charts/builder')}
+                onClick={() => router.push('/charts/new/configure')}
                 className="flex items-center space-x-2"
               >
                 Go to Chart Builder
