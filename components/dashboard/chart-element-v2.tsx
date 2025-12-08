@@ -20,9 +20,9 @@ import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { ChartTitleEditor } from './chart-title-editor';
-import { DataPreview } from '@/components/charts/DataPreview';
-import { TableChart } from '@/components/charts/TableChart';
-import { MapPreview } from '@/components/charts/map/MapPreview';
+import { DataPreview } from '@/components/charts/right-panel';
+import { TableChart } from '@/components/charts/renderers';
+import { MapPreview } from '@/components/charts/map';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
 import {
   resolveDashboardFilters,
