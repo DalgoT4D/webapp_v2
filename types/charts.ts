@@ -65,6 +65,44 @@ export interface RegionHierarchyLevel {
   is_active: boolean;
 }
 
+// Drill-down table hierarchy interfaces
+export interface DrillDownLevel {
+  level: number;
+  column: string;
+  display_name: string;
+  table_name?: string; // Optional: different table for this level
+  schema_name?: string; // Optional: different schema
+  parent_column?: string; // Column that links to parent level value
+  aggregation_columns?: string[]; // Columns to aggregate at this level
+}
+
+export interface ClickableColumn {
+  column: string;
+  link_type: 'internal' | 'external' | 'image' | 'report';
+  url_template?: string; // e.g., "/projects/{project_id}"
+  target?: '_blank' | '_self';
+}
+
+export interface DrillDownConfig {
+  enabled: boolean;
+  hierarchy: DrillDownLevel[];
+  clickable_columns?: ClickableColumn[];
+}
+
+export interface DrillDownPathStep {
+  level: number;
+  column: string;
+  value: any;
+  display_name: string;
+}
+
+export interface DrillDownState {
+  currentLevel: number;
+  drillPath: DrillDownPathStep[];
+  data: any[];
+  isLoading: boolean;
+}
+
 export interface Chart {
   id: number;
   title: string;
@@ -130,6 +168,8 @@ export interface ChartCreate {
     // Pagination and sorting
     pagination?: ChartPagination;
     sort?: ChartSort[];
+    // Drill-down configuration for tables
+    drill_down_config?: DrillDownConfig;
   };
 }
 
@@ -175,6 +215,13 @@ export interface ChartUpdate {
     customizations?: Record<string, any>;
     // Chart-level filters
     filters?: ChartFilter[];
+    // Pagination and sorting
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
+    // Geographic hierarchy for maps
+    geographic_hierarchy?: GeographicHierarchy;
+    // Drill-down configuration for tables
+    drill_down_config?: DrillDownConfig;
   };
 }
 
