@@ -924,12 +924,15 @@ export function ChartElementView({
         ...activeChartData.echarts_config.title,
         show: false,
       },
-      // Enhanced legend positioning - place outside chart area
+      // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
       legend: baseConfig.legend
         ? {
             ...baseConfig.legend,
-            top: '5%',
-            left: 'center',
+            // Preserve backend positioning if provided, otherwise use sensible defaults
+            top: baseConfig.legend.top ?? '5%',
+            left: baseConfig.legend.left ?? 'center',
+            right: baseConfig.legend.right,
+            bottom: baseConfig.legend.bottom,
             orient: baseConfig.legend.orient || 'horizontal',
           }
         : undefined,

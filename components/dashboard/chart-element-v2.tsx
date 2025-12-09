@@ -643,12 +643,15 @@ export function ChartElementV2({
           ...(chartConfig.title || {}),
           show: false, // Disable ECharts built-in title
         },
-        // Enhanced legend positioning - place outside chart area
+        // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
         legend: chartConfig.legend
           ? {
               ...chartConfig.legend,
-              top: '5%',
-              left: 'center',
+              // Preserve backend positioning if provided, otherwise use sensible defaults
+              top: chartConfig.legend.top ?? '5%',
+              left: chartConfig.legend.left ?? 'center',
+              right: chartConfig.legend.right,
+              bottom: chartConfig.legend.bottom,
               orient: chartConfig.legend.orient || 'horizontal',
             }
           : undefined,

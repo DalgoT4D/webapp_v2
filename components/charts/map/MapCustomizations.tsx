@@ -136,17 +136,17 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
           <div>
             <Label className="text-sm font-medium">Legend Position</Label>
             <Select
-              value={customizations.legendPosition || 'left'}
+              value={customizations.legendPosition || 'bottom-left'}
               onValueChange={(value) => updateCustomization('legendPosition', value)}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-                <SelectItem value="top">Top</SelectItem>
-                <SelectItem value="bottom">Bottom</SelectItem>
+                <SelectItem value="top-left">Top Left</SelectItem>
+                <SelectItem value="top-right">Top Right</SelectItem>
+                <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                <SelectItem value="bottom-right">Bottom Right</SelectItem>
               </SelectContent>
             </Select>
           </div>

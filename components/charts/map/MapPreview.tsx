@@ -273,12 +273,45 @@ export function MapPreview({
                     baseColor, // 100% opacity
                   ],
                 },
-                orient: 'vertical',
-                left: '20px',
-                bottom: '72px', // Moved up by another 16px (56px + 16px = 72px)
-                // Ensure legend is properly sized and visible
-                itemWidth: 20,
-                itemHeight: '120px',
+                // Legend positioning based on customizations - always vertical at 4 corners
+                ...(() => {
+                  const legendPosition = safeCustomizations.legendPosition || 'bottom-left';
+                  switch (legendPosition) {
+                    case 'top-right':
+                      return {
+                        orient: 'vertical',
+                        right: '80px',
+                        top: '60px',
+                        itemWidth: 20,
+                        itemHeight: 120,
+                      };
+                    case 'top-left':
+                      return {
+                        orient: 'vertical',
+                        left: '80px',
+                        top: '60px',
+                        itemWidth: 20,
+                        itemHeight: 120,
+                      };
+                    case 'bottom-right':
+                      return {
+                        orient: 'vertical',
+                        right: '80px',
+                        bottom: '80px',
+                        itemWidth: 20,
+                        itemHeight: 120,
+                      };
+                    case 'bottom-left':
+                    default:
+                      return {
+                        orient: 'vertical',
+                        left: '80px',
+                        bottom: '80px',
+                        itemWidth: 20,
+                        itemHeight: 120,
+                      };
+                  }
+                })(),
                 textStyle: {
                   fontSize: 12,
                   color: '#666',
