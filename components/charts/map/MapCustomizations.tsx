@@ -136,7 +136,20 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
           <div>
             <Label className="text-sm font-medium">Legend Position</Label>
             <Select
-              value={customizations.legendPosition || 'bottom-left'}
+              value={(() => {
+                const pos = customizations.legendPosition;
+                // Normalize legacy values to new corner format
+                const legacyMap: Record<string, string> = {
+                  left: 'bottom-left',
+                  right: 'bottom-right',
+                  top: 'top-left',
+                  bottom: 'bottom-left',
+                };
+                if (pos && legacyMap[pos]) return legacyMap[pos];
+                if (pos && ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(pos))
+                  return pos;
+                return 'bottom-left';
+              })()}
               onValueChange={(value) => updateCustomization('legendPosition', value)}
             >
               <SelectTrigger>
