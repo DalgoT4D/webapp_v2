@@ -945,6 +945,18 @@ export function ChartElementView({
         ...activeChartData.echarts_config.title,
         show: false,
       },
+      // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
+      legend: baseConfig.legend
+        ? {
+            ...baseConfig.legend,
+            // Preserve backend positioning if provided, otherwise use sensible defaults
+            top: baseConfig.legend.top ?? '5%',
+            left: baseConfig.legend.left ?? 'center',
+            right: baseConfig.legend.right,
+            bottom: baseConfig.legend.bottom,
+            orient: baseConfig.legend.orient || 'horizontal',
+          }
+        : undefined,
       animation: true,
       animationDuration: 500,
       animationEasing: 'cubicOut',
@@ -1572,6 +1584,7 @@ export function ChartElementView({
               effectiveChart?.extra_config?.metrics?.[0]?.alias ||
               effectiveChart?.extra_config?.aggregate_column
             }
+            customizations={effectiveChart?.extra_config?.customizations}
             onRegionClick={handleRegionClick}
             drillDownPath={drillDownPath}
             onDrillUp={handleDrillUp}

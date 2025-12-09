@@ -659,9 +659,21 @@ export function ChartElementV2({
           ...(chartConfig.title || {}),
           show: false, // Disable ECharts built-in title
         },
-        // Enhanced data labels styling (preserve pie chart center from configWithLegend)
-        series: Array.isArray(configWithLegend.series)
-          ? configWithLegend.series.map((series: any) => ({
+        // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
+        legend: chartConfig.legend
+          ? {
+              ...chartConfig.legend,
+              // Preserve backend positioning if provided, otherwise use sensible defaults
+              top: chartConfig.legend.top ?? '5%',
+              left: chartConfig.legend.left ?? 'center',
+              right: chartConfig.legend.right,
+              bottom: chartConfig.legend.bottom,
+              orient: chartConfig.legend.orient || 'horizontal',
+            }
+          : undefined,
+        // Enhanced data labels styling
+        series: Array.isArray(chartConfig.series)
+          ? chartConfig.series.map((series: any) => ({
               ...series,
               label: {
                 ...series.label,
@@ -1089,6 +1101,7 @@ export function ChartElementV2({
                 valueColumn={
                   chart?.extra_config?.metrics?.[0]?.alias || chart?.extra_config?.aggregate_column
                 }
+                customizations={chart?.extra_config?.customizations}
                 onRegionClick={handleRegionClick}
                 drillDownPath={drillDownPath}
                 onDrillUp={handleDrillUp}

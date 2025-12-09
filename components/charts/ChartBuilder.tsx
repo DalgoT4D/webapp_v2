@@ -101,6 +101,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         colorScheme: 'Blues',
         showTooltip: true,
         showLegend: true,
+        legendPosition: 'bottom-left',
         nullValueLabel: 'No Data',
         title: '',
         showLabels: false,

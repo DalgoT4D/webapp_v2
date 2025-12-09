@@ -301,27 +301,6 @@ describe('MapCustomizations', () => {
       });
     });
 
-    it('should toggle highlight on hover', async () => {
-      const user = userEvent.setup();
-      render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
-      );
-
-      const emphasisLabel = screen.getByText('Highlight on Hover');
-      const emphasisSwitch = emphasisLabel.parentElement?.parentElement?.querySelector('button');
-
-      expect(emphasisSwitch).toBeInTheDocument();
-      await user.click(emphasisSwitch!);
-
-      expect(mockOnFormDataChange).toHaveBeenCalledWith({
-        ...defaultFormData,
-        customizations: {
-          ...defaultFormData.customizations,
-          emphasis: false,
-        },
-      });
-    });
-
     it('should support all legend positions', () => {
       render(
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
@@ -495,7 +474,6 @@ describe('MapCustomizations', () => {
       expect(screen.getByText('Display color scale legend')).toBeInTheDocument();
       expect(screen.getByText('Allow clicking to select regions')).toBeInTheDocument();
       expect(screen.getByText('Display region labels on the map')).toBeInTheDocument();
-      expect(screen.getByText('Emphasize regions when hovering')).toBeInTheDocument();
       expect(screen.getByText('Enable smooth transitions')).toBeInTheDocument();
     });
 

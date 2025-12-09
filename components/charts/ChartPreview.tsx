@@ -94,10 +94,22 @@ export function ChartPreview({
 
       // Modify config to ensure proper margins for axis titles and axis title styling
       const modifiedConfig = {
-        ...configWithLegend,
-        // Enhanced data labels styling (preserve pie chart center from configWithLegend)
-        series: Array.isArray(configWithLegend.series)
-          ? configWithLegend.series.map((series: any) => ({
+        ...config,
+        // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
+        legend: config.legend
+          ? {
+              ...config.legend,
+              // Preserve backend positioning if provided, otherwise use sensible defaults
+              top: config.legend.top ?? '5%',
+              left: config.legend.left ?? 'center',
+              right: config.legend.right,
+              bottom: config.legend.bottom,
+              orient: config.legend.orient || 'horizontal',
+            }
+          : undefined,
+        // Enhanced data labels styling
+        series: Array.isArray(config.series)
+          ? config.series.map((series) => ({
               ...series,
               label: {
                 ...series.label,
