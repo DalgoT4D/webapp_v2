@@ -95,18 +95,8 @@ export function ChartPreview({
       // Modify config to ensure proper margins for axis titles and axis title styling
       const modifiedConfig = {
         ...config,
-        // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
-        legend: config.legend
-          ? {
-              ...config.legend,
-              // Preserve backend positioning if provided, otherwise use sensible defaults
-              top: config.legend.top ?? '5%',
-              left: config.legend.left ?? 'center',
-              right: config.legend.right,
-              bottom: config.legend.bottom,
-              orient: config.legend.orient || 'horizontal',
-            }
-          : undefined,
+        // Use legend from configWithLegend which has proper positioning applied
+        legend: configWithLegend.legend,
         // Enhanced data labels styling
         series: Array.isArray(config.series)
           ? config.series.map((series) => ({
