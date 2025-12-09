@@ -31,6 +31,12 @@ import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
 import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
+import {
+  applyLegendPosition,
+  extractLegendPosition,
+  isLegendPaginated,
+  type LegendPosition,
+} from '@/lib/chart-legend-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -916,9 +922,24 @@ export function ChartElementView({
     // Get base config (already includes map registration for map charts)
     let baseConfig = activeChartData.echarts_config;
 
+    // Extract legend position from chart's customizations (use effectiveChart for public mode support)
+    const customizations = effectiveChart?.extra_config?.customizations || {};
+    const legendPosition = extractLegendPosition(customizations, baseConfig) as LegendPosition;
+    const isPaginatedLegend = isLegendPaginated(customizations);
+
+    // Apply legend positioning (handles both legend config and pie chart center adjustment)
+    const configWithLegend = baseConfig.legend
+      ? applyLegendPosition(
+          baseConfig,
+          legendPosition,
+          isPaginatedLegend,
+          effectiveChart?.chart_type
+        )
+      : baseConfig;
+
     // Apply beautiful theme and styling
     const styledConfig = {
-      ...baseConfig,
+      ...configWithLegend,
       // Disable ECharts internal title since we use HTML titles
       title: {
         ...activeChartData.echarts_config.title,
@@ -942,9 +963,9 @@ export function ChartElementView({
       textStyle: {
         fontFamily: 'Inter, system-ui, sans-serif',
       },
-      // Enhanced data labels styling
-      series: Array.isArray(baseConfig.series)
-        ? baseConfig.series.map((series: any) => ({
+      // Enhanced data labels styling (preserve pie chart center from configWithLegend)
+      series: Array.isArray(configWithLegend.series)
+        ? configWithLegend.series.map((series: any) => ({
             ...series,
             label: {
               ...series.label,
@@ -953,13 +974,13 @@ export function ChartElementView({
               fontWeight: 'normal',
             },
           }))
-        : baseConfig.series
+        : configWithLegend.series
           ? {
-              ...baseConfig.series,
+              ...configWithLegend.series,
               label: {
-                ...baseConfig.series.label,
-                fontSize: baseConfig.series.label?.fontSize
-                  ? baseConfig.series.label.fontSize + 0.5
+                ...configWithLegend.series.label,
+                fontSize: configWithLegend.series.label?.fontSize
+                  ? configWithLegend.series.label.fontSize + 0.5
                   : 12.5,
                 fontFamily: 'Inter, system-ui, sans-serif',
                 fontWeight: 'normal',
@@ -992,24 +1013,35 @@ export function ChartElementView({
           }
         : {
             // For other chart types, apply normal grid and axis styling
-            // Dynamically adjust margins based on label rotation and legend
+            // Dynamically adjust margins based on legend position and label rotation
             grid: (() => {
               const hasRotatedXLabels =
                 baseConfig.xAxis?.axisLabel?.rotate !== undefined &&
                 baseConfig.xAxis?.axisLabel?.rotate !== 0;
-              // Horizontal labels (0 degrees) need adequate space to be visible
-              // Rotated labels need more space due to angle
-              const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
               const hasLegend = baseConfig.legend?.show !== false;
-              const topMargin = hasLegend ? '18%' : '10%';
+
+              // Adjust margins based on legend position
+              let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
+              let bottomMargin = hasRotatedXLabels ? '18%' : '16%';
+              if (hasLegend && legendPosition === 'bottom') {
+                bottomMargin = hasRotatedXLabels ? '22%' : '20%';
+              }
+              let leftMargin = '10%';
+              let rightMargin = '6%';
+              if (hasLegend && legendPosition === 'left') {
+                leftMargin = '18%';
+              }
+              if (hasLegend && legendPosition === 'right') {
+                rightMargin = '15%';
+              }
 
               return {
                 ...baseConfig.grid,
                 containLabel: true,
-                left: '10%', // Increased for overall left margin
-                right: '6%', // Increased for overall right margin
-                top: topMargin,
+                left: leftMargin,
                 bottom: bottomMargin,
+                right: rightMargin,
+                top: topMargin,
               };
             })(),
             xAxis: Array.isArray(baseConfig.xAxis)

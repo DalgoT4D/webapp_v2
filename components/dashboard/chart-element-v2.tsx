@@ -29,6 +29,12 @@ import {
   formatAsChartFilters,
   type DashboardFilterConfig,
 } from '@/lib/dashboard-filter-utils';
+import {
+  applyLegendPosition,
+  extractLegendPosition,
+  isLegendPaginated,
+  type LegendPosition,
+} from '@/lib/chart-legend-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -636,9 +642,19 @@ export function ChartElementV2({
     }
 
     if (chartInstance.current && chartConfig) {
+      // Extract legend position from chart's customizations
+      const customizations = chart?.extra_config?.customizations || {};
+      const legendPosition = extractLegendPosition(customizations, chartConfig) as LegendPosition;
+      const isPaginated = isLegendPaginated(customizations);
+
+      // Apply legend positioning (handles both legend config and pie chart center adjustment)
+      const configWithLegend = chartConfig.legend
+        ? applyLegendPosition(chartConfig, legendPosition, isPaginated, chart?.chart_type)
+        : chartConfig;
+
       // Disable ECharts internal title since we use HTML titles
       const modifiedConfig = {
-        ...chartConfig,
+        ...configWithLegend,
         title: {
           ...(chartConfig.title || {}),
           show: false, // Disable ECharts built-in title
@@ -666,13 +682,13 @@ export function ChartElementV2({
                 fontWeight: 'normal',
               },
             }))
-          : chartConfig.series
+          : configWithLegend.series
             ? {
-                ...chartConfig.series,
+                ...configWithLegend.series,
                 label: {
-                  ...chartConfig.series.label,
-                  fontSize: chartConfig.series.label?.fontSize
-                    ? chartConfig.series.label.fontSize + 0.5
+                  ...configWithLegend.series.label,
+                  fontSize: configWithLegend.series.label?.fontSize
+                    ? configWithLegend.series.label.fontSize + 0.5
                     : 12.5,
                   fontFamily: 'Inter, system-ui, sans-serif',
                   fontWeight: 'normal',
@@ -690,24 +706,35 @@ export function ChartElementV2({
             }
           : {
               // For other chart types, apply normal grid and axis styling
-              // Dynamically adjust margins based on label rotation and legend
+              // Dynamically adjust margins based on legend position and label rotation
               grid: (() => {
                 const hasRotatedXLabels =
                   chartConfig.xAxis?.axisLabel?.rotate !== undefined &&
                   chartConfig.xAxis?.axisLabel?.rotate !== 0;
-                // Horizontal labels (0 degrees) need adequate space to be visible
-                // Rotated labels need more space due to angle
-                const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
                 const hasLegend = chartConfig.legend?.show !== false;
-                const topMargin = hasLegend ? '18%' : '10%';
+
+                // Adjust margins based on legend position
+                let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
+                let bottomMargin = hasRotatedXLabels ? '18%' : '16%';
+                if (hasLegend && legendPosition === 'bottom') {
+                  bottomMargin = hasRotatedXLabels ? '22%' : '20%';
+                }
+                let leftMargin = '10%';
+                let rightMargin = '6%';
+                if (hasLegend && legendPosition === 'left') {
+                  leftMargin = '18%';
+                }
+                if (hasLegend && legendPosition === 'right') {
+                  rightMargin = '15%';
+                }
 
                 return {
                   ...chartConfig.grid,
                   containLabel: true,
-                  left: '10%', // Increased for overall left margin
-                  right: '6%', // Increased for overall right margin
-                  top: topMargin,
+                  left: leftMargin,
                   bottom: bottomMargin,
+                  right: rightMargin,
+                  top: topMargin,
                 };
               })(),
               xAxis: Array.isArray(chartConfig.xAxis)

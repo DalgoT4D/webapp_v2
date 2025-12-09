@@ -1449,6 +1449,7 @@ function EditChartPageContent() {
                         isLoading={chartDataLoading}
                         error={null} // Error handled by toast
                         chartType={formData.chart_type}
+                        customizations={formData.customizations}
                       />
                     </div>
                   )}
