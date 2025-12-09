@@ -1071,6 +1071,7 @@ export function ChartElementV2({
                 valueColumn={
                   chart?.extra_config?.metrics?.[0]?.alias || chart?.extra_config?.aggregate_column
                 }
+                customizations={chart?.extra_config?.customizations}
                 onRegionClick={handleRegionClick}
                 drillDownPath={drillDownPath}
                 onDrillUp={handleDrillUp}

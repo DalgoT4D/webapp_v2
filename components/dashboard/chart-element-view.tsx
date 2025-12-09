@@ -1549,6 +1549,7 @@ export function ChartElementView({
               effectiveChart?.extra_config?.metrics?.[0]?.alias ||
               effectiveChart?.extra_config?.aggregate_column
             }
+            customizations={effectiveChart?.extra_config?.customizations}
             onRegionClick={handleRegionClick}
             drillDownPath={drillDownPath}
             onDrillUp={handleDrillUp}
