@@ -93,6 +93,9 @@ export function MapPreview({
   // Zoom state - start with smaller default zoom
   const [currentZoom, setCurrentZoom] = useState(0.8);
 
+  // Container size for responsive legend
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
   // Zoom control functions using setOption
   const handleZoomIn = useCallback(() => {
     if (chartInstance.current) {
@@ -263,77 +266,135 @@ export function MapPreview({
                   show: true,
                 }
               : undefined,
-          tooltip: {
-            trigger: 'item',
-            show: safeCustomizations.showTooltip !== false,
-            formatter: function (params: any) {
-              if (params.data && params.data.value != null) {
-                return `${params.name}<br/>${valueColumn || 'Value'}: ${params.data.value}`;
-              }
-              return `${params.name}<br/>${safeCustomizations.nullValueLabel !== undefined ? safeCustomizations.nullValueLabel : 'No Data'}`;
-            },
-          },
-          // Add legend based on customizations
+          tooltip: (() => {
+            // Responsive tooltip based on container size
+            const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
+            const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+            const isVerySmall = effectiveWidth < 250 || effectiveHeight < 200;
+            const isSmall = effectiveWidth < 350 || effectiveHeight < 280;
+
+            return {
+              trigger: 'item',
+              show: safeCustomizations.showTooltip !== false,
+              // Responsive padding and font size
+              padding: isVerySmall ? [4, 6] : isSmall ? [6, 8] : [8, 12],
+              textStyle: {
+                fontSize: isVerySmall ? 10 : isSmall ? 11 : 12,
+              },
+              // Constrain tooltip size for small containers
+              extraCssText: isVerySmall
+                ? 'max-width: 120px; white-space: normal; line-height: 1.3;'
+                : isSmall
+                  ? 'max-width: 150px; white-space: normal; line-height: 1.4;'
+                  : '',
+              formatter: function (params: any) {
+                const label = valueColumn || 'Value';
+                if (params.data && params.data.value != null) {
+                  // Truncate long names for small containers
+                  const name =
+                    isVerySmall && params.name.length > 15
+                      ? params.name.substring(0, 13) + '...'
+                      : isSmall && params.name.length > 20
+                        ? params.name.substring(0, 18) + '...'
+                        : params.name;
+                  return `<b>${name}</b><br/>${label}: ${params.data.value}`;
+                }
+                const nullLabel =
+                  safeCustomizations.nullValueLabel !== undefined
+                    ? safeCustomizations.nullValueLabel
+                    : 'No Data';
+                const name =
+                  isVerySmall && params.name.length > 15
+                    ? params.name.substring(0, 13) + '...'
+                    : isSmall && params.name.length > 20
+                      ? params.name.substring(0, 18) + '...'
+                      : params.name;
+                return `<b>${name}</b><br/>${nullLabel}`;
+              },
+            };
+          })(),
+          // Add legend based on customizations - responsive to container size
           // For single values, show range from 0 to actual value for meaningful context
           ...(safeCustomizations.showLegend !== false &&
             values.length > 0 && {
-              visualMap: {
-                min: minValue,
-                max: maxValue,
-                text: ['High', 'Low'],
-                realtime: false,
-                calculable: true,
-                inRange: {
-                  color: [
-                    `${baseColor}4D`, // 30% opacity
-                    baseColor, // 100% opacity
-                  ],
-                },
+              visualMap: (() => {
+                // Get effective container size for responsive legend
+                const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
+                const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+
+                // Determine legend mode based on container size
+                const isVerySmall = effectiveWidth < 200 || effectiveHeight < 180;
+                const isSmall = effectiveWidth < 300 || effectiveHeight < 250;
+                const isCompact = effectiveWidth < 400 || effectiveHeight < 320;
+
+                // Hide legend for very small containers
+                if (isVerySmall) {
+                  return { show: false };
+                }
+
+                // Responsive sizing based on container
+                const itemWidth = isSmall ? 12 : isCompact ? 16 : 20;
+                const itemHeight = isSmall ? 50 : isCompact ? 70 : 100;
+                const fontSize = isSmall ? 10 : isCompact ? 11 : 12;
+                const margin = isSmall ? 8 : isCompact ? 12 : 20;
+
                 // Legend positioning - defaults to bottom-left, users can change in customizations
-                ...(() => {
-                  const legendPosition = safeCustomizations.legendPosition || 'bottom-left';
-                  switch (legendPosition) {
-                    case 'top-right':
-                      return {
-                        orient: 'vertical',
-                        right: '80px',
-                        top: '60px',
-                        itemWidth: 20,
-                        itemHeight: 120,
-                      };
-                    case 'top-left':
-                      return {
-                        orient: 'vertical',
-                        left: '80px',
-                        top: '60px',
-                        itemWidth: 20,
-                        itemHeight: 120,
-                      };
-                    case 'bottom-right':
-                      return {
-                        orient: 'vertical',
-                        right: '80px',
-                        bottom: '80px',
-                        itemWidth: 20,
-                        itemHeight: 120,
-                      };
-                    case 'bottom-left':
-                    default:
-                      // Default position for all maps (including legacy values)
-                      return {
-                        orient: 'vertical',
-                        left: '80px',
-                        bottom: '80px',
-                        itemWidth: 20,
-                        itemHeight: 120,
-                      };
-                  }
-                })(),
-                textStyle: {
-                  fontSize: 12,
-                  color: '#666',
-                },
-              },
+                const legendPosition = safeCustomizations.legendPosition || 'bottom-left';
+                let positionConfig;
+                switch (legendPosition) {
+                  case 'top-right':
+                    positionConfig = {
+                      orient: 'vertical',
+                      right: `${margin}px`,
+                      top: `${margin}px`,
+                    };
+                    break;
+                  case 'top-left':
+                    positionConfig = {
+                      orient: 'vertical',
+                      left: `${margin}px`,
+                      top: `${margin}px`,
+                    };
+                    break;
+                  case 'bottom-right':
+                    positionConfig = {
+                      orient: 'vertical',
+                      right: `${margin}px`,
+                      bottom: `${margin}px`,
+                    };
+                    break;
+                  case 'bottom-left':
+                  default:
+                    positionConfig = {
+                      orient: 'vertical',
+                      left: `${margin}px`,
+                      bottom: `${margin}px`,
+                    };
+                    break;
+                }
+
+                return {
+                  show: true,
+                  min: minValue,
+                  max: maxValue,
+                  text: isSmall ? ['H', 'L'] : ['High', 'Low'],
+                  realtime: false,
+                  calculable: true,
+                  inRange: {
+                    color: [
+                      `${baseColor}4D`, // 30% opacity
+                      baseColor, // 100% opacity
+                    ],
+                  },
+                  ...positionConfig,
+                  itemWidth,
+                  itemHeight,
+                  textStyle: {
+                    fontSize,
+                    color: '#666',
+                  },
+                };
+              })(),
             }),
           series: [
             {
@@ -342,9 +403,17 @@ export function MapPreview({
               mapType: mapName,
               // Enable move only (panning) - zoom handled by our custom buttons
               roam: 'move',
-              // Ensure map fits within container bounds with better sizing
+              // Responsive map sizing - use more space for smaller containers
               layoutCenter: ['50%', '50%'],
-              layoutSize: '75%',
+              layoutSize: (() => {
+                const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
+                const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+                // For smaller containers, use more of the available space
+                if (effectiveWidth < 250 || effectiveHeight < 200) return '95%';
+                if (effectiveWidth < 350 || effectiveHeight < 280) return '90%';
+                if (effectiveWidth < 450 || effectiveHeight < 350) return '85%';
+                return '80%'; // Standard size for larger containers
+              })(),
               // Set initial zoom level
               zoom: currentZoom,
               // Apply selection settings - ALWAYS enable for clicks to work
@@ -518,6 +587,7 @@ export function MapPreview({
     config,
     onChartReady,
     onRegionClick,
+    containerSize, // Update when container size changes for responsive legend
   ]);
 
   // Initialize chart when data changes
@@ -557,6 +627,7 @@ export function MapPreview({
   }, []); // No dependencies to avoid infinite loops
 
   // Handle container resize using ResizeObserver - separate effect
+  // Also tracks container size for responsive legend
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null;
     let resizeTimeoutId: NodeJS.Timeout | null = null;
@@ -571,6 +642,14 @@ export function MapPreview({
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0) {
+            // Update container size state for responsive legend
+            setContainerSize((prev) => {
+              if (prev.width !== width || prev.height !== height) {
+                return { width, height };
+              }
+              return prev;
+            });
+
             // Debounce rapid resize events
             resizeTimeoutId = setTimeout(() => {
               if (chartInstance.current) {

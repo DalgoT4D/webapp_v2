@@ -170,6 +170,45 @@
   border-radius: 0 !important;
 }
 
+/* Chart overflow protection - ensures content never exceeds container */
+.dashboard-item .chart-container,
+.dashboard-item [data-chart-container] {
+  overflow: hidden;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* ECharts canvas overflow protection */
+.dashboard-item canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Legend overflow handling - truncate long text */
+.dashboard-item .echarts-legend,
+.dashboard-item [class*="legend"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Responsive chart title for small containers */
+.dashboard-item .chart-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Small chart container optimizations */
+.react-grid-item[style*="width"] .dashboard-item {
+  min-width: 0; /* Allow flex shrinking */
+}
+
+/* Prevent axis labels from overflowing */
+.dashboard-item .echarts-axis-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Removed dashed border hover effect - keep UI clean */
 .dashboard-builder .dashboard-item::before {
   display: none; /* Completely remove hover border */
