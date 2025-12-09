@@ -5,6 +5,12 @@ import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
+import {
+  applyLegendPosition,
+  extractLegendPosition,
+  isLegendPaginated,
+  type LegendPosition,
+} from '@/lib/chart-legend-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -21,6 +27,7 @@ interface ChartPreviewProps {
     onPageChange: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
   };
+  customizations?: Record<string, any>;
 }
 
 export function ChartPreview({
@@ -32,6 +39,7 @@ export function ChartPreview({
   tableData,
   onTableSort,
   tablePagination,
+  customizations: propCustomizations,
 }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -73,15 +81,29 @@ export function ChartPreview({
       // Create new instance
       chartInstance.current = echarts.init(chartRef.current);
 
+      // Extract legend position from props or config's customizations
+      const customizations =
+        propCustomizations || config.extra_config?.customizations || config.customizations || {};
+      const legendPosition = extractLegendPosition(customizations, config) as LegendPosition;
+      const isPaginated = isLegendPaginated(customizations);
+
+      // Apply legend positioning (handles both legend config and pie chart center adjustment)
+      const configWithLegend = config.legend
+        ? applyLegendPosition(config, legendPosition, isPaginated, detectedChartType)
+        : config;
+
       // Modify config to ensure proper margins for axis titles and axis title styling
       const modifiedConfig = {
         ...config,
-        // Enhanced legend positioning - place outside chart area
+        // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
         legend: config.legend
           ? {
               ...config.legend,
-              top: '5%',
-              left: 'center',
+              // Preserve backend positioning if provided, otherwise use sensible defaults
+              top: config.legend.top ?? '5%',
+              left: config.legend.left ?? 'center',
+              right: config.legend.right,
+              bottom: config.legend.bottom,
               orient: config.legend.orient || 'horizontal',
             }
           : undefined,
@@ -96,13 +118,13 @@ export function ChartPreview({
                 fontWeight: 'normal',
               },
             }))
-          : config.series
+          : configWithLegend.series
             ? {
-                ...config.series,
+                ...configWithLegend.series,
                 label: {
-                  ...config.series.label,
-                  fontSize: config.series.label?.fontSize
-                    ? config.series.label.fontSize + 0.5
+                  ...configWithLegend.series.label,
+                  fontSize: configWithLegend.series.label?.fontSize
+                    ? configWithLegend.series.label.fontSize + 0.5
                     : 12.5,
                   fontFamily: 'Inter, system-ui, sans-serif',
                   fontWeight: 'normal',
@@ -158,25 +180,34 @@ export function ChartPreview({
             }
           : {
               // For other chart types, apply normal grid and axis styling
-              // Dynamically adjust margins based on whether axis titles are present and label rotation
-              // Check if X-axis labels are rotated to allocate more bottom space
-              // Also check if legend is shown to allocate top space
+              // Dynamically adjust margins based on legend position and label rotation
               grid: (() => {
                 const hasRotatedXLabels =
                   config.xAxis?.axisLabel?.rotate !== undefined &&
                   config.xAxis?.axisLabel?.rotate !== 0;
-                // Horizontal labels (0 degrees) need adequate space to be visible
-                // Rotated labels need more space due to angle
-                const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
                 const hasLegend = config.legend?.show !== false;
-                const topMargin = hasLegend ? '18%' : '10%';
+
+                // Adjust margins based on legend position
+                let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
+                let bottomMargin = hasRotatedXLabels ? '18%' : '16%';
+                if (hasLegend && legendPosition === 'bottom') {
+                  bottomMargin = hasRotatedXLabels ? '22%' : '20%';
+                }
+                let leftMargin = '10%';
+                let rightMargin = '6%';
+                if (hasLegend && legendPosition === 'left') {
+                  leftMargin = '18%';
+                }
+                if (hasLegend && legendPosition === 'right') {
+                  rightMargin = '15%';
+                }
 
                 return {
                   ...config.grid,
                   containLabel: true,
-                  left: '10%', // Increased for overall left margin
+                  left: leftMargin,
                   bottom: bottomMargin,
-                  right: '6%', // Increased for overall right margin
+                  right: rightMargin,
                   top: topMargin,
                 };
               })(),
@@ -269,7 +300,7 @@ export function ChartPreview({
     } catch (err) {
       console.error('Error initializing chart:', err);
     }
-  }, [config, onChartReady, chartType]);
+  }, [config, onChartReady, chartType, propCustomizations]);
 
   useEffect(() => {
     initializeChart();
