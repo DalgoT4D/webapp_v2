@@ -273,7 +273,7 @@ export function MapPreview({
                     baseColor, // 100% opacity
                   ],
                 },
-                // Legend positioning based on customizations - always vertical at 4 corners
+                // Legend positioning - defaults to bottom-left, users can change in customizations
                 ...(() => {
                   const legendPosition = safeCustomizations.legendPosition || 'bottom-left';
                   switch (legendPosition) {
@@ -303,6 +303,7 @@ export function MapPreview({
                       };
                     case 'bottom-left':
                     default:
+                      // Default position for all maps (including legacy values)
                       return {
                         orient: 'vertical',
                         left: '80px',
