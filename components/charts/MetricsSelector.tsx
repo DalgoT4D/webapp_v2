@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { X, Plus } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -227,21 +228,26 @@ export function MetricsSelector({
                           disabled={col.disabled}
                           className={col.disabled ? 'opacity-50 cursor-not-allowed' : ''}
                         >
-                          <span
-                            className={`truncate ${col.disabled ? 'text-gray-400' : ''}`}
-                            title={
-                              col.column_name === '*'
-                                ? '* (Count all rows)'
-                                : col.disabled
-                                  ? `${col.column_name} (Not compatible with ${metric.aggregation})`
-                                  : col.column_name
-                            }
-                          >
-                            {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
-                            {col.disabled && (
-                              <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {col.column_name !== '*' && (
+                              <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
                             )}
-                          </span>
+                            <span
+                              className={`truncate ${col.disabled ? 'text-gray-400' : ''}`}
+                              title={
+                                col.column_name === '*'
+                                  ? '* (Count all rows)'
+                                  : col.disabled
+                                    ? `${col.column_name} (${col.data_type}) - Not compatible with ${metric.aggregation}`
+                                    : `${col.column_name} (${col.data_type})`
+                              }
+                            >
+                              {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
+                              {col.disabled && (
+                                <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
+                              )}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -166,7 +166,7 @@ describe('DynamicLevelConfig', () => {
       expect(stateColumnSelect).toBeInTheDocument();
       await user.click(stateColumnSelect);
 
-      const stateOption = screen.getByRole('option', { name: /state \(varchar\)/i });
+      const stateOption = screen.getByRole('option', { name: /^state$/i });
       await user.click(stateOption);
 
       expect(mockOnChange).toHaveBeenCalledWith({
@@ -203,7 +203,7 @@ describe('DynamicLevelConfig', () => {
       expect(stateColumnSelect).toBeInTheDocument();
       await user.click(stateColumnSelect);
 
-      const populationOption = screen.getByRole('option', { name: /population \(integer\)/i });
+      const populationOption = screen.getByRole('option', { name: /population/i });
       await user.click(populationOption);
 
       expect(mockOnChange).toHaveBeenCalledWith(
