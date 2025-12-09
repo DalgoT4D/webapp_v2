@@ -1021,7 +1021,7 @@ export function ChartElementV2({
     <div className="h-full w-full relative">
       {/* Action buttons moved to dashboard level for proper drag-cancel behavior */}
       <Card className="h-full w-full flex flex-col">
-        <CardContent className="p-4 flex-1 flex flex-col min-h-0">
+        <CardContent className="p-2 flex-1 flex flex-col min-h-0">
           {/* Chart Title Editor */}
           <ChartTitleEditor
             chartData={chart}

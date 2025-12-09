@@ -2292,7 +2292,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 className="layout relative z-10"
                 layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
                 cols={currentScreenConfig.cols} // Always exactly 12 columns (or 6 for tablet, 2 for mobile)
-                rowHeight={24}
+                rowHeight={20}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onDragStart={handleDragStart}
@@ -2395,7 +2395,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
 
                       {/* Content Area - Charts fully visible and interactive */}
-                      <div className="p-3 flex-1 flex flex-col min-h-0 drag-cancel">
+                      <div className="flex-1 flex flex-col min-h-0 drag-cancel">
                         {renderComponent(item.i)}
                       </div>
                     </div>
@@ -2408,7 +2408,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 snapZones={dashboardAnimation.snapZones}
                 containerWidth={actualContainerWidth}
                 containerHeight={Math.max(currentScreenConfig.height, 400)}
-                rowHeight={24}
+                rowHeight={20}
                 visible={isDragging || isResizing}
               />
 
@@ -2417,7 +2417,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 affectedComponents={dashboardAnimation.affectedComponents}
                 containerWidth={actualContainerWidth}
                 containerHeight={Math.max(currentScreenConfig.height, 400)}
-                rowHeight={24}
+                rowHeight={20}
                 colWidth={actualContainerWidth / currentScreenConfig.cols}
                 visible={dashboardAnimation.spaceMakingActive}
               />
