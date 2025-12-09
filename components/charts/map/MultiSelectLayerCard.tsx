@@ -35,9 +35,10 @@ interface GeoJSON {
   is_default?: boolean;
 }
 
-// Column data type
+// Column data type - API may return either name or column_name
 interface TableColumn {
-  name: string;
+  name?: string;
+  column_name?: string;
   data_type: string;
 }
 

@@ -945,18 +945,7 @@ export function ChartElementView({
         ...activeChartData.echarts_config.title,
         show: false,
       },
-      // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
-      legend: baseConfig.legend
-        ? {
-            ...baseConfig.legend,
-            // Preserve backend positioning if provided, otherwise use sensible defaults
-            top: baseConfig.legend.top ?? '5%',
-            left: baseConfig.legend.left ?? 'center',
-            right: baseConfig.legend.right,
-            bottom: baseConfig.legend.bottom,
-            orient: baseConfig.legend.orient || 'horizontal',
-          }
-        : undefined,
+      // Legend is already properly positioned by applyLegendPosition - don't override
       animation: true,
       animationDuration: 500,
       animationEasing: 'cubicOut',
@@ -1016,9 +1005,11 @@ export function ChartElementView({
             // Dynamically adjust margins based on legend position and label rotation
             grid: (() => {
               const hasRotatedXLabels =
-                baseConfig.xAxis?.axisLabel?.rotate !== undefined &&
-                baseConfig.xAxis?.axisLabel?.rotate !== 0;
-              const hasLegend = baseConfig.legend?.show !== false;
+                configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
+                configWithLegend.xAxis?.axisLabel?.rotate !== 0;
+              // Tighten hasLegend check: legend must be a real object and not explicitly hidden
+              const hasLegend =
+                Boolean(configWithLegend.legend) && configWithLegend.legend?.show !== false;
 
               // Adjust margins based on legend position
               let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
@@ -1036,7 +1027,7 @@ export function ChartElementView({
               }
 
               return {
-                ...baseConfig.grid,
+                ...configWithLegend.grid,
                 containLabel: true,
                 left: leftMargin,
                 bottom: bottomMargin,
@@ -1044,8 +1035,8 @@ export function ChartElementView({
                 top: topMargin,
               };
             })(),
-            xAxis: Array.isArray(baseConfig.xAxis)
-              ? baseConfig.xAxis.map((axis: any) => ({
+            xAxis: Array.isArray(configWithLegend.xAxis)
+              ? configWithLegend.xAxis.map((axis: any) => ({
                   ...axis,
                   nameGap: axis.name ? 80 : 15,
                   nameTextStyle: {
@@ -1061,26 +1052,26 @@ export function ChartElementView({
                     width: axis.axisLabel?.rotate ? 100 : undefined,
                   },
                 }))
-              : baseConfig.xAxis
+              : configWithLegend.xAxis
                 ? {
-                    ...baseConfig.xAxis,
-                    nameGap: baseConfig.xAxis.name ? 80 : 15,
+                    ...configWithLegend.xAxis,
+                    nameGap: configWithLegend.xAxis.name ? 80 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
-                      ...baseConfig.xAxis.axisLabel,
+                      ...configWithLegend.xAxis.axisLabel,
                       interval: 0,
                       margin: 15, // Increased margin from axis line to labels
                       overflow: 'truncate',
-                      width: baseConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
+                      width: configWithLegend.xAxis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }
                 : undefined,
-            yAxis: Array.isArray(baseConfig.yAxis)
-              ? baseConfig.yAxis.map((axis: any) => ({
+            yAxis: Array.isArray(configWithLegend.yAxis)
+              ? configWithLegend.yAxis.map((axis: any) => ({
                   ...axis,
                   nameGap: axis.name ? 100 : 15,
                   nameTextStyle: {
@@ -1093,24 +1084,24 @@ export function ChartElementView({
                     margin: 15, // Increased margin from axis line to labels
                   },
                 }))
-              : baseConfig.yAxis
+              : configWithLegend.yAxis
                 ? {
-                    ...baseConfig.yAxis,
-                    nameGap: baseConfig.yAxis.name ? 100 : 15,
+                    ...configWithLegend.yAxis,
+                    nameGap: configWithLegend.yAxis.name ? 100 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
-                      ...baseConfig.yAxis.axisLabel,
+                      ...configWithLegend.yAxis.axisLabel,
                       margin: 15, // Increased margin from axis line to labels
                     },
                   }
                 : undefined,
           }),
       tooltip: {
-        trigger: 'axis',
+        ...configWithLegend.tooltip,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         borderColor: '#e5e7eb',
         borderWidth: 1,

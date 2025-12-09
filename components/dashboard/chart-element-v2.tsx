@@ -653,27 +653,17 @@ export function ChartElementV2({
         : chartConfig;
 
       // Disable ECharts internal title since we use HTML titles
+      // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
       const modifiedConfig = {
         ...configWithLegend,
         title: {
-          ...(chartConfig.title || {}),
+          ...(configWithLegend.title || {}),
           show: false, // Disable ECharts built-in title
         },
-        // Enhanced legend positioning - respect backend config if provided, otherwise use defaults
-        legend: chartConfig.legend
-          ? {
-              ...chartConfig.legend,
-              // Preserve backend positioning if provided, otherwise use sensible defaults
-              top: chartConfig.legend.top ?? '5%',
-              left: chartConfig.legend.left ?? 'center',
-              right: chartConfig.legend.right,
-              bottom: chartConfig.legend.bottom,
-              orient: chartConfig.legend.orient || 'horizontal',
-            }
-          : undefined,
-        // Enhanced data labels styling
-        series: Array.isArray(chartConfig.series)
-          ? chartConfig.series.map((series: any) => ({
+        // Legend is already properly positioned by applyLegendPosition - don't override
+        // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
+        series: Array.isArray(configWithLegend.series)
+          ? configWithLegend.series.map((series: any) => ({
               ...series,
               label: {
                 ...series.label,
@@ -709,9 +699,11 @@ export function ChartElementV2({
               // Dynamically adjust margins based on legend position and label rotation
               grid: (() => {
                 const hasRotatedXLabels =
-                  chartConfig.xAxis?.axisLabel?.rotate !== undefined &&
-                  chartConfig.xAxis?.axisLabel?.rotate !== 0;
-                const hasLegend = chartConfig.legend?.show !== false;
+                  configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
+                  configWithLegend.xAxis?.axisLabel?.rotate !== 0;
+                // Tighten hasLegend check: legend must be a real object and not explicitly hidden
+                const hasLegend =
+                  Boolean(configWithLegend.legend) && configWithLegend.legend?.show !== false;
 
                 // Adjust margins based on legend position
                 let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
@@ -729,7 +721,7 @@ export function ChartElementV2({
                 }
 
                 return {
-                  ...chartConfig.grid,
+                  ...configWithLegend.grid,
                   containLabel: true,
                   left: leftMargin,
                   bottom: bottomMargin,
@@ -737,8 +729,8 @@ export function ChartElementV2({
                   top: topMargin,
                 };
               })(),
-              xAxis: Array.isArray(chartConfig.xAxis)
-                ? chartConfig.xAxis.map((axis: any) => ({
+              xAxis: Array.isArray(configWithLegend.xAxis)
+                ? configWithLegend.xAxis.map((axis: any) => ({
                     ...axis,
                     nameGap: axis.name ? 80 : 15,
                     nameTextStyle: {
@@ -754,26 +746,26 @@ export function ChartElementV2({
                       width: axis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }))
-                : chartConfig.xAxis
+                : configWithLegend.xAxis
                   ? {
-                      ...chartConfig.xAxis,
-                      nameGap: chartConfig.xAxis.name ? 80 : 15,
+                      ...configWithLegend.xAxis,
+                      nameGap: configWithLegend.xAxis.name ? 80 : 15,
                       nameTextStyle: {
                         fontSize: 14,
                         color: '#374151',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
-                        ...chartConfig.xAxis.axisLabel,
+                        ...configWithLegend.xAxis.axisLabel,
                         interval: 0,
                         margin: 15, // Increased margin from axis line to labels
                         overflow: 'truncate',
-                        width: chartConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
+                        width: configWithLegend.xAxis.axisLabel?.rotate ? 100 : undefined,
                       },
                     }
                   : undefined,
-              yAxis: Array.isArray(chartConfig.yAxis)
-                ? chartConfig.yAxis.map((axis: any) => ({
+              yAxis: Array.isArray(configWithLegend.yAxis)
+                ? configWithLegend.yAxis.map((axis: any) => ({
                     ...axis,
                     nameGap: axis.name ? 100 : 15,
                     nameTextStyle: {
@@ -786,17 +778,17 @@ export function ChartElementV2({
                       margin: 15, // Increased margin from axis line to labels
                     },
                   }))
-                : chartConfig.yAxis
+                : configWithLegend.yAxis
                   ? {
-                      ...chartConfig.yAxis,
-                      nameGap: chartConfig.yAxis.name ? 100 : 15,
+                      ...configWithLegend.yAxis,
+                      nameGap: configWithLegend.yAxis.name ? 100 : 15,
                       nameTextStyle: {
                         fontSize: 14,
                         color: '#374151',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
-                        ...chartConfig.yAxis.axisLabel,
+                        ...configWithLegend.yAxis.axisLabel,
                         margin: 15, // Increased margin from axis line to labels
                       },
                     }
@@ -804,7 +796,7 @@ export function ChartElementV2({
             }),
         // Enhanced tooltip with bold values
         tooltip: {
-          ...chartConfig.tooltip,
+          ...configWithLegend.tooltip,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: '#e5e7eb',
           borderWidth: 1,

@@ -93,13 +93,12 @@ export function ChartPreview({
         : config;
 
       // Modify config to ensure proper margins for axis titles and axis title styling
+      // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
       const modifiedConfig = {
-        ...config,
-        // Use legend from configWithLegend which has proper positioning applied
-        legend: configWithLegend.legend,
-        // Enhanced data labels styling
-        series: Array.isArray(config.series)
-          ? config.series.map((series) => ({
+        ...configWithLegend,
+        // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
+        series: Array.isArray(configWithLegend.series)
+          ? configWithLegend.series.map((series: any) => ({
               ...series,
               label: {
                 ...series.label,
@@ -123,7 +122,7 @@ export function ChartPreview({
             : undefined,
         // Enhanced tooltip with bold values
         tooltip: {
-          ...config.tooltip,
+          ...configWithLegend.tooltip,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: '#e5e7eb',
           borderWidth: 1,
@@ -173,9 +172,11 @@ export function ChartPreview({
               // Dynamically adjust margins based on legend position and label rotation
               grid: (() => {
                 const hasRotatedXLabels =
-                  config.xAxis?.axisLabel?.rotate !== undefined &&
-                  config.xAxis?.axisLabel?.rotate !== 0;
-                const hasLegend = config.legend?.show !== false;
+                  configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
+                  configWithLegend.xAxis?.axisLabel?.rotate !== 0;
+                // Tighten hasLegend check: legend must be a real object and not explicitly hidden
+                const hasLegend =
+                  Boolean(configWithLegend.legend) && configWithLegend.legend?.show !== false;
 
                 // Adjust margins based on legend position
                 let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
@@ -193,7 +194,7 @@ export function ChartPreview({
                 }
 
                 return {
-                  ...config.grid,
+                  ...configWithLegend.grid,
                   containLabel: true,
                   left: leftMargin,
                   bottom: bottomMargin,
@@ -201,8 +202,8 @@ export function ChartPreview({
                   top: topMargin,
                 };
               })(),
-              xAxis: Array.isArray(config.xAxis)
-                ? config.xAxis.map((axis) => ({
+              xAxis: Array.isArray(configWithLegend.xAxis)
+                ? configWithLegend.xAxis.map((axis: any) => ({
                     ...axis,
                     nameGap: axis.name ? 80 : 15,
                     nameTextStyle: {
@@ -218,26 +219,26 @@ export function ChartPreview({
                       width: axis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }))
-                : config.xAxis
+                : configWithLegend.xAxis
                   ? {
-                      ...config.xAxis,
-                      nameGap: config.xAxis.name ? 80 : 15,
+                      ...configWithLegend.xAxis,
+                      nameGap: configWithLegend.xAxis.name ? 80 : 15,
                       nameTextStyle: {
                         fontSize: 14,
                         color: '#374151',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
-                        ...config.xAxis.axisLabel,
+                        ...configWithLegend.xAxis.axisLabel,
                         interval: 0,
                         margin: 15, // Increased margin from axis line to labels
                         overflow: 'truncate',
-                        width: config.xAxis.axisLabel?.rotate ? 100 : undefined,
+                        width: configWithLegend.xAxis.axisLabel?.rotate ? 100 : undefined,
                       },
                     }
                   : undefined,
-              yAxis: Array.isArray(config.yAxis)
-                ? config.yAxis.map((axis) => ({
+              yAxis: Array.isArray(configWithLegend.yAxis)
+                ? configWithLegend.yAxis.map((axis: any) => ({
                     ...axis,
                     nameGap: axis.name ? 100 : 15,
                     nameTextStyle: {
@@ -250,17 +251,17 @@ export function ChartPreview({
                       margin: 15, // Increased margin from axis line to labels
                     },
                   }))
-                : config.yAxis
+                : configWithLegend.yAxis
                   ? {
-                      ...config.yAxis,
-                      nameGap: config.yAxis.name ? 100 : 15,
+                      ...configWithLegend.yAxis,
+                      nameGap: configWithLegend.yAxis.name ? 100 : 15,
                       nameTextStyle: {
                         fontSize: 14,
                         color: '#374151',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
-                        ...config.yAxis.axisLabel,
+                        ...configWithLegend.yAxis.axisLabel,
                         margin: 15, // Increased margin from axis line to labels
                       },
                     }
