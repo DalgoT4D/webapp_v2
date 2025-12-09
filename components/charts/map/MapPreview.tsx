@@ -362,11 +362,11 @@ export function MapPreview({
               },
               emphasis: {
                 label: {
-                  show: safeCustomizations.emphasis !== false,
+                  show: true,
                   fontSize: 14,
                 },
                 itemStyle: {
-                  areaColor: safeCustomizations.emphasis !== false ? emphasisColor : undefined,
+                  areaColor: emphasisColor,
                 },
               },
               // Animation settings

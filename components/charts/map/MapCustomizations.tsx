@@ -161,17 +161,6 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
               onCheckedChange={(checked) => updateCustomization('showLabels', checked)}
             />
           </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm font-medium">Highlight on Hover</Label>
-              <p className="text-xs text-muted-foreground">Emphasize regions when hovering</p>
-            </div>
-            <Switch
-              checked={customizations.emphasis !== false}
-              onCheckedChange={(checked) => updateCustomization('emphasis', checked)}
-            />
-          </div>
         </CardContent>
       </Card>
 
