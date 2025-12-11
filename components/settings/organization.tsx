@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import {
   AlertCircle,
   Building2,
@@ -51,6 +52,8 @@ export default function OrganizationSettings() {
   const [error, setError] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const { toast } = useToast();
+  const { isFeatureFlagEnabled } = useFeatureFlags();
+  const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_CHATBOT);
 
   useEffect(() => {
     loadOrgSettings();
@@ -390,136 +393,142 @@ export default function OrganizationSettings() {
             </CardContent>
           </Card>
 
-          <Separator />
+          {isAIChatbotEnabled && (
+            <>
+              <Separator />
 
-          {/* AI Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5" />
-                AI Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* AI Logging Notice */}
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription className="flex items-center justify-between">
-                  <span>
-                    Dalgo uses external AI models and logs all AI questions and answers for at least
-                    3 months.
-                  </span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleInputChange(
-                              'ai_logging_acknowledged',
-                              !settings.ai_logging_acknowledged
-                            )
-                          }
-                        >
-                          <Info className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          By acknowledging this, you confirm understanding that AI interactions are
-                          logged and stored for quality and compliance purposes for a minimum of 3
-                          months.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </AlertDescription>
-              </Alert>
+              {/* AI Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="h-5 w-5" />
+                    AI Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* AI Logging Notice */}
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>
+                        Dalgo uses external AI models and logs all AI questions and answers for at
+                        least 3 months.
+                      </span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleInputChange(
+                                  'ai_logging_acknowledged',
+                                  !settings.ai_logging_acknowledged
+                                )
+                              }
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              By acknowledging this, you confirm understanding that AI interactions
+                              are logged and stored for quality and compliance purposes for a
+                              minimum of 3 months.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </AlertDescription>
+                  </Alert>
 
-              {/* Data Sharing Setting */}
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="ai_data_sharing" className="text-base font-medium">
-                      Accept usage of AI and share data
-                    </Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">
-                            Share your organization data with AI to help make the responses better
-                            and contextual. This enables the AI to provide more accurate insights
-                            based on your actual data.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  {/* Data Sharing Setting */}
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="ai_data_sharing" className="text-base font-medium">
+                          Accept usage of AI and share data
+                        </Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">
+                                Share your organization data with AI to help make the responses
+                                better and contextual. This enables the AI to provide more accurate
+                                insights based on your actual data.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Enable data sharing for better contextual AI responses
+                      </p>
+                    </div>
+                    <Switch
+                      id="ai_data_sharing"
+                      checked={settings.ai_data_sharing_enabled}
+                      onCheckedChange={(checked) =>
+                        handleInputChange('ai_data_sharing_enabled', checked)
+                      }
+                    />
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Enable data sharing for better contextual AI responses
-                  </p>
-                </div>
-                <Switch
-                  id="ai_data_sharing"
-                  checked={settings.ai_data_sharing_enabled}
-                  onCheckedChange={(checked) =>
-                    handleInputChange('ai_data_sharing_enabled', checked)
-                  }
-                />
-              </div>
 
-              <div
-                className={`flex items-center justify-between p-4 border rounded-lg ${!settings.ai_data_sharing_enabled ? 'opacity-50' : ''}`}
-              >
-                <div className="space-y-1">
-                  <Label htmlFor="ai_logging_acknowledged" className="text-base font-medium">
-                    I acknowledge AI logging
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    {!settings.ai_data_sharing_enabled
-                      ? 'Enable data sharing first to acknowledge AI logging'
-                      : 'Confirm understanding of AI data logging practices'}
-                  </p>
-                </div>
-                <Switch
-                  id="ai_logging_acknowledged"
-                  checked={settings.ai_logging_acknowledged}
-                  disabled={!settings.ai_data_sharing_enabled}
-                  onCheckedChange={(checked) =>
-                    handleInputChange('ai_logging_acknowledged', checked)
-                  }
-                />
-              </div>
+                  <div
+                    className={`flex items-center justify-between p-4 border rounded-lg ${!settings.ai_data_sharing_enabled ? 'opacity-50' : ''}`}
+                  >
+                    <div className="space-y-1">
+                      <Label htmlFor="ai_logging_acknowledged" className="text-base font-medium">
+                        I acknowledge AI logging
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {!settings.ai_data_sharing_enabled
+                          ? 'Enable data sharing first to acknowledge AI logging'
+                          : 'Confirm understanding of AI data logging practices'}
+                      </p>
+                    </div>
+                    <Switch
+                      id="ai_logging_acknowledged"
+                      checked={settings.ai_logging_acknowledged}
+                      disabled={!settings.ai_data_sharing_enabled}
+                      onCheckedChange={(checked) =>
+                        handleInputChange('ai_logging_acknowledged', checked)
+                      }
+                    />
+                  </div>
+                  {/* Privacy Notice */}
+                  <Alert>
+                    <Shield className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Privacy:</strong> Your data is processed securely and is not
+                      permanently stored by the AI service. All data sharing follows strict privacy
+                      and security protocols.
+                    </AlertDescription>
+                  </Alert>
 
-              {/* Privacy Notice */}
-              <Alert>
-                <Shield className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Privacy:</strong> Your data is processed securely and is not permanently
-                  stored by the AI service. All data sharing follows strict privacy and security
-                  protocols.
-                </AlertDescription>
-              </Alert>
-
-              {/* AI Settings Tracking Info */}
-              {settings.ai_settings_accepted_by_email && settings.ai_settings_accepted_at && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Last Modified:</strong> AI settings were last updated by{' '}
-                    <span className="font-medium">{settings.ai_settings_accepted_by_email}</span> on{' '}
-                    <span className="font-medium">
-                      {new Date(settings.ai_settings_accepted_at).toLocaleString()}
-                    </span>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+                  {/* AI Settings Tracking Info */}
+                  {settings.ai_settings_accepted_by_email && settings.ai_settings_accepted_at && (
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Last Modified:</strong> AI settings were last updated by{' '}
+                        <span className="font-medium">
+                          {settings.ai_settings_accepted_by_email}
+                        </span>{' '}
+                        on{' '}
+                        <span className="font-medium">
+                          {new Date(settings.ai_settings_accepted_at).toLocaleString()}
+                        </span>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
 
           {/* Save Button */}
           <div className="flex justify-end pt-4 pb-8">

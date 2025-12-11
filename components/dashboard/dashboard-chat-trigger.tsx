@@ -9,6 +9,7 @@ import { MessageCircle, Bot, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EnhancedDashboardChat } from './enhanced-dashboard-chat';
 import { useAIStatus } from '@/hooks/api/useAIStatus';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 
 interface DashboardChatTriggerProps {
   dashboardId: number;
@@ -28,10 +29,12 @@ export function DashboardChatTrigger({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewActivity, setHasNewActivity] = useState(false);
   const { aiEnabled, isLoading: aiStatusLoading } = useAIStatus();
+  const { isFeatureFlagEnabled } = useFeatureFlags();
+  const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_CHATBOT);
   const { toast } = useToast();
 
   // Don't show chat in public mode unless specifically enabled
-  if (isPublicMode) {
+  if (isPublicMode || !isAIChatbotEnabled) {
     return null;
   }
 
