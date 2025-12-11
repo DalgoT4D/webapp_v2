@@ -20,7 +20,7 @@ describe('chart-size-constraints', () => {
     it('should have valid GRID_CONFIG and size constraints for all chart types', () => {
       // Validate GRID_CONFIG
       expect(GRID_CONFIG.cols).toBe(12);
-      expect(GRID_CONFIG.rowHeight).toBe(60);
+      expect(GRID_CONFIG.rowHeight).toBe(20);
       expect(GRID_CONFIG.margin).toEqual([10, 10]);
 
       // Validate all chart type constraints exist and are valid

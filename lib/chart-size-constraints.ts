@@ -15,11 +15,19 @@ export interface GridDimensions {
   h: number; // Grid units height
 }
 
-// Grid configuration
+// Grid configuration - must match dashboard-builder-v2.tsx rowHeight
 export const GRID_CONFIG = {
   cols: 12,
-  rowHeight: 60, // Height of one grid row in pixels
+  rowHeight: 20, // Height of one grid row in pixels (matches dashboard builder)
   margin: [10, 10] as [number, number],
+} as const;
+
+// Standard default size for new charts - a consistent square-ish starting point
+// Width: 4 columns (~356px at 1200px container), Height: calculated to be visually square
+// At rowHeight=20px: 18 rows × 20px = 360px ≈ 4 cols × 89px = 356px
+export const STANDARD_DEFAULT_SIZE = {
+  w: 4, // 4 columns (responsive - scales with container width)
+  h: 18, // 18 rows (18 × 20px = 360px, making it roughly square with 4 cols)
 } as const;
 
 /**
@@ -125,13 +133,16 @@ export function getMinGridDimensions(chartType: string): GridDimensions {
 
 /**
  * Get default grid dimensions for a chart type
+ * Uses STANDARD_DEFAULT_SIZE (4 cols × 6 rows) as the baseline for consistent square-ish charts
+ * Content-aware sizing will adjust from this baseline when chart data is available
  */
-export function getDefaultGridDimensions(chartType: string): GridDimensions {
-  const constraints = CHART_SIZE_CONSTRAINTS[chartType] || CHART_SIZE_CONSTRAINTS.default;
-
+export function getDefaultGridDimensions(_chartType: string): GridDimensions {
+  // Use standard default size for consistent starting point
+  // This ensures all new charts start as a square (4 cols × 6 rows)
+  // The standard size is responsive - it scales proportionally with the grid
   return {
-    w: Math.min(GRID_CONFIG.cols, pixelsToGridUnits(constraints.defaultWidth, true)),
-    h: pixelsToGridUnits(constraints.defaultHeight, false),
+    w: STANDARD_DEFAULT_SIZE.w,
+    h: STANDARD_DEFAULT_SIZE.h,
   };
 }
 
@@ -480,6 +491,16 @@ export function getContentAwareGridDimensions(
   };
 
   const typeMinimums = chartTypeMinimums[chartType] || chartTypeMinimums.default;
+
+  // For default sizing, ALWAYS use STANDARD_DEFAULT_SIZE for consistent square charts
+  // Content analysis is ignored for defaults - users can resize after adding if needed
+  // For minimum sizing, use the chart-type-specific minimums
+  if (isDefault) {
+    return {
+      w: STANDARD_DEFAULT_SIZE.w,
+      h: STANDARD_DEFAULT_SIZE.h,
+    };
+  }
 
   const finalGridW = Math.max(typeMinimums.minW, Math.min(GRID_CONFIG.cols, rawGridW));
   const finalGridH = Math.max(typeMinimums.minH, rawGridH);
