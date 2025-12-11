@@ -430,6 +430,11 @@ export function wouldCollide(
 
 /**
  * Find optimal position with collision avoidance
+ * Strategy:
+ * 1. Try preferred position first (usually 0,0)
+ * 2. Try to fit in the remaining horizontal space of the first row (y=0)
+ * 3. Try to fit in the LAST row (the row with charts that have the highest starting Y)
+ * 4. If last row is full, create a new row below everything, starting from x=0
  */
 export function findOptimalPosition(
   size: Size,
@@ -439,6 +444,11 @@ export function findOptimalPosition(
 ): Position {
   const { w, h } = size;
 
+  // If no existing components, place at origin
+  if (existingComponents.length === 0) {
+    return preferredPosition || { x: 0, y: 0 };
+  }
+
   // Try preferred position first
   if (preferredPosition) {
     const bounds = { ...preferredPosition, ...size };
@@ -447,9 +457,46 @@ export function findOptimalPosition(
     }
   }
 
-  // Search for best position
-  const maxY = Math.max(...existingComponents.map((c) => c.y + c.h), 0) + 5;
+  // Strategy 1: Try to fit in the first row (y=0) - scan only horizontal positions
+  for (let x = 0; x <= gridCols - w; x++) {
+    const bounds = { x, y: 0, w, h };
+    if (!wouldCollide(bounds, existingComponents)) {
+      return { x, y: 0 };
+    }
+  }
 
+  // Strategy 2: Find the LAST row (highest starting Y) and try to fit there
+  // This fills rows before creating new ones
+  const lastRowY = Math.max(...existingComponents.map((c) => c.y));
+
+  // Scan the last row from left to right for available space
+  for (let x = 0; x <= gridCols - w; x++) {
+    const bounds = { x, y: lastRowY, w, h };
+    if (!wouldCollide(bounds, existingComponents)) {
+      return { x, y: lastRowY };
+    }
+  }
+
+  // Strategy 3: Last row is full, create a new row below everything
+  // Find the bottom of all existing components
+  const bottomY = Math.max(...existingComponents.map((c) => c.y + c.h));
+
+  // Try to place at (0, bottomY) first - start new row from left
+  const bottomLeftBounds = { x: 0, y: bottomY, w, h };
+  if (!wouldCollide(bottomLeftBounds, existingComponents)) {
+    return { x: 0, y: bottomY };
+  }
+
+  // Strategy 4: If bottom-left doesn't work, scan the new row from left to right
+  for (let x = 0; x <= gridCols - w; x++) {
+    const bounds = { x, y: bottomY, w, h };
+    if (!wouldCollide(bounds, existingComponents)) {
+      return { x, y: bottomY };
+    }
+  }
+
+  // Strategy 5: Full scan as fallback (shouldn't normally reach here)
+  const maxY = bottomY + 10;
   for (let y = 0; y <= maxY; y++) {
     for (let x = 0; x <= gridCols - w; x++) {
       const bounds = { x, y, w, h };
@@ -459,7 +506,7 @@ export function findOptimalPosition(
     }
   }
 
-  // Fallback: place at bottom
+  // Fallback: place at bottom-left
   return { x: 0, y: maxY + 1 };
 }
 
