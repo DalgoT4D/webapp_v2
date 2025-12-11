@@ -2276,14 +2276,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           )}
 
           {/* Dashboard Canvas - Responsive Container */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
-            {/* Canvas container with viewport-based responsiveness */}
+          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
+            {/* Canvas container with full width */}
             <div
               ref={dashboardContainerRef}
-              className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
+              className="bg-white dashboard-canvas-responsive"
               style={{
                 width: '100%',
-                maxWidth: `min(${currentScreenConfig.width}px, 100vw - 2rem)`,
                 minHeight: Math.max(currentScreenConfig.height, 400),
                 position: 'relative',
               }}

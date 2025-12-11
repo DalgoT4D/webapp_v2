@@ -272,8 +272,9 @@ export function DashboardNativeView({
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(1200);
-  const [actualContainerWidth, setActualContainerWidth] = useState(1200);
+  const [actualContainerWidth, setActualContainerWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
@@ -375,13 +376,6 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Set container width to match the effective screen size exactly
-  useEffect(() => {
-    const effectiveConfig = SCREEN_SIZES[effectiveScreenSize];
-    setContainerWidth(effectiveConfig.width);
-    setActualContainerWidth(effectiveConfig.width);
-  }, [effectiveScreenSize]);
-
   // Update current screen size on resize
   useEffect(() => {
     const updateScreenSize = () => {
@@ -407,16 +401,19 @@ export function DashboardNativeView({
     };
   }, []);
 
-  // Observe dashboard container for responsive width (same as edit page)
+  // Observe dashboard container for responsive width
   useEffect(() => {
     if (!dashboardContainerRef.current) return;
+
+    // Set initial width
+    const initialWidth = dashboardContainerRef.current.offsetWidth || window.innerWidth;
+    setActualContainerWidth(initialWidth);
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width } = entry.contentRect;
-        // Use full available container width - let charts fill all available space
-        const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
-        setActualContainerWidth(responsiveWidth);
+        // Use full available container width
+        setActualContainerWidth(width);
       }
     });
 
@@ -425,7 +422,7 @@ export function DashboardNativeView({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [containerWidth]);
+  }, []);
 
   // Handle fullscreen toggle - use unified fullscreen system
   const handleToggleFullscreen = () => {
@@ -1098,52 +1095,21 @@ export function DashboardNativeView({
         {/* Dashboard Content - Scrollable Canvas Area */}
         <div
           className={cn(
-            'flex-1 overflow-auto p-4 md:p-6 min-w-0 bg-gray-50',
+            'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
             // Only apply special mobile padding for public dashboards
             isPublicMode && 'pb-24 sm:pb-16'
           )}
-          style={{ paddingBottom: isPublicMode ? undefined : '60px' }}
         >
           <div
             ref={dashboardContainerRef}
             className={`dashboard-canvas relative z-10 ${
-              isEmbedMode
-                ? embedTheme === 'dark'
-                  ? 'bg-gray-800'
-                  : 'bg-white'
-                : 'bg-white border border-gray-300 shadow-lg'
+              isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
             }`}
-            style={
-              isEmbedMode
-                ? {
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }
-                : {
-                    width: '100%',
-                    maxWidth: `min(${effectiveScreenConfig.width}px, 100vw - 2rem)`,
-                    minHeight: effectiveScreenConfig.height,
-                    margin: '0 auto 40px auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }
-            }
+            style={{
+              width: '100%',
+              minHeight: '100%',
+            }}
           >
-            {/* Canvas Header */}
-            {!isEmbedMode && (
-              <div className="absolute -top-8 left-0 text-xs text-gray-500 font-medium">
-                {effectiveScreenConfig.name} Canvas ({effectiveScreenConfig.width} ×{' '}
-                {effectiveScreenConfig.height}px)
-                {previewScreenSize && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                    Preview Mode
-                  </span>
-                )}
-              </div>
-            )}
-
             {/* Show empty state if no layout config */}
             {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
@@ -1170,7 +1136,7 @@ export function DashboardNativeView({
                   breakpoints={BREAKPOINTS}
                   cols={COLS}
                   rowHeight={20}
-                  width={effectiveScreenConfig.width}
+                  width={actualContainerWidth}
                   style={{
                     width: '100% !important',
                   }}
@@ -1178,8 +1144,8 @@ export function DashboardNativeView({
                   isResizable={false}
                   compactType={null}
                   preventCollision={false}
-                  margin={[4, 4]}
-                  containerPadding={[4, 4]}
+                  margin={[8, 8]}
+                  containerPadding={[8, 8]}
                   autoSize={true}
                   verticalCompact={false}
                   onBreakpointChange={(newBreakpoint: string) => {
@@ -1212,8 +1178,8 @@ export function DashboardNativeView({
                   compactType={null}
                   preventCollision={true}
                   allowOverlap={false}
-                  margin={[4, 4]}
-                  containerPadding={[4, 4]}
+                  margin={[8, 8]}
+                  containerPadding={[8, 8]}
                   autoSize={true}
                   verticalCompact={false}
                 >
