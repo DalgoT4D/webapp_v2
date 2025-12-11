@@ -420,12 +420,14 @@ export default function OrganizationSettings() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() =>
+                              disabled={!settings.ai_data_sharing_enabled}
+                              onClick={() => {
+                                if (!settings.ai_data_sharing_enabled) return;
                                 handleInputChange(
                                   'ai_logging_acknowledged',
                                   !settings.ai_logging_acknowledged
-                                )
-                              }
+                                );
+                              }}
                             >
                               <Info className="h-4 w-4" />
                             </Button>
