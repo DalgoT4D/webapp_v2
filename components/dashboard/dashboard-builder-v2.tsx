@@ -2276,14 +2276,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           )}
 
           {/* Dashboard Canvas - Responsive Container */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
-            {/* Canvas container with viewport-based responsiveness */}
+          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
+            {/* Canvas container with full width */}
             <div
               ref={dashboardContainerRef}
-              className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
+              className="bg-white dashboard-canvas-responsive"
               style={{
                 width: '100%',
-                maxWidth: `min(${currentScreenConfig.width}px, 100vw - 2rem)`,
                 minHeight: Math.max(currentScreenConfig.height, 400),
                 position: 'relative',
               }}
@@ -2292,7 +2291,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 className="layout relative z-10"
                 layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
                 cols={currentScreenConfig.cols} // Always exactly 12 columns (or 6 for tablet, 2 for mobile)
-                rowHeight={24}
+                rowHeight={20}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onDragStart={handleDragStart}
@@ -2305,8 +2304,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
-                margin={[0, 0]}
-                containerPadding={[0, 0]}
+                margin={[4, 4]} // Small gap between charts for visual separation
+                containerPadding={[4, 4]} // Small padding around container
                 autoSize={true}
                 verticalCompact={false}
                 useCSSTransforms={true}
@@ -2395,7 +2394,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
 
                       {/* Content Area - Charts fully visible and interactive */}
-                      <div className="p-3 flex-1 flex flex-col min-h-0 drag-cancel">
+                      <div className="flex-1 flex flex-col min-h-0 drag-cancel">
                         {renderComponent(item.i)}
                       </div>
                     </div>
@@ -2408,7 +2407,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 snapZones={dashboardAnimation.snapZones}
                 containerWidth={actualContainerWidth}
                 containerHeight={Math.max(currentScreenConfig.height, 400)}
-                rowHeight={24}
+                rowHeight={20}
                 visible={isDragging || isResizing}
               />
 
@@ -2417,7 +2416,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 affectedComponents={dashboardAnimation.affectedComponents}
                 containerWidth={actualContainerWidth}
                 containerHeight={Math.max(currentScreenConfig.height, 400)}
-                rowHeight={24}
+                rowHeight={20}
                 colWidth={actualContainerWidth / currentScreenConfig.cols}
                 visible={dashboardAnimation.spaceMakingActive}
               />

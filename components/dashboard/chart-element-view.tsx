@@ -37,6 +37,11 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import {
+  applyResponsiveLegend,
+  getResponsiveGridMargins,
+  shouldShowLegend,
+} from '@/lib/responsive-legend';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -138,6 +143,9 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Container size for responsive legend
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
@@ -927,8 +935,20 @@ export function ChartElementView({
     const legendPosition = extractLegendPosition(customizations, baseConfig) as LegendPosition;
     const isPaginatedLegend = isLegendPaginated(customizations);
 
+    // Use container size for responsive legend (fallback to reasonable defaults)
+    const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
+    const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+
+    // Check if legend should be visible based on container size
+    const legendVisible = shouldShowLegend(
+      effectiveWidth,
+      effectiveHeight,
+      effectiveChart?.chart_type
+    );
+
     // Apply legend positioning (handles both legend config and pie chart center adjustment)
-    const configWithLegend = baseConfig.legend
+    // Then apply responsive legend on top for size-based adjustments
+    let configWithLegend = baseConfig.legend
       ? applyLegendPosition(
           baseConfig,
           legendPosition,
@@ -936,6 +956,17 @@ export function ChartElementView({
           effectiveChart?.chart_type
         )
       : baseConfig;
+
+    // Apply responsive legend adjustments based on container size
+    if (baseConfig.legend) {
+      configWithLegend = applyResponsiveLegend(
+        configWithLegend,
+        effectiveWidth,
+        effectiveHeight,
+        legendPosition,
+        effectiveChart?.chart_type
+      );
+    }
 
     // Apply beautiful theme and styling
     const styledConfig = {
@@ -945,7 +976,7 @@ export function ChartElementView({
         ...activeChartData.echarts_config.title,
         show: false,
       },
-      // Legend is already properly positioned by applyLegendPosition - don't override
+      // Legend is already properly positioned by applyLegendPosition and applyResponsiveLegend
       animation: true,
       animationDuration: 500,
       animationEasing: 'cubicOut',
@@ -1001,38 +1032,33 @@ export function ChartElementView({
             yAxis: undefined,
           }
         : {
-            // For other chart types, apply normal grid and axis styling
-            // Dynamically adjust margins based on legend position and label rotation
+            // For other chart types, apply responsive grid margins based on container size
             grid: (() => {
               const hasRotatedXLabels =
                 configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
                 configWithLegend.xAxis?.axisLabel?.rotate !== 0;
-              // Tighten hasLegend check: legend must be a real object and not explicitly hidden
+              // Check if legend is visible after responsive adjustments
               const hasLegend =
-                Boolean(configWithLegend.legend) && configWithLegend.legend?.show !== false;
+                legendVisible &&
+                Boolean(configWithLegend.legend) &&
+                configWithLegend.legend?.show !== false;
 
-              // Adjust margins based on legend position
-              let topMargin = hasLegend && legendPosition === 'top' ? '18%' : '10%';
-              let bottomMargin = hasRotatedXLabels ? '18%' : '16%';
-              if (hasLegend && legendPosition === 'bottom') {
-                bottomMargin = hasRotatedXLabels ? '22%' : '20%';
-              }
-              let leftMargin = '10%';
-              let rightMargin = '6%';
-              if (hasLegend && legendPosition === 'left') {
-                leftMargin = '18%';
-              }
-              if (hasLegend && legendPosition === 'right') {
-                rightMargin = '15%';
-              }
+              // Use responsive grid margins based on container size
+              const margins = getResponsiveGridMargins(
+                effectiveWidth,
+                effectiveHeight,
+                legendPosition,
+                hasLegend,
+                hasRotatedXLabels
+              );
 
               return {
                 ...configWithLegend.grid,
                 containLabel: true,
-                left: leftMargin,
-                bottom: bottomMargin,
-                right: rightMargin,
-                top: topMargin,
+                left: margins.left,
+                bottom: margins.bottom,
+                right: margins.right,
+                top: margins.top,
               };
             })(),
             xAxis: Array.isArray(configWithLegend.xAxis)
@@ -1167,9 +1193,21 @@ export function ChartElementView({
 
     window.addEventListener('resize', handleResize);
 
-    // Resize observer for container changes
-    const resizeObserver = new ResizeObserver(() => {
-      chartInstance.current?.resize();
+    // Resize observer for container changes - also tracks container size for responsive legends
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          // Update container size state for responsive legends
+          setContainerSize((prev) => {
+            if (prev.width !== width || prev.height !== height) {
+              return { width, height };
+            }
+            return prev;
+          });
+          chartInstance.current?.resize();
+        }
+      }
     });
 
     resizeObserver.observe(chartRef.current);
@@ -1188,6 +1226,7 @@ export function ChartElementView({
     drillDownPath,
     handleRegionClick,
     isFullscreen, // Add fullscreen state to trigger chart resize
+    containerSize, // Update when container size changes for responsive legends
   ]);
 
   // Re-fetch data when filters change

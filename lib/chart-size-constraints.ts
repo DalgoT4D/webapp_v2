@@ -15,89 +15,90 @@ export interface GridDimensions {
   h: number; // Grid units height
 }
 
-// Grid configuration
+// Grid configuration - must match dashboard-builder-v2.tsx rowHeight
 export const GRID_CONFIG = {
   cols: 12,
-  rowHeight: 60, // Height of one grid row in pixels
+  rowHeight: 20, // Height of one grid row in pixels (matches dashboard builder)
   margin: [10, 10] as [number, number],
+} as const;
+
+// Standard default size for new charts - a consistent square-ish starting point
+// Width: 4 columns (~356px at 1200px container), Height: calculated to be visually square
+// At rowHeight=20px: 18 rows × 20px = 360px ≈ 4 cols × 89px = 356px
+export const STANDARD_DEFAULT_SIZE = {
+  w: 4, // 4 columns (responsive - scales with container width)
+  h: 18, // 18 rows (18 × 20px = 360px, making it roughly square with 4 cols)
 } as const;
 
 /**
  * Minimum chart size constraints by chart type
- * Based on typical content requirements for each visualization
- * IMPORTANT: These values account for title space (50px), axis labels (60-80px),
- * legends (40-60px), and chart content to ensure nothing is cut off
+ * These are flexible minimums that allow charts to be small while remaining functional.
+ * Charts adapt their content (legends, labels) responsively based on available space.
+ * Superset-like approach: allow small sizes, let charts be responsive.
  */
 export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
-  // Map charts need substantial space for geography and legends
+  // Map charts - can be compact, legend hides at small sizes
   map: {
-    minWidth: 500,
-    minHeight: 450,
-    defaultWidth: 650,
-    defaultHeight: 550,
+    minWidth: 250,
+    minHeight: 200,
+    defaultWidth: 500,
+    defaultHeight: 400,
   },
 
-  // Bar charts need space for axes labels and bars
-  // Title: 60px, Y-axis: 100px, X-axis labels: 80px, content: 350px min
+  // Bar charts - responsive axes and legends
   bar: {
-    minWidth: 500,
-    minHeight: 480,
-    defaultWidth: 650,
-    defaultHeight: 580,
-  },
-
-  // Line charts need space for trend visualization
-  // Title: 60px, Y-axis: 100px, X-axis labels: 80px, content: 350px min
-  line: {
-    minWidth: 500,
-    minHeight: 480,
-    defaultWidth: 650,
-    defaultHeight: 580,
-  },
-
-  // Pie charts need substantial space for chart + legend
-  // Title: 60px, chart: 320px, legend: 120px height = 500px minimum
-  pie: {
-    minWidth: 450,
-    minHeight: 450,
-    defaultWidth: 550,
-    defaultHeight: 550,
-  },
-
-  // Tables need space for columns and rows
-  // Title: 50px, headers: 40px, content rows: minimum 7+ rows = 420px minimum content
-  table: {
-    minWidth: 400,
-    minHeight: 420, // Ensure header + at least 7+ rows are always visible
-    defaultWidth: 600,
-    defaultHeight: 500, // Reasonable default for showing more data
-  },
-
-  // Number cards need space for title and large numbers
-  // Title: 60px, number: 120px, description: 50px, padding: 50px = 280px minimum
-  // Width: accommodate long titles and large numbers
-  number: {
-    minWidth: 320,
-    minHeight: 320,
-    defaultWidth: 400,
-    defaultHeight: 420,
-  },
-
-  // Text components are flexible but need minimum readability
-  // minHeight should match defaultHeight to prevent resizing below initial size
-  text: {
     minWidth: 200,
-    minHeight: 180, // Same as defaultHeight - users can't resize below initial size
-    defaultWidth: 350,
+    minHeight: 200,
+    defaultWidth: 500,
+    defaultHeight: 400,
+  },
+
+  // Line charts - responsive axes and legends
+  line: {
+    minWidth: 200,
+    minHeight: 200,
+    defaultWidth: 500,
+    defaultHeight: 400,
+  },
+
+  // Pie charts - legend adapts or hides at small sizes
+  pie: {
+    minWidth: 180,
+    minHeight: 180,
+    defaultWidth: 400,
+    defaultHeight: 400,
+  },
+
+  // Tables - scrollable content, responsive columns
+  table: {
+    minWidth: 200,
+    minHeight: 150,
+    defaultWidth: 500,
+    defaultHeight: 350,
+  },
+
+  // Number cards - very compact, just show the number
+  number: {
+    minWidth: 120,
+    minHeight: 100,
+    defaultWidth: 250,
     defaultHeight: 180,
+  },
+
+  // Text components - flexible
+  text: {
+    minWidth: 100,
+    minHeight: 80,
+    defaultWidth: 300,
+    defaultHeight: 150,
   },
 
   // Default fallback for unknown chart types
   default: {
-    minWidth: 350,
-    minHeight: 280,
-    defaultWidth: 450,
-    defaultHeight: 350,
+    minWidth: 180,
+    minHeight: 150,
+    defaultWidth: 400,
+    defaultHeight: 300,
   },
 };
 
@@ -132,13 +133,16 @@ export function getMinGridDimensions(chartType: string): GridDimensions {
 
 /**
  * Get default grid dimensions for a chart type
+ * Uses STANDARD_DEFAULT_SIZE (4 cols × 6 rows) as the baseline for consistent square-ish charts
+ * Content-aware sizing will adjust from this baseline when chart data is available
  */
-export function getDefaultGridDimensions(chartType: string): GridDimensions {
-  const constraints = CHART_SIZE_CONSTRAINTS[chartType] || CHART_SIZE_CONSTRAINTS.default;
-
+export function getDefaultGridDimensions(_chartType: string): GridDimensions {
+  // Use standard default size for consistent starting point
+  // This ensures all new charts start as a square (4 cols × 6 rows)
+  // The standard size is responsive - it scales proportionally with the grid
   return {
-    w: Math.min(GRID_CONFIG.cols, pixelsToGridUnits(constraints.defaultWidth, true)),
-    h: pixelsToGridUnits(constraints.defaultHeight, false),
+    w: STANDARD_DEFAULT_SIZE.w,
+    h: STANDARD_DEFAULT_SIZE.h,
   };
 }
 
@@ -207,102 +211,54 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
         });
 
         // Analyze bar/line charts based on data points and labels
+        // NOTE: Using Superset-like approach - keep minimums small, let charts adapt
+        // Charts will show what fits and use scrolling/pagination for the rest
         if (chartData.echarts_config?.xAxis?.data) {
           const dataPoints = chartData.echarts_config.xAxis.data.length;
           console.log(`📊 Found ${dataPoints} data points in ${chartType} chart`);
 
-          // More sophisticated width calculation based on data density
-          // Base space: 500px minimum (title + axes + padding)
-          // Per data point: 60px minimum for readability (increased from 45px)
-          const contentWidth = Math.max(400, dataPoints * 60); // Content area only
-          const totalMinWidth = contentWidth + 150; // Add space for Y-axis (100px) + padding (50px)
-          const totalDefaultWidth = contentWidth + 200; // More generous spacing
-
-          minWidth = Math.max(minWidth, totalMinWidth);
-          defaultWidth = Math.max(defaultWidth, totalDefaultWidth);
+          // Only inflate DEFAULT size for many data points, not minimum
+          // This allows users to make charts smaller if they want
+          if (dataPoints > 10) {
+            const contentWidth = Math.min(800, dataPoints * 40); // Cap at 800px
+            defaultWidth = Math.max(defaultWidth, contentWidth);
+          }
 
           console.log(`📐 Width calculated for ${dataPoints} data points:`, {
-            contentWidth,
-            totalMinWidth,
-            totalDefaultWidth,
+            dataPoints,
             finalMinWidth: minWidth,
             finalDefaultWidth: defaultWidth,
           });
         }
 
         // Check for multiple series (affects legend space)
+        // Only inflate DEFAULT size, keep minimum small for flexibility
         if (chartData.echarts_config?.series?.length > 1) {
           const seriesCount = chartData.echarts_config.series.length;
           console.log(`📊 Multiple series detected: ${seriesCount} series`);
 
-          // Legend needs space: approximately 25px per series + padding
-          const legendHeight = Math.max(40, seriesCount * 25 + 20);
-          minHeight += legendHeight;
-          defaultHeight += legendHeight + 20;
-
-          console.log(`📐 Height adjusted for legend (${seriesCount} series):`, {
-            legendHeight,
-            newMinHeight: minHeight,
-            newDefaultHeight: defaultHeight,
-          });
+          // Legend will paginate/hide at small sizes, so only adjust default
+          if (seriesCount > 5) {
+            const legendHeight = Math.min(80, seriesCount * 15);
+            defaultHeight += legendHeight;
+          }
         }
 
-        // Check for long X-axis labels
+        // Check for long X-axis labels - only affects default size
         if (chartData.echarts_config?.xAxis?.data?.length > 0) {
           const labels = chartData.echarts_config.xAxis.data.map((label: any) =>
             String(label || '')
           );
           const maxLabelLength = Math.max(...labels.map((label) => label.length));
-          const avgLabelLength =
-            labels.reduce((sum, label) => sum + label.length, 0) / labels.length;
 
-          console.log(`📝 X-axis label analysis:`, {
-            maxLabelLength,
-            avgLabelLength,
-            totalLabels: labels.length,
-            sampleLabels: labels.slice(0, 3),
-          });
-
-          // If labels are long, they need rotation or more height
-          if (maxLabelLength > 12 || avgLabelLength > 8) {
-            const extraHeight = Math.min(120, maxLabelLength * 4); // Cap at 120px extra (increased)
-            minHeight += extraHeight;
-            defaultHeight += extraHeight + 20; // More generous padding
-
-            console.log(`📐 Height adjusted for long X-axis labels:`, {
-              extraHeight,
-              reason: `max=${maxLabelLength}chars, avg=${avgLabelLength.toFixed(1)}chars`,
-              newMinHeight: minHeight,
-              newDefaultHeight: defaultHeight,
-            });
+          // Only adjust default, not minimum - labels will truncate at small sizes
+          if (maxLabelLength > 15) {
+            const extraHeight = Math.min(60, (maxLabelLength - 15) * 3);
+            defaultHeight += extraHeight;
           }
         }
 
-        // Check Y-axis values for width requirements
-        if (chartData.echarts_config?.series?.length > 0) {
-          const allValues = chartData.echarts_config.series.flatMap((s: any) => s.data || []);
-          if (allValues.length > 0) {
-            const maxValue = Math.max(
-              ...allValues.map((v: any) => (typeof v === 'object' ? v.value || 0 : v || 0))
-            );
-            const valueLength = Math.max(6, String(Math.round(maxValue)).length); // Minimum 6 chars for formatting
-
-            if (valueLength > 6) {
-              // Lowered threshold from 8 to 6
-              const extraWidth = (valueLength - 6) * 12; // 12px per extra character (increased from 8px)
-              minWidth += extraWidth;
-              defaultWidth += extraWidth;
-
-              console.log(`📐 Width adjusted for large Y-axis values:`, {
-                maxValue,
-                valueLength,
-                extraWidth,
-                newMinWidth: minWidth,
-                newDefaultWidth: defaultWidth,
-              });
-            }
-          }
-        }
+        // Y-axis values don't need to inflate minimum - they adapt
         break;
 
       case 'pie':
@@ -312,48 +268,17 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
           hasData: !!chartData.echarts_config?.series?.[0]?.data,
         });
 
-        // Analyze pie charts based on segments and legend
+        // Analyze pie charts - only inflate DEFAULT size, keep minimum small
+        // Legend will paginate/hide at small sizes (responsive legend system)
         if (chartData.echarts_config?.series?.[0]?.data) {
           const segments = chartData.echarts_config.series[0].data.length;
           console.log(`🥧 Pie chart has ${segments} segments`);
 
-          // More segments need more legend space (both width AND height)
-          if (segments > 4) {
-            const extraWidth = Math.min(150, segments * 20); // 20px per segment, max 150px
-            const extraHeight = Math.min(120, segments * 15); // 15px per segment, max 120px
-
-            minWidth += extraWidth;
-            defaultWidth += extraWidth + 30;
-            minHeight += extraHeight;
-            defaultHeight += extraHeight + 40;
-
-            console.log(`📐 Added space for ${segments} segments:`, {
-              extraWidth,
-              extraHeight,
-              newMinWidth: minWidth,
-              newMinHeight: minHeight,
-            });
-          }
-
-          // Check for long labels (affects both width and height)
-          const maxLabelLength = Math.max(
-            ...chartData.echarts_config.series[0].data.map((item: any) => item.name?.length || 0)
-          );
-          if (maxLabelLength > 15) {
-            const extraWidth = Math.min(100, (maxLabelLength - 15) * 4);
-            const extraHeight = 60; // Long labels need more vertical space for legend
-
-            minWidth += extraWidth;
-            defaultWidth += extraWidth + 20;
-            minHeight += extraHeight;
-            defaultHeight += extraHeight + 20;
-
-            console.log(`📝 Added space for long labels (max: ${maxLabelLength} chars):`, {
-              extraWidth,
-              extraHeight,
-              newMinWidth: minWidth,
-              newMinHeight: minHeight,
-            });
+          // Only adjust default size for many segments
+          if (segments > 8) {
+            const extraSize = Math.min(100, segments * 10);
+            defaultWidth += extraSize;
+            defaultHeight += extraSize;
           }
         }
         break;
@@ -366,61 +291,26 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
           hasData: !!chartData.data,
         });
 
-        // Analyze tables based on columns and data
+        // Tables are scrollable, so only inflate DEFAULT size, not minimum
+        // This allows compact table views with horizontal/vertical scroll
         if (chartData.columns && Array.isArray(chartData.columns)) {
           const columnCount = chartData.columns.length;
-          console.log(`📊 Table has ${columnCount} columns:`, chartData.columns.slice(0, 3));
 
-          // More sophisticated width calculation for tables
-          // Base width: title (50px) + border/padding (40px) = 90px
-          // Per column: minimum 140px for readability (header + content)
-          const baseWidth = 90;
-          const perColumnWidth = Math.max(140, 160); // Generous column width
-          const calculatedMinWidth = baseWidth + columnCount * 140;
-          const calculatedDefaultWidth = baseWidth + columnCount * perColumnWidth;
-
-          // Cap maximum width to avoid overly wide tables
-          const maxTableWidth = 1000;
-          minWidth = Math.max(minWidth, Math.min(calculatedMinWidth, maxTableWidth));
-          defaultWidth = Math.max(defaultWidth, Math.min(calculatedDefaultWidth, maxTableWidth));
-
-          console.log(`📐 Width calculated for ${columnCount} columns:`, {
-            baseWidth,
-            perColumnWidth,
-            calculatedMinWidth,
-            calculatedDefaultWidth,
-            finalMinWidth: minWidth,
-            finalDefaultWidth: defaultWidth,
-            capped: calculatedDefaultWidth > maxTableWidth,
-          });
+          // Only inflate default size for many columns
+          if (columnCount > 4) {
+            const extraWidth = Math.min(300, (columnCount - 4) * 60);
+            defaultWidth += extraWidth;
+          }
         }
 
         if (chartData.data && Array.isArray(chartData.data)) {
           const rowCount = chartData.data.length;
-          console.log(`📊 Table has ${rowCount} rows`);
 
-          // Height calculation: title (40px) + header (32px) + rows + padding
-          const baseHeight = 90; // Title + header + padding
-          const rowHeight = 30; // Per data row
-          const minRows = Math.max(8, Math.min(rowCount, 10)); // Show at least 8 rows, max 10 for minimum
-          const defaultRows = Math.max(10, Math.min(rowCount, 12)); // Show at least 10 rows, max 12 for default
-          const calculatedMinHeight = baseHeight + minRows * rowHeight; // Minimum shows header + 4-6 rows
-          const calculatedDefaultHeight = baseHeight + defaultRows * rowHeight; // Default shows more rows
-
-          minHeight = Math.max(minHeight, calculatedMinHeight);
-          defaultHeight = Math.max(defaultHeight, calculatedDefaultHeight);
-
-          console.log(`📐 Height calculated for ${rowCount} rows:`, {
-            baseHeight,
-            rowHeight,
-            minRows,
-            defaultRows,
-            calculatedMinHeight,
-            calculatedDefaultHeight,
-            finalMinHeight: minHeight,
-            finalDefaultHeight: defaultHeight,
-            visibleRows: defaultRows,
-          });
+          // Only inflate default height for many rows
+          if (rowCount > 10) {
+            const extraHeight = Math.min(150, (rowCount - 10) * 10);
+            defaultHeight += extraHeight;
+          }
         }
         break;
 
@@ -587,19 +477,30 @@ export function getContentAwareGridDimensions(
   const rawGridW = pixelsToGridUnits(targetWidth, true);
   const rawGridH = pixelsToGridUnits(targetHeight, false);
 
-  // Chart-type-specific minimum grid dimensions to ensure usability
-  // These are ABSOLUTE minimums - no chart should be smaller than this
+  // Chart-type-specific minimum grid dimensions - flexible for Superset-like behavior
+  // These allow charts to be quite small while remaining functional
+  // Content (legends, labels) will adapt responsively
   const chartTypeMinimums = {
-    number: { minW: 5, minH: 8 }, // Number cards need much more height: title + large number
-    pie: { minW: 6, minH: 9 }, // Pie charts need more height for chart + legends
-    bar: { minW: 7, minH: 10 }, // Bar charts need more height for proper aspect ratio
-    line: { minW: 7, minH: 10 }, // Line charts need more height for proper aspect ratio
-    table: { minW: 6, minH: 12 }, // Tables need column space + title + at least 7+ rows minimum
-    map: { minW: 7, minH: 7 }, // Maps need substantial space
-    default: { minW: 5, minH: 5 }, // Conservative default with buffer
+    number: { minW: 2, minH: 2 }, // Number cards can be very compact
+    pie: { minW: 2, minH: 3 }, // Pie charts - legend hides at small sizes
+    bar: { minW: 3, minH: 4 }, // Bar charts - axes adapt
+    line: { minW: 3, minH: 4 }, // Line charts - axes adapt
+    table: { minW: 3, minH: 3 }, // Tables - scrollable
+    map: { minW: 3, minH: 4 }, // Maps - legend hides at small sizes
+    default: { minW: 2, minH: 3 }, // Flexible default
   };
 
   const typeMinimums = chartTypeMinimums[chartType] || chartTypeMinimums.default;
+
+  // For default sizing, ALWAYS use STANDARD_DEFAULT_SIZE for consistent square charts
+  // Content analysis is ignored for defaults - users can resize after adding if needed
+  // For minimum sizing, use the chart-type-specific minimums
+  if (isDefault) {
+    return {
+      w: STANDARD_DEFAULT_SIZE.w,
+      h: STANDARD_DEFAULT_SIZE.h,
+    };
+  }
 
   const finalGridW = Math.max(typeMinimums.minW, Math.min(GRID_CONFIG.cols, rawGridW));
   const finalGridH = Math.max(typeMinimums.minH, rawGridH);

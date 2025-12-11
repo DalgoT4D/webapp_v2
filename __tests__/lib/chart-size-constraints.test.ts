@@ -20,7 +20,7 @@ describe('chart-size-constraints', () => {
     it('should have valid GRID_CONFIG and size constraints for all chart types', () => {
       // Validate GRID_CONFIG
       expect(GRID_CONFIG.cols).toBe(12);
-      expect(GRID_CONFIG.rowHeight).toBe(60);
+      expect(GRID_CONFIG.rowHeight).toBe(20);
       expect(GRID_CONFIG.margin).toEqual([10, 10]);
 
       // Validate all chart type constraints exist and are valid
@@ -34,17 +34,17 @@ describe('chart-size-constraints', () => {
         expect(constraints.defaultHeight).toBeGreaterThanOrEqual(constraints.minHeight);
       });
 
-      // Validate specific chart type sizes
-      expect(CHART_SIZE_CONSTRAINTS.map.minWidth).toBe(500);
-      expect(CHART_SIZE_CONSTRAINTS.map.minHeight).toBe(450);
-      expect(CHART_SIZE_CONSTRAINTS.bar.minWidth).toBe(500);
-      expect(CHART_SIZE_CONSTRAINTS.bar.minHeight).toBe(480);
-      expect(CHART_SIZE_CONSTRAINTS.pie.minWidth).toBe(450);
-      expect(CHART_SIZE_CONSTRAINTS.pie.minHeight).toBe(450);
-      expect(CHART_SIZE_CONSTRAINTS.number.minWidth).toBe(320);
-      expect(CHART_SIZE_CONSTRAINTS.number.minHeight).toBe(320);
-      expect(CHART_SIZE_CONSTRAINTS.table.minWidth).toBe(400);
-      expect(CHART_SIZE_CONSTRAINTS.table.minHeight).toBe(420);
+      // Validate specific chart type sizes - reduced for responsive dashboard behavior
+      expect(CHART_SIZE_CONSTRAINTS.map.minWidth).toBe(250);
+      expect(CHART_SIZE_CONSTRAINTS.map.minHeight).toBe(200);
+      expect(CHART_SIZE_CONSTRAINTS.bar.minWidth).toBe(200);
+      expect(CHART_SIZE_CONSTRAINTS.bar.minHeight).toBe(200);
+      expect(CHART_SIZE_CONSTRAINTS.pie.minWidth).toBe(180);
+      expect(CHART_SIZE_CONSTRAINTS.pie.minHeight).toBe(180);
+      expect(CHART_SIZE_CONSTRAINTS.number.minWidth).toBe(120);
+      expect(CHART_SIZE_CONSTRAINTS.number.minHeight).toBe(100);
+      expect(CHART_SIZE_CONSTRAINTS.table.minWidth).toBe(200);
+      expect(CHART_SIZE_CONSTRAINTS.table.minHeight).toBe(150);
     });
   });
 
@@ -330,7 +330,7 @@ describe('chart-size-constraints', () => {
       const resultFew = analyzeChartContent(fewColumns, 'table');
       expect(resultFew.minWidth).toBeGreaterThanOrEqual(CHART_SIZE_CONSTRAINTS.table.minWidth);
 
-      // Many columns
+      // Many columns - should inflate DEFAULT width (not minimum) for Superset-like flexibility
       const manyColumns = {
         columns: Array.from({ length: 10 }, (_, i) => ({
           name: `Column ${i + 1}`,
@@ -339,12 +339,14 @@ describe('chart-size-constraints', () => {
         rows: Array(10).fill({}),
       };
       const resultMany = analyzeChartContent(manyColumns, 'table');
-      expect(resultMany.minWidth).toBeGreaterThan(CHART_SIZE_CONSTRAINTS.table.minWidth);
+      // Minimum stays flexible, default increases for many columns
+      expect(resultMany.minWidth).toBeGreaterThanOrEqual(CHART_SIZE_CONSTRAINTS.table.minWidth);
+      expect(resultMany.defaultWidth).toBeGreaterThan(CHART_SIZE_CONSTRAINTS.table.defaultWidth);
 
-      // Many rows
+      // Many rows - should inflate DEFAULT height (not minimum)
       const manyRows = {
         columns: [{ name: 'Data', width: 100 }],
-        rows: Array(50).fill({}),
+        data: Array(50).fill({}), // Use 'data' not 'rows' to match actual API
       };
       const resultRows = analyzeChartContent(manyRows, 'table');
       expect(resultRows.minHeight).toBeGreaterThanOrEqual(CHART_SIZE_CONSTRAINTS.table.minHeight);
