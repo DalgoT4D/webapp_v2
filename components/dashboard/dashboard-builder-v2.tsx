@@ -694,24 +694,31 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setActualContainerWidth(newWidth);
     }, [targetScreenSize]);
 
+    // Sync dashboardActualHeight when screen config changes (ResizeObserver may not fire on config change)
+    useEffect(() => {
+      setDashboardActualHeight((prevHeight) =>
+        Math.max(prevHeight, currentScreenConfig.height, 400)
+      );
+    }, [currentScreenConfig.height, targetScreenSize]);
+
     // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
       if (!dashboardContainerRef.current) return;
 
-      const resizeObserver = new ResizeObserver((entries) => {
+      const handleResize = (entries: ResizeObserverEntry[]): void => {
         for (const entry of entries) {
           const { width } = entry.contentRect;
           // Use full available WHITE container width - let charts fill all available space
-          const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
-          setActualContainerWidth(responsiveWidth);
+          setActualContainerWidth(width);
 
           // Track actual container height for snap indicators
           // Use scrollHeight to get the full content height including overflow
-          const actualHeight = entry.target.scrollHeight;
+          const actualHeight = (entry.target as HTMLElement).scrollHeight;
           setDashboardActualHeight(Math.max(actualHeight, currentScreenConfig.height, 400));
         }
-      });
+      };
 
+      const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(dashboardContainerRef.current);
 
       return () => {
