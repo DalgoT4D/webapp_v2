@@ -27,8 +27,6 @@ import {
   getDefaultGridDimensions,
   getMinGridDimensions,
   getChartTypeFromConfig,
-  getContentAwareGridDimensions,
-  analyzeChartContent,
   pixelsToGridUnits,
   calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
@@ -1197,110 +1195,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       });
     };
 
-    // Add chart component
+    // Add chart component - optimized for speed
     const handleChartSelected = async (chartId: number) => {
-      console.log(`🔄 Starting chart addition process for chartId: ${chartId}`);
-
       try {
-        // Fetch chart details and data for content-aware sizing
+        // Only fetch chart metadata (fast ~50ms) - skip data fetch (slow ~2.5s)
+        // The chart component will fetch its own data when it renders
         let chartDetails;
-        let chartData = null;
-
-        console.log(`📡 Fetching chart details for ${chartId}...`);
         try {
-          // Fetch both chart metadata and data
           chartDetails = await apiGet(`/api/charts/${chartId}/`);
-          console.log(`✅ Chart details fetched:`, {
-            chartId,
-            title: chartDetails.title,
-            chart_type: chartDetails.chart_type,
-            computation_type: chartDetails.computation_type,
-          });
-
-          // Fetch chart data for content analysis
-          console.log(`📊 Fetching chart data for ${chartId}...`);
-          try {
-            chartData = await apiGet(`/api/charts/${chartId}/data/`);
-            console.log(`✅ Chart data fetched successfully:`, {
-              chartId,
-              chartType: chartDetails.chart_type,
-              hasData: !!chartData,
-              dataKeys: chartData ? Object.keys(chartData) : [],
-              dataStructure: chartData
-                ? {
-                    hasEchartsConfig: !!chartData.echarts_config,
-                    hasXAxisData: !!chartData.echarts_config?.xAxis?.data,
-                    hasSeriesData: !!chartData.echarts_config?.series,
-                    seriesCount: chartData.echarts_config?.series?.length || 0,
-                    hasColumns: !!chartData.columns,
-                    columnCount: chartData.columns?.length || 0,
-                    hasTableData: !!chartData.data,
-                    rowCount: chartData.data?.length || 0,
-                  }
-                : null,
-            });
-          } catch (dataError) {
-            console.error(`❌ Failed to fetch chart data for ${chartId}:`, dataError);
-            console.warn(`Using default sizing for chart ${chartId}`);
-          }
         } catch (error) {
-          // Use mock data if API fails
           chartDetails = {
             id: chartId,
             title: `Chart #${chartId}`,
             chart_type: 'bar',
             computation_type: 'aggregated',
           };
-          console.error(`❌ Failed to fetch chart details for ${chartId}:`, error);
-          console.warn(`Using mock data for chart ${chartId}`);
         }
 
-        // Get content-aware dimensions based on actual chart data
+        // Use default sizing based on chart type (no slow data fetch needed)
         const chartType = chartDetails.chart_type || 'default';
-        let defaultDimensions, minDimensions;
-        let contentConstraints = null;
+        const defaultDimensions = getDefaultGridDimensions(chartType);
+        const minDimensions = getMinGridDimensions(chartType);
 
-        console.log(`🔍 Analyzing chart content for ${chartType} chart (ID: ${chartId})...`);
-
-        if (chartData) {
-          // Analyze chart content first
-          contentConstraints = analyzeChartContent(chartData, chartType);
-          console.log(`🧠 Content analysis results:`, {
-            chartType,
-            contentConstraints,
-            originalData: {
-              hasEchartsConfig: !!chartData.echarts_config,
-              hasColumns: !!chartData.columns,
-              hasData: !!chartData.data,
-            },
-          });
-
-          // Use content-aware sizing based on actual chart data
-          defaultDimensions = getContentAwareGridDimensions(chartData, chartType, true);
-          minDimensions = getContentAwareGridDimensions(chartData, chartType, false);
-
-          console.log(`📐 Content-aware sizing calculated:`, {
-            chartType,
-            defaultDimensions,
-            minDimensions,
-            hasAnalysis: true,
-            sizingSource: 'content-analysis',
-          });
-        } else {
-          // Fallback to generic sizing
-          defaultDimensions = getDefaultGridDimensions(chartType);
-          minDimensions = getMinGridDimensions(chartType);
-
-          console.log(`📐 Generic sizing fallback:`, {
-            chartType,
-            defaultDimensions,
-            minDimensions,
-            hasAnalysis: false,
-            sizingSource: 'generic-fallback',
-          });
-        }
-
-        // Create the component after contentConstraints is properly set
         const newComponent: DashboardComponent = {
           id: `chart-${Date.now()}`,
           type: DashboardComponentType.CHART,
@@ -1310,13 +1226,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             chartType: chartDetails.chart_type,
             computation_type: chartDetails.computation_type,
             description: chartDetails.description,
-            // Store content constraints for resize validation
-            contentConstraints: contentConstraints,
-            // Note: render_config not stored - charts fetch fresh config via /data endpoint
+            contentConstraints: null,
           },
         };
 
-        // Find the best available position for the new chart using smart positioning
         const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
 
         const newLayoutItem: DashboardLayout = {
@@ -1330,15 +1243,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minH: minDimensions.h,
         };
 
-        console.log(`📍 Final layout item created:`, {
-          componentId: newComponent.id,
-          layoutItem: newLayoutItem,
-          pixelEstimate: {
-            width: `~${defaultDimensions.w * 100}px`,
-            height: `~${defaultDimensions.h * 60}px`,
-          },
-        });
-
         const newLayout = [...state.layout, newLayoutItem];
         const newLayouts = generateResponsiveLayouts(newLayout);
 
@@ -1351,17 +1255,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         });
 
-        console.log(
-          `✅ Chart ${chartId} (${chartType}) successfully added to dashboard with content-aware sizing!`
-        );
-
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
 
         // Smart scroll to show the newly added component if needed
         scrollToComponentIfNeeded(newComponent.id);
-      } catch (error: any) {
-        console.error('Failed to add chart:', error.message || 'Please try again');
+      } catch (error) {
+        console.error('Failed to add chart');
       }
     };
 
