@@ -108,44 +108,65 @@
   }
 }
 
-/* Snap indicators - blue with blur effect */
+/* Snap indicators - full opacity center, fade to both ends */
 .snap-indicator {
   position: absolute;
   pointer-events: none;
   z-index: 1000;
-  filter: blur(0.5px);
 }
 
 .snap-indicator.vertical {
   width: 2px;
-  background: repeating-linear-gradient(
+  background: linear-gradient(
     to bottom,
-    transparent,
-    transparent 4px,
-    rgba(59, 130, 246, 0.7) 4px,
-    rgba(59, 130, 246, 0.7) 8px
+    transparent 0%,
+    rgba(96, 165, 250, 0.2) 8%,
+    rgba(96, 165, 250, 0.5) 20%,
+    rgba(96, 165, 250, 0.8) 40%,
+    rgba(96, 165, 250, 1) 50%,
+    rgba(96, 165, 250, 0.8) 60%,
+    rgba(96, 165, 250, 0.5) 80%,
+    rgba(96, 165, 250, 0.2) 92%,
+    transparent 100%
   );
+  filter: blur(0.5px);
+  box-shadow:
+    0 0 6px rgba(96, 165, 250, 0.4),
+    0 0 12px rgba(96, 165, 250, 0.2);
 }
 
 .snap-indicator.horizontal {
   height: 2px;
-  background: repeating-linear-gradient(
+  background: linear-gradient(
     to right,
-    transparent,
-    transparent 4px,
-    rgba(59, 130, 246, 0.7) 4px,
-    rgba(59, 130, 246, 0.7) 8px
+    transparent 0%,
+    rgba(96, 165, 250, 0.2) 8%,
+    rgba(96, 165, 250, 0.5) 20%,
+    rgba(96, 165, 250, 0.8) 40%,
+    rgba(96, 165, 250, 1) 50%,
+    rgba(96, 165, 250, 0.8) 60%,
+    rgba(96, 165, 250, 0.5) 80%,
+    rgba(96, 165, 250, 0.2) 92%,
+    transparent 100%
   );
+  filter: blur(0.5px);
+  box-shadow:
+    0 0 6px rgba(96, 165, 250, 0.4),
+    0 0 12px rgba(96, 165, 250, 0.2);
 }
 
-/* Dashboard grid border */
+/* Dashboard grid border - soft glow */
 .dashboard-grid-border {
   position: absolute;
   inset: 0;
-  border: 2px dashed rgba(59, 130, 246, 0.5);
-  border-radius: 4px;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 6px;
   pointer-events: none;
-  filter: blur(0.5px);
+  filter: blur(0.4px);
+  box-shadow:
+    inset 0 0 10px rgba(96, 165, 250, 0.1),
+    0 0 8px rgba(96, 165, 250, 0.3),
+    0 0 16px rgba(96, 165, 250, 0.15);
 }
 
 @keyframes snapIndicatorFade {

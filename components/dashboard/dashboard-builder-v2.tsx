@@ -2227,12 +2227,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 position: 'relative',
               }}
             >
-              {/* Visual grid guides - always shows 12 columns (Superset-style) */}
+              {/* Visual grid guides - disabled, using SnapIndicators with neon effect instead */}
               <GridGuides
                 containerWidth={actualContainerWidth}
                 containerHeight={dashboardActualHeight}
                 cols={12}
-                visible={true}
+                visible={false}
               />
 
               <GridLayout
