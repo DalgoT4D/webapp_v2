@@ -36,12 +36,13 @@ export const GridGuides: React.FC<GridGuidesProps> = ({
       {guides.map((x, index) => (
         <div
           key={`grid-guide-${index}`}
-          className="absolute top-0 bottom-0 w-px"
+          className="absolute top-0 bottom-0"
           style={{
             left: x,
+            width: 2,
             height: containerHeight,
             background:
-              'repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(209, 213, 219, 0.5) 4px, rgba(209, 213, 219, 0.5) 8px)',
+              'repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(209, 213, 219, 0.6) 3px, rgba(209, 213, 219, 0.6) 6px)',
           }}
         />
       ))}
