@@ -109,6 +109,7 @@ export function ChartElementV2({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isResizingRef = useRef(isResizing); // Track isResizing for ResizeObserver
   // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
@@ -119,6 +120,11 @@ export function ChartElementV2({
   // Container size for responsive legend
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
+  // Keep isResizingRef in sync for ResizeObserver
+  useEffect(() => {
+    isResizingRef.current = isResizing;
+  }, [isResizing]);
+
   // Handle table pagination page size change
   const handleTablePageSizeChange = (newPageSize: number) => {
     setTablePageSize(newPageSize);
@@ -127,19 +133,11 @@ export function ChartElementV2({
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
-    console.log('🔍 [Chart ' + chartId + '] Resolving dashboard filters:', {
-      appliedFilters,
-      dashboardFilterConfigs,
-    });
-
     if (Object.keys(appliedFilters).length === 0 || dashboardFilterConfigs.length === 0) {
-      console.log(`❌ [Chart ${chartId}] Skipping filter resolution - no filters or configs`);
       return [];
     }
-
-    const resolved = resolveDashboardFilters(appliedFilters, dashboardFilterConfigs);
-    return resolved;
-  }, [appliedFilters, dashboardFilterConfigs, chartId]);
+    return resolveDashboardFilters(appliedFilters, dashboardFilterConfigs);
+  }, [appliedFilters, dashboardFilterConfigs]);
 
   const {
     data: chart,
@@ -366,11 +364,6 @@ export function ChartElementV2({
             filter.schema_name === chart.schema_name && filter.table_name === chart.table_name
         )
       );
-      console.log(`📊 [Table ${chartId}] Building payload:`, {
-        resolvedDashboardFilters,
-        formattedFilters,
-        existingFilters: chart.extra_config?.filters || [],
-      });
 
       return {
         chart_type: chart.chart_type,
@@ -922,57 +915,51 @@ export function ChartElementV2({
   }, []); // No dependencies to avoid infinite loops
 
   // Handle container resize using ResizeObserver - separate effect
-  // Also tracks container size for responsive legend calculations
+  // OPTIMIZED: Debounce containerSize state updates to prevent re-renders during resize
+  // The chart data effect depends on containerSize, so updating it on every frame causes
+  // massive lag (entire chart config recalculates). Only update state when resize settles.
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null;
-    let resizeTimeoutId: NodeJS.Timeout | null = null;
+    let rafId: number | null = null;
+    let containerSizeTimeoutId: NodeJS.Timeout | null = null;
 
     if (chartRef.current && window.ResizeObserver) {
       resizeObserver = new ResizeObserver((entries) => {
-        // Clear any pending resize
-        if (resizeTimeoutId) {
-          clearTimeout(resizeTimeoutId);
+        // Cancel any pending animation frame
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        // Cancel any pending containerSize state update
+        if (containerSizeTimeoutId) {
+          clearTimeout(containerSizeTimeoutId);
         }
 
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0) {
-            // Update container size state for responsive legends
-            setContainerSize((prev) => {
-              if (prev.width !== width || prev.height !== height) {
-                return { width, height };
+            // IMMEDIATE: Visual resize via RAF - no React state, no re-renders
+            // This makes the chart boundaries move in real-time (snappy)
+            rafId = requestAnimationFrame(() => {
+              if (chartInstance.current) {
+                chartInstance.current.resize({
+                  width: Math.floor(width),
+                  height: Math.floor(height),
+                });
               }
-              return prev;
             });
 
-            // Debounce rapid resize events
-            resizeTimeoutId = setTimeout(() => {
-              if (chartInstance.current) {
-                // Constrain dimensions to ensure chart fits within bounds
-                const maxWidth = Math.floor(width);
-                const maxHeight = Math.floor(height);
-
-                // Force explicit resize with constrained dimensions
-                chartInstance.current.resize({
-                  width: maxWidth,
-                  height: maxHeight,
-                });
-
-                // Force chart to redraw and refit content
-                const currentOption = chartInstance.current.getOption();
-                chartInstance.current.setOption(currentOption, {
-                  notMerge: false,
-                  lazyUpdate: false,
-                });
-
-                // Additional resize call to ensure proper fitting
-                setTimeout(() => {
-                  if (chartInstance.current) {
-                    chartInstance.current.resize();
+            // DEBOUNCED: Update containerSize state only when NOT actively resizing
+            // Skip state updates during resize to prevent re-renders
+            if (!isResizingRef.current) {
+              containerSizeTimeoutId = setTimeout(() => {
+                setContainerSize((prev) => {
+                  if (prev.width !== width || prev.height !== height) {
+                    return { width, height };
                   }
-                }, 50);
-              }
-            }, 50); // Even faster response for browser zoom
+                  return prev;
+                });
+              }, 150); // Wait for resize to settle before updating state
+            }
           }
         }
       });
@@ -984,13 +971,16 @@ export function ChartElementV2({
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-      if (resizeTimeoutId) {
-        clearTimeout(resizeTimeoutId);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      if (containerSizeTimeoutId) {
+        clearTimeout(containerSizeTimeoutId);
       }
     };
   }, []); // No dependencies to avoid re-creating observer
 
-  // Handle resize when isResizing prop changes
+  // Handle resize when isResizing prop changes - final cleanup after drag stops
   useEffect(() => {
     if (!isResizing && chartInstance.current && chartRef.current) {
       // Clear any pending resize
@@ -998,7 +988,7 @@ export function ChartElementV2({
         clearTimeout(resizeTimeoutRef.current);
       }
 
-      // Perform final resize after drag/resize stops
+      // Quick final resize after drag stops
       resizeTimeoutRef.current = setTimeout(() => {
         if (chartInstance.current && chartRef.current) {
           const { width, height } = chartRef.current.getBoundingClientRect();
@@ -1006,8 +996,15 @@ export function ChartElementV2({
             width: Math.floor(width),
             height: Math.floor(height),
           });
+          // Also update containerSize state for responsive legend recalculation
+          setContainerSize((prev) => {
+            if (prev.width !== width || prev.height !== height) {
+              return { width, height };
+            }
+            return prev;
+          });
         }
-      }, 300); // Slightly longer delay for final resize
+      }, 50); // Fast response
     }
 
     return () => {
@@ -1135,7 +1132,7 @@ export function ChartElementV2({
                 isResizing={isResizing}
               />
             ) : (
-              <div ref={chartRef} className="w-full h-full chart-container" />
+              <div ref={chartRef} className="chart-container w-full h-full" />
             )}
           </div>
         </CardContent>

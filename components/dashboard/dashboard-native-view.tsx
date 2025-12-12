@@ -84,6 +84,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 // Define responsive breakpoints and column configurations (same as builder)
+// Superset-style: Always 12 columns, they just scale with container width
 const BREAKPOINTS = {
   lg: 1200,
   md: 996,
@@ -93,6 +94,7 @@ const BREAKPOINTS = {
 };
 
 // Screen size configurations (same as builder)
+// All use 12 columns - the column width scales based on container size
 const SCREEN_SIZES = {
   desktop: {
     name: 'Desktop',
@@ -105,24 +107,25 @@ const SCREEN_SIZES = {
     name: 'Tablet',
     width: 768,
     height: 1024,
-    cols: 6,
+    cols: 12,
     breakpoint: 'sm',
   },
   mobile: {
     name: 'Mobile',
     width: 375,
     height: 667,
-    cols: 2,
+    cols: 12,
     breakpoint: 'xxs',
   },
 };
 
+// Fixed 12 columns at all breakpoints - columns scale with container width
 const COLS = {
   lg: 12,
-  md: 10,
-  sm: 6,
-  xs: 4,
-  xxs: 2,
+  md: 12,
+  sm: 12,
+  xs: 12,
+  xxs: 12,
 };
 
 type ScreenSizeKey = keyof typeof SCREEN_SIZES;
@@ -139,66 +142,27 @@ function getCurrentScreenSize(): ScreenSizeKey {
 }
 
 // Helper function to generate responsive layouts with preview screen size focus
-function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: ScreenSizeKey): any {
+// With fixed 12 columns (Superset-style), all breakpoints use the same layout
+function generateResponsiveLayoutsForPreview(
+  layout: any[],
+  _previewScreenSize: ScreenSizeKey
+): any {
   const layouts: any = {};
 
-  // For each breakpoint, adjust the layout
+  // Since all breakpoints use 12 columns (Superset-style),
+  // the same layout works for all screen sizes - columns just scale in width
   Object.keys(COLS).forEach((breakpoint) => {
-    const cols = COLS[breakpoint as keyof typeof COLS];
-
-    // Sort items by their original position (top to bottom, left to right)
-    const sortedItems = [...layout].sort((a, b) => {
-      if (a.y === b.y) return a.x - b.x;
-      return a.y - b.y;
-    });
-
-    let currentY = 0;
-
-    layouts[breakpoint] = sortedItems.map((item, index) => {
-      let newW, newX, newY;
-
-      // For very small screens (mobile), stack everything vertically
-      if (breakpoint === 'xxs' || breakpoint === 'xs') {
-        newW = cols; // Use all available columns (full width)
-        newX = 0; // Always start at left edge
-        newY = currentY; // Stack vertically
-        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-      } else if (breakpoint === 'sm') {
-        // For tablets, try 2 columns or stack
-        const canFitTwo = cols >= 6;
-        if (canFitTwo && item.w <= cols / 2) {
-          newW = Math.floor(cols / 2); // Half width
-          newX = (index % 2) * newW; // Alternate left/right
-          newY = Math.floor(index / 2) * Math.max(item.h, 4); // Row positioning
-        } else {
-          newW = cols; // Full width
-          newX = 0;
-          newY = index * Math.max(item.h, 4); // Stack vertically
-        }
-      } else if (breakpoint === 'md') {
-        // Scale proportionally for medium screens
-        const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
-        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
-        newY = Math.max(0, Math.floor(item.y * scaleFactor));
-      } else {
-        // Large screens - keep original layout but ensure bounds
-        newW = Math.min(item.w, cols);
-        newX = Math.max(0, Math.min(item.x, cols - newW));
-        newY = Math.max(0, item.y);
-      }
-
-      const result = {
-        ...item,
-        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
-        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
-        y: Math.max(0, newY), // Ensure non-negative Y
-        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
-        maxW: cols, // Max width is all columns
-      };
-
-      return result;
-    });
+    // Use the same layout for all breakpoints - the grid columns scale with container width
+    layouts[breakpoint] = layout.map((item) => ({
+      ...item,
+      // Ensure valid constraints
+      w: Math.max(1, Math.min(item.w, 12)),
+      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
+      y: Math.max(0, item.y),
+      minW: Math.max(1, Math.min(item.minW || 1, 12)),
+      minH: item.minH || 1,
+      maxW: 12,
+    }));
   });
 
   return layouts;

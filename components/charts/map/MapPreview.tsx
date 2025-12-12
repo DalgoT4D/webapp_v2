@@ -140,40 +140,19 @@ export function MapPreview({
       let chartConfig;
       let mapName = uniqueMapName; // Use stable unique map name
 
-      console.log('📊 [MAP-PREVIEW] Starting chart configuration with mapName:', mapName);
-
       // Check if we have GeoJSON data to render
       if (geojsonData) {
-        console.log('🗺️ [MAP-PREVIEW] GeoJSON data found, registering map:', {
-          mapName,
-          geojsonFeatures: geojsonData.features?.length || 0,
-          geojsonType: geojsonData.type,
-        });
-
         // Register the GeoJSON data
         echarts.registerMap(mapName, geojsonData);
-        console.log('✅ [MAP-PREVIEW] Map registered successfully with ECharts');
 
         // Create map series data
         let seriesData: any[] = [];
         if (mapData && mapData.length > 0) {
-          console.log('📊 [MAP-PREVIEW] Creating series data from mapData:', {
-            mapDataLength: mapData.length,
-            sampleData: mapData.slice(0, 3),
-          });
-
           // We have data to overlay on the map
           seriesData = mapData.map((item) => ({
             name: item.name,
             value: item.value,
           }));
-
-          console.log('📈 [MAP-PREVIEW] Series data created:', {
-            seriesLength: seriesData.length,
-            sampleSeries: seriesData.slice(0, 3),
-          });
-        } else {
-          console.log('⚠️ [MAP-PREVIEW] No mapData available for series creation');
         }
 
         // Calculate min/max values for color scaling
@@ -202,13 +181,6 @@ export function MapPreview({
             minValue = -1;
             maxValue = 1;
           }
-
-          console.log('🎨 [MAP-PREVIEW] Single value detected - creating meaningful range:', {
-            actualValue,
-            rangeMin: minValue,
-            rangeMax: maxValue,
-            dataPoints: seriesData.length,
-          });
         }
 
         // Get color scheme from customizations

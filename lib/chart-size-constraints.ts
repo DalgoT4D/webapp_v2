@@ -32,71 +32,74 @@ export const STANDARD_DEFAULT_SIZE = {
 
 /**
  * Minimum chart size constraints by chart type
- * These are flexible minimums that allow charts to be small while remaining functional.
+ * These are flexible minimums that allow charts to be very small while remaining functional.
  * Charts adapt their content (legends, labels) responsively based on available space.
- * Superset-like approach: allow small sizes, let charts be responsive.
+ * Superset-like approach: allow very small sizes, let charts be fully responsive.
+ *
+ * NOTE: minWidth/minHeight are set to ~80px to allow 1 grid column minimum
+ * (1 column ≈ 89px at 1200px container width with 12 columns)
  */
 export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
-  // Map charts - can be compact, legend hides at small sizes
+  // Map charts - can be compact, content scales
   map: {
-    minWidth: 250,
-    minHeight: 200,
+    minWidth: 80,
+    minHeight: 40,
     defaultWidth: 500,
     defaultHeight: 400,
   },
 
   // Bar charts - responsive axes and legends
   bar: {
-    minWidth: 200,
-    minHeight: 200,
+    minWidth: 80,
+    minHeight: 40,
     defaultWidth: 500,
     defaultHeight: 400,
   },
 
   // Line charts - responsive axes and legends
   line: {
-    minWidth: 200,
-    minHeight: 200,
+    minWidth: 80,
+    minHeight: 40,
     defaultWidth: 500,
     defaultHeight: 400,
   },
 
-  // Pie charts - legend adapts or hides at small sizes
+  // Pie charts - legend adapts, chart scales
   pie: {
-    minWidth: 180,
-    minHeight: 180,
+    minWidth: 80,
+    minHeight: 40,
     defaultWidth: 400,
     defaultHeight: 400,
   },
 
   // Tables - scrollable content, responsive columns
   table: {
-    minWidth: 200,
-    minHeight: 150,
+    minWidth: 80,
+    minHeight: 40,
     defaultWidth: 500,
     defaultHeight: 350,
   },
 
   // Number cards - very compact, just show the number
   number: {
-    minWidth: 120,
-    minHeight: 100,
+    minWidth: 80,
+    minHeight: 20,
     defaultWidth: 250,
     defaultHeight: 180,
   },
 
   // Text components - flexible
   text: {
-    minWidth: 100,
-    minHeight: 80,
+    minWidth: 80,
+    minHeight: 20,
     defaultWidth: 300,
     defaultHeight: 150,
   },
 
   // Default fallback for unknown chart types
   default: {
-    minWidth: 180,
-    minHeight: 150,
+    minWidth: 80,
+    minHeight: 20,
     defaultWidth: 400,
     defaultHeight: 300,
   },
@@ -126,8 +129,8 @@ export function getMinGridDimensions(chartType: string): GridDimensions {
   const constraints = CHART_SIZE_CONSTRAINTS[chartType] || CHART_SIZE_CONSTRAINTS.default;
 
   return {
-    w: Math.max(2, pixelsToGridUnits(constraints.minWidth, true)), // Minimum 2 grid units width
-    h: Math.max(2, pixelsToGridUnits(constraints.minHeight, false)), // Minimum 2 grid units height
+    w: Math.max(1, pixelsToGridUnits(constraints.minWidth, true)), // Minimum 1 grid unit width
+    h: Math.max(1, pixelsToGridUnits(constraints.minHeight, false)), // Minimum 1 grid unit height
   };
 }
 
@@ -477,17 +480,16 @@ export function getContentAwareGridDimensions(
   const rawGridW = pixelsToGridUnits(targetWidth, true);
   const rawGridH = pixelsToGridUnits(targetHeight, false);
 
-  // Chart-type-specific minimum grid dimensions - flexible for Superset-like behavior
-  // These allow charts to be quite small while remaining functional
-  // Content (legends, labels) will adapt responsively
+  // Chart-type-specific minimum grid dimensions - very flexible for user control
+  // Charts can be made very small - content (legends, labels) will scale responsively
   const chartTypeMinimums = {
-    number: { minW: 2, minH: 2 }, // Number cards can be very compact
-    pie: { minW: 2, minH: 3 }, // Pie charts - legend hides at small sizes
-    bar: { minW: 3, minH: 4 }, // Bar charts - axes adapt
-    line: { minW: 3, minH: 4 }, // Line charts - axes adapt
-    table: { minW: 3, minH: 3 }, // Tables - scrollable
-    map: { minW: 3, minH: 4 }, // Maps - legend hides at small sizes
-    default: { minW: 2, minH: 3 }, // Flexible default
+    number: { minW: 1, minH: 1 }, // Number cards can be very compact
+    pie: { minW: 1, minH: 1 }, // Pie charts - legend scales with size
+    bar: { minW: 1, minH: 2 }, // Bar charts - axes adapt
+    line: { minW: 1, minH: 2 }, // Line charts - axes adapt
+    table: { minW: 1, minH: 2 }, // Tables - scrollable
+    map: { minW: 1, minH: 2 }, // Maps - legend scales with size
+    default: { minW: 1, minH: 1 }, // Flexible default
   };
 
   const typeMinimums = chartTypeMinimums[chartType] || chartTypeMinimums.default;
@@ -618,8 +620,8 @@ export function getTextGridDimensions(textConfig: {
   const textDimensions = calculateTextDimensions(textConfig);
 
   // Convert to grid units
-  const minGridW = Math.max(2, pixelsToGridUnits(textDimensions.width, true));
-  const minGridH = Math.max(2, pixelsToGridUnits(textDimensions.height, false));
+  const minGridW = Math.max(1, pixelsToGridUnits(textDimensions.width, true));
+  const minGridH = Math.max(1, pixelsToGridUnits(textDimensions.height, false));
 
   // Default size is 25% larger than minimum for better editing experience
   const defaultGridW = Math.max(minGridW, Math.ceil(minGridW * 1.25));

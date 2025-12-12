@@ -62,6 +62,22 @@
   box-shadow: 0 8px 32px rgba(15, 148, 124, 0.15);
 }
 
+/* Superset-style: Subtle blur on other charts when dragging/resizing */
+.react-grid-layout:has(.react-draggable-dragging) .react-grid-item:not(.react-draggable-dragging),
+.react-grid-layout:has(.resizing) .react-grid-item:not(.resizing) {
+  filter: blur(1px);
+  opacity: 0.8;
+  transition: filter 200ms ease, opacity 200ms ease;
+}
+
+/* Keep the active item sharp and elevated */
+.react-grid-layout:has(.react-draggable-dragging) .react-grid-item.react-draggable-dragging,
+.react-grid-layout:has(.resizing) .react-grid-item.resizing {
+  filter: none;
+  opacity: 1;
+  z-index: 100;
+}
+
 .react-grid-item.dropping {
   visibility: hidden;
 }
@@ -92,24 +108,65 @@
   }
 }
 
-/* Snap indicators */
+/* Snap indicators - full opacity center, fade to both ends */
 .snap-indicator {
   position: absolute;
   pointer-events: none;
   z-index: 1000;
-  animation: snapIndicatorFade 300ms ease-out;
 }
 
 .snap-indicator.vertical {
   width: 2px;
-  background: linear-gradient(to bottom, transparent, rgb(96, 165, 250), transparent);
-  box-shadow: 0 0 4px rgba(96, 165, 250, 0.4);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(96, 165, 250, 0.2) 8%,
+    rgba(96, 165, 250, 0.5) 20%,
+    rgba(96, 165, 250, 0.8) 40%,
+    rgba(96, 165, 250, 1) 50%,
+    rgba(96, 165, 250, 0.8) 60%,
+    rgba(96, 165, 250, 0.5) 80%,
+    rgba(96, 165, 250, 0.2) 92%,
+    transparent 100%
+  );
+  filter: blur(0.5px);
+  box-shadow:
+    0 0 6px rgba(96, 165, 250, 0.4),
+    0 0 12px rgba(96, 165, 250, 0.2);
 }
 
 .snap-indicator.horizontal {
   height: 2px;
-  background: linear-gradient(to right, transparent, rgb(96, 165, 250), transparent);
-  box-shadow: 0 0 4px rgba(96, 165, 250, 0.4);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(96, 165, 250, 0.2) 8%,
+    rgba(96, 165, 250, 0.5) 20%,
+    rgba(96, 165, 250, 0.8) 40%,
+    rgba(96, 165, 250, 1) 50%,
+    rgba(96, 165, 250, 0.8) 60%,
+    rgba(96, 165, 250, 0.5) 80%,
+    rgba(96, 165, 250, 0.2) 92%,
+    transparent 100%
+  );
+  filter: blur(0.5px);
+  box-shadow:
+    0 0 6px rgba(96, 165, 250, 0.4),
+    0 0 12px rgba(96, 165, 250, 0.2);
+}
+
+/* Dashboard grid border - soft glow */
+.dashboard-grid-border {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 6px;
+  pointer-events: none;
+  filter: blur(0.4px);
+  box-shadow:
+    inset 0 0 10px rgba(96, 165, 250, 0.1),
+    0 0 8px rgba(96, 165, 250, 0.3),
+    0 0 16px rgba(96, 165, 250, 0.15);
 }
 
 @keyframes snapIndicatorFade {
