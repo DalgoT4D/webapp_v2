@@ -411,8 +411,8 @@ export default function OrganizationSettings() {
                     <Info className="h-4 w-4" />
                     <AlertDescription className="flex items-center justify-between">
                       <span>
-                        Dalgo uses external AI models and logs all AI questions and answers for at
-                        least 3 months.
+                        Dalgo uses external AI models and logs all AI prompts and answers for at
+                        least 3 months if enabled
                       </span>
                       <TooltipProvider>
                         <Tooltip>
@@ -467,7 +467,8 @@ export default function OrganizationSettings() {
                         </TooltipProvider>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Enable data sharing for better contextual AI responses
+                        Enable AI Chat for your org and enable data sharing for better contextual AI
+                        responses
                       </p>
                     </div>
                     <Switch
@@ -489,7 +490,7 @@ export default function OrganizationSettings() {
                       <p className="text-sm text-muted-foreground">
                         {!settings.ai_data_sharing_enabled
                           ? 'Enable data sharing first to acknowledge AI logging'
-                          : 'Confirm understanding of AI data logging practices'}
+                          : 'Dalgo will log the prompts and the responses received which will help the platform learn and get better'}
                       </p>
                     </div>
                     <Switch
