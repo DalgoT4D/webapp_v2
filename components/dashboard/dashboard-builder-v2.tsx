@@ -2305,7 +2305,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               className="bg-white dashboard-canvas-responsive"
               style={{
                 width: '100%',
-                minHeight: Math.max(currentScreenConfig.height, 400),
+                // Calculate minimum height based on actual content:
+                // Find the lowest item (y + h) and multiply by rowHeight (20px) + padding
+                minHeight: Math.max(
+                  currentScreenConfig.height,
+                  400,
+                  // Calculate content height from layout items
+                  Array.isArray(state.layout) && state.layout.length > 0
+                    ? Math.max(...state.layout.map((item) => (item.y + item.h) * 20)) + 100
+                    : 0
+                ),
                 position: 'relative',
               }}
             >
@@ -2326,8 +2335,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
-                margin={[4, 4]} // Small gap between charts for visual separation
-                containerPadding={[4, 4]} // Small padding around container
+                margin={[8, 8]} // Match preview mode spacing
+                containerPadding={[8, 8]} // Match preview mode padding
                 autoSize={true}
                 verticalCompact={false}
                 useCSSTransforms={true}
