@@ -62,11 +62,11 @@
   box-shadow: 0 8px 32px rgba(15, 148, 124, 0.15);
 }
 
-/* Superset-style: Blur other charts when dragging/resizing */
+/* Superset-style: Subtle blur on other charts when dragging/resizing */
 .react-grid-layout:has(.react-draggable-dragging) .react-grid-item:not(.react-draggable-dragging),
 .react-grid-layout:has(.resizing) .react-grid-item:not(.resizing) {
-  filter: blur(2px);
-  opacity: 0.6;
+  filter: blur(1px);
+  opacity: 0.8;
   transition: filter 200ms ease, opacity 200ms ease;
 }
 
@@ -121,8 +121,8 @@
     to bottom,
     transparent,
     transparent 3px,
-    rgba(96, 165, 250, 0.7) 3px,
-    rgba(96, 165, 250, 0.7) 6px
+    rgba(59, 130, 246, 0.9) 3px,
+    rgba(59, 130, 246, 0.9) 6px
   );
 }
 
@@ -132,8 +132,8 @@
     to right,
     transparent,
     transparent 3px,
-    rgba(96, 165, 250, 0.7) 3px,
-    rgba(96, 165, 250, 0.7) 6px
+    rgba(59, 130, 246, 0.9) 3px,
+    rgba(59, 130, 246, 0.9) 6px
   );
 }
 
