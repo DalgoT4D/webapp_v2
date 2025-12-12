@@ -49,15 +49,10 @@ export interface ResponsiveLegendConfig {
 
 /**
  * Determine the legend mode based on container size
+ * Note: We no longer hide legends - they scale down to minimal instead
  */
 export function getLegendMode(containerWidth: number, containerHeight: number): LegendMode {
-  if (
-    containerWidth < LEGEND_THRESHOLDS.HIDE_LEGEND.width ||
-    containerHeight < LEGEND_THRESHOLDS.HIDE_LEGEND.height
-  ) {
-    return 'hidden';
-  }
-
+  // Always show legend - use minimal mode for very small containers
   if (
     containerWidth < LEGEND_THRESHOLDS.MINIMAL_LEGEND.width ||
     containerHeight < LEGEND_THRESHOLDS.MINIMAL_LEGEND.height
@@ -76,24 +71,20 @@ export function getLegendMode(containerWidth: number, containerHeight: number): 
 }
 
 /**
- * Check if legend should be shown based on container size and chart type
+ * Check if legend should be shown based on chart type
+ * Note: We no longer hide legends based on size - they scale instead
  */
 export function shouldShowLegend(
-  containerWidth: number,
-  containerHeight: number,
+  _containerWidth: number,
+  _containerHeight: number,
   chartType?: string
 ): boolean {
-  const mode = getLegendMode(containerWidth, containerHeight);
-
-  if (mode === 'hidden') {
-    return false;
-  }
-
   // Number charts never need legends
   if (chartType === 'number' || chartType === 'gauge') {
     return false;
   }
 
+  // Always show legend for other chart types - it will scale with container
   return true;
 }
 

@@ -178,7 +178,7 @@ function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: S
       } else if (breakpoint === 'md') {
         // Scale proportionally for medium screens
         const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
+        newW = Math.max(1, Math.min(Math.floor(item.w * scaleFactor), cols));
         newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
         newY = Math.max(0, Math.floor(item.y * scaleFactor));
       } else {
@@ -193,7 +193,7 @@ function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: S
         w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
         x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
         y: Math.max(0, newY), // Ensure non-negative Y
-        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
+        minW: Math.max(1, Math.min(item.minW || 1, cols)), // Ensure valid minW
         maxW: cols, // Max width is all columns
       };
 

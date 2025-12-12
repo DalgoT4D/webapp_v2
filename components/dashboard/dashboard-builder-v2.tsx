@@ -273,8 +273,8 @@ function getAdjustedLayout(layout: DashboardLayout[], targetCols: number): Dashb
       w: newW,
       x: newX,
       y: newY,
-      minW: Math.max(1, Math.min(item.minW || 2, targetCols)),
-      minH: item.minH || 2, // Preserve minH constraint
+      minW: Math.max(1, Math.min(item.minW || 1, targetCols)),
+      minH: item.minH || 1, // Preserve minH constraint
       maxW: targetCols,
     };
   });
@@ -323,7 +323,7 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
       } else if (breakpoint === 'md') {
         // Scale proportionally for medium screens
         const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
+        newW = Math.max(1, Math.min(Math.floor(item.w * scaleFactor), cols));
         newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
         newY = Math.max(0, Math.floor(item.y * scaleFactor));
       } else {
@@ -338,8 +338,8 @@ function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts
         w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
         x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
         y: Math.max(0, newY), // Ensure non-negative Y
-        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
-        minH: item.minH || 2, // Preserve minH constraint
+        minW: Math.max(1, Math.min(item.minW || 1, cols)), // Ensure valid minW
+        minH: item.minH || 1, // Preserve minH constraint
         maxW: cols, // Max width is all columns
       };
 
@@ -415,10 +415,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         if (component.config.contentConstraints) {
           minDimensions = {
             w: Math.max(
-              2,
+              1,
               Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
             ),
-            h: Math.max(2, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
+            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
           };
 
           console.log(`🔒 Text constraint enforced:`, {
@@ -1118,10 +1118,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           // Convert content constraints to grid dimensions
           minDimensions = {
             w: Math.max(
-              2,
+              1,
               Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
             ),
-            h: Math.max(2, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
+            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
           };
 
           console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
@@ -1169,11 +1169,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           if (component.config.contentConstraints) {
             minDimensions = {
               w: Math.max(
-                2,
+                1,
                 Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
               ),
               h: Math.max(
-                2,
+                1,
                 pixelsToGridUnits(component.config.contentConstraints.minHeight, false)
               ),
             };
