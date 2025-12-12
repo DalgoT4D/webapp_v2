@@ -134,17 +134,20 @@ export const AUTO_ARRANGE_PRESETS: Record<string, AutoArrangeOptions> = {
 
 /**
  * Calculate magnetic snap zones for a given grid layout
+ * Always uses 12 columns for grid snap zones (Superset-style)
  */
 export function calculateSnapZones(
-  gridCols: number,
+  _gridCols: number,
   containerWidth: number,
   existingComponents: ComponentBounds[]
 ): SnapZone[] {
   const zones: SnapZone[] = [];
-  const colWidth = containerWidth / gridCols;
+  // Always use 12 columns for snap zones (Superset-style responsive grid)
+  const FIXED_COLS = 12;
+  const colWidth = containerWidth / FIXED_COLS;
 
-  // Grid line snap zones
-  for (let i = 0; i <= gridCols; i++) {
+  // Grid line snap zones - always 12 columns that scale with container width
+  for (let i = 0; i <= FIXED_COLS; i++) {
     const x = i * colWidth;
     zones.push({
       type: 'grid',

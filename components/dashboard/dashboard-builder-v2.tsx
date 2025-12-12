@@ -58,6 +58,7 @@ import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
+import { GridGuides } from './GridGuides';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -152,6 +153,7 @@ interface DashboardLayout {
 }
 
 // Define responsive breakpoints and column configurations
+// Superset-style: Always 12 columns, they just scale with container width
 const BREAKPOINTS = {
   lg: 1200,
   md: 996,
@@ -160,15 +162,17 @@ const BREAKPOINTS = {
   xxs: 0,
 };
 
+// Fixed 12 columns at all breakpoints - columns scale with container width
 const COLS = {
   lg: 12,
-  md: 10,
-  sm: 6,
-  xs: 4,
-  xxs: 2,
+  md: 12,
+  sm: 12,
+  xs: 12,
+  xxs: 12,
 };
 
 // Screen size configurations for targeted design
+// All use 12 columns - the column width scales based on container size
 const SCREEN_SIZES = {
   desktop: {
     name: 'Desktop',
@@ -181,14 +185,14 @@ const SCREEN_SIZES = {
     name: 'Tablet',
     width: 768,
     height: 1024,
-    cols: 6,
+    cols: 12,
     breakpoint: 'sm',
   },
   mobile: {
     name: 'Mobile',
     width: 375,
     height: 667,
-    cols: 2,
+    cols: 12,
     breakpoint: 'xxs',
   },
 };
@@ -232,119 +236,34 @@ interface DashboardBuilderV2Ref {
 }
 
 // Helper function to adjust layout for different column counts
-function getAdjustedLayout(layout: DashboardLayout[], targetCols: number): DashboardLayout[] {
+// With fixed 12 columns (Superset-style), this simply returns the original layout
+function getAdjustedLayout(layout: DashboardLayout[], _targetCols: number): DashboardLayout[] {
   if (!layout || layout.length === 0) return layout;
 
-  // If we have enough columns, return original layout
-  if (targetCols >= 12) return layout;
-
-  // Sort items by their original position (top to bottom, left to right) to preserve order
-  const sortedItems = [...layout].sort((a, b) => {
-    if (a.y === b.y) return a.x - b.x;
-    return a.y - b.y;
-  });
-
-  return sortedItems.map((item, index) => {
-    let newW = Math.min(item.w, targetCols);
-    let newX = 0;
-    let newY = item.y; // Start with original Y position
-
-    // For very small screens, stack everything
-    if (targetCols <= 4) {
-      newW = targetCols;
-      newX = 0;
-      // Use original Y position but ensure no overlap
-      newY = item.y;
-    } else if (targetCols <= 6) {
-      // For medium screens, try to maintain some layout
-      newW = Math.min(item.w, Math.floor(targetCols / 2)) || targetCols;
-      newX = Math.min(item.x, targetCols - newW);
-      newY = item.y;
-    } else {
-      // Scale proportionally
-      const scaleFactor = targetCols / 12;
-      newW = Math.max(1, Math.min(Math.floor(item.w * scaleFactor), targetCols));
-      newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), targetCols - newW));
-      newY = item.y;
-    }
-
-    return {
-      ...item,
-      w: newW,
-      x: newX,
-      y: newY,
-      minW: Math.max(1, Math.min(item.minW || 1, targetCols)),
-      minH: item.minH || 1, // Preserve minH constraint
-      maxW: targetCols,
-    };
-  });
+  // Since we always use 12 columns (Superset-style), just return the original layout
+  // The column widths scale automatically with the container width
+  return layout;
 }
 
 // Helper function to generate responsive layouts from base layout
+// With fixed 12 columns (Superset-style), all breakpoints use the same layout
 function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
   const layouts: ResponsiveLayouts = {};
 
-  // For each breakpoint, adjust the layout
+  // Since all breakpoints use 12 columns (Superset-style),
+  // the same layout works for all screen sizes - columns just scale in width
   Object.keys(COLS).forEach((breakpoint) => {
-    const cols = COLS[breakpoint as keyof typeof COLS];
-
-    // Sort items by their original position (top to bottom, left to right)
-    const sortedItems = [...layout].sort((a, b) => {
-      if (a.y === b.y) return a.x - b.x;
-      return a.y - b.y;
-    });
-
-    let currentY = 0;
-
-    layouts[breakpoint] = sortedItems.map((item, index) => {
-      let newW, newX, newY;
-
-      // For very small screens (mobile), stack everything vertically
-      if (breakpoint === 'xxs' || breakpoint === 'xs') {
-        newW = cols; // Use all available columns (full width)
-        newX = 0; // Always start at left edge
-        newY = currentY; // Stack vertically
-        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-      } else if (breakpoint === 'sm') {
-        // For tablets, try 2 columns or stack
-        const canFitTwo = cols >= 6;
-        if (canFitTwo && item.w <= cols / 2) {
-          newW = Math.floor(cols / 2); // Half width
-          newX = (index % 2) * newW; // Alternate left/right
-          // Use relative positioning based on original Y, not array index
-          const baseRowFromOriginalY = Math.floor(item.y / 4); // Approximate row from original Y
-          newY = (baseRowFromOriginalY + Math.floor(index / 2)) * Math.max(item.h, 4);
-        } else {
-          newW = cols; // Full width
-          newX = 0;
-          // Maintain original relative order: use original Y position, not array index
-          newY = item.y; // Keep original Y to preserve top positioning
-        }
-      } else if (breakpoint === 'md') {
-        // Scale proportionally for medium screens
-        const scaleFactor = cols / 12;
-        newW = Math.max(1, Math.min(Math.floor(item.w * scaleFactor), cols));
-        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
-        newY = Math.max(0, Math.floor(item.y * scaleFactor));
-      } else {
-        // Large screens - keep original layout but ensure bounds
-        newW = Math.min(item.w, cols);
-        newX = Math.max(0, Math.min(item.x, cols - newW));
-        newY = Math.max(0, item.y);
-      }
-
-      const result = {
-        ...item,
-        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
-        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
-        y: Math.max(0, newY), // Ensure non-negative Y
-        minW: Math.max(1, Math.min(item.minW || 1, cols)), // Ensure valid minW
-        minH: item.minH || 1, // Preserve minH constraint
-        maxW: cols, // Max width is all columns
-      };
-
-      return result;
-    });
+    // Use the same layout for all breakpoints - the grid columns scale with container width
+    layouts[breakpoint] = layout.map((item) => ({
+      ...item,
+      // Ensure valid constraints
+      w: Math.max(1, Math.min(item.w, 12)),
+      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
+      y: Math.max(0, item.y),
+      minW: Math.max(1, Math.min(item.minW || 1, 12)),
+      minH: item.minH || 1,
+      maxW: 12,
+    }));
   });
 
   return layouts;
@@ -2318,10 +2237,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 position: 'relative',
               }}
             >
+              {/* Visual grid guides - always shows 12 columns (Superset-style) */}
+              <GridGuides
+                containerWidth={actualContainerWidth}
+                containerHeight={dashboardActualHeight}
+                cols={12}
+                visible={true}
+              />
+
               <GridLayout
                 className="layout relative z-10"
                 layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
-                cols={currentScreenConfig.cols} // Always exactly 12 columns (or 6 for tablet, 2 for mobile)
+                cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
                 rowHeight={20}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
