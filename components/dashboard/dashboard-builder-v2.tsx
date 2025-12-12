@@ -612,11 +612,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
 
     // Dashboard animation hook
+    // Note: spaceMakingConfig.enabled is set to false to prevent charts from
+    // automatically moving/squeezing when dragging near them
     const dashboardAnimation = useDashboardAnimation({
       gridCols: currentScreenConfig.cols,
       containerWidth: actualContainerWidth,
       rowHeight: 24, // Compact row height for better density
       enabled: true,
+      spaceMakingConfig: {
+        enabled: false, // Disable automatic space-making to preserve layout alignment
+      },
     });
 
     // Track actual dashboard container height for snap indicators
@@ -1004,22 +1009,53 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     );
 
     // Track if we're currently dragging
+    // Keep state for UI rendering purposes
     const [isDragging, setIsDragging] = useState(false);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
+
+    // IMPORTANT: Use refs for synchronous access in callbacks
+    // React state updates are async, but react-grid-layout calls handlers synchronously
+    // Without refs, the values won't be available when handleLayoutChange is called
+    const isDraggingRef = useRef(false);
+    const draggedItemRef = useRef<DashboardLayout | null>(null);
+    const originalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
     // Handle layout changes for responsive grid
     const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
       // Update snap zones when layout changes
       dashboardAnimation.updateSnapZones(currentLayout);
 
-      // Apply real-time space making during drag
       let finalLayout = currentLayout;
-      if (isDragging && draggedItem) {
-        finalLayout = dashboardAnimation.applyRealtimeSpaceMaking(draggedItem, currentLayout);
+
+      // During drag, restore non-dragged items to their original positions
+      // This prevents react-grid-layout's collision resolution from pushing other items
+      // Use refs for synchronous access since this callback is called synchronously by react-grid-layout
+      if (isDraggingRef.current) {
+        const currentDraggedItem = draggedItemRef.current;
+        const currentOriginalPositions = originalPositionsRef.current;
+
+        if (currentDraggedItem && currentOriginalPositions.size > 0) {
+          finalLayout = currentLayout.map((item) => {
+            // Keep the dragged item's current position (where user is dragging it)
+            if (item.i === currentDraggedItem.i) {
+              return item;
+            }
+            // Restore other items to their original positions
+            const originalPos = currentOriginalPositions.get(item.i);
+            if (originalPos) {
+              return {
+                ...item,
+                x: originalPos.x,
+                y: originalPos.y,
+              };
+            }
+            return item;
+          });
+        }
       }
 
       // During drag, resize, or undo/redo operations, use setStateWithoutHistory to avoid flooding history
-      if (isDragging || isResizing || isUndoRedoOperation) {
+      if (isDraggingRef.current || isResizing || isUndoRedoOperation) {
         setStateWithoutHistory({
           ...state,
           layout: finalLayout,
@@ -1037,6 +1073,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle drag start
     const handleDragStart = (layout: any[], oldItem: any, newItem: any) => {
+      // Store original positions of ALL items at drag start
+      // This allows us to restore non-dragged items when react-grid-layout tries to push them
+      const positions = new Map<string, { x: number; y: number }>();
+      layout.forEach((item) => {
+        positions.set(item.i, { x: item.x, y: item.y });
+      });
+
+      // IMPORTANT: Set refs FIRST (synchronous) before state (async)
+      // react-grid-layout calls onLayoutChange synchronously after onDragStart
+      // so the refs must be set before the state updates
+      isDraggingRef.current = true;
+      draggedItemRef.current = newItem;
+      originalPositionsRef.current = positions;
+
+      // Also update state for UI purposes (async)
       setIsDragging(true);
       setDraggedItem(newItem);
     };
@@ -1047,22 +1098,76 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setDraggedItem(newItem);
     };
 
+    // Helper function to check if two items overlap
+    const checkCollision = (item1: DashboardLayout, item2: DashboardLayout): boolean => {
+      // Two rectangles don't overlap if one is completely to the left, right, above, or below the other
+      const noOverlap =
+        item1.x + item1.w <= item2.x || // item1 is left of item2
+        item2.x + item2.w <= item1.x || // item2 is left of item1
+        item1.y + item1.h <= item2.y || // item1 is above item2
+        item2.y + item2.h <= item1.y; // item2 is above item1
+      return !noOverlap;
+    };
+
     // Handle drag stop - save final position to history
     const handleDragStop = (layout: any[], oldItem: any, newItem: any) => {
-      setIsDragging(false);
-      setDraggedItem(null);
-
       // Clear space-making state
       dashboardAnimation.clearSpaceMaking();
 
-      // Apply magnetic snapping to the dropped item
-      const snappedItem = dashboardAnimation.applySnapping(newItem, layout);
+      // Get original positions from ref
+      const currentOriginalPositions = originalPositionsRef.current;
+      const draggedOriginalPos = currentOriginalPositions.get(newItem.i);
 
-      // Update layout with snapped position if it changed
-      let finalLayout = layout;
-      if (snappedItem.x !== newItem.x || snappedItem.y !== newItem.y) {
-        finalLayout = layout.map((item) => (item.i === snappedItem.i ? snappedItem : item));
+      // Apply magnetic snapping to the dropped item
+      let snappedItem = dashboardAnimation.applySnapping(newItem, layout);
+
+      // Check if the new position would cause a collision with any other item
+      // Since we allow overlap during drag, we need to check and snap back on drop
+      const hasCollision = layout.some((item) => {
+        if (item.i === snappedItem.i) return false; // Skip self
+        // Get original position for comparison (other items should be at original positions)
+        const itemOriginalPos = currentOriginalPositions.get(item.i);
+        const itemToCheck = itemOriginalPos
+          ? { ...item, x: itemOriginalPos.x, y: itemOriginalPos.y }
+          : item;
+        return checkCollision(snappedItem, itemToCheck);
+      });
+
+      // If there's a collision, snap the dragged item back to its original position
+      if (hasCollision && draggedOriginalPos) {
+        snappedItem = {
+          ...snappedItem,
+          x: draggedOriginalPos.x,
+          y: draggedOriginalPos.y,
+        };
       }
+
+      // Build final layout: dragged item at new (or snapped back) position,
+      // all other items at their original positions
+      const finalLayout = layout.map((item) => {
+        if (item.i === snappedItem.i) {
+          return snappedItem;
+        }
+        // Restore other items to their original positions
+        const originalPos = currentOriginalPositions.get(item.i);
+        if (originalPos) {
+          return {
+            ...item,
+            x: originalPos.x,
+            y: originalPos.y,
+          };
+        }
+        return item;
+      });
+
+      // Clear refs FIRST (synchronous)
+      isDraggingRef.current = false;
+      draggedItemRef.current = null;
+      originalPositionsRef.current = new Map();
+
+      // Clear state (async)
+      setIsDragging(false);
+      setDraggedItem(null);
 
       // Only save to history if we're not in an undo/redo operation
       if (!isUndoRedoOperation) {
