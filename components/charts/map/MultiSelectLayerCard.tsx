@@ -54,6 +54,8 @@ interface ViewPayloads {
     value_column: string;
     aggregate_function: string;
     selected_geojson_id: number;
+    filters: Record<string, any>;
+    chart_filters: any[];
   };
   selectedRegion: SelectedRegion;
 }
@@ -209,16 +211,12 @@ export function MultiSelectLayerCard({
       schema_name: formData.schema_name,
       table_name: formData.table_name,
       geographic_column: layer.geographic_column,
-      value_column: formData.aggregate_column,
+      value_column:
+        formData.aggregate_column || formData.value_column || formData.geographic_column,
       aggregate_function: formData.aggregate_function || formData.aggregate_func,
-      // Include filters, pagination, and sorting for full functionality
-      filters: {}, // ✅ Empty dict for drill-down filters
-      chart_filters: formData.filters || [], // ✅ Array for chart-level filters
-      extra_config: {
-        filters: formData.filters || [],
-        pagination: formData.pagination,
-        sort: formData.sort,
-      },
+      selected_geojson_id: region.geojson_id!,
+      filters: {},
+      chart_filters: formData.filters || [],
     };
 
     // Pass the payloads to parent for preview

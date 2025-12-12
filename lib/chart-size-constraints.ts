@@ -133,12 +133,12 @@ export function getMinGridDimensions(chartType: string): GridDimensions {
 
 /**
  * Get default grid dimensions for a chart type
- * Uses STANDARD_DEFAULT_SIZE (4 cols × 6 rows) as the baseline for consistent square-ish charts
- * Content-aware sizing will adjust from this baseline when chart data is available
+ * Uses STANDARD_DEFAULT_SIZE (4 cols × 18 rows) as the baseline for consistent square-ish charts.
+ * At rowHeight=20px: 4 cols ≈ 356px width, 18 rows × 20px = 360px height (~square).
  */
 export function getDefaultGridDimensions(_chartType: string): GridDimensions {
   // Use standard default size for consistent starting point
-  // This ensures all new charts start as a square (4 cols × 6 rows)
+  // This ensures all new charts start as a roughly square shape (4 cols × 18 rows ≈ 356px × 360px)
   // The standard size is responsive - it scales proportionally with the grid
   return {
     w: STANDARD_DEFAULT_SIZE.w,
