@@ -36,6 +36,9 @@ export const SnapIndicators: React.FC<SnapIndicatorsProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
+      {/* Outer border of the grid */}
+      <div className="dashboard-grid-border" />
+      {/* Vertical grid lines */}
       {gridLines.map((x, index) => (
         <div
           key={`snap-grid-${index}`}

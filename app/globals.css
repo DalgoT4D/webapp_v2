@@ -108,11 +108,12 @@
   }
 }
 
-/* Snap indicators - dotted style matching grid guides */
+/* Snap indicators - blue with blur effect */
 .snap-indicator {
   position: absolute;
   pointer-events: none;
   z-index: 1000;
+  filter: blur(0.5px);
 }
 
 .snap-indicator.vertical {
@@ -120,9 +121,9 @@
   background: repeating-linear-gradient(
     to bottom,
     transparent,
-    transparent 3px,
-    rgba(59, 130, 246, 0.9) 3px,
-    rgba(59, 130, 246, 0.9) 6px
+    transparent 4px,
+    rgba(59, 130, 246, 0.7) 4px,
+    rgba(59, 130, 246, 0.7) 8px
   );
 }
 
@@ -131,10 +132,20 @@
   background: repeating-linear-gradient(
     to right,
     transparent,
-    transparent 3px,
-    rgba(59, 130, 246, 0.9) 3px,
-    rgba(59, 130, 246, 0.9) 6px
+    transparent 4px,
+    rgba(59, 130, 246, 0.7) 4px,
+    rgba(59, 130, 246, 0.7) 8px
   );
+}
+
+/* Dashboard grid border */
+.dashboard-grid-border {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+  pointer-events: none;
+  filter: blur(0.5px);
 }
 
 @keyframes snapIndicatorFade {
