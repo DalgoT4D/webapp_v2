@@ -530,7 +530,7 @@ What would you like to know about this dashboard?`,
 
                     {/* Message metadata */}
                     {message.metadata && message.role === 'assistant' && (
-                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                      <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-200">
                         {message.metadata.charts_analyzed && (
                           <Badge variant="outline" className="text-xs">
                             <BarChart3 className="w-3 h-3 mr-1" />
