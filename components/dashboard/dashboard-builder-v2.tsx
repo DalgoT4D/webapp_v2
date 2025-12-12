@@ -419,16 +419,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           .filter(Boolean) // Remove null entries
       : [];
 
-    console.log('🎛️ Dashboard Builder - Filter Sync Status:', {
-      isLoadingLiveDashboard,
-      isErrorLiveDashboard,
-      initialDataFilters: initialData?.filters,
-      liveDashboardFilters: liveDashboardData?.filters,
-      selectedSource: isLoadingLiveDashboard ? 'initialData (loading)' : 'liveDashboardData',
-      dashboardFilters,
-      processedFilters: initialFilters,
-    });
-
     // Don't create filter components - they should already be in initialComponents
     // Just use the components and layout as they are
     const mergedComponents = componentsWithConstraints;
