@@ -621,6 +621,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       enabled: true,
     });
 
+    // Track actual dashboard container height for snap indicators
+    const [dashboardActualHeight, setDashboardActualHeight] = useState(
+      Math.max(currentScreenConfig.height, 400)
+    );
+
     // Filter layout state with responsive behavior
     const [userFilterLayoutChoice, setUserFilterLayoutChoice] = useState<'vertical' | 'horizontal'>(
       (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
@@ -701,6 +706,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           // Use full available WHITE container width - let charts fill all available space
           const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
           setActualContainerWidth(responsiveWidth);
+
+          // Track actual container height for snap indicators
+          // Use scrollHeight to get the full content height including overflow
+          const actualHeight = entry.target.scrollHeight;
+          setDashboardActualHeight(Math.max(actualHeight, currentScreenConfig.height, 400));
         }
       });
 
@@ -709,7 +719,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return () => {
         resizeObserver.disconnect();
       };
-    }, [containerWidth]);
+    }, [containerWidth, currentScreenConfig.height]);
 
     // Save target screen size changes (separate from auto-save to avoid conflicts)
     useEffect(() => {
@@ -2406,7 +2416,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               <SnapIndicators
                 snapZones={dashboardAnimation.snapZones}
                 containerWidth={actualContainerWidth}
-                containerHeight={Math.max(currentScreenConfig.height, 400)}
+                containerHeight={dashboardActualHeight}
                 rowHeight={20}
                 visible={isDragging || isResizing}
               />
@@ -2415,7 +2425,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               <SpaceMakingIndicators
                 affectedComponents={dashboardAnimation.affectedComponents}
                 containerWidth={actualContainerWidth}
-                containerHeight={Math.max(currentScreenConfig.height, 400)}
+                containerHeight={dashboardActualHeight}
                 rowHeight={20}
                 colWidth={actualContainerWidth / currentScreenConfig.cols}
                 visible={dashboardAnimation.spaceMakingActive}
