@@ -227,10 +227,10 @@
   border-radius: 0 !important;
 }
 
-/* Chart overflow protection - ensures content never exceeds container */
+/* Chart container styling - allows content to render properly */
 .dashboard-item .chart-container,
 .dashboard-item [data-chart-container] {
-  overflow: hidden;
+  overflow: visible;
   max-width: 100%;
   max-height: 100%;
 }
@@ -248,11 +248,11 @@
   text-overflow: ellipsis;
 }
 
-/* Responsive chart title for small containers */
+/* Chart title styling - allow wrapping for full title display */
 .dashboard-item .chart-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Small chart container optimizations */

@@ -1456,7 +1456,7 @@ export function ChartElementView({
     <div
       ref={wrapperRef}
       className={cn(
-        'h-full relative group flex flex-col',
+        'h-full relative group flex flex-col min-h-0',
         className,
         isFullscreen && '!h-screen !w-screen !bg-white p-4'
       )}
@@ -1506,7 +1506,7 @@ export function ChartElementView({
       )}
 
       {/* Chart Title - HTML title for better styling and interaction */}
-      <div className="px-2 pt-2">
+      <div className="px-2 pt-2 flex-shrink-0">
         <ChartTitleEditor
           chartData={isPublicMode ? effectiveChart : chartMetadata}
           config={config}
@@ -1517,7 +1517,7 @@ export function ChartElementView({
 
       {/* Drill-down navigation for maps */}
       {isMapChart && drillDownPath.length > 0 && (
-        <div className="px-2 py-1 border-b border-gray-100">
+        <div className="px-2 py-1 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-1 text-xs">
             <Button
               variant="ghost"
@@ -1551,7 +1551,7 @@ export function ChartElementView({
         <div
           ref={tableRef}
           className={cn(
-            'w-full p-4 overflow-auto',
+            'w-full flex-1 h-full p-4 overflow-auto',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white p-4'
           )}
           style={{
@@ -1591,7 +1591,7 @@ export function ChartElementView({
         <div
           ref={chartRef}
           className={cn(
-            'w-full flex-1 min-h-[200px]',
+            'w-full flex-1 h-full min-h-[200px]',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white'
           )}
           style={{
@@ -1624,20 +1624,21 @@ export function ChartElementView({
           />
         </div>
       ) : (
-        <div
-          ref={chartRef}
-          className={cn(
-            'w-full flex-1 min-h-[200px]',
-            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
-          )}
-          style={{
-            padding: viewMode ? '8px' : '0',
-            ...(isFullscreen && {
-              backgroundColor: 'white !important',
-              background: 'white !important',
-            }),
-          }}
-        />
+        <div className="flex-1 w-full h-full overflow-visible">
+          <div
+            ref={chartRef}
+            className={cn(
+              'chart-container w-full h-full',
+              isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+            )}
+            style={{
+              ...(isFullscreen && {
+                backgroundColor: 'white !important',
+                background: 'white !important',
+              }),
+            }}
+          />
+        </div>
       )}
     </div>
   );
