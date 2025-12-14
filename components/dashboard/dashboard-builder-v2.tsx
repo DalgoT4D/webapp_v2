@@ -69,6 +69,9 @@ import type {
 } from '@/types/dashboard-filters';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
+// Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
+const ROW_HEIGHT = 20;
+
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
   filter: DashboardFilter,
@@ -526,7 +529,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const dashboardAnimation = useDashboardAnimation({
       gridCols: currentScreenConfig.cols,
       containerWidth: actualContainerWidth,
-      rowHeight: 24, // Compact row height for better density
+      rowHeight: ROW_HEIGHT,
       enabled: true,
       spaceMakingConfig: {
         enabled: false, // Disable automatic space-making to preserve layout alignment
@@ -2215,13 +2218,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               style={{
                 width: '100%',
                 // Calculate minimum height based on actual content:
-                // Find the lowest item (y + h) and multiply by rowHeight (20px) + padding
+                // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
                 minHeight: Math.max(
                   currentScreenConfig.height,
                   400,
                   // Calculate content height from layout items
                   Array.isArray(state.layout) && state.layout.length > 0
-                    ? Math.max(...state.layout.map((item) => (item.y + item.h) * 20)) + 100
+                    ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) + 100
                     : 0
                 ),
                 position: 'relative',
@@ -2239,7 +2242,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 className="layout relative z-10"
                 layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
                 cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
-                rowHeight={20}
+                rowHeight={ROW_HEIGHT}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onDragStart={handleDragStart}
@@ -2355,7 +2358,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 snapZones={dashboardAnimation.snapZones}
                 containerWidth={actualContainerWidth}
                 containerHeight={dashboardActualHeight}
-                rowHeight={20}
+                rowHeight={ROW_HEIGHT}
                 visible={isDragging || isResizing}
               />
 
@@ -2364,7 +2367,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 affectedComponents={dashboardAnimation.affectedComponents}
                 containerWidth={actualContainerWidth}
                 containerHeight={dashboardActualHeight}
-                rowHeight={20}
+                rowHeight={ROW_HEIGHT}
                 colWidth={actualContainerWidth / currentScreenConfig.cols}
                 visible={dashboardAnimation.spaceMakingActive}
               />
