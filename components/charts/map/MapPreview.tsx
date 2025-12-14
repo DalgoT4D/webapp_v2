@@ -52,6 +52,17 @@ interface MapPreviewProps {
   isResizing?: boolean;
 }
 
+// HTML escape function to prevent XSS in tooltip HTML
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\//g, '&#x2F;');
+}
+
 export function MapPreview({
   // New props for separated data fetching
   geojsonData,
@@ -89,12 +100,11 @@ export function MapPreview({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const listenersAttachedRef = useRef(false);
+  const containerSizeRef = useRef({ width: 0, height: 0 });
 
   // Zoom state - start with smaller default zoom
   const [currentZoom, setCurrentZoom] = useState(0.8);
-
-  // Container size for responsive legend
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Zoom control functions using setOption
   const handleZoomIn = useCallback(() => {
@@ -240,8 +250,9 @@ export function MapPreview({
               : undefined,
           tooltip: (() => {
             // Responsive tooltip based on container size
-            const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
-            const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+            const currentSize = containerSizeRef.current;
+            const effectiveWidth = currentSize.width > 0 ? currentSize.width : 400;
+            const effectiveHeight = currentSize.height > 0 ? currentSize.height : 300;
             const isVerySmall = effectiveWidth < 250 || effectiveHeight < 200;
             const isSmall = effectiveWidth < 350 || effectiveHeight < 280;
 
@@ -260,27 +271,33 @@ export function MapPreview({
                   ? 'max-width: 150px; white-space: normal; line-height: 1.4;'
                   : '',
               formatter: function (params: any) {
-                const label = valueColumn || 'Value';
+                const rawLabel = valueColumn || 'Value';
+                const label = escapeHtml(rawLabel);
+                const rawName = params.name ?? '';
                 if (params.data && params.data.value != null) {
-                  // Truncate long names for small containers
-                  const name =
-                    isVerySmall && params.name.length > 15
-                      ? params.name.substring(0, 13) + '...'
-                      : isSmall && params.name.length > 20
-                        ? params.name.substring(0, 18) + '...'
-                        : params.name;
+                  // Truncate long names for small containers, then escape
+                  const truncatedName =
+                    isVerySmall && rawName.length > 15
+                      ? rawName.substring(0, 13) + '...'
+                      : isSmall && rawName.length > 20
+                        ? rawName.substring(0, 18) + '...'
+                        : rawName;
+                  const name = escapeHtml(truncatedName);
                   return `<b>${name}</b><br/>${label}: ${params.data.value}`;
                 }
-                const nullLabel =
+                const rawNullLabel =
                   safeCustomizations.nullValueLabel !== undefined
-                    ? safeCustomizations.nullValueLabel
+                    ? String(safeCustomizations.nullValueLabel)
                     : 'No Data';
-                const name =
-                  isVerySmall && params.name.length > 15
-                    ? params.name.substring(0, 13) + '...'
-                    : isSmall && params.name.length > 20
-                      ? params.name.substring(0, 18) + '...'
-                      : params.name;
+                const nullLabel = escapeHtml(rawNullLabel);
+                // Truncate long names for small containers, then escape
+                const truncatedName =
+                  isVerySmall && rawName.length > 15
+                    ? rawName.substring(0, 13) + '...'
+                    : isSmall && rawName.length > 20
+                      ? rawName.substring(0, 18) + '...'
+                      : rawName;
+                const name = escapeHtml(truncatedName);
                 return `<b>${name}</b><br/>${nullLabel}`;
               },
             };
@@ -291,8 +308,9 @@ export function MapPreview({
             values.length > 0 && {
               visualMap: (() => {
                 // Get effective container size for responsive legend
-                const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
-                const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+                const currentSize = containerSizeRef.current;
+                const effectiveWidth = currentSize.width > 0 ? currentSize.width : 400;
+                const effectiveHeight = currentSize.height > 0 ? currentSize.height : 300;
 
                 // Determine legend mode based on container size
                 const isVerySmall = effectiveWidth < 200 || effectiveHeight < 180;
@@ -378,8 +396,9 @@ export function MapPreview({
               // Responsive map sizing - use more space for smaller containers
               layoutCenter: ['50%', '50%'],
               layoutSize: (() => {
-                const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
-                const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+                const currentSize = containerSizeRef.current;
+                const effectiveWidth = currentSize.width > 0 ? currentSize.width : 400;
+                const effectiveHeight = currentSize.height > 0 ? currentSize.height : 300;
                 // For smaller containers, use more of the available space
                 if (effectiveWidth < 250 || effectiveHeight < 200) return '95%';
                 if (effectiveWidth < 350 || effectiveHeight < 280) return '90%';
@@ -448,10 +467,11 @@ export function MapPreview({
         return;
       }
 
-      // Dispose existing instance
+      // Dispose existing instance and reset listeners flag
       if (chartInstance.current) {
         chartInstance.current.dispose();
         chartInstance.current = null;
+        listenersAttachedRef.current = false;
       }
 
       // Create new instance with explicit sizing
@@ -468,8 +488,8 @@ export function MapPreview({
         replaceMerge: ['series'],
       });
 
-      // Configure touch behavior - disable pinch zoom only
-      if (chartInstance.current && chartRef.current) {
+      // Configure touch behavior and event listeners only once
+      if (!listenersAttachedRef.current && chartInstance.current && chartRef.current) {
         const chartDom = chartRef.current;
 
         // Disable default pinch zoom behaviors
@@ -492,56 +512,56 @@ export function MapPreview({
           },
           { passive: false }
         );
-      }
 
-      // Add click event listener immediately after chart initialization
-      if (onRegionClick) {
-        const handleClick = (params: any) => {
-          if (params.componentType === 'geo' || params.componentType === 'series') {
-            onRegionClick(params.name, params.data);
-          }
-        };
-
-        // Add click listener to the newly created chart instance
-        chartInstance.current.on('click', handleClick);
-
-        // Also add mobile-specific touch handling
-        if ('ontouchstart' in window && chartRef.current) {
-          const chartDom = chartRef.current;
-          let touchStartTime = 0;
-          let touchMoved = false;
-
-          const handleTouchStart = () => {
-            touchStartTime = Date.now();
-            touchMoved = false;
-          };
-
-          const handleTouchMove = () => {
-            touchMoved = true;
-          };
-
-          const handleTouchEnd = (e: TouchEvent) => {
-            const touchDuration = Date.now() - touchStartTime;
-            if (!touchMoved && touchDuration < 500) {
-              // Simulate a click event for mobile
-              const touch = e.changedTouches[0];
-              const rect = chartDom.getBoundingClientRect();
-              const x = touch.clientX - rect.left;
-              const y = touch.clientY - rect.top;
-
-              // Trigger ECharts click detection
-              chartInstance.current?.dispatchAction({
-                type: 'showTip',
-                x: x,
-                y: y,
-              });
+        // Add click event listener for region clicks
+        if (onRegionClick) {
+          const handleClick = (params: any) => {
+            if (params.componentType === 'geo' || params.componentType === 'series') {
+              onRegionClick(params.name, params.data);
             }
           };
 
-          chartDom.addEventListener('touchstart', handleTouchStart);
-          chartDom.addEventListener('touchmove', handleTouchMove);
-          chartDom.addEventListener('touchend', handleTouchEnd);
+          chartInstance.current.on('click', handleClick);
+
+          // Also add mobile-specific touch handling
+          if ('ontouchstart' in window) {
+            let touchStartTime = 0;
+            let touchMoved = false;
+
+            const handleTouchStart = () => {
+              touchStartTime = Date.now();
+              touchMoved = false;
+            };
+
+            const handleTouchMove = () => {
+              touchMoved = true;
+            };
+
+            const handleTouchEnd = (e: TouchEvent) => {
+              const touchDuration = Date.now() - touchStartTime;
+              if (!touchMoved && touchDuration < 500) {
+                // Simulate a click event for mobile
+                const touch = e.changedTouches[0];
+                const rect = chartDom.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+
+                // Trigger ECharts click detection
+                chartInstance.current?.dispatchAction({
+                  type: 'showTip',
+                  x: x,
+                  y: y,
+                });
+              }
+            };
+
+            chartDom.addEventListener('touchstart', handleTouchStart);
+            chartDom.addEventListener('touchmove', handleTouchMove);
+            chartDom.addEventListener('touchend', handleTouchEnd);
+          }
         }
+
+        listenersAttachedRef.current = true;
       }
 
       if (onChartReady) {
@@ -559,7 +579,7 @@ export function MapPreview({
     config,
     onChartReady,
     onRegionClick,
-    containerSize, // Update when container size changes for responsive legend
+    uniqueMapName,
   ]);
 
   // Initialize chart when data changes
@@ -598,8 +618,55 @@ export function MapPreview({
     };
   }, []); // No dependencies to avoid infinite loops
 
+  // Helper to compute responsive layout options based on container size
+  const computeResponsiveOptions = useCallback((width: number, height: number) => {
+    const isVerySmall = width < 250 || height < 200;
+    const isSmall = width < 350 || height < 280;
+    const isCompact = width < 400 || height < 320;
+
+    // Compute layoutSize
+    let layoutSize = '80%';
+    if (width < 250 || height < 200) layoutSize = '95%';
+    else if (width < 350 || height < 280) layoutSize = '90%';
+    else if (width < 450 || height < 350) layoutSize = '85%';
+
+    // Compute tooltip options
+    const tooltipOptions = {
+      padding: isVerySmall ? [4, 6] : isSmall ? [6, 8] : [8, 12],
+      textStyle: {
+        fontSize: isVerySmall ? 10 : isSmall ? 11 : 12,
+      },
+      extraCssText: isVerySmall
+        ? 'max-width: 120px; white-space: normal; line-height: 1.3;'
+        : isSmall
+          ? 'max-width: 150px; white-space: normal; line-height: 1.4;'
+          : '',
+    };
+
+    // Compute visualMap options (legend)
+    const isVerySmallLegend = width < 200 || height < 180;
+    const isSmallLegend = width < 300 || height < 250;
+    const itemWidth = isSmallLegend ? 12 : isCompact ? 16 : 20;
+    const itemHeight = isSmallLegend ? 50 : isCompact ? 70 : 100;
+    const fontSize = isSmallLegend ? 10 : isCompact ? 11 : 12;
+    const margin = isSmallLegend ? 8 : isCompact ? 12 : 20;
+
+    const visualMapOptions = isVerySmallLegend
+      ? { show: false }
+      : {
+          text: isSmallLegend ? ['H', 'L'] : ['High', 'Low'],
+          itemWidth,
+          itemHeight,
+          textStyle: { fontSize, color: '#666' },
+          left: `${margin}px`,
+          bottom: `${margin}px`,
+        };
+
+    return { layoutSize, tooltipOptions, visualMapOptions };
+  }, []);
+
   // Handle container resize using ResizeObserver - separate effect
-  // Also tracks container size for responsive legend
+  // Updates containerSizeRef and calls setOption for responsive updates
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null;
     let resizeTimeoutId: NodeJS.Timeout | null = null;
@@ -614,42 +681,37 @@ export function MapPreview({
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0) {
-            // Update container size state for responsive legend
-            setContainerSize((prev) => {
-              if (prev.width !== width || prev.height !== height) {
-                return { width, height };
-              }
-              return prev;
-            });
+            // Update container size ref (no state update, no re-render)
+            containerSizeRef.current = { width, height };
 
             // Debounce rapid resize events
             resizeTimeoutId = setTimeout(() => {
               if (chartInstance.current) {
-                // Constrain dimensions to ensure chart fits within bounds
                 const maxWidth = Math.floor(width);
                 const maxHeight = Math.floor(height);
 
-                // Force explicit resize with constrained dimensions
+                // Resize the chart canvas
                 chartInstance.current.resize({
                   width: maxWidth,
                   height: maxHeight,
                 });
 
-                // Force chart to redraw and refit content
-                const currentOption = chartInstance.current.getOption();
-                chartInstance.current.setOption(currentOption, {
-                  notMerge: false,
-                  lazyUpdate: false,
-                });
+                // Update responsive layout options without full re-init
+                const { layoutSize, tooltipOptions, visualMapOptions } = computeResponsiveOptions(
+                  width,
+                  height
+                );
 
-                // Additional resize call to ensure proper fitting
-                setTimeout(() => {
-                  if (chartInstance.current) {
-                    chartInstance.current.resize();
-                  }
-                }, 50);
+                chartInstance.current.setOption(
+                  {
+                    tooltip: tooltipOptions,
+                    visualMap: visualMapOptions,
+                    series: [{ layoutSize }],
+                  },
+                  { notMerge: false }
+                );
               }
-            }, 50); // Even faster response for browser zoom
+            }, 50);
           }
         }
       });
@@ -665,7 +727,7 @@ export function MapPreview({
         clearTimeout(resizeTimeoutId);
       }
     };
-  }, []); // No dependencies to avoid re-creating observer
+  }, [computeResponsiveOptions]);
 
   // Handle resize when isResizing prop changes (dashboard resize)
   useEffect(() => {
@@ -700,6 +762,7 @@ export function MapPreview({
       if (chartInstance.current) {
         chartInstance.current.dispose();
         chartInstance.current = null;
+        listenersAttachedRef.current = false;
       }
     };
   }, []);

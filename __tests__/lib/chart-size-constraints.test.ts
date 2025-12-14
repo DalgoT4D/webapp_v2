@@ -35,16 +35,17 @@ describe('chart-size-constraints', () => {
       });
 
       // Validate specific chart type sizes - reduced for responsive dashboard behavior
-      expect(CHART_SIZE_CONSTRAINTS.map.minWidth).toBe(250);
-      expect(CHART_SIZE_CONSTRAINTS.map.minHeight).toBe(200);
-      expect(CHART_SIZE_CONSTRAINTS.bar.minWidth).toBe(200);
-      expect(CHART_SIZE_CONSTRAINTS.bar.minHeight).toBe(200);
-      expect(CHART_SIZE_CONSTRAINTS.pie.minWidth).toBe(180);
-      expect(CHART_SIZE_CONSTRAINTS.pie.minHeight).toBe(180);
-      expect(CHART_SIZE_CONSTRAINTS.number.minWidth).toBe(120);
-      expect(CHART_SIZE_CONSTRAINTS.number.minHeight).toBe(100);
-      expect(CHART_SIZE_CONSTRAINTS.table.minWidth).toBe(200);
-      expect(CHART_SIZE_CONSTRAINTS.table.minHeight).toBe(150);
+      // All chart types now use compact minimums (80x40 or 80x20) for flexible dashboard layouts
+      expect(CHART_SIZE_CONSTRAINTS.map.minWidth).toBe(80);
+      expect(CHART_SIZE_CONSTRAINTS.map.minHeight).toBe(40);
+      expect(CHART_SIZE_CONSTRAINTS.bar.minWidth).toBe(80);
+      expect(CHART_SIZE_CONSTRAINTS.bar.minHeight).toBe(40);
+      expect(CHART_SIZE_CONSTRAINTS.pie.minWidth).toBe(80);
+      expect(CHART_SIZE_CONSTRAINTS.pie.minHeight).toBe(40);
+      expect(CHART_SIZE_CONSTRAINTS.number.minWidth).toBe(80);
+      expect(CHART_SIZE_CONSTRAINTS.number.minHeight).toBe(20);
+      expect(CHART_SIZE_CONSTRAINTS.table.minWidth).toBe(80);
+      expect(CHART_SIZE_CONSTRAINTS.table.minHeight).toBe(40);
     });
   });
 
@@ -85,8 +86,9 @@ describe('chart-size-constraints', () => {
 
       chartTypes.forEach((type) => {
         const dimensions = getMinGridDimensions(type);
-        expect(dimensions.w).toBeGreaterThanOrEqual(2);
-        expect(dimensions.h).toBeGreaterThanOrEqual(2);
+        // With compact minimums (80px width, 40px or 20px height), minimum grid units are 1
+        expect(dimensions.w).toBeGreaterThanOrEqual(1);
+        expect(dimensions.h).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -94,8 +96,9 @@ describe('chart-size-constraints', () => {
       const unknownDimensions = getMinGridDimensions('unknown-type');
       const defaultDimensions = getMinGridDimensions('default');
       expect(unknownDimensions).toEqual(defaultDimensions);
-      expect(unknownDimensions.w).toBeGreaterThanOrEqual(2);
-      expect(unknownDimensions.h).toBeGreaterThanOrEqual(2);
+      // With compact minimums, minimum grid units are 1
+      expect(unknownDimensions.w).toBeGreaterThanOrEqual(1);
+      expect(unknownDimensions.h).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -172,8 +175,9 @@ describe('chart-size-constraints', () => {
       chartTypes.forEach((type) => {
         const result = validateGridDimensions(type, { w: 1, h: 1 });
         expect(result.minRequired).toBeDefined();
-        expect(result.minRequired.w).toBeGreaterThanOrEqual(2);
-        expect(result.minRequired.h).toBeGreaterThanOrEqual(2);
+        // With compact minimums, minimum grid units are 1
+        expect(result.minRequired.w).toBeGreaterThanOrEqual(1);
+        expect(result.minRequired.h).toBeGreaterThanOrEqual(1);
       });
     });
   });
