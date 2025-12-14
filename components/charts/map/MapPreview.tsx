@@ -329,6 +329,7 @@ export function MapPreview({
                 const margin = isSmall ? 8 : isCompact ? 12 : 20;
 
                 // Legend positioning - defaults to bottom-left, users can change in customizations
+                // Any unrecognized value defaults to bottom-left
                 const legendPosition = safeCustomizations.legendPosition || 'bottom-left';
                 let positionConfig;
                 switch (legendPosition) {
@@ -619,51 +620,72 @@ export function MapPreview({
   }, []); // No dependencies to avoid infinite loops
 
   // Helper to compute responsive layout options based on container size
-  const computeResponsiveOptions = useCallback((width: number, height: number) => {
-    const isVerySmall = width < 250 || height < 200;
-    const isSmall = width < 350 || height < 280;
-    const isCompact = width < 400 || height < 320;
+  const computeResponsiveOptions = useCallback(
+    (width: number, height: number, legendPosition: string) => {
+      const isVerySmall = width < 250 || height < 200;
+      const isSmall = width < 350 || height < 280;
+      const isCompact = width < 400 || height < 320;
 
-    // Compute layoutSize
-    let layoutSize = '80%';
-    if (width < 250 || height < 200) layoutSize = '95%';
-    else if (width < 350 || height < 280) layoutSize = '90%';
-    else if (width < 450 || height < 350) layoutSize = '85%';
+      // Compute layoutSize
+      let layoutSize = '80%';
+      if (width < 250 || height < 200) layoutSize = '95%';
+      else if (width < 350 || height < 280) layoutSize = '90%';
+      else if (width < 450 || height < 350) layoutSize = '85%';
 
-    // Compute tooltip options
-    const tooltipOptions = {
-      padding: isVerySmall ? [4, 6] : isSmall ? [6, 8] : [8, 12],
-      textStyle: {
-        fontSize: isVerySmall ? 10 : isSmall ? 11 : 12,
-      },
-      extraCssText: isVerySmall
-        ? 'max-width: 120px; white-space: normal; line-height: 1.3;'
-        : isSmall
-          ? 'max-width: 150px; white-space: normal; line-height: 1.4;'
-          : '',
-    };
+      // Compute tooltip options
+      const tooltipOptions = {
+        padding: isVerySmall ? [4, 6] : isSmall ? [6, 8] : [8, 12],
+        textStyle: {
+          fontSize: isVerySmall ? 10 : isSmall ? 11 : 12,
+        },
+        extraCssText: isVerySmall
+          ? 'max-width: 120px; white-space: normal; line-height: 1.3;'
+          : isSmall
+            ? 'max-width: 150px; white-space: normal; line-height: 1.4;'
+            : '',
+      };
 
-    // Compute visualMap options (legend)
-    const isVerySmallLegend = width < 200 || height < 180;
-    const isSmallLegend = width < 300 || height < 250;
-    const itemWidth = isSmallLegend ? 12 : isCompact ? 16 : 20;
-    const itemHeight = isSmallLegend ? 50 : isCompact ? 70 : 100;
-    const fontSize = isSmallLegend ? 10 : isCompact ? 11 : 12;
-    const margin = isSmallLegend ? 8 : isCompact ? 12 : 20;
+      // Compute visualMap options (legend)
+      const isVerySmallLegend = width < 200 || height < 180;
+      const isSmallLegend = width < 300 || height < 250;
+      const itemWidth = isSmallLegend ? 12 : isCompact ? 16 : 20;
+      const itemHeight = isSmallLegend ? 50 : isCompact ? 70 : 100;
+      const fontSize = isSmallLegend ? 10 : isCompact ? 11 : 12;
+      const margin = isSmallLegend ? 8 : isCompact ? 12 : 20;
 
-    const visualMapOptions = isVerySmallLegend
-      ? { show: false }
-      : {
-          text: isSmallLegend ? ['H', 'L'] : ['High', 'Low'],
-          itemWidth,
-          itemHeight,
-          textStyle: { fontSize, color: '#666' },
-          left: `${margin}px`,
-          bottom: `${margin}px`,
-        };
+      // Compute legend position based on user customization
+      // Any unrecognized value defaults to bottom-left
+      let positionConfig;
+      switch (legendPosition) {
+        case 'top-right':
+          positionConfig = { orient: 'vertical', right: `${margin}px`, top: `${margin}px` };
+          break;
+        case 'top-left':
+          positionConfig = { orient: 'vertical', left: `${margin}px`, top: `${margin}px` };
+          break;
+        case 'bottom-right':
+          positionConfig = { orient: 'vertical', right: `${margin}px`, bottom: `${margin}px` };
+          break;
+        case 'bottom-left':
+        default:
+          positionConfig = { orient: 'vertical', left: `${margin}px`, bottom: `${margin}px` };
+          break;
+      }
 
-    return { layoutSize, tooltipOptions, visualMapOptions };
-  }, []);
+      const visualMapOptions = isVerySmallLegend
+        ? { show: false }
+        : {
+            text: isSmallLegend ? ['H', 'L'] : ['High', 'Low'],
+            itemWidth,
+            itemHeight,
+            textStyle: { fontSize, color: '#666' },
+            ...positionConfig,
+          };
+
+      return { layoutSize, tooltipOptions, visualMapOptions };
+    },
+    []
+  );
 
   // Handle container resize using ResizeObserver - separate effect
   // Updates containerSizeRef and calls setOption for responsive updates
@@ -699,7 +721,8 @@ export function MapPreview({
                 // Update responsive layout options without full re-init
                 const { layoutSize, tooltipOptions, visualMapOptions } = computeResponsiveOptions(
                   width,
-                  height
+                  height,
+                  safeCustomizations.legendPosition || 'bottom-left'
                 );
 
                 chartInstance.current.setOption(
@@ -727,7 +750,7 @@ export function MapPreview({
         clearTimeout(resizeTimeoutId);
       }
     };
-  }, [computeResponsiveOptions]);
+  }, [computeResponsiveOptions, safeCustomizations]);
 
   // Handle resize when isResizing prop changes (dashboard resize)
   useEffect(() => {
