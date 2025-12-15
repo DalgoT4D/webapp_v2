@@ -27,8 +27,6 @@ import {
   getDefaultGridDimensions,
   getMinGridDimensions,
   getChartTypeFromConfig,
-  getContentAwareGridDimensions,
-  analyzeChartContent,
   pixelsToGridUnits,
   calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
@@ -60,6 +58,7 @@ import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
+import { GridGuides } from './GridGuides';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -69,6 +68,9 @@ import type {
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
+
+// Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
+const ROW_HEIGHT = 20;
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -154,6 +156,7 @@ interface DashboardLayout {
 }
 
 // Define responsive breakpoints and column configurations
+// Superset-style: Always 12 columns, they just scale with container width
 const BREAKPOINTS = {
   lg: 1200,
   md: 996,
@@ -162,15 +165,17 @@ const BREAKPOINTS = {
   xxs: 0,
 };
 
+// Fixed 12 columns at all breakpoints - columns scale with container width
 const COLS = {
   lg: 12,
-  md: 10,
-  sm: 6,
-  xs: 4,
-  xxs: 2,
+  md: 12,
+  sm: 12,
+  xs: 12,
+  xxs: 12,
 };
 
 // Screen size configurations for targeted design
+// All use 12 columns - the column width scales based on container size
 const SCREEN_SIZES = {
   desktop: {
     name: 'Desktop',
@@ -183,14 +188,14 @@ const SCREEN_SIZES = {
     name: 'Tablet',
     width: 768,
     height: 1024,
-    cols: 6,
+    cols: 12,
     breakpoint: 'sm',
   },
   mobile: {
     name: 'Mobile',
     width: 375,
     height: 667,
-    cols: 2,
+    cols: 12,
     breakpoint: 'xxs',
   },
 };
@@ -234,119 +239,34 @@ interface DashboardBuilderV2Ref {
 }
 
 // Helper function to adjust layout for different column counts
-function getAdjustedLayout(layout: DashboardLayout[], targetCols: number): DashboardLayout[] {
+// With fixed 12 columns (Superset-style), this simply returns the original layout
+function getAdjustedLayout(layout: DashboardLayout[], _targetCols: number): DashboardLayout[] {
   if (!layout || layout.length === 0) return layout;
 
-  // If we have enough columns, return original layout
-  if (targetCols >= 12) return layout;
-
-  // Sort items by their original position (top to bottom, left to right) to preserve order
-  const sortedItems = [...layout].sort((a, b) => {
-    if (a.y === b.y) return a.x - b.x;
-    return a.y - b.y;
-  });
-
-  return sortedItems.map((item, index) => {
-    let newW = Math.min(item.w, targetCols);
-    let newX = 0;
-    let newY = item.y; // Start with original Y position
-
-    // For very small screens, stack everything
-    if (targetCols <= 4) {
-      newW = targetCols;
-      newX = 0;
-      // Use original Y position but ensure no overlap
-      newY = item.y;
-    } else if (targetCols <= 6) {
-      // For medium screens, try to maintain some layout
-      newW = Math.min(item.w, Math.floor(targetCols / 2)) || targetCols;
-      newX = Math.min(item.x, targetCols - newW);
-      newY = item.y;
-    } else {
-      // Scale proportionally
-      const scaleFactor = targetCols / 12;
-      newW = Math.max(1, Math.min(Math.floor(item.w * scaleFactor), targetCols));
-      newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), targetCols - newW));
-      newY = item.y;
-    }
-
-    return {
-      ...item,
-      w: newW,
-      x: newX,
-      y: newY,
-      minW: Math.max(1, Math.min(item.minW || 2, targetCols)),
-      minH: item.minH || 2, // Preserve minH constraint
-      maxW: targetCols,
-    };
-  });
+  // Since we always use 12 columns (Superset-style), just return the original layout
+  // The column widths scale automatically with the container width
+  return layout;
 }
 
 // Helper function to generate responsive layouts from base layout
+// With fixed 12 columns (Superset-style), all breakpoints use the same layout
 function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
   const layouts: ResponsiveLayouts = {};
 
-  // For each breakpoint, adjust the layout
+  // Since all breakpoints use 12 columns (Superset-style),
+  // the same layout works for all screen sizes - columns just scale in width
   Object.keys(COLS).forEach((breakpoint) => {
-    const cols = COLS[breakpoint as keyof typeof COLS];
-
-    // Sort items by their original position (top to bottom, left to right)
-    const sortedItems = [...layout].sort((a, b) => {
-      if (a.y === b.y) return a.x - b.x;
-      return a.y - b.y;
-    });
-
-    let currentY = 0;
-
-    layouts[breakpoint] = sortedItems.map((item, index) => {
-      let newW, newX, newY;
-
-      // For very small screens (mobile), stack everything vertically
-      if (breakpoint === 'xxs' || breakpoint === 'xs') {
-        newW = cols; // Use all available columns (full width)
-        newX = 0; // Always start at left edge
-        newY = currentY; // Stack vertically
-        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-      } else if (breakpoint === 'sm') {
-        // For tablets, try 2 columns or stack
-        const canFitTwo = cols >= 6;
-        if (canFitTwo && item.w <= cols / 2) {
-          newW = Math.floor(cols / 2); // Half width
-          newX = (index % 2) * newW; // Alternate left/right
-          // Use relative positioning based on original Y, not array index
-          const baseRowFromOriginalY = Math.floor(item.y / 4); // Approximate row from original Y
-          newY = (baseRowFromOriginalY + Math.floor(index / 2)) * Math.max(item.h, 4);
-        } else {
-          newW = cols; // Full width
-          newX = 0;
-          // Maintain original relative order: use original Y position, not array index
-          newY = item.y; // Keep original Y to preserve top positioning
-        }
-      } else if (breakpoint === 'md') {
-        // Scale proportionally for medium screens
-        const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
-        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
-        newY = Math.max(0, Math.floor(item.y * scaleFactor));
-      } else {
-        // Large screens - keep original layout but ensure bounds
-        newW = Math.min(item.w, cols);
-        newX = Math.max(0, Math.min(item.x, cols - newW));
-        newY = Math.max(0, item.y);
-      }
-
-      const result = {
-        ...item,
-        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
-        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
-        y: Math.max(0, newY), // Ensure non-negative Y
-        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
-        minH: item.minH || 2, // Preserve minH constraint
-        maxW: cols, // Max width is all columns
-      };
-
-      return result;
-    });
+    // Use the same layout for all breakpoints - the grid columns scale with container width
+    layouts[breakpoint] = layout.map((item) => ({
+      ...item,
+      // Ensure valid constraints
+      w: Math.max(1, Math.min(item.w, 12)),
+      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
+      y: Math.max(0, item.y),
+      minW: Math.max(1, Math.min(item.minW || 1, 12)),
+      minH: item.minH || 1,
+      maxW: 12,
+    }));
   });
 
   return layouts;
@@ -411,37 +331,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const component = componentsWithConstraints[item.i];
       if (component) {
         const chartType = getChartTypeFromConfig(component.config);
-        let minDimensions;
-
-        // Use stored content constraints if available
-        if (component.config.contentConstraints) {
-          minDimensions = {
-            w: Math.max(
-              2,
-              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
-            ),
-            h: Math.max(2, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
-          };
-
-          console.log(`🔒 Text constraint enforced:`, {
-            textContent: component.config.content?.substring(0, 15) + '...' || '(empty)',
-            minHeight: `${minDimensions.h} grid units (${minDimensions.h * 60}px)`,
-            actualHeight: `${item.h} grid units`,
-            heightOK: item.h >= minDimensions.h,
-            minWidth: `${minDimensions.w} grid units`,
-            actualWidth: `${item.w} grid units`,
-            widthOK: item.w >= minDimensions.w,
-          });
-        } else {
-          minDimensions = getMinGridDimensions(chartType);
-        }
+        // Always use base chart type constraints for minW/minH (resize limits)
+        // This ensures users can freely resize components
+        const baseMinDimensions = getMinGridDimensions(chartType);
 
         return {
           ...item,
-          w: Math.max(item.w || 1, minDimensions.w),
-          h: Math.max(item.h || 1, minDimensions.h),
-          minW: minDimensions.w,
-          minH: minDimensions.h,
+          // Keep the saved dimensions - don't force expand based on content constraints
+          w: item.w || baseMinDimensions.w,
+          h: item.h || baseMinDimensions.h,
+          // Use base constraints for resize limits (allows flexible resizing)
+          minW: baseMinDimensions.w,
+          minH: baseMinDimensions.h,
         };
       }
       return item;
@@ -501,16 +402,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           })
           .filter(Boolean) // Remove null entries
       : [];
-
-    console.log('🎛️ Dashboard Builder - Filter Sync Status:', {
-      isLoadingLiveDashboard,
-      isErrorLiveDashboard,
-      initialDataFilters: initialData?.filters,
-      liveDashboardFilters: liveDashboardData?.filters,
-      selectedSource: isLoadingLiveDashboard ? 'initialData (loading)' : 'liveDashboardData',
-      dashboardFilters,
-      processedFilters: initialFilters,
-    });
 
     // Don't create filter components - they should already be in initialComponents
     // Just use the components and layout as they are
@@ -614,12 +505,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
 
     // Dashboard animation hook
+    // Note: spaceMakingConfig.enabled is set to false to prevent charts from
+    // automatically moving/squeezing when dragging near them
     const dashboardAnimation = useDashboardAnimation({
       gridCols: currentScreenConfig.cols,
       containerWidth: actualContainerWidth,
-      rowHeight: 24, // Compact row height for better density
+      rowHeight: ROW_HEIGHT,
       enabled: true,
+      spaceMakingConfig: {
+        enabled: false, // Disable automatic space-making to preserve layout alignment
+      },
     });
+
+    // Track actual dashboard container height for snap indicators
+    const [dashboardActualHeight, setDashboardActualHeight] = useState(
+      Math.max(currentScreenConfig.height, 400)
+    );
 
     // Filter layout state with responsive behavior
     const [userFilterLayoutChoice, setUserFilterLayoutChoice] = useState<'vertical' | 'horizontal'>(
@@ -691,25 +592,37 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setActualContainerWidth(newWidth);
     }, [targetScreenSize]);
 
+    // Sync dashboardActualHeight when screen config changes (ResizeObserver may not fire on config change)
+    useEffect(() => {
+      setDashboardActualHeight((prevHeight) =>
+        Math.max(prevHeight, currentScreenConfig.height, 400)
+      );
+    }, [currentScreenConfig.height, targetScreenSize]);
+
     // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
       if (!dashboardContainerRef.current) return;
 
-      const resizeObserver = new ResizeObserver((entries) => {
+      const handleResize = (entries: ResizeObserverEntry[]): void => {
         for (const entry of entries) {
           const { width } = entry.contentRect;
           // Use full available WHITE container width - let charts fill all available space
-          const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
-          setActualContainerWidth(responsiveWidth);
-        }
-      });
+          setActualContainerWidth(width);
 
+          // Track actual container height for snap indicators
+          // Use scrollHeight to get the full content height including overflow
+          const actualHeight = (entry.target as HTMLElement).scrollHeight;
+          setDashboardActualHeight(Math.max(actualHeight, currentScreenConfig.height, 400));
+        }
+      };
+
+      const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(dashboardContainerRef.current);
 
       return () => {
         resizeObserver.disconnect();
       };
-    }, [containerWidth]);
+    }, [containerWidth, currentScreenConfig.height]);
 
     // Save target screen size changes (separate from auto-save to avoid conflicts)
     useEffect(() => {
@@ -989,22 +902,53 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     );
 
     // Track if we're currently dragging
+    // Keep state for UI rendering purposes
     const [isDragging, setIsDragging] = useState(false);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
+
+    // IMPORTANT: Use refs for synchronous access in callbacks
+    // React state updates are async, but react-grid-layout calls handlers synchronously
+    // Without refs, the values won't be available when handleLayoutChange is called
+    const isDraggingRef = useRef(false);
+    const draggedItemRef = useRef<DashboardLayout | null>(null);
+    const originalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
     // Handle layout changes for responsive grid
     const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
       // Update snap zones when layout changes
       dashboardAnimation.updateSnapZones(currentLayout);
 
-      // Apply real-time space making during drag
       let finalLayout = currentLayout;
-      if (isDragging && draggedItem) {
-        finalLayout = dashboardAnimation.applyRealtimeSpaceMaking(draggedItem, currentLayout);
+
+      // During drag, restore non-dragged items to their original positions
+      // This prevents react-grid-layout's collision resolution from pushing other items
+      // Use refs for synchronous access since this callback is called synchronously by react-grid-layout
+      if (isDraggingRef.current) {
+        const currentDraggedItem = draggedItemRef.current;
+        const currentOriginalPositions = originalPositionsRef.current;
+
+        if (currentDraggedItem && currentOriginalPositions.size > 0) {
+          finalLayout = currentLayout.map((item) => {
+            // Keep the dragged item's current position (where user is dragging it)
+            if (item.i === currentDraggedItem.i) {
+              return item;
+            }
+            // Restore other items to their original positions
+            const originalPos = currentOriginalPositions.get(item.i);
+            if (originalPos) {
+              return {
+                ...item,
+                x: originalPos.x,
+                y: originalPos.y,
+              };
+            }
+            return item;
+          });
+        }
       }
 
       // During drag, resize, or undo/redo operations, use setStateWithoutHistory to avoid flooding history
-      if (isDragging || isResizing || isUndoRedoOperation) {
+      if (isDraggingRef.current || isResizing || isUndoRedoOperation) {
         setStateWithoutHistory({
           ...state,
           layout: finalLayout,
@@ -1022,6 +966,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle drag start
     const handleDragStart = (layout: any[], oldItem: any, newItem: any) => {
+      // Store original positions of ALL items at drag start
+      // This allows us to restore non-dragged items when react-grid-layout tries to push them
+      const positions = new Map<string, { x: number; y: number }>();
+      layout.forEach((item) => {
+        positions.set(item.i, { x: item.x, y: item.y });
+      });
+
+      // IMPORTANT: Set refs FIRST (synchronous) before state (async)
+      // react-grid-layout calls onLayoutChange synchronously after onDragStart
+      // so the refs must be set before the state updates
+      isDraggingRef.current = true;
+      draggedItemRef.current = newItem;
+      originalPositionsRef.current = positions;
+
+      // Also update state for UI purposes (async)
       setIsDragging(true);
       setDraggedItem(newItem);
     };
@@ -1032,22 +991,76 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setDraggedItem(newItem);
     };
 
+    // Helper function to check if two items overlap
+    const checkCollision = (item1: DashboardLayout, item2: DashboardLayout): boolean => {
+      // Two rectangles don't overlap if one is completely to the left, right, above, or below the other
+      const noOverlap =
+        item1.x + item1.w <= item2.x || // item1 is left of item2
+        item2.x + item2.w <= item1.x || // item2 is left of item1
+        item1.y + item1.h <= item2.y || // item1 is above item2
+        item2.y + item2.h <= item1.y; // item2 is above item1
+      return !noOverlap;
+    };
+
     // Handle drag stop - save final position to history
     const handleDragStop = (layout: any[], oldItem: any, newItem: any) => {
-      setIsDragging(false);
-      setDraggedItem(null);
-
       // Clear space-making state
       dashboardAnimation.clearSpaceMaking();
 
-      // Apply magnetic snapping to the dropped item
-      const snappedItem = dashboardAnimation.applySnapping(newItem, layout);
+      // Get original positions from ref
+      const currentOriginalPositions = originalPositionsRef.current;
+      const draggedOriginalPos = currentOriginalPositions.get(newItem.i);
 
-      // Update layout with snapped position if it changed
-      let finalLayout = layout;
-      if (snappedItem.x !== newItem.x || snappedItem.y !== newItem.y) {
-        finalLayout = layout.map((item) => (item.i === snappedItem.i ? snappedItem : item));
+      // Apply magnetic snapping to the dropped item
+      let snappedItem = dashboardAnimation.applySnapping(newItem, layout);
+
+      // Check if the new position would cause a collision with any other item
+      // Since we allow overlap during drag, we need to check and snap back on drop
+      const hasCollision = layout.some((item) => {
+        if (item.i === snappedItem.i) return false; // Skip self
+        // Get original position for comparison (other items should be at original positions)
+        const itemOriginalPos = currentOriginalPositions.get(item.i);
+        const itemToCheck = itemOriginalPos
+          ? { ...item, x: itemOriginalPos.x, y: itemOriginalPos.y }
+          : item;
+        return checkCollision(snappedItem, itemToCheck);
+      });
+
+      // If there's a collision, snap the dragged item back to its original position
+      if (hasCollision && draggedOriginalPos) {
+        snappedItem = {
+          ...snappedItem,
+          x: draggedOriginalPos.x,
+          y: draggedOriginalPos.y,
+        };
       }
+
+      // Build final layout: dragged item at new (or snapped back) position,
+      // all other items at their original positions
+      const finalLayout = layout.map((item) => {
+        if (item.i === snappedItem.i) {
+          return snappedItem;
+        }
+        // Restore other items to their original positions
+        const originalPos = currentOriginalPositions.get(item.i);
+        if (originalPos) {
+          return {
+            ...item,
+            x: originalPos.x,
+            y: originalPos.y,
+          };
+        }
+        return item;
+      });
+
+      // Clear refs FIRST (synchronous)
+      isDraggingRef.current = false;
+      draggedItemRef.current = null;
+      originalPositionsRef.current = new Map();
+
+      // Clear state (async)
+      setIsDragging(false);
+      setDraggedItem(null);
 
       // Only save to history if we're not in an undo/redo operation
       if (!isUndoRedoOperation) {
@@ -1103,10 +1116,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           // Convert content constraints to grid dimensions
           minDimensions = {
             w: Math.max(
-              2,
+              1,
               Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
             ),
-            h: Math.max(2, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
+            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
           };
 
           console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
@@ -1154,11 +1167,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           if (component.config.contentConstraints) {
             minDimensions = {
               w: Math.max(
-                2,
+                1,
                 Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
               ),
               h: Math.max(
-                2,
+                1,
                 pixelsToGridUnits(component.config.contentConstraints.minHeight, false)
               ),
             };
@@ -1187,110 +1200,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       });
     };
 
-    // Add chart component
+    // Add chart component - optimized for speed
     const handleChartSelected = async (chartId: number) => {
-      console.log(`🔄 Starting chart addition process for chartId: ${chartId}`);
-
       try {
-        // Fetch chart details and data for content-aware sizing
+        // Only fetch chart metadata (fast ~50ms) - skip data fetch (slow ~2.5s)
+        // The chart component will fetch its own data when it renders
         let chartDetails;
-        let chartData = null;
-
-        console.log(`📡 Fetching chart details for ${chartId}...`);
         try {
-          // Fetch both chart metadata and data
           chartDetails = await apiGet(`/api/charts/${chartId}/`);
-          console.log(`✅ Chart details fetched:`, {
-            chartId,
-            title: chartDetails.title,
-            chart_type: chartDetails.chart_type,
-            computation_type: chartDetails.computation_type,
-          });
-
-          // Fetch chart data for content analysis
-          console.log(`📊 Fetching chart data for ${chartId}...`);
-          try {
-            chartData = await apiGet(`/api/charts/${chartId}/data/`);
-            console.log(`✅ Chart data fetched successfully:`, {
-              chartId,
-              chartType: chartDetails.chart_type,
-              hasData: !!chartData,
-              dataKeys: chartData ? Object.keys(chartData) : [],
-              dataStructure: chartData
-                ? {
-                    hasEchartsConfig: !!chartData.echarts_config,
-                    hasXAxisData: !!chartData.echarts_config?.xAxis?.data,
-                    hasSeriesData: !!chartData.echarts_config?.series,
-                    seriesCount: chartData.echarts_config?.series?.length || 0,
-                    hasColumns: !!chartData.columns,
-                    columnCount: chartData.columns?.length || 0,
-                    hasTableData: !!chartData.data,
-                    rowCount: chartData.data?.length || 0,
-                  }
-                : null,
-            });
-          } catch (dataError) {
-            console.error(`❌ Failed to fetch chart data for ${chartId}:`, dataError);
-            console.warn(`Using default sizing for chart ${chartId}`);
-          }
         } catch (error) {
-          // Use mock data if API fails
           chartDetails = {
             id: chartId,
             title: `Chart #${chartId}`,
             chart_type: 'bar',
             computation_type: 'aggregated',
           };
-          console.error(`❌ Failed to fetch chart details for ${chartId}:`, error);
-          console.warn(`Using mock data for chart ${chartId}`);
         }
 
-        // Get content-aware dimensions based on actual chart data
+        // Use default sizing based on chart type (no slow data fetch needed)
         const chartType = chartDetails.chart_type || 'default';
-        let defaultDimensions, minDimensions;
-        let contentConstraints = null;
+        const defaultDimensions = getDefaultGridDimensions(chartType);
+        const minDimensions = getMinGridDimensions(chartType);
 
-        console.log(`🔍 Analyzing chart content for ${chartType} chart (ID: ${chartId})...`);
-
-        if (chartData) {
-          // Analyze chart content first
-          contentConstraints = analyzeChartContent(chartData, chartType);
-          console.log(`🧠 Content analysis results:`, {
-            chartType,
-            contentConstraints,
-            originalData: {
-              hasEchartsConfig: !!chartData.echarts_config,
-              hasColumns: !!chartData.columns,
-              hasData: !!chartData.data,
-            },
-          });
-
-          // Use content-aware sizing based on actual chart data
-          defaultDimensions = getContentAwareGridDimensions(chartData, chartType, true);
-          minDimensions = getContentAwareGridDimensions(chartData, chartType, false);
-
-          console.log(`📐 Content-aware sizing calculated:`, {
-            chartType,
-            defaultDimensions,
-            minDimensions,
-            hasAnalysis: true,
-            sizingSource: 'content-analysis',
-          });
-        } else {
-          // Fallback to generic sizing
-          defaultDimensions = getDefaultGridDimensions(chartType);
-          minDimensions = getMinGridDimensions(chartType);
-
-          console.log(`📐 Generic sizing fallback:`, {
-            chartType,
-            defaultDimensions,
-            minDimensions,
-            hasAnalysis: false,
-            sizingSource: 'generic-fallback',
-          });
-        }
-
-        // Create the component after contentConstraints is properly set
         const newComponent: DashboardComponent = {
           id: `chart-${Date.now()}`,
           type: DashboardComponentType.CHART,
@@ -1300,13 +1231,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             chartType: chartDetails.chart_type,
             computation_type: chartDetails.computation_type,
             description: chartDetails.description,
-            // Store content constraints for resize validation
-            contentConstraints: contentConstraints,
-            // Note: render_config not stored - charts fetch fresh config via /data endpoint
+            contentConstraints: null,
           },
         };
 
-        // Find the best available position for the new chart using smart positioning
         const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
 
         const newLayoutItem: DashboardLayout = {
@@ -1320,15 +1248,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minH: minDimensions.h,
         };
 
-        console.log(`📍 Final layout item created:`, {
-          componentId: newComponent.id,
-          layoutItem: newLayoutItem,
-          pixelEstimate: {
-            width: `~${defaultDimensions.w * 100}px`,
-            height: `~${defaultDimensions.h * 60}px`,
-          },
-        });
-
         const newLayout = [...state.layout, newLayoutItem];
         const newLayouts = generateResponsiveLayouts(newLayout);
 
@@ -1341,17 +1260,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         });
 
-        console.log(
-          `✅ Chart ${chartId} (${chartType}) successfully added to dashboard with content-aware sizing!`
-        );
-
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
 
         // Smart scroll to show the newly added component if needed
         scrollToComponentIfNeeded(newComponent.id);
-      } catch (error: any) {
-        console.error('Failed to add chart:', error.message || 'Please try again');
+      } catch (error) {
+        console.error('Failed to add chart');
       }
     };
 
@@ -2276,23 +2191,39 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           )}
 
           {/* Dashboard Canvas - Responsive Container */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 md:p-4 min-w-0">
-            {/* Canvas container with viewport-based responsiveness */}
+          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
+            {/* Canvas container with full width */}
             <div
               ref={dashboardContainerRef}
-              className="mx-auto bg-white shadow-lg rounded-lg border dashboard-canvas-responsive mb-32"
+              className="bg-white dashboard-canvas-responsive"
               style={{
                 width: '100%',
-                maxWidth: `min(${currentScreenConfig.width}px, 100vw - 2rem)`,
-                minHeight: Math.max(currentScreenConfig.height, 400),
+                // Calculate minimum height based on actual content:
+                // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
+                minHeight: Math.max(
+                  currentScreenConfig.height,
+                  400,
+                  // Calculate content height from layout items
+                  Array.isArray(state.layout) && state.layout.length > 0
+                    ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) + 100
+                    : 0
+                ),
                 position: 'relative',
               }}
             >
+              {/* Visual grid guides - disabled, using SnapIndicators with neon effect instead */}
+              <GridGuides
+                containerWidth={actualContainerWidth}
+                containerHeight={dashboardActualHeight}
+                cols={12}
+                visible={false}
+              />
+
               <GridLayout
                 className="layout relative z-10"
                 layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
-                cols={currentScreenConfig.cols} // Always exactly 12 columns (or 6 for tablet, 2 for mobile)
-                rowHeight={24}
+                cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
+                rowHeight={ROW_HEIGHT}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
                 onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
                 onDragStart={handleDragStart}
@@ -2305,8 +2236,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 compactType={null}
                 preventCollision={true}
                 allowOverlap={false}
-                margin={[0, 0]}
-                containerPadding={[0, 0]}
+                margin={[8, 8]} // Match preview mode spacing
+                containerPadding={[8, 8]} // Match preview mode padding
                 autoSize={true}
                 verticalCompact={false}
                 useCSSTransforms={true}
@@ -2395,7 +2326,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       </div>
 
                       {/* Content Area - Charts fully visible and interactive */}
-                      <div className="p-3 flex-1 flex flex-col min-h-0 drag-cancel">
+                      <div className="flex-1 flex flex-col min-h-0 drag-cancel">
                         {renderComponent(item.i)}
                       </div>
                     </div>
@@ -2407,8 +2338,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               <SnapIndicators
                 snapZones={dashboardAnimation.snapZones}
                 containerWidth={actualContainerWidth}
-                containerHeight={Math.max(currentScreenConfig.height, 400)}
-                rowHeight={24}
+                containerHeight={dashboardActualHeight}
+                rowHeight={ROW_HEIGHT}
                 visible={isDragging || isResizing}
               />
 
@@ -2416,8 +2347,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               <SpaceMakingIndicators
                 affectedComponents={dashboardAnimation.affectedComponents}
                 containerWidth={actualContainerWidth}
-                containerHeight={Math.max(currentScreenConfig.height, 400)}
-                rowHeight={24}
+                containerHeight={dashboardActualHeight}
+                rowHeight={ROW_HEIGHT}
                 colWidth={actualContainerWidth / currentScreenConfig.cols}
                 visible={dashboardAnimation.spaceMakingActive}
               />

@@ -84,6 +84,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 // Define responsive breakpoints and column configurations (same as builder)
+// Superset-style: Always 12 columns, they just scale with container width
 const BREAKPOINTS = {
   lg: 1200,
   md: 996,
@@ -93,6 +94,7 @@ const BREAKPOINTS = {
 };
 
 // Screen size configurations (same as builder)
+// All use 12 columns - the column width scales based on container size
 const SCREEN_SIZES = {
   desktop: {
     name: 'Desktop',
@@ -105,24 +107,25 @@ const SCREEN_SIZES = {
     name: 'Tablet',
     width: 768,
     height: 1024,
-    cols: 6,
+    cols: 12,
     breakpoint: 'sm',
   },
   mobile: {
     name: 'Mobile',
     width: 375,
     height: 667,
-    cols: 2,
+    cols: 12,
     breakpoint: 'xxs',
   },
 };
 
+// Fixed 12 columns at all breakpoints - columns scale with container width
 const COLS = {
   lg: 12,
-  md: 10,
-  sm: 6,
-  xs: 4,
-  xxs: 2,
+  md: 12,
+  sm: 12,
+  xs: 12,
+  xxs: 12,
 };
 
 type ScreenSizeKey = keyof typeof SCREEN_SIZES;
@@ -139,66 +142,27 @@ function getCurrentScreenSize(): ScreenSizeKey {
 }
 
 // Helper function to generate responsive layouts with preview screen size focus
-function generateResponsiveLayoutsForPreview(layout: any[], previewScreenSize: ScreenSizeKey): any {
+// With fixed 12 columns (Superset-style), all breakpoints use the same layout
+function generateResponsiveLayoutsForPreview(
+  layout: any[],
+  _previewScreenSize: ScreenSizeKey
+): any {
   const layouts: any = {};
 
-  // For each breakpoint, adjust the layout
+  // Since all breakpoints use 12 columns (Superset-style),
+  // the same layout works for all screen sizes - columns just scale in width
   Object.keys(COLS).forEach((breakpoint) => {
-    const cols = COLS[breakpoint as keyof typeof COLS];
-
-    // Sort items by their original position (top to bottom, left to right)
-    const sortedItems = [...layout].sort((a, b) => {
-      if (a.y === b.y) return a.x - b.x;
-      return a.y - b.y;
-    });
-
-    let currentY = 0;
-
-    layouts[breakpoint] = sortedItems.map((item, index) => {
-      let newW, newX, newY;
-
-      // For very small screens (mobile), stack everything vertically
-      if (breakpoint === 'xxs' || breakpoint === 'xs') {
-        newW = cols; // Use all available columns (full width)
-        newX = 0; // Always start at left edge
-        newY = currentY; // Stack vertically
-        currentY += Math.max(item.h, 4); // Move down for next item (min height 4)
-      } else if (breakpoint === 'sm') {
-        // For tablets, try 2 columns or stack
-        const canFitTwo = cols >= 6;
-        if (canFitTwo && item.w <= cols / 2) {
-          newW = Math.floor(cols / 2); // Half width
-          newX = (index % 2) * newW; // Alternate left/right
-          newY = Math.floor(index / 2) * Math.max(item.h, 4); // Row positioning
-        } else {
-          newW = cols; // Full width
-          newX = 0;
-          newY = index * Math.max(item.h, 4); // Stack vertically
-        }
-      } else if (breakpoint === 'md') {
-        // Scale proportionally for medium screens
-        const scaleFactor = cols / 12;
-        newW = Math.max(2, Math.min(Math.floor(item.w * scaleFactor), cols));
-        newX = Math.max(0, Math.min(Math.floor(item.x * scaleFactor), cols - newW));
-        newY = Math.max(0, Math.floor(item.y * scaleFactor));
-      } else {
-        // Large screens - keep original layout but ensure bounds
-        newW = Math.min(item.w, cols);
-        newX = Math.max(0, Math.min(item.x, cols - newW));
-        newY = Math.max(0, item.y);
-      }
-
-      const result = {
-        ...item,
-        w: Math.max(1, Math.min(newW, cols)), // Ensure valid width (at least 1, max cols)
-        x: Math.max(0, Math.min(newX, cols - 1)), // Ensure valid X position
-        y: Math.max(0, newY), // Ensure non-negative Y
-        minW: Math.max(1, Math.min(item.minW || 2, cols)), // Ensure valid minW
-        maxW: cols, // Max width is all columns
-      };
-
-      return result;
-    });
+    // Use the same layout for all breakpoints - the grid columns scale with container width
+    layouts[breakpoint] = layout.map((item) => ({
+      ...item,
+      // Ensure valid constraints
+      w: Math.max(1, Math.min(item.w, 12)),
+      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
+      y: Math.max(0, item.y),
+      minW: Math.max(1, Math.min(item.minW || 1, 12)),
+      minH: item.minH || 1,
+      maxW: 12,
+    }));
   });
 
   return layouts;
@@ -272,8 +236,9 @@ export function DashboardNativeView({
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(1200);
-  const [actualContainerWidth, setActualContainerWidth] = useState(1200);
+  const [actualContainerWidth, setActualContainerWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
@@ -375,13 +340,6 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Set container width to match the effective screen size exactly
-  useEffect(() => {
-    const effectiveConfig = SCREEN_SIZES[effectiveScreenSize];
-    setContainerWidth(effectiveConfig.width);
-    setActualContainerWidth(effectiveConfig.width);
-  }, [effectiveScreenSize]);
-
   // Update current screen size on resize
   useEffect(() => {
     const updateScreenSize = () => {
@@ -407,16 +365,19 @@ export function DashboardNativeView({
     };
   }, []);
 
-  // Observe dashboard container for responsive width (same as edit page)
+  // Observe dashboard container for responsive width
   useEffect(() => {
     if (!dashboardContainerRef.current) return;
+
+    // Set initial width
+    const initialWidth = dashboardContainerRef.current.offsetWidth || window.innerWidth;
+    setActualContainerWidth(initialWidth);
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width } = entry.contentRect;
-        // Use full available container width - let charts fill all available space
-        const responsiveWidth = width; // Use full width - let GridLayout handle its own padding internally
-        setActualContainerWidth(responsiveWidth);
+        // Use full available container width
+        setActualContainerWidth(width);
       }
     });
 
@@ -425,7 +386,7 @@ export function DashboardNativeView({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [containerWidth]);
+  }, []);
 
   // Handle fullscreen toggle - use unified fullscreen system
   const handleToggleFullscreen = () => {
@@ -1098,52 +1059,21 @@ export function DashboardNativeView({
         {/* Dashboard Content - Scrollable Canvas Area */}
         <div
           className={cn(
-            'flex-1 overflow-auto p-4 md:p-6 min-w-0 bg-gray-50',
+            'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
             // Only apply special mobile padding for public dashboards
             isPublicMode && 'pb-24 sm:pb-16'
           )}
-          style={{ paddingBottom: isPublicMode ? undefined : '60px' }}
         >
           <div
             ref={dashboardContainerRef}
             className={`dashboard-canvas relative z-10 ${
-              isEmbedMode
-                ? embedTheme === 'dark'
-                  ? 'bg-gray-800'
-                  : 'bg-white'
-                : 'bg-white border border-gray-300 shadow-lg'
+              isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
             }`}
-            style={
-              isEmbedMode
-                ? {
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }
-                : {
-                    width: '100%',
-                    maxWidth: `min(${effectiveScreenConfig.width}px, 100vw - 2rem)`,
-                    minHeight: effectiveScreenConfig.height,
-                    margin: '0 auto 40px auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }
-            }
+            style={{
+              width: '100%',
+              minHeight: '100%',
+            }}
           >
-            {/* Canvas Header */}
-            {!isEmbedMode && (
-              <div className="absolute -top-8 left-0 text-xs text-gray-500 font-medium">
-                {effectiveScreenConfig.name} Canvas ({effectiveScreenConfig.width} ×{' '}
-                {effectiveScreenConfig.height}px)
-                {previewScreenSize && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                    Preview Mode
-                  </span>
-                )}
-              </div>
-            )}
-
             {/* Show empty state if no layout config */}
             {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
@@ -1170,7 +1100,7 @@ export function DashboardNativeView({
                   breakpoints={BREAKPOINTS}
                   cols={COLS}
                   rowHeight={20}
-                  width={effectiveScreenConfig.width}
+                  width={actualContainerWidth}
                   style={{
                     width: '100% !important',
                   }}
@@ -1178,8 +1108,8 @@ export function DashboardNativeView({
                   isResizable={false}
                   compactType={null}
                   preventCollision={false}
-                  margin={[4, 4]}
-                  containerPadding={[4, 4]}
+                  margin={[8, 8]}
+                  containerPadding={[8, 8]}
                   autoSize={true}
                   verticalCompact={false}
                   onBreakpointChange={(newBreakpoint: string) => {
@@ -1212,8 +1142,8 @@ export function DashboardNativeView({
                   compactType={null}
                   preventCollision={true}
                   allowOverlap={false}
-                  margin={[4, 4]}
-                  containerPadding={[4, 4]}
+                  margin={[8, 8]}
+                  containerPadding={[8, 8]}
                   autoSize={true}
                   verticalCompact={false}
                 >

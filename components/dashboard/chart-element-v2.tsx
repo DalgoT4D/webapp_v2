@@ -29,6 +29,18 @@ import {
   formatAsChartFilters,
   type DashboardFilterConfig,
 } from '@/lib/dashboard-filter-utils';
+import {
+  applyLegendPosition,
+  extractLegendPosition,
+  isLegendPaginated,
+  type LegendPosition,
+} from '@/lib/chart-legend-utils';
+import {
+  applyResponsiveLegend,
+  getResponsiveGridMargins,
+  shouldShowLegend,
+  getLegendMode,
+} from '@/lib/responsive-legend';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -97,12 +109,21 @@ export function ChartElementV2({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isResizingRef = useRef(isResizing); // Track isResizing for ResizeObserver
   // Use chartId as unique identifier to isolate drill-down state per chart
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
+
+  // Container size for responsive legend
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // Keep isResizingRef in sync for ResizeObserver
+  useEffect(() => {
+    isResizingRef.current = isResizing;
+  }, [isResizing]);
 
   // Handle table pagination page size change
   const handleTablePageSizeChange = (newPageSize: number) => {
@@ -112,19 +133,11 @@ export function ChartElementV2({
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
-    console.log('🔍 [Chart ' + chartId + '] Resolving dashboard filters:', {
-      appliedFilters,
-      dashboardFilterConfigs,
-    });
-
     if (Object.keys(appliedFilters).length === 0 || dashboardFilterConfigs.length === 0) {
-      console.log(`❌ [Chart ${chartId}] Skipping filter resolution - no filters or configs`);
       return [];
     }
-
-    const resolved = resolveDashboardFilters(appliedFilters, dashboardFilterConfigs);
-    return resolved;
-  }, [appliedFilters, dashboardFilterConfigs, chartId]);
+    return resolveDashboardFilters(appliedFilters, dashboardFilterConfigs);
+  }, [appliedFilters, dashboardFilterConfigs]);
 
   const {
     data: chart,
@@ -351,11 +364,6 @@ export function ChartElementV2({
             filter.schema_name === chart.schema_name && filter.table_name === chart.table_name
         )
       );
-      console.log(`📊 [Table ${chartId}] Building payload:`, {
-        resolvedDashboardFilters,
-        formattedFilters,
-        existingFilters: chart.extra_config?.filters || [],
-      });
 
       return {
         chart_type: chart.chart_type,
@@ -636,25 +644,47 @@ export function ChartElementV2({
     }
 
     if (chartInstance.current && chartConfig) {
+      // Extract legend position from chart's customizations
+      const customizations = chart?.extra_config?.customizations || {};
+      const legendPosition = extractLegendPosition(customizations, chartConfig) as LegendPosition;
+      const isPaginated = isLegendPaginated(customizations);
+
+      // Use container size for responsive legend (fallback to reasonable defaults)
+      const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
+      const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+
+      // Check if legend should be visible based on container size
+      const legendVisible = shouldShowLegend(effectiveWidth, effectiveHeight, chart?.chart_type);
+
+      // Apply legend positioning (handles both legend config and pie chart center adjustment)
+      // Then apply responsive legend on top for size-based adjustments
+      let configWithLegend = chartConfig.legend
+        ? applyLegendPosition(chartConfig, legendPosition, isPaginated, chart?.chart_type)
+        : chartConfig;
+
+      // Apply responsive legend adjustments based on container size
+      if (chartConfig.legend) {
+        configWithLegend = applyResponsiveLegend(
+          configWithLegend,
+          effectiveWidth,
+          effectiveHeight,
+          legendPosition,
+          chart?.chart_type
+        );
+      }
+
       // Disable ECharts internal title since we use HTML titles
+      // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
       const modifiedConfig = {
-        ...chartConfig,
+        ...configWithLegend,
         title: {
-          ...(chartConfig.title || {}),
+          ...(configWithLegend.title || {}),
           show: false, // Disable ECharts built-in title
         },
-        // Enhanced legend positioning - place outside chart area
-        legend: chartConfig.legend
-          ? {
-              ...chartConfig.legend,
-              top: '5%',
-              left: 'center',
-              orient: chartConfig.legend.orient || 'horizontal',
-            }
-          : undefined,
-        // Enhanced data labels styling
-        series: Array.isArray(chartConfig.series)
-          ? chartConfig.series.map((series: any) => ({
+        // Legend is already properly positioned by applyLegendPosition and applyResponsiveLegend
+        // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
+        series: Array.isArray(configWithLegend.series)
+          ? configWithLegend.series.map((series: any) => ({
               ...series,
               label: {
                 ...series.label,
@@ -663,13 +693,13 @@ export function ChartElementV2({
                 fontWeight: 'normal',
               },
             }))
-          : chartConfig.series
+          : configWithLegend.series
             ? {
-                ...chartConfig.series,
+                ...configWithLegend.series,
                 label: {
-                  ...chartConfig.series.label,
-                  fontSize: chartConfig.series.label?.fontSize
-                    ? chartConfig.series.label.fontSize + 0.5
+                  ...configWithLegend.series.label,
+                  fontSize: configWithLegend.series.label?.fontSize
+                    ? configWithLegend.series.label.fontSize + 0.5
                     : 12.5,
                   fontFamily: 'Inter, system-ui, sans-serif',
                   fontWeight: 'normal',
@@ -686,29 +716,37 @@ export function ChartElementV2({
               yAxis: undefined,
             }
           : {
-              // For other chart types, apply normal grid and axis styling
-              // Dynamically adjust margins based on label rotation and legend
+              // For other chart types, apply responsive grid margins based on container size
               grid: (() => {
                 const hasRotatedXLabels =
-                  chartConfig.xAxis?.axisLabel?.rotate !== undefined &&
-                  chartConfig.xAxis?.axisLabel?.rotate !== 0;
-                // Horizontal labels (0 degrees) need adequate space to be visible
-                // Rotated labels need more space due to angle
-                const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
-                const hasLegend = chartConfig.legend?.show !== false;
-                const topMargin = hasLegend ? '18%' : '10%';
+                  configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
+                  configWithLegend.xAxis?.axisLabel?.rotate !== 0;
+                // Check if legend is visible after responsive adjustments
+                const hasLegend =
+                  legendVisible &&
+                  Boolean(configWithLegend.legend) &&
+                  configWithLegend.legend?.show !== false;
+
+                // Use responsive grid margins based on container size
+                const margins = getResponsiveGridMargins(
+                  effectiveWidth,
+                  effectiveHeight,
+                  legendPosition,
+                  hasLegend,
+                  hasRotatedXLabels
+                );
 
                 return {
-                  ...chartConfig.grid,
+                  ...configWithLegend.grid,
                   containLabel: true,
-                  left: '10%', // Increased for overall left margin
-                  right: '6%', // Increased for overall right margin
-                  top: topMargin,
-                  bottom: bottomMargin,
+                  left: margins.left,
+                  bottom: margins.bottom,
+                  right: margins.right,
+                  top: margins.top,
                 };
               })(),
-              xAxis: Array.isArray(chartConfig.xAxis)
-                ? chartConfig.xAxis.map((axis: any) => ({
+              xAxis: Array.isArray(configWithLegend.xAxis)
+                ? configWithLegend.xAxis.map((axis: any) => ({
                     ...axis,
                     nameGap: axis.name ? 80 : 15,
                     nameTextStyle: {
@@ -724,26 +762,26 @@ export function ChartElementV2({
                       width: axis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }))
-                : chartConfig.xAxis
+                : configWithLegend.xAxis
                   ? {
-                      ...chartConfig.xAxis,
-                      nameGap: chartConfig.xAxis.name ? 80 : 15,
+                      ...configWithLegend.xAxis,
+                      nameGap: configWithLegend.xAxis.name ? 80 : 15,
                       nameTextStyle: {
                         fontSize: 14,
                         color: '#374151',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
-                        ...chartConfig.xAxis.axisLabel,
+                        ...configWithLegend.xAxis.axisLabel,
                         interval: 0,
                         margin: 15, // Increased margin from axis line to labels
                         overflow: 'truncate',
-                        width: chartConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
+                        width: configWithLegend.xAxis.axisLabel?.rotate ? 100 : undefined,
                       },
                     }
                   : undefined,
-              yAxis: Array.isArray(chartConfig.yAxis)
-                ? chartConfig.yAxis.map((axis: any) => ({
+              yAxis: Array.isArray(configWithLegend.yAxis)
+                ? configWithLegend.yAxis.map((axis: any) => ({
                     ...axis,
                     nameGap: axis.name ? 100 : 15,
                     nameTextStyle: {
@@ -756,17 +794,17 @@ export function ChartElementV2({
                       margin: 15, // Increased margin from axis line to labels
                     },
                   }))
-                : chartConfig.yAxis
+                : configWithLegend.yAxis
                   ? {
-                      ...chartConfig.yAxis,
-                      nameGap: chartConfig.yAxis.name ? 100 : 15,
+                      ...configWithLegend.yAxis,
+                      nameGap: configWithLegend.yAxis.name ? 100 : 15,
                       nameTextStyle: {
                         fontSize: 14,
                         color: '#374151',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
-                        ...chartConfig.yAxis.axisLabel,
+                        ...configWithLegend.yAxis.axisLabel,
                         margin: 15, // Increased margin from axis line to labels
                       },
                     }
@@ -774,7 +812,7 @@ export function ChartElementV2({
             }),
         // Enhanced tooltip with bold values
         tooltip: {
-          ...chartConfig.tooltip,
+          ...configWithLegend.tooltip,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: '#e5e7eb',
           borderWidth: 1,
@@ -842,7 +880,8 @@ export function ChartElementV2({
     isMapChart,
     drillDownPath,
     handleRegionClick,
-  ]); // Update when data or filters change
+    containerSize, // Update when container size changes for responsive legends
+  ]); // Update when data, filters, or container size change
 
   // Handle window resize and container resize - separate from chart data changes
   useEffect(() => {
@@ -876,48 +915,51 @@ export function ChartElementV2({
   }, []); // No dependencies to avoid infinite loops
 
   // Handle container resize using ResizeObserver - separate effect
+  // OPTIMIZED: Debounce containerSize state updates to prevent re-renders during resize
+  // The chart data effect depends on containerSize, so updating it on every frame causes
+  // massive lag (entire chart config recalculates). Only update state when resize settles.
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null;
-    let resizeTimeoutId: NodeJS.Timeout | null = null;
+    let rafId: number | null = null;
+    let containerSizeTimeoutId: NodeJS.Timeout | null = null;
 
     if (chartRef.current && window.ResizeObserver) {
       resizeObserver = new ResizeObserver((entries) => {
-        // Clear any pending resize
-        if (resizeTimeoutId) {
-          clearTimeout(resizeTimeoutId);
+        // Cancel any pending animation frame
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        // Cancel any pending containerSize state update
+        if (containerSizeTimeoutId) {
+          clearTimeout(containerSizeTimeoutId);
         }
 
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0) {
-            // Debounce rapid resize events
-            resizeTimeoutId = setTimeout(() => {
+            // IMMEDIATE: Visual resize via RAF - no React state, no re-renders
+            // This makes the chart boundaries move in real-time (snappy)
+            rafId = requestAnimationFrame(() => {
               if (chartInstance.current) {
-                // Constrain dimensions to ensure chart fits within bounds
-                const maxWidth = Math.floor(width);
-                const maxHeight = Math.floor(height);
-
-                // Force explicit resize with constrained dimensions
                 chartInstance.current.resize({
-                  width: maxWidth,
-                  height: maxHeight,
+                  width: Math.floor(width),
+                  height: Math.floor(height),
                 });
-
-                // Force chart to redraw and refit content
-                const currentOption = chartInstance.current.getOption();
-                chartInstance.current.setOption(currentOption, {
-                  notMerge: false,
-                  lazyUpdate: false,
-                });
-
-                // Additional resize call to ensure proper fitting
-                setTimeout(() => {
-                  if (chartInstance.current) {
-                    chartInstance.current.resize();
-                  }
-                }, 50);
               }
-            }, 50); // Even faster response for browser zoom
+            });
+
+            // DEBOUNCED: Update containerSize state only when NOT actively resizing
+            // Skip state updates during resize to prevent re-renders
+            if (!isResizingRef.current) {
+              containerSizeTimeoutId = setTimeout(() => {
+                setContainerSize((prev) => {
+                  if (prev.width !== width || prev.height !== height) {
+                    return { width, height };
+                  }
+                  return prev;
+                });
+              }, 150); // Wait for resize to settle before updating state
+            }
           }
         }
       });
@@ -929,13 +971,16 @@ export function ChartElementV2({
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-      if (resizeTimeoutId) {
-        clearTimeout(resizeTimeoutId);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      if (containerSizeTimeoutId) {
+        clearTimeout(containerSizeTimeoutId);
       }
     };
   }, []); // No dependencies to avoid re-creating observer
 
-  // Handle resize when isResizing prop changes
+  // Handle resize when isResizing prop changes - final cleanup after drag stops
   useEffect(() => {
     if (!isResizing && chartInstance.current && chartRef.current) {
       // Clear any pending resize
@@ -943,7 +988,7 @@ export function ChartElementV2({
         clearTimeout(resizeTimeoutRef.current);
       }
 
-      // Perform final resize after drag/resize stops
+      // Quick final resize after drag stops
       resizeTimeoutRef.current = setTimeout(() => {
         if (chartInstance.current && chartRef.current) {
           const { width, height } = chartRef.current.getBoundingClientRect();
@@ -951,8 +996,15 @@ export function ChartElementV2({
             width: Math.floor(width),
             height: Math.floor(height),
           });
+          // Also update containerSize state for responsive legend recalculation
+          setContainerSize((prev) => {
+            if (prev.width !== width || prev.height !== height) {
+              return { width, height };
+            }
+            return prev;
+          });
         }
-      }, 300); // Slightly longer delay for final resize
+      }, 50); // Fast response
     }
 
     return () => {
@@ -966,7 +1018,7 @@ export function ChartElementV2({
     <div className="h-full w-full relative">
       {/* Action buttons moved to dashboard level for proper drag-cancel behavior */}
       <Card className="h-full w-full flex flex-col">
-        <CardContent className="p-4 flex-1 flex flex-col min-h-0">
+        <CardContent className="p-2 flex-1 flex flex-col min-h-0">
           {/* Chart Title Editor */}
           <ChartTitleEditor
             chartData={chart}
@@ -1071,6 +1123,7 @@ export function ChartElementV2({
                 valueColumn={
                   chart?.extra_config?.metrics?.[0]?.alias || chart?.extra_config?.aggregate_column
                 }
+                customizations={chart?.extra_config?.customizations}
                 onRegionClick={handleRegionClick}
                 drillDownPath={drillDownPath}
                 onDrillUp={handleDrillUp}
@@ -1079,7 +1132,7 @@ export function ChartElementV2({
                 isResizing={isResizing}
               />
             ) : (
-              <div ref={chartRef} className="w-full h-full chart-container" />
+              <div ref={chartRef} className="chart-container w-full h-full" />
             )}
           </div>
         </CardContent>

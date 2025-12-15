@@ -31,6 +31,17 @@ import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
 import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
+import {
+  applyLegendPosition,
+  extractLegendPosition,
+  isLegendPaginated,
+  type LegendPosition,
+} from '@/lib/chart-legend-utils';
+import {
+  applyResponsiveLegend,
+  getResponsiveGridMargins,
+  shouldShowLegend,
+} from '@/lib/responsive-legend';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -132,6 +143,9 @@ export function ChartElementView({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+
+  // Container size for responsive legend
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
@@ -916,32 +930,62 @@ export function ChartElementView({
     // Get base config (already includes map registration for map charts)
     let baseConfig = activeChartData.echarts_config;
 
+    // Extract legend position from chart's customizations (use effectiveChart for public mode support)
+    const customizations = effectiveChart?.extra_config?.customizations || {};
+    const legendPosition = extractLegendPosition(customizations, baseConfig) as LegendPosition;
+    const isPaginatedLegend = isLegendPaginated(customizations);
+
+    // Use container size for responsive legend (fallback to reasonable defaults)
+    const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
+    const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
+
+    // Check if legend should be visible based on container size
+    const legendVisible = shouldShowLegend(
+      effectiveWidth,
+      effectiveHeight,
+      effectiveChart?.chart_type
+    );
+
+    // Apply legend positioning (handles both legend config and pie chart center adjustment)
+    // Then apply responsive legend on top for size-based adjustments
+    let configWithLegend = baseConfig.legend
+      ? applyLegendPosition(
+          baseConfig,
+          legendPosition,
+          isPaginatedLegend,
+          effectiveChart?.chart_type
+        )
+      : baseConfig;
+
+    // Apply responsive legend adjustments based on container size
+    if (baseConfig.legend) {
+      configWithLegend = applyResponsiveLegend(
+        configWithLegend,
+        effectiveWidth,
+        effectiveHeight,
+        legendPosition,
+        effectiveChart?.chart_type
+      );
+    }
+
     // Apply beautiful theme and styling
     const styledConfig = {
-      ...baseConfig,
+      ...configWithLegend,
       // Disable ECharts internal title since we use HTML titles
       title: {
         ...activeChartData.echarts_config.title,
         show: false,
       },
-      // Enhanced legend positioning - place outside chart area
-      legend: baseConfig.legend
-        ? {
-            ...baseConfig.legend,
-            top: '5%',
-            left: 'center',
-            orient: baseConfig.legend.orient || 'horizontal',
-          }
-        : undefined,
+      // Legend is already properly positioned by applyLegendPosition and applyResponsiveLegend
       animation: true,
       animationDuration: 500,
       animationEasing: 'cubicOut',
       textStyle: {
         fontFamily: 'Inter, system-ui, sans-serif',
       },
-      // Enhanced data labels styling
-      series: Array.isArray(baseConfig.series)
-        ? baseConfig.series.map((series: any) => ({
+      // Enhanced data labels styling (preserve pie chart center from configWithLegend)
+      series: Array.isArray(configWithLegend.series)
+        ? configWithLegend.series.map((series: any) => ({
             ...series,
             label: {
               ...series.label,
@@ -950,13 +994,13 @@ export function ChartElementView({
               fontWeight: 'normal',
             },
           }))
-        : baseConfig.series
+        : configWithLegend.series
           ? {
-              ...baseConfig.series,
+              ...configWithLegend.series,
               label: {
-                ...baseConfig.series.label,
-                fontSize: baseConfig.series.label?.fontSize
-                  ? baseConfig.series.label.fontSize + 0.5
+                ...configWithLegend.series.label,
+                fontSize: configWithLegend.series.label?.fontSize
+                  ? configWithLegend.series.label.fontSize + 0.5
                   : 12.5,
                 fontFamily: 'Inter, system-ui, sans-serif',
                 fontWeight: 'normal',
@@ -988,29 +1032,37 @@ export function ChartElementView({
             yAxis: undefined,
           }
         : {
-            // For other chart types, apply normal grid and axis styling
-            // Dynamically adjust margins based on label rotation and legend
+            // For other chart types, apply responsive grid margins based on container size
             grid: (() => {
               const hasRotatedXLabels =
-                baseConfig.xAxis?.axisLabel?.rotate !== undefined &&
-                baseConfig.xAxis?.axisLabel?.rotate !== 0;
-              // Horizontal labels (0 degrees) need adequate space to be visible
-              // Rotated labels need more space due to angle
-              const bottomMargin = hasRotatedXLabels ? '18%' : '16%';
-              const hasLegend = baseConfig.legend?.show !== false;
-              const topMargin = hasLegend ? '18%' : '10%';
+                configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
+                configWithLegend.xAxis?.axisLabel?.rotate !== 0;
+              // Check if legend is visible after responsive adjustments
+              const hasLegend =
+                legendVisible &&
+                Boolean(configWithLegend.legend) &&
+                configWithLegend.legend?.show !== false;
+
+              // Use responsive grid margins based on container size
+              const margins = getResponsiveGridMargins(
+                effectiveWidth,
+                effectiveHeight,
+                legendPosition,
+                hasLegend,
+                hasRotatedXLabels
+              );
 
               return {
-                ...baseConfig.grid,
+                ...configWithLegend.grid,
                 containLabel: true,
-                left: '10%', // Increased for overall left margin
-                right: '6%', // Increased for overall right margin
-                top: topMargin,
-                bottom: bottomMargin,
+                left: margins.left,
+                bottom: margins.bottom,
+                right: margins.right,
+                top: margins.top,
               };
             })(),
-            xAxis: Array.isArray(baseConfig.xAxis)
-              ? baseConfig.xAxis.map((axis: any) => ({
+            xAxis: Array.isArray(configWithLegend.xAxis)
+              ? configWithLegend.xAxis.map((axis: any) => ({
                   ...axis,
                   nameGap: axis.name ? 80 : 15,
                   nameTextStyle: {
@@ -1026,26 +1078,26 @@ export function ChartElementView({
                     width: axis.axisLabel?.rotate ? 100 : undefined,
                   },
                 }))
-              : baseConfig.xAxis
+              : configWithLegend.xAxis
                 ? {
-                    ...baseConfig.xAxis,
-                    nameGap: baseConfig.xAxis.name ? 80 : 15,
+                    ...configWithLegend.xAxis,
+                    nameGap: configWithLegend.xAxis.name ? 80 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
-                      ...baseConfig.xAxis.axisLabel,
+                      ...configWithLegend.xAxis.axisLabel,
                       interval: 0,
                       margin: 15, // Increased margin from axis line to labels
                       overflow: 'truncate',
-                      width: baseConfig.xAxis.axisLabel?.rotate ? 100 : undefined,
+                      width: configWithLegend.xAxis.axisLabel?.rotate ? 100 : undefined,
                     },
                   }
                 : undefined,
-            yAxis: Array.isArray(baseConfig.yAxis)
-              ? baseConfig.yAxis.map((axis: any) => ({
+            yAxis: Array.isArray(configWithLegend.yAxis)
+              ? configWithLegend.yAxis.map((axis: any) => ({
                   ...axis,
                   nameGap: axis.name ? 100 : 15,
                   nameTextStyle: {
@@ -1058,24 +1110,24 @@ export function ChartElementView({
                     margin: 15, // Increased margin from axis line to labels
                   },
                 }))
-              : baseConfig.yAxis
+              : configWithLegend.yAxis
                 ? {
-                    ...baseConfig.yAxis,
-                    nameGap: baseConfig.yAxis.name ? 100 : 15,
+                    ...configWithLegend.yAxis,
+                    nameGap: configWithLegend.yAxis.name ? 100 : 15,
                     nameTextStyle: {
                       fontSize: 14,
                       color: '#374151',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
-                      ...baseConfig.yAxis.axisLabel,
+                      ...configWithLegend.yAxis.axisLabel,
                       margin: 15, // Increased margin from axis line to labels
                     },
                   }
                 : undefined,
           }),
       tooltip: {
-        trigger: 'axis',
+        ...configWithLegend.tooltip,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         borderColor: '#e5e7eb',
         borderWidth: 1,
@@ -1141,9 +1193,21 @@ export function ChartElementView({
 
     window.addEventListener('resize', handleResize);
 
-    // Resize observer for container changes
-    const resizeObserver = new ResizeObserver(() => {
-      chartInstance.current?.resize();
+    // Resize observer for container changes - also tracks container size for responsive legends
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          // Update container size state for responsive legends
+          setContainerSize((prev) => {
+            if (prev.width !== width || prev.height !== height) {
+              return { width, height };
+            }
+            return prev;
+          });
+          chartInstance.current?.resize();
+        }
+      }
     });
 
     resizeObserver.observe(chartRef.current);
@@ -1162,6 +1226,7 @@ export function ChartElementView({
     drillDownPath,
     handleRegionClick,
     isFullscreen, // Add fullscreen state to trigger chart resize
+    containerSize, // Update when container size changes for responsive legends
   ]);
 
   // Re-fetch data when filters change
@@ -1391,7 +1456,7 @@ export function ChartElementView({
     <div
       ref={wrapperRef}
       className={cn(
-        'h-full relative group flex flex-col',
+        'h-full relative group flex flex-col min-h-0',
         className,
         isFullscreen && '!h-screen !w-screen !bg-white p-4'
       )}
@@ -1441,7 +1506,7 @@ export function ChartElementView({
       )}
 
       {/* Chart Title - HTML title for better styling and interaction */}
-      <div className="px-2 pt-2">
+      <div className="px-2 pt-2 flex-shrink-0">
         <ChartTitleEditor
           chartData={isPublicMode ? effectiveChart : chartMetadata}
           config={config}
@@ -1452,7 +1517,7 @@ export function ChartElementView({
 
       {/* Drill-down navigation for maps */}
       {isMapChart && drillDownPath.length > 0 && (
-        <div className="px-2 py-1 border-b border-gray-100">
+        <div className="px-2 py-1 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-1 text-xs">
             <Button
               variant="ghost"
@@ -1486,7 +1551,7 @@ export function ChartElementView({
         <div
           ref={tableRef}
           className={cn(
-            'w-full p-4 overflow-auto',
+            'w-full flex-1 h-full p-4 overflow-auto',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white p-4'
           )}
           style={{
@@ -1526,7 +1591,7 @@ export function ChartElementView({
         <div
           ref={chartRef}
           className={cn(
-            'w-full flex-1 min-h-[200px]',
+            'w-full flex-1 h-full min-h-[200px]',
             isFullscreen && '!h-full !min-h-[90vh] !bg-white'
           )}
           style={{
@@ -1549,6 +1614,7 @@ export function ChartElementView({
               effectiveChart?.extra_config?.metrics?.[0]?.alias ||
               effectiveChart?.extra_config?.aggregate_column
             }
+            customizations={effectiveChart?.extra_config?.customizations}
             onRegionClick={handleRegionClick}
             drillDownPath={drillDownPath}
             onDrillUp={handleDrillUp}
@@ -1558,20 +1624,21 @@ export function ChartElementView({
           />
         </div>
       ) : (
-        <div
-          ref={chartRef}
-          className={cn(
-            'w-full flex-1 min-h-[200px]',
-            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
-          )}
-          style={{
-            padding: viewMode ? '8px' : '0',
-            ...(isFullscreen && {
-              backgroundColor: 'white !important',
-              background: 'white !important',
-            }),
-          }}
-        />
+        <div className="flex-1 w-full h-full overflow-visible">
+          <div
+            ref={chartRef}
+            className={cn(
+              'chart-container w-full h-full',
+              isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+            )}
+            style={{
+              ...(isFullscreen && {
+                backgroundColor: 'white !important',
+                background: 'white !important',
+              }),
+            }}
+          />
+        </div>
       )}
     </div>
   );

@@ -651,6 +651,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   isLoading={dataLoading}
                   error={dataError}
                   onChartReady={setChartInstance}
+                  customizations={chart?.extra_config?.customizations}
                 />
               )}
             </CardContent>
