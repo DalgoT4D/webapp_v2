@@ -30,6 +30,9 @@ export const STANDARD_DEFAULT_SIZE = {
   h: 18, // 18 rows (18 × 20px = 360px, making it roughly square with 4 cols)
 } as const;
 
+// Compact height for number charts and text boxes (8 rows × 20px = 160px)
+export const COMPACT_DEFAULT_HEIGHT = 8;
+
 /**
  * Minimum chart size constraints by chart type
  * These are flexible minimums that allow charts to be very small while remaining functional.
@@ -138,8 +141,17 @@ export function getMinGridDimensions(chartType: string): GridDimensions {
  * Get default grid dimensions for a chart type
  * Uses STANDARD_DEFAULT_SIZE (4 cols × 18 rows) as the baseline for consistent square-ish charts.
  * At rowHeight=20px: 4 cols ≈ 356px width, 18 rows × 20px = 360px height (~square).
+ * Number charts get a smaller height (2 rows) since they display a single value.
  */
-export function getDefaultGridDimensions(_chartType: string): GridDimensions {
+export function getDefaultGridDimensions(chartType: string): GridDimensions {
+  // Number charts and text boxes get a compact height
+  if (chartType === 'number' || chartType === 'text') {
+    return {
+      w: STANDARD_DEFAULT_SIZE.w,
+      h: COMPACT_DEFAULT_HEIGHT,
+    };
+  }
+
   // Use standard default size for consistent starting point
   // This ensures all new charts start as a roughly square shape (4 cols × 18 rows ≈ 356px × 360px)
   // The standard size is responsive - it scales proportionally with the grid
