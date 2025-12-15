@@ -586,7 +586,7 @@ export function calculateTextDimensions(config: {
 
     return {
       width: Math.max(250, placeholderWidth), // Minimum empty textbox width to fit placeholder
-      height: 180, // Always use the default textbox height (same as when first added)
+      height: COMPACT_DEFAULT_HEIGHT * GRID_CONFIG.rowHeight, // Match default textbox height (8 rows × 20px = 160px)
     };
   }
 
@@ -614,7 +614,7 @@ export function calculateTextDimensions(config: {
 
   return {
     width: Math.ceil(totalWidth),
-    height: Math.max(Math.ceil(totalHeight), 180), // Enforce absolute minimum height of 180px (default textbox height)
+    height: Math.max(Math.ceil(totalHeight), COMPACT_DEFAULT_HEIGHT * GRID_CONFIG.rowHeight), // Enforce minimum height matching default (8 rows × 20px = 160px)
   };
 }
 
