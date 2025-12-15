@@ -471,20 +471,24 @@ export function getContentAwareGridDimensions(
     `🔧 Getting content-aware grid dimensions for ${chartType} (${isDefault ? 'default' : 'minimum'} size)`
   );
 
+  // For default sizing, skip expensive analysis and use chart-type-specific defaults
+  // Users can resize after adding if needed
+  if (isDefault) {
+    return getDefaultGridDimensions(chartType);
+  }
+
   const contentConstraints = analyzeChartContent(chartData, chartType);
 
   // Add padding buffer to ensure charts have breathing room
-  const paddingBuffer = isDefault ? 20 : 10; // More padding for default sizes
+  const paddingBuffer = 10;
 
-  const targetWidth =
-    (isDefault ? contentConstraints.defaultWidth : contentConstraints.minWidth) + paddingBuffer;
-  const targetHeight =
-    (isDefault ? contentConstraints.defaultHeight : contentConstraints.minHeight) + paddingBuffer;
+  const targetWidth = contentConstraints.minWidth + paddingBuffer;
+  const targetHeight = contentConstraints.minHeight + paddingBuffer;
 
   console.log(`🎯 Target dimensions for ${chartType}:`, {
     targetWidth: `${targetWidth}px`,
     targetHeight: `${targetHeight}px`,
-    sizeType: isDefault ? 'default' : 'minimum',
+    sizeType: 'minimum',
     gridConfig: GRID_CONFIG,
   });
 
@@ -494,7 +498,7 @@ export function getContentAwareGridDimensions(
 
   // Chart-type-specific minimum grid dimensions - very flexible for user control
   // Charts can be made very small - content (legends, labels) will scale responsively
-  const chartTypeMinimums = {
+  const chartTypeMinimums: Record<string, { minW: number; minH: number }> = {
     number: { minW: 1, minH: 1 }, // Number cards can be very compact
     pie: { minW: 1, minH: 1 }, // Pie charts - legend scales with size
     bar: { minW: 1, minH: 2 }, // Bar charts - axes adapt
@@ -505,16 +509,6 @@ export function getContentAwareGridDimensions(
   };
 
   const typeMinimums = chartTypeMinimums[chartType] || chartTypeMinimums.default;
-
-  // For default sizing, ALWAYS use STANDARD_DEFAULT_SIZE for consistent square charts
-  // Content analysis is ignored for defaults - users can resize after adding if needed
-  // For minimum sizing, use the chart-type-specific minimums
-  if (isDefault) {
-    return {
-      w: STANDARD_DEFAULT_SIZE.w,
-      h: STANDARD_DEFAULT_SIZE.h,
-    };
-  }
 
   const finalGridW = Math.max(typeMinimums.minW, Math.min(GRID_CONFIG.cols, rawGridW));
   const finalGridH = Math.max(typeMinimums.minH, rawGridH);
