@@ -331,37 +331,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const component = componentsWithConstraints[item.i];
       if (component) {
         const chartType = getChartTypeFromConfig(component.config);
-        let minDimensions;
-
-        // Use stored content constraints if available
-        if (component.config.contentConstraints) {
-          minDimensions = {
-            w: Math.max(
-              1,
-              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
-            ),
-            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
-          };
-
-          console.log(`🔒 Text constraint enforced:`, {
-            textContent: component.config.content?.substring(0, 15) + '...' || '(empty)',
-            minHeight: `${minDimensions.h} grid units (${minDimensions.h * 60}px)`,
-            actualHeight: `${item.h} grid units`,
-            heightOK: item.h >= minDimensions.h,
-            minWidth: `${minDimensions.w} grid units`,
-            actualWidth: `${item.w} grid units`,
-            widthOK: item.w >= minDimensions.w,
-          });
-        } else {
-          minDimensions = getMinGridDimensions(chartType);
-        }
+        // Always use base chart type constraints for minW/minH (resize limits)
+        // This ensures users can freely resize components
+        const baseMinDimensions = getMinGridDimensions(chartType);
 
         return {
           ...item,
-          w: Math.max(item.w || 1, minDimensions.w),
-          h: Math.max(item.h || 1, minDimensions.h),
-          minW: minDimensions.w,
-          minH: minDimensions.h,
+          // Keep the saved dimensions - don't force expand based on content constraints
+          w: item.w || baseMinDimensions.w,
+          h: item.h || baseMinDimensions.h,
+          // Use base constraints for resize limits (allows flexible resizing)
+          minW: baseMinDimensions.w,
+          minH: baseMinDimensions.h,
         };
       }
       return item;
