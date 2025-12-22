@@ -30,7 +30,7 @@ export function DashboardChatTrigger({
   const [hasNewActivity, setHasNewActivity] = useState(false);
   const { aiEnabled, isLoading: aiStatusLoading } = useAIStatus();
   const { isFeatureFlagEnabled } = useFeatureFlags();
-  const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_CHATBOT);
+  const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT);
   const { toast } = useToast();
 
   // Don't show chat in public mode unless specifically enabled

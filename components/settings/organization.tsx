@@ -38,7 +38,7 @@ export default function OrganizationSettings() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { isFeatureFlagEnabled } = useFeatureFlags();
-  const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_CHATBOT);
+  const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT);
 
   useEffect(() => {
     loadOrgSettings();
