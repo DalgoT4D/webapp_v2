@@ -4,24 +4,11 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
-import {
-  AlertCircle,
-  Building2,
-  Globe,
-  ImageIcon,
-  Info,
-  Shield,
-  Bot,
-  Upload,
-  X,
-  Check,
-  Loader2,
-} from 'lucide-react';
+import { AlertCircle, Building2, Globe, Info, Shield, Bot, Check, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiGet, apiPut, apiPost } from '@/lib/api';
@@ -47,10 +34,8 @@ export default function OrganizationSettings() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const { toast } = useToast();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const isAIChatbotEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_CHATBOT);
@@ -79,13 +64,6 @@ export default function OrganizationSettings() {
         };
 
         setSettings(newSettings);
-
-        // Load logo preview if exists
-        if (response.res.organization_logo_filename) {
-          setLogoPreview(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/org-settings/logo`
-          );
-        }
       }
     } catch (err: any) {
       console.error('Failed to load organization settings:', err);
@@ -163,98 +141,6 @@ export default function OrganizationSettings() {
     });
   };
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: 'Invalid File Type',
-        description: 'Please upload a valid image file (JPEG, PNG, GIF, or WebP)',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast({
-        title: 'File Too Large',
-        description: 'Please upload an image smaller than 10MB',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setIsUploadingLogo(true);
-      setError(null);
-
-      const formData = new FormData();
-      formData.append('logo_file', file);
-
-      const selectedOrg = localStorage.getItem('selectedOrg');
-      const headers: HeadersInit = {};
-      if (selectedOrg) {
-        headers['x-dalgo-org'] = selectedOrg;
-      }
-      // Don't set Content-Type for FormData - browser will set it automatically with boundary
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/org-settings/upload-logo`,
-        {
-          method: 'POST',
-          body: formData,
-          headers,
-          credentials: 'include', // Use cookies for authentication, same as other API calls
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        // Update the settings to show the new filename
-        setSettings((prev) => ({
-          ...prev,
-          organization_logo_filename: result.filename,
-        }));
-
-        // Update preview with timestamp to force reload
-        setLogoPreview(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/org-settings/logo?t=${Date.now()}`
-        );
-
-        toast({
-          title: 'Logo Uploaded',
-          description: 'Organization logo has been uploaded successfully.',
-        });
-      } else {
-        throw new Error(result.message || 'Failed to upload logo');
-      }
-    } catch (err: any) {
-      console.error('Failed to upload logo:', err);
-      toast({
-        title: 'Upload Failed',
-        description: 'Failed to upload logo. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploadingLogo(false);
-      // Reset the file input
-      event.target.value = '';
-    }
-  };
-
-  const handleRemoveLogo = async () => {
-    // For simplicity, we'll just clear the preview and filename
-    // In a full implementation, you might want an actual delete endpoint
-    setLogoPreview(null);
-    setSettings((prev) => ({ ...prev, organization_logo_filename: '' }));
-  };
-
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
@@ -271,7 +157,7 @@ export default function OrganizationSettings() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Organization Settings</h1>
-          <p className="text-muted-foreground">Manage your organization logo and AI preferences</p>
+          <p className="text-muted-foreground">Manage your organization AI preferences</p>
         </div>
 
         {/* Organization Info Display - Read Only */}
@@ -331,68 +217,6 @@ export default function OrganizationSettings() {
         )}
 
         <div className="space-y-6">
-          {/* Logo Management */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Organization Logo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Logo Preview */}
-              {logoPreview && (
-                <div className="relative inline-block">
-                  <img
-                    src={logoPreview}
-                    alt="Organization Logo"
-                    className="w-32 h-32 object-contain border rounded-lg bg-gray-50"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute -top-2 -right-2 rounded-full w-6 h-6 p-0"
-                    onClick={handleRemoveLogo}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-
-              {/* File Upload */}
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    disabled={isUploadingLogo}
-                    className="hidden"
-                    id="logo-upload"
-                  />
-                  <Label
-                    htmlFor="logo-upload"
-                    className={`flex items-center gap-2 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <Upload className="h-4 w-4" />
-                    {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
-                  </Label>
-                </div>
-
-                {settings.organization_logo_filename && (
-                  <span className="text-sm text-muted-foreground">
-                    Current: {settings.organization_logo_filename}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Upload your organization's logo image (JPEG, PNG, GIF, or WebP, max 10MB)
-              </p>
-            </CardContent>
-          </Card>
-
           {isAIChatbotEnabled && (
             <>
               <Separator />

@@ -530,24 +530,26 @@ What would you like to know about this dashboard?`,
 
                     {/* Message metadata */}
                     {message.metadata && message.role === 'assistant' && (
-                      <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-200">
-                        {message.metadata.charts_analyzed && (
-                          <Badge variant="outline" className="text-xs">
-                            <BarChart3 className="w-3 h-3 mr-1" />
-                            {message.metadata.charts_analyzed} charts
-                          </Badge>
-                        )}
-                        {message.metadata.data_included && (
-                          <Badge variant="outline" className="text-xs">
-                            <Database className="w-3 h-3 mr-1" />
-                            Data included
-                          </Badge>
-                        )}
+                      <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600 flex items-center justify-between gap-2 w-full">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {message.metadata.charts_analyzed && (
+                            <Badge variant="outline" className="text-xs">
+                              <BarChart3 className="w-3 h-3 mr-1" />
+                              {message.metadata.charts_analyzed} charts
+                            </Badge>
+                          )}
+                          {message.metadata.data_included && (
+                            <Badge variant="outline" className="text-xs">
+                              <Database className="w-3 h-3 mr-1" />
+                              Data included
+                            </Badge>
+                          )}
+                        </div>
                         {message.metadata.usage?.total_tokens && (
-                          <Badge variant="outline" className="text-xs">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            {message.metadata.usage.total_tokens} tokens
-                          </Badge>
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <Sparkles className="w-3 h-3" />
+                            <span>{message.metadata.usage.total_tokens} tokens</span>
+                          </div>
                         )}
                       </div>
                     )}
