@@ -106,8 +106,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           dimension_col: chart.extra_config?.geographic_column,
           aggregate_col: chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
         }),
-        // For table charts, pass selected columns
+        // For table charts, include dimensions array and selected columns
         ...(chart.chart_type === 'table' && {
+          ...(chart.extra_config?.dimensions &&
+            chart.extra_config.dimensions.length > 0 && {
+              dimensions: chart.extra_config.dimensions.map((d: any) => d.column).filter(Boolean),
+            }),
+          ...(chart.extra_config?.dimension_columns &&
+            chart.extra_config.dimension_columns.length > 0 && {
+              dimensions: chart.extra_config.dimension_columns,
+            }),
           table_columns: chart.extra_config?.table_columns,
         }),
         customizations: chart.extra_config?.customizations || {},

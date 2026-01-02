@@ -254,10 +254,31 @@ function ConfigureChartPageContent() {
       );
     }
 
+    // For table charts, check for dimensions array or dimension_column
+    if (formData.chart_type === 'table') {
+      const hasDimensions =
+        (formData.dimensions &&
+          formData.dimensions.length > 0 &&
+          formData.dimensions.some((d) => d.column)) ||
+        !!formData.dimension_column;
+      // Table charts can work with just dimensions (no metrics required)
+      if (hasDimensions) {
+        return true;
+      }
+      // If metrics are provided, validate them
+      if (formData.metrics && formData.metrics.length > 0) {
+        return formData.metrics.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        );
+      }
+      return false;
+    }
+
     {
-      // For bar/line/table charts with multiple metrics
+      // For bar/line charts with multiple metrics
       if (
-        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {
@@ -296,6 +317,12 @@ function ConfigureChartPageContent() {
         }),
         // Multiple metrics for bar/line charts
         ...(formData.metrics && { metrics: formData.metrics }),
+        // For table charts, include dimensions array
+        ...(formData.chart_type === 'table' &&
+          formData.dimensions &&
+          formData.dimensions.length > 0 && {
+            dimensions: formData.dimensions.map((d) => d.column).filter(Boolean),
+          }),
         ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
         ...(formData.value_column && { value_column: formData.value_column }),
         ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),

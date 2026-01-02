@@ -177,8 +177,12 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
-          // For table charts, pass selected columns
+          // For table charts, include dimensions array and selected columns
           ...(formData.chart_type === 'table' && {
+            ...(formData.dimensions &&
+              formData.dimensions.length > 0 && {
+                dimensions: formData.dimensions.map((d) => d.column).filter(Boolean),
+              }),
             table_columns: formData.table_columns,
           }),
           // Include extra_config for time_grain and other configurations

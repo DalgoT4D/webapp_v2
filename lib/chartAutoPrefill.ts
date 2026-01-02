@@ -96,7 +96,18 @@ export function generateAutoPrefilledConfig(
       break;
 
     case 'table':
-      if (textColumn) config.dimension_column = textColumn.name;
+      // Default: one dimension and one metric for tables
+      if (textColumn) {
+        config.dimensions = [
+          {
+            column: textColumn.name,
+            enable_drill_down: false,
+          },
+        ];
+        config.dimension_columns = [textColumn.name];
+        // Keep dimension_column for backward compatibility
+        config.dimension_column = textColumn.name;
+      }
       // Always add count metric as default for tables
       config.metrics = [
         {
