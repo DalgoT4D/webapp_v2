@@ -119,11 +119,6 @@ function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
   const chartId = Number(params.id);
-  console.log('🔍 [EDIT-PAGE] Initialized with params:', {
-    rawId: params.id,
-    chartId,
-    isValidNumber: !isNaN(chartId) && chartId > 0,
-  });
   const { hasPermission } = useUserPermissions();
   const canEditChart = hasPermission('can_edit_charts');
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
@@ -231,11 +226,6 @@ function EditChartPageContent() {
 
     // Set drill_down_enabled if we have any additional levels
     simplified.drill_down_enabled = layers.length > 1;
-
-    console.log('🔄 Converting layers to simplified for edit:', {
-      layers: layers.length,
-      simplified,
-    });
 
     return simplified;
   };
@@ -352,16 +342,6 @@ function EditChartPageContent() {
   // Check for unsaved changes
   const hasUnsavedChanges = useMemo(() => {
     const hasChanges = originalFormData ? !deepEqual(formData, originalFormData) : false;
-    console.log('🔍 [UNSAVED-CHANGES] Detection:', {
-      hasOriginalFormData: !!originalFormData,
-      hasChanges,
-      formDataTitle: formData.title,
-      formDataSchema: formData.schema_name,
-      formDataTable: formData.table_name,
-      originalTitle: originalFormData?.title,
-      originalSchema: originalFormData?.schema_name,
-      originalTable: originalFormData?.table_name,
-    });
     return hasChanges;
   }, [formData, originalFormData]);
 
@@ -576,7 +556,6 @@ function EditChartPageContent() {
   // Reset dismiss state when form configuration changes
   useEffect(() => {
     setErrorToastDismissed(false);
-    console.log('Form config changed - reset dismiss state');
   }, [
     formData.chart_type,
     formData.aggregate_function,
@@ -597,33 +576,9 @@ function EditChartPageContent() {
       formData.chart_type !== 'table';
     const shouldShowToast = isConfigIncomplete && !chartDataLoading && !errorToastDismissed;
 
-    // Debug specifically for number charts
-    if (formData.chart_type === 'number') {
-      console.log('Number chart debug:', {
-        hasBasicConfig,
-        isChartDataReady: isChartDataReady(),
-        chartDataLoading,
-        chartData: !!chartData,
-        aggregate_function: formData.aggregate_function,
-        aggregate_column: formData.aggregate_column,
-        isConfigIncomplete,
-        shouldShowToast,
-      });
-    }
-
-    console.log('Toast visibility check:', {
-      chartType: formData.chart_type,
-      isConfigIncomplete,
-      chartDataLoading,
-      errorToastDismissed,
-      shouldShowToast,
-    });
-
     if (shouldShowToast && !errorToastVisible) {
-      console.log('Showing toast');
       setErrorToastVisible(true);
     } else if (!isConfigIncomplete && errorToastVisible) {
-      console.log('Hiding toast - config complete');
       setErrorToastVisible(false);
     }
   }, [
@@ -637,12 +592,10 @@ function EditChartPageContent() {
 
   // Handle manual toast dismissal
   const handleDismissToast = (e: React.MouseEvent) => {
-    console.log('Toast clicked - dismissing, current state:', errorToastVisible);
     e.preventDefault();
     e.stopPropagation();
     setErrorToastVisible(false);
-    setErrorToastDismissed(true); // Mark as manually dismissed
-    console.log('State set to false, dismissed set to true');
+    setErrorToastDismissed(true);
   };
 
   useEffect(() => {
@@ -1223,9 +1176,7 @@ function EditChartPageContent() {
         (formData.district_column || formData.ward_column || formData.subward_column);
 
       if (hasSimplifiedFields) {
-        console.log('🔄 Converting simplified drill-down to layers structure in edit mode');
         layersToSave = convertSimplifiedToLayers(formData);
-        console.log('✅ Generated layers for save:', layersToSave);
       }
 
       // Backward compatibility: set selectedGeojsonId from first layer
@@ -1444,7 +1395,6 @@ function EditChartPageContent() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                console.log('🔙 [BACK-BUTTON] Clicked. hasUnsavedChanges:', hasUnsavedChanges);
                 if (hasUnsavedChanges) {
                   setUnsavedChangesDialog({
                     open: true,

@@ -123,7 +123,6 @@ function ConfigureChartPageContent() {
 
   // ✅ ADD: Drill-up and drill-home handlers for create mode
   const handleDrillUp = useCallback((targetLevel: number) => {
-    console.log('🔙 [CREATE-MODE] Drill up to level:', targetLevel);
     if (targetLevel < 0) {
       setDrillDownPath([]);
     } else {
@@ -132,7 +131,6 @@ function ConfigureChartPageContent() {
   }, []);
 
   const handleDrillHome = useCallback(() => {
-    console.log('🏠 [CREATE-MODE] Drill home - resetting to base level');
     setDrillDownPath([]);
   }, []);
 
@@ -199,7 +197,6 @@ function ConfigureChartPageContent() {
   // Initialize original form data for unsaved changes detection
   useEffect(() => {
     if (!originalFormData) {
-      console.log('🔍 [CREATE-MODE] Initializing original form data for unsaved changes detection');
       setOriginalFormData({ ...formData });
     }
   }, [formData.schema_name, formData.table_name, formData.chart_type, originalFormData]);
@@ -209,14 +206,6 @@ function ConfigureChartPageContent() {
     if (!originalFormData) return false;
 
     const hasChanges = !deepEqual(formData, originalFormData);
-    console.log('🔍 [CREATE-MODE] Unsaved changes detection:', {
-      hasOriginalFormData: !!originalFormData,
-      hasChanges,
-      formDataTitle: formData.title,
-      originalTitle: originalFormData?.title,
-      formDataDimension: formData.dimension_column,
-      originalDimension: originalFormData?.dimension_column,
-    });
 
     return hasChanges;
   }, [formData, originalFormData]);
@@ -523,7 +512,6 @@ function ConfigureChartPageContent() {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
-    console.log('🔄 [CREATE-MODE] Form data change:', updates);
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
@@ -544,27 +532,14 @@ function ConfigureChartPageContent() {
       if (!hasExistingConfig) {
         const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
         if (Object.keys(autoConfig).length > 0) {
-          console.log('🤖 [CREATE-MODE] Auto-prefilling configuration:', autoConfig);
           handleFormChange(autoConfig);
         }
       }
     }
   }, [columns, formData.schema_name, formData.table_name, formData.chart_type]);
 
-  // FIX #1: Generate map preview payloads in create mode with detailed logging
+  // Generate map preview payloads in create mode
   useEffect(() => {
-    console.log('🔍 [CREATE-MODE] Checking payload generation conditions:', {
-      chart_type: formData.chart_type,
-      geographic_column: formData.geographic_column,
-      selected_geojson_id: formData.selected_geojson_id,
-      aggregate_column: formData.aggregate_column,
-      aggregate_function: formData.aggregate_function,
-      schema_name: formData.schema_name,
-      table_name: formData.table_name,
-      current_geojsonPreviewPayload: formData.geojsonPreviewPayload,
-      current_dataOverlayPayload: formData.dataOverlayPayload,
-    });
-
     if (
       formData.chart_type === 'map' &&
       formData.geographic_column &&
@@ -580,18 +555,6 @@ function ConfigureChartPageContent() {
         !formData.dataOverlayPayload ||
         formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
         formData.dataOverlayPayload.geographic_column !== formData.geographic_column;
-
-      console.log('✅ [CREATE-MODE] All conditions met for payload generation:', {
-        needsUpdate,
-        reasons: {
-          no_geojson_payload: !formData.geojsonPreviewPayload,
-          no_data_payload: !formData.dataOverlayPayload,
-          geojson_id_mismatch:
-            formData.geojsonPreviewPayload?.geojsonId !== formData.selected_geojson_id,
-          geographic_column_mismatch:
-            formData.dataOverlayPayload?.geographic_column !== formData.geographic_column,
-        },
-      });
 
       if (needsUpdate) {
         const geojsonPayload = {
@@ -609,27 +572,12 @@ function ConfigureChartPageContent() {
           chart_filters: formData.filters || [],
         };
 
-        console.log('🚀 [CREATE-MODE] Generating payloads:', {
-          geojsonPayload,
-          dataOverlayPayload,
-          drillDownConfig: {
-            district_column: formData.district_column,
-            drill_down_enabled: formData.drill_down_enabled,
-          },
-        });
-
         setFormData((prev) => ({
           ...prev,
           geojsonPreviewPayload: geojsonPayload,
           dataOverlayPayload: dataOverlayPayload,
         }));
-
-        console.log('✅ [CREATE-MODE] Payloads set successfully');
-      } else {
-        console.log('⏭️ [CREATE-MODE] Payloads up to date, skipping update');
       }
-    } else {
-      console.log('❌ [CREATE-MODE] Conditions not met for payload generation');
     }
   }, [
     formData.chart_type,
@@ -924,48 +872,8 @@ function ConfigureChartPageContent() {
       },
     };
 
-    // ✅ LOG: Track what data is being saved
-    console.log('💾 [CREATE-MODE] Saving chart:', {
-      chart_type: chartData.chart_type,
-      geographic_column: chartData.extra_config.geographic_column,
-      geographic_hierarchy: chartData.extra_config.geographic_hierarchy,
-      drill_down_levels_count:
-        chartData.extra_config.geographic_hierarchy?.drill_down_levels?.length || 0,
-      // ✅ LOG: Track dimensions for table charts
-      ...(chartData.chart_type === 'table' && {
-        dimensions: chartData.extra_config.dimensions,
-        dimension_columns: chartData.extra_config.dimension_columns,
-        dimensions_count: chartData.extra_config.dimensions?.length || 0,
-        drill_down_enabled_dimensions:
-          chartData.extra_config.dimensions?.filter((d: any) => d.enable_drill_down === true)
-            .length || 0,
-      }),
-      full_chartData: chartData,
-    });
-
     try {
-      // Log the full payload structure
-      const dimensionsForLog = chartData.extra_config.dimensions || [];
-      console.log('💾 [CREATE-MODE] Attempting to save chart:', {
-        chart_type: chartData.chart_type,
-        has_dimensions: !!chartData.extra_config.dimensions,
-        dimensions_count: dimensionsForLog.length,
-        dimensions_structure: dimensionsForLog.map((d: any) => ({
-          column: d.column,
-          enable_drill_down: d.enable_drill_down,
-          enable_drill_down_type: typeof d.enable_drill_down,
-        })),
-        dimensions_with_drill_down: dimensionsForLog.filter(
-          (d: any) => d.enable_drill_down === true
-        ).length,
-        dimension_columns: chartData.extra_config.dimension_columns,
-        extra_config_keys: Object.keys(chartData.extra_config),
-        // Log the full dimensions array for debugging
-        full_dimensions: JSON.stringify(chartData.extra_config.dimensions),
-      });
-
       const result = await createChart(chartData);
-      console.log('✅ [CREATE-MODE] Chart saved successfully:', result.id);
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
@@ -1026,10 +934,6 @@ function ConfigureChartPageContent() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                console.log(
-                  '🔙 [CREATE-MODE] Back button clicked. hasUnsavedChanges:',
-                  hasUnsavedChanges
-                );
                 if (hasUnsavedChanges) {
                   setPendingNavigation('/charts/new');
                   setShowUnsavedChangesDialog(true);
