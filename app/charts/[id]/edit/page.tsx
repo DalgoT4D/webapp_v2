@@ -1107,19 +1107,21 @@ function EditChartPageContent() {
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
         // ✅ FIX: Include dimensions and dimension_columns for table charts
         ...(formData.chart_type === 'table' && {
-          ...(formData.dimensions &&
-            formData.dimensions.length > 0 && {
-              dimensions: formData.dimensions
-                .filter((dim) => dim.column && dim.column.trim() !== '')
-                .map((dim) => ({
-                  column: dim.column,
-                  enable_drill_down: dim.enable_drill_down === true,
-                })),
-            }),
-          ...(formData.dimensions &&
-            formData.dimensions.length > 0 && {
-              dimension_columns: formData.dimensions.map((d) => d.column).filter(Boolean),
-            }),
+          // Always include dimensions array (even if empty) to ensure structure is consistent
+          dimensions:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions
+                  .filter((dim) => dim.column && dim.column.trim() !== '')
+                  .map((dim) => ({
+                    column: dim.column,
+                    enable_drill_down: Boolean(dim.enable_drill_down === true),
+                  }))
+              : [],
+          // Always include dimension_columns array for backward compatibility
+          dimension_columns:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions.map((d) => d.column).filter(Boolean)
+              : [],
         }),
       },
     };

@@ -903,43 +903,91 @@ function ConfigureChartPageContent() {
         }),
         // ✅ FIX: Include dimensions and dimension_columns for table charts
         ...(formData.chart_type === 'table' && {
-          ...(formData.dimensions &&
-            formData.dimensions.length > 0 && {
-              dimensions: formData.dimensions
-                .filter((dim) => dim.column && dim.column.trim() !== '')
-                .map((dim) => ({
-                  column: dim.column,
-                  enable_drill_down: dim.enable_drill_down === true,
-                })),
-            }),
-          ...(formData.dimensions &&
-            formData.dimensions.length > 0 && {
-              dimension_columns: formData.dimensions.map((d) => d.column).filter(Boolean),
-            }),
+          // Always include dimensions array (even if empty) to ensure structure is consistent
+          dimensions:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions
+                  .filter((dim) => dim.column && dim.column.trim() !== '')
+                  .map((dim) => ({
+                    column: dim.column,
+                    enable_drill_down: Boolean(dim.enable_drill_down === true),
+                  }))
+              : [],
+          // Always include dimension_columns array for backward compatibility
+          dimension_columns:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions.map((d) => d.column).filter(Boolean)
+              : [],
           // Keep table_columns for backward compatibility
           table_columns: formData.table_columns,
         }),
       },
     };
 
-    // ✅ LOG: Track what geographic_hierarchy data is being saved
-    console.log('💾 [CREATE-MODE] Saving chart with geographic_hierarchy:', {
+    // ✅ LOG: Track what data is being saved
+    console.log('💾 [CREATE-MODE] Saving chart:', {
       chart_type: chartData.chart_type,
       geographic_column: chartData.extra_config.geographic_column,
       geographic_hierarchy: chartData.extra_config.geographic_hierarchy,
       drill_down_levels_count:
         chartData.extra_config.geographic_hierarchy?.drill_down_levels?.length || 0,
+      // ✅ LOG: Track dimensions for table charts
+      ...(chartData.chart_type === 'table' && {
+        dimensions: chartData.extra_config.dimensions,
+        dimension_columns: chartData.extra_config.dimension_columns,
+        dimensions_count: chartData.extra_config.dimensions?.length || 0,
+        drill_down_enabled_dimensions:
+          chartData.extra_config.dimensions?.filter((d: any) => d.enable_drill_down === true)
+            .length || 0,
+      }),
       full_chartData: chartData,
     });
 
     try {
+      // Log the full payload structure
+      const dimensionsForLog = chartData.extra_config.dimensions || [];
+      console.log('💾 [CREATE-MODE] Attempting to save chart:', {
+        chart_type: chartData.chart_type,
+        has_dimensions: !!chartData.extra_config.dimensions,
+        dimensions_count: dimensionsForLog.length,
+        dimensions_structure: dimensionsForLog.map((d: any) => ({
+          column: d.column,
+          enable_drill_down: d.enable_drill_down,
+          enable_drill_down_type: typeof d.enable_drill_down,
+        })),
+        dimensions_with_drill_down: dimensionsForLog.filter(
+          (d: any) => d.enable_drill_down === true
+        ).length,
+        dimension_columns: chartData.extra_config.dimension_columns,
+        extra_config_keys: Object.keys(chartData.extra_config),
+        // Log the full dimensions array for debugging
+        full_dimensions: JSON.stringify(chartData.extra_config.dimensions),
+      });
+
       const result = await createChart(chartData);
+      console.log('✅ [CREATE-MODE] Chart saved successfully:', result.id);
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
       router.push(`/charts/${result.id}`);
-    } catch (error) {
-      toastError.create(error, 'chart');
+    } catch (error: any) {
+      console.error('❌ [CREATE-MODE] Error saving chart:', error);
+      console.error('❌ [CREATE-MODE] Error details:', {
+        message: error?.message,
+        response: error?.response,
+        data: error?.data,
+        stack: error?.stack,
+        // Log what was being sent
+        attempted_payload: {
+          chart_type: chartData.chart_type,
+          dimensions: chartData.extra_config.dimensions,
+          dimension_columns: chartData.extra_config.dimension_columns,
+        },
+      });
+
+      // Show more detailed error message
+      const errorMessage = error?.message || error?.detail || 'Failed to save chart';
+      toast.error(`Failed to save chart: ${errorMessage}`);
     }
   };
 
