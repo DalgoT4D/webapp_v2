@@ -290,6 +290,36 @@ function EditChartPageContent() {
         geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
         // Include table_columns for table charts
         table_columns: chart.extra_config?.table_columns || [],
+        // ✅ FIX: Include dimensions and dimension_columns for table charts
+        ...(chart.chart_type === 'table' && {
+          dimensions:
+            chart.extra_config?.dimensions && chart.extra_config.dimensions.length > 0
+              ? chart.extra_config.dimensions.map((d: any) => ({
+                  column: d.column || d,
+                  enable_drill_down: d.enable_drill_down === true,
+                }))
+              : chart.extra_config?.dimension_columns &&
+                  chart.extra_config.dimension_columns.length > 0
+                ? chart.extra_config.dimension_columns.map((col: string) => ({
+                    column: col,
+                    enable_drill_down: false,
+                  }))
+                : chart.extra_config?.dimension_column
+                  ? [
+                      {
+                        column: chart.extra_config.dimension_column,
+                        enable_drill_down: false,
+                      },
+                    ]
+                  : [],
+          dimension_columns:
+            chart.extra_config?.dimension_columns ||
+            (chart.extra_config?.dimensions
+              ? chart.extra_config.dimensions.map((d: any) => d.column || d).filter(Boolean)
+              : chart.extra_config?.dimension_column
+                ? [chart.extra_config.dimension_column]
+                : []),
+        }),
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -1075,6 +1105,22 @@ function EditChartPageContent() {
         table_columns: formData.table_columns,
         // Include metrics for multiple metrics support
         ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+        // ✅ FIX: Include dimensions and dimension_columns for table charts
+        ...(formData.chart_type === 'table' && {
+          ...(formData.dimensions &&
+            formData.dimensions.length > 0 && {
+              dimensions: formData.dimensions
+                .filter((dim) => dim.column && dim.column.trim() !== '')
+                .map((dim) => ({
+                  column: dim.column,
+                  enable_drill_down: dim.enable_drill_down === true,
+                })),
+            }),
+          ...(formData.dimensions &&
+            formData.dimensions.length > 0 && {
+              dimension_columns: formData.dimensions.map((d) => d.column).filter(Boolean),
+            }),
+        }),
       },
     };
   };

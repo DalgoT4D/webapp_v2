@@ -901,6 +901,24 @@ function ConfigureChartPageContent() {
         ...(formData.geographic_hierarchy && {
           geographic_hierarchy: formData.geographic_hierarchy,
         }),
+        // ✅ FIX: Include dimensions and dimension_columns for table charts
+        ...(formData.chart_type === 'table' && {
+          ...(formData.dimensions &&
+            formData.dimensions.length > 0 && {
+              dimensions: formData.dimensions
+                .filter((dim) => dim.column && dim.column.trim() !== '')
+                .map((dim) => ({
+                  column: dim.column,
+                  enable_drill_down: dim.enable_drill_down === true,
+                })),
+            }),
+          ...(formData.dimensions &&
+            formData.dimensions.length > 0 && {
+              dimension_columns: formData.dimensions.map((d) => d.column).filter(Boolean),
+            }),
+          // Keep table_columns for backward compatibility
+          table_columns: formData.table_columns,
+        }),
       },
     };
 
