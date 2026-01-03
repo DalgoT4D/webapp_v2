@@ -5,6 +5,12 @@ export interface ChartMetric {
   alias?: string; // Display name for the metric
 }
 
+// Chart dimension configuration for table charts with drill-down support
+export interface ChartDimension {
+  column: string;
+  enable_drill_down?: boolean;
+}
+
 // Chart filter configuration
 export interface ChartFilter {
   column: string;
@@ -130,6 +136,9 @@ export interface ChartCreate {
     // Pagination and sorting
     pagination?: ChartPagination;
     sort?: ChartSort[];
+    // Multiple dimensions for table charts with drill-down support
+    dimensions?: ChartDimension[];
+    dimension_columns?: string[]; // Array of dimension column names for backward compatibility
   };
 }
 
@@ -175,6 +184,9 @@ export interface ChartUpdate {
     customizations?: Record<string, any>;
     // Chart-level filters
     filters?: ChartFilter[];
+    // Multiple dimensions for table charts with drill-down support
+    dimensions?: ChartDimension[];
+    dimension_columns?: string[]; // Array of dimension column names for backward compatibility
   };
 }
 
@@ -196,6 +208,9 @@ export interface ChartDataPayload {
 
   // Multiple metrics for bar/line charts
   metrics?: ChartMetric[];
+
+  // Multiple dimensions for table charts
+  dimensions?: string[]; // Array of dimension column names for table charts
 
   // Map-specific fields
   geographic_column?: string;
@@ -282,6 +297,9 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
       suffix?: string;
     }
   >;
+  // Multiple dimensions for table charts with drill-down support
+  dimensions?: ChartDimension[];
+  dimension_columns?: string[]; // Array of dimension column names for backward compatibility
   customizations?: Record<string, any>;
   // Chart-level filters
   filters?: ChartFilter[];

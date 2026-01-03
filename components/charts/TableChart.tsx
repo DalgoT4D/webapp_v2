@@ -61,6 +61,9 @@ interface TableChartProps {
     onPageChange: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
   };
+  onRowClick?: (rowData: Record<string, any>, columnName: string) => void;
+  drillDownEnabled?: boolean;
+  currentDimensionColumn?: string;
 }
 
 export function TableChart({
@@ -70,6 +73,9 @@ export function TableChart({
   isLoading,
   error,
   pagination,
+  onRowClick,
+  drillDownEnabled = false,
+  currentDimensionColumn,
 }: TableChartProps) {
   const { table_columns, column_formatting = {}, sort = [], pagination: configPagination } = config;
 
@@ -264,12 +270,37 @@ export function TableChart({
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => (
-              <TableRow key={index}>
-                {columns.map((column) => (
-                  <TableCell key={column} className="py-1.5 px-2">
-                    {formatCellValue(row[column], column)}
-                  </TableCell>
-                ))}
+              <TableRow
+                key={index}
+                className={
+                  drillDownEnabled && currentDimensionColumn
+                    ? 'hover:bg-gray-50 cursor-pointer'
+                    : ''
+                }
+              >
+                {columns.map((column) => {
+                  const isClickable =
+                    drillDownEnabled && currentDimensionColumn === column && onRowClick;
+                  const cellValue = formatCellValue(row[column], column);
+
+                  return (
+                    <TableCell
+                      key={column}
+                      className={`py-1.5 px-2 ${
+                        isClickable ? 'text-blue-600 hover:text-blue-800 hover:underline' : ''
+                      }`}
+                      onClick={
+                        isClickable
+                          ? () => {
+                              onRowClick(row, column);
+                            }
+                          : undefined
+                      }
+                    >
+                      {cellValue}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>
