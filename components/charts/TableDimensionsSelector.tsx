@@ -1,8 +1,7 @@
 'use client';
 
-import { Plus, X, GripVertical } from 'lucide-react';
+import { Plus, X, ChevronDown, Grid3x3, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -70,36 +69,42 @@ function SortableDimensionItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const selectedColumn = availableColumns.find((col) => col.column_name === dimension.column);
+  const displayName = selectedColumn?.column_name || dimension.column || 'Select dimension';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between gap-2 p-2 border rounded-md hover:bg-gray-50/50 bg-white"
+      className="flex items-center gap-2 h-10 px-3 py-2 border rounded-md bg-white hover:bg-gray-50/50 w-full"
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Drag Handle */}
-        <button
-          type="button"
-          {...attributes}
-          {...(canDrag && !disabled ? listeners : {})}
-          className={`touch-none ${
-            canDrag && !disabled
-              ? 'cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground'
-              : 'cursor-not-allowed text-muted-foreground/50'
-          }`}
-          disabled={!canDrag || disabled}
-          aria-label="Drag to reorder"
-        >
-          <GripVertical className="h-5 w-5" />
-        </button>
+      {/* Drag Handle (Grid Icon) */}
+      <button
+        type="button"
+        {...attributes}
+        {...(canDrag && !disabled ? listeners : {})}
+        className={`touch-none flex-shrink-0 ${
+          canDrag && !disabled
+            ? 'cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground'
+            : 'cursor-not-allowed text-muted-foreground/50'
+        }`}
+        disabled={!canDrag || disabled}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
 
+      {/* Dimension Name - Column name and dropdown */}
+      <div className="flex-1 flex items-center gap-2 min-w-0">
+        <span className="text-sm font-medium text-foreground flex-1 truncate">{displayName}</span>
         <Select
           value={dimension.column || ''}
           onValueChange={(value) => onChange(index, 'column', value)}
           disabled={disabled}
         >
-          <SelectTrigger className="h-9 flex-1 min-w-0">
-            <SelectValue placeholder="Select dimension column" />
+          <SelectTrigger className="h-8 w-8 p-0 border-0 shadow-none hover:bg-gray-100 focus:ring-0 focus:ring-offset-0 [&>span[data-slot='select-value']]:hidden [&>svg[class*='opacity-50']]:hidden flex items-center justify-center">
+            <SelectValue className="sr-only hidden" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 pointer-events-none" />
           </SelectTrigger>
           <SelectContent>
             {availableColumns.map((col) => (
@@ -115,12 +120,48 @@ function SortableDimensionItem({
           </SelectContent>
         </Select>
       </div>
+    </div>
+  );
+}
 
+// Wrapper component to position X button outside
+function DimensionItemWrapper({
+  dimension,
+  index,
+  availableColumns,
+  disabled,
+  canDrag,
+  canRemove,
+  onRemove,
+  onChange,
+}: {
+  dimension: ChartDimension;
+  index: number;
+  availableColumns: Array<{ column_name: string; data_type: string; name: string }>;
+  disabled?: boolean;
+  canDrag?: boolean;
+  canRemove?: boolean;
+  onRemove: (index: number) => void;
+  onChange: (index: number, field: keyof ChartDimension, value: any) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <SortableDimensionItem
+        dimension={dimension}
+        index={index}
+        availableColumns={availableColumns}
+        disabled={disabled}
+        canDrag={canDrag}
+        canRemove={canRemove}
+        onRemove={onRemove}
+        onChange={onChange}
+      />
+      {/* Remove Button - Outside the dimension field */}
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="h-8 w-8 text-destructive hover:text-destructive"
+        className="h-6 w-6 text-muted-foreground hover:text-destructive flex-shrink-0"
         onClick={() => onRemove(index)}
         disabled={!canRemove || disabled}
         title="Remove dimension"
@@ -207,78 +248,77 @@ export function TableDimensionsSelector({
   // Create sortable IDs
   const sortableIds = effectiveDimensions.map((_, index) => `dimension-${index}`);
 
+  // Determine if dragging is allowed (only if there's more than one dimension)
+  const canDrag = effectiveDimensions.length > 1;
+
   return (
     <div className="space-y-4">
-      {/* Drill Down Toggle - Single toggle at the top */}
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="drill-down-toggle"
-          checked={isDrillDownEnabled}
-          onCheckedChange={(checked) => handleDrillDownToggle(checked)}
-          disabled={disabled || effectiveDimensions.length === 0}
-        />
-        <Label htmlFor="drill-down-toggle" className="text-sm font-medium cursor-pointer">
-          Drill Down
-        </Label>
+      {/* Header: Dimension title on left, Drill Down toggle on right */}
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium text-gray-900">Dimension</Label>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="drill-down-toggle" className="text-sm font-medium cursor-pointer">
+            Drill Down
+          </Label>
+          <Switch
+            id="drill-down-toggle"
+            checked={isDrillDownEnabled}
+            onCheckedChange={(checked) => handleDrillDownToggle(checked)}
+            disabled={disabled || effectiveDimensions.length === 0}
+          />
+        </div>
       </div>
 
-      {/* Dimensions List */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Dimension</CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddDimension}
-              disabled={disabled || getAvailableColumns().length === 0}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              ADD DIMENSION(s)
-            </Button>
+      {/* Dimensions List with Drag and Drop */}
+      <div className="space-y-2">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+            {effectiveDimensions.map((dimension, index) => (
+              <DimensionItemWrapper
+                key={`dimension-${index}`}
+                dimension={dimension}
+                index={index}
+                availableColumns={availableColumns}
+                disabled={disabled}
+                canDrag={canDrag}
+                canRemove={effectiveDimensions.length > 1}
+                onRemove={handleRemoveDimension}
+                onChange={handleDimensionChange}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+
+        {effectiveDimensions.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+            No dimensions configured. Add at least one dimension to display data.
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-              {effectiveDimensions.map((dimension, index) => (
-                <SortableDimensionItem
-                  key={`dimension-${index}`}
-                  dimension={dimension}
-                  index={index}
-                  availableColumns={availableColumns}
-                  disabled={disabled}
-                  canDrag={effectiveDimensions.length > 1}
-                  canRemove={effectiveDimensions.length > 1}
-                  onRemove={handleRemoveDimension}
-                  onChange={handleDimensionChange}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+        )}
+      </div>
 
-          {effectiveDimensions.length === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-4">
-              No dimensions configured. Add at least one dimension to display data.
-            </div>
-          )}
+      {/* ADD DIMENSION(s) Button at the bottom - black button with white text */}
+      <Button
+        type="button"
+        variant="default"
+        size="default"
+        onClick={handleAddDimension}
+        disabled={disabled || getAvailableColumns().length === 0}
+        className="w-full bg-black text-white hover:bg-gray-800"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        ADD DIMENSION(s)
+      </Button>
 
-          {isDrillDownEnabled && effectiveDimensions.length > 0 && (
-            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-              Drill-down will follow the order:{' '}
-              {effectiveDimensions
-                .map((d, i) => d.column || `Dimension ${i + 1}`)
-                .filter(Boolean)
-                .join(' → ')}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Drill-down order indicator */}
+      {isDrillDownEnabled && effectiveDimensions.length > 0 && (
+        <div className="text-xs text-muted-foreground pt-2 border-t">
+          Drill-down will follow the order:{' '}
+          {effectiveDimensions
+            .map((d, i) => d.column || `Dimension ${i + 1}`)
+            .filter(Boolean)
+            .join(' → ')}
+        </div>
+      )}
     </div>
   );
 }

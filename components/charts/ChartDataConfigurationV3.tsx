@@ -486,32 +486,29 @@ export function ChartDataConfigurationV3({
 
       {/* Table Dimensions Selector - Multiple dimensions with drill-down support */}
       {formData.chart_type === 'table' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Dimension</Label>
-          <TableDimensionsSelector
-            dimensions={
-              formData.dimensions && formData.dimensions.length > 0
-                ? formData.dimensions
-                : formData.dimension_column
-                  ? [{ column: formData.dimension_column, enable_drill_down: false }]
-                  : []
-            }
-            availableColumns={normalizedColumns}
-            onChange={(dimensions) => {
-              // Convert dimensions array to formData format
-              const dimensionColumns = dimensions.map((d) => d.column).filter(Boolean);
-              onChange({
-                dimensions,
-                dimension_columns: dimensionColumns,
-                // Keep dimension_column for backward compatibility (use first dimension)
-                dimension_column: dimensionColumns[0] || undefined,
-                // Clear extra_dimension_column when using dimensions array
-                extra_dimension_column: undefined,
-              });
-            }}
-            disabled={disabled}
-          />
-        </div>
+        <TableDimensionsSelector
+          dimensions={
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions
+              : formData.dimension_column
+                ? [{ column: formData.dimension_column, enable_drill_down: false }]
+                : []
+          }
+          availableColumns={normalizedColumns}
+          onChange={(dimensions) => {
+            // Convert dimensions array to formData format
+            const dimensionColumns = dimensions.map((d) => d.column).filter(Boolean);
+            onChange({
+              dimensions,
+              dimension_columns: dimensionColumns,
+              // Keep dimension_column for backward compatibility (use first dimension)
+              dimension_column: dimensionColumns[0] || undefined,
+              // Clear extra_dimension_column when using dimensions array
+              extra_dimension_column: undefined,
+            });
+          }}
+          disabled={disabled}
+        />
       )}
 
       {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
