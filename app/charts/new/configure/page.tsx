@@ -123,7 +123,6 @@ function ConfigureChartPageContent() {
 
   // ✅ ADD: Drill-up and drill-home handlers for create mode
   const handleDrillUp = useCallback((targetLevel: number) => {
-    console.log('🔙 [CREATE-MODE] Drill up to level:', targetLevel);
     if (targetLevel < 0) {
       setDrillDownPath([]);
     } else {
@@ -132,7 +131,6 @@ function ConfigureChartPageContent() {
   }, []);
 
   const handleDrillHome = useCallback(() => {
-    console.log('🏠 [CREATE-MODE] Drill home - resetting to base level');
     setDrillDownPath([]);
   }, []);
 
@@ -166,7 +164,7 @@ function ConfigureChartPageContent() {
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string>('/charts');
 
-  // ✅ ADD: Drill-down state management for create mode
+  // ✅ ADD: Drill-down state management for create mode (map charts)
   const [drillDownPath, setDrillDownPath] = useState<
     Array<{
       level: number;
@@ -179,6 +177,12 @@ function ConfigureChartPageContent() {
       region_id: number;
     }>
   >([]);
+
+  // ✅ ADD: Drill-down state management for table charts
+  const [tableDrillDownState, setTableDrillDownState] = useState<{
+    currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
+    appliedFilters: Record<string, string>; // { dimension_column: value }
+  } | null>(null);
 
   // ✅ ADD: Fetch regions for drill-down functionality (match edit mode exactly)
   const { data: states } = useRegions('IND', 'state');
@@ -193,7 +197,6 @@ function ConfigureChartPageContent() {
   // Initialize original form data for unsaved changes detection
   useEffect(() => {
     if (!originalFormData) {
-      console.log('🔍 [CREATE-MODE] Initializing original form data for unsaved changes detection');
       setOriginalFormData({ ...formData });
     }
   }, [formData.schema_name, formData.table_name, formData.chart_type, originalFormData]);
@@ -203,14 +206,6 @@ function ConfigureChartPageContent() {
     if (!originalFormData) return false;
 
     const hasChanges = !deepEqual(formData, originalFormData);
-    console.log('🔍 [CREATE-MODE] Unsaved changes detection:', {
-      hasOriginalFormData: !!originalFormData,
-      hasChanges,
-      formDataTitle: formData.title,
-      originalTitle: originalFormData?.title,
-      formDataDimension: formData.dimension_column,
-      originalDimension: originalFormData?.dimension_column,
-    });
 
     return hasChanges;
   }, [formData, originalFormData]);
@@ -254,10 +249,31 @@ function ConfigureChartPageContent() {
       );
     }
 
+    // For table charts, check for dimensions array or dimension_column
+    if (formData.chart_type === 'table') {
+      const hasDimensions =
+        (formData.dimensions &&
+          formData.dimensions.length > 0 &&
+          formData.dimensions.some((d) => d.column)) ||
+        !!formData.dimension_column;
+      // Table charts can work with just dimensions (no metrics required)
+      if (hasDimensions) {
+        return true;
+      }
+      // If metrics are provided, validate them
+      if (formData.metrics && formData.metrics.length > 0) {
+        return formData.metrics.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        );
+      }
+      return false;
+    }
+
     {
-      // For bar/line/table charts with multiple metrics
+      // For bar/line charts with multiple metrics
       if (
-        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
+        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
         formData.metrics &&
         formData.metrics.length > 0
       ) {
@@ -296,6 +312,39 @@ function ConfigureChartPageContent() {
         }),
         // Multiple metrics for bar/line charts
         ...(formData.metrics && { metrics: formData.metrics }),
+        // For table charts, include dimensions array with drill-down support
+        ...(formData.chart_type === 'table' &&
+          formData.dimensions &&
+          formData.dimensions.length > 0 && {
+            dimensions: (() => {
+              const isDrillDownEnabled = formData.dimensions.some(
+                (dim) => dim.enable_drill_down === true
+              );
+
+              if (!isDrillDownEnabled) {
+                // Show all dimensions if drill-down disabled
+                return formData.dimensions.map((d) => d.column).filter(Boolean);
+              }
+
+              // When drill-down is enabled, only use dimensions with enable_drill_down
+              const drillDownDimensions = formData.dimensions
+                .filter((dim) => dim.enable_drill_down)
+                .map((d) => d.column)
+                .filter(Boolean);
+
+              // When drill-down is enabled and active, use only the current level dimension
+              if (tableDrillDownState) {
+                const nextIndex = Math.min(
+                  tableDrillDownState.currentLevel + 1,
+                  drillDownDimensions.length - 1
+                );
+                return [drillDownDimensions[nextIndex]]; // Only current level
+              }
+
+              // Drill-down enabled but not yet started: use top-level dimension only
+              return [drillDownDimensions[0]]; // Only first dimension
+            })(),
+          }),
         ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
         ...(formData.value_column && { value_column: formData.value_column }),
         ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
@@ -311,7 +360,17 @@ function ConfigureChartPageContent() {
         }),
         customizations: formData.customizations,
         extra_config: {
-          filters: formData.filters,
+          filters: [
+            ...(formData.filters || []),
+            // Add drill-down filters from tableDrillDownState
+            ...(formData.chart_type === 'table' && tableDrillDownState?.appliedFilters
+              ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
+                  column,
+                  operator: 'equals',
+                  value,
+                }))
+              : []),
+          ],
           pagination: formData.pagination,
           sort: formData.sort,
           time_grain: formData.time_grain,
@@ -453,7 +512,6 @@ function ConfigureChartPageContent() {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
-    console.log('🔄 [CREATE-MODE] Form data change:', updates);
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
@@ -474,27 +532,14 @@ function ConfigureChartPageContent() {
       if (!hasExistingConfig) {
         const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
         if (Object.keys(autoConfig).length > 0) {
-          console.log('🤖 [CREATE-MODE] Auto-prefilling configuration:', autoConfig);
           handleFormChange(autoConfig);
         }
       }
     }
   }, [columns, formData.schema_name, formData.table_name, formData.chart_type]);
 
-  // FIX #1: Generate map preview payloads in create mode with detailed logging
+  // Generate map preview payloads in create mode
   useEffect(() => {
-    console.log('🔍 [CREATE-MODE] Checking payload generation conditions:', {
-      chart_type: formData.chart_type,
-      geographic_column: formData.geographic_column,
-      selected_geojson_id: formData.selected_geojson_id,
-      aggregate_column: formData.aggregate_column,
-      aggregate_function: formData.aggregate_function,
-      schema_name: formData.schema_name,
-      table_name: formData.table_name,
-      current_geojsonPreviewPayload: formData.geojsonPreviewPayload,
-      current_dataOverlayPayload: formData.dataOverlayPayload,
-    });
-
     if (
       formData.chart_type === 'map' &&
       formData.geographic_column &&
@@ -510,18 +555,6 @@ function ConfigureChartPageContent() {
         !formData.dataOverlayPayload ||
         formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
         formData.dataOverlayPayload.geographic_column !== formData.geographic_column;
-
-      console.log('✅ [CREATE-MODE] All conditions met for payload generation:', {
-        needsUpdate,
-        reasons: {
-          no_geojson_payload: !formData.geojsonPreviewPayload,
-          no_data_payload: !formData.dataOverlayPayload,
-          geojson_id_mismatch:
-            formData.geojsonPreviewPayload?.geojsonId !== formData.selected_geojson_id,
-          geographic_column_mismatch:
-            formData.dataOverlayPayload?.geographic_column !== formData.geographic_column,
-        },
-      });
 
       if (needsUpdate) {
         const geojsonPayload = {
@@ -539,27 +572,12 @@ function ConfigureChartPageContent() {
           chart_filters: formData.filters || [],
         };
 
-        console.log('🚀 [CREATE-MODE] Generating payloads:', {
-          geojsonPayload,
-          dataOverlayPayload,
-          drillDownConfig: {
-            district_column: formData.district_column,
-            drill_down_enabled: formData.drill_down_enabled,
-          },
-        });
-
         setFormData((prev) => ({
           ...prev,
           geojsonPreviewPayload: geojsonPayload,
           dataOverlayPayload: dataOverlayPayload,
         }));
-
-        console.log('✅ [CREATE-MODE] Payloads set successfully');
-      } else {
-        console.log('⏭️ [CREATE-MODE] Payloads up to date, skipping update');
       }
-    } else {
-      console.log('❌ [CREATE-MODE] Conditions not met for payload generation');
     }
   }, [
     formData.chart_type,
@@ -592,6 +610,93 @@ function ConfigureChartPageContent() {
     setTableChartPageSize(newPageSize);
     setTableChartPage(1); // Reset to first page when page size changes
   };
+
+  // Handle table row click for drill-down
+  const handleTableRowClick = useCallback(
+    (rowData: Record<string, any>, columnName: string) => {
+      if (formData.chart_type !== 'table') return;
+
+      // Check if drill-down is enabled
+      const isDrillDownEnabled = formData.dimensions?.some((dim) => dim.enable_drill_down === true);
+
+      if (!isDrillDownEnabled) return;
+
+      // Get all dimensions in order (only those with drill-down enabled)
+      const allDimensions = formData.dimensions
+        .filter((dim) => dim.enable_drill_down)
+        .map((d) => d.column)
+        .filter(Boolean);
+
+      if (allDimensions.length === 0) return;
+
+      // Get the current dimension index
+      const currentDimensionIndex = tableDrillDownState ? tableDrillDownState.currentLevel : -1;
+
+      // Determine which dimension column is currently displayed
+      const currentDisplayedDimension =
+        currentDimensionIndex === -1 ? allDimensions[0] : allDimensions[currentDimensionIndex + 1];
+
+      // Only allow clicking on the currently displayed dimension column
+      if (columnName !== currentDisplayedDimension) {
+        return;
+      }
+
+      // Get the value from the clicked row
+      const clickedValue = rowData[columnName];
+      if (!clickedValue) return;
+
+      // Update drill-down state
+      const newLevel = currentDimensionIndex + 1;
+      const newAppliedFilters = {
+        ...(tableDrillDownState?.appliedFilters || {}),
+        [currentDisplayedDimension]: String(clickedValue),
+      };
+
+      // If we've reached the last dimension, don't allow further drill-down
+      if (newLevel >= allDimensions.length - 1) {
+        return;
+      }
+
+      setTableDrillDownState({
+        currentLevel: newLevel,
+        appliedFilters: newAppliedFilters,
+      });
+
+      // Reset to first page when drilling down
+      setTableChartPage(1);
+    },
+    [formData.chart_type, formData.dimensions, tableDrillDownState]
+  );
+
+  // Handle table drill-up (going back)
+  const handleTableDrillUp = useCallback(() => {
+    if (!tableDrillDownState) return;
+
+    const newLevel = tableDrillDownState.currentLevel - 1;
+    const allDimensions = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+
+    if (newLevel < 0) {
+      // Reset to top level
+      setTableDrillDownState(null);
+    } else {
+      // Go back one level
+      const newAppliedFilters: Record<string, string> = {};
+      for (let i = 0; i <= newLevel; i++) {
+        const dimColumn = allDimensions[i];
+        if (tableDrillDownState.appliedFilters[dimColumn]) {
+          newAppliedFilters[dimColumn] = tableDrillDownState.appliedFilters[dimColumn];
+        }
+      }
+
+      setTableDrillDownState({
+        currentLevel: newLevel,
+        appliedFilters: newAppliedFilters,
+      });
+    }
+
+    // Reset to first page when drilling up
+    setTableChartPage(1);
+  }, [tableDrillDownState, formData.dimensions]);
 
   // FIX #3: Handle map region click for drill-down in create mode
   // Handle map region click for drill-down in create mode
@@ -744,18 +849,28 @@ function ConfigureChartPageContent() {
         ...(formData.geographic_hierarchy && {
           geographic_hierarchy: formData.geographic_hierarchy,
         }),
+        // ✅ FIX: Include dimensions and dimension_columns for table charts
+        ...(formData.chart_type === 'table' && {
+          // Always include dimensions array (even if empty) to ensure structure is consistent
+          dimensions:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions
+                  .filter((dim) => dim.column && dim.column.trim() !== '')
+                  .map((dim) => ({
+                    column: dim.column,
+                    enable_drill_down: Boolean(dim.enable_drill_down === true),
+                  }))
+              : [],
+          // Always include dimension_columns array for backward compatibility
+          dimension_columns:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions.map((d) => d.column).filter(Boolean)
+              : [],
+          // Keep table_columns for backward compatibility
+          table_columns: formData.table_columns,
+        }),
       },
     };
-
-    // ✅ LOG: Track what geographic_hierarchy data is being saved
-    console.log('💾 [CREATE-MODE] Saving chart with geographic_hierarchy:', {
-      chart_type: chartData.chart_type,
-      geographic_column: chartData.extra_config.geographic_column,
-      geographic_hierarchy: chartData.extra_config.geographic_hierarchy,
-      drill_down_levels_count:
-        chartData.extra_config.geographic_hierarchy?.drill_down_levels?.length || 0,
-      full_chartData: chartData,
-    });
 
     try {
       const result = await createChart(chartData);
@@ -763,8 +878,23 @@ function ConfigureChartPageContent() {
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
       router.push(`/charts/${result.id}`);
-    } catch (error) {
-      toastError.create(error, 'chart');
+    } catch (error: any) {
+      console.error('❌ [CREATE-MODE] Error saving chart:', error);
+      console.error('❌ [CREATE-MODE] Error details:', {
+        message: error?.message,
+        response: error?.response,
+        data: error?.data,
+        stack: error?.stack,
+        // Log what was being sent
+        attempted_payload: {
+          chart_type: chartData.chart_type,
+          dimensions: chartData.extra_config.dimensions,
+          dimension_columns: chartData.extra_config.dimension_columns,
+        },
+      });
+
+      // Show more detailed error message
+      toastError.api(error, 'save chart');
     }
   };
 
@@ -803,10 +933,6 @@ function ConfigureChartPageContent() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                console.log(
-                  '🔙 [CREATE-MODE] Back button clicked. hasUnsavedChanges:',
-                  hasUnsavedChanges
-                );
                 if (hasUnsavedChanges) {
                   setPendingNavigation('/charts/new');
                   setShowUnsavedChangesDialog(true);
@@ -952,25 +1078,60 @@ function ConfigureChartPageContent() {
                       />
                     </div>
                   ) : formData.chart_type === 'table' ? (
-                    <div className="w-full h-full">
-                      <TableChart
-                        data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
-                        config={{
-                          table_columns: tableChartData?.columns || formData.table_columns || [],
-                          column_formatting: {},
-                          sort: formData.sort || [],
-                          pagination: formData.pagination || { enabled: true, page_size: 20 },
-                        }}
-                        isLoading={tableChartLoading}
-                        error={tableChartError}
-                        pagination={{
-                          page: tableChartPage,
-                          pageSize: tableChartPageSize,
-                          total: tableChartDataTotalRows || 0,
-                          onPageChange: setTableChartPage,
-                          onPageSizeChange: handleTableChartPageSizeChange,
-                        }}
-                      />
+                    <div className="w-full h-full flex flex-col">
+                      {/* Breadcrumb navigation for drill-down */}
+                      {tableDrillDownState && (
+                        <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleTableDrillUp}
+                            className="h-8"
+                          >
+                            ← Back
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            {Object.entries(tableDrillDownState.appliedFilters)
+                              .map(([col, val]) => `${col}: ${val}`)
+                              .join(' → ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 overflow-hidden">
+                        <TableChart
+                          data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
+                          config={{
+                            table_columns: tableChartData?.columns || formData.table_columns || [],
+                            column_formatting: {},
+                            sort: formData.sort || [],
+                            pagination: formData.pagination || { enabled: true, page_size: 20 },
+                          }}
+                          isLoading={tableChartLoading}
+                          error={tableChartError}
+                          pagination={{
+                            page: tableChartPage,
+                            pageSize: tableChartPageSize,
+                            total: tableChartDataTotalRows || 0,
+                            onPageChange: setTableChartPage,
+                            onPageSizeChange: handleTableChartPageSizeChange,
+                          }}
+                          onRowClick={handleTableRowClick}
+                          drillDownEnabled={formData.dimensions?.some(
+                            (dim) => dim.enable_drill_down === true
+                          )}
+                          currentDimensionColumn={
+                            tableDrillDownState
+                              ? formData.dimensions
+                                  ?.filter((dim) => dim.enable_drill_down)
+                                  .map((d) => d.column)
+                                  .filter(Boolean)[tableDrillDownState.currentLevel + 1]
+                              : formData.dimensions
+                                  ?.filter((dim) => dim.enable_drill_down)
+                                  .map((d) => d.column)
+                                  .filter(Boolean)[0]
+                          }
+                        />
+                      </div>
                     </div>
                   ) : (
                     <div className="w-full h-full">
