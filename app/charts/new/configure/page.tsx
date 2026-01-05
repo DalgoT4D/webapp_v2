@@ -894,8 +894,7 @@ function ConfigureChartPageContent() {
       });
 
       // Show more detailed error message
-      const errorMessage = error?.message || error?.detail || 'Failed to save chart';
-      toast.error(`Failed to save chart: ${errorMessage}`);
+      toastError.api(error, 'save chart');
     }
   };
 
