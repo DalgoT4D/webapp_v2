@@ -521,8 +521,8 @@ export function ChartDataConfigurationV3({
               </SelectTrigger>
               <SelectContent>
                 {allColumns.map((col) => {
+                  // Disable non-numeric columns for aggregation functions (except count_distinct)
                   const isDisabled =
-                    formData.computation_type === 'aggregated' &&
                     formData.aggregate_function !== 'count_distinct' &&
                     ![
                       'integer',
@@ -566,9 +566,7 @@ export function ChartDataConfigurationV3({
         )}
 
       {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {((['bar', 'line'].includes(formData.chart_type || '') &&
-        formData.computation_type === 'aggregated') ||
-        formData.chart_type === 'table') && (
+      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
         <MetricsSelector
           metrics={formData.metrics || []}
           onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
@@ -579,7 +577,7 @@ export function ChartDataConfigurationV3({
       )}
 
       {/* Single Metric for Pie Charts */}
-      {formData.chart_type === 'pie' && formData.computation_type === 'aggregated' && (
+      {formData.chart_type === 'pie' && (
         <MetricsSelector
           metrics={formData.metrics || []}
           onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
