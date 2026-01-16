@@ -354,7 +354,7 @@ What would you like to know about this dashboard?`,
             <Bot className="w-5 h-5 text-blue-600" />
           </div>
           <div className="flex flex-col">
-            <h3 className="font-semibold text-gray-900">AI Assistant</h3>
+            <h3 className="font-semibold text-gray-900">Dalgo AI</h3>
             <p className="text-xs text-gray-500 truncate max-w-48">{dashboardTitle}</p>
           </div>
         </div>

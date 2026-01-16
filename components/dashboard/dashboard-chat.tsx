@@ -161,7 +161,7 @@ export function DashboardChat({
                 {message.role === 'assistant' && (
                   <Avatar className="h-8 w-8">
                     <AvatarFallback>AI</AvatarFallback>
-                    <AvatarImage src="/ai-assistant-avatar.png" alt="AI Assistant" />
+                    <AvatarImage src="/ai-assistant-avatar.png" alt="Dalgo AI" />
                   </Avatar>
                 )}
                 <div
@@ -186,7 +186,7 @@ export function DashboardChat({
               <div className="flex gap-2 max-w-[80%]">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>AI</AvatarFallback>
-                  <AvatarImage src="/ai-assistant-avatar.png" alt="AI Assistant" />
+                  <AvatarImage src="/ai-assistant-avatar.png" alt="Dalgo AI" />
                 </Avatar>
                 <div className="rounded-lg p-3 text-sm bg-muted">
                   <div className="flex gap-1">

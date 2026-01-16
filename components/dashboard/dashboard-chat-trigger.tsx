@@ -135,7 +135,7 @@ export function DashboardChatTrigger({
           >
             <div className="flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
-              <span>{aiEnabled ? 'AI Assistant' : 'AI Disabled'}</span>
+              <span>{aiEnabled ? 'Dalgo AI' : 'AI Disabled'}</span>
             </div>
           </div>
         )}
