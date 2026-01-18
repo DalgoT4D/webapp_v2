@@ -33,3 +33,19 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
 // Add TextEncoder/TextDecoder to global
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
+
+// Mock hasPointerCapture for Radix UI Select (jsdom doesn't support this)
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+}
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = jest.fn();
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = jest.fn();
+}
+
+// Mock scrollIntoView for Radix UI Select (jsdom doesn't fully support this)
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = jest.fn();
+}

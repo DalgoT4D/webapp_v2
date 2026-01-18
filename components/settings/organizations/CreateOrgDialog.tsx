@@ -258,33 +258,33 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
             )}
           </div>
 
-          {formData.base_plan === 'Free Trial' && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="start_date">Start Date *</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => updateField('start_date', e.target.value)}
-                  className={errors.start_date ? 'border-red-500' : ''}
-                />
-                {errors.start_date && <p className="text-sm text-red-500">{errors.start_date}</p>}
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="start_date">
+              Start Date{formData.base_plan === 'Free Trial' ? ' *' : ''}
+            </Label>
+            <Input
+              id="start_date"
+              type="date"
+              value={formData.start_date}
+              onChange={(e) => updateField('start_date', e.target.value)}
+              className={errors.start_date ? 'border-red-500' : ''}
+            />
+            {errors.start_date && <p className="text-sm text-red-500">{errors.start_date}</p>}
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="end_date">End Date *</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) => updateField('end_date', e.target.value)}
-                  className={errors.end_date ? 'border-red-500' : ''}
-                />
-                {errors.end_date && <p className="text-sm text-red-500">{errors.end_date}</p>}
-              </div>
-            </>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="end_date">
+              End Date{formData.base_plan === 'Free Trial' ? ' *' : ''}
+            </Label>
+            <Input
+              id="end_date"
+              type="date"
+              value={formData.end_date}
+              onChange={(e) => updateField('end_date', e.target.value)}
+              className={errors.end_date ? 'border-red-500' : ''}
+            />
+            {errors.end_date && <p className="text-sm text-red-500">{errors.end_date}</p>}
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>

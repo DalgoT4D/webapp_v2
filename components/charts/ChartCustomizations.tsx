@@ -174,9 +174,9 @@ function BarChartCustomizations({
               <RadioGroup
                 value={customizations.legendDisplay || 'paginated'}
                 onValueChange={(value) => {
-                  // When switching to "all", ensure legendPosition is set to "top"
-                  if (value === 'all' && !customizations.legendPosition) {
-                    updateCustomization('legendPosition', 'top');
+                  // Ensure legendPosition has a default value
+                  if (!customizations.legendPosition) {
+                    updateCustomization('legendPosition', 'right');
                   }
                   updateCustomization('legendDisplay', value);
                 }}
@@ -193,26 +193,24 @@ function BarChartCustomizations({
               </RadioGroup>
             </div>
 
-            {customizations.legendDisplay === 'all' && (
-              <div className="space-y-2">
-                <Label htmlFor="barLegendPosition">Legend Position</Label>
-                <Select
-                  value={customizations.legendPosition || 'top'}
-                  onValueChange={(value) => updateCustomization('legendPosition', value)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger id="barLegendPosition">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="top">Top</SelectItem>
-                    <SelectItem value="bottom">Bottom</SelectItem>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="barLegendPosition">Legend Position</Label>
+              <Select
+                value={customizations.legendPosition || 'right'}
+                onValueChange={(value) => updateCustomization('legendPosition', value)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="barLegendPosition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top">Top</SelectItem>
+                  <SelectItem value="bottom">Bottom</SelectItem>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </>
         )}
       </div>
@@ -346,9 +344,9 @@ function PieChartCustomizations({
               <RadioGroup
                 value={customizations.legendDisplay || 'paginated'}
                 onValueChange={(value) => {
-                  // When switching to "all", ensure legendPosition is set to "top"
-                  if (value === 'all' && !customizations.legendPosition) {
-                    updateCustomization('legendPosition', 'top');
+                  // Ensure legendPosition has a default value
+                  if (!customizations.legendPosition) {
+                    updateCustomization('legendPosition', 'right');
                   }
                   updateCustomization('legendDisplay', value);
                 }}
@@ -365,26 +363,24 @@ function PieChartCustomizations({
               </RadioGroup>
             </div>
 
-            {customizations.legendDisplay === 'all' && (
-              <div className="space-y-2">
-                <Label htmlFor="legendPosition">Legend Position</Label>
-                <Select
-                  value={customizations.legendPosition || 'top'}
-                  onValueChange={(value) => updateCustomization('legendPosition', value)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger id="legendPosition">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="top">Top</SelectItem>
-                    <SelectItem value="bottom">Bottom</SelectItem>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="legendPosition">Legend Position</Label>
+              <Select
+                value={customizations.legendPosition || 'right'}
+                onValueChange={(value) => updateCustomization('legendPosition', value)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="legendPosition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top">Top</SelectItem>
+                  <SelectItem value="bottom">Bottom</SelectItem>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </>
         )}
       </div>
@@ -575,9 +571,9 @@ function LineChartCustomizations({
               <RadioGroup
                 value={customizations.legendDisplay || 'paginated'}
                 onValueChange={(value) => {
-                  // When switching to "all", ensure legendPosition is set to "top"
-                  if (value === 'all' && !customizations.legendPosition) {
-                    updateCustomization('legendPosition', 'top');
+                  // Ensure legendPosition has a default value
+                  if (!customizations.legendPosition) {
+                    updateCustomization('legendPosition', 'right');
                   }
                   updateCustomization('legendDisplay', value);
                 }}
@@ -594,26 +590,24 @@ function LineChartCustomizations({
               </RadioGroup>
             </div>
 
-            {customizations.legendDisplay === 'all' && (
-              <div className="space-y-2">
-                <Label htmlFor="lineLegendPosition">Legend Position</Label>
-                <Select
-                  value={customizations.legendPosition || 'top'}
-                  onValueChange={(value) => updateCustomization('legendPosition', value)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger id="lineLegendPosition">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="top">Top</SelectItem>
-                    <SelectItem value="bottom">Bottom</SelectItem>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="lineLegendPosition">Legend Position</Label>
+              <Select
+                value={customizations.legendPosition || 'right'}
+                onValueChange={(value) => updateCustomization('legendPosition', value)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="lineLegendPosition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top">Top</SelectItem>
+                  <SelectItem value="bottom">Bottom</SelectItem>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </>
         )}
       </div>

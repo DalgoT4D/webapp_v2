@@ -136,17 +136,30 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
           <div>
             <Label className="text-sm font-medium">Legend Position</Label>
             <Select
-              value={customizations.legendPosition || 'left'}
+              value={(() => {
+                const pos = customizations.legendPosition;
+                // Normalize legacy values to new corner format
+                const legacyMap: Record<string, string> = {
+                  left: 'bottom-left',
+                  right: 'bottom-right',
+                  top: 'top-left',
+                  bottom: 'bottom-left',
+                };
+                if (pos && legacyMap[pos]) return legacyMap[pos];
+                if (pos && ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(pos))
+                  return pos;
+                return 'bottom-left';
+              })()}
               onValueChange={(value) => updateCustomization('legendPosition', value)}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-                <SelectItem value="top">Top</SelectItem>
-                <SelectItem value="bottom">Bottom</SelectItem>
+                <SelectItem value="top-left">Top Left</SelectItem>
+                <SelectItem value="top-right">Top Right</SelectItem>
+                <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                <SelectItem value="bottom-right">Bottom Right</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -159,17 +172,6 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
             <Switch
               checked={customizations.showLabels === true}
               onCheckedChange={(checked) => updateCustomization('showLabels', checked)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm font-medium">Highlight on Hover</Label>
-              <p className="text-xs text-muted-foreground">Emphasize regions when hovering</p>
-            </div>
-            <Switch
-              checked={customizations.emphasis !== false}
-              onCheckedChange={(checked) => updateCustomization('emphasis', checked)}
             />
           </div>
         </CardContent>

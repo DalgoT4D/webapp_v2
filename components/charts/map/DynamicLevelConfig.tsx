@@ -20,6 +20,7 @@ import {
   useRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/config';
@@ -390,9 +391,12 @@ export function DynamicLevelConfig({
               const columnName = col.column_name || col.name;
               return (
                 <SelectItem key={columnName} value={columnName}>
-                  <span className="truncate" title={`${columnName} (${col.data_type})`}>
-                    {columnName} ({col.data_type})
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                    <span className="truncate" title={`${columnName} (${col.data_type})`}>
+                      {columnName}
+                    </span>
+                  </div>
                 </SelectItem>
               );
             })}
@@ -455,9 +459,12 @@ export function DynamicLevelConfig({
                 const columnName = col.column_name || col.name;
                 return (
                   <SelectItem key={columnName} value={columnName}>
-                    <span className="truncate" title={columnName}>
-                      {columnName}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                      <span className="truncate" title={`${columnName} (${col.data_type})`}>
+                        {columnName}
+                      </span>
+                    </div>
                   </SelectItem>
                 );
               })}

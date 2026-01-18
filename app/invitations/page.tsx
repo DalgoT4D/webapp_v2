@@ -60,6 +60,10 @@ function InvitationAcceptanceForm() {
         setError('Password must be at least 8 characters long');
         return;
       }
+      if (!formData.work_domain) {
+        setError('Please select an option for work domain');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -204,9 +208,7 @@ function InvitationAcceptanceForm() {
                 </Label>
                 <Select
                   value={formData.work_domain || ''}
-                  onValueChange={(value) =>
-                    handleInputChange('work_domain', value === 'none' ? '' : value)
-                  }
+                  onValueChange={(value) => handleInputChange('work_domain', value)}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select your domain" />

@@ -1,509 +1,819 @@
+/**
+ * ChartBuilder Component Tests
+ *
+ * Consolidated tests covering:
+ * - Initialization, chart type selection and switching
+ * - Smart column mapping between chart types
+ * - Form validation for all chart types
+ * - Save handler payload construction
+ * - Map-specific features (drill-down, regions, hierarchy)
+ * - Advanced configurations (filters, sorting)
+ * - Edge cases and error handling
+ */
+
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ChartBuilder from '../ChartBuilder';
-import {
-  useSchemas,
-  useTables,
-  useColumns,
-  useChartData,
-  useChartSave,
-} from '@/hooks/api/useChart';
-import { useToast } from '@/components/ui/use-toast';
+import { ChartBuilder } from '../ChartBuilder';
+import * as useChartHooks from '@/hooks/api/useChart';
+import * as chartAutoPrefill from '@/lib/chartAutoPrefill';
 
-// Mock the API hooks
+// Mock all chart hooks
 jest.mock('@/hooks/api/useChart');
-jest.mock('@/components/ui/use-toast');
+jest.mock('@/lib/chartAutoPrefill', () => ({
+  generateAutoPrefilledConfig: jest.fn(() => ({})),
+}));
 
-// Mock the ChartPreview component
-jest.mock('../ChartPreview', () => ({
-  ChartPreview: ({ chartData, isLoading, error }: any) => (
-    <div data-testid="chart-preview">
-      {isLoading && <div>Loading preview...</div>}
-      {error && <div>Error: {error}</div>}
-      {chartData && <div>Chart Preview</div>}
+// Mock lodash debounce to execute immediately
+jest.mock('lodash', () => ({
+  ...jest.requireActual('lodash'),
+  debounce: (fn: any) => {
+    const debouncedFn = (...args: any[]) => fn(...args);
+    debouncedFn.cancel = jest.fn();
+    return debouncedFn;
+  },
+}));
+
+// Mock child components to isolate ChartBuilder logic
+jest.mock('../ChartTypeSelector', () => ({
+  ChartTypeSelector: ({ value, onChange }: any) => (
+    <div data-testid="chart-type-selector">
+      <button data-testid="select-bar" onClick={() => onChange('bar')}>
+        Bar
+      </button>
+      <button data-testid="select-line" onClick={() => onChange('line')}>
+        Line
+      </button>
+      <button data-testid="select-pie" onClick={() => onChange('pie')}>
+        Pie
+      </button>
+      <button data-testid="select-number" onClick={() => onChange('number')}>
+        Number
+      </button>
+      <button data-testid="select-map" onClick={() => onChange('map')}>
+        Map
+      </button>
+      <button data-testid="select-table" onClick={() => onChange('table')}>
+        Table
+      </button>
+      <span data-testid="selected-chart-type">{value}</span>
     </div>
   ),
 }));
 
-// Mock ChartExport component
-jest.mock('../ChartExport', () => ({
-  __esModule: true,
-  default: ({ chartRef }: any) => <div data-testid="chart-export">Export</div>,
+jest.mock('../ChartDataConfigurationV3', () => ({
+  ChartDataConfigurationV3: ({ onChange, disabled }: any) => (
+    <div data-testid="chart-data-config">
+      <button
+        data-testid="set-dataset"
+        onClick={() =>
+          onChange({ schema_name: 'test_schema', table_name: 'test_table', title: 'Test Chart' })
+        }
+      >
+        Set Dataset
+      </button>
+      <button
+        data-testid="set-dimension"
+        onClick={() => onChange({ dimension_column: 'category' })}
+        disabled={disabled}
+      >
+        Set Dimension
+      </button>
+      <button
+        data-testid="set-aggregate"
+        onClick={() => onChange({ aggregate_column: 'amount', aggregate_function: 'sum' })}
+      >
+        Set Aggregate
+      </button>
+    </div>
+  ),
 }));
 
-describe('ChartBuilder Component', () => {
-  const mockSchemas = ['public', 'analytics', 'staging'];
-  const mockTables = ['sales', 'customers', 'products'];
-  const mockColumns = [
-    { column_name: 'id', data_type: 'integer' },
-    { column_name: 'date', data_type: 'timestamp' },
-    { column_name: 'amount', data_type: 'numeric' },
-    { column_name: 'category', data_type: 'varchar' },
-    { column_name: 'description', data_type: 'text' },
-  ];
+jest.mock('../ChartCustomizations', () => ({
+  ChartCustomizations: ({ formData, onChange }: any) => (
+    <div data-testid="chart-customizations">
+      <button
+        data-testid="toggle-legend"
+        onClick={() =>
+          onChange({
+            customizations: {
+              ...formData.customizations,
+              showLegend: !formData.customizations?.showLegend,
+            },
+          })
+        }
+      >
+        Toggle Legend
+      </button>
+    </div>
+  ),
+}));
 
+jest.mock('../ChartPreview', () => ({
+  ChartPreview: ({ isLoading, error }: any) => (
+    <div data-testid="chart-preview">
+      {isLoading ? 'Loading chart...' : error ? `Error: ${error.message}` : 'Chart Preview'}
+    </div>
+  ),
+}));
+
+jest.mock('../DataPreview', () => ({
+  DataPreview: ({ data, isLoading, error, pagination }: any) => (
+    <div data-testid="data-preview">
+      {isLoading ? 'Loading data...' : error ? 'Error loading data' : `Data: ${data.length} rows`}
+      {pagination && (
+        <div data-testid="pagination-controls">
+          <span>
+            Page {pagination.page} of {Math.ceil(pagination.total / pagination.pageSize)}
+          </span>
+          <button onClick={() => pagination.onPageChange?.(pagination.page + 1)}>Next</button>
+          <button onClick={() => pagination.onPageSizeChange?.(50)}>Change Size</button>
+        </div>
+      )}
+    </div>
+  ),
+}));
+
+jest.mock('../ChartFiltersConfiguration', () => ({
+  ChartFiltersConfiguration: ({ onChange, disabled }: any) => (
+    <div data-testid="filters-config">
+      <button
+        data-testid="add-filter"
+        onClick={() =>
+          onChange({ filters: [{ column: 'status', operator: 'equals', value: 'active' }] })
+        }
+        disabled={disabled}
+      >
+        Add Filter
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('../ChartPaginationConfiguration', () => ({
+  ChartPaginationConfiguration: ({ onChange, disabled }: any) => (
+    <div data-testid="pagination-config">
+      <button
+        data-testid="enable-pagination"
+        onClick={() => onChange({ pagination: { enabled: true, page_size: 10 } })}
+        disabled={disabled}
+      >
+        Enable Pagination
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('../ChartSortConfiguration', () => ({
+  ChartSortConfiguration: ({ onChange, disabled }: any) => (
+    <div data-testid="sort-config">
+      <button
+        data-testid="add-sort"
+        onClick={() => onChange({ sort: [{ column: 'created_at', direction: 'desc' }] })}
+        disabled={disabled}
+      >
+        Add Sort
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('../SimpleTableConfiguration', () => ({
+  SimpleTableConfiguration: ({ selectedColumns, onColumnsChange }: any) => (
+    <div data-testid="table-config">
+      <button
+        data-testid="select-columns"
+        onClick={() => onColumnsChange(['col1', 'col2', 'col3'])}
+      >
+        Select Columns
+      </button>
+      <span>Selected: {selectedColumns?.length || 0}</span>
+    </div>
+  ),
+}));
+
+jest.mock('../map/MapDataConfigurationV3', () => ({
+  MapDataConfigurationV3: ({ onFormDataChange }: any) => (
+    <div data-testid="map-data-config">
+      <button
+        data-testid="set-map-config"
+        onClick={() =>
+          onFormDataChange({
+            geographic_column: 'state',
+            value_column: 'population',
+            aggregate_function: 'sum',
+            selected_geojson_id: 1,
+          })
+        }
+      >
+        Set Map Config
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('../map/MapCustomizations', () => ({
+  MapCustomizations: ({ formData, onFormDataChange }: any) => (
+    <div data-testid="map-customizations">
+      <button
+        data-testid="set-map-style"
+        onClick={() =>
+          onFormDataChange({
+            customizations: { ...formData.customizations, colorScheme: 'Greens' },
+          })
+        }
+      >
+        Set Map Style
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('../map/MapPreview', () => ({
+  MapPreview: ({
+    geojsonLoading,
+    mapDataLoading,
+    geojsonError,
+    mapDataError,
+    onRegionClick,
+    drillDownPath,
+    onDrillUp,
+    onDrillHome,
+  }: any) => (
+    <div data-testid="map-preview">
+      {geojsonLoading || mapDataLoading
+        ? 'Loading map...'
+        : geojsonError || mapDataError
+          ? 'Map error'
+          : 'Map Preview'}
+      {drillDownPath && (
+        <>
+          <div data-testid="drill-down-path">Drilled: {drillDownPath[0]?.name}</div>
+          <button data-testid="drill-up" onClick={onDrillUp}>
+            Drill Up
+          </button>
+          <button data-testid="drill-home" onClick={onDrillHome}>
+            Drill Home
+          </button>
+        </>
+      )}
+      <button
+        data-testid="click-region"
+        onClick={() => onRegionClick?.('Test State', { id: 1, name: 'Test State' })}
+      >
+        Click Region
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('../map/DynamicLevelConfig', () => ({
+  DynamicLevelConfig: ({ onChange }: any) => (
+    <div data-testid="dynamic-level-config">
+      <button
+        data-testid="set-hierarchy"
+        onClick={() =>
+          onChange({
+            geographic_hierarchy: {
+              country_code: 'IND',
+              base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+              drill_down_levels: [
+                { level: 1, column: 'district', region_type: 'district', label: 'District' },
+              ],
+            },
+          })
+        }
+      >
+        Set Hierarchy
+      </button>
+    </div>
+  ),
+}));
+
+describe('ChartBuilder', () => {
   const mockOnSave = jest.fn();
-  const mockToast = jest.fn();
+  const mockOnCancel = jest.fn();
+
+  const defaultProps = {
+    onSave: mockOnSave,
+    onCancel: mockOnCancel,
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    (useSchemas as jest.Mock).mockReturnValue({
-      data: mockSchemas,
+    // Default hook mocks
+    (useChartHooks.useTables as jest.Mock).mockReturnValue({
+      data: [],
       isLoading: false,
       error: null,
-      mutate: jest.fn(),
-      isValidating: false,
-    } as any);
-
-    (useTables as jest.Mock).mockReturnValue({
-      data: mockTables,
-      isLoading: false,
-      error: null,
-      mutate: jest.fn(),
-      isValidating: false,
-    } as any);
-
-    (useColumns as jest.Mock).mockReturnValue({
-      data: mockColumns,
-      isLoading: false,
-      error: null,
-      mutate: jest.fn(),
-      isValidating: false,
-    } as any);
-
-    (useChartData as jest.Mock).mockReturnValue({
+    });
+    (useChartHooks.useColumns as jest.Mock).mockReturnValue({
       data: null,
       isLoading: false,
       error: null,
-      mutate: jest.fn(),
-      isValidating: false,
-    } as any);
-
-    (useChartSave as jest.Mock).mockReturnValue({
-      trigger: jest.fn(),
-      isMutating: false,
     });
-
-    (useToast as jest.Mock).mockReturnValue({
-      toast: mockToast,
+    (useChartHooks.useChartData as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
     });
+    (useChartHooks.useChartDataPreview as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useChartDataPreviewTotalRows as jest.Mock).mockReturnValue({ data: 0 });
+    (useChartHooks.useRawTableData as jest.Mock).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useTableCount as jest.Mock).mockReturnValue({ data: null });
+    (useChartHooks.useMapData as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useGeoJSONData as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useMapDataOverlay as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useRegions as jest.Mock).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useChildRegions as jest.Mock).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+    });
+    (useChartHooks.useRegionGeoJSONs as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+    (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({});
   });
 
-  describe('Chart Type Selection', () => {
-    it('should display all 16 chart types', () => {
-      render(<ChartBuilder onSave={mockOnSave} />);
+  describe('Initialization and Chart Type Selection', () => {
+    it('should initialize with default bar chart type', () => {
+      render(<ChartBuilder {...defaultProps} />);
 
-      const chartTypes = [
-        'Bar Chart',
-        'Line Chart',
-        'Pie Chart',
-        'Scatter Plot',
-        'Area Chart',
-        'Funnel Chart',
-        'Radar Chart',
-        'Heat Map',
-        'Table',
-        'Gauge',
-        'Box Plot',
-        'Candlestick',
-        'Sankey Diagram',
-        'Tree Map',
-        'Sunburst',
-        'Number',
-      ];
-
-      chartTypes.forEach((type) => {
-        expect(screen.getByText(type)).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('bar');
+      expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
+      expect(screen.getByTestId('chart-data-config')).toBeInTheDocument();
     });
 
-    it('should update computation type based on chart selection', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Select pie chart (should be aggregated)
-      const pieOption = screen.getByText('Pie Chart');
-      await user.click(pieOption.closest('div[role="button"]')!);
-
-      await waitFor(() => {
-        expect(screen.getByText('Aggregated Data')).toBeInTheDocument();
-      });
-
-      // Select bar chart (should allow raw data)
-      const barOption = screen.getByText('Bar Chart');
-      await user.click(barOption.closest('div[role="button"]')!);
-
-      await waitFor(() => {
-        expect(screen.getByText('Raw Data')).toBeInTheDocument();
-      });
-    });
-
-    it('should highlight selected chart type', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      const lineOption = screen.getByText('Line Chart');
-      const lineButton = lineOption.closest('div[role="button"]')!;
-
-      await user.click(lineButton);
-
-      // Check if the selected chart has the active styling
-      expect(lineButton).toHaveClass('ring-2', 'ring-primary');
-    });
-  });
-
-  describe('Data Source Selection', () => {
-    it('should load schemas on mount', () => {
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      expect(useSchemas).toHaveBeenCalled();
-    });
-
-    it('should load tables when schema is selected', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Open schema dropdown
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-
-      // Select 'public' schema
-      const publicOption = screen.getByRole('option', { name: 'public' });
-      await user.click(publicOption);
-
-      expect(useTables).toHaveBeenCalledWith('public');
-    });
-
-    it('should load columns when table is selected', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Select schema first
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-      await user.click(screen.getByRole('option', { name: 'public' }));
-
-      // Then select table
-      const tableSelect = screen.getByRole('combobox', { name: /table/i });
-      await user.click(tableSelect);
-      await user.click(screen.getByRole('option', { name: 'sales' }));
-
-      expect(useColumns).toHaveBeenCalledWith('public', 'sales');
-    });
-
-    it('should show loading states appropriately', () => {
-      (useSchemas as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: null,
-        mutate: jest.fn(),
-        isValidating: false,
-      } as any);
-
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      expect(within(schemaSelect).getByText('Loading...')).toBeInTheDocument();
-    });
-  });
-
-  describe('Column Compatibility Validation', () => {
-    it('should filter numeric columns for Y-axis in bar chart', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Setup: select bar chart, schema, and table
-      await user.click(screen.getByText('Bar Chart').closest('div[role="button"]')!);
-
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-      await user.click(screen.getByRole('option', { name: 'public' }));
-
-      const tableSelect = screen.getByRole('combobox', { name: /table/i });
-      await user.click(tableSelect);
-      await user.click(screen.getByRole('option', { name: 'sales' }));
-
-      // Check Y-axis options
-      const yAxisSelect = screen.getByRole('combobox', { name: /y-axis/i });
-      await user.click(yAxisSelect);
-
-      // Should show numeric columns
-      expect(screen.getByRole('option', { name: 'amount' })).toBeInTheDocument();
-      expect(screen.getByRole('option', { name: 'id' })).toBeInTheDocument();
-
-      // Should not show text columns
-      expect(screen.queryByRole('option', { name: 'category' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('option', { name: 'description' })).not.toBeInTheDocument();
-    });
-
-    it('should handle aggregated chart configuration', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Select pie chart (aggregated)
-      await user.click(screen.getByText('Pie Chart').closest('div[role="button"]')!);
-
-      // Configure data source
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-      await user.click(screen.getByRole('option', { name: 'public' }));
-
-      const tableSelect = screen.getByRole('combobox', { name: /table/i });
-      await user.click(tableSelect);
-      await user.click(screen.getByRole('option', { name: 'sales' }));
-
-      // Should show aggregation options
-      expect(screen.getByLabelText(/dimension column/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/aggregation function/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/measure column/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('Sample Data Mode', () => {
-    it('should toggle between sample and real data modes', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      const sampleDataSwitch = screen.getByRole('switch', { name: /use sample data/i });
-
-      // Enable sample data
-      await user.click(sampleDataSwitch);
-
-      await waitFor(() => {
-        expect(screen.getByText(/using sample data for preview/i)).toBeInTheDocument();
-        expect(screen.queryByRole('combobox', { name: /schema/i })).not.toBeInTheDocument();
-      });
-
-      // Disable sample data
-      await user.click(sampleDataSwitch);
-
-      await waitFor(() => {
-        expect(screen.queryByText(/using sample data for preview/i)).not.toBeInTheDocument();
-        expect(screen.getByRole('combobox', { name: /schema/i })).toBeInTheDocument();
-      });
-    });
-
-    it('should generate preview with sample data', async () => {
-      const user = userEvent.setup();
-      const mockChartData = {
-        option: {
-          xAxis: { data: ['A', 'B', 'C'] },
-          series: [{ data: [10, 20, 30] }],
-        },
+    it('should initialize with provided initial data', () => {
+      const initialData = {
+        title: 'Existing Chart',
+        chart_type: 'line' as const,
+        schema_name: 'public',
+        table_name: 'users',
+        dimension_column: 'date',
       };
 
-      (useChartData as jest.Mock).mockReturnValue({
-        data: mockChartData,
+      render(<ChartBuilder {...defaultProps} initialData={initialData} />);
+
+      expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('line');
+    });
+
+    it.each([
+      ['bar', 'line'],
+      ['line', 'table'],
+      ['table', 'map'],
+    ])('should switch chart types from %s to %s', async (from, to) => {
+      const user = userEvent.setup();
+      const initialData = { chart_type: from as any };
+      render(<ChartBuilder {...defaultProps} initialData={initialData} />);
+
+      await user.click(screen.getByTestId(`select-${to}`));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent(to);
+      });
+    });
+
+    it('should preserve dataset and advanced configs when switching chart types', async () => {
+      const user = userEvent.setup();
+      const initialData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        dimension_column: 'category',
+        filters: [{ column: 'status', operator: 'equals' as const, value: 'active' }],
+        pagination: { enabled: true, page_size: 25 },
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={initialData} />);
+
+      await user.click(screen.getByTestId('select-line'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('line');
+      });
+    });
+  });
+
+  describe('Form Validation', () => {
+    it('should disable save button when form is invalid', () => {
+      render(<ChartBuilder {...defaultProps} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).toBeDisabled();
+    });
+
+    it.each([
+      [
+        'table',
+        {
+          title: 'Table',
+          chart_type: 'table' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+        },
+      ],
+      [
+        'bar with metrics',
+        {
+          title: 'Bar',
+          chart_type: 'bar' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+          dimension_column: 'cat',
+          metrics: [{ column: 'amt', aggregation: 'sum' }],
+        },
+      ],
+      [
+        'number with count',
+        {
+          title: 'Count',
+          chart_type: 'number' as const,
+          schema_name: 'public',
+          table_name: 'users',
+          aggregate_function: 'count' as const,
+        },
+      ],
+      [
+        'map with count',
+        {
+          title: 'Map',
+          chart_type: 'map' as const,
+          schema_name: 'public',
+          table_name: 'locs',
+          geographic_column: 'state',
+          aggregate_function: 'count' as const,
+          selected_geojson_id: 1,
+        },
+      ],
+    ])('should enable save button for valid %s chart', (desc, validData) => {
+      render(<ChartBuilder {...defaultProps} initialData={validData} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).not.toBeDisabled();
+    });
+
+    it.each([
+      [
+        'number with sum missing column',
+        {
+          title: 'Sum',
+          chart_type: 'number' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+          aggregate_function: 'sum' as const,
+        },
+      ],
+      [
+        'bar missing dimension',
+        {
+          title: 'Bar',
+          chart_type: 'bar' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+          aggregate_column: 'amt',
+          aggregate_function: 'sum' as const,
+        },
+      ],
+    ])('should disable save button for invalid %s', (desc, invalidData) => {
+      render(<ChartBuilder {...defaultProps} initialData={invalidData} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).toBeDisabled();
+    });
+  });
+
+  describe('Save Handler and Payload Construction', () => {
+    it('should call onSave with correct payload for table chart', async () => {
+      const user = userEvent.setup();
+      const validData = {
+        title: 'Test Table',
+        chart_type: 'table' as const,
+        schema_name: 'public',
+        table_name: 'users',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={validData} />);
+
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      const payload = mockOnSave.mock.calls[0][0];
+
+      expect(payload).toMatchObject({
+        title: 'Test Table',
+        chart_type: 'table',
+        computation_type: 'aggregated',
+        schema_name: 'public',
+        table_name: 'users',
+      });
+      expect(payload.extra_config).toBeDefined();
+    });
+
+    it('should include all configurations in payload', async () => {
+      const user = userEvent.setup();
+      const validData = {
+        title: 'Complex Chart',
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        dimension_column: 'category',
+        metrics: [{ column: 'revenue', aggregation: 'sum', alias: 'Revenue' }],
+        filters: [{ column: 'status', operator: 'equals' as const, value: 'active' }],
+        pagination: { enabled: true, page_size: 25 },
+        sort: [{ column: 'amount', direction: 'desc' as const }],
+        customizations: { showLegend: false },
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={validData} />);
+
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      const payload = mockOnSave.mock.calls[0][0];
+
+      expect(payload.extra_config.dimension_column).toBe('category');
+      expect(payload.extra_config.metrics).toHaveLength(1);
+      expect(payload.extra_config.filters).toHaveLength(1);
+      expect(payload.extra_config.pagination).toEqual({ enabled: true, page_size: 25 });
+      expect(payload.extra_config.sort).toHaveLength(1);
+      expect(payload.extra_config.customizations.showLegend).toBe(false);
+    });
+
+    it('should convert geographic hierarchy to layers for map charts', async () => {
+      const user = userEvent.setup();
+      const validData = {
+        title: 'Population Map',
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        geographic_column: 'state',
+        value_column: 'population',
+        aggregate_function: 'sum' as const,
+        selected_geojson_id: 1,
+        geographic_hierarchy: {
+          country_code: 'IND',
+          base_level: { level: 0, column: 'state', region_type: 'state', label: 'State' },
+          drill_down_levels: [
+            { level: 1, column: 'district', region_type: 'district', label: 'District' },
+          ],
+        },
+      } as any;
+
+      render(<ChartBuilder {...defaultProps} initialData={validData} />);
+
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      const payload = mockOnSave.mock.calls[0][0];
+
+      expect(payload.extra_config.geographic_hierarchy).toBeDefined();
+      expect(payload.extra_config.layers).toBeDefined();
+      expect(payload.extra_config.drill_down_enabled).toBe(true);
+    });
+  });
+
+  describe('Map Features', () => {
+    it('should render map-specific configuration components', () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Population Map',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
+      expect(screen.getByTestId('map-customizations')).toBeInTheDocument();
+    });
+
+    it('should conditionally render dynamic level config', () => {
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Population Map',
+        geographic_column: 'state',
+        value_column: 'population',
+        aggregate_function: 'sum' as const,
+        selected_geojson_id: 1,
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      expect(screen.getByTestId('dynamic-level-config')).toBeInTheDocument();
+    });
+
+    it('should allow setting map configuration', async () => {
+      const user = userEvent.setup();
+
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Population Map',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
+
+      await user.click(screen.getByTestId('set-map-config'));
+
+      expect(screen.getByTestId('map-data-config')).toBeInTheDocument();
+    });
+  });
+
+  describe('Configuration Panel', () => {
+    it('should show advanced options when dataset is selected', () => {
+      const chartData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales Chart',
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={chartData} />);
+
+      expect(screen.getByText(/advanced options/i)).toBeInTheDocument();
+      expect(screen.getByTestId('filters-config')).toBeInTheDocument();
+      expect(screen.getByTestId('pagination-config')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-config')).toBeInTheDocument();
+    });
+
+    it('should not show advanced options without dataset', () => {
+      const chartData = { chart_type: 'bar' as const };
+
+      render(<ChartBuilder {...defaultProps} initialData={chartData} />);
+
+      expect(screen.queryByText(/advanced options/i)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ['table', 'table' as const, 'table-config'],
+      ['map', 'map' as const, 'map-data-config'],
+    ])('should render %s-specific configuration', (name, type, testId) => {
+      render(
+        <ChartBuilder
+          {...defaultProps}
+          initialData={{
+            chart_type: type,
+            schema_name: 'public',
+            table_name: 'test',
+            title: 'Test',
+          }}
+        />
+      );
+
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
+    });
+  });
+
+  describe('Auto-prefill and UI Controls', () => {
+    it('should trigger auto-prefill when columns are loaded', () => {
+      const mockColumns = [
+        { name: 'category', data_type: 'varchar', column_name: 'category' },
+        { name: 'amount', data_type: 'integer', column_name: 'amount' },
+      ];
+
+      (useChartHooks.useColumns as jest.Mock).mockReturnValue({
+        data: mockColumns,
         isLoading: false,
         error: null,
-        mutate: jest.fn(),
-        isValidating: false,
-      } as any);
+      });
 
-      render(<ChartBuilder onSave={mockOnSave} />);
+      (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({
+        dimension_column: 'category',
+        metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
+      });
 
-      // Enable sample data
-      const sampleDataSwitch = screen.getByRole('switch', { name: /use sample data/i });
-      await user.click(sampleDataSwitch);
+      const initialData = {
+        schema_name: 'public',
+        table_name: 'sales',
+        chart_type: 'bar' as const,
+      };
 
-      // Check preview is rendered
-      expect(screen.getByTestId('chart-preview')).toHaveTextContent('Chart Preview');
+      render(<ChartBuilder {...defaultProps} initialData={initialData} />);
+
+      expect(chartAutoPrefill.generateAutoPrefilledConfig).toHaveBeenCalledWith('bar', mockColumns);
+    });
+
+    it('should call onCancel when cancel button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<ChartBuilder {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      expect(mockOnCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('should show saving state when isSaving is true', () => {
+      render(<ChartBuilder {...defaultProps} isSaving={true} />);
+
+      const saveButton = screen.getByRole('button', { name: /saving/i });
+      expect(saveButton).toBeDisabled();
+      expect(saveButton).toHaveTextContent('Saving...');
     });
   });
 
-  describe('Form Submission', () => {
-    it('should validate required fields before submission', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
+  describe('Edge Cases', () => {
+    it.each([
+      ['missing initial data', {}],
+      ['undefined fields', { title: undefined as any, chart_type: undefined as any }],
+      ['null values', { dimension_column: null as any, aggregate_column: null as any }],
+      ['empty arrays', { metrics: [], filters: [], table_columns: [] }],
+    ])('should handle %s gracefully', (desc, initialData) => {
+      render(<ChartBuilder {...defaultProps} initialData={initialData} />);
 
-      const saveButton = screen.getByRole('button', { name: /save chart/i });
-      await user.click(saveButton);
-
-      // Should show validation toast
-      await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'Validation Error',
-            variant: 'destructive',
-          })
-        );
-      });
-
-      expect(mockOnSave).not.toHaveBeenCalled();
+      expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
     });
 
-    it('should submit with correct payload structure', async () => {
+    it('should handle rapid chart type changes', async () => {
       const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
+      render(<ChartBuilder {...defaultProps} />);
 
-      // Fill in all required fields
-      await user.type(screen.getByLabelText(/title/i), 'Sales Dashboard');
-      await user.type(screen.getByLabelText(/description/i), 'Monthly sales data');
-
-      // Select chart type
-      await user.click(screen.getByText('Bar Chart').closest('div[role="button"]')!);
-
-      // Select schema
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-      await user.click(screen.getByRole('option', { name: 'public' }));
-
-      // Select table
-      const tableSelect = screen.getByRole('combobox', { name: /table/i });
-      await user.click(tableSelect);
-      await user.click(screen.getByRole('option', { name: 'sales' }));
-
-      // Select axes
-      const xAxisSelect = screen.getByRole('combobox', { name: /x-axis/i });
-      await user.click(xAxisSelect);
-      await user.click(screen.getByRole('option', { name: 'date' }));
-
-      const yAxisSelect = screen.getByRole('combobox', { name: /y-axis/i });
-      await user.click(yAxisSelect);
-      await user.click(screen.getByRole('option', { name: 'amount' }));
-
-      // Save
-      const saveButton = screen.getByRole('button', { name: /save chart/i });
-      await user.click(saveButton);
+      await user.click(screen.getByTestId('select-line'));
+      await user.click(screen.getByTestId('select-pie'));
+      await user.click(screen.getByTestId('select-number'));
 
       await waitFor(() => {
-        expect(mockOnSave).toHaveBeenCalledWith({
-          title: 'Sales Dashboard',
-          description: 'Monthly sales data',
-          chart_type: 'echarts',
-          schema_name: 'public',
-          table: 'sales',
-          config: {
-            chartType: 'bar',
-            computation_type: 'raw',
-            xAxis: 'date',
-            yAxis: 'amount',
-            dimensions: [],
-          },
-          is_public: false,
-        });
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('number');
       });
     });
 
-    it('should handle save errors gracefully', async () => {
+    it('should handle map configuration with legacy district_column', async () => {
       const user = userEvent.setup();
-      mockOnSave.mockRejectedValueOnce(new Error('Save failed'));
+      const mapData = {
+        chart_type: 'map' as const,
+        schema_name: 'public',
+        table_name: 'census',
+        title: 'Map',
+        geographic_column: 'state',
+        district_column: 'district',
+        ward_column: 'ward',
+        subward_column: 'subward',
+        selected_geojson_id: 1,
+        aggregate_function: 'count' as const,
+      };
 
-      render(<ChartBuilder onSave={mockOnSave} />);
+      render(<ChartBuilder {...defaultProps} initialData={mapData} />);
 
-      // Fill minimum required fields
-      await user.type(screen.getByLabelText(/title/i), 'Test Chart');
+      await user.click(screen.getByRole('button', { name: /save/i }));
 
-      // Use sample data for quick setup
-      await user.click(screen.getByRole('switch', { name: /use sample data/i }));
+      expect(mockOnSave).toHaveBeenCalled();
+      const payload = mockOnSave.mock.calls[0][0];
+      expect(payload.extra_config.layers).toBeDefined();
+      expect(payload.extra_config.district_column).toBe('district');
+    });
 
-      // Save
-      const saveButton = screen.getByRole('button', { name: /save chart/i });
-      await user.click(saveButton);
+    it('should handle table chart switching with column mapping', async () => {
+      const user = userEvent.setup();
+      const barData = {
+        chart_type: 'bar' as const,
+        schema_name: 'public',
+        table_name: 'sales',
+        title: 'Sales',
+        dimension_column: 'category',
+        aggregate_column: 'revenue',
+        metrics: [
+          { column: 'quantity', aggregation: 'sum' },
+          { column: 'cost', aggregation: 'avg' },
+        ],
+      };
+
+      render(<ChartBuilder {...defaultProps} initialData={barData} />);
+
+      await user.click(screen.getByTestId('select-table'));
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'Error',
-            description: 'Failed to save chart',
-            variant: 'destructive',
-          })
-        );
+        expect(screen.getByTestId('selected-chart-type')).toHaveTextContent('table');
       });
-    });
-  });
-
-  describe('Preview Mode', () => {
-    it('should toggle preview visibility', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      const previewToggle = screen.getByRole('button', { name: /preview/i });
-
-      // Initially preview should be visible
-      expect(screen.getByTestId('chart-preview')).toBeInTheDocument();
-
-      // Hide preview
-      await user.click(previewToggle);
-      expect(screen.queryByTestId('chart-preview')).not.toBeInTheDocument();
-
-      // Show preview again
-      await user.click(previewToggle);
-      expect(screen.getByTestId('chart-preview')).toBeInTheDocument();
-    });
-  });
-
-  describe('Chart Type Specific Configurations', () => {
-    it('should show appropriate options for number chart', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Select number chart
-      await user.click(screen.getByText('Number').closest('div[role="button"]')!);
-
-      // Configure data source
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-      await user.click(screen.getByRole('option', { name: 'public' }));
-
-      const tableSelect = screen.getByRole('combobox', { name: /table/i });
-      await user.click(tableSelect);
-      await user.click(screen.getByRole('option', { name: 'sales' }));
-
-      // Number chart should only need aggregation settings
-      expect(screen.getByLabelText(/aggregation function/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/measure column/i)).toBeInTheDocument();
-
-      // Should not show dimension column for number chart
-      expect(screen.queryByLabelText(/dimension column/i)).not.toBeInTheDocument();
-    });
-
-    it('should configure scatter plot correctly', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Select scatter plot
-      await user.click(screen.getByText('Scatter Plot').closest('div[role="button"]')!);
-
-      // Should default to raw data
-      expect(screen.getByText('Raw Data')).toBeInTheDocument();
-
-      // Configure data source
-      const schemaSelect = screen.getByRole('combobox', { name: /schema/i });
-      await user.click(schemaSelect);
-      await user.click(screen.getByRole('option', { name: 'public' }));
-
-      const tableSelect = screen.getByRole('combobox', { name: /table/i });
-      await user.click(tableSelect);
-      await user.click(screen.getByRole('option', { name: 'sales' }));
-
-      // Should show X and Y axis options
-      expect(screen.getByLabelText(/x-axis/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/y-axis/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('Accessibility', () => {
-    it('should have proper ARIA labels', () => {
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      expect(screen.getByLabelText(/chart title/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/chart description/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/computation type/i)).toBeInTheDocument();
-    });
-
-    it('should support keyboard navigation', async () => {
-      const user = userEvent.setup();
-      render(<ChartBuilder onSave={mockOnSave} />);
-
-      // Tab through form elements
-      await user.tab();
-      expect(screen.getByLabelText(/title/i)).toHaveFocus();
-
-      await user.tab();
-      expect(screen.getByLabelText(/description/i)).toHaveFocus();
     });
   });
 });

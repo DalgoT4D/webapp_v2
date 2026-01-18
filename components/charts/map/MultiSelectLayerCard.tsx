@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react';
 import { useChildRegions, useRegionGeoJSONs, useRegionHierarchy } from '@/hooks/api/useChart';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { useCascadingFilters } from '../../../hooks/useCascadingFilters';
 import type { ChartBuilderFormData } from '@/types/charts';
 
@@ -34,9 +35,10 @@ interface GeoJSON {
   is_default?: boolean;
 }
 
-// Column data type
+// Column data type - API may return either name or column_name
 interface TableColumn {
-  name: string;
+  name?: string;
+  column_name?: string;
   data_type: string;
 }
 
@@ -52,6 +54,8 @@ interface ViewPayloads {
     value_column: string;
     aggregate_function: string;
     selected_geojson_id: number;
+    filters: Record<string, any>;
+    chart_filters: any[];
   };
   selectedRegion: SelectedRegion;
 }
@@ -207,16 +211,12 @@ export function MultiSelectLayerCard({
       schema_name: formData.schema_name,
       table_name: formData.table_name,
       geographic_column: layer.geographic_column,
-      value_column: formData.aggregate_column,
+      value_column:
+        formData.aggregate_column || formData.value_column || formData.geographic_column,
       aggregate_function: formData.aggregate_function || formData.aggregate_func,
-      // Include filters, pagination, and sorting for full functionality
-      filters: {}, // ✅ Empty dict for drill-down filters
-      chart_filters: formData.filters || [], // ✅ Array for chart-level filters
-      extra_config: {
-        filters: formData.filters || [],
-        pagination: formData.pagination,
-        sort: formData.sort,
-      },
+      selected_geojson_id: region.geojson_id!,
+      filters: {},
+      chart_filters: formData.filters || [],
     };
 
     // Pass the payloads to parent for preview
@@ -283,9 +283,12 @@ export function MultiSelectLayerCard({
                   const columnName = column.name || column.column_name;
                   return (
                     <SelectItem key={columnName} value={columnName}>
-                      <span className="truncate" title={`${columnName} (${column.data_type})`}>
-                        {columnName} ({column.data_type})
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ColumnTypeIcon dataType={column.data_type} className="w-4 h-4" />
+                        <span className="truncate" title={`${columnName} (${column.data_type})`}>
+                          {columnName}
+                        </span>
+                      </div>
                     </SelectItem>
                   );
                 })}
