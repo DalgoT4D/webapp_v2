@@ -396,7 +396,7 @@ export default function ChartsPage() {
 
       if (!charts) {
         console.log('ERROR: Charts data not loaded');
-        toast.error('Charts data not loaded');
+        toastError.load(null, 'charts data');
         return;
       }
 
@@ -408,7 +408,7 @@ export default function ChartsPage() {
         const originalChart = charts.find((chart: Chart) => chart.id === chartId);
         if (!originalChart) {
           console.log('ERROR: Original chart not found');
-          toast.error('Chart not found');
+          toastError.load(null, 'chart');
           return;
         }
 

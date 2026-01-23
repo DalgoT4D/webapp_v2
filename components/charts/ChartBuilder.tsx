@@ -177,8 +177,12 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
-          // For table charts, pass selected columns
+          // For table charts, include dimensions array and selected columns
           ...(formData.chart_type === 'table' && {
+            ...(formData.dimensions &&
+              formData.dimensions.length > 0 && {
+                dimensions: formData.dimensions.map((d) => d.column).filter(Boolean),
+              }),
             table_columns: formData.table_columns,
           }),
           // Include extra_config for time_grain and other configurations
@@ -610,6 +614,24 @@ export function ChartBuilder({
           (formData.geographic_hierarchy?.drill_down_levels.length || 0) > 0,
         // Table-specific fields
         table_columns: formData.table_columns,
+        // ✅ FIX: Include dimensions and dimension_columns for table charts
+        ...(formData.chart_type === 'table' && {
+          // Always include dimensions array (even if empty) to ensure structure is consistent
+          dimensions:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions
+                  .filter((dim) => dim.column && dim.column.trim() !== '')
+                  .map((dim) => ({
+                    column: dim.column,
+                    enable_drill_down: Boolean(dim.enable_drill_down === true),
+                  }))
+              : [],
+          // Always include dimension_columns array for backward compatibility
+          dimension_columns:
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions.map((d) => d.column).filter(Boolean)
+              : [],
+        }),
         customizations: formData.customizations,
         // Chart-level filters, pagination, and sorting
         filters: formData.filters,

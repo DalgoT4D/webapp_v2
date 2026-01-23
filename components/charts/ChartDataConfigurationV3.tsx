@@ -18,8 +18,9 @@ import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
+import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
-import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
+import type { ChartBuilderFormData, ChartMetric, ChartDimension } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
@@ -450,39 +451,64 @@ export function ChartDataConfigurationV3({
       </div>
 
       {/* X Axis / Dimension */}
-      {formData.chart_type !== 'number' && formData.chart_type !== 'map' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">
-            {formData.chart_type === 'table'
-              ? 'Group By Column'
-              : formData.chart_type === 'pie'
-                ? 'Dimension'
-                : 'X Axis'}
-          </Label>
-          <Select
-            value={formData.dimension_column || formData.x_axis_column}
-            onValueChange={(value) => {
-              onChange({ dimension_column: value });
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select X axis column" />
-            </SelectTrigger>
-            <SelectContent>
-              {allColumns.map((col) => (
-                <SelectItem key={col.column_name} value={col.column_name}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
-                    <span className="truncate" title={`${col.column_name} (${col.data_type})`}>
-                      {col.column_name}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {formData.chart_type !== 'number' &&
+        formData.chart_type !== 'map' &&
+        formData.chart_type !== 'table' && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">
+              {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
+            </Label>
+            <Select
+              value={formData.dimension_column || formData.x_axis_column}
+              onValueChange={(value) => {
+                onChange({ dimension_column: value });
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder="Select X axis column" />
+              </SelectTrigger>
+              <SelectContent>
+                {allColumns.map((col) => (
+                  <SelectItem key={col.column_name} value={col.column_name}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
+                      <span className="truncate" title={`${col.column_name} (${col.data_type})`}>
+                        {col.column_name}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+      {/* Table Dimensions Selector - Multiple dimensions with drill-down support */}
+      {formData.chart_type === 'table' && (
+        <TableDimensionsSelector
+          dimensions={
+            formData.dimensions && formData.dimensions.length > 0
+              ? formData.dimensions
+              : formData.dimension_column
+                ? [{ column: formData.dimension_column, enable_drill_down: false }]
+                : []
+          }
+          availableColumns={normalizedColumns}
+          onChange={(dimensions) => {
+            // Convert dimensions array to formData format
+            const dimensionColumns = dimensions.map((d) => d.column).filter(Boolean);
+            onChange({
+              dimensions,
+              dimension_columns: dimensionColumns,
+              // Keep dimension_column for backward compatibility (use first dimension)
+              dimension_column: dimensionColumns[0] || undefined,
+              // Clear extra_dimension_column when using dimensions array
+              extra_dimension_column: undefined,
+            });
+          }}
+          disabled={disabled}
+        />
       )}
 
       {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
@@ -608,8 +634,8 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Extra Dimension - for stacked/grouped charts AND tables */}
-      {['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') && (
+      {/* Extra Dimension - for stacked/grouped charts (NOT tables - tables use dimensions array) */}
+      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Select
