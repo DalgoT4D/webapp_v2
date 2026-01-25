@@ -246,7 +246,6 @@ export function MapDataConfigurationV3({
     disabled,
   });
 
-  // Removed isEditingDataset state - using simple dropdown like other chart types
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // 🔍 LOG: Column data loaded
@@ -277,7 +276,6 @@ export function MapDataConfigurationV3({
     // Prevent unnecessary resets if dataset hasn't actually changed
     if (formData.schema_name === schema_name && formData.table_name === table_name) {
       console.log('⏭️ [MAP-DATA-CONFIG-V3] Dataset unchanged, skipping reset');
-      setIsEditingDataset(false);
       return;
     }
 
@@ -317,9 +315,6 @@ export function MapDataConfigurationV3({
       dataOverlayPayload: undefined,
       country_code: 'IND', // Reset to default country
     });
-
-    // Exit edit mode after successful change
-    setIsEditingDataset(false);
   };
 
   // Auto-prefill map configuration when columns are loaded
