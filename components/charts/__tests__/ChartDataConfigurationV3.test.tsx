@@ -335,7 +335,7 @@ describe('ChartDataConfigurationV3', () => {
           onChange={mockOnChange}
         />
       );
-      expect(screen.getByText('Group By Column')).toBeInTheDocument();
+      expect(screen.getByText('Dimension')).toBeInTheDocument();
     });
   });
 
