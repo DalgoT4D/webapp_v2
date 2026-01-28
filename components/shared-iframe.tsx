@@ -84,6 +84,11 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
     return url.toString();
   }, [src]);
 
+  // Reset iframe ready state when URL changes (navigation between pages)
+  useEffect(() => {
+    setIsIframeReady(false);
+  }, [cleanUrl]);
+
   // Listen for iframe ready message
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -189,6 +194,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
       }}
     >
       <iframe
+        key={cleanUrl}
         ref={iframeRef}
         className={className || 'w-full h-full border-0 block'}
         src={cleanUrl}
