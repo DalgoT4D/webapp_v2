@@ -230,30 +230,7 @@ export function MapDataConfigurationV3({
   onFormDataChange,
   disabled,
 }: MapDataConfigurationV3Props) {
-  // 🔍 COMPREHENSIVE LOGGING: Component initialization
-  console.log('⚙️ [MAP-DATA-CONFIG-V3] Component initialized with formData:', {
-    schema_name: formData.schema_name,
-    table_name: formData.table_name,
-    chart_type: formData.chart_type,
-    geographic_column: formData.geographic_column,
-    aggregate_column: formData.aggregate_column,
-    aggregate_function: formData.aggregate_function,
-    selected_geojson_id: formData.selected_geojson_id,
-    district_column: formData.district_column,
-    drill_down_enabled: formData.drill_down_enabled,
-    hasGeojsonPreviewPayload: !!formData.geojsonPreviewPayload,
-    hasDataOverlayPayload: !!formData.dataOverlayPayload,
-    disabled,
-  });
-
-  // Removed isEditingDataset state - using simple dropdown like other chart types
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
-
-  // 🔍 LOG: Column data loaded
-  console.log('📋 [MAP-DATA-CONFIG-V3] Columns loaded:', {
-    columnsCount: columns?.length || 0,
-    sampleColumns: columns?.slice(0, 3) || [],
-  });
 
   // Filter columns by type
   const normalizedColumns =
@@ -267,25 +244,10 @@ export function MapDataConfigurationV3({
 
   // Handle dataset changes with complete form reset for maps
   const handleDatasetChange = (schema_name: string, table_name: string) => {
-    console.log('🔄 [MAP-DATA-CONFIG-V3] Dataset change requested:', {
-      current_schema: formData.schema_name,
-      current_table: formData.table_name,
-      new_schema: schema_name,
-      new_table: table_name,
-    });
-
     // Prevent unnecessary resets if dataset hasn't actually changed
     if (formData.schema_name === schema_name && formData.table_name === table_name) {
-      console.log('⏭️ [MAP-DATA-CONFIG-V3] Dataset unchanged, skipping reset');
-      setIsEditingDataset(false);
       return;
     }
-
-    console.log('🔄 [MAP-DATA-CONFIG-V3] Resetting form for new dataset');
-    console.log('⚠️ [MAP-DATA-CONFIG-V3] Previous drill-down config will be lost:', {
-      district_column: formData.district_column,
-      drill_down_enabled: formData.drill_down_enabled,
-    });
 
     // Preserve only essential chart identity fields
     const preservedFields = {
@@ -317,9 +279,6 @@ export function MapDataConfigurationV3({
       dataOverlayPayload: undefined,
       country_code: 'IND', // Reset to default country
     });
-
-    // Exit edit mode after successful change
-    setIsEditingDataset(false);
   };
 
   // Auto-prefill map configuration when columns are loaded
@@ -335,7 +294,6 @@ export function MapDataConfigurationV3({
       if (!hasExistingConfig) {
         const autoConfig = generateAutoPrefilledConfig('map', normalizedColumns);
         if (Object.keys(autoConfig).length > 0) {
-          console.log('🤖 [MAP-DATA-CONFIG-V3] Auto-prefilling map configuration:', autoConfig);
           onFormDataChange(autoConfig);
         }
       }
