@@ -8,16 +8,14 @@ import {
   useChartDataPreviewTotalRows,
   useGeoJSONData,
   useMapDataOverlay,
-  useChildRegions,
   useRegionGeoJSONs,
   useRegions,
 } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
-import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Edit, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
