@@ -35,7 +35,7 @@ npm run format:write           # Format code and auto-stage changes
 - **Styling**: Tailwind CSS v4 with utility-first approach
 - **State Management**: Zustand for global state, SWR for server state
 - **UI Components**: Radix UI headless components with custom styling
-- **Charts**: Multi-library approach (ECharts, Nivo, Recharts)
+- **Charts**: ECharts for interactive visualizations
 - **Forms**: React Hook Form with validation
 - **Testing**: Jest + React Testing Library
 - **Development**: Turbopack for fast builds, Husky for Git hooks
@@ -109,7 +109,7 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 ```
 
 #### 4. **Data Visualization Architecture**
-- **Multi-Library Strategy**: ECharts for complex charts, Nivo for statistical, Recharts for simple
+- **ECharts**: Primary charting library for all visualizations
 - **Unified Interface**: Common wrapper components for consistent API
 - **Dynamic Chart Types**: Runtime configuration for different visualization types
 - **Dashboard Builder**: Drag-and-drop dashboard creation with grid layout
@@ -165,7 +165,7 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 - **Type safety**: Define TypeScript interfaces for API responses
 
 ### Chart Implementation
-- **Choose appropriate library**: ECharts for complex interactions, Recharts for simple charts
+- **Use ECharts**: All charts are implemented using ECharts library
 - **Use existing patterns**: Follow established chart component patterns in `components/charts/`
 - **Handle data formatting**: Transform API data to chart-compatible formats
 - **Export capabilities**: Implement PNG/PDF export using existing utilities

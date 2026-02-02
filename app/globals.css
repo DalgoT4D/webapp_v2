@@ -457,9 +457,6 @@
     }
     
     /* Force all chart containers to respect mobile boundaries */
-    .dashboard-item .echarts-for-react,
-    .dashboard-item .recharts-responsive-container,
-    .dashboard-item .nivo-container,
     .dashboard-item canvas,
     .dashboard-item svg {
       width: 100% !important;
@@ -476,14 +473,6 @@
   }
 }
 
-/* Ensure charts are responsive */
-.recharts-responsive-container,
-.echarts-for-react,
-.nivo-container {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 200px;
-}
 
 /* Filter element responsive styles */
 .filter-element {
