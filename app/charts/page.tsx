@@ -8,29 +8,21 @@ import {
   LineChart,
   MoreVertical,
   Trash,
-  Search,
-  Grid,
-  List,
   Copy,
   AlertCircle,
   MapPin,
   Hash,
   CheckSquare,
-  Square,
   X,
   ChevronLeft,
   ChevronRight,
   Table,
-  User,
   Edit,
   ChevronUp,
   ChevronDown as ChevronDownSort,
   ArrowUpDown,
   Filter,
   Star,
-  StarOff,
-  Share2,
-  Calendar as CalendarIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
@@ -42,8 +34,6 @@ import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -72,22 +62,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 // AlertDialog imports removed - now using ChartDeleteDialog component
-import { format, formatDistanceToNow } from 'date-fns';
-import { toastSuccess, toastError, toastPromise } from '@/lib/toast';
+import { formatDistanceToNow } from 'date-fns';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
-
-// Simple debounce implementation
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
 
 const chartIcons = {
   bar: BarChart2,
@@ -99,8 +77,6 @@ const chartIcons = {
 };
 
 export default function ChartsPage() {
-  // View mode is now fixed to 'table' - list and grid views are commented out
-  const viewMode = 'table';
   const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chart_type' | 'data_source'>(
     'updated_at'
   );
@@ -343,7 +319,6 @@ export default function ChartsPage() {
         await mutate();
         toastSuccess.deleted(chartTitle);
       } catch (error) {
-        console.error('Error deleting chart:', error);
         toastError.delete(error, chartTitle);
       } finally {
         setIsDeleting(null);
@@ -390,41 +365,24 @@ export default function ChartsPage() {
 
   const handleDuplicateChart = useCallback(
     async (chartId: number, chartTitle: string) => {
-      console.log('=== DUPLICATE BUTTON CLICKED ===');
-      console.log('Chart ID:', chartId);
-      console.log('Chart Title:', chartTitle);
-
       if (!charts) {
-        console.log('ERROR: Charts data not loaded');
         toastError.load(null, 'charts data');
         return;
       }
 
       setIsDuplicating(chartId);
-      console.log('Set duplicating state for chart:', chartId);
 
       try {
         // Find the original chart
         const originalChart = charts.find((chart: Chart) => chart.id === chartId);
         if (!originalChart) {
-          console.log('ERROR: Original chart not found');
           toastError.load(null, 'chart');
           return;
         }
 
-        console.log('✓ Original chart found:', {
-          id: originalChart.id,
-          title: originalChart.title,
-          chart_type: originalChart.chart_type,
-          schema_name: originalChart.schema_name,
-          table_name: originalChart.table_name,
-        });
-
         // Generate duplicate title
         const existingTitles = charts.map((chart: Chart) => chart.title);
         const duplicateTitle = generateDuplicateTitle(originalChart.title, existingTitles);
-
-        console.log('✓ Generated duplicate title:', duplicateTitle);
 
         // Create duplicate chart data
         const duplicateChartData: ChartCreate = {
@@ -442,30 +400,14 @@ export default function ChartsPage() {
           extra_config: originalChart.extra_config || {},
         };
 
-        console.log('✓ Duplicate chart data prepared:', duplicateChartData);
-        console.log('🚀 Calling createChart API...');
-
         const result = await createChart(duplicateChartData);
-
-        console.log('✅ API call successful! Result:', result);
-
         // Refresh the charts list
-        console.log('🔄 Refreshing charts list...');
         await mutate();
 
-        console.log('✅ Charts list refreshed successfully');
         toastSuccess.duplicated(originalChart.title, duplicateTitle);
       } catch (error: any) {
-        console.log('❌ ERROR in duplicate process:', error);
-        console.log('Error details:', {
-          message: error?.message,
-          status: error?.status,
-          info: error?.info,
-        });
-
-        toastError.duplicate(error, originalChart.title);
+        toastError.duplicate(error, chartTitle);
       } finally {
-        console.log('🏁 Duplicate process finished, clearing loading state');
         setIsDuplicating(null);
       }
     },
@@ -545,7 +487,6 @@ export default function ChartsPage() {
       );
       exitSelectionMode();
     } catch (error) {
-      console.error('Error deleting charts:', error);
       toastError.delete(
         error,
         `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'}`
@@ -997,337 +938,6 @@ export default function ChartsPage() {
   const paginatedCharts = filteredAndSortedCharts.slice(startIndex, endIndex);
   const total = filteredAndSortedCharts.length;
   const totalPages = Math.ceil(filteredAndSortedCharts.length / pageSize);
-
-  // Render chart card (grid view)
-  const renderChartCard = (chart: Chart) => {
-    const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
-    const typeColors = getChartTypeColor(chart.chart_type as ChartType);
-
-    return (
-      <Card
-        id={`chart-card-${chart.id}`}
-        key={chart.id}
-        className={cn(
-          'transition-all duration-200 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-0.5 h-full relative group bg-white border-gray-200/60',
-          isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
-        )}
-      >
-        {/* Checkbox for selection mode */}
-        {isSelectionMode && (
-          <div className="absolute top-2 left-2 z-10">
-            <button
-              onClick={() => toggleChartSelection(chart.id)}
-              className="p-1 bg-white rounded border border-gray-300 hover:bg-gray-50"
-            >
-              {selectedCharts.has(chart.id) ? (
-                <CheckSquare className="w-4 h-4 text-blue-600" />
-              ) : (
-                <Square className="w-4 h-4 text-gray-400" />
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Action Menu - only render if user has any chart permissions */}
-        {(hasPermission('can_create_charts') ||
-          hasPermission('can_edit_charts') ||
-          hasPermission('can_delete_charts') ||
-          hasPermission('can_view_charts')) && (
-          <div
-            className={cn('absolute top-2 right-2 z-10 flex gap-1', isSelectionMode && 'hidden')}
-          >
-            {/* Edit Button */}
-            {hasPermission('can_edit_charts') && (
-              <Link href={`/charts/${chart.id}/edit`}>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-                >
-                  <Edit className="w-4 h-4 text-gray-700" />
-                </Button>
-              </Link>
-            )}
-
-            {/* More Actions Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 bg-white shadow-md hover:bg-gray-50 border-gray-200"
-                >
-                  <MoreVertical className="w-4 h-4 text-gray-700" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
-                  <CheckSquare className="w-4 h-4 mr-2" />
-                  Select
-                </DropdownMenuItem>
-                {hasPermission('can_create_charts') && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDuplicateChart(chart.id, chart.title)}
-                      className="cursor-pointer"
-                      disabled={isDuplicating === chart.id}
-                    >
-                      {isDuplicating === chart.id ? (
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2" />
-                      )}
-                      Duplicate
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {hasPermission('can_view_charts') && (
-                  <ChartExportDropdownForList
-                    chartId={chart.id}
-                    chartTitle={chart.title}
-                    chartType={chart.chart_type}
-                  />
-                )}
-                {hasPermission('can_delete_charts') && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <ChartDeleteDialog
-                      chartId={chart.id}
-                      chartTitle={chart.title}
-                      onConfirm={() => handleDeleteChart(chart.id, chart.title)}
-                      isDeleting={isDeleting === chart.id}
-                    >
-                      <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </ChartDeleteDialog>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-
-        {/* Clickable content area */}
-        <Link
-          href={isSelectionMode || !hasPermission('can_view_charts') ? '#' : `/charts/${chart.id}`}
-        >
-          <div
-            className={cn(!isSelectionMode && 'cursor-pointer')}
-            onClick={
-              isSelectionMode
-                ? (e) => {
-                    e.preventDefault();
-                    toggleChartSelection(chart.id);
-                  }
-                : undefined
-            }
-          >
-            {/* Modern Chart Preview Area */}
-            <div className="relative h-40 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden group-hover:from-gray-100 group-hover:to-gray-150 transition-colors duration-200">
-              {/* Large Chart Icon */}
-              <div className="flex items-center justify-center h-full p-6">
-                <div
-                  className="rounded-xl flex items-center justify-center w-28 h-28 shadow-sm border border-white/50"
-                  style={{ backgroundColor: typeColors.bgColor }}
-                >
-                  <IconComponent className="w-18 h-18" style={{ color: typeColors.color }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Content Area */}
-            <div className="p-4 space-y-2">
-              {/* Title */}
-              <div className="space-y-1">
-                <CardTitle className="text-sm font-medium line-clamp-2 leading-tight">
-                  {chart.title}
-                </CardTitle>
-                {/* Data Source Info */}
-                <div className="text-xs text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium">Data Source:</span>
-                    <span className="truncate">
-                      {chart.schema_name}.{chart.table_name}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Modified {formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Link>
-      </Card>
-    );
-  };
-
-  // Render chart list (list view)
-  const renderChartList = (chart: Chart) => {
-    const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
-    const typeColors = getChartTypeColor(chart.chart_type as ChartType);
-
-    return (
-      <Card
-        id={`chart-list-${chart.id}`}
-        key={chart.id}
-        className={cn(
-          'transition-all duration-200 hover:shadow-sm hover:bg-[#0066FF]/3',
-          isSelectionMode && selectedCharts.has(chart.id) && 'ring-2 ring-blue-500 bg-blue-50'
-        )}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            {/* Checkbox for selection mode */}
-            {isSelectionMode && (
-              <div className="mr-4">
-                <button
-                  onClick={() => toggleChartSelection(chart.id)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  {selectedCharts.has(chart.id) ? (
-                    <CheckSquare className="w-5 h-5 text-blue-600" />
-                  ) : (
-                    <Square className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* Clickable main content */}
-            <Link
-              href={
-                isSelectionMode || !hasPermission('can_view_charts') ? '#' : `/charts/${chart.id}`
-              }
-              className={cn(
-                'flex items-center gap-4 flex-1',
-                !isSelectionMode && hasPermission('can_view_charts') && 'cursor-pointer'
-              )}
-              onClick={
-                isSelectionMode
-                  ? (e) => {
-                      e.preventDefault();
-                      toggleChartSelection(chart.id);
-                    }
-                  : undefined
-              }
-            >
-              <div
-                className="w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: typeColors.bgColor }}
-              >
-                <IconComponent className="w-8 h-8" style={{ color: typeColors.color }} />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="space-y-1">
-                  <h3 className="font-medium truncate">{chart.title}</h3>
-                  {/* Data Source Info */}
-                  <div className="text-xs text-gray-600 space-y-1">
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium min-w-0">Data Source:</span>
-                      <span className="truncate">
-                        {chart.schema_name}.{chart.table_name}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Modified {formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })}
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Action Menu */}
-            {!isSelectionMode && (
-              <div className="flex items-center gap-2 ml-4">
-                {/* Edit Button */}
-                {hasPermission('can_edit_charts') && (
-                  <Link href={`/charts/${chart.id}/edit`}>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                    >
-                      <Edit className="w-4 h-4 text-gray-700" />
-                    </Button>
-                  </Link>
-                )}
-
-                {/* More Actions Menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                    >
-                      <MoreVertical className="w-4 h-4 text-gray-700" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
-                      <CheckSquare className="w-4 h-4 mr-2" />
-                      Select
-                    </DropdownMenuItem>
-                    {hasPermission('can_create_charts') && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDuplicateChart(chart.id, chart.title)}
-                          className="cursor-pointer"
-                          disabled={isDuplicating === chart.id}
-                        >
-                          {isDuplicating === chart.id ? (
-                            <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Copy className="w-4 h-4 mr-2" />
-                          )}
-                          Duplicate
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    {hasPermission('can_view_charts') && (
-                      <ChartExportDropdownForList
-                        chartId={chart.id}
-                        chartTitle={chart.title}
-                        chartType={chart.chart_type}
-                      />
-                    )}
-                    {hasPermission('can_delete_charts') && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <ChartDeleteDialog
-                          chartId={chart.id}
-                          chartTitle={chart.title}
-                          onConfirm={() => handleDeleteChart(chart.id, chart.title)}
-                          isDeleting={isDeleting === chart.id}
-                        >
-                          <DropdownMenuItem
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Trash className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </ChartDeleteDialog>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   if (isError) {
     return (

@@ -27,8 +27,6 @@ A modern web application built with Next.js 15 and React 19, featuring a compreh
 
 ### Data Visualization
 - **ECharts** - Interactive charting library
-- **Nivo** - Data visualization components
-- **Recharts** - Composable chart library
 
 ### Development & Testing
 - **Jest** - Testing framework

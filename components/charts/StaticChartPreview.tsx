@@ -192,8 +192,6 @@ export function StaticChartPreview({
         );
 
       case 'echarts':
-      case 'recharts':
-      case 'nivo':
         return (
           <div
             className={`${className} flex items-end justify-center gap-1 p-4 bg-gradient-to-b from-orange-50 to-orange-100 rounded-lg`}
