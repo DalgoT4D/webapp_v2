@@ -156,8 +156,8 @@ export function BarChartCustomizations({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="top">Top</SelectItem>
-                <SelectItem value="middle">Middle</SelectItem>
-                <SelectItem value="bottom">Bottom</SelectItem>
+                <SelectItem value="inside">Middle</SelectItem>
+                <SelectItem value="insideBottom">Bottom</SelectItem>
               </SelectContent>
             </Select>
           </div>

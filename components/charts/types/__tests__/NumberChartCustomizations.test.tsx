@@ -95,8 +95,12 @@ describe('NumberChartCustomizations', () => {
   it('should disable all controls when disabled is true', () => {
     render(<NumberChartCustomizations {...defaultProps} disabled={true} />);
 
-    screen.getAllByRole('radio').forEach((r) => expect(r).toBeDisabled());
-    screen.getAllByRole('textbox').forEach((i) => expect(i).toBeDisabled());
+    screen.getAllByRole('radio').forEach((r) => {
+      expect(r).toBeDisabled();
+    });
+    screen.getAllByRole('textbox').forEach((i) => {
+      expect(i).toBeDisabled();
+    });
     expect(screen.getByLabelText('Decimal Places')).toBeDisabled();
   });
 });

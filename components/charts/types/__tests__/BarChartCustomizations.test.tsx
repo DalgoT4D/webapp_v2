@@ -116,8 +116,14 @@ describe('BarChartCustomizations', () => {
   it('should disable all controls when disabled is true', () => {
     render(<BarChartCustomizations {...defaultProps} disabled={true} hasExtraDimension={true} />);
 
-    screen.getAllByRole('switch').forEach((s) => expect(s).toBeDisabled());
-    screen.getAllByRole('radio').forEach((r) => expect(r).toBeDisabled());
-    screen.getAllByRole('textbox').forEach((i) => expect(i).toBeDisabled());
+    screen.getAllByRole('switch').forEach((s) => {
+      expect(s).toBeDisabled();
+    });
+    screen.getAllByRole('radio').forEach((r) => {
+      expect(r).toBeDisabled();
+    });
+    screen.getAllByRole('textbox').forEach((i) => {
+      expect(i).toBeDisabled();
+    });
   });
 });

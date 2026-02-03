@@ -93,7 +93,9 @@ describe('MapChartCustomizations', () => {
   it('should disable all controls when disabled is true', () => {
     render(<MapChartCustomizations {...defaultProps} disabled={true} />);
 
-    screen.getAllByRole('switch').forEach((s) => expect(s).toBeDisabled());
+    screen.getAllByRole('switch').forEach((s) => {
+      expect(s).toBeDisabled();
+    });
     expect(screen.getByDisplayValue('No Data')).toBeDisabled();
   });
 });
