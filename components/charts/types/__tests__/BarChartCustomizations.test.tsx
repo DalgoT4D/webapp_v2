@@ -90,9 +90,27 @@ describe('BarChartCustomizations', () => {
     expect(screen.getByLabelText('X-Axis Label Rotation')).toBeInTheDocument();
     expect(screen.getByLabelText('Y-Axis Label Rotation')).toBeInTheDocument();
 
+    // X-axis title input
     const xInput = screen.getByLabelText('X-Axis Title');
     await user.type(xInput, 'M');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'TimeM');
+
+    // Y-axis title input
+    const yInput = screen.getByLabelText('Y-Axis Title');
+    await user.type(yInput, 's');
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisTitle', 'Values');
+
+    // X-axis rotation
+    const xRotationSelect = screen.getByLabelText('X-Axis Label Rotation');
+    await user.click(xRotationSelect);
+    await user.click(screen.getByRole('option', { name: '45 degrees' }));
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisLabelRotation', '45');
+
+    // Y-axis rotation
+    const yRotationSelect = screen.getByLabelText('Y-Axis Label Rotation');
+    await user.click(yRotationSelect);
+    await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
   });
 
   it('should disable all controls when disabled is true', () => {
