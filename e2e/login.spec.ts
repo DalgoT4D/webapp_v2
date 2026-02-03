@@ -4,10 +4,6 @@ import { test, expect } from '@playwright/test';
 const TEST_EMAIL = process.env.E2E_TEST_EMAIL;
 const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD;
 
-if (!process.env.E2E_TEST_EMAIL || !process.env.E2E_TEST_PASSWORD) {
-  throw new Error('Missing E2E_TEST_EMAIL or E2E_TEST_PASSWORD in environment variables');
-}
-
 test.describe('Login Page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
@@ -60,8 +56,7 @@ test.describe('Login Page', () => {
   });
 
   test('should login successfully and redirect to impact page', async ({ page }) => {
-    // Skip if credentials not configured
-    // test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set in .env');
+    test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'Missing E2E_TEST_EMAIL or E2E_TEST_PASSWORD');
 
     // Fill login form
     await page.getByLabel('Business Email*').fill(TEST_EMAIL!);
