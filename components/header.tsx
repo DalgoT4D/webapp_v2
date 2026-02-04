@@ -182,12 +182,12 @@ export function Header({
       </div>
 
       {/* Right side actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         {/* Notifications Bell */}
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full bg-muted hover:bg-accent hover:ring-2 hover:ring-primary/20 transition-all duration-200 mr-4"
+          className="relative h-9 w-9 rounded-full bg-muted hover:bg-accent hover:ring-2 hover:ring-primary/20 transition-all duration-200"
           onClick={() => {
             router.push('/notifications');
           }}
@@ -198,6 +198,13 @@ export function Header({
           )}
           <span className="sr-only">Notifications</span>
         </Button>
+
+        {/* Current Organization Name */}
+        {currentOrg && (
+          <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">
+            {currentOrg.name}
+          </span>
+        )}
 
         {/* Profile Menu */}
         <DropdownMenu>
