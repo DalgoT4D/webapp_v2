@@ -173,11 +173,11 @@ export default function NewChartPage() {
                         )}
                         style={
                           isSelected
-                            ? {
+                            ? ({
                                 borderColor: '#06887b',
                                 '--tw-ring-color': '#06887b',
                                 backgroundColor: 'rgba(6, 136, 123, 0.04)',
-                              }
+                              } as React.CSSProperties)
                             : {}
                         }
                         role="radio"
