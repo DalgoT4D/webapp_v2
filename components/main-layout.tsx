@@ -185,7 +185,7 @@ const getNavItems = (
           isActive: currentPath.startsWith('/data-quality'),
           hide:
             !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
-            transformType !== TransformType.UI,
+            transformType === TransformType.UI,
         },
       ],
     },
