@@ -585,7 +585,7 @@ export function UnifiedFiltersPanel({
   return (
     <div
       className={cn(
-        'border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col shadow-sm md:shadow-none transition-all duration-300',
+        'border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col overflow-hidden shadow-sm md:shadow-none transition-all duration-300',
         isCollapsed ? 'w-full md:w-12' : 'w-full md:w-96'
       )}
     >
