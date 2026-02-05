@@ -16,6 +16,8 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isIframeReady, setIsIframeReady] = useState(false);
   const [iframeToken, setIframeToken] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
+  const hasInitialAuthBeenSent = useRef(false);
   const { selectedOrgSlug, isAuthenticated } = useAuthStore();
 
   // Parse origin from src URL and create allowed origins list
@@ -84,10 +86,10 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
     return url.toString();
   }, [src]);
 
-  // Reset iframe ready state when URL changes (navigation between pages)
+  // Reset iframe ready state when URL changes (navigation between pages) or key changes (remount)
   useEffect(() => {
     setIsIframeReady(false);
-  }, [cleanUrl]);
+  }, [cleanUrl, iframeKey]);
 
   // Listen for iframe ready message
   useEffect(() => {
@@ -134,6 +136,14 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
         fetchIframeToken().then((token) => {
           if (token) {
             sendAuthUpdate(token, selectedOrgSlug);
+
+            // On first auth, remount iframe so it loads correct page with auth already in place
+            // This fixes the issue where embedded app redirects to default route on first load
+            if (!hasInitialAuthBeenSent.current) {
+              hasInitialAuthBeenSent.current = true;
+              console.log('[Parent] First auth sent, remounting iframe to load correct page');
+              setTimeout(() => setIframeKey((prev) => prev + 1), 150);
+            }
           }
         });
       } else if (!isAuthenticated) {
@@ -142,7 +152,14 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
         sendLogout();
       }
     }
-  }, [isAuthenticated, selectedOrgSlug, isIframeReady]);
+  }, [
+    isAuthenticated,
+    selectedOrgSlug,
+    isIframeReady,
+    fetchIframeToken,
+    sendAuthUpdate,
+    sendLogout,
+  ]);
 
   // Send org switch when only org changes
   useEffect(() => {
@@ -155,7 +172,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
   // Token refresh mechanism - refresh every 4 minutes (before 5-minute expiry)
   useEffect(() => {
     if (!isAuthenticated || !isIframeReady) {
-      return;
+      return undefined;
     }
 
     console.log('[Parent] Setting up iframe token refresh (every 4 minutes)');
@@ -176,7 +193,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
       console.log('[Parent] Clearing iframe token refresh interval');
       clearInterval(refreshInterval);
     };
-  }, [isAuthenticated, isIframeReady, selectedOrgSlug]);
+  }, [isAuthenticated, isIframeReady, selectedOrgSlug, fetchIframeToken, sendAuthUpdate]);
 
   if (!cleanUrl) {
     return <div className="w-full h-screen flex items-center justify-center">Loading...</div>;
@@ -194,7 +211,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
       }}
     >
       <iframe
-        key={cleanUrl}
+        key={`${cleanUrl}-${iframeKey}`}
         ref={iframeRef}
         className={className || 'w-full h-full border-0 block'}
         src={cleanUrl}
