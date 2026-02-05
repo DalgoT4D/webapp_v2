@@ -242,7 +242,7 @@ export function Header({
                 <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
                   Organizations
                 </DropdownMenuLabel>
-                <div className="px-1 pb-1.5 max-h-[300px] overflow-y-auto">
+                <div className="px-1 pb-1.5 max-h-[500px] overflow-y-auto">
                   {availableOrgs
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((org) => (
