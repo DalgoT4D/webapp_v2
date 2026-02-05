@@ -22,17 +22,17 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
 
   useEffect(() => {
     if (value?.start_date) {
-      setStartDate(new Date(value.start_date));
+      setStartDate(new Date(value.start_date + 'T00:00:00'));
     }
     if (value?.end_date) {
-      setEndDate(new Date(value.end_date));
+      setEndDate(new Date(value.end_date + 'T00:00:00'));
     }
   }, [value]);
 
   const handleDateChange = (start?: Date, end?: Date) => {
     const newValue = {
-      start_date: start ? start.toISOString().split('T')[0] : undefined,
-      end_date: end ? end.toISOString().split('T')[0] : undefined,
+      start_date: start ? format(start, 'yyyy-MM-dd') : undefined,
+      end_date: end ? format(end, 'yyyy-MM-dd') : undefined,
     };
 
     if (newValue.start_date || newValue.end_date) {
