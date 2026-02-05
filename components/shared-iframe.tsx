@@ -15,7 +15,7 @@ interface SharedIframeProps {
 export default function SharedIframe({ src, title, className, scale = 1 }: SharedIframeProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isIframeReady, setIsIframeReady] = useState(false);
-  const [iframeToken, setIframeToken] = useState<string | null>(null);
+  // const [iframeToken, setIframeToken] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const hasInitialAuthBeenSent = useRef(false);
   const { selectedOrgSlug, isAuthenticated } = useAuthStore();
@@ -63,7 +63,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
 
       if (response?.success && response?.iframe_token) {
         console.log('[Parent] Got iframe token, expires in:', response.expires_in, 'seconds');
-        setIframeToken(response.iframe_token);
+        // setIframeToken(response.iframe_token);
         return response.iframe_token;
       } else {
         console.warn('[Parent] Failed to get iframe token:', response);
@@ -89,7 +89,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
   // Reset iframe ready state when URL changes (navigation between pages) or key changes (remount)
   useEffect(() => {
     setIsIframeReady(false);
-  }, [cleanUrl, iframeKey]);
+  }, [cleanUrl]);
 
   // Listen for iframe ready message
   useEffect(() => {
@@ -148,7 +148,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
         });
       } else if (!isAuthenticated) {
         console.log('[Parent] User logged out, sending logout signal to iframe');
-        setIframeToken(null);
+        // setIframeToken(null);
         sendLogout();
       }
     }
