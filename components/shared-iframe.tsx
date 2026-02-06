@@ -130,10 +130,16 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
 
   // Combined effect: Send auth updates when auth state changes and iframe is ready
   useEffect(() => {
+    let isCancelled = false;
+    let remountTimeoutId: NodeJS.Timeout | null = null;
+
     if (isIframeReady) {
       if (isAuthenticated && selectedOrgSlug) {
         console.log('[Parent] Auth state ready, fetching token and sending to iframe');
         fetchIframeToken().then((token) => {
+          // Don't proceed if effect was cleaned up while fetching
+          if (isCancelled) return;
+
           if (token) {
             sendAuthUpdate(token, selectedOrgSlug);
 
@@ -142,16 +148,28 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
             if (!hasInitialAuthBeenSent.current) {
               hasInitialAuthBeenSent.current = true;
               console.log('[Parent] First auth sent, remounting iframe to load correct page');
-              setTimeout(() => setIframeKey((prev) => prev + 1), 150);
+              // 150ms delay gives embedded app time to complete signIn() before remount
+              remountTimeoutId = setTimeout(() => {
+                if (!isCancelled) {
+                  setIframeKey((prev) => prev + 1);
+                }
+              }, 150);
             }
           }
         });
       } else if (!isAuthenticated) {
         console.log('[Parent] User logged out, sending logout signal to iframe');
-        // setIframeToken(null);
         sendLogout();
       }
     }
+
+    // Cleanup: cancel pending operations if component unmounts or effect re-runs
+    return () => {
+      isCancelled = true;
+      if (remountTimeoutId) {
+        clearTimeout(remountTimeoutId);
+      }
+    };
   }, [
     isAuthenticated,
     selectedOrgSlug,
