@@ -321,7 +321,7 @@ export function TableChart({
                           className="text-blue-600 hover:text-blue-800 hover:underline"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {rawValue}
+                          Link
                         </a>
                       </TableCell>
                     );
