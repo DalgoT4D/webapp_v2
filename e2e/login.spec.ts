@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-// Get test credentials from environment variables
-const TEST_EMAIL = process.env.E2E_TEST_EMAIL;
-const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD;
+// Get admin credentials from environment variables
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
 
 test.describe('Login Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -56,11 +56,11 @@ test.describe('Login Page', () => {
   });
 
   test('should login successfully and redirect to impact page', async ({ page }) => {
-    test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'Missing E2E_TEST_EMAIL or E2E_TEST_PASSWORD');
+    test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'Missing E2E_ADMIN_EMAIL or E2E_ADMIN_PASSWORD');
 
     // Fill login form
-    await page.getByLabel('Business Email*').fill(TEST_EMAIL!);
-    await page.getByLabel('Password*').fill(TEST_PASSWORD!);
+    await page.getByLabel('Business Email*').fill(ADMIN_EMAIL!);
+    await page.getByLabel('Password*').fill(ADMIN_PASSWORD!);
 
     // Click sign in
     await page.getByRole('button', { name: 'Sign In' }).click();
