@@ -643,10 +643,10 @@ export function DashboardNativeView({
     <div
       ref={containerRef}
       className={cn(
-        'h-screen flex flex-col bg-white overflow-hidden',
+        'h-full flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50',
-        // Special handling for public dashboards on mobile
-        isPublicMode && 'sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
+        // Public dashboards are rendered outside MainLayout so they need h-screen
+        isPublicMode && 'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}

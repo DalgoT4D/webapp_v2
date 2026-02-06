@@ -1630,7 +1630,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     return (
-      <div className="dashboard-builder h-screen flex flex-col overflow-hidden">
+      <div className="dashboard-builder h-full flex flex-col overflow-hidden">
         {/* Fixed Header with Title and Toolbar */}
         <div className="border-b bg-white flex-shrink-0">
           {/* Mobile Header */}
