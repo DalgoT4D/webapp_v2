@@ -110,26 +110,13 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
 
       - name: Deploy to staging
-        uses: appleboy/ssh-action@v1.2.0
+        uses: ./.github/actions/deploy
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Save current running image as previous (for rollback)
-            CURRENT_IMAGE=$(docker inspect --format='{{.Config.Image}}' webapp_v2 2>/dev/null || echo "")
-            if [ -n "$CURRENT_IMAGE" ]; then
-              echo "$CURRENT_IMAGE" > /home/ddp/webapp_v2_docker/.previous_staging_tag
-            fi
-
-            # Update .env with new image tag (docker compose auto-reads this)
-            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}" > /home/ddp/webapp_v2_docker/.env
-
-            cd /home/ddp/webapp_v2_docker
-            docker compose pull
-            docker compose up -d
+          ssh_host: ${{ secrets.SSH_HOST }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
+          deploy_dir: /home/ddp/webapp_v2_docker
 
       - name: Update staging branch tracker
         env:

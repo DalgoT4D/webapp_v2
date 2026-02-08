@@ -1,0 +1,44 @@
+name: 'Deploy via SSH'
+description: 'Deploy a Docker Compose service to a remote host over SSH'
+
+inputs:
+  ssh_host:
+    description: 'Target server hostname or IP'
+    required: true
+  ssh_user:
+    description: 'SSH username'
+    required: true
+  ssh_key:
+    description: 'SSH private key'
+    required: true
+  image_tag:
+    description: 'Full Docker image reference (e.g., ghcr.io/org/repo:tag)'
+    required: true
+  deploy_dir:
+    description: 'Remote directory containing docker-compose.yml'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Deploy to remote host
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ inputs.ssh_host }}
+        username: ${{ inputs.ssh_user }}
+        key: ${{ inputs.ssh_key }}
+        script: |
+          DEPLOY_DIR="${{ inputs.deploy_dir }}"
+          NEW_IMAGE="${{ inputs.image_tag }}"
+          ENV_FILE="$DEPLOY_DIR/.env"
+
+          # Update WEBAPP_IMAGE in .env (preserve other vars)
+          if [ -f "$ENV_FILE" ] && grep -q "^WEBAPP_IMAGE=" "$ENV_FILE"; then
+            sed -i "s|^WEBAPP_IMAGE=.*|WEBAPP_IMAGE=$NEW_IMAGE|" "$ENV_FILE"
+          else
+            echo "WEBAPP_IMAGE=$NEW_IMAGE" >> "$ENV_FILE"
+          fi
+
+          cd "$DEPLOY_DIR"
+          docker compose pull
+          docker compose up -d

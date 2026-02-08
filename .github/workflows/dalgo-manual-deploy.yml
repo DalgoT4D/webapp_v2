@@ -93,26 +93,13 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
 
       - name: Deploy to staging
-        uses: appleboy/ssh-action@v1.2.0
+        uses: ./.github/actions/deploy
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Save current running image as previous (for rollback)
-            CURRENT_IMAGE=$(docker inspect --format='{{.Config.Image}}' webapp_v2 2>/dev/null || echo "")
-            if [ -n "$CURRENT_IMAGE" ]; then
-              echo "$CURRENT_IMAGE" > /home/ddp/webapp_v2_docker/.previous_staging_tag
-            fi
-
-            # Update .env with new image tag (docker compose auto-reads this)
-            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}" > /home/ddp/webapp_v2_docker/.env
-
-            cd /home/ddp/webapp_v2_docker
-            docker compose pull
-            docker compose up -d
+          ssh_host: ${{ secrets.SSH_HOST }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}
+          deploy_dir: /home/ddp/webapp_v2_docker
 
       - name: Update staging branch tracker
         env:
@@ -195,20 +182,13 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-latest
 
       - name: Deploy to production
-        uses: appleboy/ssh-action@v1.2.0
+        uses: ./.github/actions/deploy
         with:
-          host: ${{ secrets.PROD_SSH_HOST }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Update .env with new image tag (docker compose auto-reads this)
-            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }}" > /home/ddp/webapp_v2_docker/.env
-
-            cd /home/ddp/webapp_v2_docker
-            docker compose pull
-            docker compose up -d
+          ssh_host: ${{ secrets.PROD_SSH_HOST }}
+          ssh_user: ${{ secrets.PROD_SSH_USER }}
+          ssh_key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }}
+          deploy_dir: /home/ddp/webapp_v2_docker
 
       - name: Update production tag tracking
         env:
@@ -247,6 +227,8 @@ jobs:
           echo "::error::You must type 'rollback-production' in the confirm field to proceed."
           exit 1
 
+      - uses: actions/checkout@v4
+
       - name: Determine rollback tag
         id: rollback
         run: |
@@ -268,20 +250,13 @@ jobs:
           echo "- **Source:** ${{ steps.rollback.outputs.source }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Rollback production
-        uses: appleboy/ssh-action@v1.2.0
+        uses: ./.github/actions/deploy
         with:
-          host: ${{ secrets.PROD_SSH_HOST }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
-          script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Update .env with rollback image tag
-            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rollback.outputs.tag }}" > /home/ddp/webapp_v2_docker/.env
-
-            cd /home/ddp/webapp_v2_docker
-            docker compose pull
-            docker compose up -d
+          ssh_host: ${{ secrets.PROD_SSH_HOST }}
+          ssh_user: ${{ secrets.PROD_SSH_USER }}
+          ssh_key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rollback.outputs.tag }}
+          deploy_dir: /home/ddp/webapp_v2_docker
 
       - name: Update current tag tracker
         env:
