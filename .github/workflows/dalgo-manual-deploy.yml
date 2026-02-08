@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       rollback_tag:
-        description: 'Rollback only: specific image tag (leave empty to use previous version from PROD_PREVIOUS_TAG variable)'
+        description: 'Rollback only: specific image tag (leave empty to use previous version from PREVIOUS_TAG environment variable)'
         required: false
         type: string
 
@@ -30,6 +30,7 @@ jobs:
   deploy-staging:
     if: inputs.action == 'deploy-staging'
     runs-on: ubuntu-latest
+    environment: staging
     permissions:
       contents: read
       packages: write
@@ -57,11 +58,11 @@ jobs:
       - name: Validate build secrets
         run: |
           MISSING=""
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_BACKEND_URL"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_PENDO_API_KEY"
+          [ -z "${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1
@@ -70,12 +71,12 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" \
-            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
+            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" \
+            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
             --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
-            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
+            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }} .
 
       - name: Login to GHCR
@@ -104,7 +105,7 @@ jobs:
       - name: Update staging branch tracker
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh variable set STAGING_CURRENT_BRANCH --body "${{ steps.info.outputs.branch }}"
+        run: gh variable set CURRENT_BRANCH --body "${{ steps.info.outputs.branch }}" --env staging
 
       - name: Summary
         run: |
@@ -119,6 +120,7 @@ jobs:
   deploy-production:
     if: inputs.action == 'deploy-production'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
       packages: write
@@ -146,11 +148,11 @@ jobs:
       - name: Validate build secrets
         run: |
           MISSING=""
-          [ -z "${{ secrets.PROD_NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_BACKEND_URL"
-          [ -z "${{ secrets.PROD_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
-          [ -z "${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_USAGE_DASHBOARD_ID"
-          [ -z "${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
-          [ -z "${{ secrets.PROD_NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_PENDO_API_KEY"
+          [ -z "${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1
@@ -159,12 +161,12 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.PROD_NEXT_PUBLIC_BACKEND_URL }}" \
-            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.PROD_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
+            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" \
+            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
             --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=production" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
-            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.PROD_NEXT_PUBLIC_PENDO_API_KEY }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
+            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }} .
 
       - name: Login to GHCR
@@ -184,9 +186,9 @@ jobs:
       - name: Deploy to production
         uses: ./.github/actions/deploy
         with:
-          ssh_host: ${{ secrets.PROD_SSH_HOST }}
-          ssh_user: ${{ secrets.PROD_SSH_USER }}
-          ssh_key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          ssh_host: ${{ secrets.SSH_HOST }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }}
           deploy_dir: /home/ddp/webapp_v2_docker
 
@@ -195,19 +197,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Current becomes previous (for rollback)
-          CURRENT="${{ vars.PROD_CURRENT_TAG }}"
+          CURRENT="${{ vars.CURRENT_TAG }}"
           if [ -n "$CURRENT" ]; then
-            gh variable set PROD_PREVIOUS_TAG --body "$CURRENT"
+            gh variable set PREVIOUS_TAG --body "$CURRENT" --env production
           fi
           # New becomes current
-          gh variable set PROD_CURRENT_TAG --body "prod-main-${{ steps.info.outputs.short_sha }}"
+          gh variable set CURRENT_TAG --body "prod-main-${{ steps.info.outputs.short_sha }}" --env production
 
       - name: Summary
         run: |
           echo "## Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** prod-main-${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Previous:** ${{ vars.PROD_CURRENT_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous:** ${{ vars.CURRENT_TAG }}" >> $GITHUB_STEP_SUMMARY
 
   # ============================================
   # ROLLBACK PRODUCTION
@@ -215,6 +217,7 @@ jobs:
   rollback-production:
     if: inputs.action == 'rollback-production'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
       packages: read
@@ -233,7 +236,7 @@ jobs:
         id: rollback
         env:
           ROLLBACK_TAG: ${{ inputs.rollback_tag }}
-          PREV_TAG: ${{ vars.PROD_PREVIOUS_TAG }}
+          PREV_TAG: ${{ vars.PREVIOUS_TAG }}
         run: |
           if [ -n "$ROLLBACK_TAG" ]; then
             if ! echo "$ROLLBACK_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
@@ -244,9 +247,9 @@ jobs:
             echo "source=user-specified" >> "$GITHUB_OUTPUT"
           elif [ -n "$PREV_TAG" ]; then
             echo "tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
-            echo "source=PROD_PREVIOUS_TAG variable" >> "$GITHUB_OUTPUT"
+            echo "source=PREVIOUS_TAG variable" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::No rollback tag specified and PROD_PREVIOUS_TAG variable is empty. Specify a tag in the rollback_tag field."
+            echo "::error::No rollback tag specified and PREVIOUS_TAG variable is empty. Specify a tag in the rollback_tag field."
             exit 1
           fi
 
@@ -259,9 +262,9 @@ jobs:
       - name: Rollback production
         uses: ./.github/actions/deploy
         with:
-          ssh_host: ${{ secrets.PROD_SSH_HOST }}
-          ssh_user: ${{ secrets.PROD_SSH_USER }}
-          ssh_key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          ssh_host: ${{ secrets.SSH_HOST }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rollback.outputs.tag }}
           deploy_dir: /home/ddp/webapp_v2_docker
 
@@ -269,9 +272,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Sync PROD_CURRENT_TAG with what's actually running after rollback
+          # Sync CURRENT_TAG with what's actually running after rollback
           # This ensures the next deploy saves the correct previous tag
-          gh variable set PROD_CURRENT_TAG --body "${{ steps.rollback.outputs.tag }}"
+          gh variable set CURRENT_TAG --body "${{ steps.rollback.outputs.tag }}" --env production
 
       - name: Summary
         run: |
@@ -279,4 +282,4 @@ jobs:
           echo "- **Rolled back to:** ${{ steps.rollback.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Source:** ${{ steps.rollback.outputs.source }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** PROD_PREVIOUS_TAG was not updated — it still points to the stable version for future rollbacks." >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** PREVIOUS_TAG was not updated — it still points to the stable version for future rollbacks." >> $GITHUB_STEP_SUMMARY

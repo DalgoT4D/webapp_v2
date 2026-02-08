@@ -50,6 +50,7 @@ jobs:
     needs: checks
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: staging
     permissions:
       contents: read
       packages: write
@@ -65,7 +66,7 @@ jobs:
       # Fail fast: check if staging is on main before spending time on docker build
       - name: Check staging branch
         run: |
-          CURRENT="${{ vars.STAGING_CURRENT_BRANCH }}"
+          CURRENT="${{ vars.CURRENT_BRANCH }}"
           if [ "$CURRENT" != "main" ]; then
             echo "Error: Staging is on '$CURRENT', not main. Skipping deploy."
             exit 1
@@ -74,11 +75,11 @@ jobs:
       - name: Validate build secrets
         run: |
           MISSING=""
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_BACKEND_URL"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
-          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_PENDO_API_KEY"
+          [ -z "${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           if [ -n "$MISSING" ]; then
             echo "Error: Missing GitHub secrets:$MISSING"
             exit 1
@@ -87,12 +88,12 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" \
-            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
+            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" \
+            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
             --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
-            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
+            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }} .
 
       - name: Login to GHCR
@@ -121,7 +122,7 @@ jobs:
       - name: Update staging branch tracker
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh variable set STAGING_CURRENT_BRANCH --body "main"
+        run: gh variable set CURRENT_BRANCH --body "main" --env staging
 
       - name: Summary
         run: |
