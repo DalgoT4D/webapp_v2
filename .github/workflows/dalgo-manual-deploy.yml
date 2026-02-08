@@ -231,13 +231,20 @@ jobs:
 
       - name: Determine rollback tag
         id: rollback
+        env:
+          ROLLBACK_TAG: ${{ inputs.rollback_tag }}
+          PREV_TAG: ${{ vars.PROD_PREVIOUS_TAG }}
         run: |
-          if [ -n "${{ inputs.rollback_tag }}" ]; then
-            echo "tag=${{ inputs.rollback_tag }}" >> $GITHUB_OUTPUT
-            echo "source=user-specified" >> $GITHUB_OUTPUT
-          elif [ -n "${{ vars.PROD_PREVIOUS_TAG }}" ]; then
-            echo "tag=${{ vars.PROD_PREVIOUS_TAG }}" >> $GITHUB_OUTPUT
-            echo "source=PROD_PREVIOUS_TAG variable" >> $GITHUB_OUTPUT
+          if [ -n "$ROLLBACK_TAG" ]; then
+            if ! echo "$ROLLBACK_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
+              echo "::error::Invalid rollback tag format. Only alphanumeric characters, dots, hyphens, and underscores are allowed."
+              exit 1
+            fi
+            echo "tag=$ROLLBACK_TAG" >> "$GITHUB_OUTPUT"
+            echo "source=user-specified" >> "$GITHUB_OUTPUT"
+          elif [ -n "$PREV_TAG" ]; then
+            echo "tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+            echo "source=PROD_PREVIOUS_TAG variable" >> "$GITHUB_OUTPUT"
           else
             echo "::error::No rollback tag specified and PROD_PREVIOUS_TAG variable is empty. Specify a tag in the rollback_tag field."
             exit 1
