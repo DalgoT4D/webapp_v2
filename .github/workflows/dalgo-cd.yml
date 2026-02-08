@@ -1,31 +1,104 @@
 name: Dalgo CD
-
 on:
   push:
     branches: [main]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+
     steps:
-      - name: Deploy code to EC2 server
+      - uses: actions/checkout@v4
+
+      - name: Get commit SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      # Fail fast: check if staging is on main before spending time on docker build
+      - name: Check staging branch
+        run: |
+          CURRENT="${{ vars.STAGING_CURRENT_BRANCH }}"
+          if [ "$CURRENT" != "main" ]; then
+            echo "Error: Staging is on '$CURRENT', not main. Skipping deploy."
+            exit 1
+          fi
+
+      - name: Validate build secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_PENDO_API_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "Error: Missing GitHub secrets:$MISSING"
+            exit 1
+          fi
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }} \
+            --build-arg NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }} \
+            --build-arg NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging \
+            --build-arg NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }} \
+            --build-arg NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }} \
+            --build-arg NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }} .
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }} \
+                     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+
+      - name: Deploy to staging
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          command_timeout: 500s
           script: |
-            set -e
-            source ~/.nvm/nvm.sh
-            cd /home/ddp/webapp_v2
-            current_branch=$(git rev-parse --abbrev-ref HEAD)
-            if [ "$current_branch" != "main" ]; then
-              echo "Error: You are not on the main branch. Current branch is $current_branch."
-              exit 1
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Save current running image as previous (for rollback)
+            CURRENT_IMAGE=$(docker inspect --format='{{.Config.Image}}' webapp_v2 2>/dev/null || echo "")
+            if [ -n "$CURRENT_IMAGE" ]; then
+              echo "$CURRENT_IMAGE" > /home/ddp/webapp_v2_docker/.previous_staging_tag
             fi
-            git pull
-            npm install
-            npm run build
-            /home/ddp/.yarn/bin/pm2 restart ddp-webapp_v2
+
+            # Update .env with new image tag (docker compose auto-reads this)
+            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}" > /home/ddp/webapp_v2_docker/.env
+
+            cd /home/ddp/webapp_v2_docker
+            docker compose pull
+            docker compose up -d
+
+      - name: Update staging branch tracker
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh variable set STAGING_CURRENT_BRANCH --body "main"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Staging CD Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ steps.sha.outputs.short }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}" >> $GITHUB_STEP_SUMMARY
