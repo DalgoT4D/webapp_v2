@@ -1,14 +1,54 @@
-name: Dalgo CD
+name: Dalgo CI/CD
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: ['**']
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-deploy:
+  # ============================================
+  # CI CHECKS (runs on all pushes and PRs)
+  # ============================================
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Prettier
+        run: npm run format:check
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run test and generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4.2.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Build Docker image (verify only)
+        if: github.event_name == 'pull_request'
+        run: docker build -t webapp_v2:test .
+
+  # ============================================
+  # CD: AUTO-DEPLOY TO STAGING (only on main push, after checks pass)
+  # ============================================
+  deploy-staging:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,12 +87,12 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }} \
-            --build-arg NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }} \
-            --build-arg NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging \
-            --build-arg NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }} \
-            --build-arg NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }} \
-            --build-arg NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }} \
+            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" \
+            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
+            --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
+            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }} .
 
       - name: Login to GHCR
@@ -97,8 +137,7 @@ jobs:
         run: gh variable set STAGING_CURRENT_BRANCH --body "main"
 
       - name: Summary
-        if: always()
         run: |
-          echo "## Staging CD Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Staging Deploy Complete" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ steps.sha.outputs.short }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}" >> $GITHUB_STEP_SUMMARY

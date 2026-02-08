@@ -1,0 +1,300 @@
+name: Manual Deploy / Rollback
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - deploy-staging
+          - deploy-production
+          - rollback-production
+      confirm:
+        description: 'Type the action name to confirm (e.g., "deploy-staging", "deploy-production", "rollback-production")'
+        required: true
+        type: string
+      rollback_tag:
+        description: 'Rollback only: specific image tag (leave empty to use previous version from PROD_PREVIOUS_TAG variable)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================
+  # DEPLOY TO STAGING
+  # ============================================
+  deploy-staging:
+    if: inputs.action == 'deploy-staging'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+
+    steps:
+      - name: Verify confirmation
+        if: inputs.confirm != 'deploy-staging'
+        run: |
+          echo "::error::You must type 'deploy-staging' in the confirm field to proceed."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - name: Get branch and commit info
+        id: info
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-40 | tr '[:upper:]' '[:lower:]')
+          SHORT_SHA=${GITHUB_SHA::7}
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "safe_branch=$SAFE_BRANCH" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Validate build secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING STAGING_NEXT_PUBLIC_PENDO_API_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing GitHub secrets:$MISSING"
+            exit 1
+          fi
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.STAGING_NEXT_PUBLIC_BACKEND_URL }}" \
+            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.STAGING_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
+            --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.STAGING_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
+            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.STAGING_NEXT_PUBLIC_PENDO_API_KEY }}" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }} .
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }} \
+                     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+
+      - name: Deploy to staging
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Save current running image as previous (for rollback)
+            CURRENT_IMAGE=$(docker inspect --format='{{.Config.Image}}' webapp_v2 2>/dev/null || echo "")
+            if [ -n "$CURRENT_IMAGE" ]; then
+              echo "$CURRENT_IMAGE" > /home/ddp/webapp_v2_docker/.previous_staging_tag
+            fi
+
+            # Update .env with new image tag (docker compose auto-reads this)
+            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}" > /home/ddp/webapp_v2_docker/.env
+
+            cd /home/ddp/webapp_v2_docker
+            docker compose pull
+            docker compose up -d
+
+      - name: Update staging branch tracker
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh variable set STAGING_CURRENT_BRANCH --body "${{ steps.info.outputs.branch }}"
+
+      - name: Summary
+        run: |
+          echo "## Staging Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ steps.info.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # DEPLOY TO PRODUCTION
+  # ============================================
+  deploy-production:
+    if: inputs.action == 'deploy-production'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+
+    steps:
+      - name: Verify confirmation
+        if: inputs.confirm != 'deploy-production'
+        run: |
+          echo "::error::You must type 'deploy-production' in the confirm field to proceed."
+          exit 1
+
+      - name: Verify main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Production deploys only allowed from main branch."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - name: Get commit info
+        id: info
+        run: echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Validate build secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.PROD_NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.PROD_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.PROD_NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING PROD_NEXT_PUBLIC_PENDO_API_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing GitHub secrets:$MISSING"
+            exit 1
+          fi
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.PROD_NEXT_PUBLIC_BACKEND_URL }}" \
+            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.PROD_NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
+            --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=production" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
+            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.PROD_NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
+            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.PROD_NEXT_PUBLIC_PENDO_API_KEY }}" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }} .
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }}
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }} \
+                     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-latest
+
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Update .env with new image tag (docker compose auto-reads this)
+            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }}" > /home/ddp/webapp_v2_docker/.env
+
+            cd /home/ddp/webapp_v2_docker
+            docker compose pull
+            docker compose up -d
+
+      - name: Update production tag tracking
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Current becomes previous (for rollback)
+          CURRENT="${{ vars.PROD_CURRENT_TAG }}"
+          if [ -n "$CURRENT" ]; then
+            gh variable set PROD_PREVIOUS_TAG --body "$CURRENT"
+          fi
+          # New becomes current
+          gh variable set PROD_CURRENT_TAG --body "prod-main-${{ steps.info.outputs.short_sha }}"
+
+      - name: Summary
+        run: |
+          echo "## Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** prod-main-${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous:** ${{ vars.PROD_CURRENT_TAG }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # ROLLBACK PRODUCTION
+  # ============================================
+  rollback-production:
+    if: inputs.action == 'rollback-production'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+
+    steps:
+      - name: Verify confirmation
+        if: inputs.confirm != 'rollback-production'
+        run: |
+          echo "::error::You must type 'rollback-production' in the confirm field to proceed."
+          exit 1
+
+      - name: Determine rollback tag
+        id: rollback
+        run: |
+          if [ -n "${{ inputs.rollback_tag }}" ]; then
+            echo "tag=${{ inputs.rollback_tag }}" >> $GITHUB_OUTPUT
+            echo "source=user-specified" >> $GITHUB_OUTPUT
+          elif [ -n "${{ vars.PROD_PREVIOUS_TAG }}" ]; then
+            echo "tag=${{ vars.PROD_PREVIOUS_TAG }}" >> $GITHUB_OUTPUT
+            echo "source=PROD_PREVIOUS_TAG variable" >> $GITHUB_OUTPUT
+          else
+            echo "::error::No rollback tag specified and PROD_PREVIOUS_TAG variable is empty. Specify a tag in the rollback_tag field."
+            exit 1
+          fi
+
+      - name: Show rollback target
+        run: |
+          echo "## Rollback Target" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rolling back to:** ${{ steps.rollback.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** ${{ steps.rollback.outputs.source }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Rollback production
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Update .env with rollback image tag
+            echo "WEBAPP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rollback.outputs.tag }}" > /home/ddp/webapp_v2_docker/.env
+
+            cd /home/ddp/webapp_v2_docker
+            docker compose pull
+            docker compose up -d
+
+      - name: Update current tag tracker
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Sync PROD_CURRENT_TAG with what's actually running after rollback
+          # This ensures the next deploy saves the correct previous tag
+          gh variable set PROD_CURRENT_TAG --body "${{ steps.rollback.outputs.tag }}"
+
+      - name: Summary
+        run: |
+          echo "## Production Rollback Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rolled back to:** ${{ steps.rollback.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** ${{ steps.rollback.outputs.source }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** PROD_PREVIOUS_TAG was not updated — it still points to the stable version for future rollbacks." >> $GITHUB_STEP_SUMMARY
