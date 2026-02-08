@@ -45,6 +45,9 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Normalize IMAGE_NAME to lowercase
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
+
       - name: Get branch and commit info
         id: info
         run: |
@@ -105,7 +108,8 @@ jobs:
       - name: Update staging branch tracker
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh variable set CURRENT_BRANCH --body "${{ steps.info.outputs.branch }}" --env staging
+          STAGING_BRANCH: ${{ steps.info.outputs.branch }}
+        run: gh variable set CURRENT_BRANCH --body "$STAGING_BRANCH" --env staging
 
       - name: Summary
         run: |
@@ -140,6 +144,9 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v4
+
+      - name: Normalize IMAGE_NAME to lowercase
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
 
       - name: Get commit info
         id: info
@@ -231,6 +238,9 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v4
+
+      - name: Normalize IMAGE_NAME to lowercase
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
 
       - name: Determine rollback tag
         id: rollback

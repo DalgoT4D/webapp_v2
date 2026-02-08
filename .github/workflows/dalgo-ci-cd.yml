@@ -59,6 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize IMAGE_NAME to lowercase
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
+
       - name: Get commit SHA
         id: sha
         run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT

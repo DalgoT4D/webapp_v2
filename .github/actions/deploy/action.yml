@@ -28,6 +28,7 @@ runs:
         username: ${{ inputs.ssh_user }}
         key: ${{ inputs.ssh_key }}
         script: |
+          set -euo pipefail
           DEPLOY_DIR="${{ inputs.deploy_dir }}"
           NEW_IMAGE="${{ inputs.image_tag }}"
           ENV_FILE="$DEPLOY_DIR/.env"
