@@ -121,6 +121,8 @@ jobs:
           ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
           deploy_dir: /home/ddp/webapp_v2_docker
+          ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          ghcr_user: ${{ github.actor }}
 
       - name: Update staging branch tracker
         env:

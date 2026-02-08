@@ -104,6 +104,8 @@ jobs:
           ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}
           deploy_dir: /home/ddp/webapp_v2_docker
+          ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          ghcr_user: ${{ github.actor }}
 
       - name: Update staging branch tracker
         env:
@@ -198,6 +200,8 @@ jobs:
           ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }}
           deploy_dir: /home/ddp/webapp_v2_docker
+          ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          ghcr_user: ${{ github.actor }}
 
       - name: Update production tag tracking
         env:
@@ -277,6 +281,8 @@ jobs:
           ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rollback.outputs.tag }}
           deploy_dir: /home/ddp/webapp_v2_docker
+          ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          ghcr_user: ${{ github.actor }}
 
       - name: Update current tag tracker
         env:

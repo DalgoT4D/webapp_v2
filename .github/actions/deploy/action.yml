@@ -17,16 +17,26 @@ inputs:
   deploy_dir:
     description: 'Remote directory containing docker-compose.yml'
     required: true
+  ghcr_token:
+    description: 'GHCR authentication token (GITHUB_TOKEN)'
+    required: true
+  ghcr_user:
+    description: 'GHCR username (github.actor)'
+    required: true
 
 runs:
   using: 'composite'
   steps:
     - name: Deploy to remote host
       uses: appleboy/ssh-action@v1.2.0
+      env:
+        GHCR_TOKEN: ${{ inputs.ghcr_token }}
+        GHCR_USER: ${{ inputs.ghcr_user }}
       with:
         host: ${{ inputs.ssh_host }}
         username: ${{ inputs.ssh_user }}
         key: ${{ inputs.ssh_key }}
+        envs: GHCR_TOKEN,GHCR_USER
         script: |
           set -euo pipefail
           DEPLOY_DIR="${{ inputs.deploy_dir }}"
@@ -41,5 +51,7 @@ runs:
           fi
 
           cd "$DEPLOY_DIR"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker compose pull
           docker compose up -d
+          docker logout ghcr.io
