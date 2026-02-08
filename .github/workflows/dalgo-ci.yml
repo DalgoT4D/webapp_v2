@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: ['**']
 
 jobs:
   checks:
@@ -16,7 +16,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install --frozen-lockfile
+        run: npm ci
 
       - name: Run Prettier
         run: npm run format:check
@@ -31,3 +31,6 @@ jobs:
         uses: codecov/codecov-action@v4.2.0
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Build Docker image (verify only)
+        run: docker build -t webapp_v2:test .
