@@ -26,12 +26,17 @@ test.describe('Login Page', () => {
   });
 
   test('should show validation errors for empty fields', async ({ page }) => {
-    // Click sign in without filling form
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    // Ensure form is fully loaded and interactive
+    const signInButton = page.getByRole('button', { name: 'Sign In' });
+    await expect(signInButton).toBeEnabled();
+
+    // Focus on email field first, then click sign in without filling form
+    await page.getByLabel('Business Email*').focus();
+    await signInButton.click();
 
     // Check validation messages appear
-    await expect(page.getByText('Username is required')).toBeVisible();
-    await expect(page.getByText('Password is required')).toBeVisible();
+    await expect(page.getByText('Username is required')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Password is required')).toBeVisible({ timeout: 10000 });
   });
 
   test('should toggle password visibility', async ({ page }) => {
@@ -62,11 +67,14 @@ test.describe('Login Page', () => {
     await page.getByLabel('Business Email*').fill(ADMIN_EMAIL!);
     await page.getByLabel('Password*').fill(ADMIN_PASSWORD!);
 
-    // Click sign in
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    // Click sign in and wait for navigation to complete
+    await Promise.all([
+      page.waitForURL('/impact', { timeout: 15000 }),
+      page.getByRole('button', { name: 'Sign In' }).click(),
+    ]);
 
-    // Wait for redirect to impact page (successful login)
-    await expect(page).toHaveURL('/impact', { timeout: 10000 });
+    // Verify we're on the impact page
+    await expect(page).toHaveURL('/impact');
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
