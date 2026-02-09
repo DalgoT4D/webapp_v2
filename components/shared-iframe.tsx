@@ -89,7 +89,7 @@ export default function SharedIframe({ src, title, className, scale = 1 }: Share
   // Reset iframe ready state when URL changes (navigation between pages) or key changes (remount)
   useEffect(() => {
     setIsIframeReady(false);
-  }, [cleanUrl]);
+  }, [cleanUrl, iframeKey]);
 
   // Listen for iframe ready message
   useEffect(() => {
