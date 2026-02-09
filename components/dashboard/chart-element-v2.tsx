@@ -858,6 +858,21 @@ export function ChartElementV2({
                 },
               }
             : undefined,
+        // Only set default colors if chart doesn't have custom colors
+        ...(chartConfig.color
+          ? {}
+          : {
+              color: [
+                '#3b82f6',
+                '#10b981',
+                '#f59e0b',
+                '#ef4444',
+                '#8b5cf6',
+                '#ec4899',
+                '#14b8a6',
+                '#f97316',
+              ],
+            }),
         // For pie and number charts, completely remove grid and axis configurations
         ...(isPieChart || isNumberChart
           ? {
