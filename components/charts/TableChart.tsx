@@ -29,6 +29,31 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// URL detection pattern - matches http://, https://, and www. prefixed URLs
+const URL_PATTERN = /^(https?:\/\/|www\.)/i;
+
+/**
+ * Check if a value is a valid URL that should be rendered as a clickable link
+ */
+function isValidUrl(value: any): boolean {
+  if (value == null || typeof value !== 'string') {
+    return false;
+  }
+  return URL_PATTERN.test(value.trim());
+}
+
+/**
+ * Normalize a URL for use in href attribute
+ * Adds https:// prefix to www. URLs if missing
+ */
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.toLowerCase().startsWith('www.')) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
 interface TableChartProps {
   data?: Record<string, any>[];
   config?: {
@@ -279,18 +304,42 @@ export function TableChart({
                 }
               >
                 {columns.map((column) => {
-                  const isClickable =
+                  const isDrillDownClickable =
                     drillDownEnabled && currentDimensionColumn === column && onRowClick;
-                  const cellValue = formatCellValue(row[column], column);
+                  const rawValue = row[column];
+                  const isLink = !isDrillDownClickable && isValidUrl(rawValue);
+
+                  // Render as clickable link if value is a URL (and not a drill-down cell)
+                  if (isLink) {
+                    const href = normalizeUrl(rawValue);
+                    return (
+                      <TableCell key={column} className="py-1.5 px-2">
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Link
+                        </a>
+                      </TableCell>
+                    );
+                  }
+
+                  // Existing logic for non-link cells
+                  const cellValue = formatCellValue(rawValue, column);
 
                   return (
                     <TableCell
                       key={column}
                       className={`py-1.5 px-2 ${
-                        isClickable ? 'text-blue-600 hover:text-blue-800 hover:underline' : ''
+                        isDrillDownClickable
+                          ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
+                          : ''
                       }`}
                       onClick={
-                        isClickable
+                        isDrillDownClickable
                           ? () => {
                               onRowClick(row, column);
                             }

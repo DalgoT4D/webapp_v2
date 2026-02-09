@@ -738,14 +738,12 @@ export function DashboardListV2() {
                 <Input
                   type="date"
                   value={
-                    dateFilters.customStart
-                      ? dateFilters.customStart.toISOString().split('T')[0]
-                      : ''
+                    dateFilters.customStart ? format(dateFilters.customStart, 'yyyy-MM-dd') : ''
                   }
                   onChange={(e) =>
                     setDateFilters((prev) => ({
                       ...prev,
-                      customStart: e.target.value ? new Date(e.target.value) : null,
+                      customStart: e.target.value ? new Date(e.target.value + 'T00:00:00') : null,
                     }))
                   }
                   className="h-8"
@@ -755,13 +753,11 @@ export function DashboardListV2() {
                 <Label className="text-xs">To</Label>
                 <Input
                   type="date"
-                  value={
-                    dateFilters.customEnd ? dateFilters.customEnd.toISOString().split('T')[0] : ''
-                  }
+                  value={dateFilters.customEnd ? format(dateFilters.customEnd, 'yyyy-MM-dd') : ''}
                   onChange={(e) =>
                     setDateFilters((prev) => ({
                       ...prev,
-                      customEnd: e.target.value ? new Date(e.target.value) : null,
+                      customEnd: e.target.value ? new Date(e.target.value + 'T00:00:00') : null,
                     }))
                   }
                   className="h-8"
