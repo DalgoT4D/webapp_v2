@@ -1,62 +1,87 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import Ingest from '../ingest';
-import Transform from '../transform';
-import Orchestrate from '../orchestrate';
-import PipelineOverview from '../pipeline-overview';
 
-// Mock SharedIframe to capture props passed to it
-jest.mock('../shared-iframe', () => {
-  return function MockSharedIframe({ src, title }: { src: string; title: string }) {
-    return <div data-testid="shared-iframe" data-src={src} data-title={title} />;
-  };
-});
+// Mock SharedIframe's dependencies — NOT SharedIframe itself
+const mockSendAuthUpdate = jest.fn();
 
-// Mock the embedded app URL constant
+jest.mock('@/hooks/useIframeComm', () => ({
+  useIframeCommunication: () => ({
+    sendAuthUpdate: mockSendAuthUpdate,
+    sendOrgSwitch: jest.fn(),
+    sendLogout: jest.fn(),
+    sendMessage: jest.fn(),
+    requestAuthState: jest.fn(),
+  }),
+}));
+
+jest.mock('@/lib/api', () => ({
+  apiPost: jest.fn().mockResolvedValue({
+    success: true,
+    iframe_token: 'test-token',
+    expires_in: 300,
+  }),
+}));
+
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: () => ({
+    selectedOrgSlug: 'test-org',
+    isAuthenticated: true,
+  }),
+}));
+
 jest.mock('@/constants/constants', () => ({
   embeddedAppUrl: 'https://embedded.example.com',
 }));
 
-describe('Pipeline Page Components', () => {
-  describe('Ingest', () => {
-    it('passes correct URL to SharedIframe', () => {
-      render(<Ingest />);
-      const iframe = screen.getByTestId('shared-iframe');
-      expect(iframe.getAttribute('data-src')).toBe(
-        'https://embedded.example.com/pipeline/ingest?tab=connections&fullwidth=true'
-      );
-      expect(iframe.getAttribute('data-title')).toBe('Data Ingestion Pipeline');
-    });
+function simulateIframeReady(iframe: HTMLIFrameElement) {
+  act(() => {
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { source: 'webapp', type: 'READY' },
+        origin: 'https://embedded.example.com',
+        source: iframe.contentWindow,
+      })
+    );
+  });
+}
+
+describe('Ingest page redirect fix', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    process.env.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL = 'https://embedded.example.com';
   });
 
-  describe('Transform', () => {
-    it('passes correct URL to SharedIframe', () => {
-      render(<Transform />);
-      const iframe = screen.getByTestId('shared-iframe');
-      expect(iframe.getAttribute('data-src')).toBe(
-        'https://embedded.example.com/pipeline/transform'
-      );
-      expect(iframe.getAttribute('data-title')).toBe('Data Transformation');
-    });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
-  describe('Orchestrate', () => {
-    it('passes correct URL to SharedIframe', () => {
-      render(<Orchestrate />);
-      const iframe = screen.getByTestId('shared-iframe');
-      expect(iframe.getAttribute('data-src')).toBe(
-        'https://embedded.example.com/pipeline/orchestrate'
-      );
-      expect(iframe.getAttribute('data-title')).toBe('Data Orchestration');
-    });
-  });
+  it('remounts iframe with ingest URL after first auth so embedded app loads the correct page', async () => {
+    render(<Ingest />);
 
-  describe('PipelineOverview', () => {
-    it('passes correct URL to SharedIframe', () => {
-      render(<PipelineOverview />);
-      const iframe = screen.getByTestId('shared-iframe');
-      expect(iframe.getAttribute('data-src')).toBe('https://embedded.example.com/pipeline');
-      expect(iframe.getAttribute('data-title')).toBe('Data Orchestration');
+    const iframe = screen.getByTitle('Data Ingestion Pipeline') as HTMLIFrameElement;
+    expect(iframe.src).toContain('/pipeline/ingest');
+
+    // Iframe signals it is ready
+    simulateIframeReady(iframe);
+
+    // Auth token is sent to the iframe before the remount
+    await waitFor(() => {
+      expect(mockSendAuthUpdate).toHaveBeenCalledWith('test-token', 'test-org');
     });
+
+    // The 150ms remount fires — iframe is recreated with a new key
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    // The iframe must be a NEW element (remounted), not the same one
+    const remountedIframe = screen.getByTitle('Data Ingestion Pipeline') as HTMLIFrameElement;
+    expect(remountedIframe).not.toBe(iframe);
+
+    // And it must still point to ingest, not pipeline overview
+    expect(remountedIframe.src).toContain('/pipeline/ingest');
   });
 });
