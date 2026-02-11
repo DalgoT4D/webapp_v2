@@ -55,7 +55,7 @@ describe('DatasetSelector', () => {
   });
 
   describe('Rendering and Initial State', () => {
-    it('should render search input with icons and placeholder', () => {
+    it('should render search input with placeholder', () => {
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
       expect(screen.getByPlaceholderText('Search datasets...')).toBeInTheDocument();
@@ -190,7 +190,7 @@ describe('DatasetSelector', () => {
   });
 
   describe('Dataset Selection', () => {
-    it('should call onDatasetChange and close dropdown when selecting a dataset', async () => {
+    it('should call onDatasetChange when selecting a dataset', async () => {
       const user = userEvent.setup();
       render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
 
@@ -204,9 +204,11 @@ describe('DatasetSelector', () => {
         { timeout: 3000 }
       );
 
-      const datasetItem = document.querySelector('[data-schema="public"][data-table="users"]');
-      if (datasetItem) {
-        (datasetItem as HTMLElement).click();
+      // Find and click the dataset item by its text content
+      const items = document.querySelectorAll('[data-combobox-item]');
+      const usersItem = Array.from(items).find((el) => el.textContent?.includes('public.users'));
+      if (usersItem) {
+        await user.click(usersItem as HTMLElement);
       }
 
       await waitFor(() => {
@@ -229,7 +231,10 @@ describe('DatasetSelector', () => {
 
       await waitFor(
         () => {
-          const selectedItem = document.querySelector('[data-schema="public"][data-table="users"]');
+          const items = document.querySelectorAll('[data-combobox-item]');
+          const selectedItem = Array.from(items).find((el) =>
+            el.textContent?.includes('public.users')
+          );
           expect(selectedItem).toHaveClass('bg-blue-50');
         },
         { timeout: 3000 }
@@ -333,9 +338,11 @@ describe('DatasetSelector', () => {
         { timeout: 3000 }
       );
 
-      const datasetItem = document.querySelector('[data-schema=""][data-table="orphan"]');
-      if (datasetItem) {
-        (datasetItem as HTMLElement).click();
+      // Click the item with empty schema
+      const items = document.querySelectorAll('[data-combobox-item]');
+      const orphanItem = Array.from(items).find((el) => el.textContent?.includes('.orphan'));
+      if (orphanItem) {
+        await user.click(orphanItem as HTMLElement);
       }
 
       await new Promise((resolve) => setTimeout(resolve, 100));

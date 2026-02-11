@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { ChartSort, TableColumn, ChartBuilderFormData } from '@/types/charts';
+import { Combobox } from '@/components/ui/combobox';
 
 interface ChartSortConfigurationProps {
   formData: ChartBuilderFormData;
@@ -188,27 +189,18 @@ export function ChartSortConfiguration({
                   {/* Column Selection */}
                   <div className="space-y-1">
                     <Label className="text-xs text-gray-600">Column</Label>
-                    <Select
+                    <Combobox
+                      items={normalizedColumns.map((col) => ({
+                        value: col.column_name,
+                        label: `${col.column_name} (${col.data_type})`,
+                      }))}
                       value={sortItem.column}
                       onValueChange={(value) => updateSort(index, { column: value })}
                       disabled={disabled}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Select column" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {normalizedColumns.map((col) => (
-                          <SelectItem key={col.column_name} value={col.column_name}>
-                            <span
-                              className="truncate"
-                              title={`${col.column_name} (${col.data_type})`}
-                            >
-                              {col.column_name} ({col.data_type})
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      searchPlaceholder="Search columns..."
+                      placeholder="Select column"
+                      compact
+                    />
                   </div>
 
                   {/* Direction Selection */}
