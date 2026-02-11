@@ -25,6 +25,7 @@ interface ComboboxBaseProps {
   loading?: boolean;
   disabled?: boolean;
   className?: string;
+  id?: string;
   renderItem?: (item: ComboboxItem, isSelected: boolean, searchQuery: string) => React.ReactNode;
 }
 
@@ -85,6 +86,7 @@ function SingleComboboxInner({
   loading = false,
   disabled = false,
   className,
+  id,
   autoFocus = false,
   renderItem,
 }: SingleComboboxProps) {
@@ -172,6 +174,8 @@ function SingleComboboxInner({
   // Show selected label when closed, search text when open
   const displayValue = open ? search : selectedLabel;
 
+  const baseId = id || 'combobox';
+
   return (
     <Popover
       open={open && !disabled && !loading}
@@ -184,10 +188,17 @@ function SingleComboboxInner({
       }}
     >
       <PopoverAnchor asChild>
-        <div ref={containerRef} className={cn('relative', className)}>
+        <div
+          ref={containerRef}
+          id={`${baseId}-container`}
+          data-testid={`${baseId}-container`}
+          className={cn('relative', className)}
+        >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
           <Input
             ref={inputRef}
+            id={`${baseId}-input`}
+            data-testid={`${baseId}-input`}
             placeholder={loading ? 'Loading...' : searchPlaceholder}
             value={displayValue}
             onChange={(e) => {
@@ -203,8 +214,17 @@ function SingleComboboxInner({
             onKeyDown={handleKeyDown}
             className="pl-9 pr-8 h-10 w-full bg-white cursor-pointer"
             disabled={disabled || loading}
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={`${baseId}-listbox`}
+            aria-activedescendant={
+              highlightedIndex >= 0 && filtered[highlightedIndex]
+                ? `${baseId}-item-${filtered[highlightedIndex].value}`
+                : undefined
+            }
           />
           <ChevronDown
+            data-testid={`${baseId}-chevron`}
             className={cn(
               'absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 cursor-pointer transition-transform',
               open && 'rotate-180'
@@ -230,15 +250,18 @@ function SingleComboboxInner({
             e.preventDefault();
           }
         }}
-        style={{ width: containerRef.current?.offsetWidth }}
+        style={{ width: 'var(--radix-popper-anchor-width)' }}
       >
         <div
           ref={listRef}
+          id={`${baseId}-listbox`}
+          data-testid={`${baseId}-listbox`}
+          role="listbox"
           className="max-h-[240px] overflow-y-auto overflow-x-hidden"
           onWheel={(e) => e.stopPropagation()}
         >
           {filtered.length === 0 ? (
-            <div className="p-3 text-center text-sm text-gray-500">
+            <div data-testid={`${baseId}-empty`} className="p-3 text-center text-sm text-gray-500">
               {search.trim() ? emptyMessage : noItemsMessage}
             </div>
           ) : (
@@ -248,7 +271,14 @@ function SingleComboboxInner({
               return (
                 <div
                   key={item.value}
+                  id={`${baseId}-item-${item.value}`}
+                  data-testid={`${baseId}-item-${item.value}`}
                   data-combobox-item=""
+                  data-value={item.value}
+                  data-selected={isSelected || undefined}
+                  data-highlighted={isHl || undefined}
+                  role="option"
+                  aria-selected={isSelected}
                   className={cn(
                     'px-3 py-2 cursor-pointer text-sm border-b border-gray-100 last:border-b-0 select-none',
                     isSelected && 'bg-blue-50 text-blue-900',
@@ -288,6 +318,7 @@ function MultiComboboxInner({
   loading = false,
   disabled = false,
   className,
+  id,
   triggerClassName,
   compact = false,
   renderItem,
@@ -311,6 +342,8 @@ function MultiComboboxInner({
     }
   };
 
+  const baseId = id || 'combobox-multi';
+
   return (
     <Popover
       open={open}
@@ -321,9 +354,12 @@ function MultiComboboxInner({
     >
       <PopoverTrigger asChild>
         <Button
+          id={`${baseId}-trigger`}
+          data-testid={`${baseId}-trigger`}
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-controls={`${baseId}-listbox`}
           disabled={disabled || loading}
           className={cn(
             'w-full justify-between font-normal',
@@ -350,16 +386,32 @@ function MultiComboboxInner({
       <PopoverContent className="w-80 p-0" align="start">
         <div className="p-2">
           <Input
+            id={`${baseId}-search`}
+            data-testid={`${baseId}-search`}
             placeholder={searchPlaceholder}
             className="h-8 mb-2"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div className="max-h-48 overflow-auto">
+          <div
+            id={`${baseId}-listbox`}
+            data-testid={`${baseId}-listbox`}
+            role="listbox"
+            aria-multiselectable="true"
+            className="max-h-48 overflow-auto"
+          >
             {loading ? (
-              <div className="text-xs text-muted-foreground p-2 text-center">Loading...</div>
+              <div
+                data-testid={`${baseId}-loading`}
+                className="text-xs text-muted-foreground p-2 text-center"
+              >
+                Loading...
+              </div>
             ) : filtered.length === 0 ? (
-              <div className="text-xs text-muted-foreground p-2 text-center">
+              <div
+                data-testid={`${baseId}-empty`}
+                className="text-xs text-muted-foreground p-2 text-center"
+              >
                 {search.trim() ? emptyMessage : noItemsMessage}
               </div>
             ) : (
@@ -368,10 +420,17 @@ function MultiComboboxInner({
                 return (
                   <div
                     key={item.value}
+                    id={`${baseId}-item-${item.value}`}
+                    data-testid={`${baseId}-item-${item.value}`}
+                    data-value={item.value}
+                    data-selected={isSelected || undefined}
+                    role="option"
+                    aria-selected={isSelected}
                     className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-gray-100 cursor-pointer rounded"
                     onClick={() => handleToggle(item.value)}
                   >
                     <Checkbox
+                      id={`${baseId}-checkbox-${item.value}`}
                       checked={isSelected}
                       onCheckedChange={() => handleToggle(item.value)}
                       onClick={(e) => e.stopPropagation()}
