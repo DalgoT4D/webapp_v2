@@ -1,0 +1,394 @@
+'use client';
+
+import * as React from 'react';
+import { Popover, PopoverContent, PopoverAnchor, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+import { Search, ChevronDown } from 'lucide-react';
+
+// ─── Types ───────────────────────────────────────────────────
+
+export interface ComboboxItem {
+  value: string;
+  label: string;
+  [key: string]: any;
+}
+
+interface ComboboxBaseProps {
+  items: ComboboxItem[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
+  noItemsMessage?: string;
+  loading?: boolean;
+  disabled?: boolean;
+  className?: string;
+  renderItem?: (item: ComboboxItem, isSelected: boolean, searchQuery: string) => React.ReactNode;
+}
+
+interface SingleComboboxProps extends ComboboxBaseProps {
+  mode?: 'single';
+  value?: string;
+  onValueChange: (value: string) => void;
+  autoFocus?: boolean;
+}
+
+interface MultiComboboxProps extends ComboboxBaseProps {
+  mode: 'multi';
+  values: string[];
+  onValuesChange: (values: string[]) => void;
+  compact?: boolean;
+  triggerClassName?: string;
+}
+
+export type ComboboxProps = SingleComboboxProps | MultiComboboxProps;
+
+// ─── Public component ────────────────────────────────────────
+
+export function Combobox(props: ComboboxProps) {
+  if (props.mode === 'multi') return <MultiComboboxInner {...props} />;
+  return <SingleComboboxInner {...props} />;
+}
+
+// ─── Highlight helper (exported for custom renderItem) ───────
+
+export function highlightText(text: string, query: string) {
+  if (!query.trim()) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <mark key={i} className="bg-yellow-200 text-yellow-900 font-medium">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+// Single Mode
+// ═════════════════════════════════════════════════════════════
+
+function SingleComboboxInner({
+  items,
+  value,
+  onValueChange,
+  placeholder = 'Select...',
+  searchPlaceholder = 'Search...',
+  emptyMessage = 'No results found.',
+  noItemsMessage = 'No items available.',
+  loading = false,
+  disabled = false,
+  className,
+  autoFocus = false,
+  renderItem,
+}: SingleComboboxProps) {
+  const [open, setOpen] = React.useState(autoFocus);
+  const [search, setSearch] = React.useState('');
+  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  const selectedLabel = React.useMemo(
+    () => items.find((i) => i.value === value)?.label ?? '',
+    [items, value]
+  );
+
+  const filtered = React.useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter(
+      (i) => i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
+  // Reset highlight when list changes
+  React.useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [filtered.length, search]);
+
+  // Auto-focus
+  React.useEffect(() => {
+    if (autoFocus && inputRef.current && !loading) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus, loading]);
+
+  // Scroll highlighted item into view
+  React.useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const els = listRef.current.querySelectorAll('[data-combobox-item]');
+      els[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex]);
+
+  const handleSelect = React.useCallback(
+    (val: string) => {
+      onValueChange(val);
+      setSearch('');
+      setOpen(false);
+    },
+    [onValueChange]
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((p) => (p < filtered.length - 1 ? p + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((p) => (p > 0 ? p - 1 : filtered.length - 1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filtered[highlightedIndex]) {
+          handleSelect(filtered[highlightedIndex].value);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setOpen(false);
+        setSearch('');
+        break;
+    }
+  };
+
+  // Show selected label when closed, search text when open
+  const displayValue = open ? search : selectedLabel;
+
+  return (
+    <Popover
+      open={open && !disabled && !loading}
+      onOpenChange={(next) => {
+        if (!next) {
+          setOpen(false);
+          setSearch('');
+          setHighlightedIndex(-1);
+        }
+      }}
+    >
+      <PopoverAnchor asChild>
+        <div ref={containerRef} className={cn('relative', className)}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+          <Input
+            ref={inputRef}
+            placeholder={loading ? 'Loading...' : searchPlaceholder}
+            value={displayValue}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (!open) setOpen(true);
+            }}
+            onFocus={() => {
+              if (!disabled && !loading) setOpen(true);
+            }}
+            onClick={() => {
+              if (!open && !disabled && !loading) setOpen(true);
+            }}
+            onKeyDown={handleKeyDown}
+            className="pl-9 pr-8 h-10 w-full bg-white cursor-pointer"
+            disabled={disabled || loading}
+          />
+          <ChevronDown
+            className={cn(
+              'absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 cursor-pointer transition-transform',
+              open && 'rotate-180'
+            )}
+            onClick={() => {
+              if (!disabled && !loading) {
+                setOpen(!open);
+                if (!open) inputRef.current?.focus();
+              }
+            }}
+          />
+        </div>
+      </PopoverAnchor>
+
+      <PopoverContent
+        className="p-0 shadow-lg border border-gray-200"
+        align="start"
+        sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => {
+          // Don't close when clicking the input/anchor area
+          if (containerRef.current?.contains(e.target as Node)) {
+            e.preventDefault();
+          }
+        }}
+        style={{ width: containerRef.current?.offsetWidth }}
+      >
+        <div
+          ref={listRef}
+          className="max-h-[240px] overflow-y-auto overflow-x-hidden"
+          onWheel={(e) => e.stopPropagation()}
+        >
+          {filtered.length === 0 ? (
+            <div className="p-3 text-center text-sm text-gray-500">
+              {search.trim() ? emptyMessage : noItemsMessage}
+            </div>
+          ) : (
+            filtered.map((item, idx) => {
+              const isSelected = item.value === value;
+              const isHl = idx === highlightedIndex;
+              return (
+                <div
+                  key={item.value}
+                  data-combobox-item=""
+                  className={cn(
+                    'px-3 py-2 cursor-pointer text-sm border-b border-gray-100 last:border-b-0 select-none',
+                    isSelected && 'bg-blue-50 text-blue-900',
+                    isHl && !isSelected && 'bg-gray-100',
+                    !isSelected && !isHl && 'hover:bg-gray-50'
+                  )}
+                  onClick={() => handleSelect(item.value)}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                >
+                  {renderItem ? (
+                    renderItem(item, isSelected, search)
+                  ) : (
+                    <div className="font-mono font-medium">{highlightText(item.label, search)}</div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+// Multi Mode
+// ═════════════════════════════════════════════════════════════
+
+function MultiComboboxInner({
+  items,
+  values,
+  onValuesChange,
+  placeholder = 'Choose options...',
+  searchPlaceholder = 'Search...',
+  emptyMessage = 'No options found.',
+  noItemsMessage = 'No options available.',
+  loading = false,
+  disabled = false,
+  className,
+  triggerClassName,
+  compact = false,
+  renderItem,
+}: MultiComboboxProps) {
+  const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+
+  const filtered = React.useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter(
+      (i) => i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
+  const handleToggle = (val: string) => {
+    if (values.includes(val)) {
+      onValuesChange(values.filter((v) => v !== val));
+    } else {
+      onValuesChange([...values, val]);
+    }
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled || loading}
+          className={cn(
+            'w-full justify-between font-normal',
+            compact ? 'h-8 text-xs' : 'h-10 text-sm',
+            triggerClassName,
+            className
+          )}
+          size={compact ? 'sm' : 'default'}
+        >
+          <span
+            className={cn('truncate normal-case', values.length === 0 && 'text-muted-foreground')}
+          >
+            {loading
+              ? 'Loading...'
+              : values.length === 0
+                ? placeholder
+                : `${values.length} selected`}
+          </span>
+          <ChevronDown
+            className={cn('shrink-0 opacity-50', compact ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')}
+          />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="p-2">
+          <Input
+            placeholder={searchPlaceholder}
+            className="h-8 mb-2"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="max-h-48 overflow-auto">
+            {loading ? (
+              <div className="text-xs text-muted-foreground p-2 text-center">Loading...</div>
+            ) : filtered.length === 0 ? (
+              <div className="text-xs text-muted-foreground p-2 text-center">
+                {search.trim() ? emptyMessage : noItemsMessage}
+              </div>
+            ) : (
+              filtered.map((item) => {
+                const isSelected = values.includes(item.value);
+                return (
+                  <div
+                    key={item.value}
+                    className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-gray-100 cursor-pointer rounded"
+                    onClick={() => handleToggle(item.value)}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => handleToggle(item.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-3 w-3"
+                    />
+                    {renderItem ? (
+                      renderItem(item, isSelected, search)
+                    ) : (
+                      <span className="flex-1 text-xs">{item.label}</span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
