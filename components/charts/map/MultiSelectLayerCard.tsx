@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react';
 import { useChildRegions, useRegionGeoJSONs, useRegionHierarchy } from '@/hooks/api/useChart';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import { Combobox, highlightText } from '@/components/ui/combobox';
 import { useCascadingFilters } from '../../../hooks/useCascadingFilters';
 import type { ChartBuilderFormData } from '@/types/charts';
 
@@ -266,7 +267,11 @@ export function MultiSelectLayerCard({
             <p className="text-xs text-muted-foreground mb-2">
               Select the column that contains {layerTitle.toLowerCase()} names from your data
             </p>
-            <Select
+            <Combobox
+              items={availableColumns.map((column) => {
+                const columnName = column.name || column.column_name;
+                return { value: columnName, label: columnName, data_type: column.data_type };
+              })}
               value={layer.geographic_column || ''}
               onValueChange={(value) =>
                 onUpdate({
@@ -274,26 +279,15 @@ export function MultiSelectLayerCard({
                   selected_regions: [], // Reset selections when column changes
                 })
               }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`Select ${layerTitle.toLowerCase()} column`} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableColumns.map((column) => {
-                  const columnName = column.name || column.column_name;
-                  return (
-                    <SelectItem key={columnName} value={columnName}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <ColumnTypeIcon dataType={column.data_type} className="w-4 h-4" />
-                        <span className="truncate" title={`${columnName} (${column.data_type})`}>
-                          {columnName}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+              searchPlaceholder="Search columns..."
+              placeholder={`Select ${layerTitle.toLowerCase()} column`}
+              renderItem={(item, _isSelected, searchQuery) => (
+                <div className="flex items-center gap-2 min-w-0">
+                  <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                </div>
+              )}
+            />
           </div>
 
           {/* Multi-Region Selection */}

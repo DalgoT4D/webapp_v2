@@ -34,6 +34,7 @@ interface SingleComboboxProps extends ComboboxBaseProps {
   value?: string;
   onValueChange: (value: string) => void;
   autoFocus?: boolean;
+  compact?: boolean;
 }
 
 interface MultiComboboxProps extends ComboboxBaseProps {
@@ -88,6 +89,7 @@ function SingleComboboxInner({
   className,
   id,
   autoFocus = false,
+  compact = false,
   renderItem,
 }: SingleComboboxProps) {
   const [open, setOpen] = React.useState(autoFocus);
@@ -194,13 +196,19 @@ function SingleComboboxInner({
           data-testid={`${baseId}-container`}
           className={cn('relative', className)}
         >
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+          <Search
+            className={cn(
+              'absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10 pointer-events-none',
+              compact ? 'w-3.5 h-3.5' : 'w-4 h-4'
+            )}
+          />
           <Input
             ref={inputRef}
             id={`${baseId}-input`}
             data-testid={`${baseId}-input`}
             placeholder={loading ? 'Loading...' : searchPlaceholder}
             value={displayValue}
+            autoComplete="off"
             onChange={(e) => {
               setSearch(e.target.value);
               if (!open) setOpen(true);
@@ -212,7 +220,10 @@ function SingleComboboxInner({
               if (!open && !disabled && !loading) setOpen(true);
             }}
             onKeyDown={handleKeyDown}
-            className="pl-9 pr-8 h-10 w-full bg-white cursor-pointer"
+            className={cn(
+              'pl-9 pr-8 w-full bg-white cursor-pointer',
+              compact ? 'h-8 text-xs' : 'h-10'
+            )}
             disabled={disabled || loading}
             role="combobox"
             aria-expanded={open}
@@ -244,6 +255,7 @@ function SingleComboboxInner({
         align="start"
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => {
           // Don't close when clicking the input/anchor area
           if (containerRef.current?.contains(e.target as Node)) {
@@ -383,12 +395,13 @@ function MultiComboboxInner({
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-80 p-0" align="start" onFocusOutside={(e) => e.preventDefault()}>
         <div className="p-2">
           <Input
             id={`${baseId}-search`}
             data-testid={`${baseId}-search`}
             placeholder={searchPlaceholder}
+            autoComplete="off"
             className="h-8 mb-2"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

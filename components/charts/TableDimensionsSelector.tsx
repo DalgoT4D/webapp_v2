@@ -1,17 +1,11 @@
 'use client';
 
-import { Plus, X, ChevronDown, Grid3x3, GripVertical } from 'lucide-react';
+import { Plus, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import { Combobox, highlightText } from '@/components/ui/combobox';
 import type { ChartDimension } from '@/types/charts';
 import {
   DndContext,
@@ -69,9 +63,6 @@ function SortableDimensionItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const selectedColumn = availableColumns.find((col) => col.column_name === dimension.column);
-  const displayName = selectedColumn?.column_name || dimension.column || 'Select dimension';
-
   return (
     <div
       ref={setNodeRef}
@@ -94,31 +85,28 @@ function SortableDimensionItem({
         <GripVertical className="h-4 w-4" />
       </button>
 
-      {/* Dimension Name - Column name and dropdown */}
-      <div className="flex-1 flex items-center gap-2 min-w-0">
-        <span className="text-sm font-medium text-foreground flex-1 truncate">{displayName}</span>
-        <Select
+      {/* Dimension Name - Column name and searchable dropdown */}
+      <div className="flex-1 min-w-0">
+        <Combobox
+          items={availableColumns.map((col) => ({
+            value: col.column_name,
+            label: col.column_name,
+            data_type: col.data_type,
+          }))}
           value={dimension.column || ''}
           onValueChange={(value) => onChange(index, 'column', value)}
           disabled={disabled}
-        >
-          <SelectTrigger className="h-8 w-8 p-0 border-0 shadow-none hover:bg-gray-100 focus:ring-0 focus:ring-offset-0 [&>span[data-slot='select-value']]:hidden [&>svg[class*='opacity-50']]:hidden flex items-center justify-center">
-            <SelectValue className="sr-only hidden" />
-            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 pointer-events-none" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableColumns.map((col) => (
-              <SelectItem key={col.column_name} value={col.column_name}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate" title={`${col.column_name} (${col.data_type})`}>
-                    {col.column_name}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          searchPlaceholder="Search columns..."
+          placeholder="Select dimension"
+          compact
+          className="w-full"
+          renderItem={(item, _isSelected, searchQuery) => (
+            <div className="flex items-center gap-2 min-w-0">
+              <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+            </div>
+          )}
+        />
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { X, Plus } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import { Combobox, highlightText } from '@/components/ui/combobox';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -204,7 +205,14 @@ export function MetricsSelector({
                 {/* Column Selection - Now Second */}
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">{labels.column}</Label>
-                  <Select
+                  <Combobox
+                    items={getAvailableColumns(metric.aggregation)
+                      .filter((col) => !col.disabled)
+                      .map((col) => ({
+                        value: col.column_name,
+                        label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
+                        data_type: col.data_type,
+                      }))}
                     value={
                       metric.aggregation?.toLowerCase() === 'count' && !metric.column
                         ? '*'
@@ -214,44 +222,18 @@ export function MetricsSelector({
                       updateMetric(index, { column: value === '*' ? null : value })
                     }
                     disabled={disabled || !metric.aggregation}
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue
-                        placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getAvailableColumns(metric.aggregation).map((col) => (
-                        <SelectItem
-                          key={col.column_name}
-                          value={col.column_name}
-                          disabled={col.disabled}
-                          className={col.disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {col.column_name !== '*' && (
-                              <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
-                            )}
-                            <span
-                              className={`truncate ${col.disabled ? 'text-gray-400' : ''}`}
-                              title={
-                                col.column_name === '*'
-                                  ? '* (Count all rows)'
-                                  : col.disabled
-                                    ? `${col.column_name} (${col.data_type}) - Not compatible with ${metric.aggregation}`
-                                    : `${col.column_name} (${col.data_type})`
-                              }
-                            >
-                              {col.column_name === '*' ? '* (Count all rows)' : col.column_name}
-                              {col.disabled && (
-                                <span className="ml-2 text-xs text-gray-400">(Not compatible)</span>
-                              )}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    searchPlaceholder="Search columns..."
+                    placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
+                    compact
+                    renderItem={(item, _isSelected, searchQuery) => (
+                      <div className="flex items-center gap-2 min-w-0">
+                        {item.value !== '*' && (
+                          <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                        )}
+                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                      </div>
+                    )}
+                  />
                 </div>
               </div>
 
