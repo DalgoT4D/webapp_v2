@@ -64,11 +64,7 @@ function SortableDimensionItem({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 h-10 px-3 py-2 border rounded-md bg-white hover:bg-gray-50/50 w-full"
-    >
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 w-full">
       {/* Drag Handle (Grid Icon) */}
       <button
         type="button"
