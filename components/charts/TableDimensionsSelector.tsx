@@ -95,16 +95,14 @@ function SortableDimensionItem({
       </button>
 
       {/* Dimension Name - Column name and dropdown */}
-      <div className="flex-1 flex items-center gap-2 min-w-0">
-        <span className="text-sm font-medium text-foreground flex-1 truncate">{displayName}</span>
+      <div className="flex-1 min-w-0">
         <Select
           value={dimension.column || ''}
           onValueChange={(value) => onChange(index, 'column', value)}
           disabled={disabled}
         >
-          <SelectTrigger className="h-8 w-8 p-0 border-0 shadow-none hover:bg-gray-100 focus:ring-0 focus:ring-offset-0 [&>span[data-slot='select-value']]:hidden [&>svg[class*='opacity-50']]:hidden flex items-center justify-center">
-            <SelectValue className="sr-only hidden" />
-            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 pointer-events-none" />
+          <SelectTrigger className="h-8 w-full border-0 shadow-none hover:bg-transparent focus:ring-0 focus:ring-offset-0">
+            <SelectValue placeholder="Select dimension" />
           </SelectTrigger>
           <SelectContent>
             {availableColumns.map((col) => (
