@@ -1,5 +1,7 @@
-import Orchestrate from '@/components/orchestrate';
+'use client';
+
+import { PipelineList } from '@/components/pipeline/pipeline-list';
 
 export default function OrchestratePage() {
-  return <Orchestrate />;
+  return <PipelineList />;
 }

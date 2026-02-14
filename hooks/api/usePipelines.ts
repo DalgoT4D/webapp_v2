@@ -1,0 +1,220 @@
+import useSWR from 'swr';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import {
+  Pipeline,
+  TransformTask,
+  Connection,
+  DeploymentRun,
+  PipelineDetailResponse,
+  TaskProgressResponse,
+} from '@/types/pipeline';
+import {
+  POLLING_INTERVAL_WHEN_LOCKED,
+  POLLING_INTERVAL_IDLE,
+  DEFAULT_LOAD_MORE_LIMIT,
+  FLOW_RUN_LOGS_OFFSET_LIMIT,
+} from '@/constants/pipeline';
+
+/**
+ * Fetch all pipelines with smart polling
+ * Polling is active (3s) when any pipeline is locked/running
+ * Polling is idle (0) when all pipelines are complete
+ */
+export function usePipelines() {
+  const { data, error, mutate, isLoading } = useSWR<Pipeline[]>('/api/prefect/v1/flows/', apiGet, {
+    refreshInterval: (latestData) => {
+      // Enable polling when any pipeline has a lock
+      const hasLockedPipeline = latestData?.some((p) => p.lock);
+      return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE;
+    },
+    revalidateOnFocus: false,
+  });
+
+  return {
+    pipelines: data || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+/**
+ * Fetch a single pipeline by ID
+ */
+export function usePipeline(deploymentId: string | null) {
+  const { data, error, mutate, isLoading } = useSWR<PipelineDetailResponse>(
+    deploymentId ? `/api/prefect/v1/flows/${deploymentId}` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    pipeline: data,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+/**
+ * Fetch all transform tasks
+ */
+export function useTransformTasks() {
+  const { data, error, mutate, isLoading } = useSWR<TransformTask[]>(
+    '/api/prefect/tasks/transform/',
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    tasks: data || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+/**
+ * Fetch all connections for pipeline creation
+ */
+export function useConnections() {
+  const { data, error, mutate, isLoading } = useSWR<Connection[]>(
+    '/api/airbyte/v1/connections',
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    connections: data || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+/**
+ * Fetch pipeline run history with pagination
+ */
+export function usePipelineHistory(
+  deploymentId: string | null,
+  offset: number = 0,
+  limit: number = DEFAULT_LOAD_MORE_LIMIT
+) {
+  const { data, error, mutate, isLoading } = useSWR<DeploymentRun[]>(
+    deploymentId
+      ? `/api/prefect/v1/flows/${deploymentId}/flow_runs/history?limit=${limit}&offset=${offset}`
+      : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    runs: data || [],
+    isLoading,
+    isError: error,
+    mutate,
+    hasMore: data ? data.length >= limit : false,
+  };
+}
+
+// ============ Mutation Functions ============
+
+/**
+ * Create a new pipeline
+ */
+export async function createPipeline(data: {
+  name: string;
+  connections: { id: string; seq: number }[];
+  cron: string;
+  transformTasks: { uuid: string; seq: number }[];
+}): Promise<{ name: string }> {
+  return apiPost('/api/prefect/v1/flows/', data);
+}
+
+/**
+ * Update an existing pipeline
+ */
+export async function updatePipeline(
+  deploymentId: string,
+  data: {
+    name: string;
+    connections: { id: string; seq: number }[];
+    cron: string;
+    transformTasks: { uuid: string; seq: number }[];
+  }
+): Promise<void> {
+  return apiPut(`/api/prefect/v1/flows/${deploymentId}`, data);
+}
+
+/**
+ * Delete a pipeline
+ */
+export async function deletePipeline(deploymentId: string): Promise<{ success: boolean }> {
+  return apiDelete(`/api/prefect/v1/flows/${deploymentId}`);
+}
+
+/**
+ * Trigger a manual pipeline run
+ */
+export async function triggerPipelineRun(deploymentId: string): Promise<void> {
+  return apiPost(`/api/prefect/v1/flows/${deploymentId}/flow_run/`, {});
+}
+
+/**
+ * Set pipeline schedule status (active/inactive)
+ */
+export async function setScheduleStatus(deploymentId: string, active: boolean): Promise<void> {
+  return apiPost(
+    `/api/prefect/flows/${deploymentId}/set_schedule/${active ? 'active' : 'inactive'}`,
+    {}
+  );
+}
+
+/**
+ * Fetch flow run logs with pagination
+ */
+export async function fetchFlowRunLogs(
+  flowRunId: string,
+  taskRunId?: string,
+  offset: number = 0,
+  limit: number = FLOW_RUN_LOGS_OFFSET_LIMIT
+): Promise<{
+  logs: { logs: { message: string }[] };
+}> {
+  const params = new URLSearchParams({
+    offset: Math.max(offset, 0).toString(),
+    limit: limit.toString(),
+  });
+
+  if (taskRunId) {
+    params.append('task_run_id', taskRunId);
+  }
+
+  const pathParam = taskRunId ? flowRunId : flowRunId;
+  return apiGet(`/api/prefect/flow_runs/${pathParam}/logs?${params.toString()}`);
+}
+
+/**
+ * Trigger log summary generation
+ */
+export async function triggerLogSummary(
+  flowRunId: string,
+  taskId: string
+): Promise<{ task_id: string }> {
+  return apiGet(`/api/prefect/v1/flow_runs/${flowRunId}/logsummary?task_id=${taskId}`);
+}
+
+/**
+ * Poll for task run status (used for AI summary)
+ */
+export async function pollTaskStatus(taskId: string): Promise<TaskProgressResponse> {
+  return apiGet(`/api/tasks/stp/${taskId}`);
+}
