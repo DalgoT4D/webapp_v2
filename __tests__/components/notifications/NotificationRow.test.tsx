@@ -11,8 +11,9 @@ const mockNotification: Notification = {
   timestamp: new Date().toISOString(),
 };
 
+// Must exceed 300 characters to trigger truncation
 const longMessage =
-  'This is a very long notification message that exceeds the truncation limit of 130 characters. It should be truncated and show an expand button for the user to see the full message content.';
+  'This is a very long notification message that exceeds the truncation limit of 300 characters. It should be truncated and show an expand button for the user to see the full message content. This message needs to be really long to trigger the truncation behavior, so we are adding more text here to make sure it exceeds the threshold that was set in the constants file.';
 
 describe('NotificationRow', () => {
   it('renders notification message correctly', () => {
@@ -70,7 +71,7 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const expandButton = screen.getByRole('button');
+    const expandButton = screen.getByRole('button', { name: /expand message/i });
     expect(expandButton).toBeInTheDocument();
   });
 
@@ -89,8 +90,8 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const buttons = screen.queryAllByRole('button');
-    expect(buttons.length).toBe(0);
+    const expandButton = screen.queryByRole('button', { name: /expand message/i });
+    expect(expandButton).not.toBeInTheDocument();
   });
 
   it('expands message on button click', () => {
@@ -111,7 +112,7 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const expandButton = screen.getByRole('button');
+    const expandButton = screen.getByRole('button', { name: /expand message/i });
     fireEvent.click(expandButton);
 
     expect(onToggleExpand).toHaveBeenCalledWith(longNotification.id);
@@ -137,7 +138,7 @@ describe('NotificationRow', () => {
 
   it('displays urgent indicator for urgent notifications', () => {
     const urgentNotification = { ...mockNotification, urgent: true };
-    const { container } = render(
+    render(
       <table>
         <tbody>
           <NotificationRow
@@ -151,13 +152,12 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    // Check for AlertCircle icon
-    const icon = container.querySelector('svg');
-    expect(icon).toBeInTheDocument();
+    const urgentIcon = screen.getByLabelText('Urgent');
+    expect(urgentIcon).toBeInTheDocument();
   });
 
   it('does not display urgent indicator for non-urgent notifications', () => {
-    const { container } = render(
+    render(
       <table>
         <tbody>
           <NotificationRow
@@ -171,11 +171,8 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    // Check there's no AlertCircle icon (only chevron icons if message is long)
-    const cells = container.querySelectorAll('td');
-    const urgentCell = cells[2]; // Third cell is for urgent indicator
-    const icon = urgentCell.querySelector('svg');
-    expect(icon).not.toBeInTheDocument();
+    const urgentIcon = screen.queryByLabelText('Urgent');
+    expect(urgentIcon).not.toBeInTheDocument();
   });
 
   it('applies correct styling for read notifications', () => {
@@ -194,7 +191,7 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const messageContainer = container.querySelector('.text-gray-500');
+    const messageContainer = container.querySelector('.text-slate-500');
     expect(messageContainer).toBeInTheDocument();
   });
 
@@ -213,7 +210,7 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const messageContainer = container.querySelector('.text-gray-900');
+    const messageContainer = container.querySelector('.text-slate-800');
     expect(messageContainer).toBeInTheDocument();
   });
 
@@ -256,5 +253,30 @@ describe('NotificationRow', () => {
 
     // Should show relative time like "X seconds ago"
     expect(screen.getByText(/ago/)).toBeInTheDocument();
+  });
+
+  it('renders links in messages as clickable', () => {
+    const notificationWithLink = {
+      ...mockNotification,
+      message: 'Check this link: https://example.com/test for more info',
+    };
+    render(
+      <table>
+        <tbody>
+          <NotificationRow
+            notification={notificationWithLink}
+            isSelected={false}
+            isExpanded={false}
+            onSelect={jest.fn()}
+            onToggleExpand={jest.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    const link = screen.getByRole('link', { name: 'https://example.com/test' });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://example.com/test');
+    expect(link).toHaveAttribute('target', '_blank');
   });
 });

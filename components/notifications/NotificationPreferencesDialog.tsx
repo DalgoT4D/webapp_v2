@@ -95,7 +95,7 @@ export function NotificationPreferencesDialog({
       await mutateOrgPrefs();
 
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       // Error already handled in hooks with toast
     } finally {
       setIsSubmitting(false);

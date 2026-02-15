@@ -1,9 +1,13 @@
+'use client';
+
 import { useState } from 'react';
 import { Inbox } from 'lucide-react';
-import { Notification } from '@/types/notifications';
+import type { Notification } from '@/types/notifications';
 import { NotificationRow } from './NotificationRow';
 import { TablePagination } from './TablePagination';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface NotificationsListProps {
   notifications: Notification[];
@@ -15,8 +19,6 @@ interface NotificationsListProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   isLoading?: boolean;
-  selectionMode?: boolean;
-  onEnterSelectionMode?: () => void;
 }
 
 export function NotificationsList({
@@ -29,10 +31,19 @@ export function NotificationsList({
   onPageChange,
   onPageSizeChange,
   isLoading = false,
-  selectionMode = false,
-  onEnterSelectionMode,
 }: NotificationsListProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+
+  const allSelected = notifications.length > 0 && selectedIds.length === notifications.length;
+  const someSelected = selectedIds.length > 0 && selectedIds.length < notifications.length;
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      onSelectionChange(notifications.map((n) => n.id));
+    } else {
+      onSelectionChange([]);
+    }
+  };
 
   const handleSelectRow = (id: number, checked: boolean) => {
     if (checked) {
@@ -49,18 +60,21 @@ export function NotificationsList({
   if (isLoading) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex-1 overflow-auto px-6 py-4">
-          <div className="space-y-3">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex items-start gap-4 p-4 rounded-lg border bg-white">
-                <Skeleton className="h-5 w-5 rounded" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/4" />
+        <div className="flex-1 overflow-auto">
+          <div className="bg-white rounded-lg border shadow-sm mx-6 my-4">
+            <div className="p-4 space-y-3">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 py-3">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-4 w-4 rounded-full" />
                 </div>
-                <Skeleton className="h-5 w-5 rounded-full" />
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -70,13 +84,13 @@ export function NotificationsList({
   if (notifications.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 px-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-          <Inbox className="h-6 w-6 text-muted-foreground" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+          <Inbox className="h-8 w-8 text-gray-400" />
         </div>
         <div className="text-center">
-          <h3 className="font-semibold text-gray-900">No notifications</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            You're all caught up! Check back later for new notifications.
+          <h3 className="font-semibold text-gray-900 text-lg">No notifications</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            You&apos;re all caught up! Check back later for new notifications.
           </p>
         </div>
       </div>
@@ -85,34 +99,69 @@ export function NotificationsList({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Scrollable notifications */}
-      <div className="flex-1 overflow-auto">
-        <div className="px-6 py-4 space-y-2">
-          {notifications.map((notification) => (
-            <NotificationRow
-              key={notification.id}
-              notification={notification}
-              isSelected={selectedIds.includes(notification.id)}
-              isExpanded={expandedRow === notification.id}
-              onSelect={handleSelectRow}
-              onToggleExpand={toggleExpand}
-              selectionMode={selectionMode}
-              onEnterSelectionMode={onEnterSelectionMode}
+      {/* Table Container */}
+      <div className="flex-1 overflow-hidden mx-6 my-4">
+        <div className="h-full flex flex-col bg-white rounded-lg border shadow-sm">
+          {/* Header Bar */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b">
+            <Checkbox
+              checked={allSelected}
+              ref={(el) => {
+                if (el) {
+                  (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate =
+                    someSelected;
+                }
+              }}
+              onCheckedChange={handleSelectAll}
+              aria-label="Select all notifications"
             />
-          ))}
+            <span className="text-sm text-slate-700 font-medium">
+              Select all
+              <span className="text-slate-500 mx-2">|</span>
+              Showing {notifications.length} of {totalCount} notifications
+            </span>
+          </div>
+
+          {/* Scrollable Table */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <Table>
+              <TableHeader className="sr-only">
+                <TableRow>
+                  <TableHead>Select</TableHead>
+                  <TableHead>Message</TableHead>
+                  <TableHead>Urgent</TableHead>
+                  <TableHead>Expand</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {notifications.map((notification) => (
+                  <NotificationRow
+                    key={notification.id}
+                    notification={notification}
+                    isSelected={selectedIds.includes(notification.id)}
+                    isExpanded={expandedRow === notification.id}
+                    onSelect={handleSelectRow}
+                    onToggleExpand={toggleExpand}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination Footer */}
+          {totalCount > 0 && (
+            <div className="border-t">
+              <TablePagination
+                count={totalCount}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+              />
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Fixed Pagination Footer */}
-      {totalCount > 0 && (
-        <TablePagination
-          count={totalCount}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-        />
-      )}
     </div>
   );
 }

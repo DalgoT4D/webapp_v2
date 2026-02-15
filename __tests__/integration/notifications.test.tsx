@@ -20,7 +20,7 @@ const mockNotifications = [
     id: 2,
     urgent: true,
     author: 'Admin',
-    message: 'Second notification',
+    message: 'Second notification with a link: https://example.com/test',
     read_status: true,
     timestamp: new Date().toISOString(),
   },
@@ -96,34 +96,62 @@ describe('Notifications Integration', () => {
     render(<NotificationsPage />);
 
     expect(screen.getByText('First notification')).toBeInTheDocument();
-    expect(screen.getByText('Second notification')).toBeInTheDocument();
+    expect(screen.getByText(/Second notification with a link:/)).toBeInTheDocument();
   });
 
   it('displays unread count badge', () => {
     render(<NotificationsPage />);
 
+    // Badge shows just the number
     expect(screen.getByText('1')).toBeInTheDocument();
   });
 
   it('renders tab navigation', () => {
     render(<NotificationsPage />);
 
-    expect(screen.getByText('All')).toBeInTheDocument();
-    expect(screen.getByText('Read')).toBeInTheDocument();
-    expect(screen.getByText('Unread')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Read' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Unread' })).toBeInTheDocument();
   });
 
-  it('marks notifications as read', async () => {
+  it('renders action buttons in header', () => {
+    render(<NotificationsPage />);
+
+    expect(screen.getByRole('button', { name: 'Mark all as read' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark as read' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark as unread' })).toBeInTheDocument();
+  });
+
+  it('disables mark as read/unread buttons when no selection', () => {
+    render(<NotificationsPage />);
+
+    expect(screen.getByRole('button', { name: 'Mark as read' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Mark as unread' })).toBeDisabled();
+  });
+
+  it('enables mark as read/unread buttons when items selected', async () => {
     render(<NotificationsPage />);
 
     // Select first notification
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]); // First notification checkbox
 
-    // Click "Mark as read" button
-    const markAsReadButton = screen.getByRole('button', {
-      name: /^mark as read$/i,
+    // Buttons should be enabled
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Mark as read' })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Mark as unread' })).not.toBeDisabled();
     });
+  });
+
+  it('marks notifications as read when button clicked', async () => {
+    render(<NotificationsPage />);
+
+    // Select first notification
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
+
+    // Click "Mark as read" button
+    const markAsReadButton = screen.getByRole('button', { name: 'Mark as read' });
     fireEvent.click(markAsReadButton);
 
     await waitFor(() => {
@@ -135,10 +163,16 @@ describe('Notifications Integration', () => {
   it('marks all as read', async () => {
     render(<NotificationsPage />);
 
-    const markAllButton = screen.getByRole('button', {
-      name: /mark all as read/i,
-    });
+    const markAllButton = screen.getByRole('button', { name: 'Mark all as read' });
     fireEvent.click(markAllButton);
+
+    // Confirm in the confirmation dialog
+    await waitFor(() => {
+      expect(screen.getByText(/Are you sure you want to mark all/)).toBeInTheDocument();
+    });
+
+    const confirmButton = screen.getByRole('button', { name: /MARK ALL AS READ/i });
+    fireEvent.click(confirmButton);
 
     await waitFor(() => {
       expect(mockMarkAllAsRead).toHaveBeenCalled();
@@ -146,30 +180,44 @@ describe('Notifications Integration', () => {
     });
   });
 
-  it('updates unread count after actions', async () => {
+  it('shows selection count when items selected', async () => {
     render(<NotificationsPage />);
 
-    // Select and mark as read
+    // Select first notification
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
 
-    const markAsReadButton = screen.getByRole('button', {
-      name: /^mark as read$/i,
+    // Selection info should appear
+    await waitFor(() => {
+      expect(screen.getByText(/1 selected/)).toBeInTheDocument();
     });
-    fireEvent.click(markAsReadButton);
+  });
+
+  it('clears selection when X button clicked', async () => {
+    render(<NotificationsPage />);
+
+    // Select first notification
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
 
     await waitFor(() => {
-      // Verify mutate was called to refresh unread count
-      expect(mockMutate).toHaveBeenCalled();
+      expect(screen.getByText(/1 selected/)).toBeInTheDocument();
+    });
+
+    // Click clear selection button
+    const clearButton = screen.getByLabelText('Clear selection');
+    fireEvent.click(clearButton);
+
+    // Selection info should disappear
+    await waitFor(() => {
+      expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
     });
   });
 
   it('opens preferences dialog', async () => {
     render(<NotificationsPage />);
 
-    const settingsButton = screen.getByRole('button', {
-      name: /manage preferences/i,
-    });
+    const settingsButton = screen.getByRole('button', { name: '' });
     fireEvent.click(settingsButton);
 
     await waitFor(() => {
@@ -181,9 +229,7 @@ describe('Notifications Integration', () => {
     render(<NotificationsPage />);
 
     // Open preferences dialog
-    const settingsButton = screen.getByRole('button', {
-      name: /manage preferences/i,
-    });
+    const settingsButton = screen.getByRole('button', { name: '' });
     fireEvent.click(settingsButton);
 
     await waitFor(() => {
@@ -191,9 +237,7 @@ describe('Notifications Integration', () => {
     });
 
     // Toggle email notifications
-    const emailSwitch = screen.getByRole('switch', {
-      name: /email notifications/i,
-    });
+    const emailSwitch = screen.getByRole('switch', { name: /email notifications/i });
     fireEvent.click(emailSwitch);
 
     // Submit
@@ -207,44 +251,6 @@ describe('Notifications Integration', () => {
     });
   });
 
-  it('disables buttons correctly based on state', () => {
-    render(<NotificationsPage />);
-
-    const markAsReadButton = screen.getByRole('button', {
-      name: /^mark as read$/i,
-    });
-    const markAsUnreadButton = screen.getByRole('button', {
-      name: /mark as unread/i,
-    });
-
-    // Buttons should be disabled when no selection
-    expect(markAsReadButton).toBeDisabled();
-    expect(markAsUnreadButton).toBeDisabled();
-
-    // Select a notification
-    const checkboxes = screen.getAllByRole('checkbox');
-    fireEvent.click(checkboxes[1]);
-
-    // "Mark as read" should be enabled, "Mark as unread" should be enabled
-    expect(markAsReadButton).not.toBeDisabled();
-    expect(markAsUnreadButton).not.toBeDisabled();
-  });
-
-  it('has mark as read button disabled by default', () => {
-    render(<NotificationsPage />);
-
-    const markAsReadButton = screen.getByRole('button', {
-      name: /^mark as read$/i,
-    });
-    const markAsUnreadButton = screen.getByRole('button', {
-      name: /mark as unread/i,
-    });
-
-    // Buttons should be disabled when no selection
-    expect(markAsReadButton).toBeDisabled();
-    expect(markAsUnreadButton).toBeDisabled();
-  });
-
   it('handles empty notification list', () => {
     (notificationHooks.useNotifications as jest.Mock).mockReturnValue({
       notifications: [],
@@ -256,7 +262,46 @@ describe('Notifications Integration', () => {
 
     render(<NotificationsPage />);
 
-    expect(screen.getByText('No notifications to display')).toBeInTheDocument();
+    expect(screen.getByText('No notifications')).toBeInTheDocument();
+  });
+
+  it('renders links in notifications as clickable', () => {
+    render(<NotificationsPage />);
+
+    const link = screen.getByRole('link', { name: 'https://example.com/test' });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://example.com/test');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('shows mark all as read button only when there are unread notifications', () => {
+    render(<NotificationsPage />);
+    expect(screen.getByRole('button', { name: 'Mark all as read' })).toBeInTheDocument();
+  });
+
+  it('hides mark all as read when no unread notifications', () => {
+    (notificationHooks.useUnreadCount as jest.Mock).mockReturnValue({
+      unreadCount: 0,
+      isLoading: false,
+      error: null,
+      mutate: mockMutate,
+    });
+
+    render(<NotificationsPage />);
+    expect(screen.queryByRole('button', { name: 'Mark all as read' })).not.toBeInTheDocument();
+  });
+
+  it('switches between tabs', async () => {
+    render(<NotificationsPage />);
+
+    // Click on "Read" tab
+    const readTab = screen.getByRole('tab', { name: 'Read' });
+    fireEvent.click(readTab);
+
+    // Hook should be called with updated filters
+    await waitFor(() => {
+      expect(notificationHooks.useNotifications).toHaveBeenCalled();
+    });
   });
 
   it('allows changing page size', async () => {
@@ -268,13 +313,13 @@ describe('Notifications Integration', () => {
 
     // Select 20 items per page
     await waitFor(() => {
-      expect(screen.getByText('20')).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: '20' })).toBeInTheDocument();
     });
 
-    const option20 = screen.getByText('20');
+    const option20 = screen.getByRole('option', { name: '20' });
     fireEvent.click(option20);
 
-    // Verify the select updated (by checking it closed)
+    // Verify the select updated
     await waitFor(() => {
       expect(screen.queryByRole('option')).not.toBeInTheDocument();
     });

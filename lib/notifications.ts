@@ -1,4 +1,4 @@
-import { NotificationFilters, NotificationTab } from '@/types/notifications';
+import type { NotificationFilters, NotificationTab } from '@/types/notifications';
 
 /**
  * Build query string from notification filters

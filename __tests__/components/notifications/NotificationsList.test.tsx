@@ -41,6 +41,10 @@ describe('NotificationsList', () => {
     onPageSizeChange: jest.fn(),
   };
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('renders notifications correctly', () => {
     render(<NotificationsList {...defaultProps} />);
 
@@ -49,22 +53,26 @@ describe('NotificationsList', () => {
     expect(screen.getByText('Third notification')).toBeInTheDocument();
   });
 
-  it('displays correct notification count', () => {
+  it('displays correct notification count in header', () => {
     render(<NotificationsList {...defaultProps} />);
 
-    expect(screen.getByText('Showing 3 of 3 notifications')).toBeInTheDocument();
+    expect(screen.getByText(/Showing 3 of 3 notifications/)).toBeInTheDocument();
   });
 
   it('shows empty state when no notifications', () => {
     render(<NotificationsList {...defaultProps} notifications={[]} totalCount={0} />);
 
-    expect(screen.getByText('No notifications to display')).toBeInTheDocument();
+    expect(screen.getByText('No notifications')).toBeInTheDocument();
+    expect(
+      screen.getByText("You're all caught up! Check back later for new notifications.")
+    ).toBeInTheDocument();
   });
 
   it('handles select all checkbox', () => {
     const onSelectionChange = jest.fn();
     render(<NotificationsList {...defaultProps} onSelectionChange={onSelectionChange} />);
 
+    // Find the select all checkbox (first checkbox in the header bar)
     const checkboxes = screen.getAllByRole('checkbox');
     const selectAllCheckbox = checkboxes[0];
 
@@ -78,7 +86,8 @@ describe('NotificationsList', () => {
     render(<NotificationsList {...defaultProps} onSelectionChange={onSelectionChange} />);
 
     const checkboxes = screen.getAllByRole('checkbox');
-    const firstNotificationCheckbox = checkboxes[1]; // First checkbox after select-all
+    // First checkbox is select-all, second is first notification
+    const firstNotificationCheckbox = checkboxes[1];
 
     fireEvent.click(firstNotificationCheckbox);
 
@@ -122,45 +131,34 @@ describe('NotificationsList', () => {
   });
 
   it('handles pagination controls', () => {
-    const onPageChange = jest.fn();
-    const onPageSizeChange = jest.fn();
+    render(<NotificationsList {...defaultProps} totalCount={30} page={1} pageSize={10} />);
 
-    render(
-      <NotificationsList
-        {...defaultProps}
-        totalCount={30}
-        page={1}
-        pageSize={10}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-      />
-    );
-
-    // Check pagination is rendered
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
-    expect(screen.getByText('Previous')).toBeInTheDocument();
-    expect(screen.getByText('Next')).toBeInTheDocument();
+    // Check pagination shows range (startItem-endItem based on page and pageSize)
+    // page=1, pageSize=10, count=30 -> shows "1-10 of 30"
+    expect(screen.getByText(/1-10 of 30/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
   });
 
   it('disables previous button on first page', () => {
     render(<NotificationsList {...defaultProps} totalCount={30} page={1} pageSize={10} />);
 
-    const previousButton = screen.getByText('Previous');
+    const previousButton = screen.getByRole('button', { name: /previous/i });
     expect(previousButton).toBeDisabled();
   });
 
   it('disables next button on last page', () => {
     render(<NotificationsList {...defaultProps} totalCount={30} page={3} pageSize={10} />);
 
-    const nextButton = screen.getByText('Next');
+    const nextButton = screen.getByRole('button', { name: /next/i });
     expect(nextButton).toBeDisabled();
   });
 
-  it('renders table headers correctly', () => {
-    render(<NotificationsList {...defaultProps} />);
+  it('shows loading skeleton when isLoading is true', () => {
+    render(<NotificationsList {...defaultProps} isLoading={true} />);
 
-    expect(screen.getByText('Message')).toBeInTheDocument();
-    expect(screen.getByText('Urgent')).toBeInTheDocument();
+    // Should not show notifications when loading
+    expect(screen.queryByText('First notification')).not.toBeInTheDocument();
   });
 
   it('shows pagination only when there are notifications', () => {
@@ -168,10 +166,34 @@ describe('NotificationsList', () => {
       <NotificationsList {...defaultProps} notifications={[]} totalCount={0} />
     );
 
-    expect(screen.queryByText('Page 1 of 1')).not.toBeInTheDocument();
+    // No pagination when empty
+    expect(screen.queryByText('Previous')).not.toBeInTheDocument();
 
     rerender(<NotificationsList {...defaultProps} />);
 
-    expect(screen.getByText(/Page \d+ of \d+/)).toBeInTheDocument();
+    // Pagination shows when there are notifications
+    expect(screen.getByText('Previous')).toBeInTheDocument();
+  });
+
+  it('shows urgent indicator for urgent notifications', () => {
+    render(<NotificationsList {...defaultProps} />);
+
+    // Second notification is urgent
+    const urgentIndicators = screen.getAllByLabelText('Urgent');
+    expect(urgentIndicators.length).toBe(1);
+  });
+
+  it('applies different styling for read vs unread notifications', () => {
+    render(<NotificationsList {...defaultProps} />);
+
+    // Check that unread notifications have different styling
+    // First and third are unread (read_status: false)
+    const firstNotification = screen.getByText('First notification');
+    const secondNotification = screen.getByText('Second notification');
+
+    // Unread should have font-medium class
+    expect(firstNotification.closest('p')).toHaveClass('font-medium');
+    // Read should have text-slate-500 class on parent
+    expect(secondNotification.closest('div')).toHaveClass('text-slate-500');
   });
 });
