@@ -3,13 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
@@ -145,15 +138,6 @@ function ValueFilterWidget({
     onChange(filter.id, finalValue);
   };
 
-  const handleClear = () => {
-    setSelectedValues([]);
-    onChange(filter.id, null);
-  };
-
-  const selectedLabels = selectedValues.map(
-    (val) => availableOptions.find((opt: FilterOption) => opt.value === val)?.label || val
-  );
-
   return (
     <div
       className={cn(
@@ -218,23 +202,21 @@ function ValueFilterWidget({
             compact={isEditMode}
           />
         ) : (
-          <Select
+          <Combobox
+            items={availableOptions.map((opt: FilterOption) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
             value={selectedValues[0] || ''}
-            onValueChange={(val) => handleSelectionChange(val, true)}
-          >
-            <SelectTrigger className={cn(isEditMode ? 'h-8' : 'h-10')}>
-              <SelectValue placeholder={isEditMode ? 'Select...' : 'Choose option...'} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableOptions.map((option: FilterOption) => (
-                <SelectItem key={option.value} value={option.value} className="text-xs py-1.5">
-                  <div className="flex items-center justify-between w-full">
-                    <span>{option.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onValueChange={(val) => {
+              const newSelection = val ? [val] : [];
+              setSelectedValues(newSelection);
+              onChange(filter.id, val || null);
+            }}
+            placeholder={isEditMode ? 'Select...' : 'Choose option...'}
+            searchPlaceholder="Search..."
+            compact={isEditMode}
+          />
         )}
 
         {/* Selected values display for multi-select */}

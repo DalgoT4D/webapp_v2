@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -44,6 +44,17 @@ export function LayerConfiguration({
 
   // Get columns for geographic selection
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
+
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      (columns || []).map((column) => ({
+        value: column.column_name,
+        label: column.column_name,
+        data_type: column.data_type,
+      })),
+    [columns]
+  );
 
   // Initialize layers if not present
   const layers: Layer[] = formData.layers || [{ id: '0', level: 0, geographic_column: undefined }];
@@ -168,6 +179,35 @@ function LayerCard({
 
   const availableRegions = index === 0 ? regions : childRegions;
 
+  // Memoize items for Combobox components
+  const columnItems = React.useMemo(
+    () =>
+      columns.map((column) => ({
+        value: column.column_name,
+        label: column.column_name,
+        data_type: column.data_type,
+      })),
+    [columns]
+  );
+
+  const regionItems = React.useMemo(
+    () =>
+      (availableRegions || []).map((region: any) => ({
+        value: region.id.toString(),
+        label: region.display_name,
+      })),
+    [availableRegions]
+  );
+
+  const geojsonItems = React.useMemo(
+    () =>
+      (geojsons || []).map((geojson: any) => ({
+        value: geojson.id.toString(),
+        label: geojson.is_default ? `${geojson.name} (Default)` : geojson.name,
+      })),
+    [geojsons]
+  );
+
   return (
     <Card className={`transition-all ${isExpanded ? 'ring-2 ring-blue-200' : ''}`}>
       <CardHeader className="cursor-pointer" onClick={onToggleExpanded}>
@@ -220,11 +260,7 @@ function LayerCard({
               Select the column that contains {getLayerTitle(index).toLowerCase()} names
             </p>
             <Combobox
-              items={columns.map((column) => ({
-                value: column.column_name,
-                label: column.column_name,
-                data_type: column.data_type,
-              }))}
+              items={columnItems}
               value={layer.geographic_column || ''}
               onValueChange={(value) => onUpdate({ geographic_column: value })}
               searchPlaceholder="Search columns..."
@@ -246,10 +282,7 @@ function LayerCard({
                 Choose the geographic region for this layer
               </p>
               <Combobox
-                items={(availableRegions || []).map((region: any) => ({
-                  value: region.id.toString(),
-                  label: region.display_name,
-                }))}
+                items={regionItems}
                 value={layer.region_id?.toString() || ''}
                 onValueChange={(value) => onUpdate({ region_id: parseInt(value) })}
                 searchPlaceholder="Search regions..."
@@ -266,10 +299,7 @@ function LayerCard({
                 Select the map boundary data to use
               </p>
               <Combobox
-                items={(geojsons || []).map((geojson: any) => ({
-                  value: geojson.id.toString(),
-                  label: geojson.is_default ? `${geojson.name} (Default)` : geojson.name,
-                }))}
+                items={geojsonItems}
                 value={layer.geojson_id?.toString() || ''}
                 onValueChange={(value) => onUpdate({ geojson_id: parseInt(value) })}
                 searchPlaceholder="Search..."

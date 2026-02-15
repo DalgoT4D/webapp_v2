@@ -57,19 +57,27 @@ export function Combobox(props: ComboboxProps) {
 // ─── Highlight helper (exported for custom renderItem) ───────
 
 export function highlightText(text: string, query: string) {
-  if (!query.trim()) return text;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escaped})`, 'gi');
-  const parts = text.split(regex);
-  return parts.map((part, i) =>
-    regex.test(part) ? (
-      <mark key={i} className="bg-yellow-200 text-yellow-900 font-medium">
-        {part}
-      </mark>
-    ) : (
-      part
-    )
-  );
+  // Handle null/undefined text
+  if (!text) return '';
+  if (!query || !query.trim()) return text;
+
+  try {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) =>
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-200 text-yellow-900 font-medium">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  } catch (error) {
+    // Fallback to plain text if regex fails
+    return text;
+  }
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -77,7 +85,7 @@ export function highlightText(text: string, query: string) {
 // ═════════════════════════════════════════════════════════════
 
 function SingleComboboxInner({
-  items,
+  items = [],
   value,
   onValueChange,
   placeholder = 'Select...',
@@ -99,18 +107,25 @@ function SingleComboboxInner({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
+  // Ensure items is always an array
+  const safeItems = React.useMemo(() => (Array.isArray(items) ? items : []), [items]);
+
   const selectedLabel = React.useMemo(
-    () => items.find((i) => i.value === value)?.label ?? '',
-    [items, value]
+    () => safeItems.find((i) => i?.value === value)?.label ?? '',
+    [safeItems, value]
   );
 
   const filtered = React.useMemo(() => {
-    if (!search.trim()) return items;
+    if (!search.trim()) return safeItems;
     const q = search.toLowerCase();
-    return items.filter(
-      (i) => i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q)
+    return safeItems.filter(
+      (i) =>
+        i &&
+        i.label &&
+        i.value &&
+        (i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q))
     );
-  }, [items, search]);
+  }, [safeItems, search]);
 
   // Reset highlight when list changes
   React.useEffect(() => {
@@ -320,8 +335,8 @@ function SingleComboboxInner({
 // ═════════════════════════════════════════════════════════════
 
 function MultiComboboxInner({
-  items,
-  values,
+  items = [],
+  values = [],
   onValuesChange,
   placeholder = 'Choose options...',
   searchPlaceholder = 'Search...',
@@ -338,19 +353,27 @@ function MultiComboboxInner({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
 
+  // Ensure items and values are always arrays
+  const safeItems = React.useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const safeValues = React.useMemo(() => (Array.isArray(values) ? values : []), [values]);
+
   const filtered = React.useMemo(() => {
-    if (!search.trim()) return items;
+    if (!search.trim()) return safeItems;
     const q = search.toLowerCase();
-    return items.filter(
-      (i) => i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q)
+    return safeItems.filter(
+      (i) =>
+        i &&
+        i.label &&
+        i.value &&
+        (i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q))
     );
-  }, [items, search]);
+  }, [safeItems, search]);
 
   const handleToggle = (val: string) => {
-    if (values.includes(val)) {
-      onValuesChange(values.filter((v) => v !== val));
+    if (safeValues.includes(val)) {
+      onValuesChange(safeValues.filter((v) => v !== val));
     } else {
-      onValuesChange([...values, val]);
+      onValuesChange([...safeValues, val]);
     }
   };
 
@@ -382,13 +405,16 @@ function MultiComboboxInner({
           size={compact ? 'sm' : 'default'}
         >
           <span
-            className={cn('truncate normal-case', values.length === 0 && 'text-muted-foreground')}
+            className={cn(
+              'truncate normal-case',
+              safeValues.length === 0 && 'text-muted-foreground'
+            )}
           >
             {loading
               ? 'Loading...'
-              : values.length === 0
+              : safeValues.length === 0
                 ? placeholder
-                : `${values.length} selected`}
+                : `${safeValues.length} selected`}
           </span>
           <ChevronDown
             className={cn('shrink-0 opacity-50', compact ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')}
@@ -429,7 +455,7 @@ function MultiComboboxInner({
               </div>
             ) : (
               filtered.map((item) => {
-                const isSelected = values.includes(item.value);
+                const isSelected = safeValues.includes(item.value);
                 return (
                   <div
                     key={item.value}

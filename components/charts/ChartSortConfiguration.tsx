@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -37,6 +37,15 @@ export function ChartSortConfiguration({
       column_name: col.column_name || col.name,
       data_type: col.data_type,
     })) || [];
+
+  const columnItems = React.useMemo(
+    () =>
+      normalizedColumns.map((col) => ({
+        value: col.column_name,
+        label: `${col.column_name} (${col.data_type})`,
+      })),
+    [normalizedColumns]
+  );
 
   const addSort = () => {
     const newSort: ChartSort = {
@@ -190,10 +199,7 @@ export function ChartSortConfiguration({
                   <div className="space-y-1">
                     <Label className="text-xs text-gray-600">Column</Label>
                     <Combobox
-                      items={normalizedColumns.map((col) => ({
-                        value: col.column_name,
-                        label: `${col.column_name} (${col.data_type})`,
-                      }))}
+                      items={columnItems}
                       value={sortItem.column}
                       onValueChange={(value) => updateSort(index, { column: value })}
                       disabled={disabled}

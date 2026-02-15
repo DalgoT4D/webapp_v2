@@ -45,6 +45,16 @@ export function DynamicLevelConfig({
   // Fetch available columns
   const { data: columns = [] } = useColumns(formData.schema_name || '', formData.table_name || '');
 
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      columns.map((col: any) => {
+        const columnName = col.column_name || col.name;
+        return { value: columnName, label: columnName, data_type: col.data_type };
+      }),
+    [columns]
+  );
+
   // Fetch available region types from backend
   const { data: regionTypes = [], isLoading: regionTypesLoading } = useAvailableRegionTypes('IND');
 
@@ -380,10 +390,7 @@ export function DynamicLevelConfig({
           </Tooltip>
         </div>
         <Combobox
-          items={columns.map((col: any) => {
-            const columnName = col.column_name || col.name;
-            return { value: columnName, label: columnName, data_type: col.data_type };
-          })}
+          items={columnItems}
           value={formData.geographic_column || ''}
           onValueChange={handleGeographicColumnChange}
           disabled={disabled}

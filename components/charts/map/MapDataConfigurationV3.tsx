@@ -193,6 +193,16 @@ export function MapDataConfigurationV3({
 
   const allColumns = normalizedColumns;
 
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      allColumns.map((col) => ({
+        value: col.column_name,
+        label: col.column_name,
+      })),
+    [allColumns]
+  );
+
   // Handle dataset changes with complete form reset for maps
   const handleDatasetChange = (schema_name: string, table_name: string) => {
     // Prevent unnecessary resets if dataset hasn't actually changed
@@ -300,10 +310,7 @@ export function MapDataConfigurationV3({
           {(formData.filters || []).map((filter, index) => (
             <div key={index} className="flex gap-2 items-center">
               <Combobox
-                items={allColumns.map((col) => ({
-                  value: col.column_name,
-                  label: col.column_name,
-                }))}
+                items={columnItems}
                 value={filter.column}
                 onValueChange={(value) => {
                   const newFilters = [...(formData.filters || [])];

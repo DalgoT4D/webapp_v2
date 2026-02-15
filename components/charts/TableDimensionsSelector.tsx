@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Plus, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -63,6 +64,16 @@ function SortableDimensionItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const columnItems = React.useMemo(
+    () =>
+      availableColumns.map((col) => ({
+        value: col.column_name,
+        label: col.column_name,
+        data_type: col.data_type,
+      })),
+    [availableColumns]
+  );
+
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 w-full">
       {/* Drag Handle (Grid Icon) */}
@@ -84,11 +95,7 @@ function SortableDimensionItem({
       {/* Dimension Name - Column name and searchable dropdown */}
       <div className="flex-1 min-w-0">
         <Combobox
-          items={availableColumns.map((col) => ({
-            value: col.column_name,
-            label: col.column_name,
-            data_type: col.data_type,
-          }))}
+          items={columnItems}
           value={dimension.column || ''}
           onValueChange={(value) => onChange(index, 'column', value)}
           disabled={disabled}

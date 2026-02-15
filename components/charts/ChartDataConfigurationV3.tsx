@@ -82,14 +82,20 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
           ? value.split(',').map((v: string) => v.trim())
           : [];
 
+      const comboboxItems = React.useMemo(
+        () =>
+          columnValues
+            .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+            .slice(0, 100)
+            .map((val) => ({ value: val.toString(), label: val.toString() })),
+        [columnValues]
+      );
+
       return (
         <div className="h-8 flex-1">
           <Combobox
             mode="multi"
-            items={columnValues
-              .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
-              .slice(0, 100)
-              .map((val) => ({ value: val.toString(), label: val.toString() }))}
+            items={comboboxItems}
             values={selectedValues}
             onValuesChange={(vals) => onChange(vals.join(', '))}
             disabled={disabled}
@@ -117,12 +123,18 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
 
   // If we have column values, show searchable dropdown
   if (columnValues && columnValues.length > 0) {
-    return (
-      <Combobox
-        items={columnValues
+    const comboboxItems = React.useMemo(
+      () =>
+        columnValues
           .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
           .slice(0, 100)
-          .map((val) => ({ value: val.toString(), label: val.toString() }))}
+          .map((val) => ({ value: val.toString(), label: val.toString() })),
+      [columnValues]
+    );
+
+    return (
+      <Combobox
+        items={comboboxItems}
         value={value || ''}
         onValueChange={(val) => onChange(val)}
         disabled={disabled}
@@ -164,11 +176,21 @@ export function ChartDataConfigurationV3({
 
   const allColumns = normalizedColumns;
 
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      allColumns.map((col) => ({
+        value: col.column_name,
+        label: col.column_name,
+        data_type: col.data_type,
+      })),
+    [allColumns]
+  );
+
   // Handle dataset changes with complete form reset
   const handleDatasetChange = (schema_name: string, table_name: string) => {
     // Prevent unnecessary resets if dataset hasn't actually changed
     if (formData.schema_name === schema_name && formData.table_name === table_name) {
-      setIsEditingDataset(false);
       return;
     }
 
@@ -409,11 +431,7 @@ export function ChartDataConfigurationV3({
               {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
             </Label>
             <Combobox
-              items={allColumns.map((col) => ({
-                value: col.column_name,
-                label: col.column_name,
-                data_type: col.data_type,
-              }))}
+              items={columnItems}
               value={formData.dimension_column || formData.x_axis_column}
               onValueChange={(value) => onChange({ dimension_column: value })}
               disabled={disabled}
@@ -598,11 +616,7 @@ export function ChartDataConfigurationV3({
             {(formData.filters || []).map((filter, index) => (
               <div key={index} className="flex gap-2 items-center">
                 <Combobox
-                  items={allColumns.map((col) => ({
-                    value: col.column_name,
-                    label: col.column_name,
-                    data_type: col.data_type,
-                  }))}
+                  items={columnItems}
                   value={filter.column}
                   onValueChange={(value) => {
                     const newFilters = [...(formData.filters || [])];

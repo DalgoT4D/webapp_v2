@@ -1,13 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,6 +65,7 @@ interface Layer {
   id: string;
   level: number;
   geographic_column?: string;
+  region_id?: number;
   selected_regions?: SelectedRegion[];
 }
 
@@ -124,6 +118,16 @@ export function MultiSelectLayerCard({
 
   const availableColumns = getAvailableColumns();
 
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      availableColumns.map((column) => {
+        const columnName = column.name || column.column_name;
+        return { value: columnName, label: columnName, data_type: column.data_type };
+      }),
+    [availableColumns]
+  );
+
   // Get the parent region ID for fetching child regions
   const parentLayer = (formData.layers || [])[index - 1];
   let parentRegionId = null;
@@ -143,7 +147,7 @@ export function MultiSelectLayerCard({
   const { filteredRegions, invalidSelections, hasFiltersApplied, filteredCount } =
     useCascadingFilters(index, formData, availableRegions);
 
-  const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
+  const layerTitle = getLayerTitle(index, regionHierarchy);
   const selectedRegions = layer.selected_regions || [];
 
   // Auto-cleanup invalid selections when filters change
@@ -214,7 +218,7 @@ export function MultiSelectLayerCard({
       geographic_column: layer.geographic_column,
       value_column:
         formData.aggregate_column || formData.value_column || formData.geographic_column,
-      aggregate_function: formData.aggregate_function || formData.aggregate_func,
+      aggregate_function: formData.aggregate_function || 'sum',
       selected_geojson_id: region.geojson_id!,
       filters: {},
       chart_filters: formData.filters || [],
@@ -268,10 +272,7 @@ export function MultiSelectLayerCard({
               Select the column that contains {layerTitle.toLowerCase()} names from your data
             </p>
             <Combobox
-              items={availableColumns.map((column) => {
-                const columnName = column.name || column.column_name;
-                return { value: columnName, label: columnName, data_type: column.data_type };
-              })}
+              items={columnItems}
               value={layer.geographic_column || ''}
               onValueChange={(value) =>
                 onUpdate({
@@ -421,11 +422,7 @@ function RegionSelectionItem({
   );
 }
 
-function getLayerTitle(
-  index: number,
-  regionHierarchy?: Region[],
-  countryCode: string = 'IND'
-): string {
+function getLayerTitle(index: number, regionHierarchy?: Region[]): string {
   // Layer 1 is always "Country"
   if (index === 0) {
     return 'Country';

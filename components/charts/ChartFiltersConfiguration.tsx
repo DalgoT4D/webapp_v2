@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,15 @@ export function ChartFiltersConfiguration({
       column_name: col.column_name || col.name,
       data_type: col.data_type,
     })) || [];
+
+  const columnItems = React.useMemo(
+    () =>
+      normalizedColumns.map((col) => ({
+        value: col.column_name,
+        label: `${col.column_name} (${col.data_type})`,
+      })),
+    [normalizedColumns]
+  );
 
   // Show loading state if columns are not available yet
   if (!columns && !disabled) {
@@ -219,10 +228,7 @@ export function ChartFiltersConfiguration({
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">Column</Label>
                   <Combobox
-                    items={normalizedColumns.map((col) => ({
-                      value: col.column_name,
-                      label: `${col.column_name} (${col.data_type})`,
-                    }))}
+                    items={columnItems}
                     value={filter.column}
                     onValueChange={(value) => {
                       const availableOps = getAvailableOperators(value);
