@@ -267,7 +267,7 @@ describe('PipelineList', () => {
   it('handles run button click and respects permissions', async () => {
     const user = userEvent.setup();
     const mockTriggerRun = jest.fn().mockResolvedValue({});
-    (usePipelinesHook.triggerPipelineRun as jest.Mock) = mockTriggerRun;
+    jest.spyOn(usePipelinesHook, 'triggerPipelineRun').mockImplementation(mockTriggerRun);
 
     const pipelines = [createPipeline()];
     (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
@@ -288,8 +288,8 @@ describe('PipelineList', () => {
     (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_run_pipeline',
     });
-    const { container } = render(<PipelineList />);
-    const disabledRunButton = container.querySelectorAll('button')[2]; // Run button
+    render(<PipelineList />);
+    const disabledRunButton = screen.getAllByRole('button', { name: /run/i })[1];
     expect(disabledRunButton).toBeDisabled();
   });
 });
@@ -400,7 +400,12 @@ describe('PipelineForm', () => {
 
     // Try submit without required fields shows validation
     await user.click(screen.getByRole('button', { name: /create pipeline/i }));
-    // Form won't submit without schedule selection
+
+    // Validation error should appear for missing schedule
+    expect(await screen.findByText('Schedule is required')).toBeInTheDocument();
+
+    // Verify createPipeline was not called due to validation failure
+    expect(usePipelinesHook.createPipeline).not.toHaveBeenCalled();
   });
 
   it('toggles between simple and advanced task modes', async () => {

@@ -192,14 +192,28 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
           transformTasks,
         });
 
-        // Update schedule status if changed
+        // Update schedule status if changed (separate try/catch to preserve successful update)
+        let scheduleStatusFailed = false;
         if (dirtyFields.active) {
-          await setScheduleStatus(deploymentId, data.active);
+          try {
+            await setScheduleStatus(deploymentId, data.active);
+          } catch (statusError: any) {
+            scheduleStatusFailed = true;
+            toast({
+              title: 'Warning',
+              description:
+                statusError.message ||
+                'Pipeline updated, but failed to update schedule status. Please try toggling the status again.',
+              variant: 'destructive',
+            });
+          }
         }
 
         toast({
           title: 'Pipeline updated',
-          description: `Pipeline ${data.name} updated successfully`,
+          description: scheduleStatusFailed
+            ? `Pipeline ${data.name} updated, but schedule status change failed`
+            : `Pipeline ${data.name} updated successfully`,
         });
       } else {
         const response = await createPipeline({

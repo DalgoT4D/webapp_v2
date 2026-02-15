@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import {
   ChevronDown,
   ChevronRight,
@@ -60,13 +60,14 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
     DEFAULT_LOAD_MORE_LIMIT
   );
 
-  // Initialize runs when dialog opens
+  // Initialize runs when dialog opens (only on first load, not on SWR revalidation)
   useEffect(() => {
-    if (open && runs.length > 0) {
+    if (open && runs.length > 0 && allRuns.length === 0) {
       setAllRuns(runs);
       setHasMore(runs.length >= DEFAULT_LOAD_MORE_LIMIT);
       setOffset(DEFAULT_LOAD_MORE_LIMIT);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally excluding allRuns to prevent revalidation overwrites
   }, [open, runs]);
 
   // Reset state when dialog closes
@@ -224,10 +225,18 @@ function RunCard({ run }: { run: DeploymentRun }) {
 
         {/* Date */}
         <div className="col-span-2">
-          <div className="text-[15px] font-medium text-gray-900">
-            {format(new Date(run.startTime), 'MMM d, yyyy')}
-          </div>
-          <div className="text-sm text-gray-500">{format(new Date(run.startTime), 'h:mm a')}</div>
+          {run.startTime && isValid(new Date(run.startTime)) ? (
+            <>
+              <div className="text-[15px] font-medium text-gray-900">
+                {format(new Date(run.startTime), 'MMM d, yyyy')}
+              </div>
+              <div className="text-sm text-gray-500">
+                {format(new Date(run.startTime), 'h:mm a')}
+              </div>
+            </>
+          ) : (
+            <span className="text-[15px] text-gray-400">—</span>
+          )}
         </div>
 
         {/* Started by */}

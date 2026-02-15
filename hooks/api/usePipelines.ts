@@ -198,8 +198,7 @@ export async function fetchFlowRunLogs(
     params.append('task_run_id', taskRunId);
   }
 
-  const pathParam = taskRunId ? flowRunId : flowRunId;
-  return apiGet(`/api/prefect/flow_runs/${pathParam}/logs?${params.toString()}`);
+  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logs?${params.toString()}`);
 }
 
 /**

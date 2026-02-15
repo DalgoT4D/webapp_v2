@@ -151,12 +151,52 @@ export function convertCronToSchedule(cronExp: string | null): {
 }
 
 /**
+ * Adjust day-of-week field by a given shift (-1, 0, or +1)
+ * Handles comma-separated values and ranges (e.g., "1,3,5" or "1-5")
+ * Normalizes results to 0-6 range (0=Sunday, 6=Saturday)
+ */
+function adjustDayOfWeek(dowField: string, shift: number): string {
+  if (dowField === '*' || shift === 0) {
+    return dowField;
+  }
+
+  return dowField
+    .split(',')
+    .map((token) => {
+      // Handle ranges like "1-5"
+      if (token.includes('-')) {
+        const parts = token.split('-');
+        if (parts.length === 2) {
+          const start = parseInt(parts[0], 10);
+          const end = parseInt(parts[1], 10);
+          if (!isNaN(start) && !isNaN(end)) {
+            const newStart = (((start + shift) % 7) + 7) % 7;
+            const newEnd = (((end + shift) % 7) + 7) % 7;
+            return `${newStart}-${newEnd}`;
+          }
+        }
+        return token; // Unrecognized range format, preserve unchanged
+      }
+
+      // Handle single numbers
+      const num = parseInt(token, 10);
+      if (!isNaN(num)) {
+        return String((((num + shift) % 7) + 7) % 7);
+      }
+
+      // Unrecognized token (e.g., "MON"), preserve unchanged
+      return token;
+    })
+    .join(',');
+}
+
+/**
  * Convert UTC cron to local timezone cron (using moment.js - same as webapp v1)
  * minutes, hours, day of month, month, day of week
  * 0 1 * * *
  * WE ASSUME AND REQUIRE that d-o-m and m are always "*"
  */
-function cronToLocalTZ(expression: string): string {
+export function cronToLocalTZ(expression: string): string {
   if (!expression) return '';
 
   const fields = expression.split(' ');
@@ -182,10 +222,20 @@ function cronToLocalTZ(expression: string): string {
     // Create moment in UTC with the cron time
     const utcTime = moment.utc().hours(parseInt(hours, 10)).minutes(parseInt(minutes, 10));
 
-    // Convert to local time
-    const localTime = utcTime.local();
+    // Convert to local time (clone first since .local() mutates the object)
+    const localTime = utcTime.clone().local();
 
-    return `${localTime.minutes()} ${localTime.hours()} ${fields[2]} ${fields[3]} ${fields[4]}`;
+    // Calculate day shift from UTC to local
+    // Moment handles the day boundary crossing, we just need to extract the shift
+    let dayShift = localTime.date() - utcTime.date();
+    // Normalize for month boundaries (e.g., 31→1 should be +1, not -30)
+    if (dayShift > 1) dayShift = -1;
+    if (dayShift < -1) dayShift = 1;
+
+    // Adjust day-of-week field if needed
+    const adjustedDow = adjustDayOfWeek(fields[4], dayShift);
+
+    return `${localTime.minutes()} ${localTime.hours()} ${fields[2]} ${fields[3]} ${adjustedDow}`;
   } catch (error) {
     console.error('Error converting cron expression to local timezone:', error);
     return expression;
@@ -232,14 +282,27 @@ export function cronToString(expression: string | null): string {
 
 /**
  * Convert local time string to UTC time string for cron (using moment.js - same as webapp v1)
- * @param localTime - Time in format "HH:mm" (24-hour local time)
+ * @param localTime - Time in format "HH:mm" or "H:mm" (24-hour local time)
  * @returns Time in format "H M" (UTC hours and minutes)
+ * @throws Error if input format is invalid
  */
 export function localTimeToUTC(localTime: string): string {
-  const [hours, minutes] = localTime.split(':').map(Number);
+  // Validate input format: "HH:mm" or "H:mm" (24-hour format)
+  const timeRegex = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+  const match = localTime?.match(timeRegex);
 
-  // Create a local moment with the given time
-  const localMoment = moment().hours(hours).minutes(minutes);
+  if (!match) {
+    throw new Error(
+      `Invalid time format: "${localTime}". Expected format "HH:mm" (e.g., "09:30" or "14:00")`
+    );
+  }
+
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+
+  // Create a deterministic local moment using startOf('day') as base
+  // This avoids carrying over any unpredictable time values from moment()
+  const localMoment = moment().startOf('day').hours(hours).minutes(minutes);
 
   // Convert to UTC and get hours/minutes
   const utcMoment = moment.utc(localMoment);
@@ -249,27 +312,52 @@ export function localTimeToUTC(localTime: string): string {
 
 /**
  * Convert UTC time string to local time string (using moment.js - same as webapp v1)
- * @param utcTime - Time in format "H M" (UTC hours and minutes)
+ * @param utcTime - Time in format "H M" (UTC hours and minutes, space-separated)
  * @returns Time in format "HH:mm" (24-hour local time)
+ * @throws Error if input format is invalid
  */
 export function utcTimeToLocal(utcTime: string): string {
   if (!utcTime) return '';
 
-  const [hours, minutes] = utcTime.split(' ').map(Number);
+  // Validate input format: "H M" or "HH MM" (space-separated hours and minutes)
+  const timeRegex = /^([01]?\d|2[0-3])\s+([0-5]?\d)$/;
+  const match = utcTime.match(timeRegex);
 
-  // Create a UTC moment and convert to local
-  const localMoment = moment.utc().hours(hours).minutes(minutes).local();
+  if (!match) {
+    throw new Error(
+      `Invalid UTC time format: "${utcTime}". Expected format "H M" (e.g., "9 30" or "14 0")`
+    );
+  }
+
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+
+  // Create a deterministic UTC moment and convert to local
+  const localMoment = moment.utc().startOf('day').hours(hours).minutes(minutes).local();
 
   return `${localMoment.hours().toString().padStart(2, '0')}:${localMoment.minutes().toString().padStart(2, '0')}`;
 }
 
+// Precompute cutoff timestamp once for efficiency
+const CUTOFF_MS = Date.parse(FLOW_RUN_STARTED_BY_DATE_CUTOFF);
+
 /**
  * Get the user who started a flow run, respecting the date cutoff
+ * Returns null for runs before the cutoff date (when we started recording who triggered runs)
  */
 export function getFlowRunStartedBy(flowRunStartTime: string | null, user: string): string | null {
-  if (!flowRunStartTime || flowRunStartTime < FLOW_RUN_STARTED_BY_DATE_CUTOFF) {
+  if (!flowRunStartTime) {
     return null;
   }
+
+  // Parse the timestamp to numeric milliseconds for accurate comparison
+  const startTimeMs = Date.parse(flowRunStartTime);
+
+  // Handle invalid parse results (NaN) or dates before cutoff
+  if (isNaN(startTimeMs) || startTimeMs < CUTOFF_MS) {
+    return null;
+  }
+
   return user === 'System' ? 'System' : trimEmail(user);
 }
 
