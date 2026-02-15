@@ -154,6 +154,7 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
   }, [isEditMode, pipeline, tasks, reset]);
 
   const handleAlignmentChange = (newAlignment: string) => {
+    if (!newAlignment) return;
     if (newAlignment === 'simple') {
       setValue('tasks', []);
     }
@@ -209,12 +210,12 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
           }
         }
 
-        toast({
-          title: 'Pipeline updated',
-          description: scheduleStatusFailed
-            ? `Pipeline ${data.name} updated, but schedule status change failed`
-            : `Pipeline ${data.name} updated successfully`,
-        });
+        if (!scheduleStatusFailed) {
+          toast({
+            title: 'Pipeline updated',
+            description: `Pipeline ${data.name} updated successfully`,
+          });
+        }
       } else {
         const response = await createPipeline({
           name: data.name,

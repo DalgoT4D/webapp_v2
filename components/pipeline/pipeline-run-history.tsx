@@ -49,6 +49,7 @@ interface PipelineRunHistoryProps {
 }
 
 export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRunHistoryProps) {
+  const { toast } = useToast();
   const [offset, setOffset] = useState(0);
   const [allRuns, setAllRuns] = useState<DeploymentRun[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -93,12 +94,17 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
       if (!moreRuns || moreRuns.length < DEFAULT_LOAD_MORE_LIMIT) {
         setHasMore(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load more runs:', error);
+      toast({
+        title: 'Failed to load more runs',
+        description: error?.message || String(error),
+        variant: 'destructive',
+      });
     } finally {
       setLoadingMore(false);
     }
-  }, [pipeline.deploymentId, offset]);
+  }, [pipeline.deploymentId, offset, toast]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
