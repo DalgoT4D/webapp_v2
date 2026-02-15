@@ -161,7 +161,6 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
-          [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1
@@ -175,7 +174,6 @@ jobs:
             --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=production" \
             --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
             --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
-            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.info.outputs.short_sha }} .
 
       - name: Login to GHCR
