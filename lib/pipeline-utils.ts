@@ -1,5 +1,5 @@
 import { formatDistanceToNow, differenceInSeconds, parseISO } from 'date-fns';
-import { fromZonedTime, toZonedTime } from 'date-fns-tz';
+import moment from 'moment';
 import { TransformTask } from '@/types/pipeline';
 import {
   TASK_READABLE_NAMES,
@@ -151,7 +151,10 @@ export function convertCronToSchedule(cronExp: string | null): {
 }
 
 /**
- * Convert UTC cron to local timezone cron
+ * Convert UTC cron to local timezone cron (using moment.js - same as webapp v1)
+ * minutes, hours, day of month, month, day of week
+ * 0 1 * * *
+ * WE ASSUME AND REQUIRE that d-o-m and m are always "*"
  */
 function cronToLocalTZ(expression: string): string {
   if (!expression) return '';
@@ -167,27 +170,22 @@ function cronToLocalTZ(expression: string): string {
     return '';
   }
 
-  // Validate that day of month and month are always "*"
+  // Validating that day of month and month are always "*"
   if (fields[2] !== '*' || fields[3] !== '*') {
     console.warn('cronToLocalTZ: Expected day of month and month to be "*"');
     return expression;
   }
 
   try {
-    const [minutes, hours] = fields;
-    const utcMinutes = parseInt(minutes, 10);
-    const utcHours = parseInt(hours, 10);
+    const [minutes, hours] = fields; // these are the UTC minutes and hours
 
-    // Create a date in UTC with the cron time
-    const now = new Date();
-    const utcDate = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), utcHours, utcMinutes)
-    );
+    // Create moment in UTC with the cron time
+    const utcTime = moment.utc().hours(parseInt(hours, 10)).minutes(parseInt(minutes, 10));
 
     // Convert to local time
-    const localDate = new Date(utcDate.toLocaleString('en-US'));
+    const localTime = utcTime.local();
 
-    return `${localDate.getMinutes()} ${localDate.getHours()} ${fields[2]} ${fields[3]} ${fields[4]}`;
+    return `${localTime.minutes()} ${localTime.hours()} ${fields[2]} ${fields[3]} ${fields[4]}`;
   } catch (error) {
     console.error('Error converting cron expression to local timezone:', error);
     return expression;
@@ -233,26 +231,24 @@ export function cronToString(expression: string | null): string {
 }
 
 /**
- * Convert local time string to UTC time string for cron
+ * Convert local time string to UTC time string for cron (using moment.js - same as webapp v1)
  * @param localTime - Time in format "HH:mm" (24-hour local time)
  * @returns Time in format "H M" (UTC hours and minutes)
  */
 export function localTimeToUTC(localTime: string): string {
   const [hours, minutes] = localTime.split(':').map(Number);
 
-  // Create a date with the local time
-  const localDate = new Date();
-  localDate.setHours(hours, minutes, 0, 0);
+  // Create a local moment with the given time
+  const localMoment = moment().hours(hours).minutes(minutes);
 
-  // Get UTC hours and minutes
-  const utcHours = localDate.getUTCHours();
-  const utcMinutes = localDate.getUTCMinutes();
+  // Convert to UTC and get hours/minutes
+  const utcMoment = moment.utc(localMoment);
 
-  return `${utcHours} ${utcMinutes}`;
+  return `${utcMoment.hours()} ${utcMoment.minutes()}`;
 }
 
 /**
- * Convert UTC time string to local time string
+ * Convert UTC time string to local time string (using moment.js - same as webapp v1)
  * @param utcTime - Time in format "H M" (UTC hours and minutes)
  * @returns Time in format "HH:mm" (24-hour local time)
  */
@@ -261,15 +257,10 @@ export function utcTimeToLocal(utcTime: string): string {
 
   const [hours, minutes] = utcTime.split(' ').map(Number);
 
-  // Create a UTC date
-  const utcDate = new Date();
-  utcDate.setUTCHours(hours, minutes, 0, 0);
+  // Create a UTC moment and convert to local
+  const localMoment = moment.utc().hours(hours).minutes(minutes).local();
 
-  // Get local hours and minutes
-  const localHours = utcDate.getHours();
-  const localMinutes = utcDate.getMinutes();
-
-  return `${localHours.toString().padStart(2, '0')}:${localMinutes.toString().padStart(2, '0')}`;
+  return `${localMoment.hours().toString().padStart(2, '0')}:${localMoment.minutes().toString().padStart(2, '0')}`;
 }
 
 /**
