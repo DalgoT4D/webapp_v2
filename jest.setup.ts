@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom';
-import { TextEncoder, TextDecoder } from 'util';
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -29,10 +28,6 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
-
-// Add TextEncoder/TextDecoder to global
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder;
 
 // Mock hasPointerCapture for Radix UI Select (jsdom doesn't support this)
 if (!Element.prototype.hasPointerCapture) {
