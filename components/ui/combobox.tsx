@@ -13,6 +13,7 @@ import { Search, ChevronDown } from 'lucide-react';
 export interface ComboboxItem {
   value: string;
   label: string;
+  disabled?: boolean;
   [key: string]: any;
 }
 
@@ -148,13 +149,31 @@ function SingleComboboxInner({
   }, [highlightedIndex]);
 
   const handleSelect = React.useCallback(
-    (val: string) => {
+    (val: string, itemDisabled?: boolean) => {
+      if (itemDisabled) return;
       onValueChange(val);
       setSearch('');
       setOpen(false);
     },
     [onValueChange]
   );
+
+  // Find next non-disabled index for keyboard navigation
+  const findNextEnabledIndex = (currentIndex: number, direction: 'up' | 'down'): number => {
+    const step = direction === 'down' ? 1 : -1;
+    let nextIndex = currentIndex + step;
+    let attempts = 0;
+    const maxAttempts = filtered.length;
+
+    while (attempts < maxAttempts) {
+      if (nextIndex < 0) nextIndex = filtered.length - 1;
+      if (nextIndex >= filtered.length) nextIndex = 0;
+      if (!filtered[nextIndex]?.disabled) return nextIndex;
+      nextIndex += step;
+      attempts++;
+    }
+    return -1; // All items are disabled
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!open) {
@@ -168,15 +187,19 @@ function SingleComboboxInner({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex((p) => (p < filtered.length - 1 ? p + 1 : 0));
+        setHighlightedIndex((p) => findNextEnabledIndex(p, 'down'));
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setHighlightedIndex((p) => (p > 0 ? p - 1 : filtered.length - 1));
+        setHighlightedIndex((p) => findNextEnabledIndex(p, 'up'));
         break;
       case 'Enter':
         e.preventDefault();
-        if (highlightedIndex >= 0 && filtered[highlightedIndex]) {
+        if (
+          highlightedIndex >= 0 &&
+          filtered[highlightedIndex] &&
+          !filtered[highlightedIndex].disabled
+        ) {
           handleSelect(filtered[highlightedIndex].value);
         }
         break;
@@ -295,6 +318,7 @@ function SingleComboboxInner({
             filtered.map((item, idx) => {
               const isSelected = item.value === value;
               const isHl = idx === highlightedIndex;
+              const isItemDisabled = item.disabled === true;
               return (
                 <div
                   key={item.value}
@@ -304,16 +328,21 @@ function SingleComboboxInner({
                   data-value={item.value}
                   data-selected={isSelected || undefined}
                   data-highlighted={isHl || undefined}
+                  data-disabled={isItemDisabled || undefined}
                   role="option"
                   aria-selected={isSelected}
+                  aria-disabled={isItemDisabled}
                   className={cn(
-                    'px-3 py-2 cursor-pointer text-sm border-b border-gray-100 last:border-b-0 select-none',
-                    isSelected && 'bg-blue-50 text-blue-900',
-                    isHl && !isSelected && 'bg-gray-100',
-                    !isSelected && !isHl && 'hover:bg-gray-50'
+                    'px-3 py-2 text-sm border-b border-gray-100 last:border-b-0 select-none',
+                    isItemDisabled
+                      ? 'cursor-not-allowed opacity-50 text-gray-400'
+                      : 'cursor-pointer',
+                    !isItemDisabled && isSelected && 'bg-blue-50 text-blue-900',
+                    !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
+                    !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
                   )}
-                  onClick={() => handleSelect(item.value)}
-                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  onClick={() => handleSelect(item.value, isItemDisabled)}
+                  onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
                 >
                   {renderItem ? (
                     renderItem(item, isSelected, search)

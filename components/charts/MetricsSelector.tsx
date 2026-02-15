@@ -206,13 +206,12 @@ export function MetricsSelector({
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">{labels.column}</Label>
                   <Combobox
-                    items={getAvailableColumns(metric.aggregation)
-                      .filter((col) => !col.disabled)
-                      .map((col) => ({
-                        value: col.column_name,
-                        label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
-                        data_type: col.data_type,
-                      }))}
+                    items={getAvailableColumns(metric.aggregation).map((col) => ({
+                      value: col.column_name,
+                      label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
+                      data_type: col.data_type,
+                      disabled: col.disabled,
+                    }))}
                     value={
                       metric.aggregation?.toLowerCase() === 'count' && !metric.column
                         ? '*'
