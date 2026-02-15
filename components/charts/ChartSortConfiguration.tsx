@@ -32,11 +32,14 @@ export function ChartSortConfiguration({
 
   const sort = formData.sort || [];
 
-  const normalizedColumns =
-    columns?.map((col) => ({
-      column_name: col.column_name || col.name,
-      data_type: col.data_type,
-    })) || [];
+  const normalizedColumns = React.useMemo(
+    () =>
+      columns?.map((col) => ({
+        column_name: col.column_name || col.name,
+        data_type: col.data_type,
+      })) || [],
+    [columns]
+  );
 
   const columnItems = React.useMemo(
     () =>

@@ -183,24 +183,27 @@ export function MapDataConfigurationV3({
 }: MapDataConfigurationV3Props) {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  // Filter columns by type
-  const normalizedColumns =
-    columns?.map((col) => ({
-      name: col.column_name || col.name, // Use 'name' to match TableColumn interface
-      data_type: col.data_type,
-      column_name: col.column_name || col.name, // Add this for backward compatibility
-    })) || [];
+  // Memoize normalized columns to prevent unnecessary re-renders
+  const normalizedColumns = React.useMemo(
+    () =>
+      columns?.map((col) => ({
+        name: col.column_name || col.name, // Use 'name' to match TableColumn interface
+        data_type: col.data_type,
+        column_name: col.column_name || col.name, // Add this for backward compatibility
+      })) || [],
+    [columns]
+  );
 
   const allColumns = normalizedColumns;
 
   // Memoize column items for Combobox to prevent unnecessary re-renders
   const columnItems = React.useMemo(
     () =>
-      allColumns.map((col) => ({
+      normalizedColumns.map((col) => ({
         value: col.column_name,
         label: col.column_name,
       })),
-    [allColumns]
+    [normalizedColumns]
   );
 
   // Handle dataset changes with complete form reset for maps

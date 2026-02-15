@@ -68,6 +68,16 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   // Get column values using the warehouse API
   const { data: columnValues } = useColumnValues(schema || null, table || null, column || null);
 
+  // Memoize combobox items unconditionally (before any early returns)
+  const comboboxItems = React.useMemo(
+    () =>
+      (columnValues || [])
+        .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+        .slice(0, 100)
+        .map((val) => ({ value: val.toString(), label: val.toString() })),
+    [columnValues]
+  );
+
   // For null checks, no value input needed
   if (operator === 'is_null' || operator === 'is_not_null') {
     return null;
@@ -81,15 +91,6 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
         : value
           ? value.split(',').map((v: string) => v.trim())
           : [];
-
-      const comboboxItems = React.useMemo(
-        () =>
-          columnValues
-            .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
-            .slice(0, 100)
-            .map((val) => ({ value: val.toString(), label: val.toString() })),
-        [columnValues]
-      );
 
       return (
         <div className="h-8 flex-1">
@@ -123,15 +124,6 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
 
   // If we have column values, show searchable dropdown
   if (columnValues && columnValues.length > 0) {
-    const comboboxItems = React.useMemo(
-      () =>
-        columnValues
-          .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
-          .slice(0, 100)
-          .map((val) => ({ value: val.toString(), label: val.toString() })),
-      [columnValues]
-    );
-
     return (
       <Combobox
         items={comboboxItems}
@@ -167,24 +159,28 @@ export function ChartDataConfigurationV3({
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
-  const normalizedColumns =
-    columns?.map((col) => ({
-      column_name: col.column_name || col.name,
-      data_type: col.data_type,
-      name: col.column_name || col.name,
-    })) || [];
+  // Memoize normalized columns to prevent unnecessary re-renders
+  const normalizedColumns = React.useMemo(
+    () =>
+      columns?.map((col) => ({
+        column_name: col.column_name || col.name,
+        data_type: col.data_type,
+        name: col.column_name || col.name,
+      })) || [],
+    [columns]
+  );
 
   const allColumns = normalizedColumns;
 
   // Memoize column items for Combobox to prevent unnecessary re-renders
   const columnItems = React.useMemo(
     () =>
-      allColumns.map((col) => ({
-        value: col.column_name,
-        label: col.column_name,
+      columns?.map((col) => ({
+        value: col.column_name || col.name,
+        label: col.column_name || col.name,
         data_type: col.data_type,
-      })),
-    [allColumns]
+      })) || [],
+    [columns]
   );
 
   // Handle dataset changes with complete form reset

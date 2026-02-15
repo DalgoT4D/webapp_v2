@@ -94,8 +94,8 @@ export function MultiSelectLayerCard({
   const countryCode = formData.country_code || 'IND';
   const { data: regionHierarchy } = useRegionHierarchy(countryCode);
 
-  // Filter out columns that are already used in previous layers
-  const getAvailableColumns = () => {
+  // Memoize available columns (filter out columns used in previous layers)
+  const availableColumns = React.useMemo(() => {
     if (!columns) return [];
 
     const usedColumns = new Set<string>();
@@ -114,9 +114,7 @@ export function MultiSelectLayerCard({
       const columnName = column.name || column.column_name;
       return !usedColumns.has(columnName);
     });
-  };
-
-  const availableColumns = getAvailableColumns();
+  }, [columns, formData.layers, index]);
 
   // Memoize column items for Combobox to prevent unnecessary re-renders
   const columnItems = React.useMemo(

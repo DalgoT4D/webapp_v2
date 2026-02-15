@@ -1,31 +1,39 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import useSWR from 'swr';
 import { DashboardFilterWidget } from '../dashboard-filter-widgets';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 
 // Mock SWR
-jest.mock('swr', () => ({
-  __esModule: true,
-  default: jest.fn((key) => {
-    // Mock different responses based on the API endpoint
-    if (key && typeof key === 'string' && key.includes('filter_type=value')) {
-      return {
-        data: {
-          options: [
-            { value: 'option1', label: 'Option 1', count: 10 },
-            { value: 'option2', label: 'Option 2', count: 20 },
-            { value: 'option3', label: 'Option 3', count: 30 },
-          ],
-        },
-        error: null,
-        isLoading: false,
-      };
-    }
-    return { data: null, error: null, isLoading: false };
-  }),
-}));
+jest.mock('swr');
+const mockedUseSWR = jest.mocked(useSWR);
+
+// Default mock implementation
+const defaultSWRMock = (key: unknown) => {
+  // Mock different responses based on the API endpoint
+  if (key && typeof key === 'string' && key.includes('filter_type=value')) {
+    return {
+      data: {
+        options: [
+          { value: 'option1', label: 'Option 1', count: 10 },
+          { value: 'option2', label: 'Option 2', count: 20 },
+          { value: 'option3', label: 'Option 3', count: 30 },
+        ],
+      },
+      error: null,
+      isLoading: false,
+      mutate: jest.fn(),
+      isValidating: false,
+    };
+  }
+  return { data: null, error: null, isLoading: false, mutate: jest.fn(), isValidating: false };
+};
+
+beforeEach(() => {
+  mockedUseSWR.mockImplementation(defaultSWRMock as any);
+});
 
 // Mock API module
 jest.mock('@/lib/api', () => ({
@@ -111,36 +119,40 @@ describe('DashboardFilterWidget - Single Select Mode', () => {
   });
 
   it('handles loading, error, and empty states correctly', () => {
-    const useSWR = require('swr').default;
-
     // Test loading state
-    useSWR.mockReturnValueOnce({
+    mockedUseSWR.mockReturnValueOnce({
       data: null,
       error: null,
       isLoading: true,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
     const { rerender } = render(
       <DashboardFilterWidget filter={mockValueFilter} value={null} onChange={mockOnChange} />
     );
     expect(screen.getByText('Loading options...')).toBeInTheDocument();
 
     // Test error state
-    useSWR.mockReturnValueOnce({
+    mockedUseSWR.mockReturnValueOnce({
       data: null,
       error: new Error('Failed to load options'),
       isLoading: false,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
     rerender(
       <DashboardFilterWidget filter={mockValueFilter} value={null} onChange={mockOnChange} />
     );
     expect(screen.getByText('Options need attention')).toBeInTheDocument();
 
     // Test empty state
-    useSWR.mockReturnValueOnce({
+    mockedUseSWR.mockReturnValueOnce({
       data: { options: [] },
       error: null,
       isLoading: false,
-    });
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
     rerender(
       <DashboardFilterWidget filter={mockValueFilter} value={null} onChange={mockOnChange} />
     );
