@@ -97,60 +97,68 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
 
   // Load existing pipeline data
   useEffect(() => {
-    if (isEditMode && pipeline && tasks.length > 0) {
-      let tasksToApply = tasks.filter(validateDefaultTasksToApplyInPipeline);
+    if (!isEditMode || !pipeline) return;
 
+    // Compute tasksToApply based on available tasks and pipeline state
+    let tasksToApply: TransformTask[] = [];
+
+    if (tasks.length > 0) {
       // Handle dbt_cloud case - no system tasks
       if (pipeline.transformTasks.length === 0) {
         tasksToApply = [];
+      } else {
+        tasksToApply = tasks.filter(validateDefaultTasksToApplyInPipeline);
+
+        // Check if tasks are aligned with defaults
+        const ifTasksAligned =
+          tasksToApply.length > 0 &&
+          tasksToApply.length === pipeline.transformTasks.length &&
+          pipeline.transformTasks.every(
+            (task, index) => tasksToApply[index] && task.uuid === tasksToApply[index].uuid
+          );
+
+        if (!ifTasksAligned) {
+          // Build task order map from existing pipeline
+          const uuidOrder = pipeline.transformTasks.reduce((acc: Record<string, number>, obj) => {
+            acc[obj.uuid] = obj.seq;
+            return acc;
+          }, {});
+
+          // Filter and sort tasks based on pipeline order
+          tasksToApply = tasks
+            .filter((t) => uuidOrder.hasOwnProperty(t.uuid))
+            .sort((a, b) => uuidOrder[a.uuid] - uuidOrder[b.uuid]);
+
+          setAlignment('advanced');
+        }
       }
-
-      // Check if tasks are aligned with defaults
-      const ifTasksAligned =
-        tasksToApply.length > 0 &&
-        tasksToApply.length === pipeline.transformTasks.length &&
-        pipeline.transformTasks.every(
-          (task, index) => tasksToApply[index] && task.uuid === tasksToApply[index].uuid
-        );
-
-      if (pipeline.transformTasks.length > 0 && !ifTasksAligned) {
-        // Build task order map from existing pipeline
-        const uuidOrder = pipeline.transformTasks.reduce((acc: Record<string, number>, obj) => {
-          acc[obj.uuid] = obj.seq;
-          return acc;
-        }, {});
-
-        // Filter and sort tasks based on pipeline order
-        tasksToApply = tasks
-          .filter((t) => uuidOrder.hasOwnProperty(t.uuid))
-          .sort((a, b) => uuidOrder[a.uuid] - uuidOrder[b.uuid]);
-
-        setAlignment('advanced');
-      }
-
-      const cronObject = convertCronToSchedule(pipeline.cron);
-
-      reset({
-        cron:
-          cronObject.schedule !== 'manual'
-            ? { id: cronObject.schedule, label: cronObject.schedule }
-            : { id: 'manual', label: 'Manual' },
-        connections: pipeline.connections
-          .sort((c1, c2) => c1.seq - c2.seq)
-          .map((conn) => ({
-            id: conn.id,
-            label: conn.name,
-          })),
-        active: pipeline.isScheduleActive,
-        name: pipeline.name,
-        tasks: tasksToApply,
-        cronDaysOfWeek: cronObject.daysOfWeek.map((day) => ({
-          id: day,
-          label: WEEKDAYS[day],
-        })),
-        cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
-      });
+    } else if (pipeline.transformTasks.length === 0) {
+      // dbt_cloud case with no tasks available
+      tasksToApply = [];
     }
+
+    const cronObject = convertCronToSchedule(pipeline.cron);
+
+    reset({
+      cron:
+        cronObject.schedule !== 'manual'
+          ? { id: cronObject.schedule, label: cronObject.schedule }
+          : { id: 'manual', label: 'Manual' },
+      connections: pipeline.connections
+        .sort((c1, c2) => c1.seq - c2.seq)
+        .map((conn) => ({
+          id: conn.id,
+          label: conn.name,
+        })),
+      active: pipeline.isScheduleActive,
+      name: pipeline.name,
+      tasks: tasksToApply,
+      cronDaysOfWeek: cronObject.daysOfWeek.map((day) => ({
+        id: day,
+        label: WEEKDAYS[day],
+      })),
+      cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
+    });
   }, [isEditMode, pipeline, tasks, reset]);
 
   const handleAlignmentChange = (newAlignment: string) => {

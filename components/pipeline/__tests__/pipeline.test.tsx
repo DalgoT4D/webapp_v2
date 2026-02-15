@@ -437,6 +437,377 @@ describe('PipelineForm', () => {
   });
 });
 
+// ============ PipelineForm Edit Mode Edge Cases ============
+
+describe('PipelineForm - Edit Mode Edge Cases', () => {
+  const systemTasks = [
+    createTask({ uuid: 'task-1', slug: 'git-pull', command: 'git pull', seq: 1, order: 1 }),
+    createTask({
+      uuid: 'task-2',
+      slug: 'dbt-run',
+      command: 'dbt run',
+      seq: 2,
+      order: 5,
+      pipeline_default: true,
+    }),
+    createTask({
+      uuid: 'task-3',
+      slug: 'dbt-test',
+      command: 'dbt test',
+      seq: 3,
+      order: 6,
+      pipeline_default: true,
+    }),
+  ];
+
+  const defaultConnections = [
+    createConnection({ connectionId: 'conn-1', name: 'Connection 1' }),
+    createConnection({ connectionId: 'conn-2', name: 'Connection 2' }),
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: defaultConnections,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.createPipeline as jest.Mock).mockResolvedValue({ name: 'New Pipeline' });
+    (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
+  });
+
+  it('populates form fields when tasks are aligned with defaults (simple mode)', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'Aligned Pipeline',
+      cron: '0 9 * * *', // daily at 9 AM UTC
+      isScheduleActive: true,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [
+        { uuid: 'task-1', seq: 1 },
+        { uuid: 'task-2', seq: 2 },
+        { uuid: 'task-3', seq: 3 },
+      ],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: systemTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="test-dep-id" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Aligned Pipeline');
+    });
+
+    // Simple mode should be active (not advanced)
+    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+  });
+
+  it('switches to advanced mode when tasks are not aligned with defaults', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'Custom Order Pipeline',
+      cron: '0 14 * * *',
+      isScheduleActive: false,
+      connections: [{ id: 'conn-2', name: 'Connection 2', seq: 1 }],
+      transformTasks: [
+        { uuid: 'task-3', seq: 1 }, // Different order - dbt-test first
+        { uuid: 'task-1', seq: 2 }, // git-pull second
+      ],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: systemTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="test-dep-id" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Custom Order Pipeline');
+    });
+
+    // Advanced mode should be active (no "Run all tasks" checkbox)
+    expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
+  });
+
+  it('handles dbt_cloud case: tasks available but pipeline has no transform tasks', async () => {
+    // dbt_cloud pipelines have no system transform tasks
+    const pipeline: PipelineDetailResponse = {
+      name: 'DBT Cloud Pipeline',
+      cron: '30 10 * * 1,3,5', // weekly on Mon, Wed, Fri at 10:30 AM UTC
+      isScheduleActive: true,
+      connections: [
+        { id: 'conn-1', name: 'Connection 1', seq: 1 },
+        { id: 'conn-2', name: 'Connection 2', seq: 2 },
+      ],
+      transformTasks: [], // Empty - dbt_cloud case
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: systemTasks, // Tasks are available
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="dbt-cloud-dep" />);
+
+    // Form should still be populated with non-task fields
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud Pipeline');
+    });
+
+    // Active switch should reflect pipeline state
+    expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
+
+    // "Run all tasks" checkbox should be unchecked since tasksToApply is empty
+    const runAllCheckbox = screen.getByLabelText('Run all tasks');
+    expect(runAllCheckbox).not.toBeChecked();
+  });
+
+  it('handles dbt_cloud case: no tasks available and pipeline has no transform tasks', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'DBT Cloud No Tasks',
+      cron: null, // Manual schedule
+      isScheduleActive: false,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [], // Empty - dbt_cloud case
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [], // No tasks available at all
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="dbt-cloud-no-tasks" />);
+
+    // Form should STILL be populated with non-task fields
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud No Tasks');
+    });
+
+    // Active toggle should be present and reflect state
+    const activeSwitch = screen.getByTestId('activeSwitch');
+    expect(activeSwitch).toBeInTheDocument();
+  });
+
+  it('populates non-task fields even when tasks are not available but pipeline has saved tasks', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'Pipeline With Missing Tasks',
+      cron: '0 8 * * *',
+      isScheduleActive: true,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [
+        { uuid: 'deleted-task-1', seq: 1 },
+        { uuid: 'deleted-task-2', seq: 2 },
+      ],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [], // No tasks available (maybe all deleted)
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="missing-tasks-dep" />);
+
+    // Non-task fields should still be populated
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe(
+        'Pipeline With Missing Tasks'
+      );
+    });
+
+    // The form renders correctly even though tasks couldn't be matched
+    expect(screen.getByRole('heading', { name: /update pipeline/i })).toBeInTheDocument();
+  });
+
+  it('correctly parses weekly cron schedule with multiple days', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'Weekly Pipeline',
+      cron: '30 14 * * 1,3,5', // Mon, Wed, Fri at 2:30 PM UTC
+      isScheduleActive: true,
+      connections: [],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="weekly-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Weekly Pipeline');
+    });
+  });
+
+  it('correctly handles manual schedule (null cron)', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'Manual Pipeline',
+      cron: null,
+      isScheduleActive: false,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [{ uuid: 'task-1', seq: 1 }],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: systemTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="manual-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Manual Pipeline');
+    });
+
+    // Time of day input should not be visible for manual schedule
+    expect(screen.queryByTestId('cronTimeOfDay')).not.toBeInTheDocument();
+  });
+
+  it('sorts connections by seq when populating form', async () => {
+    const pipeline: PipelineDetailResponse = {
+      name: 'Sorted Connections',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      connections: [
+        { id: 'conn-2', name: 'Connection 2', seq: 2 },
+        { id: 'conn-1', name: 'Connection 1', seq: 1 }, // Lower seq, should be first
+      ],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="sorted-conn-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Sorted Connections');
+    });
+  });
+
+  it('filters tasks by pipeline_default and generated_by when aligning', async () => {
+    const mixedTasks = [
+      createTask({
+        uuid: 'system-default',
+        slug: 'git-pull',
+        generated_by: 'system',
+        pipeline_default: true,
+      }),
+      createTask({
+        uuid: 'system-not-default',
+        slug: 'dbt-clean',
+        generated_by: 'system',
+        pipeline_default: false,
+      }),
+      createTask({
+        uuid: 'client-task',
+        slug: 'custom',
+        generated_by: 'client',
+        pipeline_default: false,
+      }),
+    ];
+
+    const pipeline: PipelineDetailResponse = {
+      name: 'Mixed Tasks Pipeline',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      connections: [],
+      transformTasks: [{ uuid: 'system-default', seq: 1 }], // Only the default system task
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: mixedTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="mixed-tasks-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Mixed Tasks Pipeline');
+    });
+
+    // Should be in simple mode since the single task aligns
+    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+  });
+});
+
 // ============ TaskSequence Tests ============
 
 describe('TaskSequence', () => {
