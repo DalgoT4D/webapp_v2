@@ -3,13 +3,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
@@ -44,17 +37,6 @@ export function LayerConfiguration({
 
   // Get columns for geographic selection
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
-
-  // Memoize column items for Combobox to prevent unnecessary re-renders
-  const columnItems = React.useMemo(
-    () =>
-      (columns || []).map((column) => ({
-        value: column.column_name,
-        label: column.column_name,
-        data_type: column.data_type,
-      })),
-    [columns]
-  );
 
   // Initialize layers if not present
   const layers: Layer[] = formData.layers || [{ id: '0', level: 0, geographic_column: undefined }];
@@ -182,11 +164,14 @@ function LayerCard({
   // Memoize items for Combobox components
   const columnItems = React.useMemo(
     () =>
-      columns.map((column) => ({
-        value: column.column_name,
-        label: column.column_name,
-        data_type: column.data_type,
-      })),
+      columns.map((column) => {
+        const colName = column.name || column.column_name;
+        return {
+          value: colName,
+          label: colName,
+          data_type: column.data_type,
+        };
+      }),
     [columns]
   );
 
