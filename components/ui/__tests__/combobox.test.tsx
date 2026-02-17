@@ -125,9 +125,9 @@ describe('Combobox - Single Mode', () => {
 
   it('handles chevron click to toggle dropdown', async () => {
     const user = userEvent.setup();
-    render(<Combobox items={mockItems} value="" onValueChange={jest.fn()} />);
+    render(<Combobox items={mockItems} value="" onValueChange={jest.fn()} id="test-combobox" />);
 
-    const chevron = screen.getByTestId('combobox-chevron');
+    const chevron = screen.getByTestId('test-combobox-chevron');
 
     // Click to open
     await user.click(chevron);
@@ -216,11 +216,12 @@ describe('Combobox - Multi Mode', () => {
         values={['1', '3']}
         onValuesChange={jest.fn()}
         searchPlaceholder="Search..."
+        id="test-multi"
       />
     );
 
     // Search input is visible (inline, not in dropdown)
-    const searchInput = screen.getByTestId('combobox-multi-search');
+    const searchInput = screen.getByTestId('test-multi-search');
     expect(searchInput).toBeInTheDocument();
 
     await user.click(searchInput);

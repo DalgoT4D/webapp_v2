@@ -102,6 +102,29 @@ function useKeyboardNavigation({
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
   const listRef = React.useRef<HTMLDivElement>(null);
 
+  // Use refs to avoid stale closures in handleKeyDown
+  const itemsRef = React.useRef(items);
+  const highlightedIndexRef = React.useRef(highlightedIndex);
+  const onSelectRef = React.useRef(onSelect);
+  const onEscapeRef = React.useRef(onEscape);
+
+  // Keep refs in sync
+  React.useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  React.useEffect(() => {
+    highlightedIndexRef.current = highlightedIndex;
+  }, [highlightedIndex]);
+
+  React.useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  React.useEffect(() => {
+    onEscapeRef.current = onEscape;
+  }, [onEscape]);
+
   // Reset highlight when items change
   React.useEffect(() => {
     setHighlightedIndex(-1);
@@ -115,32 +138,35 @@ function useKeyboardNavigation({
     }
   }, [highlightedIndex]);
 
+  // Stable function - uses refs to avoid recreating on every render
   const findNextIndex = React.useCallback(
     (currentIndex: number, direction: 'up' | 'down'): number => {
+      const currentItems = itemsRef.current;
       const step = direction === 'down' ? 1 : -1;
       let nextIndex = currentIndex + step;
 
       if (!skipDisabled) {
         // Simple wrap-around
-        if (nextIndex < 0) return items.length - 1;
-        if (nextIndex >= items.length) return 0;
+        if (nextIndex < 0) return currentItems.length - 1;
+        if (nextIndex >= currentItems.length) return 0;
         return nextIndex;
       }
 
       // Skip disabled items
       let attempts = 0;
-      while (attempts < items.length) {
-        if (nextIndex < 0) nextIndex = items.length - 1;
-        if (nextIndex >= items.length) nextIndex = 0;
-        if (!items[nextIndex]?.disabled) return nextIndex;
+      while (attempts < currentItems.length) {
+        if (nextIndex < 0) nextIndex = currentItems.length - 1;
+        if (nextIndex >= currentItems.length) nextIndex = 0;
+        if (!currentItems[nextIndex]?.disabled) return nextIndex;
         nextIndex += step;
         attempts++;
       }
       return -1;
     },
-    [items, skipDisabled]
+    [skipDisabled] // Only depends on skipDisabled, not items
   );
 
+  // Stable handleKeyDown - uses refs to avoid stale closures
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
       if (!open) {
@@ -162,23 +188,27 @@ function useKeyboardNavigation({
           break;
         case 'Enter':
           e.preventDefault();
-          if (
-            highlightedIndex >= 0 &&
-            items[highlightedIndex] &&
-            !items[highlightedIndex].disabled
-          ) {
-            onSelect(items[highlightedIndex].value);
+          {
+            const currentItems = itemsRef.current;
+            const currentIndex = highlightedIndexRef.current;
+            if (
+              currentIndex >= 0 &&
+              currentItems[currentIndex] &&
+              !currentItems[currentIndex].disabled
+            ) {
+              onSelectRef.current(currentItems[currentIndex].value);
+            }
           }
           break;
         case 'Escape':
           e.preventDefault();
           setOpen(false);
           setHighlightedIndex(-1);
-          onEscape?.();
+          onEscapeRef.current?.();
           break;
       }
     },
-    [open, setOpen, highlightedIndex, items, findNextIndex, onSelect, onEscape]
+    [open, setOpen, findNextIndex] // Minimal dependencies
   );
 
   const resetHighlight = React.useCallback(() => {
@@ -272,7 +302,9 @@ function SingleComboboxInner({
   // Show selected label when closed, search text when open
   const displayValue = open ? search : selectedLabel;
 
-  const baseId = id || 'combobox';
+  // Generate unique ID to avoid collision when multiple comboboxes exist
+  const generatedId = React.useId();
+  const baseId = id || `combobox-${generatedId}`;
 
   return (
     <Popover
@@ -496,7 +528,9 @@ function MultiComboboxInner({
     resetHighlight();
   }, [search, resetHighlight]);
 
-  const baseId = id || 'combobox-multi';
+  // Generate unique ID to avoid collision when multiple comboboxes exist
+  const generatedId = React.useId();
+  const baseId = id || `combobox-multi-${generatedId}`;
 
   return (
     <Popover
