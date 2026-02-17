@@ -2,14 +2,19 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { usePipelineOverview, fetchFlowRunLogs } from '@/hooks/api/usePipelines';
-import { DashboardPipeline, DashboardRun } from '@/types/pipeline';
+import {
+  usePipelineOverview,
+  fetchFlowRunLogs,
+  fetchFlowRunLogSummary,
+} from '@/hooks/api/usePipelines';
+import type { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineBarChart } from './pipeline-bar-chart';
 import { LogCard } from './log-card';
+import { LogSummaryCard, type LogSummary } from './log-summary-card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { lastRunTime } from '@/lib/pipeline-utils';
 import { toastError } from '@/lib/toast';
-import { FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/pipeline';
+import { FLOW_RUN_LOGS_OFFSET_LIMIT, ENABLE_LOG_SUMMARIES } from '@/constants/pipeline';
 import CheckCircleIcon from '@/assets/icons/check-circle';
 import WarningAmberIcon from '@/assets/icons/warning-amber';
 import { format } from 'date-fns';
@@ -101,18 +106,48 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
   const [logsOffset, setLogsOffset] = useState(0);
   const [hasMoreLogs, setHasMoreLogs] = useState(false);
 
-  // Fetch logs when a run is selected
+  // State for log summaries
+  const [logSummary, setLogSummary] = useState<LogSummary[]>([]);
+  const [logSummaryLogs, setLogSummaryLogs] = useState<string[]>([]);
+
+  // Fetch logs/summaries when a run is selected
   useEffect(() => {
     if (selectedRun) {
       setLogs([]);
       setLogsOffset(0);
       setLogsLoading(true);
       setHasMoreLogs(false);
+      setLogSummary([]);
+      setLogSummaryLogs([]);
 
-      fetchFlowRunLogs(selectedRun.id, undefined, 0, FLOW_RUN_LOGS_OFFSET_LIMIT)
+      // If log summaries are enabled, try to fetch them first
+      if (ENABLE_LOG_SUMMARIES) {
+        fetchFlowRunLogSummary(selectedRun.id)
+          .then((summaryData) => {
+            if (summaryData && summaryData.length > 0) {
+              setLogSummary(summaryData);
+              setLogsLoading(false);
+            } else {
+              // No summaries available, fetch regular logs
+              fetchRegularLogs();
+            }
+          })
+          .catch(() => {
+            // Summary fetch failed, fall back to regular logs
+            fetchRegularLogs();
+          });
+      } else {
+        fetchRegularLogs();
+      }
+    }
+
+    function fetchRegularLogs() {
+      fetchFlowRunLogs(selectedRun!.id, undefined, 0, FLOW_RUN_LOGS_OFFSET_LIMIT)
         .then((data) => {
           if (data?.logs?.logs) {
-            const messages = data.logs.logs.map((log: any) => log?.message || log);
+            const messages = data.logs.logs.map((log: { message?: string } | string) =>
+              typeof log === 'object' ? log?.message || '' : log
+            );
             setLogs(messages);
             setHasMoreLogs(messages.length >= FLOW_RUN_LOGS_OFFSET_LIMIT);
             setLogsOffset(FLOW_RUN_LOGS_OFFSET_LIMIT);
@@ -137,6 +172,8 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
     setLogs([]);
     setLogsOffset(0);
     setHasMoreLogs(false);
+    setLogSummary([]);
+    setLogSummaryLogs([]);
   }, []);
 
   const handleFetchMoreLogs = useCallback(async () => {
@@ -151,7 +188,9 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
         FLOW_RUN_LOGS_OFFSET_LIMIT
       );
       if (data?.logs?.logs) {
-        const newMessages = data.logs.logs.map((log: any) => log?.message || log);
+        const newMessages = data.logs.logs.map((log: { message?: string } | string) =>
+          typeof log === 'object' ? log?.message || '' : log
+        );
         setLogs((prev) => [...prev, ...newMessages]);
         setHasMoreLogs(newMessages.length >= FLOW_RUN_LOGS_OFFSET_LIMIT);
         setLogsOffset((prev) => prev + FLOW_RUN_LOGS_OFFSET_LIMIT);
@@ -191,20 +230,43 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
             scaleToRuntime={scaleToRuntime}
             onScaleChange={onScaleChange}
             onSelectRun={handleSelectRun}
-            selectedRunId={selectedRun?.id}
           />
 
           {/* Inline Logs (shown below the card when a run is selected) */}
           {selectedRun && (
-            <LogCard
-              logs={logs}
-              isLoading={logsLoading}
-              hasMore={hasMoreLogs}
-              onFetchMore={handleFetchMoreLogs}
-              onClose={handleCloseLogs}
-              title={logTitle}
-              status={getLogStatus()}
-            />
+            <>
+              {logSummary.length > 0 ? (
+                // Two-panel layout: summaries on left, selected logs on right
+                <div className="mt-4 flex gap-4">
+                  <div className="flex-1">
+                    <LogSummaryCard logsummary={logSummary} setLogsummaryLogs={setLogSummaryLogs} />
+                  </div>
+                  <div className="flex-1">
+                    {logSummaryLogs.length > 0 && (
+                      <LogCard
+                        logs={logSummaryLogs}
+                        isLoading={false}
+                        hasMore={false}
+                        onClose={() => setLogSummaryLogs([])}
+                        title="Task Logs"
+                        status={getLogStatus()}
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Single panel: regular logs
+                <LogCard
+                  logs={logs}
+                  isLoading={logsLoading}
+                  hasMore={hasMoreLogs}
+                  onFetchMore={handleFetchMoreLogs}
+                  onClose={handleCloseLogs}
+                  title={logTitle}
+                  status={getLogStatus()}
+                />
+              )}
+            </>
           )}
         </>
       ) : (
@@ -224,16 +286,9 @@ interface PipelineCardProps {
   scaleToRuntime: boolean;
   onScaleChange: (checked: boolean) => void;
   onSelectRun: (run: DashboardRun) => void;
-  selectedRunId?: string;
 }
 
-function PipelineCard({
-  pipeline,
-  scaleToRuntime,
-  onScaleChange,
-  onSelectRun,
-  selectedRunId,
-}: PipelineCardProps) {
+function PipelineCard({ pipeline, scaleToRuntime, onScaleChange, onSelectRun }: PipelineCardProps) {
   const runs = pipeline.runs || [];
   const runCount = runs.length;
   const successfulRuns = runs.filter(

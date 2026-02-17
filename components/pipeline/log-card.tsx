@@ -41,22 +41,22 @@ export function LogCard({
     onFetchMore?.();
   }, [onFetchMore]);
 
-  // Status-based colors
+  // Status-based colors - header colored, body grey with matching hover
   const statusStyles = {
     success: {
-      container: 'bg-green-50 border-green-200',
-      header: 'bg-green-100 border-green-200',
-      hover: 'hover:bg-green-100',
+      header: 'bg-[#00897B] border-[#00897B]',
+      headerText: 'text-white',
+      hover: 'hover:bg-[#00897B]/20',
     },
     failed: {
-      container: 'bg-red-50 border-red-200',
-      header: 'bg-red-100 border-red-200',
-      hover: 'hover:bg-red-100',
+      header: 'bg-[#C15E5E] border-[#C15E5E]',
+      headerText: 'text-white',
+      hover: 'hover:bg-[#C15E5E]/20',
     },
     dbt_test_failed: {
-      container: 'bg-amber-50 border-amber-200',
-      header: 'bg-amber-100 border-amber-200',
-      hover: 'hover:bg-amber-100',
+      header: 'bg-[#df8e14] border-[#df8e14]',
+      headerText: 'text-white',
+      hover: 'hover:bg-[#df8e14]/20',
     },
   };
 
@@ -66,50 +66,46 @@ export function LogCard({
     <div
       className={cn(
         'mt-4 border rounded-lg shadow-sm overflow-hidden',
-        styles?.container || 'bg-gray-100 border-gray-200'
+        'bg-gray-50 border-gray-200'
       )}
     >
-      {/* Header */}
+      {/* Header - colored based on status */}
       <div
         className={cn(
           'flex items-center justify-between px-4 py-3 border-b',
           styles?.header || 'bg-gray-200 border-gray-300'
         )}
       >
-        <span className="text-sm font-medium text-gray-700">{title}</span>
+        <span className={cn('text-sm font-medium', styles?.headerText || 'text-gray-700')}>
+          {title}
+        </span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setExpanded(!expanded)}
-            className={cn(
-              'p-1 rounded transition-colors',
-              styles ? 'hover:bg-white/50' : 'hover:bg-gray-300'
-            )}
+            className="p-1 rounded transition-colors hover:bg-white/30"
             aria-label={expanded ? 'Collapse logs' : 'Expand logs'}
           >
             {expanded ? (
-              <ChevronUp className="h-4 w-4 text-gray-500" />
+              <ChevronUp className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
             ) : (
-              <ChevronDown className="h-4 w-4 text-gray-500" />
+              <ChevronDown className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
             )}
           </button>
           {onClose && (
             <button
               onClick={onClose}
-              className={cn(
-                'p-1 rounded transition-colors',
-                styles ? 'hover:bg-white/50' : 'hover:bg-gray-300'
-              )}
+              className="p-1 rounded transition-colors hover:bg-white/30"
               aria-label="Close logs"
             >
-              <X className="h-4 w-4 text-gray-500" />
+              <X className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content - grey body with colored hover */}
       {expanded && (
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-80 overflow-y-auto bg-gray-50">
           {isLoading && logs.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -118,12 +114,12 @@ export function LogCard({
           ) : logs.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-500">No logs available</div>
           ) : (
-            <div className="px-4 py-3 font-mono text-sm text-gray-700 space-y-1">
+            <div className="px-4 py-3 font-mono text-sm text-gray-600 space-y-1">
               {logs.map((log, idx) => (
                 <div
                   key={idx}
                   className={cn(
-                    'py-0.5 transition-colors',
+                    'py-0.5 px-1 -mx-1 rounded transition-colors',
                     'break-words whitespace-pre-wrap',
                     styles?.hover || 'hover:bg-gray-200'
                   )}

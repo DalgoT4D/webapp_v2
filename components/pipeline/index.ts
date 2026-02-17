@@ -2,3 +2,8 @@ export { PipelineList } from './pipeline-list';
 export { PipelineForm } from './pipeline-form';
 export { PipelineRunHistory } from './pipeline-run-history';
 export { TaskSequence } from './task-sequence';
+export { PipelineOverview } from './pipeline-overview';
+export { PipelineBarChart } from './pipeline-bar-chart';
+export { LogCard } from './log-card';
+export { LogSummaryCard } from './log-summary-card';
+export { LogSummaryBlock } from './log-summary-block';

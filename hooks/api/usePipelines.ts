@@ -203,13 +203,21 @@ export async function fetchFlowRunLogs(
 }
 
 /**
- * Trigger log summary generation
+ * Trigger log summary generation (for pipeline run history modal)
  */
 export async function triggerLogSummary(
   flowRunId: string,
   taskId: string
 ): Promise<{ task_id: string }> {
   return apiGet(`/api/prefect/v1/flow_runs/${flowRunId}/logsummary?task_id=${taskId}`);
+}
+
+/**
+ * Fetch log summaries for a flow run (for pipeline overview page)
+ * Returns pre-computed summaries if available
+ */
+export async function fetchFlowRunLogSummary(flowRunId: string): Promise<any[]> {
+  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logsummary`);
 }
 
 /**
