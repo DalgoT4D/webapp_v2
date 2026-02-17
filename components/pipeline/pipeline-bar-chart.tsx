@@ -146,7 +146,9 @@ export function PipelineBarChart({
       const run = chartData[params.dataIndex];
       if (!run) return;
 
-      showTooltip(run);
+      // Calculate bar position for tooltip placement
+      const barX = run.index * (BAR_WIDTH + BAR_GAP) + BAR_WIDTH / 2;
+      showTooltip(run, barX);
     });
 
     chartInstance.current.on('mouseout', () => {
@@ -165,7 +167,7 @@ export function PipelineBarChart({
 
   // Custom tooltip functions
   const showTooltip = useCallback(
-    (run: DashboardRun & { formattedTime: string; formattedDuration: string }) => {
+    (run: DashboardRun & { formattedTime: string; formattedDuration: string }, barX: number) => {
       if (!chartRef.current) return;
 
       // Create tooltip if it doesn't exist
@@ -176,12 +178,13 @@ export function PipelineBarChart({
         background: white;
         border: 1px solid black;
         border-radius: 10px;
-        padding: 8px 12px;
+        padding: 12px 16px;
         font-family: Arial, sans-serif;
-        font-size: 12px;
+        font-size: 14px;
         z-index: 9999;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         pointer-events: auto;
+        transform: translateX(-50%);
       `;
         document.body.appendChild(tooltipRef.current);
 
@@ -199,7 +202,7 @@ export function PipelineBarChart({
           ? 'DBT tests failed'
           : run.status === 'COMPLETED'
             ? 'Completed'
-            : 'Failed';
+            : 'FAILED';
 
       const statusColor =
         run.state_name === 'DBT_TEST_FAILED'
@@ -209,23 +212,49 @@ export function PipelineBarChart({
             : '#C15E5E';
 
       tooltipRef.current.innerHTML = `
-      <div style="line-height: 1.6;">
+      <div style="line-height: 1.8;">
         <div><strong>Start time:</strong> ${run.formattedTime}</div>
         <div><strong>Run time:</strong> ${run.formattedDuration}</div>
         <div><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span></div>
-        <div style="color: #0066cc; margin-top: 6px; font-size: 11px;">Click bar to view logs</div>
+        <button
+          style="
+            margin-top: 8px;
+            background: #5C7080;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+          "
+          onmouseover="this.style.background='#4a5d69'"
+          onmouseout="this.style.background='#5C7080'"
+        >Check logs</button>
       </div>
     `;
 
-      // Position tooltip to the right of the chart
+      // Add click handler to the button
+      const button = tooltipRef.current.querySelector('button');
+      if (button) {
+        button.onclick = () => {
+          onSelectRun(run);
+        };
+      }
+
+      // Position tooltip above the bar, centered on the bar
       const chartRect = chartRef.current.getBoundingClientRect();
-      tooltipRef.current.style.left = `${chartRect.right + 10}px`;
-      tooltipRef.current.style.top = `${chartRect.top}px`;
+      const tooltipX = chartRect.left + barX;
+      const tooltipY = chartRect.top - 10; // 10px gap above the chart
+
+      tooltipRef.current.style.left = `${tooltipX}px`;
+      tooltipRef.current.style.top = `${tooltipY}px`;
+      tooltipRef.current.style.transform = 'translate(-50%, -100%)';
       tooltipRef.current.style.visibility = 'visible';
 
       clearHideTimeout();
     },
-    []
+    [onSelectRun]
   );
 
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
