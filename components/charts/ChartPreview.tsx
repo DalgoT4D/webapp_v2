@@ -11,6 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -279,6 +280,33 @@ export function ChartPreview({
           yAxisValue: modifiedConfig.yAxis,
           gridValue: modifiedConfig.grid,
         });
+      }
+
+      // Apply number formatting for number charts
+      if (isNumberChart && modifiedConfig.series) {
+        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+        const decimalPlaces = customizations.decimalPlaces;
+        const seriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : [modifiedConfig.series];
+
+        modifiedConfig.series = seriesArray.map((series: any) => ({
+          ...series,
+          detail: {
+            ...series.detail,
+            formatter: (value: number) => {
+              // Pass both format and decimalPlaces to the formatter
+              const formatted = formatNumber(value, {
+                format: numberFormat,
+                decimalPlaces: decimalPlaces,
+              });
+              // Apply prefix and suffix from customizations
+              const prefix = customizations.numberPrefix || '';
+              const suffix = customizations.numberSuffix || '';
+              return `${prefix}${formatted}${suffix}`;
+            },
+          },
+        }));
       }
 
       // Set chart option
