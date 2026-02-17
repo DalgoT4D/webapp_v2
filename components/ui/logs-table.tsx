@@ -107,7 +107,7 @@ export function LogsTable({
       </div>
 
       {/* Body - Each run is a separate card with gap */}
-      <div className="space-y-3 mt-3">
+      <div className="space-y-2 mt-2">
         {runs.map((run) => (
           <FlowRunRow
             key={run.id}
@@ -160,8 +160,8 @@ function FlowRunRow({ run, onFetchLogs, onTriggerSummary, enableAISummary }: Flo
   return (
     <div
       className={cn(
-        'grid grid-cols-12 rounded-xl overflow-hidden shadow-sm',
-        isFailed ? 'bg-red-50/70 border border-red-100' : 'bg-white border border-gray-100'
+        'grid grid-cols-12 rounded-lg overflow-hidden',
+        isFailed ? 'bg-red-50/70 border border-red-200/60' : 'bg-white border border-gray-200/70'
       )}
     >
       {/* Date Cell - Fixed width, vertically centered */}

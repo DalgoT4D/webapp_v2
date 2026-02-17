@@ -220,9 +220,9 @@ function LogsTableSkeleton() {
       <div className="h-10 bg-teal-700 rounded-t-xl" />
 
       {/* Row skeletons with gaps */}
-      <div className="space-y-3 mt-3">
+      <div className="space-y-2 mt-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="border border-gray-100 rounded-xl shadow-sm p-4">
+          <div key={i} className="border border-gray-200/70 rounded-lg p-4">
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-2">
                 <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
