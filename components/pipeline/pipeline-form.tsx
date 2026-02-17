@@ -71,6 +71,9 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
 
   const scheduleSelected = watch('cron');
 
+  // Stabilize tasks reference to prevent infinite loops in useEffect
+  const tasksKey = useMemo(() => tasks.map((t) => t.uuid).join(','), [tasks]);
+
   // Connection options for combobox
   const connectionItems: ComboboxItem[] = useMemo(() => {
     return connections.map((conn) => ({
@@ -159,7 +162,8 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
       })),
       cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
     });
-  }, [isEditMode, pipeline, tasks, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, pipeline, tasksKey]);
 
   const handleAlignmentChange = (newAlignment: string) => {
     if (!newAlignment) return;

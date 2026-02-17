@@ -141,7 +141,7 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
       />
 
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={handleReset}>
+        <Button type="button" variant="outline" size="sm" onClick={handleReset}>
           Reset to default
         </Button>
       </div>
@@ -206,7 +206,7 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
       </div>
 
       {/* Task name */}
-      <div className="flex-1 h-8 px-3 bg-muted flex items-center text-sm">
+      <div className="flex-1 h-8 px-3 bg-muted flex items-center text-[15px] text-gray-800">
         {task.command || task.slug.replace(/-/g, ' ')}
       </div>
 
@@ -216,7 +216,13 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
       </div>
 
       {/* Remove button */}
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRemove(task.uuid)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => onRemove(task.uuid)}
+      >
         <X className="h-4 w-4" />
         <span className="sr-only">Remove task</span>
       </Button>
