@@ -4,8 +4,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
-  Workflow,
-  Clock,
   CheckCircle2,
   XCircle,
   Lock,
@@ -16,7 +14,9 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
+  Clock,
 } from 'lucide-react';
+import FlowIcon from '@/assets/icons/flow';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -313,20 +313,17 @@ function PipelineRow({
       {/* Pipeline Name */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
-          <div className={cn('p-2 rounded-lg', status ? 'bg-primary/10' : 'bg-gray-100')}>
-            <Workflow className={cn('h-4 w-4', status ? 'text-primary' : 'text-gray-400')} />
-          </div>
+          <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
           <span className="font-medium text-[15px] text-gray-900">{name}</span>
         </div>
       </TableCell>
 
       {/* Schedule */}
       <TableCell className="py-4">
-        <div className="flex items-center gap-1.5 text-[15px] text-gray-700">
-          <Clock className="h-4 w-4 text-gray-400" />
+        <div className="text-[15px] text-gray-700">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-xs text-gray-400 ml-5">{localTimezone()}</span>}
+        {cron && <span className="text-xs text-gray-400">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
@@ -334,7 +331,7 @@ function PipelineRow({
         <Badge
           variant={status ? 'default' : 'secondary'}
           className={cn(
-            'text-[13px]',
+            'text-[13px] min-w-[70px] justify-center',
             status
               ? 'bg-green-100 text-green-700 hover:bg-green-100'
               : 'bg-gray-100 text-gray-500 hover:bg-gray-100'
@@ -398,7 +395,10 @@ function PipelineRow({
             size="sm"
             onClick={handleRunClick}
             disabled={isDisabled || !canRunPipeline}
-            className={cn('h-9 px-4 text-[14px]', isRunning && 'bg-amber-500 hover:bg-amber-600')}
+            className={cn(
+              'h-9 text-[14px] min-w-[72px]',
+              isRunning ? 'bg-primary/70 hover:bg-primary/70 cursor-not-allowed px-4' : 'px-4'
+            )}
           >
             {isRunning ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -452,9 +452,9 @@ function StatusBadge({ status }: { status: string | null }) {
 
   const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
     running: {
-      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+      icon: null,
       label: 'Running',
-      className: 'bg-blue-50 text-blue-700 border-blue-200',
+      className: 'bg-gray-50 text-gray-600 border-gray-200',
     },
     queued: {
       icon: <Clock className="h-3.5 w-3.5" />,
@@ -501,8 +501,8 @@ function StatusBadge({ status }: { status: string | null }) {
 function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-lg border">
-      <div className="p-4 bg-primary/10 rounded-full mb-4">
-        <Workflow className="h-8 w-8 text-primary" />
+      <div className="mb-4">
+        <FlowIcon className="h-16 w-16 rounded-lg" />
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">No pipelines yet</h3>
       <p className="text-[15px] text-gray-500 text-center max-w-sm mb-6">

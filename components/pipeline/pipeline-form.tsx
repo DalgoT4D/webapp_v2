@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
@@ -21,7 +21,14 @@ import {
   updatePipeline,
   setScheduleStatus,
 } from '@/hooks/api/usePipelines';
-import { TransformTask, PipelineFormData, ConnectionOption, WeekdayOption } from '@/types/pipeline';
+import {
+  TransformTask,
+  PipelineFormData,
+  ConnectionOption,
+  WeekdayOption,
+  PipelineDetailResponse,
+  Connection,
+} from '@/types/pipeline';
 import { TaskSequence } from './task-sequence';
 import {
   convertToCronExpression,
@@ -37,42 +44,154 @@ interface PipelineFormProps {
   deploymentId?: string;
 }
 
+// Wrapper component that handles data fetching
 export function PipelineForm({ deploymentId }: PipelineFormProps) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const isEditMode = !!deploymentId;
-
   const { pipeline, isLoading: pipelineLoading } = usePipeline(deploymentId || null);
   const { tasks, isLoading: tasksLoading } = useTransformTasks();
   const { connections, isLoading: connectionsLoading } = useConnections();
 
-  const [alignment, setAlignment] = useState<'simple' | 'advanced'>('simple');
+  const isLoading = pipelineLoading || tasksLoading || connectionsLoading;
+
+  if (isLoading) {
+    return <FormSkeleton />;
+  }
+
+  // Only render the form content once all data is loaded
+  // This ensures defaultValues are set correctly from the start
+  return (
+    <PipelineFormContent
+      deploymentId={deploymentId}
+      pipeline={pipeline}
+      tasks={tasks}
+      connections={connections}
+    />
+  );
+}
+
+interface PipelineFormContentProps {
+  deploymentId?: string;
+  pipeline: PipelineDetailResponse | undefined;
+  tasks: TransformTask[];
+  connections: Connection[];
+}
+
+// Compute initial form values from pipeline data
+function computeInitialValues(
+  pipeline: PipelineDetailResponse | undefined,
+  tasks: TransformTask[]
+): { formValues: PipelineFormData; initialAlignment: 'simple' | 'advanced' } {
+  if (!pipeline) {
+    // Create mode - use defaults
+    return {
+      formValues: {
+        active: true,
+        name: '',
+        connections: [],
+        cron: null,
+        tasks: [],
+        cronDaysOfWeek: [],
+        cronTimeOfDay: '',
+      },
+      initialAlignment: 'simple',
+    };
+  }
+
+  // Edit mode - compute values from pipeline
+  let tasksToApply: TransformTask[] = [];
+  let alignment: 'simple' | 'advanced' = 'simple';
+
+  if (tasks.length > 0) {
+    if (pipeline.transformTasks.length === 0) {
+      tasksToApply = [];
+    } else {
+      tasksToApply = tasks.filter(validateDefaultTasksToApplyInPipeline);
+
+      const ifTasksAligned =
+        tasksToApply.length > 0 &&
+        tasksToApply.length === pipeline.transformTasks.length &&
+        pipeline.transformTasks.every(
+          (task, index) => tasksToApply[index] && task.uuid === tasksToApply[index].uuid
+        );
+
+      if (!ifTasksAligned) {
+        const uuidOrder = pipeline.transformTasks.reduce((acc: Record<string, number>, obj) => {
+          acc[obj.uuid] = obj.seq;
+          return acc;
+        }, {});
+
+        tasksToApply = tasks
+          .filter((t) => uuidOrder.hasOwnProperty(t.uuid))
+          .sort((a, b) => uuidOrder[a.uuid] - uuidOrder[b.uuid]);
+
+        alignment = 'advanced';
+      }
+    }
+  }
+
+  const cronObject = convertCronToSchedule(pipeline.cron);
+
+  return {
+    formValues: {
+      cron:
+        cronObject.schedule !== 'manual'
+          ? { id: cronObject.schedule, label: cronObject.schedule }
+          : { id: 'manual', label: 'Manual' },
+      connections: pipeline.connections
+        .sort((c1, c2) => c1.seq - c2.seq)
+        .map((conn) => ({
+          id: conn.id,
+          label: conn.name,
+        })),
+      active: pipeline.isScheduleActive,
+      name: pipeline.name,
+      tasks: tasksToApply,
+      cronDaysOfWeek: cronObject.daysOfWeek.map((day) => ({
+        id: day,
+        label: WEEKDAYS[day],
+      })),
+      cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
+    },
+    initialAlignment: alignment,
+  };
+}
+
+function PipelineFormContent({
+  deploymentId,
+  pipeline,
+  tasks,
+  connections,
+}: PipelineFormContentProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const isEditMode = !!deploymentId;
+
+  // Compute initial values once when component mounts
+  const { formValues: initialValues, initialAlignment } = useMemo(
+    () => computeInitialValues(pipeline, tasks),
+    // Only compute once on mount - pipeline and tasks won't change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const [alignment, setAlignment] = useState<'simple' | 'advanced'>(initialAlignment);
   const [submitting, setSubmitting] = useState(false);
+
+  // Store the original active value to compare against for dirty checking
+  const originalActiveValue = useMemo(() => pipeline?.isScheduleActive ?? true, []);
 
   const {
     register,
     handleSubmit,
     control,
-    reset,
     watch,
     setValue,
-    formState: { errors, dirtyFields },
+    formState: { errors },
   } = useForm<PipelineFormData>({
-    defaultValues: {
-      active: true,
-      name: '',
-      connections: [],
-      cron: null,
-      tasks: [],
-      cronDaysOfWeek: [],
-      cronTimeOfDay: '',
-    },
+    defaultValues: initialValues,
   });
 
   const scheduleSelected = watch('cron');
-
-  // Stabilize tasks reference to prevent infinite loops in useEffect
-  const tasksKey = useMemo(() => tasks.map((t) => t.uuid).join(','), [tasks]);
+  const currentActiveValue = watch('active');
 
   // Connection options for combobox
   const connectionItems: ComboboxItem[] = useMemo(() => {
@@ -97,73 +216,6 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
       label: opt.label.charAt(0).toUpperCase() + opt.label.slice(1),
     }));
   }, []);
-
-  // Load existing pipeline data
-  useEffect(() => {
-    if (!isEditMode || !pipeline) return;
-
-    // Compute tasksToApply based on available tasks and pipeline state
-    let tasksToApply: TransformTask[] = [];
-
-    if (tasks.length > 0) {
-      // Handle dbt_cloud case - no system tasks
-      if (pipeline.transformTasks.length === 0) {
-        tasksToApply = [];
-      } else {
-        tasksToApply = tasks.filter(validateDefaultTasksToApplyInPipeline);
-
-        // Check if tasks are aligned with defaults
-        const ifTasksAligned =
-          tasksToApply.length > 0 &&
-          tasksToApply.length === pipeline.transformTasks.length &&
-          pipeline.transformTasks.every(
-            (task, index) => tasksToApply[index] && task.uuid === tasksToApply[index].uuid
-          );
-
-        if (!ifTasksAligned) {
-          // Build task order map from existing pipeline
-          const uuidOrder = pipeline.transformTasks.reduce((acc: Record<string, number>, obj) => {
-            acc[obj.uuid] = obj.seq;
-            return acc;
-          }, {});
-
-          // Filter and sort tasks based on pipeline order
-          tasksToApply = tasks
-            .filter((t) => uuidOrder.hasOwnProperty(t.uuid))
-            .sort((a, b) => uuidOrder[a.uuid] - uuidOrder[b.uuid]);
-
-          setAlignment('advanced');
-        }
-      }
-    } else if (pipeline.transformTasks.length === 0) {
-      // dbt_cloud case with no tasks available
-      tasksToApply = [];
-    }
-
-    const cronObject = convertCronToSchedule(pipeline.cron);
-
-    reset({
-      cron:
-        cronObject.schedule !== 'manual'
-          ? { id: cronObject.schedule, label: cronObject.schedule }
-          : { id: 'manual', label: 'Manual' },
-      connections: pipeline.connections
-        .sort((c1, c2) => c1.seq - c2.seq)
-        .map((conn) => ({
-          id: conn.id,
-          label: conn.name,
-        })),
-      active: pipeline.isScheduleActive,
-      name: pipeline.name,
-      tasks: tasksToApply,
-      cronDaysOfWeek: cronObject.daysOfWeek.map((day) => ({
-        id: day,
-        label: WEEKDAYS[day],
-      })),
-      cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, pipeline, tasksKey]);
 
   const handleAlignmentChange = (newAlignment: string) => {
     if (!newAlignment) return;
@@ -205,9 +257,10 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
           transformTasks,
         });
 
-        // Update schedule status if changed (separate try/catch to preserve successful update)
+        // Update schedule status if changed - compare against original value
+        const activeChanged = data.active !== originalActiveValue;
         let scheduleStatusFailed = false;
-        if (dirtyFields.active) {
+        if (activeChanged) {
           try {
             await setScheduleStatus(deploymentId, data.active);
           } catch (statusError: any) {
@@ -253,12 +306,6 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
       setSubmitting(false);
     }
   };
-
-  const isLoading = pipelineLoading || tasksLoading || connectionsLoading;
-
-  if (isLoading) {
-    return <FormSkeleton />;
-  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
