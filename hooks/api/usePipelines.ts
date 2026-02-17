@@ -7,6 +7,7 @@ import {
   DeploymentRun,
   PipelineDetailResponse,
   TaskProgressResponse,
+  DashboardPipeline,
 } from '@/types/pipeline';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
@@ -216,4 +217,29 @@ export async function triggerLogSummary(
  */
 export async function pollTaskStatus(taskId: string): Promise<TaskProgressResponse> {
   return apiGet(`/api/tasks/stp/${taskId}`);
+}
+
+/**
+ * Fetch pipeline overview data for the /pipeline page
+ * Uses smart polling: active (3s) when any pipeline is locked/running
+ */
+export function usePipelineOverview() {
+  const { data, error, mutate, isLoading } = useSWR<DashboardPipeline[]>(
+    '/api/dashboard/v1',
+    apiGet,
+    {
+      refreshInterval: (latestData) => {
+        const hasLockedPipeline = latestData?.some((p) => p.lock);
+        return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE;
+      },
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    pipelines: data || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
 }

@@ -1,5 +1,9 @@
-import PipelineOverview from '@/components/pipeline-overview';
+import { PipelineOverview } from '@/components/pipeline/pipeline-overview';
 
 export default function PipelineOverviewPage() {
-  return <PipelineOverview />;
+  return (
+    <div className="h-full overflow-y-auto p-6 md:p-12">
+      <PipelineOverview />
+    </div>
+  );
 }
