@@ -1,0 +1,59 @@
+name: Release Tag
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Normalize IMAGE_NAME to lowercase
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
+
+      - name: Get release info
+        id: release
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if ! echo "$TAG_NAME" | grep -qE '^[A-Za-z0-9._-]+$'; then
+            echo "::error::Invalid release tag format. Only alphanumeric characters, dots, hyphens, and underscores are allowed."
+            exit 1
+          fi
+          FULL_SHA=$(git rev-list -n 1 "$TAG_NAME")
+          SHORT_SHA=${FULL_SHA::7}
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag production image with release version
+        run: |
+          PROD_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.release.outputs.short_sha }}
+          docker pull $PROD_IMAGE
+          docker tag $PROD_IMAGE \
+                     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.version }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.version }}
+
+      - name: Summary
+        run: |
+          echo "## Release Tagged" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ steps.release.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-main-${{ steps.release.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tagged:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
