@@ -170,6 +170,14 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
     ? `Logs - ${format(new Date(selectedRun.startTime), 'MMM d, yyyy HH:mm')}`
     : 'Logs';
 
+  // Determine log status for coloring
+  const getLogStatus = (): 'success' | 'failed' | 'dbt_test_failed' | undefined => {
+    if (!selectedRun) return undefined;
+    if (selectedRun.state_name === 'DBT_TEST_FAILED') return 'dbt_test_failed';
+    if (selectedRun.status === 'COMPLETED') return 'success';
+    return 'failed';
+  };
+
   return (
     <div>
       {/* Pipeline name as header */}
@@ -195,6 +203,7 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
               onFetchMore={handleFetchMoreLogs}
               onClose={handleCloseLogs}
               title={logTitle}
+              status={getLogStatus()}
             />
           )}
         </>

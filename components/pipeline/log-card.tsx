@@ -18,6 +18,8 @@ interface LogCardProps {
   onClose?: () => void;
   /** Title to show in header */
   title?: string;
+  /** Run status for background coloring */
+  status?: 'success' | 'failed' | 'dbt_test_failed';
 }
 
 /**
@@ -31,6 +33,7 @@ export function LogCard({
   onFetchMore,
   onClose,
   title = 'Logs',
+  status,
 }: LogCardProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -38,15 +41,49 @@ export function LogCard({
     onFetchMore?.();
   }, [onFetchMore]);
 
+  // Status-based colors
+  const statusStyles = {
+    success: {
+      container: 'bg-green-50 border-green-200',
+      header: 'bg-green-100 border-green-200',
+      hover: 'hover:bg-green-100',
+    },
+    failed: {
+      container: 'bg-red-50 border-red-200',
+      header: 'bg-red-100 border-red-200',
+      hover: 'hover:bg-red-100',
+    },
+    dbt_test_failed: {
+      container: 'bg-amber-50 border-amber-200',
+      header: 'bg-amber-100 border-amber-200',
+      hover: 'hover:bg-amber-100',
+    },
+  };
+
+  const styles = status ? statusStyles[status] : null;
+
   return (
-    <div className="mt-4 border border-gray-200 rounded-lg bg-white shadow-sm overflow-hidden">
+    <div
+      className={cn(
+        'mt-4 border rounded-lg shadow-sm overflow-hidden',
+        styles?.container || 'bg-gray-100 border-gray-200'
+      )}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+      <div
+        className={cn(
+          'flex items-center justify-between px-4 py-3 border-b',
+          styles?.header || 'bg-gray-200 border-gray-300'
+        )}
+      >
         <span className="text-sm font-medium text-gray-700">{title}</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            className={cn(
+              'p-1 rounded transition-colors',
+              styles ? 'hover:bg-white/50' : 'hover:bg-gray-300'
+            )}
             aria-label={expanded ? 'Collapse logs' : 'Expand logs'}
           >
             {expanded ? (
@@ -58,7 +95,10 @@ export function LogCard({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              className={cn(
+                'p-1 rounded transition-colors',
+                styles ? 'hover:bg-white/50' : 'hover:bg-gray-300'
+              )}
               aria-label="Close logs"
             >
               <X className="h-4 w-4 text-gray-500" />
@@ -83,8 +123,9 @@ export function LogCard({
                 <div
                   key={idx}
                   className={cn(
-                    'py-0.5 hover:bg-gray-50 transition-colors',
-                    'break-words whitespace-pre-wrap'
+                    'py-0.5 transition-colors',
+                    'break-words whitespace-pre-wrap',
+                    styles?.hover || 'hover:bg-gray-200'
                   )}
                 >
                   <span className="text-gray-400 select-none mr-2">-</span>
@@ -100,7 +141,7 @@ export function LogCard({
                     size="sm"
                     onClick={handleFetchMore}
                     disabled={isLoading}
-                    className="text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                    className="text-xs text-teal-600 hover:text-teal-700 hover:bg-gray-200"
                   >
                     {isLoading ? (
                       <>
