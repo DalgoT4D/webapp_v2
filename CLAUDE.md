@@ -199,3 +199,4 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 - **Client-side only APIs**: Some browser APIs need `typeof window !== 'undefined'` checks
 - **Organization context**: Remember that API calls need organization selection for multi-tenancy
 - **Token refresh**: API calls may be delayed due to automatic token refresh attempts
+- **SWR stale cache on navigation**: SWR returns cached data immediately when navigating between pages. This causes stale state issues in edit forms where `useMemo` or `defaultValues` capture old values. Fix by: (1) invalidating cache with `useSWRConfig().mutate(key, undefined, { revalidate: false })` after mutations, and (2) adding a `key` prop to form components that includes critical fields to force remount when data changes.

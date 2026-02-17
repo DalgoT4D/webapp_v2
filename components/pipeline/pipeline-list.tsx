@@ -435,7 +435,7 @@ function StatusBadge({ status }: { status: string | null }) {
     running: {
       icon: null,
       label: 'Running',
-      className: 'bg-gray-50 text-gray-600 border-gray-200',
+      className: 'bg-transparent text-green-600 border-green-300',
     },
     queued: {
       icon: <Clock className="h-3.5 w-3.5" />,

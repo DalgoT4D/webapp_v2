@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -58,8 +59,10 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
 
   // Only render the form content once all data is loaded
   // This ensures defaultValues are set correctly from the start
+  // Key includes isScheduleActive to force remount when active status changes after SWR revalidation
   return (
     <PipelineFormContent
+      key={`${deploymentId}-${pipeline?.isScheduleActive}`}
       deploymentId={deploymentId}
       pipeline={pipeline}
       tasks={tasks}
@@ -162,6 +165,7 @@ function PipelineFormContent({
   connections,
 }: PipelineFormContentProps) {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const isEditMode = !!deploymentId;
 
   // Compute initial values once when component mounts
@@ -270,6 +274,11 @@ function PipelineFormContent({
             );
           }
         }
+
+        // Invalidate the pipeline detail cache so next edit shows fresh data
+        mutate(`/api/prefect/v1/flows/${deploymentId}`, undefined, { revalidate: false });
+        // Also invalidate the list cache for consistency
+        mutate('/api/prefect/v1/flows/', undefined, { revalidate: false });
 
         if (!scheduleStatusFailed) {
           toastSuccess.updated('Pipeline');
