@@ -408,6 +408,34 @@ describe('ChartPreview', () => {
     });
   });
 
+  describe('Number Chart Formatting', () => {
+    const gaugeConfig = { series: [{ type: 'gauge', data: [{ value: 1000000 }] }] };
+
+    it.each([
+      ['indian format', { numberFormat: 'indian' }, 1000000, '10,00,000'],
+      ['international format', { numberFormat: 'international' }, 1000000, '1,000,000'],
+      [
+        'with prefix/suffix',
+        { numberFormat: 'international', numberPrefix: '$', numberSuffix: 'K' },
+        1000,
+        '$1,000K',
+      ],
+      ['with decimal places', { numberFormat: 'default', decimalPlaces: 2 }, 1234.567, '1234.57'],
+    ])('should apply %s', (_, customizations, inputValue, expected) => {
+      render(
+        <ChartPreview config={gaugeConfig} chartType="number" customizations={customizations} />
+      );
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
+      expect(formatter(inputValue)).toBe(expected);
+    });
+
+    it('should use default format when not specified', () => {
+      render(<ChartPreview config={gaugeConfig} chartType="number" />);
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
+      expect(formatter(1234567)).toBe('1234567');
+    });
+  });
+
   describe('Console Logging', () => {
     beforeEach(() => {
       jest.spyOn(console, 'log').mockImplementation();
