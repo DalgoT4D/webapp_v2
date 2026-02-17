@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import { toastError } from '@/lib/toast';
 import {
   usePipelineHistory,
   fetchFlowRunLogs,
@@ -49,7 +49,6 @@ interface PipelineRunHistoryProps {
 }
 
 export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRunHistoryProps) {
-  const { toast } = useToast();
   const [offset, setOffset] = useState(0);
   const [allRuns, setAllRuns] = useState<DeploymentRun[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -96,15 +95,11 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
       }
     } catch (error: any) {
       console.error('Failed to load more runs:', error);
-      toast({
-        title: 'Failed to load more runs',
-        description: error?.message || String(error),
-        variant: 'destructive',
-      });
+      toastError.load(error, 'runs');
     } finally {
       setLoadingMore(false);
     }
-  }, [pipeline.deploymentId, offset, toast]);
+  }, [pipeline.deploymentId, offset]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -304,7 +299,6 @@ function RunCard({ run }: { run: DeploymentRun }) {
 }
 
 function TaskRunItem({ taskRun, flowRunId }: { taskRun: TaskRun; flowRunId: string }) {
-  const { toast } = useToast();
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [logsLoaded, setLogsLoaded] = useState(false);
@@ -350,40 +344,29 @@ function TaskRunItem({ taskRun, flowRunId }: { taskRun: TaskRun; flowRunId: stri
         setLogsOffset(newOffset);
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to fetch logs',
-        variant: 'destructive',
-      });
+      toastError.load(error, 'logs');
     } finally {
       setLogsLoaded(true);
     }
-  }, [flowRunId, taskRun.id, taskRun.kind, logsOffset, toast]);
+  }, [flowRunId, taskRun.id, taskRun.kind, logsOffset]);
 
-  const pollForSummary = useCallback(
-    async (taskId: string) => {
-      try {
-        const response = await pollTaskStatus(taskId);
-        const lastMessage = response.progress[response.progress.length - 1];
+  const pollForSummary = useCallback(async (taskId: string) => {
+    try {
+      const response = await pollTaskStatus(taskId);
+      const lastMessage = response.progress[response.progress.length - 1];
 
-        if (!['completed', 'failed'].includes(lastMessage.status)) {
-          await delay(3000);
-          await pollForSummary(taskId);
-        } else if (lastMessage.result) {
-          setSummarizedLogs(lastMessage.result);
-        }
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to get summary',
-          variant: 'destructive',
-        });
-      } finally {
-        setSummarizing(false);
+      if (!['completed', 'failed'].includes(lastMessage.status)) {
+        await delay(3000);
+        await pollForSummary(taskId);
+      } else if (lastMessage.result) {
+        setSummarizedLogs(lastMessage.result);
       }
-    },
-    [toast]
-  );
+    } catch (error: any) {
+      toastError.api(error, 'Failed to get summary');
+    } finally {
+      setSummarizing(false);
+    }
+  }, []);
 
   const handleSummarize = useCallback(async () => {
     setSummarizing(true);
@@ -395,13 +378,9 @@ function TaskRunItem({ taskRun, flowRunId }: { taskRun: TaskRun; flowRunId: stri
       await pollForSummary(response.task_id);
     } catch (error: any) {
       setSummarizing(false);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to start summary',
-        variant: 'destructive',
-      });
+      toastError.api(error, 'Failed to start summary');
     }
-  }, [flowRunId, taskRun.id, pollForSummary, toast]);
+  }, [flowRunId, taskRun.id, pollForSummary]);
 
   const handleToggleLogs = () => {
     if (!showLogs && logs.length === 0) {

@@ -35,7 +35,7 @@ import {
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import { Pipeline } from '@/types/pipeline';
@@ -52,7 +52,6 @@ import { cn } from '@/lib/utils';
 
 export function PipelineList() {
   const router = useRouter();
-  const { toast } = useToast();
   const { hasPermission } = useUserPermissions();
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
@@ -82,24 +81,17 @@ export function PipelineList() {
         });
 
         await triggerPipelineRun(deploymentId);
-        toast({
-          title: 'Pipeline started',
-          description: 'Flow run initiated successfully',
-        });
+        toastSuccess.generic('Pipeline started successfully');
         mutate();
         return {};
       } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to run pipeline',
-          variant: 'destructive',
-        });
+        toastError.api(error, 'Failed to run pipeline');
         return { error: 'ERROR' };
       } finally {
         setRunningDeploymentIds((prev) => prev.filter((id) => id !== deploymentId));
       }
     },
-    [mutate, toast]
+    [mutate]
   );
 
   const handleEdit = useCallback(
@@ -124,28 +116,17 @@ export function PipelineList() {
         try {
           const result = await deletePipeline(deploymentId);
           if (result?.success) {
-            toast({
-              title: 'Pipeline deleted',
-              description: 'Pipeline deleted successfully',
-            });
+            toastSuccess.deleted('Pipeline');
             mutate();
           } else {
-            toast({
-              title: 'Error',
-              description: 'Something went wrong',
-              variant: 'destructive',
-            });
+            toastError.api(null, 'Something went wrong');
           }
         } catch (error: any) {
-          toast({
-            title: 'Error',
-            description: error.message || 'Failed to delete pipeline',
-            variant: 'destructive',
-          });
+          toastError.delete(error);
         }
       }
     },
-    [confirm, mutate, toast]
+    [confirm, mutate]
   );
 
   const handleCreate = useCallback(() => {

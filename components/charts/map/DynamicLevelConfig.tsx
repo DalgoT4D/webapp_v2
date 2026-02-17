@@ -22,7 +22,7 @@ import {
 } from '@/hooks/api/useChart';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import type { ChartBuilderFormData } from '@/types/charts';
-import { useToast } from '@/hooks/use-toast';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { API_BASE_URL } from '@/lib/config';
 import { downloadRegionNames } from '@/lib/csvUtils';
 
@@ -37,7 +37,6 @@ export function DynamicLevelConfig({
   onChange,
   disabled = false,
 }: DynamicLevelConfigProps) {
-  const { toast } = useToast();
   const [downloadingStates, setDownloadingStates] = useState(false);
   const [downloadingDistricts, setDownloadingDistricts] = useState(false);
 
@@ -75,19 +74,12 @@ export function DynamicLevelConfig({
 
       await downloadRegionNames(API_BASE_URL, countryCode, regionType, {
         onSuccess: (message) => {
-          toast({
-            title: 'Download complete',
-            description: message,
-          });
+          toastSuccess.generic(message);
         },
       });
     } catch (error) {
       console.error(`Error downloading ${regionType}s:`, error);
-      toast({
-        title: 'Download failed',
-        description: `Failed to download ${regionType} names. Please try again.`,
-        variant: 'destructive',
-      });
+      toastError.api(error, `Failed to download ${regionType} names. Please try again.`);
     } finally {
       setLoading(false);
     }

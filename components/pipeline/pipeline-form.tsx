@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Combobox, ComboboxItem } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import { toastSuccess, toastError } from '@/lib/toast';
 import {
   usePipeline,
   useTransformTasks,
@@ -162,7 +162,6 @@ function PipelineFormContent({
   connections,
 }: PipelineFormContentProps) {
   const router = useRouter();
-  const { toast } = useToast();
   const isEditMode = !!deploymentId;
 
   // Compute initial values once when component mounts
@@ -265,43 +264,30 @@ function PipelineFormContent({
             await setScheduleStatus(deploymentId, data.active);
           } catch (statusError: any) {
             scheduleStatusFailed = true;
-            toast({
-              title: 'Warning',
-              description:
-                statusError.message ||
-                'Pipeline updated, but failed to update schedule status. Please try toggling the status again.',
-              variant: 'destructive',
-            });
+            toastError.api(
+              statusError,
+              'Pipeline updated, but failed to update schedule status. Please try toggling the status again.'
+            );
           }
         }
 
         if (!scheduleStatusFailed) {
-          toast({
-            title: 'Pipeline updated',
-            description: `Pipeline ${data.name} updated successfully`,
-          });
+          toastSuccess.updated('Pipeline');
         }
       } else {
-        const response = await createPipeline({
+        await createPipeline({
           name: data.name,
           connections: selectedConns,
           cron: cronExpression,
           transformTasks,
         });
 
-        toast({
-          title: 'Pipeline created',
-          description: `Pipeline ${response.name} created successfully`,
-        });
+        toastSuccess.created('Pipeline');
       }
 
       router.push('/orchestrate');
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save pipeline',
-        variant: 'destructive',
-      });
+      toastError.save(error, 'pipeline');
     } finally {
       setSubmitting(false);
     }
