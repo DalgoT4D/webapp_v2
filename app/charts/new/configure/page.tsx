@@ -358,7 +358,7 @@ function ConfigureChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        customizations: formData.customizations,
+        // customizations: formData.customizations, // Commented: formatting happens on frontend, not via API
         extra_config: {
           filters: [
             ...(formData.filters || []),

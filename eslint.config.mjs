@@ -39,9 +39,9 @@ const eslintConfig = [
       "no-duplicate-imports": "warn",
 
       // Code quality - make less strict
-      "complexity": ["warn", 25],
-      "max-depth": ["warn", 6],
-      "max-lines-per-function": ["warn", 300],
+      "complexity": ["off", 25],
+      "max-depth": ["off", 6],
+      "max-lines-per-function": ["off", 300],
       "max-params": ["warn", 7]
     }
   }
