@@ -1,9 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Popover, PopoverContent, PopoverAnchor, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Search, ChevronDown, X } from 'lucide-react';
@@ -81,6 +80,120 @@ export function highlightText(text: string, query: string) {
   }
 }
 
+// ─── Shared Keyboard Navigation Hook ─────────────────────────
+
+interface UseKeyboardNavOptions {
+  items: ComboboxItem[];
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onSelect: (value: string) => void;
+  onEscape?: () => void;
+  skipDisabled?: boolean;
+}
+
+function useKeyboardNavigation({
+  items,
+  open,
+  setOpen,
+  onSelect,
+  onEscape,
+  skipDisabled = false,
+}: UseKeyboardNavOptions) {
+  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  // Reset highlight when items change
+  React.useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [items.length]);
+
+  // Scroll highlighted item into view
+  React.useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const els = listRef.current.querySelectorAll('[data-combobox-item]');
+      els[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex]);
+
+  const findNextIndex = React.useCallback(
+    (currentIndex: number, direction: 'up' | 'down'): number => {
+      const step = direction === 'down' ? 1 : -1;
+      let nextIndex = currentIndex + step;
+
+      if (!skipDisabled) {
+        // Simple wrap-around
+        if (nextIndex < 0) return items.length - 1;
+        if (nextIndex >= items.length) return 0;
+        return nextIndex;
+      }
+
+      // Skip disabled items
+      let attempts = 0;
+      while (attempts < items.length) {
+        if (nextIndex < 0) nextIndex = items.length - 1;
+        if (nextIndex >= items.length) nextIndex = 0;
+        if (!items[nextIndex]?.disabled) return nextIndex;
+        nextIndex += step;
+        attempts++;
+      }
+      return -1;
+    },
+    [items, skipDisabled]
+  );
+
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!open) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          e.preventDefault();
+          setOpen(true);
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setHighlightedIndex((prev) => findNextIndex(prev, 'down'));
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setHighlightedIndex((prev) => findNextIndex(prev, 'up'));
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (
+            highlightedIndex >= 0 &&
+            items[highlightedIndex] &&
+            !items[highlightedIndex].disabled
+          ) {
+            onSelect(items[highlightedIndex].value);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setOpen(false);
+          setHighlightedIndex(-1);
+          onEscape?.();
+          break;
+      }
+    },
+    [open, setOpen, highlightedIndex, items, findNextIndex, onSelect, onEscape]
+  );
+
+  const resetHighlight = React.useCallback(() => {
+    setHighlightedIndex(-1);
+  }, []);
+
+  return {
+    highlightedIndex,
+    setHighlightedIndex,
+    listRef,
+    handleKeyDown,
+    resetHighlight,
+  };
+}
+
 // ═════════════════════════════════════════════════════════════
 // Single Mode
 // ═════════════════════════════════════════════════════════════
@@ -89,7 +202,6 @@ function SingleComboboxInner({
   items = [],
   value,
   onValueChange,
-  placeholder = 'Select...',
   searchPlaceholder = 'Search...',
   emptyMessage = 'No results found.',
   noItemsMessage = 'No items available.',
@@ -103,10 +215,8 @@ function SingleComboboxInner({
 }: SingleComboboxProps) {
   const [open, setOpen] = React.useState(autoFocus);
   const [search, setSearch] = React.useState('');
-  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const listRef = React.useRef<HTMLDivElement>(null);
 
   // Ensure items is always an array
   const safeItems = React.useMemo(() => (Array.isArray(items) ? items : []), [items]);
@@ -128,29 +238,8 @@ function SingleComboboxInner({
     );
   }, [safeItems, search]);
 
-  // Reset highlight when list changes
-  React.useEffect(() => {
-    setHighlightedIndex(-1);
-  }, [filtered.length, search]);
-
-  // Auto-focus
-  React.useEffect(() => {
-    if (autoFocus && inputRef.current && !loading) {
-      inputRef.current.focus();
-    }
-  }, [autoFocus, loading]);
-
-  // Scroll highlighted item into view
-  React.useEffect(() => {
-    if (highlightedIndex >= 0 && listRef.current) {
-      const els = listRef.current.querySelectorAll('[data-combobox-item]');
-      els[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
-    }
-  }, [highlightedIndex]);
-
   const handleSelect = React.useCallback(
-    (val: string, itemDisabled?: boolean) => {
-      if (itemDisabled) return;
+    (val: string) => {
       onValueChange(val);
       setSearch('');
       setOpen(false);
@@ -158,58 +247,27 @@ function SingleComboboxInner({
     [onValueChange]
   );
 
-  // Find next non-disabled index for keyboard navigation
-  const findNextEnabledIndex = (currentIndex: number, direction: 'up' | 'down'): number => {
-    const step = direction === 'down' ? 1 : -1;
-    let nextIndex = currentIndex + step;
-    let attempts = 0;
-    const maxAttempts = filtered.length;
+  // Use shared keyboard navigation hook
+  const { highlightedIndex, setHighlightedIndex, listRef, handleKeyDown } = useKeyboardNavigation({
+    items: filtered,
+    open,
+    setOpen,
+    onSelect: handleSelect,
+    onEscape: () => setSearch(''),
+    skipDisabled: true,
+  });
 
-    while (attempts < maxAttempts) {
-      if (nextIndex < 0) nextIndex = filtered.length - 1;
-      if (nextIndex >= filtered.length) nextIndex = 0;
-      if (!filtered[nextIndex]?.disabled) return nextIndex;
-      nextIndex += step;
-      attempts++;
-    }
-    return -1; // All items are disabled
-  };
+  // Reset highlight when search changes
+  React.useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [search, setHighlightedIndex]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === 'ArrowDown' || e.key === 'Enter') {
-        e.preventDefault();
-        setOpen(true);
-      }
-      return;
+  // Auto-focus
+  React.useEffect(() => {
+    if (autoFocus && inputRef.current && !loading) {
+      inputRef.current.focus();
     }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex((p) => findNextEnabledIndex(p, 'down'));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex((p) => findNextEnabledIndex(p, 'up'));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (
-          highlightedIndex >= 0 &&
-          filtered[highlightedIndex] &&
-          !filtered[highlightedIndex].disabled
-        ) {
-          handleSelect(filtered[highlightedIndex].value);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setOpen(false);
-        setSearch('');
-        break;
-    }
-  };
+  }, [autoFocus, loading]);
 
   // Show selected label when closed, search text when open
   const displayValue = open ? search : selectedLabel;
@@ -341,7 +399,7 @@ function SingleComboboxInner({
                     !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
                     !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
                   )}
-                  onClick={() => handleSelect(item.value, isItemDisabled)}
+                  onClick={() => !isItemDisabled && handleSelect(item.value)}
                   onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
                 >
                   {renderItem ? (
@@ -367,7 +425,6 @@ function MultiComboboxInner({
   items = [],
   values = [],
   onValuesChange,
-  placeholder = 'Choose options...',
   searchPlaceholder = 'Search...',
   emptyMessage = 'No options found.',
   noItemsMessage = 'No options available.',
@@ -406,18 +463,38 @@ function MultiComboboxInner({
     );
   }, [safeItems, search]);
 
-  const handleToggle = (val: string) => {
-    if (safeValues.includes(val)) {
-      onValuesChange(safeValues.filter((v) => v !== val));
-    } else {
-      onValuesChange([...safeValues, val]);
-    }
-  };
+  const handleToggle = React.useCallback(
+    (val: string) => {
+      if (safeValues.includes(val)) {
+        onValuesChange(safeValues.filter((v) => v !== val));
+      } else {
+        onValuesChange([...safeValues, val]);
+      }
+      setSearch('');
+    },
+    [safeValues, onValuesChange]
+  );
 
   const handleRemove = (val: string, e: React.MouseEvent) => {
     e.stopPropagation();
     onValuesChange(safeValues.filter((v) => v !== val));
   };
+
+  // Use shared keyboard navigation hook
+  const { highlightedIndex, setHighlightedIndex, listRef, handleKeyDown, resetHighlight } =
+    useKeyboardNavigation({
+      items: filtered,
+      open,
+      setOpen,
+      onSelect: handleToggle,
+      onEscape: () => setSearch(''),
+      skipDisabled: false,
+    });
+
+  // Reset highlight when search changes
+  React.useEffect(() => {
+    resetHighlight();
+  }, [search, resetHighlight]);
 
   const baseId = id || 'combobox-multi';
 
@@ -492,10 +569,16 @@ function MultiComboboxInner({
             onFocus={() => {
               if (!disabled && !loading) setOpen(true);
             }}
+            onKeyDown={handleKeyDown}
             disabled={disabled || loading}
             role="combobox"
             aria-expanded={open}
             aria-controls={`${baseId}-listbox`}
+            aria-activedescendant={
+              highlightedIndex >= 0 && filtered[highlightedIndex]
+                ? `${baseId}-item-${filtered[highlightedIndex].value}`
+                : undefined
+            }
           />
         </div>
       </PopoverAnchor>
@@ -514,6 +597,7 @@ function MultiComboboxInner({
         style={{ width: 'var(--radix-popper-anchor-width)' }}
       >
         <div
+          ref={listRef}
           id={`${baseId}-listbox`}
           data-testid={`${baseId}-listbox`}
           role="listbox"
@@ -535,22 +619,28 @@ function MultiComboboxInner({
               {search.trim() ? emptyMessage : noItemsMessage}
             </div>
           ) : (
-            filtered.map((item) => {
+            filtered.map((item, idx) => {
               const isSelected = safeValues.includes(item.value);
+              const isHighlighted = idx === highlightedIndex;
               return (
                 <div
                   key={item.value}
                   id={`${baseId}-item-${item.value}`}
                   data-testid={`${baseId}-item-${item.value}`}
+                  data-combobox-item=""
                   data-value={item.value}
                   data-selected={isSelected || undefined}
+                  data-highlighted={isHighlighted || undefined}
                   role="option"
                   aria-selected={isSelected}
                   className={cn(
                     'flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-100 last:border-b-0',
-                    isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    isSelected && 'bg-blue-50',
+                    isHighlighted && !isSelected && 'bg-gray-100',
+                    !isSelected && !isHighlighted && 'hover:bg-gray-50'
                   )}
                   onClick={() => handleToggle(item.value)}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
                 >
                   <Checkbox
                     id={`${baseId}-checkbox-${item.value}`}
