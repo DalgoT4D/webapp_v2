@@ -173,6 +173,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               ],
               pagination: chart.extra_config?.pagination,
               sort: chart.extra_config?.sort,
+              time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
             },
           }
