@@ -140,18 +140,18 @@ describe('Combobox - Single Mode', () => {
 });
 
 describe('Combobox - Multi Mode', () => {
-  it('renders with placeholder and displays selected count', () => {
+  it('renders with placeholder and displays selected items as chips', () => {
     const { rerender } = render(
       <Combobox
         mode="multi"
         items={mockItems}
         values={[]}
         onValuesChange={jest.fn()}
-        placeholder="Select options"
+        searchPlaceholder="Select options"
       />
     );
 
-    expect(screen.getByText('Select options')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Select options')).toBeInTheDocument();
 
     rerender(
       <Combobox
@@ -159,10 +159,12 @@ describe('Combobox - Multi Mode', () => {
         items={mockItems}
         values={['1', '2']}
         onValuesChange={jest.fn()}
-        placeholder="Select options"
+        searchPlaceholder="Select options"
       />
     );
-    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    // Should show chips for selected items
+    expect(screen.getByText('Option 1')).toBeInTheDocument();
+    expect(screen.getByText('Option 2')).toBeInTheDocument();
   });
 
   it('handles selection and deselection', async () => {
@@ -178,14 +180,30 @@ describe('Combobox - Multi Mode', () => {
     await user.click(screen.getByText('Option 1'));
     expect(mockOnChange).toHaveBeenCalledWith(['1']);
 
-    // Test deselection - render with value and deselect
+    // Test deselection via checkbox in dropdown - render with value and deselect
     mockOnChange.mockClear();
     rerender(
       <Combobox mode="multi" items={mockItems} values={['1', '2']} onValuesChange={mockOnChange} />
     );
 
-    // Deselect Option 1
-    await user.click(screen.getByText('Option 1'));
+    // Deselect Option 1 via dropdown
+    await user.click(screen.getByRole('combobox'));
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+    await user.click(screen.getAllByText('Option 1')[1]); // Click in dropdown (first is chip)
+    expect(mockOnChange).toHaveBeenCalledWith(['2']);
+  });
+
+  it('handles chip removal with X button', async () => {
+    const mockOnChange = jest.fn();
+    const user = userEvent.setup();
+
+    render(
+      <Combobox mode="multi" items={mockItems} values={['1', '2']} onValuesChange={mockOnChange} />
+    );
+
+    // Remove Option 1 by clicking X button on chip
+    const removeButton = screen.getByLabelText('Remove Option 1');
+    await user.click(removeButton);
     expect(mockOnChange).toHaveBeenCalledWith(['2']);
   });
 
@@ -197,15 +215,18 @@ describe('Combobox - Multi Mode', () => {
         items={mockItems}
         values={['1', '3']}
         onValuesChange={jest.fn()}
-        placeholder="Select options"
+        searchPlaceholder="Search..."
       />
     );
 
-    await user.click(screen.getByRole('combobox'));
-    await waitFor(() => expect(screen.getByTestId('combobox-multi-search')).toBeInTheDocument());
-
-    // Test search
+    // Search input is visible (inline, not in dropdown)
     const searchInput = screen.getByTestId('combobox-multi-search');
+    expect(searchInput).toBeInTheDocument();
+
+    await user.click(searchInput);
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+
+    // Test search filtering
     await user.type(searchInput, 'Another');
     await waitFor(() => {
       const options = screen.getAllByRole('option');
@@ -226,17 +247,17 @@ describe('Combobox - Multi Mode', () => {
   it('handles edge cases and has proper accessibility', async () => {
     const user = userEvent.setup();
 
-    // Empty values
+    // Empty values - shows placeholder
     const { rerender } = render(
       <Combobox
         mode="multi"
         items={mockItems}
         values={[]}
         onValuesChange={jest.fn()}
-        placeholder="Select"
+        searchPlaceholder="Select"
       />
     );
-    expect(screen.getByText('Select')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Select')).toBeInTheDocument();
 
     // Undefined values (error handling)
     rerender(

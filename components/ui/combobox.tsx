@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { Search, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown, X } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -381,10 +381,18 @@ function MultiComboboxInner({
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   // Ensure items and values are always arrays
   const safeItems = React.useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const safeValues = React.useMemo(() => (Array.isArray(values) ? values : []), [values]);
+
+  // Get selected items for displaying chips
+  const selectedItems = React.useMemo(
+    () => safeItems.filter((item) => safeValues.includes(item.value)),
+    [safeItems, safeValues]
+  );
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return safeItems;
@@ -406,114 +414,160 @@ function MultiComboboxInner({
     }
   };
 
+  const handleRemove = (val: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onValuesChange(safeValues.filter((v) => v !== val));
+  };
+
   const baseId = id || 'combobox-multi';
 
   return (
     <Popover
-      open={open}
+      open={open && !disabled && !loading}
       onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setSearch('');
+        if (!next) {
+          setOpen(false);
+          setSearch('');
+        }
       }}
     >
-      <PopoverTrigger asChild>
-        <Button
-          id={`${baseId}-trigger`}
-          data-testid={`${baseId}-trigger`}
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls={`${baseId}-listbox`}
-          disabled={disabled || loading}
+      <PopoverAnchor asChild>
+        <div
+          ref={containerRef}
+          id={`${baseId}-container`}
+          data-testid={`${baseId}-container`}
           className={cn(
-            'w-full justify-between font-normal',
-            compact ? 'h-8 text-xs' : 'h-10 text-sm',
+            'relative flex flex-wrap items-center gap-1 min-h-[40px] w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm ring-offset-background',
+            compact && 'min-h-[32px] text-xs',
+            disabled && 'cursor-not-allowed opacity-50',
+            open && 'ring-2 ring-ring ring-offset-2',
             triggerClassName,
             className
           )}
-          size={compact ? 'sm' : 'default'}
+          onClick={() => {
+            if (!disabled && !loading) {
+              setOpen(true);
+              inputRef.current?.focus();
+            }
+          }}
         >
-          <span
-            className={cn(
-              'truncate normal-case',
-              safeValues.length === 0 && 'text-muted-foreground'
-            )}
-          >
-            {loading
-              ? 'Loading...'
-              : safeValues.length === 0
-                ? placeholder
-                : `${safeValues.length} selected`}
-          </span>
-          <ChevronDown
-            className={cn('shrink-0 opacity-50', compact ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')}
-          />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start" onFocusOutside={(e) => e.preventDefault()}>
-        <div className="p-2">
+          {/* Selected items as chips */}
+          {selectedItems.map((item) => (
+            <span
+              key={item.value}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-secondary-foreground',
+                compact ? 'text-xs' : 'text-sm'
+              )}
+            >
+              <span className="max-w-[120px] truncate">{item.label}</span>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-full hover:bg-secondary-foreground/20 p-0.5"
+                onClick={(e) => handleRemove(item.value, e)}
+                disabled={disabled}
+                aria-label={`Remove ${item.label}`}
+              >
+                <X className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+              </button>
+            </span>
+          ))}
+
+          {/* Search input */}
           <Input
+            ref={inputRef}
             id={`${baseId}-search`}
             data-testid={`${baseId}-search`}
-            placeholder={searchPlaceholder}
+            placeholder={loading ? 'Loading...' : safeValues.length === 0 ? searchPlaceholder : ''}
             autoComplete="off"
-            className="h-8 mb-2"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div
-            id={`${baseId}-listbox`}
-            data-testid={`${baseId}-listbox`}
-            role="listbox"
-            aria-multiselectable="true"
-            className="max-h-48 overflow-auto"
-          >
-            {loading ? (
-              <div
-                data-testid={`${baseId}-loading`}
-                className="text-xs text-muted-foreground p-2 text-center"
-              >
-                Loading...
-              </div>
-            ) : filtered.length === 0 ? (
-              <div
-                data-testid={`${baseId}-empty`}
-                className="text-xs text-muted-foreground p-2 text-center"
-              >
-                {search.trim() ? emptyMessage : noItemsMessage}
-              </div>
-            ) : (
-              filtered.map((item) => {
-                const isSelected = safeValues.includes(item.value);
-                return (
-                  <div
-                    key={item.value}
-                    id={`${baseId}-item-${item.value}`}
-                    data-testid={`${baseId}-item-${item.value}`}
-                    data-value={item.value}
-                    data-selected={isSelected || undefined}
-                    role="option"
-                    aria-selected={isSelected}
-                    className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-gray-100 cursor-pointer rounded"
-                    onClick={() => handleToggle(item.value)}
-                  >
-                    <Checkbox
-                      id={`${baseId}-checkbox-${item.value}`}
-                      checked={isSelected}
-                      onCheckedChange={() => handleToggle(item.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-3 w-3"
-                    />
-                    {renderItem ? (
-                      renderItem(item, isSelected, search)
-                    ) : (
-                      <span className="flex-1 text-xs">{item.label}</span>
-                    )}
-                  </div>
-                );
-              })
+            className={cn(
+              'flex-1 min-w-[80px] border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
+              compact ? 'h-5 text-xs' : 'h-6 text-sm'
             )}
-          </div>
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (!open) setOpen(true);
+            }}
+            onFocus={() => {
+              if (!disabled && !loading) setOpen(true);
+            }}
+            disabled={disabled || loading}
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={`${baseId}-listbox`}
+          />
+        </div>
+      </PopoverAnchor>
+
+      <PopoverContent
+        className="p-0 shadow-lg border border-gray-200"
+        align="start"
+        sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => {
+          if (containerRef.current?.contains(e.target as Node)) {
+            e.preventDefault();
+          }
+        }}
+        style={{ width: 'var(--radix-popper-anchor-width)' }}
+      >
+        <div
+          id={`${baseId}-listbox`}
+          data-testid={`${baseId}-listbox`}
+          role="listbox"
+          aria-multiselectable="true"
+          className="max-h-48 overflow-auto"
+        >
+          {loading ? (
+            <div
+              data-testid={`${baseId}-loading`}
+              className="text-xs text-muted-foreground p-3 text-center"
+            >
+              Loading...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div
+              data-testid={`${baseId}-empty`}
+              className="text-xs text-muted-foreground p-3 text-center"
+            >
+              {search.trim() ? emptyMessage : noItemsMessage}
+            </div>
+          ) : (
+            filtered.map((item) => {
+              const isSelected = safeValues.includes(item.value);
+              return (
+                <div
+                  key={item.value}
+                  id={`${baseId}-item-${item.value}`}
+                  data-testid={`${baseId}-item-${item.value}`}
+                  data-value={item.value}
+                  data-selected={isSelected || undefined}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    'flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-100 last:border-b-0',
+                    isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  )}
+                  onClick={() => handleToggle(item.value)}
+                >
+                  <Checkbox
+                    id={`${baseId}-checkbox-${item.value}`}
+                    checked={isSelected}
+                    onCheckedChange={() => handleToggle(item.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4"
+                  />
+                  {renderItem ? (
+                    renderItem(item, isSelected, search)
+                  ) : (
+                    <span className="flex-1 text-sm">{highlightText(item.label, search)}</span>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </PopoverContent>
     </Popover>
