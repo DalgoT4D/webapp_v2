@@ -248,22 +248,35 @@ function PipelineCard({
     lastRun?.status === 'COMPLETED' && lastRun?.state_name !== 'DBT_TEST_FAILED';
   const isLastRunWarning = lastRun?.state_name === 'DBT_TEST_FAILED';
 
+  // Check if pipeline is currently running
+  const isRunning = pipeline.lock;
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
       {/* Header row: status icon + last run + success stats */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
-          {/* Status icon */}
-          {isLastRunSuccess ? (
-            <CheckCircleIcon size={20} />
+          {/* Running state or last run status */}
+          {isRunning ? (
+            <>
+              <Loader2 className="h-5 w-5 text-[#DAA520] animate-spin" />
+              <span className="text-sm font-semibold text-gray-700">Currently running</span>
+            </>
           ) : (
-            <WarningAmberIcon size={20} color={isLastRunWarning ? '#df8e14' : '#981F1F'} />
-          )}
+            <>
+              {/* Status icon */}
+              {isLastRunSuccess ? (
+                <CheckCircleIcon size={20} />
+              ) : (
+                <WarningAmberIcon size={20} color={isLastRunWarning ? '#df8e14' : '#981F1F'} />
+              )}
 
-          {/* Last run time */}
-          <span className="text-sm text-gray-700">
-            last run performed {lastRunTimeStr || 'never'}
-          </span>
+              {/* Last run time */}
+              <span className="text-sm text-gray-700">
+                last run performed {lastRunTimeStr || 'never'}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Success stats */}
