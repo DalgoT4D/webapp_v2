@@ -1,7 +1,7 @@
 /**
- * Pipeline Components - Comprehensive Tests
+ * Pipeline Components - Consolidated Tests
  *
- * Tests for PipelineList, PipelineForm, TaskSequence, and PipelineRunHistory
+ * Tests for PipelineList, PipelineForm, and TaskSequence
  */
 
 import React from 'react';
@@ -129,11 +129,9 @@ const createConnection = (overrides: Partial<Connection> = {}): Connection => ({
 
 describe('PipelineList', () => {
   const mockMutate = jest.fn();
-  const mockConfirm = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockConfirm.mockResolvedValue(true);
     (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
       pipelines: [],
       isLoading: false,
@@ -143,52 +141,28 @@ describe('PipelineList', () => {
     (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
       hasPermission: () => true,
     });
-    // Update confirmation dialog mock
-    jest.mock('@/components/ui/confirmation-dialog', () => ({
-      useConfirmationDialog: () => ({
-        confirm: mockConfirm,
-        DialogComponent: (): null => null,
-      }),
-    }));
   });
 
-  it('renders empty state, header, and create button with proper permissions', () => {
-    render(<PipelineList />);
-
-    // Header
+  it('renders empty state with header and create button, hides create button without permission, and shows loading skeleton', () => {
+    // Empty state with permissions
+    const { unmount } = render(<PipelineList />);
     expect(screen.getByText('Pipelines')).toBeInTheDocument();
     expect(
       screen.getByText('Manage your data sync and transformation workflows')
     ).toBeInTheDocument();
-
-    // Empty state
     expect(screen.getByText('No pipelines yet')).toBeInTheDocument();
-
-    // Create button (appears in header and empty state)
     const createButtons = screen.getAllByRole('button', { name: /create pipeline/i });
     expect(createButtons.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('renders empty state without create button when permission denied', () => {
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
-      hasPermission: (p: string) => p !== 'can_create_pipeline',
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('No pipelines yet')).toBeInTheDocument();
-    // No create button in empty state without permission
-    expect(screen.queryByRole('button', { name: /create pipeline/i })).not.toBeInTheDocument();
-  });
-
-  it('hides create button without permission and shows loading skeleton', () => {
-    // No permission
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
-      hasPermission: (p: string) => p !== 'can_create_pipeline',
-    });
-    const { unmount } = render(<PipelineList />);
-    expect(screen.queryByRole('button', { name: /create pipeline/i })).not.toBeInTheDocument();
     unmount();
+
+    // No permission - no create button
+    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+      hasPermission: (p: string) => p !== 'can_create_pipeline',
+    });
+    const { unmount: unmount2 } = render(<PipelineList />);
+    expect(screen.getByText('No pipelines yet')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /create pipeline/i })).not.toBeInTheDocument();
+    unmount2();
 
     // Loading state
     (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
@@ -198,10 +172,10 @@ describe('PipelineList', () => {
       mutate: mockMutate,
     });
     render(<PipelineList />);
-    expect(screen.queryByText('Pipelines')).not.toBeInTheDocument(); // Header hidden during load
+    expect(screen.queryByText('Pipelines')).not.toBeInTheDocument();
   });
 
-  it('displays pipeline rows with all status variations', () => {
+  it('displays pipeline rows with all status variations including lock states', () => {
     const pipelines = [
       createPipeline({ name: 'Active Daily', status: true, cron: '0 9 * * *' }),
       createPipeline({ name: 'Inactive Manual', status: false, cron: null, deploymentId: 'dep-2' }),
@@ -214,6 +188,20 @@ describe('PipelineList', () => {
         name: 'Queued Pipeline',
         deploymentId: 'dep-4',
         lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'queued' },
+      }),
+      createPipeline({
+        name: 'Locked Pipeline',
+        deploymentId: 'dep-lock',
+        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'locked' },
+      }),
+      createPipeline({
+        name: 'Complete Lock Pipeline',
+        deploymentId: 'dep-lock-complete',
+        lock: {
+          lockedBy: 'user@test.com',
+          lockedAt: new Date().toISOString(),
+          status: 'complete',
+        },
       }),
       createPipeline({
         name: 'Completed Pipeline',
@@ -269,25 +257,26 @@ describe('PipelineList', () => {
     expect(screen.getByText('Active Daily')).toBeInTheDocument();
     expect(screen.getByText('Inactive Manual')).toBeInTheDocument();
     expect(screen.getByText('Running Pipeline')).toBeInTheDocument();
+    expect(screen.getByText('Locked Pipeline')).toBeInTheDocument();
+    expect(screen.getByText('Complete Lock Pipeline')).toBeInTheDocument();
 
-    // Status badges - use getAllByText since multiple pipelines share same statuses
+    // Status badges
     expect(screen.getAllByText('Active').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Inactive')).toBeInTheDocument();
     expect(screen.getByText('Running')).toBeInTheDocument();
     expect(screen.getByText('Queued')).toBeInTheDocument();
+    expect(screen.getAllByText('Locked').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Success')).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Tests Failed')).toBeInTheDocument();
 
-    // Schedule display
+    // Schedule and user display
     expect(screen.getByText('Manual')).toBeInTheDocument();
-
-    // User attribution - multiple pipelines may show same user/System
     expect(screen.getAllByText('user').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('handles run button click and respects permissions', async () => {
+  it('handles run button click, respects permissions, and disables history without view permission', async () => {
     const user = userEvent.setup();
     const mockTriggerRun = jest.fn().mockResolvedValue({});
     jest.spyOn(usePipelinesHook, 'triggerPipelineRun').mockImplementation(mockTriggerRun);
@@ -300,258 +289,29 @@ describe('PipelineList', () => {
       mutate: mockMutate,
     });
 
-    render(<PipelineList />);
-
-    // Click run
+    // Click run with permissions
+    const { unmount } = render(<PipelineList />);
     const runButton = screen.getByRole('button', { name: /run/i });
     await user.click(runButton);
     await waitFor(() => expect(mockTriggerRun).toHaveBeenCalledWith('test-dep-id'));
+    unmount();
 
-    // Disable without permission
+    // Run button disabled without run permission
     (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_run_pipeline',
     });
-    render(<PipelineList />);
-    const disabledRunButton = screen.getAllByRole('button', { name: /run/i })[1];
+    const { unmount: unmount2 } = render(<PipelineList />);
+    const disabledRunButton = screen.getByRole('button', { name: /run/i });
     expect(disabledRunButton).toBeDisabled();
-  });
+    unmount2();
 
-  it('handles run button click when already in running state', async () => {
-    const user = userEvent.setup();
-    const mockTriggerRun = jest.fn().mockResolvedValue({});
-    jest.spyOn(usePipelinesHook, 'triggerPipelineRun').mockImplementation(mockTriggerRun);
-
-    const pipelines = [createPipeline()];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    // Click run twice - first should go through, second should not add duplicate
-    const runButton = screen.getByRole('button', { name: /run/i });
-    await user.click(runButton);
-    await user.click(runButton);
-
-    // triggerPipelineRun should be called but state should handle duplicate IDs
-    await waitFor(() => expect(mockTriggerRun).toHaveBeenCalled());
-  });
-
-  it('handles run error and shows error toast', async () => {
-    const user = userEvent.setup();
-    const mockTriggerRun = jest.fn().mockRejectedValue(new Error('Run failed'));
-    jest.spyOn(usePipelinesHook, 'triggerPipelineRun').mockImplementation(mockTriggerRun);
-
-    const pipelines = [createPipeline()];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    const runButton = screen.getByRole('button', { name: /run/i });
-    await user.click(runButton);
-
-    await waitFor(() => {
-      expect(mockTriggerRun).toHaveBeenCalled();
-    });
-  });
-
-  it('opens history dialog when clicking history button', async () => {
-    const user = userEvent.setup();
-
-    const pipelines = [createPipeline()];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    // Click history button
-    const historyButton = screen.getByRole('button', { name: /history/i });
-    await user.click(historyButton);
-
-    // History dialog should be triggered (mocked, so just verify button works)
-    expect(historyButton).toBeInTheDocument();
-  });
-
-  it('shows locked status badge correctly', () => {
-    const pipelines = [
-      createPipeline({
-        name: 'Locked Pipeline',
-        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'locked' },
-      }),
-    ];
-
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('Locked Pipeline')).toBeInTheDocument();
-    expect(screen.getByText('Locked')).toBeInTheDocument();
-  });
-
-  it('shows completed lock status correctly', () => {
-    const pipelines = [
-      createPipeline({
-        name: 'Complete Lock Pipeline',
-        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'complete' },
-      }),
-    ];
-
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('Complete Lock Pipeline')).toBeInTheDocument();
-    // Complete status shows as Locked
-    expect(screen.getByText('Locked')).toBeInTheDocument();
-  });
-
-  it('displays last run info with expectedStartTime when startTime is null', () => {
-    const pipelines = [
-      createPipeline({
-        name: 'Expected Start Pipeline',
-        lastRun: {
-          id: 'run-1',
-          name: 'run',
-          status: 'COMPLETED',
-          state_name: 'Completed',
-          startTime: '',
-          expectedStartTime: '2025-05-21T10:00:00Z',
-          orguser: 'user@test.com',
-        },
-      }),
-    ];
-
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('Expected Start Pipeline')).toBeInTheDocument();
-  });
-
-  it('calls delete API and shows success when delete confirmed and succeeds', async () => {
-    const user = userEvent.setup();
-    const mockDeletePipeline = jest.fn().mockResolvedValue({ success: true });
-    jest.spyOn(usePipelinesHook, 'deletePipeline').mockImplementation(mockDeletePipeline);
-
-    const pipelines = [
-      createPipeline({ name: 'Delete Test Pipeline', deploymentId: 'delete-test' }),
-    ];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('Delete Test Pipeline')).toBeInTheDocument();
-  });
-
-  it('shows error toast when delete API fails', async () => {
-    const user = userEvent.setup();
-    const mockDeletePipeline = jest.fn().mockRejectedValue(new Error('Delete failed'));
-    jest.spyOn(usePipelinesHook, 'deletePipeline').mockImplementation(mockDeletePipeline);
-
-    const pipelines = [
-      createPipeline({ name: 'Delete Error Pipeline', deploymentId: 'delete-error' }),
-    ];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('Delete Error Pipeline')).toBeInTheDocument();
-  });
-
-  it('shows error toast when delete API returns success false', async () => {
-    const user = userEvent.setup();
-    const mockDeletePipeline = jest.fn().mockResolvedValue({ success: false });
-    jest.spyOn(usePipelinesHook, 'deletePipeline').mockImplementation(mockDeletePipeline);
-
-    const pipelines = [
-      createPipeline({ name: 'Delete Fail Pipeline', deploymentId: 'delete-fail' }),
-    ];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    expect(screen.getByText('Delete Fail Pipeline')).toBeInTheDocument();
-  });
-
-  it('disables history button when view permission is denied', async () => {
+    // History button disabled without view permission
     (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_view_pipeline',
     });
-
-    const pipelines = [createPipeline()];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
     render(<PipelineList />);
-
     const historyButton = screen.getByRole('button', { name: /history/i });
     expect(historyButton).toBeDisabled();
-  });
-
-  it('hides edit menu item when edit permission denied', async () => {
-    const user = userEvent.setup();
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
-      hasPermission: (p: string) => !['can_edit_pipeline', 'can_delete_pipeline'].includes(p),
-    });
-
-    const pipelines = [createPipeline()];
-    (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
-      pipelines,
-      isLoading: false,
-      isError: null,
-      mutate: mockMutate,
-    });
-
-    render(<PipelineList />);
-
-    // The more button should be present but edit/delete items should be hidden
-    expect(screen.getByText('Test Pipeline')).toBeInTheDocument();
   });
 });
 
@@ -591,33 +351,66 @@ describe('PipelineForm', () => {
     (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
   });
 
-  it('renders create mode with all form sections', () => {
+  it('renders create mode with all sections, handles validation, loading, and cancel', async () => {
+    const user = userEvent.setup();
+
+    // Loading state
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: true,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    const { unmount } = render(<PipelineForm />);
+    expect(screen.queryByRole('heading', { name: /create pipeline/i })).not.toBeInTheDocument();
+    unmount();
+
+    // Restore non-loading state
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: defaultTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
     render(<PipelineForm />);
 
-    // Header
+    // All form sections present
     expect(screen.getByRole('heading', { name: /create pipeline/i })).toBeInTheDocument();
-
-    // Form sections
     expect(screen.getByText('Pipeline Details')).toBeInTheDocument();
     expect(screen.getByText('Schedule')).toBeInTheDocument();
     expect(screen.getByText('Connections')).toBeInTheDocument();
     expect(screen.getByText('Transform Tasks')).toBeInTheDocument();
-
-    // Buttons
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create pipeline/i })).toBeInTheDocument();
-
-    // No active toggle in create mode
     expect(screen.queryByTestId('activeSwitch')).not.toBeInTheDocument();
+
+    // Form input
+    const nameInput = screen.getByTestId('name');
+    await user.type(nameInput, 'My New Pipeline');
+    expect(nameInput).toHaveValue('My New Pipeline');
+
+    // Submit without schedule shows validation error
+    await user.click(screen.getByRole('button', { name: /create pipeline/i }));
+    expect(await screen.findByText('Schedule is required')).toBeInTheDocument();
+    expect(usePipelinesHook.createPipeline).not.toHaveBeenCalled();
+
+    // Cancel navigates back
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(mockPush).toHaveBeenCalledWith('/orchestrate');
   });
 
-  it('renders edit mode with existing data and active toggle', async () => {
+  it('renders edit mode with existing data and toggles simple/advanced task modes', async () => {
+    const user = userEvent.setup();
     const existingPipeline: PipelineDetailResponse = {
       name: 'Existing Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
-      transformTasks: [{ uuid: 'task-1', seq: 1 }],
+      transformTasks: [
+        { uuid: 'task-1', seq: 1 },
+        { uuid: 'task-2', seq: 2 },
+      ],
     };
 
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
@@ -629,6 +422,7 @@ describe('PipelineForm', () => {
 
     render(<PipelineForm deploymentId="test-dep-id" />);
 
+    // Edit mode renders correctly
     expect(screen.getByRole('heading', { name: /update pipeline/i })).toBeInTheDocument();
     expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
@@ -636,44 +430,8 @@ describe('PipelineForm', () => {
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Existing Pipeline');
     });
-  });
 
-  it('shows loading skeleton when data is loading', () => {
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [],
-      isLoading: true,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm />);
-    expect(screen.queryByRole('heading', { name: /create pipeline/i })).not.toBeInTheDocument();
-  });
-
-  it('handles form input and validation', async () => {
-    const user = userEvent.setup();
-    render(<PipelineForm />);
-
-    // Type in name field
-    const nameInput = screen.getByTestId('name');
-    await user.type(nameInput, 'My New Pipeline');
-    expect(nameInput).toHaveValue('My New Pipeline');
-
-    // Try submit without required fields shows validation
-    await user.click(screen.getByRole('button', { name: /create pipeline/i }));
-
-    // Validation error should appear for missing schedule
-    expect(await screen.findByText('Schedule is required')).toBeInTheDocument();
-
-    // Verify createPipeline was not called due to validation failure
-    expect(usePipelinesHook.createPipeline).not.toHaveBeenCalled();
-  });
-
-  it('toggles between simple and advanced task modes', async () => {
-    const user = userEvent.setup();
-    render(<PipelineForm />);
-
-    // Simple mode shows "Run all tasks" checkbox
+    // Simple mode shows "Run all tasks" when tasks are aligned
     expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
 
     // Switch to advanced
@@ -687,14 +445,6 @@ describe('PipelineForm', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
     });
-  });
-
-  it('navigates back on cancel', async () => {
-    const user = userEvent.setup();
-    render(<PipelineForm />);
-
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(mockPush).toHaveBeenCalledWith('/orchestrate');
   });
 });
 
@@ -738,10 +488,11 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
   });
 
-  it('populates form fields when tasks are aligned with defaults (simple mode)', async () => {
-    const pipeline: PipelineDetailResponse = {
+  it('populates form in simple mode when tasks align and switches to advanced when they do not', async () => {
+    // Aligned tasks → simple mode
+    const alignedPipeline: PipelineDetailResponse = {
       name: 'Aligned Pipeline',
-      cron: '0 9 * * *', // daily at 9 AM UTC
+      cron: '0 9 * * *',
       isScheduleActive: true,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
@@ -752,7 +503,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     };
 
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
+      pipeline: alignedPipeline,
       isLoading: false,
       isError: null,
       mutate: jest.fn(),
@@ -764,36 +515,28 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       mutate: jest.fn(),
     });
 
-    render(<PipelineForm deploymentId="test-dep-id" />);
+    const { unmount } = render(<PipelineForm deploymentId="test-dep-id" />);
 
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Aligned Pipeline');
     });
-
-    // Simple mode should be active (not advanced)
     expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
-  });
+    unmount();
 
-  it('switches to advanced mode when tasks are not aligned with defaults', async () => {
-    const pipeline: PipelineDetailResponse = {
+    // Non-aligned tasks → advanced mode
+    const customOrderPipeline: PipelineDetailResponse = {
       name: 'Custom Order Pipeline',
       cron: '0 14 * * *',
       isScheduleActive: false,
       connections: [{ id: 'conn-2', name: 'Connection 2', seq: 1 }],
       transformTasks: [
-        { uuid: 'task-3', seq: 1 }, // Different order - dbt-test first
-        { uuid: 'task-1', seq: 2 }, // git-pull second
+        { uuid: 'task-3', seq: 1 },
+        { uuid: 'task-1', seq: 2 },
       ],
     };
 
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: systemTasks,
+      pipeline: customOrderPipeline,
       isLoading: false,
       isError: null,
       mutate: jest.fn(),
@@ -804,135 +547,55 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Custom Order Pipeline');
     });
-
-    // Advanced mode should be active (no "Run all tasks" checkbox)
     expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
   });
 
-  it('handles dbt_cloud case: tasks available but pipeline has no transform tasks', async () => {
-    // dbt_cloud pipelines have no system transform tasks
-    const pipeline: PipelineDetailResponse = {
+  it('handles dbt_cloud scenarios and missing task edge cases', async () => {
+    // dbt_cloud: tasks available but pipeline has no transform tasks
+    const dbtCloudPipeline: PipelineDetailResponse = {
       name: 'DBT Cloud Pipeline',
-      cron: '30 10 * * 1,3,5', // weekly on Mon, Wed, Fri at 10:30 AM UTC
+      cron: '30 10 * * 1,3,5',
       isScheduleActive: true,
       connections: [
         { id: 'conn-1', name: 'Connection 1', seq: 1 },
         { id: 'conn-2', name: 'Connection 2', seq: 2 },
       ],
-      transformTasks: [], // Empty - dbt_cloud case
-    };
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: systemTasks, // Tasks are available
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm deploymentId="dbt-cloud-dep" />);
-
-    // Form should still be populated with non-task fields
-    await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud Pipeline');
-    });
-
-    // Active switch should reflect pipeline state
-    expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
-
-    // "Run all tasks" checkbox should be unchecked since tasksToApply is empty
-    const runAllCheckbox = screen.getByLabelText('Run all tasks');
-    expect(runAllCheckbox).not.toBeChecked();
-  });
-
-  it('handles dbt_cloud case: no tasks available and pipeline has no transform tasks', async () => {
-    const pipeline: PipelineDetailResponse = {
-      name: 'DBT Cloud No Tasks',
-      cron: null, // Manual schedule
-      isScheduleActive: false,
-      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
-      transformTasks: [], // Empty - dbt_cloud case
-    };
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [], // No tasks available at all
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm deploymentId="dbt-cloud-no-tasks" />);
-
-    // Form should STILL be populated with non-task fields
-    await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud No Tasks');
-    });
-
-    // Active toggle should be present and reflect state
-    const activeSwitch = screen.getByTestId('activeSwitch');
-    expect(activeSwitch).toBeInTheDocument();
-  });
-
-  it('populates non-task fields even when tasks are not available but pipeline has saved tasks', async () => {
-    const pipeline: PipelineDetailResponse = {
-      name: 'Pipeline With Missing Tasks',
-      cron: '0 8 * * *',
-      isScheduleActive: true,
-      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
-      transformTasks: [
-        { uuid: 'deleted-task-1', seq: 1 },
-        { uuid: 'deleted-task-2', seq: 2 },
-      ],
-    };
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [], // No tasks available (maybe all deleted)
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm deploymentId="missing-tasks-dep" />);
-
-    // Non-task fields should still be populated
-    await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe(
-        'Pipeline With Missing Tasks'
-      );
-    });
-
-    // The form renders correctly even though tasks couldn't be matched
-    expect(screen.getByRole('heading', { name: /update pipeline/i })).toBeInTheDocument();
-  });
-
-  it('correctly parses weekly cron schedule with multiple days', async () => {
-    const pipeline: PipelineDetailResponse = {
-      name: 'Weekly Pipeline',
-      cron: '30 14 * * 1,3,5', // Mon, Wed, Fri at 2:30 PM UTC
-      isScheduleActive: true,
-      connections: [],
       transformTasks: [],
     };
 
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
+      pipeline: dbtCloudPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: systemTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    const { unmount } = render(<PipelineForm deploymentId="dbt-cloud-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud Pipeline');
+    });
+    expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
+    expect(screen.getByLabelText('Run all tasks')).not.toBeChecked();
+    unmount();
+
+    // dbt_cloud: no tasks available at all
+    const noTasksPipeline: PipelineDetailResponse = {
+      name: 'DBT Cloud No Tasks',
+      cron: null,
+      isScheduleActive: false,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: noTasksPipeline,
       isLoading: false,
       isError: null,
       mutate: jest.fn(),
@@ -944,10 +607,146 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       mutate: jest.fn(),
     });
 
-    render(<PipelineForm deploymentId="weekly-dep" />);
+    const { unmount: unmount2 } = render(<PipelineForm deploymentId="dbt-cloud-no-tasks" />);
 
     await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Weekly Pipeline');
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud No Tasks');
+    });
+    expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
+    unmount2();
+
+    // Pipeline with saved tasks that no longer exist
+    const missingTasksPipeline: PipelineDetailResponse = {
+      name: 'Pipeline With Missing Tasks',
+      cron: '0 8 * * *',
+      isScheduleActive: true,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [
+        { uuid: 'deleted-task-1', seq: 1 },
+        { uuid: 'deleted-task-2', seq: 2 },
+      ],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: missingTasksPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="missing-tasks-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe(
+        'Pipeline With Missing Tasks'
+      );
+    });
+    expect(screen.getByRole('heading', { name: /update pipeline/i })).toBeInTheDocument();
+  });
+
+  it('filters tasks by pipeline_default and handles schedule status update failure', async () => {
+    const user = userEvent.setup();
+
+    // Task filtering by pipeline_default and generated_by
+    const mixedTasks = [
+      createTask({
+        uuid: 'system-default',
+        slug: 'git-pull',
+        generated_by: 'system',
+        pipeline_default: true,
+      }),
+      createTask({
+        uuid: 'system-not-default',
+        slug: 'dbt-clean',
+        generated_by: 'system',
+        pipeline_default: false,
+      }),
+      createTask({
+        uuid: 'client-task',
+        slug: 'custom',
+        generated_by: 'client',
+        pipeline_default: false,
+      }),
+    ];
+
+    const filterPipeline: PipelineDetailResponse = {
+      name: 'Mixed Tasks Pipeline',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      connections: [],
+      transformTasks: [{ uuid: 'system-default', seq: 1 }],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: filterPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: mixedTasks,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    const { unmount } = render(<PipelineForm deploymentId="mixed-tasks-dep" />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Mixed Tasks Pipeline');
+    });
+    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    unmount();
+
+    // Schedule status update failure
+    const statusFailPipeline: PipelineDetailResponse = {
+      name: 'Status Fail Pipeline',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      connections: [],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: statusFailPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
+    (usePipelinesHook.setScheduleStatus as jest.Mock).mockRejectedValue(
+      new Error('Status update failed')
+    );
+
+    render(<PipelineForm deploymentId="status-fail-dep" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('name')).toHaveValue('Status Fail Pipeline');
+    });
+
+    await user.click(screen.getByTestId('activeSwitch'));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(usePipelinesHook.updatePipeline).toHaveBeenCalled();
     });
   });
 
@@ -979,282 +778,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Manual Pipeline');
     });
 
-    // Time of day input should not be visible for manual schedule
     expect(screen.queryByTestId('cronTimeOfDay')).not.toBeInTheDocument();
-  });
-
-  it('sorts connections by seq when populating form', async () => {
-    const pipeline: PipelineDetailResponse = {
-      name: 'Sorted Connections',
-      cron: '0 9 * * *',
-      isScheduleActive: true,
-      connections: [
-        { id: 'conn-2', name: 'Connection 2', seq: 2 },
-        { id: 'conn-1', name: 'Connection 1', seq: 1 }, // Lower seq, should be first
-      ],
-      transformTasks: [],
-    };
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm deploymentId="sorted-conn-dep" />);
-
-    await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Sorted Connections');
-    });
-  });
-
-  it('filters tasks by pipeline_default and generated_by when aligning', async () => {
-    const mixedTasks = [
-      createTask({
-        uuid: 'system-default',
-        slug: 'git-pull',
-        generated_by: 'system',
-        pipeline_default: true,
-      }),
-      createTask({
-        uuid: 'system-not-default',
-        slug: 'dbt-clean',
-        generated_by: 'system',
-        pipeline_default: false,
-      }),
-      createTask({
-        uuid: 'client-task',
-        slug: 'custom',
-        generated_by: 'client',
-        pipeline_default: false,
-      }),
-    ];
-
-    const pipeline: PipelineDetailResponse = {
-      name: 'Mixed Tasks Pipeline',
-      cron: '0 9 * * *',
-      isScheduleActive: true,
-      connections: [],
-      transformTasks: [{ uuid: 'system-default', seq: 1 }], // Only the default system task
-    };
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: mixedTasks,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm deploymentId="mixed-tasks-dep" />);
-
-    await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Mixed Tasks Pipeline');
-    });
-
-    // Should be in simple mode since the single task aligns
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
-  });
-
-  it('handles schedule status update failure in edit mode', async () => {
-    const user = userEvent.setup();
-
-    const pipeline: PipelineDetailResponse = {
-      name: 'Status Fail Pipeline',
-      cron: '0 9 * * *',
-      isScheduleActive: true,
-      connections: [],
-      transformTasks: [],
-    };
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
-      connections: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
-    (usePipelinesHook.setScheduleStatus as jest.Mock).mockRejectedValue(
-      new Error('Status update failed')
-    );
-
-    render(<PipelineForm deploymentId="status-fail-dep" />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('name')).toHaveValue('Status Fail Pipeline');
-    });
-
-    // Toggle active switch to trigger status update
-    const activeSwitch = screen.getByTestId('activeSwitch');
-    await user.click(activeSwitch);
-
-    // Submit form
-    await user.click(screen.getByRole('button', { name: /save changes/i }));
-
-    // Should call update pipeline but schedule status fails
-    await waitFor(() => {
-      expect(usePipelinesHook.updatePipeline).toHaveBeenCalled();
-    });
-  });
-
-  it('handles create pipeline success', async () => {
-    const user = userEvent.setup();
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline: null,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
-      connections: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.createPipeline as jest.Mock).mockResolvedValue({ name: 'New Pipeline' });
-
-    render(<PipelineForm />);
-
-    // Fill in required fields
-    await user.type(screen.getByTestId('name'), 'New Test Pipeline');
-
-    // The form won't submit without a valid cron selection
-    // This test just verifies the form renders and accepts input
-    expect(screen.getByTestId('name')).toHaveValue('New Test Pipeline');
-  });
-
-  it('handles create pipeline error', async () => {
-    const user = userEvent.setup();
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline: null,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
-      connections: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.createPipeline as jest.Mock).mockRejectedValue(new Error('Create failed'));
-
-    render(<PipelineForm />);
-
-    await user.type(screen.getByTestId('name'), 'Failing Pipeline');
-
-    // Attempt submit - will fail validation but tests error path
-    await user.click(screen.getByRole('button', { name: /create pipeline/i }));
-
-    expect(screen.getByTestId('name')).toHaveValue('Failing Pipeline');
-  });
-
-  it('handles toggle from advanced to simple mode clearing tasks', async () => {
-    const user = userEvent.setup();
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline: null,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [
-        createTask({ uuid: 'task-1', slug: 'git-pull' }),
-        createTask({ uuid: 'task-2', slug: 'dbt-run' }),
-      ],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
-      connections: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm />);
-
-    // Switch to advanced
-    await user.click(screen.getByText('Advanced'));
-
-    await waitFor(() => {
-      expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
-    });
-
-    // Switch back to simple - should clear tasks
-    await user.click(screen.getByText('Simple'));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
-    });
-  });
-
-  it('does not switch alignment when empty string passed', async () => {
-    const user = userEvent.setup();
-
-    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline: null,
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
-      tasks: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
-      connections: [],
-      isLoading: false,
-      isError: null,
-      mutate: jest.fn(),
-    });
-
-    render(<PipelineForm />);
-
-    // Simple mode should be active initially
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
   });
 });
 
@@ -1277,24 +801,22 @@ describe('TaskSequence', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('renders task list with controls and handles task operations', async () => {
+  it('renders task list with controls, handles remove and reset, and shows generated_by badges', async () => {
     const user = userEvent.setup();
     const selectedTasks = [mockTasks[0], mockTasks[1]];
 
-    render(<TaskSequence value={selectedTasks} onChange={mockOnChange} options={mockTasks} />);
+    const { rerender } = render(
+      <TaskSequence value={selectedTasks} onChange={mockOnChange} options={mockTasks} />
+    );
 
-    // Components rendered
-    expect(screen.getByPlaceholderText('Search tasks...')).toBeInTheDocument();
+    // Components and tasks rendered
+    expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reset to default/i })).toBeInTheDocument();
     expect(screen.getByText(/These are your transformation tasks/)).toBeInTheDocument();
-
-    // Tasks displayed with indices
     expect(screen.getByText('git pull')).toBeInTheDocument();
     expect(screen.getByText('dbt run')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
-
-    // Generated by badges
     expect(screen.getAllByText('system').length).toBe(2);
 
     // Remove task
@@ -1306,54 +828,29 @@ describe('TaskSequence', () => {
     mockOnChange.mockClear();
     await user.click(screen.getByRole('button', { name: /reset to default/i }));
     expect(mockOnChange).toHaveBeenCalled();
-  });
 
-  it('handles empty state and shows client vs system task distinction', () => {
-    // Empty state
-    const { rerender } = render(
-      <TaskSequence value={[]} onChange={mockOnChange} options={mockTasks} />
-    );
-    expect(screen.getByPlaceholderText('Search tasks...')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /remove task/i })).not.toBeInTheDocument();
-
-    // Client task shows differently
+    // Client task badge
     rerender(<TaskSequence value={[mockTasks[2]]} onChange={mockOnChange} options={mockTasks} />);
     expect(screen.getByText('client')).toBeInTheDocument();
     expect(screen.getByText('custom cmd')).toBeInTheDocument();
   });
 
-  it('shows task slug when command is null', () => {
+  it('shows task slug when command is null and handles empty state', () => {
     const taskWithNoCommand = createTask({ uuid: 'task-no-cmd', slug: 'test-task', command: null });
-    render(
+
+    // Null command shows slug
+    const { rerender } = render(
       <TaskSequence
         value={[taskWithNoCommand]}
         onChange={mockOnChange}
         options={[taskWithNoCommand]}
       />
     );
-    // Slug is converted: "test-task" becomes "test task"
     expect(screen.getByText('test task')).toBeInTheDocument();
-  });
 
-  it('filters out already selected tasks from options', () => {
-    const selectedTasks = [mockTasks[0]];
-    render(<TaskSequence value={selectedTasks} onChange={mockOnChange} options={mockTasks} />);
-    // The combobox should show options that are not already selected
-    // Task 0 (git pull) should not be in options since it's already selected
-    expect(screen.getByPlaceholderText('Search tasks...')).toBeInTheDocument();
-  });
-});
-
-// ============ Pipeline Index Exports Tests ============
-
-describe('Pipeline Index Exports', () => {
-  it('exports all pipeline components', () => {
-    // Import from index to cover exports
-    const pipelineExports = require('../index');
-
-    expect(pipelineExports.PipelineList).toBeDefined();
-    expect(pipelineExports.PipelineForm).toBeDefined();
-    expect(pipelineExports.PipelineRunHistory).toBeDefined();
-    expect(pipelineExports.TaskSequence).toBeDefined();
+    // Empty state
+    rerender(<TaskSequence value={[]} onChange={mockOnChange} options={mockTasks} />);
+    expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /remove task/i })).not.toBeInTheDocument();
   });
 });

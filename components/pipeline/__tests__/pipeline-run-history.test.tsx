@@ -1,11 +1,11 @@
 /**
- * PipelineRunHistory Component Tests
+ * PipelineRunHistory Component Tests (Consolidated)
  *
  * Tests for run history modal, logs fetching, and AI summary functionality
  */
 
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PipelineRunHistory } from '../pipeline-run-history';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
@@ -25,7 +25,6 @@ jest.mock('@/lib/toast', () => ({
   },
 }));
 
-// Mock FullScreenModal to render children directly
 jest.mock('@/components/ui/full-screen-modal', () => ({
   FullScreenModal: ({
     children,
@@ -48,7 +47,6 @@ jest.mock('@/components/ui/full-screen-modal', () => ({
     ) : null,
 }));
 
-// Mock LogsTable
 jest.mock('@/components/ui/logs-table', () => ({
   LogsTable: ({
     runs,
@@ -160,79 +158,56 @@ describe('PipelineRunHistory', () => {
     });
   });
 
-  it('does not render when closed', () => {
-    render(
+  it('handles closed, open, loading, and empty states with correct title and activity status', async () => {
+    // Closed state
+    const { rerender } = render(
       <PipelineRunHistory pipeline={mockPipeline} open={false} onOpenChange={mockOnOpenChange} />
     );
-
     expect(screen.queryByTestId('fullscreen-modal')).not.toBeInTheDocument();
-  });
 
-  it('renders modal when open with correct title and subtitle', () => {
-    render(
+    // Open state with title and subtitle
+    rerender(
       <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
     );
-
     expect(screen.getByTestId('fullscreen-modal')).toBeInTheDocument();
     expect(screen.getByTestId('modal-title')).toHaveTextContent('Logs History');
     expect(screen.getByTestId('modal-subtitle')).toHaveTextContent('Test Pipeline');
-  });
+    expect(screen.getByText('Active')).toBeInTheDocument();
 
-  it('shows loading skeleton while fetching data', () => {
+    // Inactive pipeline shows Inactive
+    const inactivePipeline = createMockPipeline({ status: false });
+    rerender(
+      <PipelineRunHistory pipeline={inactivePipeline} open={true} onOpenChange={mockOnOpenChange} />
+    );
+    expect(screen.getByText('Inactive')).toBeInTheDocument();
+
+    // Loading state
     (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
       runs: [],
       isLoading: true,
       isError: null,
     });
-
-    render(
+    rerender(
       <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
     );
-
-    // Should show skeleton, not LogsTable
     expect(screen.queryByTestId('logs-table')).not.toBeInTheDocument();
-  });
 
-  it('shows empty state when no runs exist', async () => {
+    // Empty state (no runs, not loading)
     (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
       runs: [],
       isLoading: false,
       isError: null,
     });
-
-    render(
+    rerender(
       <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
     );
-
     await waitFor(() => {
       expect(screen.getByText('No run history')).toBeInTheDocument();
       expect(screen.getByText("This pipeline hasn't been run yet.")).toBeInTheDocument();
     });
   });
 
-  it('displays runs in LogsTable when data is available', async () => {
-    const mockRuns = [
-      createMockDeploymentRun({ id: 'run-1', status: 'COMPLETED' }),
-      createMockDeploymentRun({ id: 'run-2', status: 'FAILED', state_name: 'Failed' }),
-    ];
-
-    (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-      runs: mockRuns,
-      isLoading: false,
-      isError: null,
-    });
-
-    render(
-      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      expect(screen.getByTestId('runs-count')).toHaveTextContent('2');
-    });
-  });
-
-  it('transforms runs with correct status indicators', async () => {
+  it('displays runs with all status indicators and handles various task states', async () => {
     const mockRuns = [
       createMockDeploymentRun({ id: 'run-success', status: 'COMPLETED' }),
       createMockDeploymentRun({ id: 'run-failed', status: 'FAILED', state_name: 'Failed' }),
@@ -241,6 +216,24 @@ describe('PipelineRunHistory', () => {
         id: 'run-warning',
         status: 'FAILED',
         state_name: 'DBT_TEST_FAILED',
+      }),
+      createMockDeploymentRun({
+        id: 'run-zero-time',
+        runs: [
+          {
+            id: 'task-1',
+            label: 'dbtjob-dbt-run',
+            kind: 'task-run',
+            start_time: '2025-05-21T10:00:00Z',
+            end_time: '2025-05-21T10:01:00Z',
+            state_type: 'COMPLETED',
+            state_name: 'Completed',
+            total_run_time: 0,
+            estimated_run_time: 0,
+            logs: [],
+            parameters: null,
+          },
+        ],
       }),
     ];
 
@@ -255,396 +248,157 @@ describe('PipelineRunHistory', () => {
     );
 
     await waitFor(() => {
+      expect(screen.getByTestId('logs-table')).toBeInTheDocument();
+      expect(screen.getByTestId('runs-count')).toHaveTextContent('5');
       expect(screen.getByTestId('run-run-success')).toBeInTheDocument();
       expect(screen.getByTestId('run-run-failed')).toBeInTheDocument();
       expect(screen.getByTestId('run-run-crashed')).toBeInTheDocument();
       expect(screen.getByTestId('run-run-warning')).toBeInTheDocument();
+      expect(screen.getByTestId('run-run-zero-time')).toBeInTheDocument();
     });
   });
 
-  it('shows inactive status in subtitle for inactive pipeline', () => {
-    const inactivePipeline = createMockPipeline({ status: false });
+  it('loads more runs when clicking load more button', async () => {
+    const user = userEvent.setup();
+    const { apiGet } = require('@/lib/api');
+
+    const initialRuns = [
+      createMockDeploymentRun({ id: 'run-1' }),
+      createMockDeploymentRun({ id: 'run-2' }),
+      createMockDeploymentRun({ id: 'run-3' }),
+    ];
+
+    (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
+      runs: initialRuns,
+      isLoading: false,
+      isError: null,
+    });
+
+    apiGet.mockResolvedValue([createMockDeploymentRun({ id: 'run-4' })]);
 
     render(
-      <PipelineRunHistory pipeline={inactivePipeline} open={true} onOpenChange={mockOnOpenChange} />
+      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
     );
 
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('load-more-btn')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('load-more-btn'));
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalled();
+    });
   });
 
-  it('shows active status in subtitle for active pipeline', () => {
-    const activePipeline = createMockPipeline({ status: true });
+  it('handles load more API error gracefully', async () => {
+    const user = userEvent.setup();
+    const { apiGet } = require('@/lib/api');
+    const { toastError } = require('@/lib/toast');
+
+    const initialRuns = [
+      createMockDeploymentRun({ id: 'run-1' }),
+      createMockDeploymentRun({ id: 'run-2' }),
+      createMockDeploymentRun({ id: 'run-3' }),
+    ];
+
+    (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
+      runs: initialRuns,
+      isLoading: false,
+      isError: null,
+    });
+
+    apiGet.mockRejectedValue(new Error('API Error'));
 
     render(
-      <PipelineRunHistory pipeline={activePipeline} open={true} onOpenChange={mockOnOpenChange} />
+      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
     );
 
-    expect(screen.getByText('Active')).toBeInTheDocument();
-  });
-
-  describe('Load More functionality', () => {
-    it('loads more runs when clicking load more button', async () => {
-      const user = userEvent.setup();
-      const { apiGet } = require('@/lib/api');
-
-      const initialRuns = [
-        createMockDeploymentRun({ id: 'run-1' }),
-        createMockDeploymentRun({ id: 'run-2' }),
-        createMockDeploymentRun({ id: 'run-3' }),
-      ];
-
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: initialRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      apiGet.mockResolvedValue([createMockDeploymentRun({ id: 'run-4' })]);
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('load-more-btn')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('load-more-btn'));
-
-      await waitFor(() => {
-        expect(apiGet).toHaveBeenCalled();
-      });
+    await waitFor(() => {
+      expect(screen.getByTestId('load-more-btn')).toBeInTheDocument();
     });
 
-    it('handles load more API error gracefully', async () => {
-      const user = userEvent.setup();
-      const { apiGet } = require('@/lib/api');
-      const { toastError } = require('@/lib/toast');
-
-      const initialRuns = [
-        createMockDeploymentRun({ id: 'run-1' }),
-        createMockDeploymentRun({ id: 'run-2' }),
-        createMockDeploymentRun({ id: 'run-3' }),
-      ];
-
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: initialRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      apiGet.mockRejectedValue(new Error('API Error'));
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('load-more-btn')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('load-more-btn'));
-
-      await waitFor(() => {
-        expect(toastError.load).toHaveBeenCalledWith(expect.any(Error), 'runs');
-      });
+    await user.click(screen.getByTestId('load-more-btn'));
+    await waitFor(() => {
+      expect(toastError.load).toHaveBeenCalledWith(expect.any(Error), 'runs');
     });
   });
 
-  describe('Logs fetching', () => {
-    it('fetches logs for a task', async () => {
-      const user = userEvent.setup();
-      const mockRuns = [createMockDeploymentRun()];
+  it('fetches logs with various response formats and handles errors', async () => {
+    const user = userEvent.setup();
+    const { toastError } = require('@/lib/toast');
+    const mockRuns = [createMockDeploymentRun()];
 
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockResolvedValue({
-        logs: {
-          logs: [{ message: 'Log entry 1' }, { message: 'Log entry 2' }],
-        },
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('fetch-logs-btn')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('fetch-logs-btn'));
-
-      await waitFor(() => {
-        expect(usePipelinesHook.fetchFlowRunLogs).toHaveBeenCalled();
-      });
+    (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
+      runs: mockRuns,
+      isLoading: false,
+      isError: null,
     });
 
-    it('handles log fetch error gracefully', async () => {
-      const user = userEvent.setup();
-      const { toastError } = require('@/lib/toast');
-      const mockRuns = [createMockDeploymentRun()];
-
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockRejectedValue(new Error('Fetch failed'));
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('fetch-logs-btn')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('fetch-logs-btn'));
-
-      await waitFor(() => {
-        expect(toastError.load).toHaveBeenCalledWith(expect.any(Error), 'logs');
-      });
+    // Success with logs
+    (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockResolvedValue({
+      logs: {
+        logs: [{ message: 'Log entry 1' }, { message: 'Log entry 2' }],
+      },
     });
 
-    it('returns empty array when logs data is empty', async () => {
-      const user = userEvent.setup();
-      const mockRuns = [createMockDeploymentRun()];
+    render(
+      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
+    );
 
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      // Return null logs
-      (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockResolvedValue({
-        logs: null,
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('fetch-logs-btn')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('fetch-logs-btn'));
-
-      await waitFor(() => {
-        expect(usePipelinesHook.fetchFlowRunLogs).toHaveBeenCalled();
-      });
+    await waitFor(() => {
+      expect(screen.getByTestId('fetch-logs-btn')).toBeInTheDocument();
     });
 
-    it('handles log entries without message property', async () => {
-      const user = userEvent.setup();
-      const mockRuns = [createMockDeploymentRun()];
+    await user.click(screen.getByTestId('fetch-logs-btn'));
+    await waitFor(() => {
+      expect(usePipelinesHook.fetchFlowRunLogs).toHaveBeenCalled();
+    });
 
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
+    // Null logs response
+    (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockResolvedValue({ logs: null });
+    await user.click(screen.getByTestId('fetch-logs-btn'));
+    await waitFor(() => {
+      expect(usePipelinesHook.fetchFlowRunLogs).toHaveBeenCalledTimes(2);
+    });
 
-      // Return logs where some entries don't have message
-      (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockResolvedValue({
-        logs: {
-          logs: [{ message: 'Log 1' }, 'String log entry', { message: null }],
-        },
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('fetch-logs-btn')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('fetch-logs-btn'));
-
-      await waitFor(() => {
-        expect(usePipelinesHook.fetchFlowRunLogs).toHaveBeenCalled();
-      });
+    // Error case
+    (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockRejectedValue(new Error('Fetch failed'));
+    await user.click(screen.getByTestId('fetch-logs-btn'));
+    await waitFor(() => {
+      expect(toastError.load).toHaveBeenCalledWith(expect.any(Error), 'logs');
     });
   });
 
-  describe('AI Summary', () => {
-    // Note: ENABLE_LOG_SUMMARIES is false by default from the constants
-    // The AI summary button is only rendered when enableAISummary is true
-    // Our mock LogsTable only shows the button when enableAISummary is true
-    // Since the component passes ENABLE_LOG_SUMMARIES (which is false), the button won't appear
+  it('hides AI summary when disabled and manages dialog close/reopen state', async () => {
+    const mockRuns = [createMockDeploymentRun()];
 
-    it('does not show AI summary button when feature is disabled', async () => {
-      const mockRuns = [createMockDeploymentRun()];
-
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      });
-
-      // AI summary button should not be present when feature is disabled
-      expect(screen.queryByTestId('trigger-summary-btn')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Task transformation', () => {
-    it('calculates duration from timestamps when total_run_time is 0', async () => {
-      const mockRuns = [
-        createMockDeploymentRun({
-          runs: [
-            {
-              id: 'task-1',
-              label: 'dbtjob-dbt-run',
-              kind: 'task-run',
-              start_time: '2025-05-21T10:00:00Z',
-              end_time: '2025-05-21T10:01:00Z',
-              state_type: 'COMPLETED',
-              state_name: 'Completed',
-              total_run_time: 0, // Zero, should calculate from timestamps
-              estimated_run_time: 0,
-              logs: [],
-              parameters: null,
-            },
-          ],
-        }),
-      ];
-
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      });
+    (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
+      runs: mockRuns,
+      isLoading: false,
+      isError: null,
     });
 
-    it('handles task with failed state', async () => {
-      const mockRuns = [
-        createMockDeploymentRun({
-          runs: [
-            {
-              id: 'task-1',
-              label: 'dbtjob-dbt-run',
-              kind: 'task-run',
-              start_time: '2025-05-21T10:00:00Z',
-              end_time: '2025-05-21T10:01:00Z',
-              state_type: 'FAILED',
-              state_name: 'Failed',
-              total_run_time: 60,
-              estimated_run_time: 60,
-              logs: [],
-              parameters: null,
-            },
-          ],
-        }),
-      ];
+    // AI summary disabled
+    const { rerender } = render(
+      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
+    );
 
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByTestId('logs-table')).toBeInTheDocument();
     });
+    expect(screen.queryByTestId('trigger-summary-btn')).not.toBeInTheDocument();
 
-    it('handles task with DBT_TEST_FAILED state', async () => {
-      const mockRuns = [
-        createMockDeploymentRun({
-          runs: [
-            {
-              id: 'task-1',
-              label: 'dbtjob-dbt-test',
-              kind: 'task-run',
-              start_time: '2025-05-21T10:00:00Z',
-              end_time: '2025-05-21T10:01:00Z',
-              state_type: 'COMPLETED',
-              state_name: 'DBT_TEST_FAILED',
-              total_run_time: 60,
-              estimated_run_time: 60,
-              logs: [],
-              parameters: null,
-            },
-          ],
-        }),
-      ];
+    // Dialog close/reopen
+    rerender(
+      <PipelineRunHistory pipeline={mockPipeline} open={false} onOpenChange={mockOnOpenChange} />
+    );
+    expect(screen.queryByTestId('logs-table')).not.toBeInTheDocument();
 
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Dialog state management', () => {
-    it('resets state when dialog closes', async () => {
-      const mockRuns = [createMockDeploymentRun()];
-
-      (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
-        runs: mockRuns,
-        isLoading: false,
-        isError: null,
-      });
-
-      const { rerender } = render(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      });
-
-      // Close dialog
-      rerender(
-        <PipelineRunHistory pipeline={mockPipeline} open={false} onOpenChange={mockOnOpenChange} />
-      );
-
-      expect(screen.queryByTestId('logs-table')).not.toBeInTheDocument();
-
-      // Reopen - should show data again
-      rerender(
-        <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('logs-table')).toBeInTheDocument();
-      });
+    rerender(
+      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('logs-table')).toBeInTheDocument();
     });
   });
 });
