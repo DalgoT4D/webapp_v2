@@ -3,13 +3,42 @@
  *
  * Shared mock data and route interception helpers for E2E tests.
  * Use these to test UI interactions without hitting the backend.
+ *
+ * Uses actual types from the codebase where possible.
+ * If real types change, TypeScript will catch mismatches here.
  */
 
-import { Page, Route } from '@playwright/test';
+import { Page } from '@playwright/test';
+
+// Import actual types from codebase - if these change, tests will catch it
+import type {
+  Pipeline,
+  TransformTask,
+  Connection,
+  DeploymentRun,
+  PipelineDetailResponse,
+} from '../../../types/pipeline';
+
+// ============ Test-Specific Types ============
+// These are only for mock data that doesn't match existing types
+
+interface MockOrgUser {
+  email: string;
+  org: {
+    slug: string;
+    name: string;
+    viz_url: string;
+  };
+  active: boolean;
+  new_role_slug: string;
+  permissions: { slug: string; name: string }[];
+  landing_dashboard_id: string | null;
+  org_default_dashboard_id: string | null;
+}
 
 // ============ Mock Data ============
 
-export const mockTasks = [
+export const mockTasks: TransformTask[] = [
   {
     label: 'Git Pull',
     slug: 'git-pull',
@@ -60,7 +89,7 @@ export const mockTasks = [
   },
 ];
 
-export const mockConnections = [
+export const mockConnections: Connection[] = [
   {
     name: 'Postgres Source',
     connectionId: 'conn-1',
@@ -114,7 +143,7 @@ export const mockConnections = [
   },
 ];
 
-export const mockPipelines = [
+export const mockPipelines: Pipeline[] = [
   {
     name: 'Daily Sync',
     cron: '0 9 * * *',
@@ -189,7 +218,7 @@ export const mockPipelineDetail = {
   ],
 };
 
-export const mockRunHistory = [
+export const mockRunHistory: DeploymentRun[] = [
   {
     id: 'run-1',
     deployment_id: 'dep-1',
@@ -276,7 +305,7 @@ export const mockPermissions = [
 ];
 
 // Mock org users response - this is what /api/currentuserv2 returns
-export const mockOrgUsers = [
+export const mockOrgUsers: MockOrgUser[] = [
   {
     email: 'test@dalgo.in',
     org: {
