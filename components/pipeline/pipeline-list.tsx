@@ -130,10 +130,7 @@ export function PipelineList() {
   }
 
   return (
-    <div
-      className="h-full flex flex-col"
-      style={{ fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' }}
-    >
+    <div className="h-full flex flex-col">
       {/* Header - Fixed */}
       <div className="flex-shrink-0 p-6 pb-4">
         <div className="flex items-center justify-between">

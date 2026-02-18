@@ -14,14 +14,15 @@ import {
   mockApiDelete,
   mockApiPut,
   resetApiMocks,
-  TestWrapper,
-  PollingTestWrapper,
+} from '@/test-utils/api';
+import { TestWrapper, PollingTestWrapper } from '@/test-utils/render';
+import {
   mockPipelines,
   mockTasks,
   mockConnections,
   createMockPipeline,
   createPipelinesWithSharedConnection,
-} from '@/test-utils';
+} from '@/test-utils/data/pipeline';
 import { PipelineList } from '../pipeline-list';
 import { PipelineForm } from '../pipeline-form';
 

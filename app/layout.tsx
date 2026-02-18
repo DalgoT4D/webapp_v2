@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Anek_Latin, Inter } from 'next/font/google';
+import { Anek_Latin } from 'next/font/google';
 import './globals.css';
 import { SWRProvider } from '@/lib/swr';
 import { ClientLayout } from '@/components/client-layout';
@@ -14,13 +14,6 @@ const anekLatin = Anek_Latin({
 
 const anekMono = Anek_Latin({
   variable: '--font-anek-mono',
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-});
-
-const inter = Inter({
-  variable: '--font-inter',
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
@@ -46,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${anekLatin.variable} ${anekMono.variable} ${inter.variable} antialiased font-sans`}
+        className={`${anekLatin.variable} ${anekMono.variable} antialiased font-sans`}
         suppressHydrationWarning={true}
       >
         <PendoScript />

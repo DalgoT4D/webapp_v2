@@ -9,17 +9,6 @@ import path from 'path';
 config({ path: path.resolve(__dirname, '.env') });
 
 /**
- * Playwright Test Configuration
- *
- * Test Types:
- * - Integration tests (default): Run with mocked APIs, no backend required
- *   - Use: npx playwright test
- *   - Files: e2e/pipeline/*.spec.ts (mocked)
- *
- * - E2E tests (real backend): Run against staging/production
- *   - Use: E2E_BASE_URL=https://staging.dalgo.com npx playwright test --project=e2e
- *   - Requires: E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD env vars
- *
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
@@ -44,50 +33,18 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  /* Configure projects for different test types and browsers */
+  /* Configure projects for major browsers */
   projects: [
-    // ============ Integration Tests (Mocked APIs) ============
-    // Run with: npx playwright test
-    // These tests use route interception to mock API responses
     {
-      name: 'integration',
-      testDir: './e2e',
-      testIgnore: ['**/login.spec.ts'], // Skip tests that need real backend
-      use: {
-        ...devices['Desktop Chrome'],
-        // Shorter timeouts for mocked tests
-        actionTimeout: 10000,
-        navigationTimeout: 15000,
-      },
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
     },
-
-    // ============ E2E Tests (Real Backend) ============
-    // Run with: E2E_BASE_URL=https://staging.dalgo.com npx playwright test --project=e2e-*
-    // Requires authentication env vars
-    {
-      name: 'e2e-chromium',
-      testDir: './e2e',
-      testMatch: ['**/login.spec.ts'], // Only run tests designed for real backend
-      use: {
-        ...devices['Desktop Chrome'],
-        // Longer timeouts for real API calls
-        actionTimeout: 30000,
-        navigationTimeout: 30000,
-      },
-    },
-
-    // ============ Cross-browser Testing ============
-    // Run all integration tests across browsers
     {
       name: 'firefox',
-      testDir: './e2e',
-      testIgnore: ['**/login.spec.ts'],
       use: { ...devices['Desktop Firefox'] },
     },
     {
       name: 'webkit',
-      testDir: './e2e',
-      testIgnore: ['**/login.spec.ts'],
       use: { ...devices['Desktop Safari'] },
     },
   ],

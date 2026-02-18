@@ -17,8 +17,6 @@ const customJestConfig: Config = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
-    '^@/test-utils$': '<rootDir>/test-utils',
-    '^@/test-utils/(.*)$': '<rootDir>/test-utils/$1',
   },
   // Run tests in component-level __tests__ folders and lib tests
   testMatch: [
