@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -22,8 +22,8 @@ import { GripVertical, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Combobox, ComboboxItem } from '@/components/ui/combobox';
 import { TransformTask } from '@/types/pipeline';
-import { SYSTEM_COMMAND_ORDER, DBT_RUN_MIN_ORDER, DBT_TEST_MIN_ORDER } from '@/constants/pipeline';
-import { validateDefaultTasksToApplyInPipeline, getTaskOrder } from '@/lib/pipeline-utils';
+import { DBT_RUN_MIN_ORDER, DBT_TEST_MIN_ORDER } from '@/constants/pipeline';
+import { validateDefaultTasksToApplyInPipeline, getTaskOrder } from './utils';
 import { cn } from '@/lib/utils';
 
 interface TaskSequenceProps {

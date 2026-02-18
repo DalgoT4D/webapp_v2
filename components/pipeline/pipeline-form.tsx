@@ -38,7 +38,7 @@ import {
   validateDefaultTasksToApplyInPipeline,
   localTimeToUTC,
   utcTimeToLocal,
-} from '@/lib/pipeline-utils';
+} from './utils';
 import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
 
 interface PipelineFormProps {
@@ -194,7 +194,6 @@ function PipelineFormContent({
   });
 
   const scheduleSelected = watch('cron');
-  const currentActiveValue = watch('active');
 
   // Connection options for combobox
   const connectionItems: ComboboxItem[] = useMemo(() => {

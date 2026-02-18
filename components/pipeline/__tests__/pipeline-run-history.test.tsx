@@ -386,7 +386,11 @@ describe('PipelineRunHistory', () => {
     await waitFor(() => {
       expect(screen.getByTestId('logs-table')).toBeInTheDocument();
     });
-    expect(screen.queryByTestId('trigger-summary-btn')).not.toBeInTheDocument();
+    if (process.env.NEXT_PUBLIC_ENABLE_LOG_SUMMARIES === 'true') {
+      expect(screen.queryByTestId('trigger-summary-btn')).toBeInTheDocument();
+    } else {
+      expect(screen.queryByTestId('trigger-summary-btn')).not.toBeInTheDocument();
+    }
 
     // Dialog close/reopen
     rerender(

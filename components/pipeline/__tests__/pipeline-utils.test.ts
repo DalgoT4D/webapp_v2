@@ -19,7 +19,7 @@ import {
   calculateDuration,
   delay,
   localTimezone,
-} from '../pipeline-utils';
+} from '../utils';
 import moment from 'moment';
 import { TransformTask } from '@/types/pipeline';
 

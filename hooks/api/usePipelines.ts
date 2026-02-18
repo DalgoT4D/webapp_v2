@@ -25,7 +25,7 @@ export function usePipelines() {
     refreshInterval: (latestData) => {
       // Enable polling when any pipeline has a lock
       const hasLockedPipeline = latestData?.some((p) => p.lock);
-      return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE;
+      return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE; // when locked refresh interval value is 3 seconds and at last 0 hence polling stops.
     },
     revalidateOnFocus: false,
   });

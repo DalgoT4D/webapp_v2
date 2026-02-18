@@ -39,13 +39,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import { Pipeline } from '@/types/pipeline';
-import {
-  cronToString,
-  lastRunTime,
-  localTimezone,
-  getFlowRunStartedBy,
-  trimEmail,
-} from '@/lib/pipeline-utils';
+import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from './utils';
 import { useSyncLock } from '@/hooks/useSyncLock';
 import { PipelineRunHistory } from './pipeline-run-history';
 import { cn } from '@/lib/utils';
@@ -76,14 +70,14 @@ export function PipelineList() {
       try {
         await triggerPipelineRun(deploymentId);
         toastSuccess.generic('Pipeline started successfully');
-        mutate();
+        mutate(); // this cause the polling and based on lock condition the refreshinterval keeps on polling the data.
         return {};
       } catch (error: any) {
         toastError.api(error, 'Failed to run pipeline');
         return { error: 'ERROR' };
       }
     },
-    [mutate]
+    [mutate] //mutate is safe to pass in the dependency- reference does not change on each rerender.
   );
 
   const handleEdit = useCallback(
@@ -237,7 +231,7 @@ function PipelineRow({
   const handleRunClick = async () => {
     setTempSyncState(true);
     const result = await onRun(deploymentId);
-    if (result?.error) {
+    if (result && result.error) {
       setTempSyncState(false);
     }
   };

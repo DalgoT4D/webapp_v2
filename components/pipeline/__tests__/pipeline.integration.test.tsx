@@ -22,7 +22,7 @@ import {
   mockConnections,
   createMockPipeline,
   createPipelinesWithSharedConnection,
-} from '@/test-utils/data/pipeline';
+} from './pipeline-mock-data';
 import { PipelineList } from '../pipeline-list';
 import { PipelineForm } from '../pipeline-form';
 

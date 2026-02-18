@@ -12,7 +12,7 @@ import {
   pollTaskStatus,
 } from '@/hooks/api/usePipelines';
 import { Pipeline, DeploymentRun } from '@/types/pipeline';
-import { makeReadable, getFlowRunStartedBy, delay, calculateDuration } from '@/lib/pipeline-utils';
+import { makeReadable, getFlowRunStartedBy, delay, calculateDuration } from './utils';
 import {
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
