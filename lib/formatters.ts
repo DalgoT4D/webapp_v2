@@ -9,7 +9,9 @@ export type NumberFormat =
   | 'international'
   | 'indian'
   | 'percentage'
-  | 'currency';
+  | 'currency'
+  | 'adaptive_international'
+  | 'adaptive_indian';
 
 export interface FormatOptions {
   format: NumberFormat;
@@ -81,6 +83,40 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
           maximumFractionDigits: decimalPlaces,
         })
       );
+
+    case 'adaptive_international': {
+      // International SI-like notation: K, M, B
+      const absValue = Math.abs(processedValue);
+      const sign = processedValue < 0 ? '-' : '';
+      const decimals = decimalPlaces ?? 2;
+
+      if (absValue >= 1_000_000_000) {
+        return sign + (absValue / 1_000_000_000).toFixed(decimals) + 'B';
+      } else if (absValue >= 1_000_000) {
+        return sign + (absValue / 1_000_000).toFixed(decimals) + 'M';
+      } else if (absValue >= 1_000) {
+        return sign + (absValue / 1_000).toFixed(decimals) + 'K';
+      }
+      return decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
+    }
+
+    case 'adaptive_indian': {
+      // Indian notation: K, L (Lakh), Cr (Crore)
+      const absValue = Math.abs(processedValue);
+      const sign = processedValue < 0 ? '-' : '';
+      const decimals = decimalPlaces ?? 2;
+
+      if (absValue >= 10_000_000) {
+        // 1 Crore = 10,000,000
+        return sign + (absValue / 10_000_000).toFixed(decimals) + 'Cr';
+      } else if (absValue >= 100_000) {
+        // 1 Lakh = 100,000
+        return sign + (absValue / 100_000).toFixed(decimals) + 'L';
+      } else if (absValue >= 1_000) {
+        return sign + (absValue / 1_000).toFixed(decimals) + 'K';
+      }
+      return decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
+    }
 
     default:
       return value.toString();
