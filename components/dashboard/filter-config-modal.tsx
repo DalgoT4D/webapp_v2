@@ -34,6 +34,7 @@ import { apiGet, apiPost } from '@/lib/api';
 import useSWR from 'swr';
 import { useColumns } from '@/hooks/api/useChart';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { Combobox } from '@/components/ui/combobox';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { useDashboardFilter } from '@/hooks/api/useDashboards';
 import type {
@@ -417,51 +418,46 @@ export function FilterConfigModal({
 
                         <div>
                           <Label>Column</Label>
-                          <Select
+                          <Combobox
+                            items={(columns || []).map((column: any) => {
+                              const colName = column.column_name || column.name;
+                              return {
+                                value: colName,
+                                label: colName,
+                                data_type: column.data_type,
+                              };
+                            })}
                             value={columnName || ''}
                             onValueChange={setColumnName}
-                            disabled={!tableName && mode === 'create'}
-                            key={`column-${columnName}`}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select column" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingColumns ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
+                            disabled={(!tableName && mode === 'create') || loadingColumns}
+                            loading={loadingColumns}
+                            searchPlaceholder="Search columns..."
+                            placeholder="Select column"
+                            className="mt-1"
+                            renderItem={(item, _isSelected, searchQuery) => {
+                              const isNumeric = [
+                                'integer',
+                                'bigint',
+                                'numeric',
+                                'double precision',
+                                'real',
+                                'float',
+                              ].includes((item.data_type || '').toLowerCase());
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {isNumeric ? (
+                                    <Hash className="w-4 h-4" />
+                                  ) : (
+                                    <TypeIcon className="w-4 h-4" />
+                                  )}
+                                  <span>{item.label}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.data_type}
+                                  </Badge>
                                 </div>
-                              ) : (
-                                columns?.map((column: any) => {
-                                  const columnName = column.column_name || column.name;
-                                  const dataType = column.data_type;
-                                  const isNumeric = [
-                                    'integer',
-                                    'bigint',
-                                    'numeric',
-                                    'double precision',
-                                    'real',
-                                    'float',
-                                  ].includes(dataType.toLowerCase());
-                                  return (
-                                    <SelectItem key={columnName} value={columnName}>
-                                      <div className="flex items-center gap-2">
-                                        {isNumeric ? (
-                                          <Hash className="w-4 h-4" />
-                                        ) : (
-                                          <TypeIcon className="w-4 h-4" />
-                                        )}
-                                        <span>{columnName}</span>
-                                        <Badge variant="outline" className="text-xs">
-                                          {dataType}
-                                        </Badge>
-                                      </div>
-                                    </SelectItem>
-                                  );
-                                })
-                              )}
-                            </SelectContent>
-                          </Select>
+                              );
+                            }}
+                          />
                         </div>
                       </div>
 

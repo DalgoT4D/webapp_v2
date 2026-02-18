@@ -1,20 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { useRegions, useChildRegions, useRegionGeoJSONs, useColumns } from '@/hooks/api/useChart';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import { Combobox, highlightText } from '@/components/ui/combobox';
 
 interface Layer {
   id: string;
@@ -167,6 +161,38 @@ function LayerCard({
 
   const availableRegions = index === 0 ? regions : childRegions;
 
+  // Memoize items for Combobox components
+  const columnItems = React.useMemo(
+    () =>
+      columns.map((column) => {
+        const colName = column.name || column.column_name;
+        return {
+          value: colName,
+          label: colName,
+          data_type: column.data_type,
+        };
+      }),
+    [columns]
+  );
+
+  const regionItems = React.useMemo(
+    () =>
+      (availableRegions || []).map((region: any) => ({
+        value: region.id.toString(),
+        label: region.display_name,
+      })),
+    [availableRegions]
+  );
+
+  const geojsonItems = React.useMemo(
+    () =>
+      (geojsons || []).map((geojson: any) => ({
+        value: geojson.id.toString(),
+        label: geojson.is_default ? `${geojson.name} (Default)` : geojson.name,
+      })),
+    [geojsons]
+  );
+
   return (
     <Card className={`transition-all ${isExpanded ? 'ring-2 ring-blue-200' : ''}`}>
       <CardHeader className="cursor-pointer" onClick={onToggleExpanded}>
@@ -218,29 +244,19 @@ function LayerCard({
             <p className="text-xs text-muted-foreground mb-2">
               Select the column that contains {getLayerTitle(index).toLowerCase()} names
             </p>
-            <Select
+            <Combobox
+              items={columnItems}
               value={layer.geographic_column || ''}
               onValueChange={(value) => onUpdate({ geographic_column: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`Select ${getLayerTitle(index).toLowerCase()} column`} />
-              </SelectTrigger>
-              <SelectContent>
-                {columns.map((column) => (
-                  <SelectItem key={column.column_name} value={column.column_name}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ColumnTypeIcon dataType={column.data_type} className="w-4 h-4" />
-                      <span
-                        className="truncate"
-                        title={`${column.column_name} (${column.data_type})`}
-                      >
-                        {column.column_name}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              searchPlaceholder="Search columns..."
+              placeholder={`Select ${getLayerTitle(index).toLowerCase()} column`}
+              renderItem={(item, _isSelected, searchQuery) => (
+                <div className="flex items-center gap-2 min-w-0">
+                  <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                </div>
+              )}
+            />
           </div>
 
           {/* Region Selection */}
@@ -250,21 +266,13 @@ function LayerCard({
               <p className="text-xs text-muted-foreground mb-2">
                 Choose the geographic region for this layer
               </p>
-              <Select
+              <Combobox
+                items={regionItems}
                 value={layer.region_id?.toString() || ''}
                 onValueChange={(value) => onUpdate({ region_id: parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={`Select ${getLayerTitle(index).toLowerCase()}`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRegions?.map((region: any) => (
-                    <SelectItem key={region.id} value={region.id.toString()}>
-                      {region.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                searchPlaceholder="Search regions..."
+                placeholder={`Select ${getLayerTitle(index).toLowerCase()}`}
+              />
             </div>
           )}
 
@@ -275,28 +283,13 @@ function LayerCard({
               <p className="text-xs text-muted-foreground mb-2">
                 Select the map boundary data to use
               </p>
-              <Select
+              <Combobox
+                items={geojsonItems}
                 value={layer.geojson_id?.toString() || ''}
                 onValueChange={(value) => onUpdate({ geojson_id: parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select GeoJSON version" />
-                </SelectTrigger>
-                <SelectContent>
-                  {geojsons?.map((geojson: any) => (
-                    <SelectItem key={geojson.id} value={geojson.id.toString()}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{geojson.name}</span>
-                        {geojson.is_default && (
-                          <Badge variant="outline" className="ml-2">
-                            Default
-                          </Badge>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                searchPlaceholder="Search..."
+                placeholder="Select GeoJSON version"
+              />
             </div>
           )}
 
