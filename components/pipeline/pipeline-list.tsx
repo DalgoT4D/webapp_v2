@@ -56,7 +56,6 @@ export function PipelineList() {
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
-  const [runningDeploymentIds, setRunningDeploymentIds] = useState<string[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
@@ -75,11 +74,6 @@ export function PipelineList() {
   const handleRun = useCallback(
     async (deploymentId: string) => {
       try {
-        setRunningDeploymentIds((prev) => {
-          if (prev.includes(deploymentId)) return prev;
-          return [...prev, deploymentId];
-        });
-
         await triggerPipelineRun(deploymentId);
         toastSuccess.generic('Pipeline started successfully');
         mutate();
@@ -87,8 +81,6 @@ export function PipelineList() {
       } catch (error: any) {
         toastError.api(error, 'Failed to run pipeline');
         return { error: 'ERROR' };
-      } finally {
-        setRunningDeploymentIds((prev) => prev.filter((id) => id !== deploymentId));
       }
     },
     [mutate]
@@ -185,7 +177,6 @@ export function PipelineList() {
                     <PipelineRow
                       key={pipeline.deploymentId}
                       pipeline={pipeline}
-                      runningDeploymentIds={runningDeploymentIds}
                       onViewHistory={handleViewHistory}
                       onRun={handleRun}
                       onEdit={handleEdit}
@@ -218,7 +209,6 @@ export function PipelineList() {
 
 interface PipelineRowProps {
   pipeline: Pipeline;
-  runningDeploymentIds: string[];
   onViewHistory: (pipeline: Pipeline) => void;
   onRun: (deploymentId: string) => Promise<{ error?: string } | void>;
   onEdit: (deploymentId: string) => void;
@@ -231,7 +221,6 @@ interface PipelineRowProps {
 
 function PipelineRow({
   pipeline,
-  runningDeploymentIds,
   onViewHistory,
   onRun,
   onEdit,
@@ -257,10 +246,12 @@ function PipelineRow({
   };
 
   // Determine run status
+  // locked (optimistic + backend) → queued → running → success/failed
   const getRunStatus = () => {
     if (lock?.status === 'running') return 'running';
-    if (lock?.status === 'queued' || runningDeploymentIds.includes(deploymentId)) return 'queued';
+    if (lock?.status === 'queued') return 'queued';
     if (lock?.status === 'locked' || lock?.status === 'complete') return 'locked';
+    if (tempSyncState) return 'locked';
     if (!lastRun) return null;
     if (lastRun.state_name === 'DBT_TEST_FAILED') return 'warning';
     if (lastRun.status === 'COMPLETED') return 'success';
