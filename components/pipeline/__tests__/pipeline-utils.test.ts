@@ -20,8 +20,26 @@ import {
   delay,
   localTimezone,
 } from '../utils';
-import moment from 'moment';
 import type { TransformTask } from '@/types/pipeline';
+
+/**
+ * Helper to mock Date prototype methods for simulating timezone effects.
+ * Returns a cleanup function to restore originals.
+ */
+function mockTimezone(
+  localHours: number,
+  localMinutes: number,
+  localDate: number,
+  utcDate: number
+) {
+  const spies = [
+    jest.spyOn(Date.prototype, 'getHours').mockReturnValue(localHours),
+    jest.spyOn(Date.prototype, 'getMinutes').mockReturnValue(localMinutes),
+    jest.spyOn(Date.prototype, 'getDate').mockReturnValue(localDate),
+    jest.spyOn(Date.prototype, 'getUTCDate').mockReturnValue(utcDate),
+  ];
+  return () => spies.forEach((s) => s.mockRestore());
+}
 
 describe('Pipeline Utilities', () => {
   describe('Time and Duration Formatting', () => {
@@ -163,236 +181,101 @@ describe('Pipeline Utilities', () => {
     });
 
     it('adjusts single day-of-week when crossing day boundary forward', () => {
-      // Mock moment to simulate a timezone with +5:30 offset (like IST)
+      // Simulate a timezone with +5:30 offset (like IST)
       // When UTC time is 22:00, local time would be 03:30 next day
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(30),
-        hours: jest.fn().mockReturnValue(3),
-        date: jest.fn().mockReturnValue(16), // next day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15), // current day
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(3, 30, 16, 15);
 
       // Wed (3) at 22:00 UTC should become Thu (4) at 03:30 local
       const result = cronToLocalTZ('0 22 * * 3');
       expect(result).toBe('30 3 * * 4');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('adjusts single day-of-week when crossing day boundary backward', () => {
-      // Mock moment to simulate a timezone with -5:00 offset (like EST)
+      // Simulate a timezone with -5:00 offset (like EST)
       // When UTC time is 02:00, local time would be 21:00 previous day
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(0),
-        hours: jest.fn().mockReturnValue(21),
-        date: jest.fn().mockReturnValue(14), // previous day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15), // current day
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(21, 0, 14, 15);
 
       // Wed (3) at 02:00 UTC should become Tue (2) at 21:00 local
       const result = cronToLocalTZ('0 2 * * 3');
       expect(result).toBe('0 21 * * 2');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('handles week wrap-around: Saturday (6) + 1 = Sunday (0)', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(30),
-        hours: jest.fn().mockReturnValue(3),
-        date: jest.fn().mockReturnValue(16), // next day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(3, 30, 16, 15);
 
       // Sat (6) should wrap to Sun (0)
       const result = cronToLocalTZ('0 22 * * 6');
       expect(result).toBe('30 3 * * 0');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('handles week wrap-around: Sunday (0) - 1 = Saturday (6)', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(0),
-        hours: jest.fn().mockReturnValue(21),
-        date: jest.fn().mockReturnValue(14), // previous day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(21, 0, 14, 15);
 
       // Sun (0) should wrap to Sat (6)
       const result = cronToLocalTZ('0 2 * * 0');
       expect(result).toBe('0 21 * * 6');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('adjusts multiple comma-separated days', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(30),
-        hours: jest.fn().mockReturnValue(3),
-        date: jest.fn().mockReturnValue(16), // +1 day shift
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(3, 30, 16, 15);
 
       // Mon,Wed,Fri (1,3,5) should become Tue,Thu,Sat (2,4,6)
       const result = cronToLocalTZ('0 22 * * 1,3,5');
       expect(result).toBe('30 3 * * 2,4,6');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('adjusts day ranges', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(30),
-        hours: jest.fn().mockReturnValue(3),
-        date: jest.fn().mockReturnValue(16), // +1 day shift
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(3, 30, 16, 15);
 
       // Mon-Fri (1-5) should become Tue-Sat (2-6)
       const result = cronToLocalTZ('0 22 * * 1-5');
       expect(result).toBe('30 3 * * 2-6');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('handles month boundary: day 31 to day 1 is +1 shift', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(30),
-        hours: jest.fn().mockReturnValue(3),
-        date: jest.fn().mockReturnValue(1), // next month, day 1
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(31), // last day of month
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(3, 30, 1, 31);
 
       // 31 - 1 = -30, but should normalize to +1
       const result = cronToLocalTZ('0 22 * * 3');
       expect(result).toBe('30 3 * * 4'); // Wed → Thu
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('handles month boundary: day 1 to day 31 is -1 shift', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(0),
-        hours: jest.fn().mockReturnValue(21),
-        date: jest.fn().mockReturnValue(31), // previous month, day 31
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(1), // first day of month
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(21, 0, 31, 1);
 
       // 1 - 31 = +30, but should normalize to -1
       const result = cronToLocalTZ('0 2 * * 3');
       expect(result).toBe('0 21 * * 2'); // Wed → Tue
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('no shift when UTC and local are same day', () => {
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(30),
-        hours: jest.fn().mockReturnValue(15),
-        date: jest.fn().mockReturnValue(15), // same day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(15, 30, 15, 15);
 
       // No shift, day stays the same
       const result = cronToLocalTZ('0 10 * * 3');
       expect(result).toBe('30 15 * * 3');
 
-      moment.utc = originalUtc;
+      restore();
     });
 
-    it('integration test with real moment.js (no mocking)', () => {
-      // This test verifies the function works with real moment.js
+    it('integration test with real Date (no mocking)', () => {
+      // This test verifies the function works with the real Date object
       // The exact output depends on the test runner's timezone
       const result = cronToLocalTZ('0 10 * * 3');
 
@@ -576,23 +459,7 @@ describe('Pipeline Utilities', () => {
 
   describe('cronToString edge cases', () => {
     it('returns multiple days comma-separated for weekly schedules', () => {
-      // Mock cronToLocalTZ to return a predictable value with multiple days
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(0),
-        hours: jest.fn().mockReturnValue(9),
-        date: jest.fn().mockReturnValue(15), // same day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(9, 0, 15, 15);
 
       // Multi-day weekly schedule: Mon, Wed, Fri at 9 AM
       const result = cronToString('0 9 * * 1,3,5');
@@ -600,34 +467,17 @@ describe('Pipeline Utilities', () => {
         /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday).*at \d{1,2}:\d{2} (AM|PM)/
       );
 
-      moment.utc = originalUtc;
+      restore();
     });
 
     it('handles single day weekly schedule', () => {
-      // Test the single day case (lines 273-274)
-      // When days.length === 1, it should return "Day at HH:MM AM/PM"
-      const mockLocalTime = {
-        minutes: jest.fn().mockReturnValue(0),
-        hours: jest.fn().mockReturnValue(9),
-        date: jest.fn().mockReturnValue(15), // same day
-      };
-      const mockUtcTime = {
-        hours: jest.fn().mockReturnThis(),
-        minutes: jest.fn().mockReturnThis(),
-        clone: jest.fn().mockReturnValue({
-          local: jest.fn().mockReturnValue(mockLocalTime),
-        }),
-        date: jest.fn().mockReturnValue(15),
-      };
-
-      const originalUtc = moment.utc;
-      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+      const restore = mockTimezone(9, 0, 15, 15);
 
       // Single day weekly schedule: Wednesday at 9 AM
       const result = cronToString('0 9 * * 3');
       expect(result).toMatch(/Wednesday at \d{1,2}:\d{2} (AM|PM)/);
 
-      moment.utc = originalUtc;
+      restore();
     });
   });
 

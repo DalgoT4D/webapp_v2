@@ -5,14 +5,9 @@ import { Clock } from 'lucide-react';
 import { FullScreenModal } from '@/components/ui/full-screen-modal';
 import { LogsTable, type FlowRun, type TaskRun } from '@/components/ui/logs-table';
 import { toastError } from '@/lib/toast';
-import {
-  usePipelineHistory,
-  fetchFlowRunLogs,
-  triggerLogSummary,
-  pollTaskStatus,
-} from '@/hooks/api/usePipelines';
+import { usePipelineHistory, fetchFlowRunLogs, triggerLogSummary } from '@/hooks/api/usePipelines';
 import type { Pipeline, DeploymentRun } from '@/types/pipeline';
-import { makeReadable, getFlowRunStartedBy, delay, calculateDuration } from './utils';
+import { makeReadable, getFlowRunStartedBy, calculateDuration } from './utils';
 import {
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
@@ -110,33 +105,15 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
     []
   );
 
-  // Trigger AI summary for a task
-  const handleTriggerSummary = useCallback(
+  // Start AI summary - returns task_id, polling is handled by SWR hook in LogsTable
+  const handleStartSummary = useCallback(
     async (flowRunId: string, taskId: string): Promise<string> => {
       try {
         const response = await triggerLogSummary(flowRunId, taskId);
-        await delay(3000);
-
-        // Poll for summary completion
-        const pollForResult = async (pollTaskId: string): Promise<string> => {
-          const statusResponse = await pollTaskStatus(pollTaskId);
-          const lastMessage = statusResponse.progress[statusResponse.progress.length - 1];
-
-          if (!['completed', 'failed'].includes(lastMessage.status)) {
-            await delay(3000);
-            return pollForResult(pollTaskId);
-          }
-
-          if (lastMessage.result && lastMessage.result.length > 0) {
-            return lastMessage.result.map((r: any) => r.response).join('\n\n');
-          }
-          return 'No summary available';
-        };
-
-        return await pollForResult(response.task_id);
+        return response.task_id;
       } catch (error: any) {
         toastError.api(error, 'Failed to generate summary');
-        return 'Failed to generate summary';
+        throw error;
       }
     },
     []
@@ -210,7 +187,7 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
           loadingMore={loadingMore}
           onLoadMore={loadMore}
           onFetchLogs={handleFetchLogs}
-          onTriggerSummary={handleTriggerSummary}
+          onStartSummary={handleStartSummary}
           enableAISummary={ENABLE_LOG_SUMMARIES}
         />
       )}

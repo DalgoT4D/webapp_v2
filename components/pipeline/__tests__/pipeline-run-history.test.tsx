@@ -9,7 +9,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PipelineRunHistory } from '../pipeline-run-history';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
+import { apiGet as _apiGet } from '@/lib/api';
+import { toastError as _toastError } from '@/lib/toast';
 import type { Pipeline, DeploymentRun } from '@/types/pipeline';
+
+const mockApiGet = _apiGet as jest.Mock;
+const mockToastError = _toastError as jest.MockedObject<typeof _toastError>;
 
 // ============ Mocks ============
 
@@ -54,7 +59,7 @@ jest.mock('@/components/ui/logs-table', () => ({
     loadingMore,
     onLoadMore,
     onFetchLogs,
-    onTriggerSummary,
+    onStartSummary,
     enableAISummary,
   }: {
     runs: any[];
@@ -62,7 +67,7 @@ jest.mock('@/components/ui/logs-table', () => ({
     loadingMore: boolean;
     onLoadMore: () => void;
     onFetchLogs: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
-    onTriggerSummary: (flowRunId: string, taskId: string) => Promise<string>;
+    onStartSummary: (flowRunId: string, taskId: string) => Promise<string>;
     enableAISummary: boolean;
   }) => (
     <div data-testid="logs-table">
@@ -92,7 +97,7 @@ jest.mock('@/components/ui/logs-table', () => ({
       {enableAISummary && (
         <button
           data-testid="trigger-summary-btn"
-          onClick={() => onTriggerSummary('flow-1', 'task-1')}
+          onClick={() => onStartSummary('flow-1', 'task-1')}
         >
           Get Summary
         </button>
@@ -260,7 +265,6 @@ describe('PipelineRunHistory', () => {
 
   it('loads more runs when clicking load more button', async () => {
     const user = userEvent.setup();
-    const { apiGet } = require('@/lib/api');
 
     const initialRuns = [
       createMockDeploymentRun({ id: 'run-1' }),
@@ -274,7 +278,7 @@ describe('PipelineRunHistory', () => {
       isError: null,
     });
 
-    apiGet.mockResolvedValue([createMockDeploymentRun({ id: 'run-4' })]);
+    mockApiGet.mockResolvedValue([createMockDeploymentRun({ id: 'run-4' })]);
 
     render(
       <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
@@ -286,14 +290,12 @@ describe('PipelineRunHistory', () => {
 
     await user.click(screen.getByTestId('load-more-btn'));
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalled();
+      expect(mockApiGet).toHaveBeenCalled();
     });
   });
 
   it('handles load more API error gracefully', async () => {
     const user = userEvent.setup();
-    const { apiGet } = require('@/lib/api');
-    const { toastError } = require('@/lib/toast');
 
     const initialRuns = [
       createMockDeploymentRun({ id: 'run-1' }),
@@ -307,7 +309,7 @@ describe('PipelineRunHistory', () => {
       isError: null,
     });
 
-    apiGet.mockRejectedValue(new Error('API Error'));
+    mockApiGet.mockRejectedValue(new Error('API Error'));
 
     render(
       <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
@@ -319,13 +321,12 @@ describe('PipelineRunHistory', () => {
 
     await user.click(screen.getByTestId('load-more-btn'));
     await waitFor(() => {
-      expect(toastError.load).toHaveBeenCalledWith(expect.any(Error), 'runs');
+      expect(mockToastError.load).toHaveBeenCalledWith(expect.any(Error), 'runs');
     });
   });
 
   it('fetches logs with various response formats and handles errors', async () => {
     const user = userEvent.setup();
-    const { toastError } = require('@/lib/toast');
     const mockRuns = [createMockDeploymentRun()];
 
     (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
@@ -365,7 +366,7 @@ describe('PipelineRunHistory', () => {
     (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockRejectedValue(new Error('Fetch failed'));
     await user.click(screen.getByTestId('fetch-logs-btn'));
     await waitFor(() => {
-      expect(toastError.load).toHaveBeenCalledWith(expect.any(Error), 'logs');
+      expect(mockToastError.load).toHaveBeenCalledWith(expect.any(Error), 'logs');
     });
   });
 

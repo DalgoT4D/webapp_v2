@@ -18,7 +18,6 @@ import {
   setScheduleStatus,
   fetchFlowRunLogs,
   triggerLogSummary,
-  pollTaskStatus,
 } from '../api/usePipelines';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { TaskLock } from '@/types/pipeline';
@@ -235,10 +234,6 @@ describe('Pipeline Mutation Functions', () => {
     );
     expect(summaryResult.task_id).toBe('summary-1');
 
-    // Poll task status
-    (apiGet as jest.Mock).mockResolvedValue({ progress: [{ status: 'completed' }] });
-    const pollResult = await pollTaskStatus('task-id');
-    expect(apiGet).toHaveBeenCalledWith('/api/tasks/stp/task-id');
-    expect(pollResult.progress[0].status).toBe('completed');
+    // pollTaskStatus replaced by useLogSummaryPoll SWR hook
   });
 });
