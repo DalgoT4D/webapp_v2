@@ -25,8 +25,10 @@ jest.mock('@/hooks/useSyncLock', () => ({
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
 
-const mockToast = jest.fn();
-jest.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mockToast }) }));
+jest.mock('@/lib/toast', () => ({
+  toastSuccess: { generic: jest.fn(), deleted: jest.fn() },
+  toastError: { api: jest.fn(), delete: jest.fn() },
+}));
 
 jest.mock('@/components/ui/confirmation-dialog', () => ({
   useConfirmationDialog: () => ({

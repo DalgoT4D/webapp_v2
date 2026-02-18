@@ -412,16 +412,15 @@ describe('DynamicLevelConfig', () => {
       await user.click(downloadButton);
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith({
-          title: 'Download complete',
-          description: 'Download successful',
-        });
+        // toastSuccess.generic is called with just the message string
+        expect(mockToast).toHaveBeenCalledWith('Download successful');
       });
     });
 
     it('should show error toast on failed download', async () => {
       const user = userEvent.setup();
-      (csvUtils.downloadRegionNames as jest.Mock).mockRejectedValue(new Error('Download failed'));
+      const downloadError = new Error('Download failed');
+      (csvUtils.downloadRegionNames as jest.Mock).mockRejectedValue(downloadError);
 
       render(<DynamicLevelConfig formData={defaultFormData} onChange={mockOnChange} />);
 
@@ -429,11 +428,11 @@ describe('DynamicLevelConfig', () => {
       await user.click(downloadButton);
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith({
-          title: 'Download failed',
-          description: 'Failed to download state names. Please try again.',
-          variant: 'destructive',
-        });
+        // toastError.api is called with (error, fallbackMessage)
+        expect(mockToast).toHaveBeenCalledWith(
+          downloadError,
+          'Failed to download state names. Please try again.'
+        );
       });
     });
 

@@ -182,6 +182,11 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 
 ## Testing Strategy
 
+### Critical Testing Principles
+- **NEVER fake tests to pass** - If a test fails, leave it failing. Do not change expected values or assertions just to make tests pass. We debug failing tests together.
+- **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
+- **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
+
 ### Unit Tests
 - Test utility functions and custom hooks in isolation
 - Mock API calls using SWR's testing utilities
