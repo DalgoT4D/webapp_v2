@@ -87,6 +87,12 @@ export function NumberChartCustomizations({
                 International ({`1234567 => 1,234,567`})
               </SelectItem>
               <SelectItem value="indian">Indian ({`1234567 => 12,34,567`})</SelectItem>
+              <SelectItem value="adaptive_international">
+                Adaptive International ({`1234567 => 1.23M`})
+              </SelectItem>
+              <SelectItem value="adaptive_indian">
+                Adaptive Indian ({`1234567 => 12.35L`})
+              </SelectItem>
               <SelectItem value="currency">Currency ($)</SelectItem>
             </SelectContent>
           </Select>
