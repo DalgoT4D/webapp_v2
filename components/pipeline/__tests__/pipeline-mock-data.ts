@@ -4,7 +4,7 @@
  * Extracted from MSW handlers for use with Jest mocks.
  */
 
-import { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
 
 // ============ Mock Data Factories ============
 

@@ -21,7 +21,7 @@ import {
   localTimezone,
 } from '../utils';
 import moment from 'moment';
-import { TransformTask } from '@/types/pipeline';
+import type { TransformTask } from '@/types/pipeline';
 
 describe('Pipeline Utilities', () => {
   describe('Time and Duration Formatting', () => {

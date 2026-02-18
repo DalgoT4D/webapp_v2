@@ -38,7 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
-import { Pipeline } from '@/types/pipeline';
+import type { Pipeline } from '@/types/pipeline';
 import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from './utils';
 import { useSyncLock } from '@/hooks/useSyncLock';
 import { PipelineRunHistory } from './pipeline-run-history';

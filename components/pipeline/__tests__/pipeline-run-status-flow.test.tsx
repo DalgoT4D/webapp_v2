@@ -13,7 +13,7 @@ import userEvent from '@testing-library/user-event';
 import { PipelineList } from '../pipeline-list';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
-import { Pipeline } from '@/types/pipeline';
+import type { Pipeline } from '@/types/pipeline';
 
 jest.mock('@/hooks/api/usePipelines');
 jest.mock('@/hooks/api/usePermissions');

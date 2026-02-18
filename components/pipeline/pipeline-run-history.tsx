@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import { FullScreenModal } from '@/components/ui/full-screen-modal';
-import { LogsTable, FlowRun, TaskRun } from '@/components/ui/logs-table';
+import { LogsTable, type FlowRun, type TaskRun } from '@/components/ui/logs-table';
 import { toastError } from '@/lib/toast';
 import {
   usePipelineHistory,
@@ -11,7 +11,7 @@ import {
   triggerLogSummary,
   pollTaskStatus,
 } from '@/hooks/api/usePipelines';
-import { Pipeline, DeploymentRun } from '@/types/pipeline';
+import type { Pipeline, DeploymentRun } from '@/types/pipeline';
 import { makeReadable, getFlowRunStartedBy, delay, calculateDuration } from './utils';
 import {
   DEFAULT_LOAD_MORE_LIMIT,

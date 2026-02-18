@@ -8,7 +8,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TaskSequence } from '../task-sequence';
-import { TransformTask } from '@/types/pipeline';
+import type { TransformTask } from '@/types/pipeline';
 
 // Mock dnd-kit with controllable drag end handler
 let capturedDragEndHandler: ((event: any) => void) | null = null;

@@ -9,7 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PipelineRunHistory } from '../pipeline-run-history';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
-import { Pipeline, DeploymentRun } from '@/types/pipeline';
+import type { Pipeline, DeploymentRun } from '@/types/pipeline';
 
 // ============ Mocks ============
 

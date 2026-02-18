@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Combobox, ComboboxItem } from '@/components/ui/combobox';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toastSuccess, toastError } from '@/lib/toast';
 import {
@@ -22,7 +22,7 @@ import {
   updatePipeline,
   setScheduleStatus,
 } from '@/hooks/api/usePipelines';
-import {
+import type {
   TransformTask,
   PipelineFormData,
   ConnectionOption,

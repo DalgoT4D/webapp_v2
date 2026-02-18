@@ -1,6 +1,6 @@
 import { formatDistanceToNow, differenceInSeconds, parseISO } from 'date-fns';
 import moment from 'moment';
-import { TransformTask } from '@/types/pipeline';
+import type { TransformTask } from '@/types/pipeline';
 import {
   TASK_READABLE_NAMES,
   SYSTEM_COMMAND_ORDER,

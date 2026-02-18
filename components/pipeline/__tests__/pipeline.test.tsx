@@ -12,7 +12,7 @@ import { PipelineForm } from '../pipeline-form';
 import { TaskSequence } from '../task-sequence';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
-import { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
 
 // ============ Mocks ============
 
