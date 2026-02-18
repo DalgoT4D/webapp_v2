@@ -137,7 +137,8 @@ export function ColumnTypeIcon({ dataType, className = 'w-4 h-4' }: ColumnTypeIc
  */
 export function isDateOnlyColumn(dataType: string): boolean {
   const normalizedType = dataType.toLowerCase().trim();
-  return dateOnlyTypes.some((type) => normalizedType.includes(type));
+  // Use exact equality to avoid 'datetime'.includes('date') being true
+  return dateOnlyTypes.some((type) => normalizedType === type);
 }
 
 /**
