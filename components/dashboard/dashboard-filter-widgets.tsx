@@ -3,18 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
-import { Filter, ChevronDown, X, Check, Hash, Type, RotateCcw } from 'lucide-react';
+import { Combobox } from '@/components/ui/combobox';
+import { Filter, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   DashboardFilterConfig,
@@ -55,8 +47,6 @@ function ValueFilterWidget({
   publicToken,
 }: FilterWidgetProps) {
   const valueFilter = filter as ValueFilterConfig;
-  const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedValues, setSelectedValues] = useState<string[]>(
     Array.isArray(value) ? value : value ? [value] : []
   );
@@ -122,14 +112,6 @@ function ValueFilterWidget({
   // Use dynamically fetched options
   const availableOptions = filterOptions?.options || [];
 
-  // Filter options based on search term - with null safety
-  const filteredOptions =
-    availableOptions?.filter(
-      (option: FilterOption) =>
-        option?.label?.toLowerCase?.()?.includes(searchTerm.toLowerCase()) ||
-        option?.value?.toLowerCase?.()?.includes(searchTerm.toLowerCase())
-    ) || [];
-
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
     if (!optionValue) return; // Guard against invalid option values
 
@@ -143,7 +125,6 @@ function ValueFilterWidget({
       }
     } else {
       newSelection = isChecked ? [optionValue] : [];
-      setOpen(false);
     }
 
     const finalValue =
@@ -156,15 +137,6 @@ function ValueFilterWidget({
     setSelectedValues(newSelection);
     onChange(filter.id, finalValue);
   };
-
-  const handleClear = () => {
-    setSelectedValues([]);
-    onChange(filter.id, null);
-  };
-
-  const selectedLabels = selectedValues.map(
-    (val) => availableOptions.find((opt: FilterOption) => opt.value === val)?.label || val
-  );
 
   return (
     <div
@@ -213,133 +185,38 @@ function ValueFilterWidget({
             No options available
           </div>
         ) : valueFilter.settings?.can_select_multiple ? (
-          <Popover
-            open={open}
-            onOpenChange={(newOpen) => {
-              setOpen(newOpen);
-              if (!newOpen) {
-                setSearchTerm(''); // Clear search when closing
-              }
+          <Combobox
+            mode="multi"
+            items={availableOptions.map((opt: FilterOption) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
+            values={selectedValues}
+            onValuesChange={(newValues) => {
+              setSelectedValues(newValues);
+              const finalValue = newValues.length === 0 ? null : newValues;
+              onChange(filter.id, finalValue);
             }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={open}
-                className={cn(
-                  'w-full justify-between font-normal',
-                  isEditMode ? 'h-8 text-xs' : 'h-10 text-sm'
-                )}
-                size={isEditMode ? 'sm' : 'default'}
-              >
-                <span
-                  className={cn(
-                    'truncate normal-case',
-                    selectedValues.length === 0 && 'text-muted-foreground'
-                  )}
-                >
-                  {selectedValues.length === 0
-                    ? isEditMode
-                      ? 'Select...'
-                      : 'Choose option...'
-                    : `${selectedValues.length} selected`}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    'shrink-0 opacity-50',
-                    isEditMode ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4'
-                  )}
-                />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="start">
-              <div className="p-2">
-                <Input
-                  placeholder="Search..."
-                  className="h-8 mb-2"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <div className="max-h-48 overflow-auto">
-                  {filteredOptions.length === 0 ? (
-                    <div className="text-xs text-muted-foreground p-2 text-center">
-                      {searchTerm ? 'No options found.' : 'No options available.'}
-                    </div>
-                  ) : (
-                    filteredOptions.map((option: FilterOption) => (
-                      <div
-                        key={option.value}
-                        className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-gray-100 cursor-pointer rounded"
-                        onClick={() => {
-                          const isCurrentlySelected = selectedValues.includes(option.value);
-                          handleSelectionChange(option.value, !isCurrentlySelected);
-                        }}
-                      >
-                        <Checkbox
-                          checked={selectedValues.includes(option.value)}
-                          onCheckedChange={(checked) =>
-                            handleSelectionChange(option.value, checked === true)
-                          }
-                          onClick={(e) => {
-                            // Stop propagation to prevent double handling
-                            e.stopPropagation();
-                          }}
-                          className="h-3 w-3"
-                        />
-                        <span className="flex-1 text-xs">{option.label}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+            placeholder={isEditMode ? 'Select...' : 'Choose option...'}
+            searchPlaceholder="Search..."
+            compact={isEditMode}
+          />
         ) : (
-          <Select
+          <Combobox
+            items={availableOptions.map((opt: FilterOption) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
             value={selectedValues[0] || ''}
-            onValueChange={(val) => handleSelectionChange(val, true)}
-          >
-            <SelectTrigger className={cn(isEditMode ? 'h-8' : 'h-10')}>
-              <SelectValue placeholder={isEditMode ? 'Select...' : 'Choose option...'} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableOptions.map((option: FilterOption) => (
-                <SelectItem key={option.value} value={option.value} className="text-xs py-1.5">
-                  <div className="flex items-center justify-between w-full">
-                    <span>{option.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Selected values display for multi-select */}
-        {valueFilter.settings.can_select_multiple && selectedValues.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {selectedValues.slice(0, 2).map((value) => (
-              <Badge key={value} variant="secondary" className="text-xs h-5 px-1.5 gap-1">
-                <span>
-                  {availableOptions.find((opt: FilterOption) => opt.value === value)?.label ||
-                    value}
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center hover:text-red-600"
-                  onClick={() => handleSelectionChange(value, false)}
-                  aria-label={`Remove ${availableOptions.find((opt: FilterOption) => opt.value === value)?.label || value}`}
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </Badge>
-            ))}
-            {selectedValues.length > 2 && (
-              <Badge variant="secondary" className="text-xs h-5 px-1.5">
-                +{selectedValues.length - 2}
-              </Badge>
-            )}
-          </div>
+            onValueChange={(val) => {
+              const newSelection = val ? [val] : [];
+              setSelectedValues(newSelection);
+              onChange(filter.id, val || null);
+            }}
+            placeholder={isEditMode ? 'Select...' : 'Choose option...'}
+            searchPlaceholder="Search..."
+            compact={isEditMode}
+          />
         )}
       </div>
     </div>

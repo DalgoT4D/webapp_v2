@@ -22,6 +22,7 @@ import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { Combobox } from '@/components/ui/combobox';
 
 // Column data type
 interface TableColumn {
@@ -112,44 +113,20 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
 
       return (
         <div className="h-8 flex-1">
-          <Select
-            value={selectedValues.length > 0 ? selectedValues.join(',') : ''}
-            onValueChange={(selectedValue) => {
-              const currentSelected = selectedValues.includes(selectedValue)
-                ? selectedValues.filter((v: string) => v !== selectedValue)
-                : [...selectedValues, selectedValue];
-              onChange(currentSelected.join(', '));
-            }}
+          <Combobox
+            mode="multi"
+            items={columnValues
+              .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+              .slice(0, 100)
+              .map((val) => ({ value: val.toString(), label: val.toString() }))}
+            values={selectedValues}
+            onValuesChange={(vals) => onChange(vals.join(', '))}
             disabled={disabled}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue
-                placeholder={
-                  selectedValues.length > 0 ? `${selectedValues.length} selected` : 'Select values'
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {columnValues
-                .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
-                .slice(0, 100)
-                .map((val) => (
-                  <SelectItem key={val} value={val.toString()}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={selectedValues.includes(val.toString())}
-                        readOnly
-                        className="w-4 h-4 flex-shrink-0"
-                      />
-                      <span className="truncate" title={val.toString()}>
-                        {val}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+            placeholder={
+              selectedValues.length > 0 ? `${selectedValues.length} selected` : 'Select values'
+            }
+            compact
+          />
         </div>
       );
     } else {
@@ -170,45 +147,19 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   // If we have column values, show searchable dropdown
   if (columnValues && columnValues.length > 0) {
     return (
-      <Select
+      <Combobox
+        items={columnValues
+          .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+          .slice(0, 100)
+          .map((val) => ({ value: val.toString(), label: val.toString() }))}
         value={value || ''}
-        onValueChange={(selectedValue) => onChange(selectedValue)}
+        onValueChange={(val) => onChange(val)}
         disabled={disabled}
-      >
-        <SelectTrigger className="h-8 flex-1">
-          <SelectValue placeholder="Select or type value" />
-        </SelectTrigger>
-        <SelectContent>
-          <div className="p-2">
-            <Input
-              type="text"
-              placeholder="Type to search..."
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              className="h-8 mb-2"
-            />
-          </div>
-          {columnValues
-            .filter(
-              (val) =>
-                val !== null &&
-                val !== undefined &&
-                val.toString().trim() !== '' &&
-                val
-                  .toString()
-                  .toLowerCase()
-                  .includes((value || '').toString().toLowerCase())
-            )
-            .slice(0, 100)
-            .map((val) => (
-              <SelectItem key={val} value={val.toString()}>
-                <span className="truncate" title={val.toString()}>
-                  {val}
-                </span>
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
+        searchPlaceholder="Search values..."
+        placeholder="Select value"
+        compact
+        className="flex-1"
+      />
     );
   }
 
@@ -232,15 +183,28 @@ export function MapDataConfigurationV3({
 }: MapDataConfigurationV3Props) {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  // Filter columns by type
-  const normalizedColumns =
-    columns?.map((col) => ({
-      name: col.column_name || col.name, // Use 'name' to match TableColumn interface
-      data_type: col.data_type,
-      column_name: col.column_name || col.name, // Add this for backward compatibility
-    })) || [];
+  // Memoize normalized columns to prevent unnecessary re-renders
+  const normalizedColumns = React.useMemo(
+    () =>
+      columns?.map((col) => ({
+        name: col.column_name || col.name, // Use 'name' to match TableColumn interface
+        data_type: col.data_type,
+        column_name: col.column_name || col.name, // Add this for backward compatibility
+      })) || [],
+    [columns]
+  );
 
   const allColumns = normalizedColumns;
+
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      normalizedColumns.map((col) => ({
+        value: col.column_name,
+        label: col.column_name,
+      })),
+    [normalizedColumns]
+  );
 
   // Handle dataset changes with complete form reset for maps
   const handleDatasetChange = (schema_name: string, table_name: string) => {
@@ -348,7 +312,8 @@ export function MapDataConfigurationV3({
         <div className="space-y-2">
           {(formData.filters || []).map((filter, index) => (
             <div key={index} className="flex gap-2 items-center">
-              <Select
+              <Combobox
+                items={columnItems}
                 value={filter.column}
                 onValueChange={(value) => {
                   const newFilters = [...(formData.filters || [])];
@@ -356,20 +321,11 @@ export function MapDataConfigurationV3({
                   onFormDataChange({ filters: newFilters });
                 }}
                 disabled={disabled}
-              >
-                <SelectTrigger className="h-8 flex-1">
-                  <SelectValue placeholder="Column" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allColumns.map((col) => (
-                    <SelectItem key={col.column_name} value={col.column_name}>
-                      <span className="truncate" title={col.column_name}>
-                        {col.column_name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                searchPlaceholder="Search columns..."
+                placeholder="Column"
+                compact
+                className="flex-1"
+              />
 
               <Select
                 value={filter.operator}

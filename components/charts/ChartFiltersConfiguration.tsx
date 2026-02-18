@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2, Filter } from 'lucide-react';
 import type { ChartFilter, TableColumn, ChartBuilderFormData } from '@/types/charts';
+import { Combobox } from '@/components/ui/combobox';
 
 interface ChartFiltersConfigurationProps {
   formData: ChartBuilderFormData;
@@ -52,6 +53,15 @@ export function ChartFiltersConfiguration({
       column_name: col.column_name || col.name,
       data_type: col.data_type,
     })) || [];
+
+  const columnItems = React.useMemo(
+    () =>
+      normalizedColumns.map((col) => ({
+        value: col.column_name,
+        label: `${col.column_name} (${col.data_type})`,
+      })),
+    [normalizedColumns]
+  );
 
   // Show loading state if columns are not available yet
   if (!columns && !disabled) {
@@ -217,10 +227,10 @@ export function ChartFiltersConfiguration({
                 {/* Column Selection */}
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">Column</Label>
-                  <Select
+                  <Combobox
+                    items={columnItems}
                     value={filter.column}
                     onValueChange={(value) => {
-                      // Reset operator and value when column changes
                       const availableOps = getAvailableOperators(value);
                       const defaultOp = availableOps.length > 0 ? availableOps[0].value : 'equals';
                       updateFilter(index, {
@@ -230,23 +240,10 @@ export function ChartFiltersConfiguration({
                       });
                     }}
                     disabled={disabled}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Select column" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {normalizedColumns.map((col) => (
-                        <SelectItem key={col.column_name} value={col.column_name}>
-                          <span
-                            className="truncate"
-                            title={`${col.column_name} (${col.data_type})`}
-                          >
-                            {col.column_name} ({col.data_type})
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    searchPlaceholder="Search columns..."
+                    placeholder="Select column"
+                    compact
+                  />
                 </div>
 
                 {/* Operator Selection */}

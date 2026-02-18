@@ -1,13 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react';
 import { useChildRegions, useRegionGeoJSONs, useRegionHierarchy } from '@/hooks/api/useChart';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import { Combobox, highlightText } from '@/components/ui/combobox';
 import { useCascadingFilters } from '../../../hooks/useCascadingFilters';
 import type { ChartBuilderFormData } from '@/types/charts';
 
@@ -71,6 +65,7 @@ interface Layer {
   id: string;
   level: number;
   geographic_column?: string;
+  region_id?: number;
   selected_regions?: SelectedRegion[];
 }
 
@@ -99,8 +94,8 @@ export function MultiSelectLayerCard({
   const countryCode = formData.country_code || 'IND';
   const { data: regionHierarchy } = useRegionHierarchy(countryCode);
 
-  // Filter out columns that are already used in previous layers
-  const getAvailableColumns = () => {
+  // Memoize available columns (filter out columns used in previous layers)
+  const availableColumns = React.useMemo(() => {
     if (!columns) return [];
 
     const usedColumns = new Set<string>();
@@ -119,9 +114,17 @@ export function MultiSelectLayerCard({
       const columnName = column.name || column.column_name;
       return !usedColumns.has(columnName);
     });
-  };
+  }, [columns, formData.layers, index]);
 
-  const availableColumns = getAvailableColumns();
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      availableColumns.map((column) => {
+        const columnName = column.name || column.column_name;
+        return { value: columnName, label: columnName, data_type: column.data_type };
+      }),
+    [availableColumns]
+  );
 
   // Get the parent region ID for fetching child regions
   const parentLayer = (formData.layers || [])[index - 1];
@@ -142,7 +145,7 @@ export function MultiSelectLayerCard({
   const { filteredRegions, invalidSelections, hasFiltersApplied, filteredCount } =
     useCascadingFilters(index, formData, availableRegions);
 
-  const layerTitle = getLayerTitle(index, regionHierarchy, countryCode);
+  const layerTitle = getLayerTitle(index, regionHierarchy);
   const selectedRegions = layer.selected_regions || [];
 
   // Auto-cleanup invalid selections when filters change
@@ -213,7 +216,7 @@ export function MultiSelectLayerCard({
       geographic_column: layer.geographic_column,
       value_column:
         formData.aggregate_column || formData.value_column || formData.geographic_column,
-      aggregate_function: formData.aggregate_function || formData.aggregate_func,
+      aggregate_function: formData.aggregate_function || 'sum',
       selected_geojson_id: region.geojson_id!,
       filters: {},
       chart_filters: formData.filters || [],
@@ -266,7 +269,8 @@ export function MultiSelectLayerCard({
             <p className="text-xs text-muted-foreground mb-2">
               Select the column that contains {layerTitle.toLowerCase()} names from your data
             </p>
-            <Select
+            <Combobox
+              items={columnItems}
               value={layer.geographic_column || ''}
               onValueChange={(value) =>
                 onUpdate({
@@ -274,26 +278,15 @@ export function MultiSelectLayerCard({
                   selected_regions: [], // Reset selections when column changes
                 })
               }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`Select ${layerTitle.toLowerCase()} column`} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableColumns.map((column) => {
-                  const columnName = column.name || column.column_name;
-                  return (
-                    <SelectItem key={columnName} value={columnName}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <ColumnTypeIcon dataType={column.data_type} className="w-4 h-4" />
-                        <span className="truncate" title={`${columnName} (${column.data_type})`}>
-                          {columnName}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+              searchPlaceholder="Search columns..."
+              placeholder={`Select ${layerTitle.toLowerCase()} column`}
+              renderItem={(item, _isSelected, searchQuery) => (
+                <div className="flex items-center gap-2 min-w-0">
+                  <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                </div>
+              )}
+            />
           </div>
 
           {/* Multi-Region Selection */}
@@ -427,11 +420,7 @@ function RegionSelectionItem({
   );
 }
 
-function getLayerTitle(
-  index: number,
-  regionHierarchy?: Region[],
-  countryCode: string = 'IND'
-): string {
+function getLayerTitle(index: number, regionHierarchy?: Region[]): string {
   // Layer 1 is always "Country"
   if (index === 0) {
     return 'Country';
