@@ -106,7 +106,9 @@ function SortableDimensionItem({
           renderItem={(item, _isSelected, searchQuery) => (
             <div className="flex items-center gap-2 min-w-0">
               <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+              <span className="truncate" title={`${item.label} (${item.data_type})`}>
+                {highlightText(item.label, searchQuery)}
+              </span>
             </div>
           )}
         />
