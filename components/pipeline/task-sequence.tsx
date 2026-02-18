@@ -137,11 +137,17 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
         emptyMessage="No tasks found"
         noItemsMessage="All tasks already added"
         onValueChange={handleSelect}
-        id="task-sequence"
+        id="task-selector"
       />
 
       <div className="flex justify-end">
-        <Button type="button" variant="outline" size="sm" onClick={handleReset}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          data-testid="reset-tasks-btn"
+        >
           Reset to default
         </Button>
       </div>
@@ -187,6 +193,7 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
       ref={setNodeRef}
       style={style}
       className={cn('flex items-center gap-2', isDragging && 'opacity-50')}
+      data-testid={`task-item-${task.uuid}`}
     >
       {/* Drag handle - only for non-system tasks */}
       <div
@@ -222,6 +229,7 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
         size="icon"
         className="h-8 w-8"
         onClick={() => onRemove(task.uuid)}
+        data-testid={`remove-task-${task.uuid}`}
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Remove task</span>

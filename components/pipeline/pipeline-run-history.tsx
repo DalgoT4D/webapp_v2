@@ -172,9 +172,14 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
   // Subtitle for the modal
   const subtitle = (
     <div className="flex items-center gap-2">
-      <span className="font-medium">{pipeline.name}</span>
+      <span className="font-medium" data-testid="history-pipeline-name">
+        {pipeline.name}
+      </span>
       <span className="text-gray-400">|</span>
-      <span className={pipeline.status ? 'text-green-600' : 'text-gray-500'}>
+      <span
+        className={pipeline.status ? 'text-green-600' : 'text-gray-500'}
+        data-testid="history-pipeline-status"
+      >
         {pipeline.status ? 'Active' : 'Inactive'}
       </span>
     </div>
@@ -190,7 +195,10 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
       {isLoading ? (
         <LogsTableSkeleton />
       ) : allRuns.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div
+          className="flex flex-col items-center justify-center py-16 text-center"
+          data-testid="no-history"
+        >
           <Clock className="h-12 w-12 text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">No run history</h3>
           <p className="text-sm text-gray-500">This pipeline hasn&apos;t been run yet.</p>

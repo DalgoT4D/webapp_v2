@@ -310,10 +310,10 @@ function PipelineFormContent({
           {isEditMode ? 'Update Pipeline' : 'Create Pipeline'}
         </h1>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={handleCancel}>
+          <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting} data-testid="submit-btn">
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
@@ -392,11 +392,24 @@ function PipelineFormContent({
             <div className="space-y-3">
               <Label className="text-[15px] font-medium">Transform Tasks</Label>
               <div className="flex items-center gap-3">
-                <ToggleGroup type="single" value={alignment} onValueChange={handleAlignmentChange}>
-                  <ToggleGroupItem value="simple" className="text-[14px]">
+                <ToggleGroup
+                  type="single"
+                  value={alignment}
+                  onValueChange={handleAlignmentChange}
+                  data-testid="task-mode-toggle"
+                >
+                  <ToggleGroupItem
+                    value="simple"
+                    className="text-[14px]"
+                    data-testid="simple-mode-btn"
+                  >
                     Simple
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="advanced" className="text-[14px]">
+                  <ToggleGroupItem
+                    value="advanced"
+                    className="text-[14px]"
+                    data-testid="advanced-mode-btn"
+                  >
                     Advanced
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -413,6 +426,7 @@ function PipelineFormContent({
                     <div className="flex items-center gap-2">
                       <Checkbox
                         id="run-all-tasks"
+                        data-testid="run-all-tasks-checkbox"
                         checked={field.value.length > 0}
                         onCheckedChange={(checked) => {
                           if (checked) {

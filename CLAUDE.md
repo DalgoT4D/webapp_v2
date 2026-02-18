@@ -140,6 +140,31 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 
 ## Development Patterns to Follow
 
+### Component Attributes (Required)
+Always add these attributes to interactive components for testability and debugging:
+
+- **`data-testid`**: Required for all interactive elements (buttons, inputs, rows, etc.)
+  - Use descriptive, kebab-case names: `data-testid="create-pipeline-btn"`
+  - Include unique identifiers for list items: `data-testid="pipeline-row-${id}"`
+- **`id`**: Required for form elements and elements referenced by labels
+- **`key`**: Required for all items in lists/arrays (use unique identifiers, not array indices)
+
+```typescript
+// Example: Button with testid
+<Button data-testid="submit-btn" onClick={handleSubmit}>Submit</Button>
+
+// Example: List items with dynamic testids
+{items.map((item) => (
+  <div key={item.id} data-testid={`item-row-${item.id}`}>
+    <button data-testid={`delete-btn-${item.id}`}>Delete</button>
+  </div>
+))}
+
+// Example: Form element with id for label association
+<Label htmlFor="pipeline-name">Name</Label>
+<Input id="pipeline-name" data-testid="pipeline-name-input" />
+```
+
 ### Creating New Features
 1. **Start with the API hook** in `hooks/api/` using SWR
 2. **Build UI components** in appropriate feature directory under `components/`

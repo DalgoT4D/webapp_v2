@@ -152,7 +152,7 @@ export function PipelineList() {
             </p>
           </div>
           {canCreatePipeline && (
-            <Button onClick={handleCreate} className="h-10">
+            <Button onClick={handleCreate} className="h-10" data-testid="create-pipeline-btn">
               <Plus className="h-4 w-4 mr-2" />
               Create Pipeline
             </Button>
@@ -290,12 +290,17 @@ function PipelineRow({
   }, [lock, lastRun, isRunning]);
 
   return (
-    <TableRow className="hover:bg-gray-50/50">
+    <TableRow className="hover:bg-gray-50/50" data-testid={`pipeline-row-${deploymentId}`}>
       {/* Pipeline Name */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
           <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
-          <span className="font-medium text-[15px] text-gray-900">{name}</span>
+          <span
+            className="font-medium text-[15px] text-gray-900"
+            data-testid={`pipeline-name-${deploymentId}`}
+          >
+            {name}
+          </span>
         </div>
       </TableCell>
 
@@ -311,6 +316,7 @@ function PipelineRow({
       <TableCell className="py-4">
         <Badge
           variant={status ? 'default' : 'secondary'}
+          data-testid={`status-badge-${deploymentId}`}
           className={cn(
             'text-[13px] min-w-[70px] justify-center',
             status
@@ -354,7 +360,7 @@ function PipelineRow({
 
       {/* Last Run Status */}
       <TableCell className="py-4">
-        <StatusBadge status={runStatus} />
+        <StatusBadge status={runStatus} deploymentId={deploymentId} />
       </TableCell>
 
       {/* Actions */}
@@ -366,6 +372,7 @@ function PipelineRow({
             onClick={() => onViewHistory(pipeline)}
             disabled={!canViewPipeline}
             className="h-9 px-3 text-[14px] text-gray-600 hover:text-gray-900"
+            data-testid={`history-btn-${deploymentId}`}
           >
             <History className="h-4 w-4 mr-1.5" />
             History
@@ -376,6 +383,7 @@ function PipelineRow({
             size="sm"
             onClick={handleRunClick}
             disabled={isDisabled || !canRunPipeline}
+            data-testid={`run-btn-${deploymentId}`}
             className={cn(
               'h-9 text-[14px] min-w-[72px]',
               isRunning ? 'bg-primary/70 hover:bg-primary/70 cursor-not-allowed px-4' : 'px-4'
@@ -398,13 +406,18 @@ function PipelineRow({
                 size="sm"
                 disabled={isDisabled}
                 className="h-9 w-9 p-0 text-gray-400 hover:text-gray-600"
+                data-testid={`more-btn-${deploymentId}`}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
               {canEditPipeline && (
-                <DropdownMenuItem onClick={() => onEdit(deploymentId)} className="text-[14px]">
+                <DropdownMenuItem
+                  onClick={() => onEdit(deploymentId)}
+                  className="text-[14px]"
+                  data-testid={`edit-menu-item-${deploymentId}`}
+                >
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
@@ -413,6 +426,7 @@ function PipelineRow({
                 <DropdownMenuItem
                   onClick={() => onDelete(deploymentId)}
                   className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                  data-testid={`delete-menu-item-${deploymentId}`}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
@@ -426,9 +440,13 @@ function PipelineRow({
   );
 }
 
-function StatusBadge({ status }: { status: string | null }) {
+function StatusBadge({ status, deploymentId }: { status: string | null; deploymentId: string }) {
   if (!status) {
-    return <span className="text-[15px] text-gray-400">—</span>;
+    return (
+      <span className="text-[15px] text-gray-400" data-testid={`run-status-${deploymentId}`}>
+        —
+      </span>
+    );
   }
 
   const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
@@ -472,6 +490,7 @@ function StatusBadge({ status }: { status: string | null }) {
         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium border',
         className
       )}
+      data-testid={`run-status-${deploymentId}`}
     >
       {icon}
       {label}
@@ -481,7 +500,10 @@ function StatusBadge({ status }: { status: string | null }) {
 
 function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-lg border">
+    <div
+      className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-lg border"
+      data-testid="empty-state"
+    >
       <div className="mb-4">
         <FlowIcon className="h-16 w-16 rounded-lg" />
       </div>
@@ -491,7 +513,7 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         started.
       </p>
       {canCreate && (
-        <Button onClick={onCreate}>
+        <Button onClick={onCreate} data-testid="create-pipeline-empty-btn">
           <Plus className="h-4 w-4 mr-2" />
           Create Pipeline
         </Button>
