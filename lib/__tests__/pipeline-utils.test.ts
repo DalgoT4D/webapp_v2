@@ -17,6 +17,8 @@ import {
   utcTimeToLocal,
   getFlowRunStartedBy,
   calculateDuration,
+  delay,
+  localTimezone,
 } from '../pipeline-utils';
 import moment from 'moment';
 import { TransformTask } from '@/types/pipeline';
@@ -538,6 +540,111 @@ describe('Pipeline Utilities', () => {
       expect(trimEmail('user@example.com')).toBe('user');
       expect(trimEmail('first.last@example.com')).toBe('first.last');
       expect(trimEmail('noatsymbol')).toBe('noatsymbol');
+    });
+
+    it('handles invalid date string', () => {
+      // Invalid date format should return null
+      expect(getFlowRunStartedBy('invalid-date', 'user@example.com')).toBeNull();
+    });
+  });
+
+  describe('Utility Functions', () => {
+    it('delay function resolves after specified time', async () => {
+      jest.useFakeTimers();
+
+      const promise = delay(1000);
+      jest.advanceTimersByTime(1000);
+
+      await expect(promise).resolves.toBeUndefined();
+      jest.useRealTimers();
+    });
+
+    it('calculateDuration handles invalid dates', () => {
+      // date-fns parseISO returns Invalid Date for invalid strings,
+      // and differenceInSeconds returns NaN (not an error).
+      // The catch block only handles actual exceptions.
+      expect(calculateDuration('invalid', 'also-invalid')).toBeNaN();
+      expect(calculateDuration('2025-01-01T10:00:00Z', 'invalid')).toBeNaN();
+    });
+
+    it('localTimezone returns a valid timezone string', () => {
+      const tz = localTimezone();
+      expect(typeof tz).toBe('string');
+      expect(tz.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('cronToString edge cases', () => {
+    it('returns multiple days comma-separated for weekly schedules', () => {
+      // Mock cronToLocalTZ to return a predictable value with multiple days
+      const mockLocalTime = {
+        minutes: jest.fn().mockReturnValue(0),
+        hours: jest.fn().mockReturnValue(9),
+        date: jest.fn().mockReturnValue(15), // same day
+      };
+      const mockUtcTime = {
+        hours: jest.fn().mockReturnThis(),
+        minutes: jest.fn().mockReturnThis(),
+        clone: jest.fn().mockReturnValue({
+          local: jest.fn().mockReturnValue(mockLocalTime),
+        }),
+        date: jest.fn().mockReturnValue(15),
+      };
+
+      const originalUtc = moment.utc;
+      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+
+      // Multi-day weekly schedule: Mon, Wed, Fri at 9 AM
+      const result = cronToString('0 9 * * 1,3,5');
+      expect(result).toMatch(
+        /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday).*at \d{1,2}:\d{2} (AM|PM)/
+      );
+
+      moment.utc = originalUtc;
+    });
+
+    it('handles single day weekly schedule', () => {
+      // Test the single day case (lines 273-274)
+      // When days.length === 1, it should return "Day at HH:MM AM/PM"
+      const mockLocalTime = {
+        minutes: jest.fn().mockReturnValue(0),
+        hours: jest.fn().mockReturnValue(9),
+        date: jest.fn().mockReturnValue(15), // same day
+      };
+      const mockUtcTime = {
+        hours: jest.fn().mockReturnThis(),
+        minutes: jest.fn().mockReturnThis(),
+        clone: jest.fn().mockReturnValue({
+          local: jest.fn().mockReturnValue(mockLocalTime),
+        }),
+        date: jest.fn().mockReturnValue(15),
+      };
+
+      const originalUtc = moment.utc;
+      moment.utc = jest.fn().mockReturnValue(mockUtcTime) as typeof moment.utc;
+
+      // Single day weekly schedule: Wednesday at 9 AM
+      const result = cronToString('0 9 * * 3');
+      expect(result).toMatch(/Wednesday at \d{1,2}:\d{2} (AM|PM)/);
+
+      moment.utc = originalUtc;
+    });
+  });
+
+  describe('Time conversion error handling', () => {
+    it('localTimeToUTC throws for invalid time format', () => {
+      expect(() => localTimeToUTC('')).toThrow('Invalid time format');
+      expect(() => localTimeToUTC('25:00')).toThrow('Invalid time format');
+      expect(() => localTimeToUTC('12:60')).toThrow('Invalid time format');
+      expect(() => localTimeToUTC('abc')).toThrow('Invalid time format');
+      expect(() => localTimeToUTC('12-30')).toThrow('Invalid time format');
+    });
+
+    it('utcTimeToLocal throws for invalid UTC time format', () => {
+      expect(() => utcTimeToLocal('abc')).toThrow('Invalid UTC time format');
+      expect(() => utcTimeToLocal('25 0')).toThrow('Invalid UTC time format');
+      expect(() => utcTimeToLocal('10 60')).toThrow('Invalid UTC time format');
+      expect(() => utcTimeToLocal('10:30')).toThrow('Invalid UTC time format');
     });
   });
 });

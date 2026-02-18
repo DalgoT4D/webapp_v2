@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Edit, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -50,6 +50,8 @@ interface DrillDownLevel {
 
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isFromDashboard = searchParams.get('from') === 'dashboard';
   const { hasPermission } = useUserPermissions();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
@@ -171,6 +173,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               ],
               pagination: chart.extra_config?.pagination,
               sort: chart.extra_config?.sort,
+              time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
             },
           }
@@ -714,17 +717,32 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       <div className="bg-white border-b px-6 py-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/charts">
-              <Button variant="ghost" size="sm">
+            {isFromDashboard ? (
+              <Button
+                data-testid="chart-detail-back-dashboard"
+                variant="ghost"
+                size="sm"
+                onClick={() => router.back()}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
+                Back to Dashboard
               </Button>
-            </Link>
+            ) : (
+              <Link href="/charts" data-testid="chart-detail-back-link">
+                <Button data-testid="chart-detail-back-button" variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
+            )}
             <h1 className="text-lg font-semibold">{chart.title}</h1>
           </div>
           <div className="flex gap-2">
             {hasPermission('can_edit_charts') && (
-              <Link href={`/charts/${chartId}/edit`}>
+              <Link
+                data-testid="chart-detail-edit-link"
+                href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}
+              >
                 <Button variant="outline">
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Chart
