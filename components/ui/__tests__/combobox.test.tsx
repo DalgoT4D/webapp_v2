@@ -15,7 +15,7 @@ describe('Combobox - Single Mode', () => {
     const { rerender } = render(
       <Combobox items={mockItems} value="" onValueChange={jest.fn()} placeholder="Select option" />
     );
-    expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Select option')).toBeInTheDocument();
 
     rerender(<Combobox items={mockItems} value="1" onValueChange={jest.fn()} />);
     expect(screen.getByRole('combobox')).toHaveValue('Option 1');
