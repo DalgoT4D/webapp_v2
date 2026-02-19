@@ -10,6 +10,7 @@ interface PipelineBarChartProps {
   runs: DashboardRun[];
   onSelectRun: (run: DashboardRun) => void;
   scaleToRuntime?: boolean;
+  selectedRunId?: string | null;
 }
 
 // Constants matching webapp D3 implementation exactly
@@ -25,6 +26,7 @@ export function PipelineBarChart({
   runs,
   onSelectRun,
   scaleToRuntime = true,
+  selectedRunId = null,
 }: PipelineBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -111,6 +113,9 @@ export function PipelineBarChart({
             const rectHeight = Math.abs(endPoint[1] - startPoint[1]);
             const rectY = startPoint[1] - rectHeight;
 
+            const isSelected = selectedRunId === dataItem.id;
+            const hasSelection = !!selectedRunId;
+
             return {
               type: 'rect',
               shape: {
@@ -121,6 +126,7 @@ export function PipelineBarChart({
               },
               style: {
                 fill: getBarColor(dataItem),
+                opacity: hasSelection && !isSelected ? 0.35 : 1,
               },
               emphasis: {
                 style: {
@@ -163,7 +169,7 @@ export function PipelineBarChart({
         onSelectRun(run);
       }
     });
-  }, [runs, scaleToRuntime, onSelectRun]);
+  }, [runs, scaleToRuntime, onSelectRun, selectedRunId]);
 
   // Custom tooltip functions
   const showTooltip = useCallback(

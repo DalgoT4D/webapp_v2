@@ -230,6 +230,7 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
             scaleToRuntime={scaleToRuntime}
             onScaleChange={onScaleChange}
             onSelectRun={handleSelectRun}
+            selectedRunId={selectedRun?.id}
           />
 
           {/* Inline Logs (shown below the card when a run is selected) */}
@@ -286,9 +287,16 @@ interface PipelineCardProps {
   scaleToRuntime: boolean;
   onScaleChange: (checked: boolean) => void;
   onSelectRun: (run: DashboardRun) => void;
+  selectedRunId?: string | null;
 }
 
-function PipelineCard({ pipeline, scaleToRuntime, onScaleChange, onSelectRun }: PipelineCardProps) {
+function PipelineCard({
+  pipeline,
+  scaleToRuntime,
+  onScaleChange,
+  onSelectRun,
+  selectedRunId,
+}: PipelineCardProps) {
   const runs = pipeline.runs || [];
   const runCount = runs.length;
   const successfulRuns = runs.filter(
@@ -342,7 +350,12 @@ function PipelineCard({ pipeline, scaleToRuntime, onScaleChange, onSelectRun }: 
 
       {/* Bar chart (includes baseline) */}
       <div className="mb-4">
-        <PipelineBarChart runs={runs} scaleToRuntime={scaleToRuntime} onSelectRun={onSelectRun} />
+        <PipelineBarChart
+          runs={runs}
+          scaleToRuntime={scaleToRuntime}
+          onSelectRun={onSelectRun}
+          selectedRunId={selectedRunId}
+        />
       </div>
 
       {/* Footer row: Last X runs + scale toggle */}
