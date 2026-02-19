@@ -162,3 +162,23 @@ export interface TaskProgressResponse {
     result?: LogSummaryResult[];
   }>;
 }
+
+// Dashboard API types (for /pipeline overview page)
+export interface DashboardRun {
+  id: string;
+  name: string;
+  status: string;
+  state_name: string;
+  startTime: string;
+  totalRunTime: number;
+}
+
+export interface DashboardPipeline {
+  id: string;
+  deploymentName: string;
+  name: string;
+  status: string;
+  lock: boolean;
+  runs: DashboardRun[];
+  lastRun?: { startTime: string };
+}
