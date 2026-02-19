@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
 import { DashboardRun } from '@/types/pipeline';
-import { formatDuration } from '@/lib/pipeline-utils';
+import { formatDuration } from './utils';
 import { format } from 'date-fns';
 
 interface PipelineBarChartProps {

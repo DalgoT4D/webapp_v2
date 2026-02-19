@@ -3,16 +3,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import { FullScreenModal } from '@/components/ui/full-screen-modal';
-import { LogsTable, FlowRun, TaskRun } from '@/components/ui/logs-table';
+import { LogsTable, type FlowRun, type TaskRun } from '@/components/ui/logs-table';
 import { toastError } from '@/lib/toast';
-import {
-  usePipelineHistory,
-  fetchFlowRunLogs,
-  triggerLogSummary,
-  pollTaskStatus,
-} from '@/hooks/api/usePipelines';
-import { Pipeline, DeploymentRun } from '@/types/pipeline';
-import { makeReadable, getFlowRunStartedBy, delay, calculateDuration } from '@/lib/pipeline-utils';
+import { usePipelineHistory, fetchFlowRunLogs, triggerLogSummary } from '@/hooks/api/usePipelines';
+import type { Pipeline, DeploymentRun } from '@/types/pipeline';
+import { makeReadable, getFlowRunStartedBy, calculateDuration } from './utils';
 import {
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
@@ -110,33 +105,15 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
     []
   );
 
-  // Trigger AI summary for a task
-  const handleTriggerSummary = useCallback(
+  // Start AI summary - returns task_id, polling is handled by SWR hook in LogsTable
+  const handleStartSummary = useCallback(
     async (flowRunId: string, taskId: string): Promise<string> => {
       try {
         const response = await triggerLogSummary(flowRunId, taskId);
-        await delay(3000);
-
-        // Poll for summary completion
-        const pollForResult = async (pollTaskId: string): Promise<string> => {
-          const statusResponse = await pollTaskStatus(pollTaskId);
-          const lastMessage = statusResponse.progress[statusResponse.progress.length - 1];
-
-          if (!['completed', 'failed'].includes(lastMessage.status)) {
-            await delay(3000);
-            return pollForResult(pollTaskId);
-          }
-
-          if (lastMessage.result && lastMessage.result.length > 0) {
-            return lastMessage.result.map((r: any) => r.response).join('\n\n');
-          }
-          return 'No summary available';
-        };
-
-        return await pollForResult(response.task_id);
+        return response.task_id;
       } catch (error: any) {
         toastError.api(error, 'Failed to generate summary');
-        return 'Failed to generate summary';
+        throw error;
       }
     },
     []
@@ -172,9 +149,14 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
   // Subtitle for the modal
   const subtitle = (
     <div className="flex items-center gap-2">
-      <span className="font-medium">{pipeline.name}</span>
+      <span className="font-medium" data-testid="history-pipeline-name">
+        {pipeline.name}
+      </span>
       <span className="text-gray-400">|</span>
-      <span className={pipeline.status ? 'text-green-600' : 'text-gray-500'}>
+      <span
+        className={pipeline.status ? 'text-green-600' : 'text-gray-500'}
+        data-testid="history-pipeline-status"
+      >
         {pipeline.status ? 'Active' : 'Inactive'}
       </span>
     </div>
@@ -190,7 +172,10 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
       {isLoading ? (
         <LogsTableSkeleton />
       ) : allRuns.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div
+          className="flex flex-col items-center justify-center py-16 text-center"
+          data-testid="no-history"
+        >
           <Clock className="h-12 w-12 text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">No run history</h3>
           <p className="text-sm text-gray-500">This pipeline hasn&apos;t been run yet.</p>
@@ -202,7 +187,7 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
           loadingMore={loadingMore}
           onLoadMore={loadMore}
           onFetchLogs={handleFetchLogs}
-          onTriggerSummary={handleTriggerSummary}
+          onStartSummary={handleStartSummary}
           enableAISummary={ENABLE_LOG_SUMMARIES}
         />
       )}
@@ -220,9 +205,9 @@ function LogsTableSkeleton() {
       <div className="h-10 bg-teal-700 rounded-t-xl" />
 
       {/* Row skeletons with gaps */}
-      <div className="space-y-3 mt-3">
+      <div className="space-y-2 mt-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="border border-gray-100 rounded-xl shadow-sm p-4">
+          <div key={i} className="border border-gray-200/70 rounded-lg p-4">
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-2">
                 <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />

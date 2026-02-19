@@ -6,6 +6,7 @@ import { format, isValid } from 'date-fns';
 import { FileText, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLogSummaryPoll } from '@/hooks/api/usePipelines';
 
 /**
  * Types for LogsTable
@@ -44,8 +45,8 @@ export interface LogsTableProps {
   onLoadMore?: () => void;
   /** Callback to fetch logs for a task */
   onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
-  /** Callback to trigger AI summary */
-  onTriggerSummary?: (flowRunId: string, taskId: string) => Promise<string>;
+  /** Callback to start AI summary - returns the poll task_id */
+  onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   /** Whether AI summaries are enabled */
   enableAISummary?: boolean;
   /** Column headers - defaults to ['Date', 'Task', 'Duration', 'Action'] */
@@ -80,7 +81,7 @@ export function LogsTable({
   loadingMore = false,
   onLoadMore,
   onFetchLogs,
-  onTriggerSummary,
+  onStartSummary,
   enableAISummary = false,
   columns = ['Date', 'Task', 'Duration', 'Action'],
 }: LogsTableProps) {
@@ -107,13 +108,13 @@ export function LogsTable({
       </div>
 
       {/* Body - Each run is a separate card with gap */}
-      <div className="space-y-3 mt-3">
+      <div className="space-y-2 mt-2">
         {runs.map((run) => (
           <FlowRunRow
             key={run.id}
             run={run}
             onFetchLogs={onFetchLogs}
-            onTriggerSummary={onTriggerSummary}
+            onStartSummary={onStartSummary}
             enableAISummary={enableAISummary}
           />
         ))}
@@ -147,11 +148,11 @@ export function LogsTable({
 interface FlowRunRowProps {
   run: FlowRun;
   onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
-  onTriggerSummary?: (flowRunId: string, taskId: string) => Promise<string>;
+  onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   enableAISummary?: boolean;
 }
 
-function FlowRunRow({ run, onFetchLogs, onTriggerSummary, enableAISummary }: FlowRunRowProps) {
+function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowRunRowProps) {
   const isFailed = run.status === 'failed' || run.status === 'warning';
 
   const formattedDate =
@@ -160,8 +161,8 @@ function FlowRunRow({ run, onFetchLogs, onTriggerSummary, enableAISummary }: Flo
   return (
     <div
       className={cn(
-        'grid grid-cols-12 rounded-xl overflow-hidden shadow-sm',
-        isFailed ? 'bg-red-50/70 border border-red-100' : 'bg-white border border-gray-100'
+        'grid grid-cols-12 rounded-lg overflow-hidden',
+        isFailed ? 'bg-red-50/70 border border-red-200/60' : 'bg-white border border-gray-200/70'
       )}
     >
       {/* Date Cell - Fixed width, vertically centered */}
@@ -197,7 +198,7 @@ function FlowRunRow({ run, onFetchLogs, onTriggerSummary, enableAISummary }: Flo
             isLast={index === run.tasks.length - 1}
             isFailed={isFailed}
             onFetchLogs={onFetchLogs}
-            onTriggerSummary={onTriggerSummary}
+            onStartSummary={onStartSummary}
             enableAISummary={enableAISummary}
           />
         ))}
@@ -215,7 +216,7 @@ interface TaskRunRowProps {
   isLast: boolean;
   isFailed: boolean;
   onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
-  onTriggerSummary?: (flowRunId: string, taskId: string) => Promise<string>;
+  onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   enableAISummary?: boolean;
 }
 
@@ -225,19 +226,21 @@ function TaskRunRow({
   isLast,
   isFailed,
   onFetchLogs,
-  onTriggerSummary,
+  onStartSummary,
   enableAISummary,
 }: TaskRunRowProps) {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [summary, setSummary] = useState<string>('');
-  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // SWR-based polling for AI summary (similar to usePipelines refreshInterval pattern)
+  const [pollTaskId, setPollTaskId] = useState<string | null>(null);
+  const { summary: pollSummary, isPolling, error: pollError } = useLogSummaryPoll(pollTaskId);
 
   const taskName = task.connectionName ? `${task.connectionName} - ${task.label}` : task.label;
 
-  const showAISummaryButton = enableAISummary && task.isFailed && onTriggerSummary;
+  const showAISummaryButton = enableAISummary && task.isFailed && onStartSummary;
 
   const handleToggleLogs = useCallback(async () => {
     if (!showLogs && logs.length === 0 && onFetchLogs) {
@@ -256,22 +259,20 @@ function TaskRunRow({
   }, [showLogs, logs.length, onFetchLogs, flowRunId, task.id, task.kind]);
 
   const handleTriggerSummary = useCallback(async () => {
-    if (!onTriggerSummary) return;
+    if (!onStartSummary) return;
 
-    setSummaryLoading(true);
     setShowSummary(true);
     setShowLogs(false);
 
     try {
-      const result = await onTriggerSummary(flowRunId, task.id);
-      setSummary(result);
+      const taskId = await onStartSummary(flowRunId, task.id);
+      setPollTaskId(taskId); // starts SWR polling
     } catch (error) {
-      console.error('Failed to get summary:', error);
-      setSummary('Failed to generate summary.');
-    } finally {
-      setSummaryLoading(false);
+      console.error('Failed to start summary:', error);
     }
-  }, [onTriggerSummary, flowRunId, task.id]);
+  }, [onStartSummary, flowRunId, task.id]);
+
+  const summaryText = pollError ? 'Failed to generate summary.' : pollSummary || '';
 
   const formatDuration = (seconds: number): string => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -319,13 +320,13 @@ function TaskRunRow({
               variant="outline"
               size="sm"
               onClick={handleTriggerSummary}
-              disabled={summaryLoading}
+              disabled={isPolling}
               className={cn(
                 'h-8 px-3 text-xs font-medium uppercase tracking-wide',
                 showSummary && 'bg-gray-100'
               )}
             >
-              {summaryLoading ? (
+              {isPolling ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
                 <Sparkles className="h-3.5 w-3.5 mr-1.5" />
@@ -362,13 +363,13 @@ function TaskRunRow({
       {/* AI Summary Panel */}
       {showSummary && (
         <div className="bg-green-50 border-t border-green-200 p-4">
-          {summaryLoading ? (
+          {isPolling ? (
             <div className="flex items-center gap-2 text-green-700 text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Generating AI summary...
             </div>
           ) : (
-            <div className="text-sm text-green-700">{summary || 'No summary available'}</div>
+            <div className="text-sm text-green-700">{summaryText || 'No summary available'}</div>
           )}
         </div>
       )}

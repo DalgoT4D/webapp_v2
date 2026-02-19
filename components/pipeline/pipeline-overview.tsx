@@ -12,7 +12,7 @@ import { PipelineBarChart } from './pipeline-bar-chart';
 import { LogCard } from './log-card';
 import { LogSummaryCard, type LogSummary } from './log-summary-card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { lastRunTime } from '@/lib/pipeline-utils';
+import { lastRunTime } from './utils';
 import { toastError } from '@/lib/toast';
 import { FLOW_RUN_LOGS_OFFSET_LIMIT, ENABLE_LOG_SUMMARIES } from '@/constants/pipeline';
 import CheckCircleIcon from '@/assets/icons/check-circle';

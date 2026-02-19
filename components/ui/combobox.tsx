@@ -232,6 +232,7 @@ function SingleComboboxInner({
   items = [],
   value,
   onValueChange,
+  placeholder,
   searchPlaceholder = 'Search...',
   emptyMessage = 'No results found.',
   noItemsMessage = 'No items available.',
@@ -334,7 +335,9 @@ function SingleComboboxInner({
             ref={inputRef}
             id={`${baseId}-input`}
             data-testid={`${baseId}-input`}
-            placeholder={loading ? 'Loading...' : searchPlaceholder}
+            placeholder={
+              loading ? 'Loading...' : open ? searchPlaceholder : placeholder || searchPlaceholder
+            }
             value={displayValue}
             autoComplete="off"
             onChange={(e) => {

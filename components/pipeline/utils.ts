@@ -1,6 +1,5 @@
 import { formatDistanceToNow, differenceInSeconds, parseISO } from 'date-fns';
-import moment from 'moment';
-import { TransformTask } from '@/types/pipeline';
+import type { TransformTask } from '@/types/pipeline';
 import {
   TASK_READABLE_NAMES,
   SYSTEM_COMMAND_ORDER,
@@ -191,7 +190,7 @@ function adjustDayOfWeek(dowField: string, shift: number): string {
 }
 
 /**
- * Convert UTC cron to local timezone cron (using moment.js - same as webapp v1)
+ * Convert UTC cron to local timezone cron
  * minutes, hours, day of month, month, day of week
  * 0 1 * * *
  * WE ASSUME AND REQUIRE that d-o-m and m are always "*"
@@ -219,15 +218,16 @@ export function cronToLocalTZ(expression: string): string {
   try {
     const [minutes, hours] = fields; // these are the UTC minutes and hours
 
-    // Create moment in UTC with the cron time
-    const utcTime = moment.utc().hours(parseInt(hours, 10)).minutes(parseInt(minutes, 10));
+    // Create a Date with the given UTC time
+    const utcDate = new Date();
+    utcDate.setUTCHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
 
-    // Convert to local time (clone first since .local() mutates the object)
-    const localTime = utcTime.clone().local();
+    // Read back as local time — JS Date handles the UTC→local conversion
+    const localHours = utcDate.getHours();
+    const localMinutes = utcDate.getMinutes();
 
     // Calculate day shift from UTC to local
-    // Moment handles the day boundary crossing, we just need to extract the shift
-    let dayShift = localTime.date() - utcTime.date();
+    let dayShift = utcDate.getDate() - utcDate.getUTCDate();
     // Normalize for month boundaries (e.g., 31→1 should be +1, not -30)
     if (dayShift > 1) dayShift = -1;
     if (dayShift < -1) dayShift = 1;
@@ -235,7 +235,7 @@ export function cronToLocalTZ(expression: string): string {
     // Adjust day-of-week field if needed
     const adjustedDow = adjustDayOfWeek(fields[4], dayShift);
 
-    return `${localTime.minutes()} ${localTime.hours()} ${fields[2]} ${fields[3]} ${adjustedDow}`;
+    return `${localMinutes} ${localHours} ${fields[2]} ${fields[3]} ${adjustedDow}`;
   } catch (error) {
     console.error('Error converting cron expression to local timezone:', error);
     return expression;
@@ -281,7 +281,7 @@ export function cronToString(expression: string | null): string {
 }
 
 /**
- * Convert local time string to UTC time string for cron (using moment.js - same as webapp v1)
+ * Convert local time string to UTC time string for cron
  * @param localTime - Time in format "HH:mm" or "H:mm" (24-hour local time)
  * @returns Time in format "H M" (UTC hours and minutes)
  * @throws Error if input format is invalid
@@ -300,18 +300,15 @@ export function localTimeToUTC(localTime: string): string {
   const hours = parseInt(match[1], 10);
   const minutes = parseInt(match[2], 10);
 
-  // Create a deterministic local moment using startOf('day') as base
-  // This avoids carrying over any unpredictable time values from moment()
-  const localMoment = moment().startOf('day').hours(hours).minutes(minutes);
+  // Create a Date with local time set, then read UTC hours/minutes
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
 
-  // Convert to UTC and get hours/minutes
-  const utcMoment = moment.utc(localMoment);
-
-  return `${utcMoment.hours()} ${utcMoment.minutes()}`;
+  return `${date.getUTCHours()} ${date.getUTCMinutes()}`;
 }
 
 /**
- * Convert UTC time string to local time string (using moment.js - same as webapp v1)
+ * Convert UTC time string to local time string
  * @param utcTime - Time in format "H M" (UTC hours and minutes, space-separated)
  * @returns Time in format "HH:mm" (24-hour local time)
  * @throws Error if input format is invalid
@@ -332,10 +329,11 @@ export function utcTimeToLocal(utcTime: string): string {
   const hours = parseInt(match[1], 10);
   const minutes = parseInt(match[2], 10);
 
-  // Create a deterministic UTC moment and convert to local
-  const localMoment = moment.utc().startOf('day').hours(hours).minutes(minutes).local();
+  // Create a Date with UTC time set, then read local hours/minutes
+  const date = new Date();
+  date.setUTCHours(hours, minutes, 0, 0);
 
-  return `${localMoment.hours().toString().padStart(2, '0')}:${localMoment.minutes().toString().padStart(2, '0')}`;
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
 
 // Precompute cutoff timestamp once for efficiency

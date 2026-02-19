@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Combobox, ComboboxItem } from '@/components/ui/combobox';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toastSuccess, toastError } from '@/lib/toast';
 import {
@@ -21,7 +22,7 @@ import {
   updatePipeline,
   setScheduleStatus,
 } from '@/hooks/api/usePipelines';
-import {
+import type {
   TransformTask,
   PipelineFormData,
   ConnectionOption,
@@ -37,7 +38,7 @@ import {
   validateDefaultTasksToApplyInPipeline,
   localTimeToUTC,
   utcTimeToLocal,
-} from '@/lib/pipeline-utils';
+} from './utils';
 import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
 
 interface PipelineFormProps {
@@ -58,8 +59,10 @@ export function PipelineForm({ deploymentId }: PipelineFormProps) {
 
   // Only render the form content once all data is loaded
   // This ensures defaultValues are set correctly from the start
+  // Key includes isScheduleActive to force remount when active status changes after SWR revalidation
   return (
     <PipelineFormContent
+      key={`${deploymentId}-${pipeline?.isScheduleActive}`}
       deploymentId={deploymentId}
       pipeline={pipeline}
       tasks={tasks}
@@ -162,6 +165,7 @@ function PipelineFormContent({
   connections,
 }: PipelineFormContentProps) {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const isEditMode = !!deploymentId;
 
   // Compute initial values once when component mounts
@@ -190,7 +194,6 @@ function PipelineFormContent({
   });
 
   const scheduleSelected = watch('cron');
-  const currentActiveValue = watch('active');
 
   // Connection options for combobox
   const connectionItems: ComboboxItem[] = useMemo(() => {
@@ -271,6 +274,11 @@ function PipelineFormContent({
           }
         }
 
+        // Invalidate the pipeline detail cache so next edit shows fresh data
+        mutate(`/api/prefect/v1/flows/${deploymentId}`, undefined, { revalidate: false });
+        // Also invalidate the list cache for consistency
+        mutate('/api/prefect/v1/flows/', undefined, { revalidate: false });
+
         if (!scheduleStatusFailed) {
           toastSuccess.updated('Pipeline');
         }
@@ -301,10 +309,10 @@ function PipelineFormContent({
           {isEditMode ? 'Update Pipeline' : 'Create Pipeline'}
         </h1>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={handleCancel}>
+          <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting} data-testid="submit-btn">
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
@@ -383,11 +391,24 @@ function PipelineFormContent({
             <div className="space-y-3">
               <Label className="text-[15px] font-medium">Transform Tasks</Label>
               <div className="flex items-center gap-3">
-                <ToggleGroup type="single" value={alignment} onValueChange={handleAlignmentChange}>
-                  <ToggleGroupItem value="simple" className="text-[14px]">
+                <ToggleGroup
+                  type="single"
+                  value={alignment}
+                  onValueChange={handleAlignmentChange}
+                  data-testid="task-mode-toggle"
+                >
+                  <ToggleGroupItem
+                    value="simple"
+                    className="text-[14px]"
+                    data-testid="simple-mode-btn"
+                  >
                     Simple
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="advanced" className="text-[14px]">
+                  <ToggleGroupItem
+                    value="advanced"
+                    className="text-[14px]"
+                    data-testid="advanced-mode-btn"
+                  >
                     Advanced
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -404,6 +425,7 @@ function PipelineFormContent({
                     <div className="flex items-center gap-2">
                       <Checkbox
                         id="run-all-tasks"
+                        data-testid="run-all-tasks-checkbox"
                         checked={field.value.length > 0}
                         onCheckedChange={(checked) => {
                           if (checked) {
