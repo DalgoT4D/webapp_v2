@@ -4,8 +4,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
-  CheckCircle2,
-  XCircle,
   Lock,
   Loader2,
   MoreHorizontal,
@@ -13,9 +11,9 @@ import {
   Play,
   Pencil,
   Trash2,
-  AlertTriangle,
   Clock,
 } from 'lucide-react';
+import { TaskAltIcon, WarningAmberIcon, LoopIcon } from '@/assets/icons/status-icons';
 import FlowIcon from '@/assets/icons/flow';
 import { Button } from '@/components/ui/button';
 import {
@@ -433,9 +431,9 @@ function StatusBadge({ status, deploymentId }: { status: string | null; deployme
 
   const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
     running: {
-      icon: null,
+      icon: <LoopIcon className="h-3.5 w-3.5" />,
       label: 'Running',
-      className: 'bg-transparent text-green-600 border-green-300',
+      className: 'bg-transparent text-amber-600 border-amber-300',
     },
     queued: {
       icon: <Clock className="h-3.5 w-3.5" />,
@@ -448,17 +446,17 @@ function StatusBadge({ status, deploymentId }: { status: string | null; deployme
       className: 'bg-gray-50 text-gray-600 border-gray-200',
     },
     success: {
-      icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+      icon: <TaskAltIcon className="h-3.5 w-3.5" />,
       label: 'Success',
       className: 'bg-green-50 text-green-700 border-green-200',
     },
     failed: {
-      icon: <XCircle className="h-3.5 w-3.5" />,
+      icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'Failed',
       className: 'bg-red-50 text-red-700 border-red-200',
     },
     warning: {
-      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'Tests Failed',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
