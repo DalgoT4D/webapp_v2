@@ -92,13 +92,13 @@ describe('ChartCustomizations', () => {
       rerender(
         <ChartCustomizations
           chartType="table"
-          formData={createFormData('table')}
+          formData={createFormData('table', { table_columns: ['budget', 'revenue'] })}
           onChange={mockOnChange}
         />
       );
-      expect(
-        screen.getByText('Table charts are configured through the data configuration panel.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Number Formatting')).toBeInTheDocument();
+      expect(screen.getByText('budget')).toBeInTheDocument();
+      expect(screen.getByText('revenue')).toBeInTheDocument();
     });
   });
 

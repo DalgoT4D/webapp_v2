@@ -90,14 +90,56 @@ export function ChartCustomizations({
         />
       );
 
-    case 'table':
+    case 'table': {
+      // Only show columns that are actually displayed in the table
+      // For raw mode: use table_columns (user selected columns)
+      // For aggregated mode: use dimensions + metrics (computed columns)
+
+      const hasAggregation =
+        (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+      let displayedColumns: string[] = [];
+
+      if (hasAggregation) {
+        // Aggregated mode: columns are dimensions + metrics
+        const dimensionColumns = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+
+        const metricColumns =
+          formData.metrics
+            ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+            .filter(Boolean) || [];
+
+        displayedColumns = [...dimensionColumns, ...metricColumns];
+      } else {
+        // Raw mode: only show selected table_columns
+        displayedColumns = formData.table_columns || [];
+      }
+
+      // Clean up formatting for columns that no longer exist in the table
+      const existingFormatting = customizations.columnFormatting || {};
+      const displayedColumnsSet = new Set(displayedColumns);
+      const hasStaleFormatting = Object.keys(existingFormatting).some(
+        (col) => !displayedColumnsSet.has(col)
+      );
+
+      if (hasStaleFormatting) {
+        // Remove formatting for columns that are no longer displayed
+        const cleanedFormatting = Object.fromEntries(
+          Object.entries(existingFormatting).filter(([col]) => displayedColumnsSet.has(col))
+        );
+        // Update the customizations to remove stale entries
+        updateCustomization('columnFormatting', cleanedFormatting);
+      }
+
       return (
         <TableChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          availableColumns={displayedColumns}
         />
       );
+    }
 
     default:
       return null;

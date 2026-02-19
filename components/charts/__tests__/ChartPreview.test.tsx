@@ -391,6 +391,27 @@ describe('ChartPreview', () => {
 
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     });
+
+    it('should merge columnFormatting from customizations into table config', () => {
+      const customizations = {
+        columnFormatting: {
+          salary: { numberFormat: 'indian', precision: 2 },
+          revenue: { numberFormat: 'international', precision: 0 },
+        },
+      };
+
+      render(
+        <ChartPreview
+          chartType="table"
+          config={{ table_columns: ['name', 'salary', 'revenue'] }}
+          customizations={customizations}
+        />
+      );
+
+      const configEl = screen.getByTestId('table-config');
+      const passedConfig = JSON.parse(configEl.textContent || '{}');
+      expect(passedConfig.column_formatting).toEqual(customizations.columnFormatting);
+    });
   });
 
   describe('Edge Cases', () => {

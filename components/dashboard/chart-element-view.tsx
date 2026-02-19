@@ -1763,7 +1763,8 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting: {},
+                column_formatting:
+                  effectiveChart?.extra_config?.customizations?.columnFormatting || {},
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,

@@ -379,10 +379,22 @@ export function ChartPreview({
 
   // Render table chart
   if (chartType === 'table') {
+    // Merge customizations.columnFormatting into config.column_formatting for table charts
+    const customizations = propCustomizations || config?.extra_config?.customizations || {};
+    const tableConfig = customizations?.columnFormatting
+      ? {
+          ...config,
+          column_formatting: {
+            ...(config?.column_formatting || {}),
+            ...customizations.columnFormatting,
+          },
+        }
+      : config;
+
     return (
       <TableChart
         data={tableData}
-        config={config}
+        config={tableConfig}
         onSort={onTableSort}
         pagination={tablePagination}
       />

@@ -1301,7 +1301,8 @@ export function ChartElementV2({
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
                       table_columns: tableData?.columns || [],
-                      column_formatting: {},
+                      column_formatting:
+                        chart?.extra_config?.customizations?.columnFormatting || {},
                       sort: chart?.extra_config?.sort || [],
                       pagination: chart?.extra_config?.pagination || {
                         enabled: true,

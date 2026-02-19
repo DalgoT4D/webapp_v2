@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
 const URL_PATTERN = /^(https?:\/\/|www\.)/i;
@@ -62,6 +63,7 @@ interface TableChartProps {
       string,
       {
         type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        numberFormat?: NumberFormat;
         precision?: number;
         prefix?: string;
         suffix?: string;
@@ -160,7 +162,20 @@ export function TableChart({
       return value?.toString() || '';
     }
 
-    const { type, precision = 2, prefix = '', suffix = '' } = formatting;
+    const { type, numberFormat, precision = 2, prefix = '', suffix = '' } = formatting;
+
+    // If numberFormat is specified, use our formatNumber utility
+    if (numberFormat && numberFormat !== 'default') {
+      const numValue = typeof value === 'number' ? value : parseFloat(value);
+      if (!isNaN(numValue)) {
+        const formatted = formatNumber(numValue, {
+          format: numberFormat,
+          decimalPlaces: precision,
+        });
+        return `${prefix}${formatted}${suffix}`;
+      }
+      return value?.toString() || '';
+    }
 
     switch (type) {
       case 'currency':
