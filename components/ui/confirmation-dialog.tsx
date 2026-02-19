@@ -130,7 +130,12 @@ export function useConfirmationDialog() {
     onConfirm: () => {},
   });
 
-  const confirm = (options: Omit<typeof dialogState, 'open'>) => {
+  const confirm = (
+    options: Omit<typeof dialogState, 'open' | 'onConfirm' | 'onCancel'> & {
+      onConfirm?: () => void;
+      onCancel?: () => void;
+    }
+  ) => {
     return new Promise<boolean>((resolve) => {
       setDialogState({
         ...options,

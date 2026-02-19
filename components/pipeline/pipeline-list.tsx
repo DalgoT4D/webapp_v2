@@ -4,10 +4,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
-  Workflow,
-  Clock,
-  CheckCircle2,
-  XCircle,
   Lock,
   Loader2,
   MoreHorizontal,
@@ -15,8 +11,10 @@ import {
   Play,
   Pencil,
   Trash2,
-  AlertTriangle,
+  Clock,
 } from 'lucide-react';
+import { TaskAltIcon, WarningAmberIcon, LoopIcon } from '@/assets/icons/status-icons';
+import FlowIcon from '@/assets/icons/flow';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -35,29 +33,21 @@ import {
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
-import { Pipeline } from '@/types/pipeline';
-import {
-  cronToString,
-  lastRunTime,
-  localTimezone,
-  getFlowRunStartedBy,
-  trimEmail,
-} from '@/lib/pipeline-utils';
+import type { Pipeline } from '@/types/pipeline';
+import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from './utils';
 import { useSyncLock } from '@/hooks/useSyncLock';
 import { PipelineRunHistory } from './pipeline-run-history';
 import { cn } from '@/lib/utils';
 
 export function PipelineList() {
   const router = useRouter();
-  const { toast } = useToast();
   const { hasPermission } = useUserPermissions();
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
-  const [runningDeploymentIds, setRunningDeploymentIds] = useState<string[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
@@ -76,30 +66,16 @@ export function PipelineList() {
   const handleRun = useCallback(
     async (deploymentId: string) => {
       try {
-        setRunningDeploymentIds((prev) => {
-          if (prev.includes(deploymentId)) return prev;
-          return [...prev, deploymentId];
-        });
-
         await triggerPipelineRun(deploymentId);
-        toast({
-          title: 'Pipeline started',
-          description: 'Flow run initiated successfully',
-        });
-        mutate();
+        toastSuccess.generic('Pipeline started successfully');
+        mutate(); // this cause the polling and based on lock condition the refreshinterval keeps on polling the data.
         return {};
       } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to run pipeline',
-          variant: 'destructive',
-        });
+        toastError.api(error, 'Failed to run pipeline');
         return { error: 'ERROR' };
-      } finally {
-        setRunningDeploymentIds((prev) => prev.filter((id) => id !== deploymentId));
       }
     },
-    [mutate, toast]
+    [mutate] //mutate is safe to pass in the dependency- reference does not change on each rerender.
   );
 
   const handleEdit = useCallback(
@@ -124,28 +100,17 @@ export function PipelineList() {
         try {
           const result = await deletePipeline(deploymentId);
           if (result?.success) {
-            toast({
-              title: 'Pipeline deleted',
-              description: 'Pipeline deleted successfully',
-            });
+            toastSuccess.deleted('Pipeline');
             mutate();
           } else {
-            toast({
-              title: 'Error',
-              description: 'Something went wrong',
-              variant: 'destructive',
-            });
+            toastError.api(null, 'Something went wrong');
           }
         } catch (error: any) {
-          toast({
-            title: 'Error',
-            description: error.message || 'Failed to delete pipeline',
-            variant: 'destructive',
-          });
+          toastError.delete(error);
         }
       }
     },
-    [confirm, mutate, toast]
+    [confirm, mutate]
   );
 
   const handleCreate = useCallback(() => {
@@ -168,7 +133,7 @@ export function PipelineList() {
             </p>
           </div>
           {canCreatePipeline && (
-            <Button onClick={handleCreate} className="h-10">
+            <Button onClick={handleCreate} className="h-10" data-testid="create-pipeline-btn">
               <Plus className="h-4 w-4 mr-2" />
               Create Pipeline
             </Button>
@@ -201,7 +166,6 @@ export function PipelineList() {
                     <PipelineRow
                       key={pipeline.deploymentId}
                       pipeline={pipeline}
-                      runningDeploymentIds={runningDeploymentIds}
                       onViewHistory={handleViewHistory}
                       onRun={handleRun}
                       onEdit={handleEdit}
@@ -234,7 +198,6 @@ export function PipelineList() {
 
 interface PipelineRowProps {
   pipeline: Pipeline;
-  runningDeploymentIds: string[];
   onViewHistory: (pipeline: Pipeline) => void;
   onRun: (deploymentId: string) => Promise<{ error?: string } | void>;
   onEdit: (deploymentId: string) => void;
@@ -247,7 +210,6 @@ interface PipelineRowProps {
 
 function PipelineRow({
   pipeline,
-  runningDeploymentIds,
   onViewHistory,
   onRun,
   onEdit,
@@ -267,16 +229,18 @@ function PipelineRow({
   const handleRunClick = async () => {
     setTempSyncState(true);
     const result = await onRun(deploymentId);
-    if (result?.error) {
+    if (result && result.error) {
       setTempSyncState(false);
     }
   };
 
   // Determine run status
+  // locked (optimistic + backend) → queued → running → success/failed
   const getRunStatus = () => {
     if (lock?.status === 'running') return 'running';
-    if (lock?.status === 'queued' || runningDeploymentIds.includes(deploymentId)) return 'queued';
+    if (lock?.status === 'queued') return 'queued';
     if (lock?.status === 'locked' || lock?.status === 'complete') return 'locked';
+    if (tempSyncState) return 'locked';
     if (!lastRun) return null;
     if (lastRun.state_name === 'DBT_TEST_FAILED') return 'warning';
     if (lastRun.status === 'COMPLETED') return 'success';
@@ -306,32 +270,35 @@ function PipelineRow({
   }, [lock, lastRun, isRunning]);
 
   return (
-    <TableRow className="hover:bg-gray-50/50">
+    <TableRow className="hover:bg-gray-50/50" data-testid={`pipeline-row-${deploymentId}`}>
       {/* Pipeline Name */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
-          <div className={cn('p-2 rounded-lg', status ? 'bg-primary/10' : 'bg-gray-100')}>
-            <Workflow className={cn('h-4 w-4', status ? 'text-primary' : 'text-gray-400')} />
-          </div>
-          <span className="font-medium text-[15px] text-gray-900">{name}</span>
+          <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
+          <span
+            className="font-medium text-[15px] text-gray-900"
+            data-testid={`pipeline-name-${deploymentId}`}
+          >
+            {name}
+          </span>
         </div>
       </TableCell>
 
       {/* Schedule */}
       <TableCell className="py-4">
-        <div className="flex items-center gap-1.5 text-[15px] text-gray-700">
-          <Clock className="h-4 w-4 text-gray-400" />
+        <div className="text-[15px] text-gray-700">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-xs text-gray-400 ml-5">{localTimezone()}</span>}
+        {cron && <span className="text-xs text-gray-400">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
       <TableCell className="py-4">
         <Badge
           variant={status ? 'default' : 'secondary'}
+          data-testid={`status-badge-${deploymentId}`}
           className={cn(
-            'text-[13px]',
+            'text-[13px] min-w-[70px] justify-center',
             status
               ? 'bg-green-100 text-green-700 hover:bg-green-100'
               : 'bg-gray-100 text-gray-500 hover:bg-gray-100'
@@ -373,7 +340,7 @@ function PipelineRow({
 
       {/* Last Run Status */}
       <TableCell className="py-4">
-        <StatusBadge status={runStatus} />
+        <StatusBadge status={runStatus} deploymentId={deploymentId} />
       </TableCell>
 
       {/* Actions */}
@@ -385,6 +352,7 @@ function PipelineRow({
             onClick={() => onViewHistory(pipeline)}
             disabled={!canViewPipeline}
             className="h-9 px-3 text-[14px] text-gray-600 hover:text-gray-900"
+            data-testid={`history-btn-${deploymentId}`}
           >
             <History className="h-4 w-4 mr-1.5" />
             History
@@ -395,7 +363,11 @@ function PipelineRow({
             size="sm"
             onClick={handleRunClick}
             disabled={isDisabled || !canRunPipeline}
-            className={cn('h-9 px-4 text-[14px]', isRunning && 'bg-amber-500 hover:bg-amber-600')}
+            data-testid={`run-btn-${deploymentId}`}
+            className={cn(
+              'h-9 text-[14px] min-w-[72px]',
+              isRunning ? 'bg-primary/70 hover:bg-primary/70 cursor-not-allowed px-4' : 'px-4'
+            )}
           >
             {isRunning ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -414,13 +386,18 @@ function PipelineRow({
                 size="sm"
                 disabled={isDisabled}
                 className="h-9 w-9 p-0 text-gray-400 hover:text-gray-600"
+                data-testid={`more-btn-${deploymentId}`}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
               {canEditPipeline && (
-                <DropdownMenuItem onClick={() => onEdit(deploymentId)} className="text-[14px]">
+                <DropdownMenuItem
+                  onClick={() => onEdit(deploymentId)}
+                  className="text-[14px]"
+                  data-testid={`edit-menu-item-${deploymentId}`}
+                >
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
@@ -429,6 +406,7 @@ function PipelineRow({
                 <DropdownMenuItem
                   onClick={() => onDelete(deploymentId)}
                   className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                  data-testid={`delete-menu-item-${deploymentId}`}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
@@ -442,16 +420,20 @@ function PipelineRow({
   );
 }
 
-function StatusBadge({ status }: { status: string | null }) {
+function StatusBadge({ status, deploymentId }: { status: string | null; deploymentId: string }) {
   if (!status) {
-    return <span className="text-[15px] text-gray-400">—</span>;
+    return (
+      <span className="text-[15px] text-gray-400" data-testid={`run-status-${deploymentId}`}>
+        —
+      </span>
+    );
   }
 
   const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
     running: {
-      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+      icon: <LoopIcon className="h-3.5 w-3.5" />,
       label: 'Running',
-      className: 'bg-blue-50 text-blue-700 border-blue-200',
+      className: 'bg-transparent text-amber-600 border-amber-300',
     },
     queued: {
       icon: <Clock className="h-3.5 w-3.5" />,
@@ -464,17 +446,17 @@ function StatusBadge({ status }: { status: string | null }) {
       className: 'bg-gray-50 text-gray-600 border-gray-200',
     },
     success: {
-      icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+      icon: <TaskAltIcon className="h-3.5 w-3.5" />,
       label: 'Success',
       className: 'bg-green-50 text-green-700 border-green-200',
     },
     failed: {
-      icon: <XCircle className="h-3.5 w-3.5" />,
+      icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'Failed',
       className: 'bg-red-50 text-red-700 border-red-200',
     },
     warning: {
-      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'Tests Failed',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
@@ -488,6 +470,7 @@ function StatusBadge({ status }: { status: string | null }) {
         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium border',
         className
       )}
+      data-testid={`run-status-${deploymentId}`}
     >
       {icon}
       {label}
@@ -497,9 +480,12 @@ function StatusBadge({ status }: { status: string | null }) {
 
 function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-lg border">
-      <div className="p-4 bg-primary/10 rounded-full mb-4">
-        <Workflow className="h-8 w-8 text-primary" />
+    <div
+      className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-lg border"
+      data-testid="empty-state"
+    >
+      <div className="mb-4">
+        <FlowIcon className="h-16 w-16 rounded-lg" />
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">No pipelines yet</h3>
       <p className="text-[15px] text-gray-500 text-center max-w-sm mb-6">
@@ -507,7 +493,7 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         started.
       </p>
       {canCreate && (
-        <Button onClick={onCreate}>
+        <Button onClick={onCreate} data-testid="create-pipeline-empty-btn">
           <Plus className="h-4 w-4 mr-2" />
           Create Pipeline
         </Button>

@@ -138,6 +138,7 @@ function ConfigureChartPageContent() {
   const schema = searchParams.get('schema') || '';
   const table = searchParams.get('table') || '';
   const chartType = searchParams.get('type') || 'bar';
+  const isFromDashboard = searchParams.get('from') === 'dashboard';
 
   // Initialize form data
   const [formData, setFormData] = useState<ChartBuilderFormData>({
@@ -877,7 +878,12 @@ function ConfigureChartPageContent() {
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
-      router.push(`/charts/${result.id}`);
+      if (isFromDashboard) {
+        // Use replace so back button from chart detail goes to dashboard
+        router.replace(`/charts/${result.id}?from=dashboard`);
+      } else {
+        router.push(`/charts/${result.id}`);
+      }
     } catch (error: any) {
       console.error('❌ [CREATE-MODE] Error saving chart:', error);
       console.error('❌ [CREATE-MODE] Error details:', {
@@ -901,8 +907,10 @@ function ConfigureChartPageContent() {
   const handleCancel = () => {
     console.log('🔙 [CREATE-MODE] Cancel button clicked. hasUnsavedChanges:', hasUnsavedChanges);
     if (hasUnsavedChanges) {
-      setPendingNavigation('/charts');
+      setPendingNavigation(isFromDashboard ? 'back' : '/charts');
       setShowUnsavedChangesDialog(true);
+    } else if (isFromDashboard) {
+      router.back();
     } else {
       router.push('/charts');
     }
@@ -910,7 +918,11 @@ function ConfigureChartPageContent() {
 
   const handleUnsavedChangesLeave = () => {
     setShowUnsavedChangesDialog(false);
-    router.push(pendingNavigation);
+    if (pendingNavigation === 'back') {
+      router.back();
+    } else {
+      router.push(pendingNavigation);
+    }
   };
 
   const handleUnsavedChangesSave = async () => {
@@ -930,19 +942,22 @@ function ConfigureChartPageContent() {
           <div className="flex items-center gap-3">
             {/* Back Button */}
             <Button
+              data-testid="chart-create-back-button"
               variant="ghost"
               size="sm"
               onClick={() => {
                 if (hasUnsavedChanges) {
-                  setPendingNavigation('/charts/new');
+                  setPendingNavigation(isFromDashboard ? 'back' : '/charts/new');
                   setShowUnsavedChangesDialog(true);
+                } else if (isFromDashboard) {
+                  router.back();
                 } else {
                   router.push('/charts/new');
                 }
               }}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              {isFromDashboard ? 'Back to Dashboard' : 'Back'}
             </Button>
 
             {/* Chart Title Input */}

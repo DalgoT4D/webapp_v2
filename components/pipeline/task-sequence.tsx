@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -8,7 +8,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
+  type DragEndEvent,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -20,10 +20,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Combobox, ComboboxItem } from '@/components/ui/combobox';
-import { TransformTask } from '@/types/pipeline';
-import { SYSTEM_COMMAND_ORDER, DBT_RUN_MIN_ORDER, DBT_TEST_MIN_ORDER } from '@/constants/pipeline';
-import { validateDefaultTasksToApplyInPipeline, getTaskOrder } from '@/lib/pipeline-utils';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
+import type { TransformTask } from '@/types/pipeline';
+import { DBT_RUN_MIN_ORDER, DBT_TEST_MIN_ORDER } from '@/constants/pipeline';
+import { validateDefaultTasksToApplyInPipeline, getTaskOrder } from './utils';
 import { cn } from '@/lib/utils';
 
 interface TaskSequenceProps {
@@ -137,11 +137,17 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
         emptyMessage="No tasks found"
         noItemsMessage="All tasks already added"
         onValueChange={handleSelect}
-        id="task-sequence"
+        id="task-selector"
       />
 
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={handleReset}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          data-testid="reset-tasks-btn"
+        >
           Reset to default
         </Button>
       </div>
@@ -187,6 +193,7 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
       ref={setNodeRef}
       style={style}
       className={cn('flex items-center gap-2', isDragging && 'opacity-50')}
+      data-testid={`task-item-${task.uuid}`}
     >
       {/* Drag handle - only for non-system tasks */}
       <div
@@ -206,7 +213,7 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
       </div>
 
       {/* Task name */}
-      <div className="flex-1 h-8 px-3 bg-muted flex items-center text-sm">
+      <div className="flex-1 h-8 px-3 bg-muted flex items-center text-[15px] text-gray-800">
         {task.command || task.slug.replace(/-/g, ' ')}
       </div>
 
@@ -216,7 +223,14 @@ function SortableTaskItem({ task, index, onRemove }: SortableTaskItemProps) {
       </div>
 
       {/* Remove button */}
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRemove(task.uuid)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => onRemove(task.uuid)}
+        data-testid={`remove-task-${task.uuid}`}
+      >
         <X className="h-4 w-4" />
         <span className="sr-only">Remove task</span>
       </Button>

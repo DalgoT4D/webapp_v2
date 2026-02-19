@@ -1970,7 +1970,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       Array.isArray(chartsData) &&
                       chartsData.length === 0
                     ) {
-                      router.push('/charts/new');
+                      router.push('/charts/new?from=dashboard');
                     } else {
                       setShowChartSelector(true);
                     }
@@ -2274,7 +2274,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/charts/${component.config.chartId}`);
+                              router.push(`/charts/${component.config.chartId}?from=dashboard`);
                             }}
                             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
                             title="View Chart"
@@ -2284,7 +2284,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/charts/${component.config.chartId}/edit`);
+                              router.push(
+                                `/charts/${component.config.chartId}/edit?from=dashboard`
+                              );
                             }}
                             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
                             title="Edit Chart"

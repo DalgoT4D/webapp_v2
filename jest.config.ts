@@ -1,3 +1,10 @@
+/**
+ * Jest Configuration
+ *
+ * Simplified configuration - no MSW, no separate integration config.
+ * All tests use Jest mocks via the global mock in jest.setup.ts.
+ */
+
 import type { Config } from 'jest';
 import nextJest from 'next/jest.js';
 
@@ -10,33 +17,20 @@ const customJestConfig: Config = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
-    '^@components/(.*)$': '<rootDir>/components/$1',
-    '^@hooks/(.*)$': '<rootDir>/hooks/$1',
-    '^@lib/(.*)$': '<rootDir>/lib/$1',
-    '^@stores/(.*)$': '<rootDir>/stores/$1',
   },
-  // Run tests in both __tests__ directory and component-level __tests__ folders
+  // Run tests in component-level __tests__ folders and lib tests
   testMatch: [
-    '<rootDir>/__tests__/**/*.test.ts',
-    '<rootDir>/__tests__/**/*.test.tsx',
-    '<rootDir>/components/**/__tests__/**/*.test.ts',
-    '<rootDir>/components/**/__tests__/**/*.test.tsx',
-    '<rootDir>/app/**/__tests__/**/*.test.ts',
-    '<rootDir>/app/**/__tests__/**/*.test.tsx',
-    '<rootDir>/hooks/**/__tests__/**/*.test.ts',
-    '<rootDir>/hooks/**/__tests__/**/*.test.tsx',
-    '<rootDir>/lib/**/__tests__/**/*.test.ts',
-    '<rootDir>/lib/**/__tests__/**/*.test.tsx',
+    '<rootDir>/components/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/app/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/hooks/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/lib/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/__tests__/lib/**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
     '<rootDir>/e2e/', // Exclude Playwright E2E tests
-    '<rootDir>/tests/', // Exclude old tests directory
   ],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
-  },
   collectCoverageFrom: [
     'components/**/*.{js,jsx,ts,tsx}',
     'app/**/*.{js,jsx,ts,tsx}',

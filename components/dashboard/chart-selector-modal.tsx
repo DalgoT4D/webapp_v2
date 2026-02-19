@@ -62,7 +62,7 @@ export function ChartSelectorModal({
                 className="w-full pl-10"
               />
             </div>
-            <Link href="/charts/new">
+            <Link href="/charts/new?from=dashboard">
               <Button
                 variant="outline"
                 className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
@@ -118,7 +118,7 @@ export function ChartSelectorModal({
                     <p className="text-sm text-gray-400">
                       Get started by creating your first chart
                     </p>
-                    <Link href="/charts/new">
+                    <Link href="/charts/new?from=dashboard">
                       <Button
                         variant="outline"
                         size="sm"

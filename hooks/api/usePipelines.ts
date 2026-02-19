@@ -25,7 +25,7 @@ export function usePipelines() {
     refreshInterval: (latestData) => {
       // Enable polling when any pipeline has a lock
       const hasLockedPipeline = latestData?.some((p) => p.lock);
-      return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE;
+      return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE; // when locked refresh interval value is 3 seconds and at last 0 hence polling stops.
     },
     revalidateOnFocus: false,
   });
@@ -198,8 +198,7 @@ export async function fetchFlowRunLogs(
     params.append('task_run_id', taskRunId);
   }
 
-  const pathParam = taskRunId ? flowRunId : flowRunId;
-  return apiGet(`/api/prefect/flow_runs/${pathParam}/logs?${params.toString()}`);
+  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logs?${params.toString()}`);
 }
 
 /**
@@ -213,8 +212,40 @@ export async function triggerLogSummary(
 }
 
 /**
- * Poll for task run status (used for AI summary)
+ * SWR-based polling for AI log summary status
+ * Polls every 3s while task is in progress, stops when completed/failed
+ * Similar pattern to usePipelines refreshInterval
  */
-export async function pollTaskStatus(taskId: string): Promise<TaskProgressResponse> {
-  return apiGet(`/api/tasks/stp/${taskId}`);
+export function useLogSummaryPoll(taskId: string | null) {
+  const { data, error } = useSWR<TaskProgressResponse>(
+    taskId ? `/api/tasks/stp/${taskId}` : null,
+    apiGet,
+    {
+      refreshInterval: (latestData) => {
+        if (!latestData) return POLLING_INTERVAL_WHEN_LOCKED;
+        const lastMessage = latestData.progress[latestData.progress.length - 1];
+        return ['completed', 'failed'].includes(lastMessage?.status)
+          ? POLLING_INTERVAL_IDLE
+          : POLLING_INTERVAL_WHEN_LOCKED;
+      },
+      revalidateOnFocus: false,
+    }
+  );
+
+  const lastMessage = data?.progress?.[data.progress.length - 1];
+  const isComplete = !!lastMessage && ['completed', 'failed'].includes(lastMessage.status);
+
+  const summary =
+    isComplete && lastMessage.result && lastMessage.result.length > 0
+      ? lastMessage.result.map((r) => r.response).join('\n\n')
+      : isComplete
+        ? 'No summary available'
+        : null;
+
+  return {
+    summary,
+    isPolling: !!taskId && !isComplete,
+    isComplete,
+    error,
+  };
 }
