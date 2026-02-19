@@ -57,19 +57,8 @@ export function PipelineOverview() {
 
   return (
     <div className="w-full">
-      {/* Header with pattern background */}
-      <div
-        className="relative min-h-[95px] rounded-2xl p-4 bg-repeat"
-        style={{
-          backgroundImage: `url('/images/pattern.png')`,
-        }}
-      >
-        <div className="absolute inset-0 bg-[#003d37] opacity-[0.87] rounded-2xl" />
-        <h1 className="relative z-10 text-white text-2xl font-bold mt-2 ml-2">Pipeline Overview</h1>
-      </div>
-
       {/* Pipeline list */}
-      <div className="mt-6 space-y-6 pb-8">
+      <div className="space-y-6 pb-8">
         {pipelines.length === 0 ? (
           <EmptyState />
         ) : (
@@ -403,11 +392,8 @@ function EmptyState() {
 function PipelineOverviewSkeleton() {
   return (
     <div className="w-full animate-pulse">
-      {/* Header skeleton */}
-      <div className="h-[95px] bg-gray-200 rounded-2xl" />
-
       {/* Pipeline sections skeleton */}
-      <div className="mt-6 space-y-6">
+      <div className="space-y-6">
         {[1, 2, 3].map((i) => (
           <div key={i}>
             <div className="h-5 w-32 bg-gray-200 rounded mb-2" />
