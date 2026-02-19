@@ -147,8 +147,12 @@ describe('NotificationPreferencesDialog', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Update Preferences')).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: /email notifications/i })).toBeInTheDocument();
     });
+
+    // Toggle email to trigger a change
+    const emailSwitch = screen.getByRole('switch', { name: /email notifications/i });
+    fireEvent.click(emailSwitch);
 
     const submitButton = screen.getByText('Update Preferences');
     fireEvent.click(submitButton);
@@ -157,7 +161,7 @@ describe('NotificationPreferencesDialog', () => {
       expect(mocks.mockUpdateUserPreferences).toHaveBeenCalled();
     });
 
-    // Dialog should still be open
+    // Dialog should still be open since save failed
     await waitFor(() => {
       expect(screen.getByText('Update Preferences')).toBeInTheDocument();
     });
@@ -176,8 +180,12 @@ describe('NotificationPreferencesDialog', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Update Preferences')).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: /email notifications/i })).toBeInTheDocument();
     });
+
+    // Toggle email to trigger a change
+    const emailSwitch = screen.getByRole('switch', { name: /email notifications/i });
+    fireEvent.click(emailSwitch);
 
     const submitButton = screen.getByText('Update Preferences');
     fireEvent.click(submitButton);
@@ -252,10 +260,11 @@ describe('NotificationPreferencesDialog', () => {
   it('updates org preferences when user has the correct permission slug', async () => {
     const onOpenChange = jest.fn();
 
+    // Start with Discord disabled
     (notificationHooks.useOrgPreferences as jest.Mock).mockReturnValue({
       orgPreferences: {
-        enable_discord_notifications: true,
-        discord_webhook: 'https://discord.com/api/webhooks/test',
+        enable_discord_notifications: false,
+        discord_webhook: '',
       },
       isLoading: false,
       error: null,
@@ -267,7 +276,21 @@ describe('NotificationPreferencesDialog', () => {
     });
 
     await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /discord notifications/i })).toBeInTheDocument();
+    });
+
+    // Toggle Discord on
+    const discordSwitch = screen.getByRole('switch', { name: /discord notifications/i });
+    fireEvent.click(discordSwitch);
+
+    await waitFor(() => {
       expect(screen.getByLabelText(/discord webhook url/i)).toBeInTheDocument();
+    });
+
+    // Enter webhook URL
+    const webhookInput = screen.getByLabelText(/discord webhook url/i);
+    fireEvent.change(webhookInput, {
+      target: { value: 'https://discord.com/api/webhooks/test' },
     });
 
     const submitButton = screen.getByText('Update Preferences');
@@ -279,6 +302,9 @@ describe('NotificationPreferencesDialog', () => {
         discord_webhook: 'https://discord.com/api/webhooks/test',
       });
     });
+
+    // Email API should NOT be called since email wasn't changed
+    expect(mocks.mockUpdateUserPreferences).not.toHaveBeenCalled();
   });
 
   it('does not update org preferences when user lacks the required permission', async () => {
@@ -293,6 +319,10 @@ describe('NotificationPreferencesDialog', () => {
       expect(screen.getByRole('switch', { name: /email notifications/i })).toBeInTheDocument();
     });
 
+    // Toggle email to trigger a change
+    const emailSwitch = screen.getByRole('switch', { name: /email notifications/i });
+    fireEvent.click(emailSwitch);
+
     const submitButton = screen.getByText('Update Preferences');
     fireEvent.click(submitButton);
 
@@ -300,6 +330,7 @@ describe('NotificationPreferencesDialog', () => {
       expect(mocks.mockUpdateUserPreferences).toHaveBeenCalled();
     });
 
+    // Org preferences should NOT be updated (no permission)
     expect(mocks.mockUpdateOrgPreferences).not.toHaveBeenCalled();
   });
 

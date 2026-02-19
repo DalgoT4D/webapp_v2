@@ -121,9 +121,8 @@ export function usePreferenceActions() {
   const updateUserPreferences = async (data: { enable_email_notifications: boolean }) => {
     try {
       await apiPut('/api/userpreferences/', data);
-      toast.success('Email preferences updated');
       return true;
-    } catch (error) {
+    } catch {
       toast.error('Failed to update email preferences');
       return false;
     }
@@ -135,9 +134,8 @@ export function usePreferenceActions() {
   }) => {
     try {
       await apiPut('/api/orgpreferences/enable-discord-notifications', data);
-      toast.success('Discord preferences updated');
       return true;
-    } catch (error) {
+    } catch {
       toast.error('Failed to update Discord preferences');
       return false;
     }

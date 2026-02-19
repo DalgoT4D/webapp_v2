@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -87,31 +88,52 @@ export function NotificationPreferencesDialog({
     }
   };
 
+  const getChangedSections = () => {
+    const emailChanged =
+      !!preferences &&
+      formData.enable_email_notifications !== preferences.enable_email_notifications;
+
+    const discordChanged =
+      hasDiscordPermission &&
+      !!orgPreferences &&
+      (formData.enable_discord_notifications !== orgPreferences.enable_discord_notifications ||
+        formData.discord_webhook !== (orgPreferences.discord_webhook || ''));
+
+    return { emailChanged, discordChanged };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    const { emailChanged, discordChanged } = getChangedSections();
+
     setIsSubmitting(true);
 
     try {
-      // Update user preferences
-      const userSuccess = await updateUserPreferences({
-        enable_email_notifications: formData.enable_email_notifications,
-      });
-      if (!userSuccess) return;
+      if (emailChanged) {
+        const success = await updateUserPreferences({
+          enable_email_notifications: formData.enable_email_notifications,
+        });
+        if (!success) return;
+      }
 
-      // Update org preferences (if has permission)
-      if (hasDiscordPermission) {
-        const orgSuccess = await updateOrgPreferences({
+      if (discordChanged) {
+        const success = await updateOrgPreferences({
           enable_discord_notifications: formData.enable_discord_notifications,
           discord_webhook: formData.discord_webhook,
         });
-        if (!orgSuccess) return;
+        if (!success) return;
       }
 
-      // Refresh data
-      await mutateUserPrefs();
-      await mutateOrgPrefs();
+      if (emailChanged) {
+        await mutateUserPrefs();
+        toast.success('Email preferences updated');
+      }
+      if (discordChanged) {
+        await mutateOrgPrefs();
+        toast.success('Discord preferences updated');
+      }
 
       onOpenChange(false);
     } finally {
