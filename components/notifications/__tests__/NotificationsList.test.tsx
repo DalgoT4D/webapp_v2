@@ -1,39 +1,30 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { NotificationsList } from '@/components/notifications/NotificationsList';
-import { Notification } from '@/types/notifications';
+import { NotificationsList } from '../NotificationsList';
+import { createMockNotification } from './notification-mock-data';
+import type { Notification } from '@/types/notifications';
 
 const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    urgent: false,
-    author: 'System',
-    message: 'First notification',
-    read_status: false,
-    timestamp: new Date().toISOString(),
-  },
-  {
+  createMockNotification({ id: 1, message: 'First notification', read_status: false }),
+  createMockNotification({
     id: 2,
     urgent: true,
     author: 'Admin',
     message: 'Second notification',
     read_status: true,
-    timestamp: new Date().toISOString(),
-  },
-  {
+  }),
+  createMockNotification({
     id: 3,
-    urgent: false,
     author: 'User',
     message: 'Third notification',
     read_status: false,
-    timestamp: new Date().toISOString(),
-  },
+  }),
 ];
 
 describe('NotificationsList', () => {
   const defaultProps = {
     notifications: mockNotifications,
     totalCount: 3,
-    selectedIds: [],
+    selectedIds: [] as number[],
     onSelectionChange: jest.fn(),
     page: 1,
     pageSize: 10,
@@ -72,7 +63,6 @@ describe('NotificationsList', () => {
     const onSelectionChange = jest.fn();
     render(<NotificationsList {...defaultProps} onSelectionChange={onSelectionChange} />);
 
-    // Find the select all checkbox (first checkbox in the header bar)
     const checkboxes = screen.getAllByRole('checkbox');
     const selectAllCheckbox = checkboxes[0];
 
@@ -86,7 +76,6 @@ describe('NotificationsList', () => {
     render(<NotificationsList {...defaultProps} onSelectionChange={onSelectionChange} />);
 
     const checkboxes = screen.getAllByRole('checkbox');
-    // First checkbox is select-all, second is first notification
     const firstNotificationCheckbox = checkboxes[1];
 
     fireEvent.click(firstNotificationCheckbox);
@@ -133,8 +122,6 @@ describe('NotificationsList', () => {
   it('handles pagination controls', () => {
     render(<NotificationsList {...defaultProps} totalCount={30} page={1} pageSize={10} />);
 
-    // Check pagination shows range (startItem-endItem based on page and pageSize)
-    // page=1, pageSize=10, count=30 -> shows "1-10 of 30"
     expect(screen.getByText(/1-10 of 30/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
@@ -157,7 +144,6 @@ describe('NotificationsList', () => {
   it('shows loading skeleton when isLoading is true', () => {
     render(<NotificationsList {...defaultProps} isLoading={true} />);
 
-    // Should not show notifications when loading
     expect(screen.queryByText('First notification')).not.toBeInTheDocument();
   });
 
@@ -166,19 +152,16 @@ describe('NotificationsList', () => {
       <NotificationsList {...defaultProps} notifications={[]} totalCount={0} />
     );
 
-    // No pagination when empty
     expect(screen.queryByText('Previous')).not.toBeInTheDocument();
 
     rerender(<NotificationsList {...defaultProps} />);
 
-    // Pagination shows when there are notifications
     expect(screen.getByText('Previous')).toBeInTheDocument();
   });
 
   it('shows urgent indicator for urgent notifications', () => {
     render(<NotificationsList {...defaultProps} />);
 
-    // Second notification is urgent
     const urgentIndicators = screen.getAllByLabelText('Urgent');
     expect(urgentIndicators.length).toBe(1);
   });
@@ -186,14 +169,10 @@ describe('NotificationsList', () => {
   it('applies different styling for read vs unread notifications', () => {
     render(<NotificationsList {...defaultProps} />);
 
-    // Check that unread notifications have different styling
-    // First and third are unread (read_status: false)
     const firstNotification = screen.getByText('First notification');
     const secondNotification = screen.getByText('Second notification');
 
-    // Unread should have font-medium class
     expect(firstNotification.closest('p')).toHaveClass('font-medium');
-    // Read should have text-slate-500 class on parent
     expect(secondNotification.closest('div')).toHaveClass('text-slate-500');
   });
 });

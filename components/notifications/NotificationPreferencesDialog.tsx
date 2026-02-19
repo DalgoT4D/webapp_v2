@@ -18,7 +18,7 @@ import {
   useOrgPreferences,
   usePreferenceActions,
 } from '@/hooks/api/useNotifications';
-import { useAuthStore } from '@/stores/authStore';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { PERMISSIONS } from '@/constants/notifications';
 
 interface NotificationPreferencesDialogProps {
@@ -38,15 +38,21 @@ export function NotificationPreferencesDialog({
   });
   const [errors, setErrors] = useState<{ discord_webhook?: string }>({});
 
-  const { preferences, mutate: mutateUserPrefs } = useUserPreferences();
-  const { orgPreferences, mutate: mutateOrgPrefs } = useOrgPreferences();
+  const {
+    preferences,
+    isLoading: userPrefsLoading,
+    mutate: mutateUserPrefs,
+  } = useUserPreferences();
+  const {
+    orgPreferences,
+    isLoading: orgPrefsLoading,
+    mutate: mutateOrgPrefs,
+  } = useOrgPreferences();
+  const isLoadingPrefs = userPrefsLoading || orgPrefsLoading;
   const { updateUserPreferences, updateOrgPreferences } = usePreferenceActions();
-  const currentOrgUser = useAuthStore((state) => state.getCurrentOrgUser());
+  const { hasPermission } = useUserPermissions();
 
-  const hasDiscordPermission =
-    currentOrgUser?.permissions?.some(
-      (p) => p.slug === PERMISSIONS.EDIT_ORG_NOTIFICATION_SETTINGS
-    ) || false;
+  const hasDiscordPermission = hasPermission(PERMISSIONS.EDIT_ORG_NOTIFICATION_SETTINGS);
 
   // Load existing preferences when dialog opens
   useEffect(() => {
@@ -70,6 +76,17 @@ export function NotificationPreferencesDialog({
     return Object.keys(newErrors).length === 0;
   };
 
+  const resetForm = () => {
+    setErrors({});
+    if (preferences && orgPreferences) {
+      setFormData({
+        enable_email_notifications: preferences.enable_email_notifications,
+        enable_discord_notifications: orgPreferences.enable_discord_notifications,
+        discord_webhook: orgPreferences.discord_webhook || '',
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -78,16 +95,18 @@ export function NotificationPreferencesDialog({
 
     try {
       // Update user preferences
-      await updateUserPreferences({
+      const userSuccess = await updateUserPreferences({
         enable_email_notifications: formData.enable_email_notifications,
       });
+      if (!userSuccess) return;
 
       // Update org preferences (if has permission)
       if (hasDiscordPermission) {
-        await updateOrgPreferences({
+        const orgSuccess = await updateOrgPreferences({
           enable_discord_notifications: formData.enable_discord_notifications,
           discord_webhook: formData.discord_webhook,
         });
+        if (!orgSuccess) return;
       }
 
       // Refresh data
@@ -95,8 +114,6 @@ export function NotificationPreferencesDialog({
       await mutateOrgPrefs();
 
       onOpenChange(false);
-    } catch {
-      // Error already handled in hooks with toast
     } finally {
       setIsSubmitting(false);
     }
@@ -104,8 +121,7 @@ export function NotificationPreferencesDialog({
 
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) {
-      // Reset errors when closing
-      setErrors({});
+      resetForm();
     }
     onOpenChange(open);
   };
@@ -199,12 +215,12 @@ export function NotificationPreferencesDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleDialogOpenChange(false)}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || isLoadingPrefs}>
               {isSubmitting ? 'Updating...' : 'Update Preferences'}
             </Button>
           </DialogFooter>

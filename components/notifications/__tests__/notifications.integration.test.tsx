@@ -1,95 +1,71 @@
+/**
+ * Notifications Page - Integration Tests
+ *
+ * Tests the full NotificationsPage component with all child components.
+ */
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import NotificationsPage from '@/app/notifications/page';
 import * as notificationHooks from '@/hooks/api/useNotifications';
-import * as authStore from '@/stores/authStore';
+import * as permissionsHook from '@/hooks/api/usePermissions';
+import {
+  mockNotifications,
+  mockUserPreferences,
+  mockOrgPreferences,
+  createMockNotificationHooks,
+  createMockPermissions,
+} from './notification-mock-data';
 
-// Mock the hooks
 jest.mock('@/hooks/api/useNotifications');
-jest.mock('@/stores/authStore');
+jest.mock('@/hooks/api/usePermissions');
 
-const mockNotifications = [
-  {
-    id: 1,
-    urgent: false,
-    author: 'System',
-    message: 'First notification',
-    read_status: false,
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    urgent: true,
-    author: 'Admin',
-    message: 'Second notification with a link: https://example.com/test',
-    read_status: true,
-    timestamp: new Date().toISOString(),
-  },
-];
+describe('Notifications Page Integration', () => {
+  let mocks: ReturnType<typeof createMockNotificationHooks>;
 
-const mockMutate = jest.fn();
-const mockMarkAsRead = jest.fn();
-const mockMarkAllAsRead = jest.fn();
-const mockUpdateUserPreferences = jest.fn();
-const mockUpdateOrgPreferences = jest.fn();
-
-describe('Notifications Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mocks = createMockNotificationHooks();
 
-    // Mock useNotifications
     (notificationHooks.useNotifications as jest.Mock).mockReturnValue({
       notifications: mockNotifications,
       totalCount: 2,
       isLoading: false,
       error: null,
-      mutate: mockMutate,
+      mutate: mocks.mutate,
     });
 
-    // Mock useUnreadCount
     (notificationHooks.useUnreadCount as jest.Mock).mockReturnValue({
       unreadCount: 1,
       isLoading: false,
       error: null,
-      mutate: mockMutate,
+      mutate: mocks.mutate,
     });
 
-    // Mock useNotificationActions
     (notificationHooks.useNotificationActions as jest.Mock).mockReturnValue({
-      markAsRead: mockMarkAsRead.mockResolvedValue(true),
-      markAllAsRead: mockMarkAllAsRead.mockResolvedValue(true),
+      markAsRead: mocks.mockMarkAsRead,
+      markAllAsRead: mocks.mockMarkAllAsRead,
     });
 
-    // Mock useUserPreferences
     (notificationHooks.useUserPreferences as jest.Mock).mockReturnValue({
-      preferences: { enable_email_notifications: true },
+      preferences: mockUserPreferences,
       isLoading: false,
       error: null,
-      mutate: mockMutate,
+      mutate: mocks.mutate,
     });
 
-    // Mock useOrgPreferences
     (notificationHooks.useOrgPreferences as jest.Mock).mockReturnValue({
-      orgPreferences: {
-        enable_discord_notifications: false,
-        discord_webhook: '',
-      },
+      orgPreferences: mockOrgPreferences,
       isLoading: false,
       error: null,
-      mutate: mockMutate,
+      mutate: mocks.mutate,
     });
 
-    // Mock usePreferenceActions
     (notificationHooks.usePreferenceActions as jest.Mock).mockReturnValue({
-      updateUserPreferences: mockUpdateUserPreferences.mockResolvedValue(true),
-      updateOrgPreferences: mockUpdateOrgPreferences.mockResolvedValue(true),
+      updateUserPreferences: mocks.mockUpdateUserPreferences,
+      updateOrgPreferences: mocks.mockUpdateOrgPreferences,
     });
 
-    // Mock useAuthStore
-    (authStore.useAuthStore as unknown as jest.Mock).mockReturnValue({
-      getCurrentOrgUser: () => ({
-        permissions: [{ slug: 'can_edit_org_notification_settings' }],
-      }),
-    });
+    (permissionsHook.useUserPermissions as jest.Mock).mockReturnValue(createMockPermissions(true));
   });
 
   it('loads notifications on page mount', () => {
@@ -102,7 +78,6 @@ describe('Notifications Integration', () => {
   it('displays unread count badge', () => {
     render(<NotificationsPage />);
 
-    // Badge shows just the number
     expect(screen.getByText('1')).toBeInTheDocument();
   });
 
@@ -132,11 +107,9 @@ describe('Notifications Integration', () => {
   it('enables mark as read/unread buttons when items selected', async () => {
     render(<NotificationsPage />);
 
-    // Select first notification
     const checkboxes = screen.getAllByRole('checkbox');
-    fireEvent.click(checkboxes[1]); // First notification checkbox
+    fireEvent.click(checkboxes[1]);
 
-    // Buttons should be enabled
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Mark as read' })).not.toBeDisabled();
       expect(screen.getByRole('button', { name: 'Mark as unread' })).not.toBeDisabled();
@@ -146,17 +119,15 @@ describe('Notifications Integration', () => {
   it('marks notifications as read when button clicked', async () => {
     render(<NotificationsPage />);
 
-    // Select first notification
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
 
-    // Click "Mark as read" button
     const markAsReadButton = screen.getByRole('button', { name: 'Mark as read' });
     fireEvent.click(markAsReadButton);
 
     await waitFor(() => {
-      expect(mockMarkAsRead).toHaveBeenCalledWith([1], true);
-      expect(mockMutate).toHaveBeenCalled();
+      expect(mocks.mockMarkAsRead).toHaveBeenCalledWith([1], true);
+      expect(mocks.mutate).toHaveBeenCalled();
     });
   });
 
@@ -166,7 +137,6 @@ describe('Notifications Integration', () => {
     const markAllButton = screen.getByRole('button', { name: 'Mark all as read' });
     fireEvent.click(markAllButton);
 
-    // Confirm in the confirmation dialog
     await waitFor(() => {
       expect(screen.getByText(/Are you sure you want to mark all/)).toBeInTheDocument();
     });
@@ -175,19 +145,17 @@ describe('Notifications Integration', () => {
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(mockMarkAllAsRead).toHaveBeenCalled();
-      expect(mockMutate).toHaveBeenCalled();
+      expect(mocks.mockMarkAllAsRead).toHaveBeenCalled();
+      expect(mocks.mutate).toHaveBeenCalled();
     });
   });
 
   it('shows selection count when items selected', async () => {
     render(<NotificationsPage />);
 
-    // Select first notification
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
 
-    // Selection info should appear
     await waitFor(() => {
       expect(screen.getByText(/1 selected/)).toBeInTheDocument();
     });
@@ -196,7 +164,6 @@ describe('Notifications Integration', () => {
   it('clears selection when X button clicked', async () => {
     render(<NotificationsPage />);
 
-    // Select first notification
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
 
@@ -204,11 +171,9 @@ describe('Notifications Integration', () => {
       expect(screen.getByText(/1 selected/)).toBeInTheDocument();
     });
 
-    // Click clear selection button
     const clearButton = screen.getByLabelText('Clear selection');
     fireEvent.click(clearButton);
 
-    // Selection info should disappear
     await waitFor(() => {
       expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
     });
@@ -217,7 +182,7 @@ describe('Notifications Integration', () => {
   it('opens preferences dialog', async () => {
     render(<NotificationsPage />);
 
-    const settingsButton = screen.getByRole('button', { name: '' });
+    const settingsButton = screen.getByRole('button', { name: /manage notification preferences/i });
     fireEvent.click(settingsButton);
 
     await waitFor(() => {
@@ -228,24 +193,21 @@ describe('Notifications Integration', () => {
   it('updates preferences successfully', async () => {
     render(<NotificationsPage />);
 
-    // Open preferences dialog
-    const settingsButton = screen.getByRole('button', { name: '' });
+    const settingsButton = screen.getByRole('button', { name: /manage notification preferences/i });
     fireEvent.click(settingsButton);
 
     await waitFor(() => {
       expect(screen.getByText('Manage Preferences')).toBeInTheDocument();
     });
 
-    // Toggle email notifications
     const emailSwitch = screen.getByRole('switch', { name: /email notifications/i });
     fireEvent.click(emailSwitch);
 
-    // Submit
     const updateButton = screen.getByText('Update Preferences');
     fireEvent.click(updateButton);
 
     await waitFor(() => {
-      expect(mockUpdateUserPreferences).toHaveBeenCalledWith({
+      expect(mocks.mockUpdateUserPreferences).toHaveBeenCalledWith({
         enable_email_notifications: false,
       });
     });
@@ -257,7 +219,7 @@ describe('Notifications Integration', () => {
       totalCount: 0,
       isLoading: false,
       error: null,
-      mutate: mockMutate,
+      mutate: mocks.mutate,
     });
 
     render(<NotificationsPage />);
@@ -284,7 +246,7 @@ describe('Notifications Integration', () => {
       unreadCount: 0,
       isLoading: false,
       error: null,
-      mutate: mockMutate,
+      mutate: mocks.mutate,
     });
 
     render(<NotificationsPage />);
@@ -294,11 +256,9 @@ describe('Notifications Integration', () => {
   it('switches between tabs', async () => {
     render(<NotificationsPage />);
 
-    // Click on "Read" tab
     const readTab = screen.getByRole('tab', { name: 'Read' });
     fireEvent.click(readTab);
 
-    // Hook should be called with updated filters
     await waitFor(() => {
       expect(notificationHooks.useNotifications).toHaveBeenCalled();
     });
@@ -307,11 +267,9 @@ describe('Notifications Integration', () => {
   it('allows changing page size', async () => {
     render(<NotificationsPage />);
 
-    // Open page size selector
     const pageSizeSelect = screen.getByRole('combobox');
     fireEvent.click(pageSizeSelect);
 
-    // Select 20 items per page
     await waitFor(() => {
       expect(screen.getByRole('option', { name: '20' })).toBeInTheDocument();
     });
@@ -319,7 +277,6 @@ describe('Notifications Integration', () => {
     const option20 = screen.getByRole('option', { name: '20' });
     fireEvent.click(option20);
 
-    // Verify the select updated
     await waitFor(() => {
       expect(screen.queryByRole('option')).not.toBeInTheDocument();
     });

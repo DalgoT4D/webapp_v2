@@ -1,19 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { NotificationRow } from '@/components/notifications/NotificationRow';
-import { Notification } from '@/types/notifications';
+import { NotificationRow } from '../NotificationRow';
+import { createMockNotification, longMessage } from './notification-mock-data';
 
-const mockNotification: Notification = {
-  id: 1,
-  urgent: false,
-  author: 'System',
-  message: 'This is a test notification message',
-  read_status: false,
-  timestamp: new Date().toISOString(),
-};
-
-// Must exceed 300 characters to trigger truncation
-const longMessage =
-  'This is a very long notification message that exceeds the truncation limit of 300 characters. It should be truncated and show an expand button for the user to see the full message content. This message needs to be really long to trigger the truncation behavior, so we are adding more text here to make sure it exceeds the threshold that was set in the constants file.';
+const mockNotification = createMockNotification();
 
 describe('NotificationRow', () => {
   it('renders notification message correctly', () => {
@@ -35,7 +24,7 @@ describe('NotificationRow', () => {
   });
 
   it('truncates long messages', () => {
-    const longNotification = { ...mockNotification, message: longMessage };
+    const longNotification = createMockNotification({ message: longMessage });
     render(
       <table>
         <tbody>
@@ -56,7 +45,7 @@ describe('NotificationRow', () => {
   });
 
   it('shows expand button for long messages', () => {
-    const longNotification = { ...mockNotification, message: longMessage };
+    const longNotification = createMockNotification({ message: longMessage });
     render(
       <table>
         <tbody>
@@ -95,7 +84,7 @@ describe('NotificationRow', () => {
   });
 
   it('expands message on button click', () => {
-    const longNotification = { ...mockNotification, message: longMessage };
+    const longNotification = createMockNotification({ message: longMessage });
     const onToggleExpand = jest.fn();
 
     const { rerender } = render(
@@ -137,7 +126,7 @@ describe('NotificationRow', () => {
   });
 
   it('displays urgent indicator for urgent notifications', () => {
-    const urgentNotification = { ...mockNotification, urgent: true };
+    const urgentNotification = createMockNotification({ urgent: true });
     render(
       <table>
         <tbody>
@@ -176,7 +165,7 @@ describe('NotificationRow', () => {
   });
 
   it('applies correct styling for read notifications', () => {
-    const readNotification = { ...mockNotification, read_status: true };
+    const readNotification = createMockNotification({ read_status: true });
     const { container } = render(
       <table>
         <tbody>
@@ -256,10 +245,9 @@ describe('NotificationRow', () => {
   });
 
   it('renders links in messages as clickable', () => {
-    const notificationWithLink = {
-      ...mockNotification,
+    const notificationWithLink = createMockNotification({
       message: 'Check this link: https://example.com/test for more info',
-    };
+    });
     render(
       <table>
         <tbody>

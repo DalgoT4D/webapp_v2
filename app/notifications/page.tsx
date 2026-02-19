@@ -155,6 +155,7 @@ export default function NotificationsPage() {
                   size="icon"
                   onClick={() => setShowPreferences(true)}
                   className="h-9 w-9 text-gray-500 hover:text-gray-700"
+                  aria-label="Manage notification preferences"
                 >
                   <Settings className="h-5 w-5" />
                 </Button>

@@ -15,17 +15,13 @@ interface NotificationRowProps {
   onToggleExpand: (id: number) => void;
 }
 
-// URL regex pattern
-const URL_REGEX = /(https?:\/\/[^\s]+)/g;
-
 // Helper to render message with clickable links
 function renderMessageWithLinks(message: string): React.ReactNode {
-  const parts = message.split(URL_REGEX);
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = message.split(urlRegex);
 
   return parts.map((part, index) => {
-    if (URL_REGEX.test(part)) {
-      // Reset regex lastIndex
-      URL_REGEX.lastIndex = 0;
+    if (/^https?:\/\/[^\s]+$/.test(part)) {
       return (
         <a
           key={index}

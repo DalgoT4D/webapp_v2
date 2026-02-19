@@ -34,8 +34,10 @@ export function NotificationsList({
 }: NotificationsListProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
-  const allSelected = notifications.length > 0 && selectedIds.length === notifications.length;
-  const someSelected = selectedIds.length > 0 && selectedIds.length < notifications.length;
+  const currentPageIds = new Set(notifications.map((n) => n.id));
+  const selectedOnPage = selectedIds.filter((id) => currentPageIds.has(id));
+  const allSelected = notifications.length > 0 && selectedOnPage.length === notifications.length;
+  const someSelected = selectedOnPage.length > 0 && selectedOnPage.length < notifications.length;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -105,13 +107,7 @@ export function NotificationsList({
           {/* Header Bar */}
           <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b">
             <Checkbox
-              checked={allSelected}
-              ref={(el) => {
-                if (el) {
-                  (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate =
-                    someSelected;
-                }
-              }}
+              checked={allSelected ? true : someSelected ? 'indeterminate' : false}
               onCheckedChange={handleSelectAll}
               aria-label="Select all notifications"
             />
