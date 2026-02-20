@@ -109,6 +109,67 @@ describe('TableChart', () => {
       );
       expect(screen.getByText('USD $50000/yr')).toBeInTheDocument();
     });
+
+    it('should format using numberFormat types (indian, international, adaptive)', () => {
+      const { rerender } = render(
+        <TableChart
+          data={mockData}
+          config={{
+            table_columns: ['salary'],
+            column_formatting: { salary: { numberFormat: 'indian', precision: 0 } },
+          }}
+        />
+      );
+      expect(screen.getByText('50,000')).toBeInTheDocument();
+
+      rerender(
+        <TableChart
+          data={mockData}
+          config={{
+            table_columns: ['salary'],
+            column_formatting: { salary: { numberFormat: 'international', precision: 2 } },
+          }}
+        />
+      );
+      expect(screen.getByText('50,000.00')).toBeInTheDocument();
+
+      rerender(
+        <TableChart
+          data={[{ id: 1, name: 'Test', value: 1500000 }]}
+          config={{
+            table_columns: ['value'],
+            column_formatting: { value: { numberFormat: 'adaptive_international', precision: 1 } },
+          }}
+        />
+      );
+      expect(screen.getByText('1.5M')).toBeInTheDocument();
+
+      rerender(
+        <TableChart
+          data={[{ id: 1, name: 'Test', value: 1500000 }]}
+          config={{
+            table_columns: ['value'],
+            column_formatting: { value: { numberFormat: 'adaptive_indian', precision: 1 } },
+          }}
+        />
+      );
+      expect(screen.getByText('15.0L')).toBeInTheDocument();
+    });
+
+    it('should apply prefix and suffix with numberFormat', () => {
+      render(
+        <TableChart
+          data={mockData}
+          config={{
+            table_columns: ['salary'],
+            column_formatting: {
+              salary: { numberFormat: 'indian', precision: 0, prefix: '₹', suffix: ' INR' },
+            },
+          }}
+        />
+      );
+      expect(screen.getByText('₹50,000 INR')).toBeInTheDocument();
+    });
   });
 
   describe('Sorting', () => {

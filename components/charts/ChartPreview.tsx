@@ -11,6 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -281,6 +282,33 @@ export function ChartPreview({
         });
       }
 
+      // Apply number formatting for number charts
+      if (isNumberChart && modifiedConfig.series) {
+        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+        const decimalPlaces = customizations.decimalPlaces;
+        const seriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : [modifiedConfig.series];
+
+        modifiedConfig.series = seriesArray.map((series: any) => ({
+          ...series,
+          detail: {
+            ...series.detail,
+            formatter: (value: number) => {
+              // Pass both format and decimalPlaces to the formatter
+              const formatted = formatNumber(value, {
+                format: numberFormat,
+                decimalPlaces: decimalPlaces,
+              });
+              // Apply prefix and suffix from customizations
+              const prefix = customizations.numberPrefix || '';
+              const suffix = customizations.numberSuffix || '';
+              return `${prefix}${formatted}${suffix}`;
+            },
+          },
+        }));
+      }
+
       // Set chart option
       chartInstance.current.setOption(modifiedConfig);
 
@@ -351,10 +379,22 @@ export function ChartPreview({
 
   // Render table chart
   if (chartType === 'table') {
+    // Merge customizations.columnFormatting into config.column_formatting for table charts
+    const customizations = propCustomizations || config?.extra_config?.customizations || {};
+    const tableConfig = customizations?.columnFormatting
+      ? {
+          ...config,
+          column_formatting: {
+            ...(config?.column_formatting || {}),
+            ...customizations.columnFormatting,
+          },
+        }
+      : config;
+
     return (
       <TableChart
         data={tableData}
-        config={config}
+        config={tableConfig}
         onSort={onTableSort}
         pagination={tablePagination}
       />

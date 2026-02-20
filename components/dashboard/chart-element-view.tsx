@@ -42,6 +42,7 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -1323,6 +1324,31 @@ export function ChartElementView({
       },
     };
 
+    // Apply number formatting for number charts (same as ChartPreview.tsx)
+    if (isNumberChart && styledConfig.series) {
+      const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+      const decimalPlaces = customizations.decimalPlaces;
+      const seriesArray = Array.isArray(styledConfig.series)
+        ? styledConfig.series
+        : [styledConfig.series];
+
+      styledConfig.series = seriesArray.map((series: any) => ({
+        ...series,
+        detail: {
+          ...series.detail,
+          formatter: (value: number) => {
+            const formatted = formatNumber(value, {
+              format: numberFormat,
+              decimalPlaces: decimalPlaces,
+            });
+            const prefix = customizations.numberPrefix || '';
+            const suffix = customizations.numberSuffix || '';
+            return `${prefix}${formatted}${suffix}`;
+          },
+        },
+      }));
+    }
+
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
 
@@ -1737,7 +1763,8 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting: {},
+                column_formatting:
+                  effectiveChart?.extra_config?.customizations?.columnFormatting || {},
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,

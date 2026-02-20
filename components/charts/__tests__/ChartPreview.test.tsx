@@ -391,6 +391,27 @@ describe('ChartPreview', () => {
 
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     });
+
+    it('should merge columnFormatting from customizations into table config', () => {
+      const customizations = {
+        columnFormatting: {
+          salary: { numberFormat: 'indian', precision: 2 },
+          revenue: { numberFormat: 'international', precision: 0 },
+        },
+      };
+
+      render(
+        <ChartPreview
+          chartType="table"
+          config={{ table_columns: ['name', 'salary', 'revenue'] }}
+          customizations={customizations}
+        />
+      );
+
+      const configEl = screen.getByTestId('table-config');
+      const passedConfig = JSON.parse(configEl.textContent || '{}');
+      expect(passedConfig.column_formatting).toEqual(customizations.columnFormatting);
+    });
   });
 
   describe('Edge Cases', () => {
@@ -405,6 +426,34 @@ describe('ChartPreview', () => {
       if (config && (config as any).xAxis) {
         expect(echarts.init).toHaveBeenCalled();
       }
+    });
+  });
+
+  describe('Number Chart Formatting', () => {
+    const gaugeConfig = { series: [{ type: 'gauge', data: [{ value: 1000000 }] }] };
+
+    it.each([
+      ['indian format', { numberFormat: 'indian' }, 1000000, '10,00,000'],
+      ['international format', { numberFormat: 'international' }, 1000000, '1,000,000'],
+      [
+        'with prefix/suffix',
+        { numberFormat: 'international', numberPrefix: '$', numberSuffix: 'K' },
+        1000,
+        '$1,000K',
+      ],
+      ['with decimal places', { numberFormat: 'default', decimalPlaces: 2 }, 1234.567, '1234.57'],
+    ])('should apply %s', (_, customizations, inputValue, expected) => {
+      render(
+        <ChartPreview config={gaugeConfig} chartType="number" customizations={customizations} />
+      );
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
+      expect(formatter(inputValue)).toBe(expected);
+    });
+
+    it('should use default format when not specified', () => {
+      render(<ChartPreview config={gaugeConfig} chartType="number" />);
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
+      expect(formatter(1234567)).toBe('1234567');
     });
   });
 
