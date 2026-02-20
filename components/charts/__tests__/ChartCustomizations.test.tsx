@@ -94,6 +94,10 @@ describe('ChartCustomizations', () => {
           chartType="table"
           formData={createFormData('table', { table_columns: ['budget', 'revenue'] })}
           onChange={mockOnChange}
+          columns={[
+            { column_name: 'budget', data_type: 'numeric' },
+            { column_name: 'revenue', data_type: 'integer' },
+          ]}
         />
       );
       expect(screen.getByText('Number Formatting')).toBeInTheDocument();
@@ -137,6 +141,80 @@ describe('ChartCustomizations', () => {
 
       screen.getAllByRole('switch').forEach((s) => expect(s).toBeDisabled());
       screen.getAllByRole('radio').forEach((r) => expect(r).toBeDisabled());
+    });
+  });
+
+  describe('Table Chart Column Filtering', () => {
+    it('should only show numeric columns for number formatting in raw mode', () => {
+      render(
+        <ChartCustomizations
+          chartType="table"
+          formData={createFormData('table', { table_columns: ['name', 'budget', 'category'] })}
+          onChange={mockOnChange}
+          columns={[
+            { column_name: 'name', data_type: 'text' },
+            { column_name: 'budget', data_type: 'numeric' },
+            { column_name: 'category', data_type: 'varchar' },
+          ]}
+        />
+      );
+      expect(screen.getByText('Number Formatting')).toBeInTheDocument();
+      // Only budget should be shown (numeric type)
+      expect(screen.getByText('budget')).toBeInTheDocument();
+      // Non-numeric columns should not be shown
+      expect(screen.queryByText('name')).not.toBeInTheDocument();
+      expect(screen.queryByText('category')).not.toBeInTheDocument();
+    });
+
+    it('should show metric columns and numeric dimension columns in aggregated mode', () => {
+      render(
+        <ChartCustomizations
+          chartType="table"
+          formData={createFormData('table', {
+            dimensions: [{ column: 'category' }, { column: 'budget' }],
+            metrics: [
+              { column: 'revenue', aggregation: 'sum', alias: 'total_revenue' },
+              { column: 'quantity', aggregation: 'count' },
+            ],
+          })}
+          onChange={mockOnChange}
+          columns={[
+            { column_name: 'category', data_type: 'text' },
+            { column_name: 'budget', data_type: 'integer' },
+            { column_name: 'revenue', data_type: 'numeric' },
+            { column_name: 'quantity', data_type: 'integer' },
+          ]}
+        />
+      );
+      expect(screen.getByText('Number Formatting')).toBeInTheDocument();
+      // Metric columns should be shown (aggregation results are always numeric)
+      expect(screen.getByText('total_revenue')).toBeInTheDocument();
+      expect(screen.getByText('count_quantity')).toBeInTheDocument();
+      // Numeric dimension column should be shown
+      expect(screen.getByText('budget')).toBeInTheDocument();
+      // Non-numeric dimension columns should not be shown
+      expect(screen.queryByText('category')).not.toBeInTheDocument();
+    });
+
+    it('should show no columns when all columns are non-numeric in raw mode', () => {
+      render(
+        <ChartCustomizations
+          chartType="table"
+          formData={createFormData('table', { table_columns: ['name', 'category'] })}
+          onChange={mockOnChange}
+          columns={[
+            { column_name: 'name', data_type: 'text' },
+            { column_name: 'category', data_type: 'varchar' },
+          ]}
+        />
+      );
+      // No numeric columns available, so the component shows empty state
+      expect(
+        screen.getByText('No columns available. Configure table data first.')
+      ).toBeInTheDocument();
+      // No numeric columns, so none should be shown for formatting
+      expect(screen.queryByText('name')).not.toBeInTheDocument();
+      expect(screen.queryByText('category')).not.toBeInTheDocument();
     });
   });
 

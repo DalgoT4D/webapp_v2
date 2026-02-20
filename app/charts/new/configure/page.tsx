@@ -1042,6 +1042,7 @@ function ConfigureChartPageContent() {
                       chartType={formData.chart_type || 'bar'}
                       formData={formData}
                       onChange={handleFormChange}
+                      columns={columns}
                     />
                   )}
                 </div>

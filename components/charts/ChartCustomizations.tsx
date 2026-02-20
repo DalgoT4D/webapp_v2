@@ -10,11 +10,30 @@ import { NumberChartCustomizations } from './types/number/NumberChartCustomizati
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
 
+// Numeric data types that can have number formatting applied
+const NUMERIC_DATA_TYPES = [
+  'integer',
+  'smallint',
+  'bigint',
+  'numeric',
+  'double precision',
+  'real',
+  'float',
+  'decimal',
+];
+
+interface ColumnInfo {
+  column_name?: string;
+  name?: string;
+  data_type: string;
+}
+
 interface ChartCustomizationsProps {
   chartType: string;
   formData: ChartBuilderFormData;
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
+  columns?: ColumnInfo[]; // Column metadata for filtering by type
 }
 
 export function ChartCustomizations({
@@ -22,6 +41,7 @@ export function ChartCustomizations({
   formData,
   onChange,
   disabled,
+  columns = [],
 }: ChartCustomizationsProps) {
   // Safety check for undefined formData
   if (!formData) {
@@ -115,17 +135,55 @@ export function ChartCustomizations({
         displayedColumns = formData.table_columns || [];
       }
 
-      // Clean up formatting for columns that no longer exist in the table
+      // Build a map of column names to their data types
+      const columnTypeMap: Record<string, string> = {};
+      columns.forEach((col) => {
+        const colName = col.column_name || col.name || '';
+        if (colName) {
+          columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
+        }
+      });
+
+      // Filter to only show numeric columns for number formatting
+      // In aggregated mode, metric columns are always numeric (aggregation results)
+      // Dimension columns are also included if they have a numeric data type
+      // In raw mode, filter by actual column data type
+      let numericColumns: string[] = [];
+
+      if (hasAggregation) {
+        // Metric columns are always numeric (aggregation results)
+        const metricColumns =
+          formData.metrics
+            ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+            .filter(Boolean) || [];
+
+        // Dimension columns that have numeric data types should also be included
+        const dimensionColumns = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+        const numericDimensionColumns = dimensionColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        });
+
+        numericColumns = [...numericDimensionColumns, ...metricColumns];
+      } else {
+        // In raw mode: filter by actual column data type
+        numericColumns = displayedColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        });
+      }
+
+      // Clean up formatting for columns that no longer exist or are no longer numeric
       const existingFormatting = customizations.columnFormatting || {};
-      const displayedColumnsSet = new Set(displayedColumns);
+      const numericColumnsSet = new Set(numericColumns);
       const hasStaleFormatting = Object.keys(existingFormatting).some(
-        (col) => !displayedColumnsSet.has(col)
+        (col) => !numericColumnsSet.has(col)
       );
 
       if (hasStaleFormatting) {
-        // Remove formatting for columns that are no longer displayed
+        // Remove formatting for columns that are no longer displayed or not numeric
         const cleanedFormatting = Object.fromEntries(
-          Object.entries(existingFormatting).filter(([col]) => displayedColumnsSet.has(col))
+          Object.entries(existingFormatting).filter(([col]) => numericColumnsSet.has(col))
         );
         // Update the customizations to remove stale entries
         updateCustomization('columnFormatting', cleanedFormatting);
@@ -136,7 +194,7 @@ export function ChartCustomizations({
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
-          availableColumns={displayedColumns}
+          availableColumns={numericColumns}
         />
       );
     }
