@@ -41,6 +41,7 @@ import {
   shouldShowLegend,
   getLegendMode,
 } from '@/lib/responsive-legend';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1016,6 +1017,31 @@ export function ChartElementV2({
           },
         },
       };
+
+      // Apply number formatting for number charts (same as ChartPreview.tsx)
+      if (isNumberChart && modifiedConfig.series) {
+        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+        const decimalPlaces = customizations.decimalPlaces;
+        const seriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : [modifiedConfig.series];
+
+        modifiedConfig.series = seriesArray.map((series: any) => ({
+          ...series,
+          detail: {
+            ...series.detail,
+            formatter: (value: number) => {
+              const formatted = formatNumber(value, {
+                format: numberFormat,
+                decimalPlaces: decimalPlaces,
+              });
+              const prefix = customizations.numberPrefix || '';
+              const suffix = customizations.numberSuffix || '';
+              return `${prefix}${formatted}${suffix}`;
+            },
+          },
+        }));
+      }
 
       // Set chart option with animation disabled for better performance
       chartInstance.current.setOption(modifiedConfig, {

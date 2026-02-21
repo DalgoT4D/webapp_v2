@@ -11,6 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -281,8 +282,46 @@ export function ChartPreview({
         });
       }
 
-      // Set chart option
-      chartInstance.current.setOption(modifiedConfig);
+      // Apply number formatting and styling for number charts
+      if (isNumberChart && modifiedConfig.series) {
+        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+        const decimalPlaces = customizations.decimalPlaces;
+        const numberSize = customizations.numberSize || 'medium';
+
+        // Map size to font size values
+        const sizeMap: Record<string, number> = {
+          small: 32,
+          medium: 48,
+          large: 64,
+        };
+        const fontSize = sizeMap[numberSize] || sizeMap.medium;
+
+        const seriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : [modifiedConfig.series];
+
+        modifiedConfig.series = seriesArray.map((series: any) => ({
+          ...series,
+          detail: {
+            ...series.detail,
+            fontSize: fontSize,
+            formatter: (value: number) => {
+              // Pass both format and decimalPlaces to the formatter
+              const formatted = formatNumber(value, {
+                format: numberFormat,
+                decimalPlaces: decimalPlaces,
+              });
+              // Apply prefix and suffix from customizations
+              const prefix = customizations.numberPrefix || '';
+              const suffix = customizations.numberSuffix || '';
+              return `${prefix}${formatted}${suffix}`;
+            },
+          },
+        }));
+      }
+
+      // Set chart option (notMerge: true ensures clean updates when customizations change)
+      chartInstance.current.setOption(modifiedConfig, { notMerge: true });
 
       // Notify parent component that chart is ready
       if (onChartReady) {
