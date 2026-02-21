@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -64,12 +64,15 @@ const chartTypes = [
   },
 ];
 
-export default function NewChartPage() {
+function NewChartPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasPermission } = useUserPermissions();
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [selectedSchema, setSelectedSchema] = useState<string>('');
   const [selectedChartType, setSelectedChartType] = useState<string>('');
+
+  const isFromDashboard = searchParams.get('from') === 'dashboard';
 
   // Check if user has create permissions
   if (!hasPermission('can_create_charts')) {
@@ -102,7 +105,17 @@ export default function NewChartPage() {
       type: selectedChartType,
     });
 
-    router.push(`/charts/new/configure?${params.toString()}`);
+    if (isFromDashboard) {
+      params.set('from', 'dashboard');
+    }
+
+    // Use replace when from dashboard so this page is removed from history.
+    // This ensures chart detail → back → dashboard works after save.
+    if (isFromDashboard) {
+      router.replace(`/charts/new/configure?${params.toString()}`);
+    } else {
+      router.push(`/charts/new/configure?${params.toString()}`);
+    }
   };
 
   const handleDatasetChange = (schema: string, table: string) => {
@@ -111,19 +124,30 @@ export default function NewChartPage() {
   };
 
   const handleCancel = () => {
-    router.push('/charts');
+    if (isFromDashboard) {
+      router.back();
+    } else {
+      router.push('/charts');
+    }
   };
 
   return (
     <div className="px-8 py-6 ml-0">
       {/* Header with Back button */}
       <div className="flex items-center gap-3 mb-8">
-        <Link href="/charts">
-          <Button variant="ghost" size="sm">
+        {isFromDashboard ? (
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-        </Link>
+        ) : (
+          <Link href="/charts">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+        )}
         <div>
           <h1 className="text-3xl font-bold">Create a new chart</h1>
         </div>
@@ -230,5 +254,13 @@ export default function NewChartPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function NewChartPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewChartPageContent />
+    </Suspense>
   );
 }

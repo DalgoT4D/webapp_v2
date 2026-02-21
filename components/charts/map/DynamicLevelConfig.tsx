@@ -21,6 +21,7 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import { Combobox, highlightText } from '@/components/ui/combobox';
 import type { ChartBuilderFormData } from '@/types/charts';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/config';
@@ -43,6 +44,16 @@ export function DynamicLevelConfig({
 
   // Fetch available columns
   const { data: columns = [] } = useColumns(formData.schema_name || '', formData.table_name || '');
+
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      columns.map((col: any) => {
+        const columnName = col.column_name || col.name;
+        return { value: columnName, label: columnName, data_type: col.data_type };
+      }),
+    [columns]
+  );
 
   // Fetch available region types from backend
   const { data: regionTypes = [], isLoading: regionTypesLoading } = useAvailableRegionTypes('IND');
@@ -378,30 +389,20 @@ export function DynamicLevelConfig({
             </TooltipContent>
           </Tooltip>
         </div>
-        <Select
+        <Combobox
+          items={columnItems}
           value={formData.geographic_column || ''}
           onValueChange={handleGeographicColumnChange}
           disabled={disabled}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select state column" />
-          </SelectTrigger>
-          <SelectContent>
-            {columns.map((col: any) => {
-              const columnName = col.column_name || col.name;
-              return (
-                <SelectItem key={columnName} value={columnName}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
-                    <span className="truncate" title={`${columnName} (${col.data_type})`}>
-                      {columnName}
-                    </span>
-                  </div>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
+          searchPlaceholder="Search columns..."
+          placeholder="Select state column"
+          renderItem={(item, _isSelected, searchQuery) => (
+            <div className="flex items-center gap-2 min-w-0">
+              <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+              <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+            </div>
+          )}
+        />
       </div>
 
       {/* District Column Selection */}
@@ -443,33 +444,28 @@ export function DynamicLevelConfig({
               </TooltipContent>
             </Tooltip>
           </div>
-          <Select
-            value={currentLevels[0]?.column || ''}
+          <Combobox
+            items={[
+              { value: '__none__', label: 'No drill-down' },
+              ...getAvailableColumns(usedColumns).map((col: any) => {
+                const columnName = col.column_name || col.name;
+                return { value: columnName, label: columnName, data_type: col.data_type };
+              }),
+            ]}
+            value={currentLevels[0]?.column || '__none__'}
             onValueChange={(value) => {
               updateLevel(0, value === '__none__' ? '' : value);
             }}
             disabled={disabled}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select column for districts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No drill-down</SelectItem>
-              {getAvailableColumns(usedColumns).map((col: any) => {
-                const columnName = col.column_name || col.name;
-                return (
-                  <SelectItem key={columnName} value={columnName}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ColumnTypeIcon dataType={col.data_type} className="w-4 h-4" />
-                      <span className="truncate" title={`${columnName} (${col.data_type})`}>
-                        {columnName}
-                      </span>
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+            searchPlaceholder="Search columns..."
+            placeholder="Select column for districts"
+            renderItem={(item, _isSelected, searchQuery) => (
+              <div className="flex items-center gap-2 min-w-0">
+                {item.data_type && <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />}
+                <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+              </div>
+            )}
+          />
         </div>
       )}
     </div>

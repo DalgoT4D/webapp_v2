@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
+import { Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
@@ -38,7 +37,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import { deepEqual } from '@/lib/form-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type {
@@ -118,6 +117,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
 function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isFromDashboard = searchParams.get('from') === 'dashboard';
   const chartId = Number(params.id);
   const { hasPermission } = useUserPermissions();
   const canEditChart = hasPermission('can_edit_charts');
@@ -353,6 +354,48 @@ function EditChartPageContent() {
     [router, formData]
   );
 
+  const navigateBackWithoutWarning = useCallback(() => {
+    setOriginalFormData({ ...formData }); // Mark as saved
+    router.back();
+  }, [router, formData]);
+
+  const navigateReplaceWithoutWarning = useCallback(
+    (url: string) => {
+      setOriginalFormData({ ...formData }); // Mark as saved
+      router.replace(url);
+    },
+    [router, formData]
+  );
+
+  // Build chart URL with dashboard context preserved
+  const chartDetailUrl = useCallback(
+    (id: number | string) => {
+      return isFromDashboard ? `/charts/${id}?from=dashboard` : `/charts/${id}`;
+    },
+    [isFromDashboard]
+  );
+
+  // Navigate to chart detail after save (replace for dashboard to keep back history clean, push for charts)
+  const navigateToChartDetail = useCallback(
+    (id: number | string) => {
+      if (isFromDashboard) {
+        navigateReplaceWithoutWarning(chartDetailUrl(id));
+      } else {
+        navigateWithoutWarning(chartDetailUrl(id));
+      }
+    },
+    [isFromDashboard, navigateReplaceWithoutWarning, navigateWithoutWarning, chartDetailUrl]
+  );
+
+  // Navigate back to origin after exit-save (dashboard via back, charts via list)
+  const navigateToOrigin = useCallback(() => {
+    if (isFromDashboard) {
+      navigateBackWithoutWarning();
+    } else {
+      navigateWithoutWarning('/charts');
+    }
+  }, [isFromDashboard, navigateBackWithoutWarning, navigateWithoutWarning]);
+
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -492,7 +535,12 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // customizations: formData.customizations, // Commented: formatting happens on frontend, not via API
+            // For number charts, only send subtitle to API (other customizations applied on frontend)
+            // For other charts, send all customizations to API
+            customizations:
+              formData.chart_type === 'number'
+                ? { subtitle: formData.customizations?.subtitle }
+                : formData.customizations,
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -1270,12 +1318,11 @@ function EditChartPageContent() {
 
       toastSuccess.updated('Chart');
 
-      // Navigate based on context - if exiting after save, go to charts list
       if (isExitingAfterSave) {
         setIsExitingAfterSave(false);
-        navigateWithoutWarning('/charts');
+        navigateToOrigin();
       } else {
-        navigateWithoutWarning(`/charts/${chartId}`);
+        navigateToChartDetail(chartId);
       }
     } catch (err) {
       toastError.update(err, 'chart');
@@ -1299,12 +1346,11 @@ function EditChartPageContent() {
 
       toastSuccess.created(`Chart "${newTitle}"`);
 
-      // Navigate based on context - if exiting after save, go to charts list
       if (isExitingAfterSave) {
         setIsExitingAfterSave(false);
-        navigateWithoutWarning('/charts');
+        navigateToOrigin();
       } else {
-        navigateWithoutWarning(`/charts/${result.id}`);
+        navigateToChartDetail(result.id);
       }
     } catch (err) {
       toastError.create(err, 'chart');
@@ -1324,8 +1370,10 @@ function EditChartPageContent() {
   const handleCancel = () => {
     if (hasUnsavedChanges) {
       setShowExitDialog(true);
+    } else if (isFromDashboard) {
+      router.back();
     } else {
-      router.push(`/charts/${chartId}`);
+      router.push(chartDetailUrl(chartId));
     }
   };
 
@@ -1343,7 +1391,11 @@ function EditChartPageContent() {
 
   const handleLeaveWithoutSaving = () => {
     setShowExitDialog(false);
-    router.push(`/charts/${chartId}`);
+    if (isFromDashboard) {
+      navigateBackWithoutWarning();
+    } else {
+      router.push(chartDetailUrl(chartId));
+    }
   };
 
   const handleStayOnPage = () => {
@@ -1392,6 +1444,7 @@ function EditChartPageContent() {
           <div className="flex items-center gap-3">
             {/* Back Button */}
             <Button
+              data-testid="chart-edit-back-button"
               variant="ghost"
               size="sm"
               onClick={() => {
@@ -1404,7 +1457,11 @@ function EditChartPageContent() {
                         onConfirm: () => {},
                         onCancel: () => {},
                       });
-                      navigateWithoutWarning(`/charts/${chartId}`);
+                      if (isFromDashboard) {
+                        navigateBackWithoutWarning();
+                      } else {
+                        navigateWithoutWarning(chartDetailUrl(chartId));
+                      }
                     },
                     onCancel: () => {
                       setUnsavedChangesDialog({
@@ -1414,13 +1471,15 @@ function EditChartPageContent() {
                       });
                     },
                   });
+                } else if (isFromDashboard) {
+                  router.back();
                 } else {
-                  router.push(`/charts/${chartId}`);
+                  router.push(chartDetailUrl(chartId));
                 }
               }}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              {isFromDashboard ? 'Back to Dashboard' : 'Back'}
             </Button>
 
             {/* Chart Title Input */}
@@ -1434,6 +1493,7 @@ function EditChartPageContent() {
 
           <div className="flex items-center gap-4">
             <Button
+              data-testid="chart-edit-cancel-button"
               variant="cancel"
               onClick={handleCancel}
               disabled={isMutating || isCreating}
@@ -1442,6 +1502,7 @@ function EditChartPageContent() {
               Cancel
             </Button>
             <Button
+              data-testid="chart-edit-save-button"
               onClick={handleSave}
               disabled={!isFormValid() || isMutating || isCreating}
               className="px-8 h-11 text-white hover:opacity-90"

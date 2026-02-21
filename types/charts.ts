@@ -312,6 +312,13 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     level: number;
     name?: string;
     geojson_id?: number;
+    geographic_column?: string;
+    region_id?: number;
+    selected_regions?: Array<{
+      region_id: number;
+      region_name: string;
+      geojson_id?: number;
+    }>;
   }>;
   // Legacy simplified map configuration (backward compatibility)
   district_column?: string;
