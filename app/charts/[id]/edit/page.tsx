@@ -535,12 +535,15 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // For number charts, only send subtitle to API (other customizations applied on frontend)
-            // For other charts, send all customizations to API
-            customizations:
-              formData.chart_type === 'number'
-                ? { subtitle: formData.customizations?.subtitle }
-                : formData.customizations,
+            // For number charts: only send subtitle to API for positioning (other customizations applied on frontend)
+            // For table charts: don't send customizations in preview payload (formatting is frontend-only)
+            // For other charts: send all customizations to API
+            ...(formData.chart_type !== 'table' && {
+              customizations:
+                formData.chart_type === 'number'
+                  ? { subtitle: formData.customizations?.subtitle }
+                  : formData.customizations,
+            }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),

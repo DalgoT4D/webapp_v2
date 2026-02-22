@@ -209,9 +209,7 @@ describe('ChartCustomizations', () => {
         />
       );
       // No numeric columns available, so the component shows empty state
-      expect(
-        screen.getByText('No columns available. Configure table data first.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
       // No numeric columns, so none should be shown for formatting
       expect(screen.queryByText('name')).not.toBeInTheDocument();
       expect(screen.queryByText('category')).not.toBeInTheDocument();

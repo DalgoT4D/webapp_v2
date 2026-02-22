@@ -359,12 +359,15 @@ function ConfigureChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        // For number charts, only send subtitle to API (other customizations applied on frontend)
-        // For other charts, send all customizations to API
-        customizations:
-          formData.chart_type === 'number'
-            ? { subtitle: formData.customizations?.subtitle }
-            : formData.customizations,
+        // For number charts: only send subtitle to API for positioning (other customizations applied on frontend)
+        // For table charts: don't send customizations in preview payload (formatting is frontend-only)
+        // For other charts: send all customizations to API
+        ...(formData.chart_type !== 'table' && {
+          customizations:
+            formData.chart_type === 'number'
+              ? { subtitle: formData.customizations?.subtitle }
+              : formData.customizations,
+        }),
         extra_config: {
           filters: [
             ...(formData.filters || []),
@@ -844,7 +847,15 @@ function ConfigureChartPageContent() {
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
         layers: formData.layers,
-        customizations: formData.customizations,
+        // For number charts: only send subtitle to API (other customizations applied on frontend)
+        // For table charts: only send columnFormatting to API (formatting applied on frontend)
+        // For other charts: send all customizations to API
+        customizations:
+          formData.chart_type === 'number'
+            ? { subtitle: formData.customizations?.subtitle }
+            : formData.chart_type === 'table'
+              ? { columnFormatting: formData.customizations?.columnFormatting }
+              : formData.customizations,
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,

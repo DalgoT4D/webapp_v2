@@ -120,9 +120,9 @@ export function TableChartCustomizations({
   if (availableColumns.length === 0) {
     return (
       <div className="space-y-4">
-        <h4 className="text-sm font-medium">Number</h4>
+        <h4 className="text-sm font-medium">Number Formatting</h4>
         <p className="text-sm text-muted-foreground py-4 text-center">
-          No columns available. Configure table data first.
+          No numeric columns to format.
         </p>
       </div>
     );

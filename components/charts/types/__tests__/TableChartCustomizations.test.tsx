@@ -27,9 +27,7 @@ describe('TableChartCustomizations', () => {
     expect(screen.getAllByText('Default').length).toBe(3);
 
     rerender(<TableChartCustomizations {...defaultProps} availableColumns={[]} />);
-    expect(
-      screen.getByText('No columns available. Configure table data first.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
   });
 
   it('should expand/collapse column and show configuration options', async () => {
