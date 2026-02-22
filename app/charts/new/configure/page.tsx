@@ -359,7 +359,12 @@ function ConfigureChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        // customizations: formData.customizations, // Commented: formatting happens on frontend, not via API
+        // For number charts, only send subtitle to API (other customizations applied on frontend)
+        // For other charts, send all customizations to API
+        customizations:
+          formData.chart_type === 'number'
+            ? { subtitle: formData.customizations?.subtitle }
+            : formData.customizations,
         extra_config: {
           filters: [
             ...(formData.filters || []),
@@ -1150,6 +1155,7 @@ function ConfigureChartPageContent() {
                         config={chartData?.echarts_config}
                         isLoading={chartLoading}
                         error={chartError}
+                        chartType={formData.chart_type}
                         customizations={formData.customizations}
                       />
                     </div>

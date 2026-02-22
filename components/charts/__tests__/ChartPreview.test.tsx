@@ -455,6 +455,28 @@ describe('ChartPreview', () => {
       const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
       expect(formatter(1234567)).toBe('1234567');
     });
+
+    it.each([
+      ['small (32px)', 'small', 32],
+      ['medium (48px)', 'medium', 48],
+      ['large (64px)', 'large', 64],
+      ['default/medium (48px)', undefined, 48],
+    ])('should apply %s number size', (_, numberSize, expectedFontSize) => {
+      render(
+        <ChartPreview
+          config={gaugeConfig}
+          chartType="number"
+          customizations={numberSize ? { numberSize } : {}}
+        />
+      );
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].detail.fontSize).toBe(expectedFontSize);
+    });
+
+    it('should call setOption with notMerge: true for clean updates', () => {
+      render(<ChartPreview config={gaugeConfig} chartType="number" />);
+      expect(mockChart.setOption).toHaveBeenCalledWith(expect.any(Object), { notMerge: true });
+    });
   });
 
   describe('Console Logging', () => {
