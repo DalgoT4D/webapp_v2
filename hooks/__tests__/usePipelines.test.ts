@@ -19,16 +19,10 @@ import {
   fetchFlowRunLogs,
   triggerLogSummary,
 } from '../api/usePipelines';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { mockApiGet, mockApiPost, mockApiPut, mockApiDelete } from '@/test-utils/api';
 import { TaskLock } from '@/types/pipeline';
 
 jest.mock('swr');
-jest.mock('@/lib/api', () => ({
-  apiGet: jest.fn(),
-  apiPost: jest.fn(),
-  apiPut: jest.fn(),
-  apiDelete: jest.fn(),
-}));
 
 describe('useSyncLock Hook', () => {
   it('manages optimistic UI state through lock lifecycle', () => {
@@ -92,7 +86,7 @@ describe('SWR Pipeline Hooks', () => {
 
     expect(useSWR).toHaveBeenCalledWith(
       '/api/prefect/v1/flows/',
-      apiGet,
+      mockApiGet,
       expect.objectContaining({
         revalidateOnFocus: false,
       })
@@ -121,29 +115,37 @@ describe('SWR Pipeline Hooks', () => {
 
     // usePipeline
     renderHook(() => usePipeline('dep-id'));
-    expect(useSWR).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id', apiGet, expect.any(Object));
+    expect(useSWR).toHaveBeenCalledWith(
+      '/api/prefect/v1/flows/dep-id',
+      mockApiGet,
+      expect.any(Object)
+    );
 
     // usePipeline with null
     renderHook(() => usePipeline(null));
-    expect(useSWR).toHaveBeenCalledWith(null, apiGet, expect.any(Object));
+    expect(useSWR).toHaveBeenCalledWith(null, mockApiGet, expect.any(Object));
 
     // useTransformTasks
     renderHook(() => useTransformTasks());
     expect(useSWR).toHaveBeenCalledWith(
       '/api/prefect/tasks/transform/',
-      apiGet,
+      mockApiGet,
       expect.any(Object)
     );
 
     // useConnections
     renderHook(() => useConnections());
-    expect(useSWR).toHaveBeenCalledWith('/api/airbyte/v1/connections', apiGet, expect.any(Object));
+    expect(useSWR).toHaveBeenCalledWith(
+      '/api/airbyte/v1/connections',
+      mockApiGet,
+      expect.any(Object)
+    );
 
     // usePipelineHistory with pagination
     renderHook(() => usePipelineHistory('dep-id', 10, 5));
     expect(useSWR).toHaveBeenCalledWith(
       '/api/prefect/v1/flows/dep-id/flow_runs/history?limit=5&offset=10',
-      apiGet,
+      mockApiGet,
       expect.any(Object)
     );
   });
@@ -176,60 +178,62 @@ describe('Pipeline Mutation Functions', () => {
 
   it('performs all CRUD operations correctly', async () => {
     // Create
-    (apiPost as jest.Mock).mockResolvedValue({ name: 'New Pipeline' });
+    mockApiPost.mockResolvedValue({ name: 'New Pipeline' });
     const createResult = await createPipeline({
       name: 'New Pipeline',
       connections: [{ id: 'conn-1', seq: 1 }],
       cron: '0 9 * * *',
       transformTasks: [{ uuid: 'task-1', seq: 1 }],
     });
-    expect(apiPost).toHaveBeenCalledWith('/api/prefect/v1/flows/', expect.any(Object));
+    expect(mockApiPost).toHaveBeenCalledWith('/api/prefect/v1/flows/', expect.any(Object));
     expect(createResult.name).toBe('New Pipeline');
 
     // Update
-    (apiPut as jest.Mock).mockResolvedValue({});
+    mockApiPut.mockResolvedValue({});
     await updatePipeline('dep-id', {
       name: 'Updated',
       connections: [],
       cron: '',
       transformTasks: [],
     });
-    expect(apiPut).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id', expect.any(Object));
+    expect(mockApiPut).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id', expect.any(Object));
 
     // Delete
-    (apiDelete as jest.Mock).mockResolvedValue({ success: true });
+    mockApiDelete.mockResolvedValue({ success: true });
     const deleteResult = await deletePipeline('dep-id');
-    expect(apiDelete).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id');
+    expect(mockApiDelete).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id');
     expect(deleteResult.success).toBe(true);
 
     // Trigger run
-    (apiPost as jest.Mock).mockResolvedValue({});
+    mockApiPost.mockResolvedValue({});
     await triggerPipelineRun('dep-id');
-    expect(apiPost).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id/flow_run/', {});
+    expect(mockApiPost).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id/flow_run/', {});
 
     // Set schedule status
     await setScheduleStatus('dep-id', true);
-    expect(apiPost).toHaveBeenCalledWith('/api/prefect/flows/dep-id/set_schedule/active', {});
+    expect(mockApiPost).toHaveBeenCalledWith('/api/prefect/flows/dep-id/set_schedule/active', {});
     await setScheduleStatus('dep-id', false);
-    expect(apiPost).toHaveBeenCalledWith('/api/prefect/flows/dep-id/set_schedule/inactive', {});
+    expect(mockApiPost).toHaveBeenCalledWith('/api/prefect/flows/dep-id/set_schedule/inactive', {});
   });
 
   it('fetches logs and handles AI summary', async () => {
     // Fetch logs with and without task_run_id
-    (apiGet as jest.Mock).mockResolvedValue({ logs: { logs: [{ message: 'test' }] } });
+    mockApiGet.mockResolvedValue({ logs: { logs: [{ message: 'test' }] } });
 
     await fetchFlowRunLogs('flow-id', 'task-id', 0, 100);
-    expect(apiGet).toHaveBeenCalledWith(
+    expect(mockApiGet).toHaveBeenCalledWith(
       '/api/prefect/flow_runs/flow-id/logs?offset=0&limit=100&task_run_id=task-id'
     );
 
     await fetchFlowRunLogs('flow-id', undefined, -10, 100); // negative offset becomes 0
-    expect(apiGet).toHaveBeenCalledWith('/api/prefect/flow_runs/flow-id/logs?offset=0&limit=100');
+    expect(mockApiGet).toHaveBeenCalledWith(
+      '/api/prefect/flow_runs/flow-id/logs?offset=0&limit=100'
+    );
 
     // Trigger log summary
-    (apiGet as jest.Mock).mockResolvedValue({ task_id: 'summary-1' });
+    mockApiGet.mockResolvedValue({ task_id: 'summary-1' });
     const summaryResult = await triggerLogSummary('flow-id', 'task-id');
-    expect(apiGet).toHaveBeenCalledWith(
+    expect(mockApiGet).toHaveBeenCalledWith(
       '/api/prefect/v1/flow_runs/flow-id/logsummary?task_id=task-id'
     );
     expect(summaryResult.task_id).toBe('summary-1');
