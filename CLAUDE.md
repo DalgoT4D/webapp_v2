@@ -212,6 +212,15 @@ Always add these attributes to interactive components for testability and debugg
 - **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
 - **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
 
+### Test File Conventions
+- **Location**: Tests live in `__tests__/` folders **inside** the component directory (e.g., `components/pipeline/__tests__/`, `components/notifications/__tests__/`)
+- **Mock data factories**: Create a `*-mock-data.ts` file in the `__tests__/` folder with factory functions (`createMockPipeline()`, `createMockNotification()`) following the pattern in `components/pipeline/__tests__/pipeline-mock-data.ts`
+- **Global API mocks**: API is mocked globally in `jest.setup.ts` — use `mockApiGet`/`mockApiPut` from `test-utils/api.ts` for typed references
+- **Test wrappers**: Use `TestWrapper` from `test-utils/render.tsx` for SWR isolation (fresh cache, no deduping, no polling)
+- **Permissions**: Mock `useUserPermissions` from `@/hooks/api/usePermissions` — never mock `useAuthStore` directly for permission checks
+- **Relative imports for siblings**: Tests import components via relative paths (`../ComponentName`), mock data from `./mock-data`
+- **No `__tests__/integration/` or `__tests__/components/` folders**: All tests go in the component's own `__tests__/` directory, integration tests included (e.g., `notifications.integration.test.tsx`)
+
 ### Unit Tests
 - Test utility functions and custom hooks in isolation
 - Mock API calls using SWR's testing utilities
