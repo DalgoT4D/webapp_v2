@@ -535,11 +535,15 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // For number charts, only send subtitle to API (other customizations applied on frontend)
+            // For number charts, exclude numberFormat and decimalPlaces (frontend-only)
             // For other charts, send all customizations to API
             customizations:
               formData.chart_type === 'number'
-                ? { subtitle: formData.customizations?.subtitle }
+                ? Object.fromEntries(
+                    Object.entries(formData.customizations || {}).filter(
+                      ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
+                    )
+                  )
                 : formData.customizations,
             extra_config: {
               filters: [
