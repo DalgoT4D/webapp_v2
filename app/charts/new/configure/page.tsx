@@ -359,13 +359,17 @@ function ConfigureChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        // For number charts: only send subtitle to API for positioning (other customizations applied on frontend)
+        // For number charts: exclude numberFormat and decimalPlaces (frontend-only)
         // For table charts: don't send customizations in preview payload (formatting is frontend-only)
         // For other charts: send all customizations to API
         ...(formData.chart_type !== 'table' && {
           customizations:
             formData.chart_type === 'number'
-              ? { subtitle: formData.customizations?.subtitle }
+              ? Object.fromEntries(
+                  Object.entries(formData.customizations || {}).filter(
+                    ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
+                  )
+                )
               : formData.customizations,
         }),
         extra_config: {
