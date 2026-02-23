@@ -1349,6 +1349,48 @@ export function ChartElementView({
       }));
     }
 
+    // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
+    if (isPieChart && styledConfig.series) {
+      const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+      const decimalPlaces = customizations.decimalPlaces;
+      const labelFormat = customizations.labelFormat || 'percentage';
+      const showDataLabels = customizations.showDataLabels !== false; // Default to true
+      const dataLabelPosition = customizations.dataLabelPosition || 'outside';
+      const seriesArray = Array.isArray(styledConfig.series)
+        ? styledConfig.series
+        : [styledConfig.series];
+
+      styledConfig.series = seriesArray.map((series: any) => ({
+        ...series,
+        label: {
+          ...series.label,
+          show: showDataLabels,
+          position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
+          formatter: (params: any) => {
+            // Only format if value is already a number type
+            const formattedValue =
+              typeof params.value === 'number'
+                ? numberFormat !== 'default'
+                  ? formatNumber(params.value, { format: numberFormat, decimalPlaces })
+                  : params.value.toLocaleString()
+                : params.value;
+
+            switch (labelFormat) {
+              case 'value':
+                return formattedValue;
+              case 'name_percentage':
+                return `${params.name}\n${params.percent}%`;
+              case 'name_value':
+                return `${params.name}\n${formattedValue}`;
+              case 'percentage':
+              default:
+                return `${params.percent}%`;
+            }
+          },
+        },
+      }));
+    }
+
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
 

@@ -133,6 +133,22 @@ export function ChartPreview({
           },
           extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
           formatter: function (params: any) {
+            // Helper to format values based on customizations
+            const formatValue = (val: any) => {
+              // Try to parse string values to numbers (like TableChart does)
+              const numVal = typeof val === 'number' ? val : parseFloat(val);
+              if (isNaN(numVal)) return val; // Return original if not a valid number
+
+              const numFormat = (customizations.numberFormat || 'default') as NumberFormat;
+              if (numFormat === 'default') {
+                return numVal.toLocaleString();
+              }
+              return formatNumber(numVal, {
+                format: numFormat,
+                decimalPlaces: customizations.decimalPlaces,
+              });
+            };
+
             if (Array.isArray(params)) {
               // For multiple series (line/bar charts with multiple lines/bars)
               let result = '';
@@ -140,15 +156,13 @@ export function ChartPreview({
                 if (index === 0) {
                   result += param.name + '<br/>';
                 }
-                const value =
-                  typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
+                const value = formatValue(param.value);
                 result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
               });
               return result;
             } else {
               // For single series (pie charts, single bar/line)
-              const value =
-                typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
+              const value = formatValue(params.value);
               if (params.percent !== undefined) {
                 // Pie chart with percentage
                 return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
@@ -315,6 +329,48 @@ export function ChartPreview({
               const prefix = customizations.numberPrefix || '';
               const suffix = customizations.numberSuffix || '';
               return `${prefix}${formatted}${suffix}`;
+            },
+          },
+        }));
+      }
+
+      // Apply number formatting and visibility settings for pie chart data labels
+      if (isPieChart && modifiedConfig.series) {
+        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
+        const decimalPlaces = customizations.decimalPlaces;
+        const labelFormat = customizations.labelFormat || 'percentage';
+        const showDataLabels = customizations.showDataLabels !== false; // Default to true
+        const dataLabelPosition = customizations.dataLabelPosition || 'outside';
+        const seriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : [modifiedConfig.series];
+
+        modifiedConfig.series = seriesArray.map((series: any) => ({
+          ...series,
+          label: {
+            ...series.label,
+            show: showDataLabels,
+            position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
+            formatter: (params: any) => {
+              // Only format if value is already a number type
+              const formattedValue =
+                typeof params.value === 'number'
+                  ? numberFormat !== 'default'
+                    ? formatNumber(params.value, { format: numberFormat, decimalPlaces })
+                    : params.value.toLocaleString()
+                  : params.value;
+
+              switch (labelFormat) {
+                case 'value':
+                  return formattedValue;
+                case 'name_percentage':
+                  return `${params.name}\n${params.percent}%`;
+                case 'name_value':
+                  return `${params.name}\n${formattedValue}`;
+                case 'percentage':
+                default:
+                  return `${params.percent}%`;
+              }
             },
           },
         }));

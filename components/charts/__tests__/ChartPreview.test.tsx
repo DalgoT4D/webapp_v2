@@ -479,6 +479,85 @@ describe('ChartPreview', () => {
     });
   });
 
+  describe('Pie Chart Label Configuration', () => {
+    const pieConfig = { series: [{ type: 'pie', data: [{ name: 'A', value: 100 }] }] };
+
+    it('should show labels by default (showDataLabels not set)', () => {
+      render(<ChartPreview config={pieConfig} chartType="pie" />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].label.show).toBe(true);
+    });
+
+    it('should hide labels when showDataLabels is false', () => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ showDataLabels: false }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].label.show).toBe(false);
+    });
+
+    it.each([
+      ['outside', 'outside', 'outside'],
+      ['inside', 'inside', 'inside'],
+      ['default (outside)', undefined, 'outside'],
+    ])('should set label position to %s', (_, position, expected) => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ dataLabelPosition: position }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].label.position).toBe(expected);
+    });
+
+    it.each([
+      ['percentage', 'percentage', { name: 'A', value: 100, percent: 50 }, '50%'],
+      ['value', 'value', { name: 'A', value: 1000, percent: 50 }, '1,000'],
+      ['name_percentage', 'name_percentage', { name: 'A', value: 100, percent: 50 }, 'A\n50%'],
+      ['name_value', 'name_value', { name: 'A', value: 1000, percent: 50 }, 'A\n1,000'],
+    ])('should format label as %s', (_, labelFormat, params, expected) => {
+      render(<ChartPreview config={pieConfig} chartType="pie" customizations={{ labelFormat }} />);
+
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+      expect(formatter(params)).toBe(expected);
+    });
+
+    it('should apply number formatting to value labels', () => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ labelFormat: 'value', numberFormat: 'indian' }}
+        />
+      );
+
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+      expect(formatter({ name: 'A', value: 1000000, percent: 50 })).toBe('10,00,000');
+    });
+
+    it('should not format non-number values', () => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ labelFormat: 'value' }}
+        />
+      );
+
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+      expect(formatter({ name: 'A', value: 'text', percent: 50 })).toBe('text');
+    });
+  });
+
   describe('Console Logging', () => {
     beforeEach(() => {
       jest.spyOn(console, 'log').mockImplementation();
