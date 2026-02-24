@@ -24,7 +24,8 @@ describe('BarChartCustomizations', () => {
     // Sections
     expect(screen.getByText('Display Options')).toBeInTheDocument();
     expect(screen.getByText('Data Labels')).toBeInTheDocument();
-    expect(screen.getByText('Axis Configuration')).toBeInTheDocument();
+    expect(screen.getByText('X-Axis')).toBeInTheDocument();
+    expect(screen.getByText('Y-Axis')).toBeInTheDocument();
 
     // Default values
     expect(screen.getByLabelText('Vertical')).toBeChecked();
@@ -87,28 +88,25 @@ describe('BarChartCustomizations', () => {
 
     expect(screen.getByDisplayValue('Time')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Value')).toBeInTheDocument();
-    expect(screen.getByLabelText('X-Axis Label Rotation')).toBeInTheDocument();
-    expect(screen.getByLabelText('Y-Axis Label Rotation')).toBeInTheDocument();
+    // Label Rotation fields are now just called "Label Rotation" within each section
+    expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
-    // X-axis title input
-    const xInput = screen.getByLabelText('X-Axis Title');
-    await user.type(xInput, 'M');
+    // X-axis title input (first Title field)
+    const titleInputs = screen.getAllByLabelText('Title');
+    await user.type(titleInputs[0], 'M');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'TimeM');
 
-    // Y-axis title input
-    const yInput = screen.getByLabelText('Y-Axis Title');
-    await user.type(yInput, 's');
+    // Y-axis title input (second Title field)
+    await user.type(titleInputs[1], 's');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisTitle', 'Values');
 
-    // X-axis rotation
-    const xRotationSelect = screen.getByLabelText('X-Axis Label Rotation');
-    await user.click(xRotationSelect);
+    // Label rotation selects
+    const rotationSelects = screen.getAllByLabelText('Label Rotation');
+    await user.click(rotationSelects[0]);
     await user.click(screen.getByRole('option', { name: '45 degrees' }));
     expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisLabelRotation', '45');
 
-    // Y-axis rotation
-    const yRotationSelect = screen.getByLabelText('Y-Axis Label Rotation');
-    await user.click(yRotationSelect);
+    await user.click(rotationSelects[1]);
     await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
     expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
   });
@@ -128,25 +126,24 @@ describe('BarChartCustomizations', () => {
   });
 
   describe('Number Formatting', () => {
-    it('should render Y-axis number formatting section', () => {
+    it('should render Y-axis number formatting within Y-Axis section', () => {
       render(<BarChartCustomizations {...defaultProps} />);
 
-      expect(screen.getByText('Y-Axis Number Formatting')).toBeInTheDocument();
+      expect(screen.getByText('Y-Axis')).toBeInTheDocument();
       expect(
         screen.getByText('Applied to Y-axis labels, data labels, and tooltips')
       ).toBeInTheDocument();
     });
 
-    it('should render X-axis number formatting section only when hasNumericXAxis is true', () => {
+    it('should render X-axis number formatting only when hasNumericXAxis is true', () => {
       const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
 
-      // X-axis formatting should NOT be visible by default
-      expect(screen.queryByText('X-Axis Number Formatting')).not.toBeInTheDocument();
+      // X-axis Number Format field should NOT be visible by default (only 1 Number Format for Y-Axis)
+      expect(screen.getAllByLabelText('Number Format').length).toBe(1);
 
-      // X-axis formatting should be visible when hasNumericXAxis is true
+      // X-axis Number Format should be visible when hasNumericXAxis is true
       rerender(<BarChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
-      expect(screen.getByText('X-Axis Number Formatting')).toBeInTheDocument();
-      expect(screen.getByText('Applied to X-axis labels')).toBeInTheDocument();
+      expect(screen.getAllByLabelText('Number Format').length).toBe(2);
     });
 
     it('should display existing Y-axis number format customizations', () => {
@@ -166,7 +163,8 @@ describe('BarChartCustomizations', () => {
         <BarChartCustomizations {...defaultProps} customizations={{ yAxisDecimalPlaces: 0 }} />
       );
 
-      const decimalInput = screen.getByLabelText(/Y-Axis.*Decimal Places/i);
+      // Only one Decimal Places field (Y-Axis) when hasNumericXAxis is false
+      const decimalInput = screen.getByLabelText('Decimal Places');
       await user.clear(decimalInput);
       await user.type(decimalInput, '3');
 
@@ -183,9 +181,10 @@ describe('BarChartCustomizations', () => {
         />
       );
 
-      const decimalInput = screen.getByLabelText(/X-Axis.*Decimal Places/i);
-      await user.clear(decimalInput);
-      await user.type(decimalInput, '2');
+      // Two Decimal Places fields when hasNumericXAxis is true
+      const decimalInputs = screen.getAllByLabelText('Decimal Places');
+      await user.clear(decimalInputs[0]); // X-Axis decimal places (first)
+      await user.type(decimalInputs[0], '2');
 
       expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisDecimalPlaces', 2);
     });
@@ -196,7 +195,7 @@ describe('BarChartCustomizations', () => {
         <BarChartCustomizations {...defaultProps} customizations={{ yAxisDecimalPlaces: 5 }} />
       );
 
-      const decimalInput = screen.getByLabelText(/Y-Axis.*Decimal Places/i);
+      const decimalInput = screen.getByLabelText('Decimal Places');
 
       await user.clear(decimalInput);
       await user.type(decimalInput, '1');

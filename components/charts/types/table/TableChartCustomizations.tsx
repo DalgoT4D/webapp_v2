@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, ChevronRight, ChevronDown } from 'lucide-react';
+import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
 import type { NumberFormat } from '@/lib/formatters';
 
 interface ColumnFormatConfig {
@@ -183,7 +183,7 @@ export function TableChartCustomizations({
                     onClick={(e) => handleRemoveFormat(column, e)}
                     disabled={disabled}
                   >
-                    <X className="h-3 w-3 " />
+                    <RefreshCw className="h-3 w-3 " />
                   </Button>
                 )}
               </div>

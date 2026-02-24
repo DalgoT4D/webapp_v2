@@ -118,7 +118,7 @@ describe('TableChartCustomizations', () => {
       />
     );
 
-    const removeButton = container.querySelector('.lucide-x')?.closest('button');
+    const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
     await user.click(removeButton!);
     expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
       revenue: { numberFormat: 'percentage', precision: 1 },
@@ -141,7 +141,7 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByRole('combobox')).toBeDisabled();
     expect(screen.getByRole('spinbutton')).toBeDisabled();
 
-    const removeButton = container.querySelector('.lucide-x')?.closest('button');
+    const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
     expect(removeButton).toBeDisabled();
   });
 });

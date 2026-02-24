@@ -167,12 +167,12 @@ export function BarChartCustomizations({
         )}
       </div>
 
-      {/* Axis Configuration */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium">Axis Configuration</h4>
+      {/* X-Axis Configuration */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">X-Axis</h4>
 
         <div className="space-y-2">
-          <Label htmlFor="xAxisTitle">X-Axis Title</Label>
+          <Label htmlFor="xAxisTitle">Title</Label>
           <Input
             id="xAxisTitle"
             value={customizations.xAxisTitle || ''}
@@ -183,7 +183,7 @@ export function BarChartCustomizations({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="xAxisLabelRotation">X-Axis Label Rotation</Label>
+          <Label htmlFor="xAxisLabelRotation">Label Rotation</Label>
           <Select
             value={customizations.xAxisLabelRotation || 'horizontal'}
             onValueChange={(value) => updateCustomization('xAxisLabelRotation', value)}
@@ -200,8 +200,63 @@ export function BarChartCustomizations({
           </Select>
         </div>
 
+        {/* X-Axis Number Formatting - only shown for numeric X-axis */}
+        {hasNumericXAxis && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="xAxisNumberFormat">Number Format</Label>
+              <Select
+                value={(customizations.xAxisNumberFormat as NumberFormat) || 'default'}
+                onValueChange={(value) => updateCustomization('xAxisNumberFormat', value)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="xAxisNumberFormat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">No Formatting</SelectItem>
+                  <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
+                  <SelectItem value="adaptive_international">
+                    Adaptive International (1.23M)
+                  </SelectItem>
+                  <SelectItem value="indian">Indian (12,34,567)</SelectItem>
+                  <SelectItem value="international">International (1,234,567)</SelectItem>
+                  <SelectItem value="european">European (1.234.567)</SelectItem>
+                  <SelectItem value="percentage">Percentage (%)</SelectItem>
+                  <SelectItem value="currency">Currency ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="xAxisDecimalPlaces">Decimal Places</Label>
+              <Input
+                id="xAxisDecimalPlaces"
+                type="number"
+                min={0}
+                max={10}
+                value={customizations.xAxisDecimalPlaces ?? 0}
+                onChange={(e) => {
+                  const value = Math.min(10, Math.max(0, parseInt(e.target.value) || 0));
+                  updateCustomization('xAxisDecimalPlaces', value);
+                }}
+                disabled={disabled}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Number of digits after decimal point (0-10)
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Y-Axis Configuration */}
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium">Y-Axis</h4>
+
         <div className="space-y-2">
-          <Label htmlFor="yAxisTitle">Y-Axis Title</Label>
+          <Label htmlFor="yAxisTitle">Title</Label>
           <Input
             id="yAxisTitle"
             value={customizations.yAxisTitle || ''}
@@ -212,7 +267,7 @@ export function BarChartCustomizations({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="yAxisLabelRotation">Y-Axis Label Rotation</Label>
+          <Label htmlFor="yAxisLabelRotation">Label Rotation</Label>
           <Select
             value={customizations.yAxisLabelRotation || 'horizontal'}
             onValueChange={(value) => updateCustomization('yAxisLabelRotation', value)}
@@ -228,17 +283,9 @@ export function BarChartCustomizations({
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      {/* Y-Axis Number Formatting */}
-      <div className="space-y-4 pt-4 border-t">
-        <h4 className="text-sm font-medium">Y-Axis Number Formatting</h4>
-        <p className="text-xs text-muted-foreground">
-          Applied to Y-axis labels, data labels, and tooltips
-        </p>
 
         <div className="space-y-2">
-          <Label htmlFor="yAxisNumberFormat">Y-Axis Format Type</Label>
+          <Label htmlFor="yAxisNumberFormat">Number Format</Label>
           <Select
             value={(customizations.yAxisNumberFormat as NumberFormat) || 'default'}
             onValueChange={(value) => updateCustomization('yAxisNumberFormat', value)}
@@ -258,10 +305,13 @@ export function BarChartCustomizations({
               <SelectItem value="currency">Currency ($)</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            Applied to Y-axis labels, data labels, and tooltips
+          </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="yAxisDecimalPlaces">Y-Axis Decimal Places</Label>
+          <Label htmlFor="yAxisDecimalPlaces">Decimal Places</Label>
           <Input
             id="yAxisDecimalPlaces"
             type="number"
@@ -280,59 +330,6 @@ export function BarChartCustomizations({
           </p>
         </div>
       </div>
-
-      {/* X-Axis Number Formatting - only shown for numeric X-axis */}
-      {hasNumericXAxis && (
-        <div className="space-y-4 pt-4 border-t">
-          <h4 className="text-sm font-medium">X-Axis Number Formatting</h4>
-          <p className="text-xs text-muted-foreground">Applied to X-axis labels</p>
-
-          <div className="space-y-2">
-            <Label htmlFor="xAxisNumberFormat">X-Axis Format Type</Label>
-            <Select
-              value={(customizations.xAxisNumberFormat as NumberFormat) || 'default'}
-              onValueChange={(value) => updateCustomization('xAxisNumberFormat', value)}
-              disabled={disabled}
-            >
-              <SelectTrigger id="xAxisNumberFormat">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">No Formatting</SelectItem>
-                <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
-                <SelectItem value="adaptive_international">
-                  Adaptive International (1.23M)
-                </SelectItem>
-                <SelectItem value="indian">Indian (12,34,567)</SelectItem>
-                <SelectItem value="international">International (1,234,567)</SelectItem>
-                <SelectItem value="european">European (1.234.567)</SelectItem>
-                <SelectItem value="percentage">Percentage (%)</SelectItem>
-                <SelectItem value="currency">Currency ($)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="xAxisDecimalPlaces">X-Axis Decimal Places</Label>
-            <Input
-              id="xAxisDecimalPlaces"
-              type="number"
-              min={0}
-              max={10}
-              value={customizations.xAxisDecimalPlaces ?? 0}
-              onChange={(e) => {
-                const value = Math.min(10, Math.max(0, parseInt(e.target.value) || 0));
-                updateCustomization('xAxisDecimalPlaces', value);
-              }}
-              disabled={disabled}
-              className="w-full"
-            />
-            <p className="text-xs text-muted-foreground">
-              Number of digits after decimal point (0-10)
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
