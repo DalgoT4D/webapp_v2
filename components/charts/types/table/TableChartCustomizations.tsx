@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, Check, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, ChevronRight, ChevronDown } from 'lucide-react';
 import type { NumberFormat } from '@/lib/formatters';
 
 interface ColumnFormatConfig {
@@ -35,9 +35,6 @@ export function TableChartCustomizations({
 }: TableChartCustomizationsProps) {
   // Currently expanded column for configuration
   const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
-  // Temporary state for format settings while editing
-  const [tempFormat, setTempFormat] = useState<NumberFormat>('default');
-  const [tempDecimalPlaces, setTempDecimalPlaces] = useState(0);
 
   // Get existing column formatting from customizations
   const columnFormatting: Record<string, ColumnFormatConfig> =
@@ -50,30 +47,34 @@ export function TableChartCustomizations({
       setExpandedColumn(null);
     } else {
       // Expand and load existing config if any
-      const config = columnFormatting[column];
-      setTempFormat(config?.numberFormat || 'default');
-      setTempDecimalPlaces(config?.precision || 0);
       setExpandedColumn(column);
     }
   };
 
-  // Save the format configuration
-  const handleSave = (column: string) => {
+  // Auto-save format configuration on any change
+  const handleFormatChange = (column: string, numberFormat: NumberFormat) => {
     const newFormatting = {
       ...columnFormatting,
       [column]: {
-        numberFormat: tempFormat,
-        precision: tempDecimalPlaces,
+        numberFormat: numberFormat,
+        precision: columnFormatting[column]?.precision || 0,
       },
     };
 
     updateCustomization('columnFormatting', newFormatting);
-    setExpandedColumn(null);
   };
 
-  // Cancel editing
-  const handleCancel = () => {
-    setExpandedColumn(null);
+  // Auto-save decimal places on any change
+  const handleDecimalChange = (column: string, precision: number) => {
+    const newFormatting = {
+      ...columnFormatting,
+      [column]: {
+        numberFormat: columnFormatting[column]?.numberFormat || 'default',
+        precision: precision,
+      },
+    };
+
+    updateCustomization('columnFormatting', newFormatting);
   };
 
   // Remove formatting from a column
@@ -98,17 +99,16 @@ export function TableChartCustomizations({
     const config = columnFormatting[column];
 
     const formatLabels: Record<string, string> = {
-      default: 'Default',
+      default: 'No Formatting',
       indian: 'Indian',
       international: 'International',
       adaptive_indian: 'Adaptive Indian',
       adaptive_international: 'Adaptive International',
-      percentage: 'Percentage',
-      currency: 'Currency',
+      european: 'European',
     };
 
-    // If no config, show Default
-    if (!config) return 'Default';
+    // If no config, show No Formatting
+    if (!config) return 'No Formatting';
 
     const formatLabel = formatLabels[config.numberFormat || 'default'] || config.numberFormat;
     const decimals =
@@ -138,6 +138,7 @@ export function TableChartCustomizations({
         {availableColumns.map((column) => {
           const isExpanded = expandedColumn === column;
           const isConfigured = hasFormatting(column);
+          const config = columnFormatting[column];
 
           return (
             <div key={column} className="space-y-0">
@@ -189,23 +190,22 @@ export function TableChartCustomizations({
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Format Type</label>
                     <Select
-                      value={tempFormat}
-                      onValueChange={(value) => setTempFormat(value as NumberFormat)}
+                      value={config?.numberFormat || 'default'}
+                      onValueChange={(value) => handleFormatChange(column, value as NumberFormat)}
                       disabled={disabled}
                     >
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="default">Default</SelectItem>
-                        <SelectItem value="indian">Indian (12,34,567)</SelectItem>
-                        <SelectItem value="international">International (1,234,567)</SelectItem>
+                        <SelectItem value="default">No Formatting</SelectItem>
                         <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
                         <SelectItem value="adaptive_international">
                           Adaptive International (1.23M)
                         </SelectItem>
-                        <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        <SelectItem value="currency">Currency ($)</SelectItem>
+                        <SelectItem value="indian">Indian (12,34,567)</SelectItem>
+                        <SelectItem value="international">International (1,234,567)</SelectItem>
+                        <SelectItem value="european">European (1.234.567)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -219,32 +219,11 @@ export function TableChartCustomizations({
                       type="number"
                       min="0"
                       max="10"
-                      value={tempDecimalPlaces}
-                      onChange={(e) => setTempDecimalPlaces(parseInt(e.target.value) || 0)}
+                      value={config?.precision || 0}
+                      onChange={(e) => handleDecimalChange(column, parseInt(e.target.value) || 0)}
                       disabled={disabled}
                       className="h-9"
                     />
-                  </div>
-
-                  {/* Save and Cancel Buttons */}
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      onClick={() => handleSave(column)}
-                      disabled={disabled}
-                      size="sm"
-                      className="flex-1 bg-black hover:bg-black/90 "
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      onClick={handleCancel}
-                      disabled={disabled}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
                   </div>
                 </div>
               )}

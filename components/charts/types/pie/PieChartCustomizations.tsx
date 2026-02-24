@@ -220,11 +220,13 @@ export function PieChartCustomizations({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">Default</SelectItem>
-              <SelectItem value="indian">Indian (12,34,567)</SelectItem>
-              <SelectItem value="international">International (1,234,567)</SelectItem>
+              <SelectItem value="default">No Formatting</SelectItem>
               <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
               <SelectItem value="adaptive_international">Adaptive International (1.23M)</SelectItem>
+              <SelectItem value="indian">Indian (12,34,567)</SelectItem>
+              <SelectItem value="international">International (1,234,567)</SelectItem>
+              <SelectItem value="european">European (1.234.567)</SelectItem>
+              <SelectItem value="percentage">Percentage (%)</SelectItem>
               <SelectItem value="currency">Currency ($)</SelectItem>
             </SelectContent>
           </Select>

@@ -296,19 +296,10 @@ export function ChartPreview({
         });
       }
 
-      // Apply number formatting and styling for number charts
+      // Apply number formatting for number charts (frontend-only formatting)
       if (isNumberChart && modifiedConfig.series) {
         const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
         const decimalPlaces = customizations.decimalPlaces;
-        const numberSize = customizations.numberSize || 'medium';
-
-        // Map size to font size values
-        const sizeMap: Record<string, number> = {
-          small: 32,
-          medium: 48,
-          large: 64,
-        };
-        const fontSize = sizeMap[numberSize] || sizeMap.medium;
 
         const seriesArray = Array.isArray(modifiedConfig.series)
           ? modifiedConfig.series
@@ -318,7 +309,6 @@ export function ChartPreview({
           ...series,
           detail: {
             ...series.detail,
-            fontSize: fontSize,
             formatter: (value: number) => {
               // Pass both format and decimalPlaces to the formatter
               const formatted = formatNumber(value, {

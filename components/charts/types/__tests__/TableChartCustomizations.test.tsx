@@ -24,7 +24,7 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByText('Number Formatting')).toBeInTheDocument();
     expect(screen.getByText('budget')).toBeInTheDocument();
     expect(screen.getByText('revenue')).toBeInTheDocument();
-    expect(screen.getAllByText('Default').length).toBe(3);
+    expect(screen.getAllByText('No Formatting').length).toBe(3);
 
     rerender(<TableChartCustomizations {...defaultProps} availableColumns={[]} />);
     expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
@@ -37,27 +37,39 @@ describe('TableChartCustomizations', () => {
     await user.click(screen.getByText('budget'));
     expect(screen.getByText('Format Type')).toBeInTheDocument();
     expect(screen.getByText('Decimal Places')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
 
     await user.click(screen.getByText('budget'));
     expect(screen.queryByText('Format Type')).not.toBeInTheDocument();
   });
 
-  it('should save format configuration and handle cancel', async () => {
+  it('should auto-save format configuration on dropdown change', async () => {
     const user = userEvent.setup();
     render(<TableChartCustomizations {...defaultProps} />);
 
     await user.click(screen.getByText('budget'));
-    await user.click(screen.getByRole('button', { name: /save/i }));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
-      budget: { numberFormat: 'default', precision: 0 },
-    });
 
-    mockUpdateCustomization.mockClear();
-    await user.click(screen.getByText('revenue'));
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(screen.queryByText('Format Type')).not.toBeInTheDocument();
-    expect(mockUpdateCustomization).not.toHaveBeenCalled();
+    const formatSelect = screen.getByRole('combobox');
+    await user.click(formatSelect);
+    await user.click(screen.getByText('Indian (12,34,567)'));
+
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
+      budget: { numberFormat: 'indian', precision: 0 },
+    });
+  });
+
+  it('should auto-save decimal places on input change', async () => {
+    const user = userEvent.setup();
+    render(<TableChartCustomizations {...defaultProps} />);
+
+    await user.click(screen.getByText('budget'));
+
+    const decimalInput = screen.getByRole('spinbutton');
+    await user.clear(decimalInput);
+    await user.type(decimalInput, '2');
+
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
+      budget: { numberFormat: 'default', precision: 2 },
+    });
   });
 
   it('should display existing customizations and load on expand', async () => {
@@ -71,8 +83,8 @@ describe('TableChartCustomizations', () => {
       />
     );
 
-    expect(screen.getByText('Indian \u2022 2 dec')).toBeInTheDocument();
-    expect(screen.getAllByText('Default').length).toBe(2);
+    expect(screen.getByText('Indian • 2 dec')).toBeInTheDocument();
+    expect(screen.getAllByText('No Formatting').length).toBe(2);
 
     await user.click(screen.getByText('budget'));
     expect(screen.getByRole('spinbutton')).toHaveValue(2);
@@ -112,8 +124,7 @@ describe('TableChartCustomizations', () => {
     );
 
     await user.click(screen.getByText('budget'));
-    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
+    expect(screen.getByRole('combobox')).toBeDisabled();
     expect(screen.getByRole('spinbutton')).toBeDisabled();
 
     const removeButton = container.querySelector('.lucide-x')?.closest('button');

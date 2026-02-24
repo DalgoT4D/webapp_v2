@@ -8,6 +8,7 @@ export type NumberFormat =
   | 'comma'
   | 'international'
   | 'indian'
+  | 'european'
   | 'percentage'
   | 'currency'
   | 'adaptive_international'
@@ -57,6 +58,13 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
     case 'indian':
       // 1000000 → 10,00,000
       return processedValue.toLocaleString('en-IN', {
+        minimumFractionDigits: decimalPlaces,
+        maximumFractionDigits: decimalPlaces,
+      });
+
+    case 'european':
+      // 1000000 → 1.000.000 (German locale as representative European format)
+      return processedValue.toLocaleString('de-DE', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });

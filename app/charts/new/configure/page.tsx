@@ -862,15 +862,12 @@ function ConfigureChartPageContent() {
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
         layers: formData.layers,
-        // For number charts: only send subtitle to API (other customizations applied on frontend)
-        // For table charts: only send columnFormatting to API (formatting applied on frontend)
-        // For other charts: send all customizations to API
+        // For table charts: only send columnFormatting to API
+        // For all other charts (including number): send all customizations
         customizations:
-          formData.chart_type === 'number'
-            ? { subtitle: formData.customizations?.subtitle }
-            : formData.chart_type === 'table'
-              ? { columnFormatting: formData.customizations?.columnFormatting }
-              : formData.customizations,
+          formData.chart_type === 'table'
+            ? { columnFormatting: formData.customizations?.columnFormatting }
+            : formData.customizations,
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
