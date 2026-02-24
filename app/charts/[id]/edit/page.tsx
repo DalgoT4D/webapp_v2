@@ -535,9 +535,8 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // For number charts: exclude numberFormat and decimalPlaces (frontend-only)
-            // For table charts: don't send customizations in preview payload (formatting is frontend-only)
             // For number/pie charts: exclude numberFormat and decimalPlaces (frontend-only)
+            // For line charts: exclude axis-specific number formatting (frontend-only)
             // For table charts: don't send customizations in preview payload (formatting is frontend-only)
             // For other charts: send all customizations to API
             ...(formData.chart_type !== 'table' && {
@@ -548,7 +547,17 @@ function EditChartPageContent() {
                         ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
                       )
                     )
-                  : formData.customizations,
+                  : formData.chart_type === 'line' || formData.chart_type === 'bar'
+                    ? Object.fromEntries(
+                        Object.entries(formData.customizations || {}).filter(
+                          ([key]) =>
+                            key !== 'yAxisNumberFormat' &&
+                            key !== 'yAxisDecimalPlaces' &&
+                            key !== 'xAxisNumberFormat' &&
+                            key !== 'xAxisDecimalPlaces'
+                        )
+                      )
+                    : formData.customizations,
             }),
             extra_config: {
               filters: [

@@ -126,4 +126,86 @@ describe('BarChartCustomizations', () => {
       expect(i).toBeDisabled();
     });
   });
+
+  describe('Number Formatting', () => {
+    it('should render Y-axis number formatting section', () => {
+      render(<BarChartCustomizations {...defaultProps} />);
+
+      expect(screen.getByText('Y-Axis Number Formatting')).toBeInTheDocument();
+      expect(
+        screen.getByText('Applied to Y-axis labels, data labels, and tooltips')
+      ).toBeInTheDocument();
+    });
+
+    it('should render X-axis number formatting section only when hasNumericXAxis is true', () => {
+      const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
+
+      // X-axis formatting should NOT be visible by default
+      expect(screen.queryByText('X-Axis Number Formatting')).not.toBeInTheDocument();
+
+      // X-axis formatting should be visible when hasNumericXAxis is true
+      rerender(<BarChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
+      expect(screen.getByText('X-Axis Number Formatting')).toBeInTheDocument();
+      expect(screen.getByText('Applied to X-axis labels')).toBeInTheDocument();
+    });
+
+    it('should display existing Y-axis number format customizations', () => {
+      render(
+        <BarChartCustomizations
+          {...defaultProps}
+          customizations={{ yAxisNumberFormat: 'indian', yAxisDecimalPlaces: 2 }}
+        />
+      );
+
+      expect(screen.getByDisplayValue('2')).toBeInTheDocument();
+    });
+
+    it('should handle Y-axis decimal places input changes', async () => {
+      const user = userEvent.setup();
+      render(
+        <BarChartCustomizations {...defaultProps} customizations={{ yAxisDecimalPlaces: 0 }} />
+      );
+
+      const decimalInput = screen.getByLabelText(/Y-Axis.*Decimal Places/i);
+      await user.clear(decimalInput);
+      await user.type(decimalInput, '3');
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisDecimalPlaces', 3);
+    });
+
+    it('should handle X-axis decimal places input changes', async () => {
+      const user = userEvent.setup();
+      render(
+        <BarChartCustomizations
+          {...defaultProps}
+          customizations={{ xAxisDecimalPlaces: 0 }}
+          hasNumericXAxis={true}
+        />
+      );
+
+      const decimalInput = screen.getByLabelText(/X-Axis.*Decimal Places/i);
+      await user.clear(decimalInput);
+      await user.type(decimalInput, '2');
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisDecimalPlaces', 2);
+    });
+
+    it('should clamp Y-axis decimal places between 0 and 10', async () => {
+      const user = userEvent.setup();
+      render(
+        <BarChartCustomizations {...defaultProps} customizations={{ yAxisDecimalPlaces: 5 }} />
+      );
+
+      const decimalInput = screen.getByLabelText(/Y-Axis.*Decimal Places/i);
+
+      await user.clear(decimalInput);
+      await user.type(decimalInput, '1');
+      await user.type(decimalInput, '5');
+
+      const calls = mockUpdateCustomization.mock.calls;
+      const decimalCalls = calls.filter((call) => call[0] === 'yAxisDecimalPlaces');
+      const lastDecimalCall = decimalCalls[decimalCalls.length - 1];
+      expect(lastDecimalCall[1]).toBeLessThanOrEqual(10);
+    });
+  });
 });

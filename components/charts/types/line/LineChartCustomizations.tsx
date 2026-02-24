@@ -11,17 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { NumberFormat } from '@/lib/formatters';
 
 interface LineChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
+  hasNumericXAxis?: boolean;
 }
 
 export function LineChartCustomizations({
   customizations,
   updateCustomization,
   disabled,
+  hasNumericXAxis = false,
 }: LineChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -223,6 +226,108 @@ export function LineChartCustomizations({
           </Select>
         </div>
       </div>
+
+      {/* Y-Axis Number Formatting */}
+      <div className="space-y-4 pt-4 border-t">
+        <h4 className="text-sm font-medium">Y-Axis Number Formatting</h4>
+        <p className="text-xs text-muted-foreground">
+          Applied to Y-axis labels, data labels, and tooltips
+        </p>
+
+        <div className="space-y-2">
+          <Label htmlFor="yAxisNumberFormat">Y-Axis Format Type</Label>
+          <Select
+            value={(customizations.yAxisNumberFormat as NumberFormat) || 'default'}
+            onValueChange={(value) => updateCustomization('yAxisNumberFormat', value)}
+            disabled={disabled}
+          >
+            <SelectTrigger id="yAxisNumberFormat">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="indian">Indian (12,34,567)</SelectItem>
+              <SelectItem value="international">International (1,234,567)</SelectItem>
+              <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
+              <SelectItem value="adaptive_international">Adaptive International (1.23M)</SelectItem>
+              <SelectItem value="percentage">Percentage (%)</SelectItem>
+              <SelectItem value="currency">Currency ($)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="yAxisDecimalPlaces">Y-Axis Decimal Places</Label>
+          <Input
+            id="yAxisDecimalPlaces"
+            type="number"
+            min={0}
+            max={10}
+            value={customizations.yAxisDecimalPlaces ?? 0}
+            onChange={(e) => {
+              const value = Math.min(10, Math.max(0, parseInt(e.target.value) || 0));
+              updateCustomization('yAxisDecimalPlaces', value);
+            }}
+            disabled={disabled}
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground">
+            Number of digits after decimal point (0-10)
+          </p>
+        </div>
+      </div>
+
+      {/* X-Axis Number Formatting - only shown for numeric X-axis */}
+      {hasNumericXAxis && (
+        <div className="space-y-4 pt-4 border-t">
+          <h4 className="text-sm font-medium">X-Axis Number Formatting</h4>
+          <p className="text-xs text-muted-foreground">Applied to X-axis labels</p>
+
+          <div className="space-y-2">
+            <Label htmlFor="xAxisNumberFormat">X-Axis Format Type</Label>
+            <Select
+              value={(customizations.xAxisNumberFormat as NumberFormat) || 'default'}
+              onValueChange={(value) => updateCustomization('xAxisNumberFormat', value)}
+              disabled={disabled}
+            >
+              <SelectTrigger id="xAxisNumberFormat">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="indian">Indian (12,34,567)</SelectItem>
+                <SelectItem value="international">International (1,234,567)</SelectItem>
+                <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
+                <SelectItem value="adaptive_international">
+                  Adaptive International (1.23M)
+                </SelectItem>
+                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                <SelectItem value="currency">Currency ($)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="xAxisDecimalPlaces">X-Axis Decimal Places</Label>
+            <Input
+              id="xAxisDecimalPlaces"
+              type="number"
+              min={0}
+              max={10}
+              value={customizations.xAxisDecimalPlaces ?? 0}
+              onChange={(e) => {
+                const value = Math.min(10, Math.max(0, parseInt(e.target.value) || 0));
+                updateCustomization('xAxisDecimalPlaces', value);
+              }}
+              disabled={disabled}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Number of digits after decimal point (0-10)
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

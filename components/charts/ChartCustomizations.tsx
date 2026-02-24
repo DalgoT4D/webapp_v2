@@ -65,23 +65,34 @@ export function ChartCustomizations({
 
   switch (chartType) {
     case 'bar':
-      return (
-        <BarChartCustomizations
-          customizations={customizations}
-          updateCustomization={updateCustomization}
-          disabled={disabled}
-          hasExtraDimension={!!formData.extra_dimension_column}
-        />
-      );
+    case 'line': {
+      // Check if the X-axis (dimension) column is numeric
+      const xAxisColumn = formData.dimension_column || '';
+      const xAxisDataType = columns
+        .find((col) => (col.column_name || col.name) === xAxisColumn)
+        ?.data_type?.toLowerCase();
+      const hasNumericXAxis = xAxisDataType ? NUMERIC_DATA_TYPES.includes(xAxisDataType) : false;
 
-    case 'line':
+      if (chartType === 'bar') {
+        return (
+          <BarChartCustomizations
+            customizations={customizations}
+            updateCustomization={updateCustomization}
+            disabled={disabled}
+            hasExtraDimension={!!formData.extra_dimension_column}
+            hasNumericXAxis={hasNumericXAxis}
+          />
+        );
+      }
       return (
         <LineChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          hasNumericXAxis={hasNumericXAxis}
         />
       );
+    }
 
     case 'pie':
       return (

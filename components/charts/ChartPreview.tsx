@@ -376,6 +376,103 @@ export function ChartPreview({
         }));
       }
 
+      // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+      const isLineChart = detectedChartType === 'line';
+      const isBarChart = detectedChartType === 'bar';
+      if (isLineChart || isBarChart) {
+        const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
+        const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
+        const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
+        const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
+
+        // Format Y-axis labels
+        if (modifiedConfig.yAxis && yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+          const formatYAxisLabel = (value: number) => {
+            if (typeof value !== 'number' || isNaN(value)) return value;
+            return formatNumber(value, {
+              format: yAxisNumberFormat,
+              decimalPlaces: yAxisDecimalPlaces,
+            });
+          };
+
+          if (Array.isArray(modifiedConfig.yAxis)) {
+            modifiedConfig.yAxis = modifiedConfig.yAxis.map((axis: any) => ({
+              ...axis,
+              axisLabel: {
+                ...axis.axisLabel,
+                formatter: formatYAxisLabel,
+              },
+            }));
+          } else {
+            modifiedConfig.yAxis = {
+              ...modifiedConfig.yAxis,
+              axisLabel: {
+                ...modifiedConfig.yAxis.axisLabel,
+                formatter: formatYAxisLabel,
+              },
+            };
+          }
+        }
+
+        // Format X-axis labels (only if numeric values)
+        if (modifiedConfig.xAxis && xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+          const formatXAxisLabel = (value: any) => {
+            // Try to parse string values to numbers
+            const numVal = typeof value === 'number' ? value : parseFloat(value);
+            if (isNaN(numVal)) return value; // Return original if not a valid number
+            return formatNumber(numVal, {
+              format: xAxisNumberFormat,
+              decimalPlaces: xAxisDecimalPlaces,
+            });
+          };
+
+          if (Array.isArray(modifiedConfig.xAxis)) {
+            modifiedConfig.xAxis = modifiedConfig.xAxis.map((axis: any) => ({
+              ...axis,
+              axisLabel: {
+                ...axis.axisLabel,
+                formatter: formatXAxisLabel,
+              },
+            }));
+          } else {
+            modifiedConfig.xAxis = {
+              ...modifiedConfig.xAxis,
+              axisLabel: {
+                ...modifiedConfig.xAxis.axisLabel,
+                formatter: formatXAxisLabel,
+              },
+            };
+          }
+        }
+
+        // Format data labels on the chart points/bars (uses Y-axis format since data labels show Y values)
+        if (
+          modifiedConfig.series &&
+          customizations.showDataLabels &&
+          yAxisNumberFormat &&
+          yAxisNumberFormat !== 'default'
+        ) {
+          const seriesArray = Array.isArray(modifiedConfig.series)
+            ? modifiedConfig.series
+            : [modifiedConfig.series];
+
+          modifiedConfig.series = seriesArray.map((series: any) => ({
+            ...series,
+            label: {
+              ...series.label,
+              formatter: (params: any) => {
+                const value = params.value;
+                if (typeof value !== 'number' || isNaN(value)) return value;
+                return formatNumber(value, {
+                  format: yAxisNumberFormat,
+                  decimalPlaces: yAxisDecimalPlaces,
+                });
+              },
+            },
+          }));
+        }
+      }
+
       // Set chart option (notMerge: true ensures clean updates when customizations change)
       chartInstance.current.setOption(modifiedConfig, { notMerge: true });
 

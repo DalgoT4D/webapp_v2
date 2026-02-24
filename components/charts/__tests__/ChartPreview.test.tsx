@@ -558,6 +558,125 @@ describe('ChartPreview', () => {
     });
   });
 
+  describe('Line Chart Number Formatting', () => {
+    const lineConfig = {
+      series: [{ type: 'line', data: [100, 200, 300] }],
+      yAxis: { type: 'value' },
+      xAxis: { type: 'category', data: ['A', 'B', 'C'] },
+    };
+
+    it('should not apply Y-axis formatter when yAxisNumberFormat is default', () => {
+      render(<ChartPreview config={lineConfig} chartType="line" customizations={{}} />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // Y-axis should not have a custom formatter when format is default
+      expect(calledConfig.yAxis.axisLabel.formatter).toBeUndefined();
+    });
+
+    it('should apply Y-axis formatter when yAxisNumberFormat is set', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'indian' }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.yAxis.axisLabel.formatter).toBeDefined();
+      expect(calledConfig.yAxis.axisLabel.formatter(1234567)).toBe('12,34,567');
+    });
+
+    it('should apply X-axis formatter when xAxisNumberFormat is set', () => {
+      const numericXAxisConfig = {
+        ...lineConfig,
+        xAxis: { type: 'value', data: [1000, 2000, 3000] },
+      };
+
+      render(
+        <ChartPreview
+          config={numericXAxisConfig}
+          chartType="line"
+          customizations={{ xAxisNumberFormat: 'international' }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.xAxis.axisLabel.formatter).toBeDefined();
+      expect(calledConfig.xAxis.axisLabel.formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should apply data label formatter when showDataLabels is true', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'international', showDataLabels: true }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      const labelFormatter = calledConfig.series[0].label.formatter;
+      expect(labelFormatter).toBeDefined();
+      expect(labelFormatter({ value: 1234567 })).toBe('1,234,567');
+    });
+
+    it('should apply Y-axis decimal places to formatted numbers', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'international', yAxisDecimalPlaces: 2 }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.yAxis.axisLabel.formatter(1234.5)).toBe('1,234.50');
+    });
+
+    it('should format X-axis and Y-axis independently', () => {
+      const numericXAxisConfig = {
+        ...lineConfig,
+        xAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={numericXAxisConfig}
+          chartType="line"
+          customizations={{
+            yAxisNumberFormat: 'indian',
+            xAxisNumberFormat: 'international',
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.yAxis.axisLabel.formatter(1234567)).toBe('12,34,567');
+      expect(calledConfig.xAxis.axisLabel.formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should handle array yAxis configuration', () => {
+      const multiAxisConfig = {
+        ...lineConfig,
+        yAxis: [{ type: 'value' }, { type: 'value' }],
+      };
+
+      render(
+        <ChartPreview
+          config={multiAxisConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'indian' }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(Array.isArray(calledConfig.yAxis)).toBe(true);
+      expect(calledConfig.yAxis[0].axisLabel.formatter).toBeDefined();
+      expect(calledConfig.yAxis[1].axisLabel.formatter).toBeDefined();
+    });
+  });
+
   describe('Console Logging', () => {
     beforeEach(() => {
       jest.spyOn(console, 'log').mockImplementation();
