@@ -110,9 +110,14 @@ export function TableChartCustomizations({
     // If no config, show No Formatting
     if (!config) return 'No Formatting';
 
+    const hasDecimalPlaces = config.precision !== undefined && config.precision > 0;
+    const isDefaultFormat = !config.numberFormat || config.numberFormat === 'default';
+    if (isDefaultFormat && hasDecimalPlaces) {
+      return `${config.precision} decimal places`;
+    }
+
     const formatLabel = formatLabels[config.numberFormat || 'default'] || config.numberFormat;
-    const decimals =
-      config.precision !== undefined && config.precision > 0 ? ` • ${config.precision} dec` : '';
+    const decimals = hasDecimalPlaces ? ` • ${config.precision} dec` : '';
 
     return `${formatLabel}${decimals}`;
   };

@@ -90,6 +90,20 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByRole('spinbutton')).toHaveValue(2);
   });
 
+  it('should display decimal places independently when no format is selected', () => {
+    render(
+      <TableChartCustomizations
+        {...defaultProps}
+        customizations={{
+          columnFormatting: { budget: { numberFormat: 'default', precision: 3 } },
+        }}
+      />
+    );
+
+    // Should show "3 decimal places" instead of "No Formatting • 3 dec"
+    expect(screen.getByText('3 decimal places')).toBeInTheDocument();
+  });
+
   it('should handle remove format button', async () => {
     const user = userEvent.setup();
     const { container } = render(

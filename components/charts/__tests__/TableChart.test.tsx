@@ -338,7 +338,8 @@ describe('TableChart', () => {
       expect(screen.getByText('Test')).toBeInTheDocument();
     });
 
-    it('should handle invalid formatting values', () => {
+    it('should not format string values - only actual numeric types', () => {
+      // String values should be displayed as-is, not parsed to numbers
       const { rerender } = render(
         <TableChart
           data={[{ value: '123.456' }]}
@@ -348,7 +349,8 @@ describe('TableChart', () => {
           }}
         />
       );
-      expect(screen.getByText('123.46')).toBeInTheDocument();
+      // String '123.456' should NOT be parsed - displayed as-is
+      expect(screen.getByText('123.456')).toBeInTheDocument();
 
       rerender(
         <TableChart
@@ -359,7 +361,8 @@ describe('TableChart', () => {
           }}
         />
       );
-      expect(screen.getByText('$0.00')).toBeInTheDocument();
+      // String should be displayed as-is
+      expect(screen.getByText('not-a-number')).toBeInTheDocument();
     });
   });
 });

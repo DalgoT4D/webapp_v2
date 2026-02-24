@@ -162,14 +162,16 @@ export function TableChart({
       return value?.toString() || '';
     }
 
-    const { type, numberFormat, precision = 2, prefix = '', suffix = '' } = formatting;
+    const { type, numberFormat, precision, prefix = '', suffix = '' } = formatting;
 
-    // If numberFormat is specified, use our formatNumber utility
-    if (numberFormat && numberFormat !== 'default') {
-      const numValue = typeof value === 'number' ? value : parseFloat(value);
-      if (!isNaN(numValue)) {
-        const formatted = formatNumber(numValue, {
-          format: numberFormat,
+    // Use formatNumber path when:
+    // - numberFormat is explicitly specified, OR
+    // - precision is specified AND no type is specified (for pure decimal formatting)
+    // Only format actual numeric values (typeof === 'number'), don't parse strings
+    if (numberFormat || (precision !== undefined && !type)) {
+      if (typeof value === 'number' && !isNaN(value)) {
+        const formatted = formatNumber(value, {
+          format: numberFormat || 'default',
           decimalPlaces: precision,
         });
         return `${prefix}${formatted}${suffix}`;
@@ -177,18 +179,19 @@ export function TableChart({
       return value?.toString() || '';
     }
 
+    // For type-based formatting, only format actual numeric values (typeof === 'number')
     switch (type) {
       case 'currency':
-        const currencyValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}$${currencyValue.toFixed(precision)}${suffix}`;
+        if (typeof value !== 'number') return value?.toString() || '';
+        return `${prefix}$${value.toFixed(precision ?? 2)}${suffix}`;
 
       case 'percentage':
-        const percentValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}${(percentValue * 100).toFixed(precision)}%${suffix}`;
+        if (typeof value !== 'number') return value?.toString() || '';
+        return `${prefix}${(value * 100).toFixed(precision ?? 2)}%${suffix}`;
 
       case 'number':
-        const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}${numValue.toFixed(precision)}${suffix}`;
+        if (typeof value !== 'number') return value?.toString() || '';
+        return `${prefix}${value.toFixed(precision ?? 0)}${suffix}`;
 
       case 'date':
         try {
