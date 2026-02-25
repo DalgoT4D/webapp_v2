@@ -212,6 +212,49 @@ describe('MapCustomizations', () => {
    * Data Handling Configuration
    */
   describe('Data Handling', () => {
+    it('should render NumberFormatSection in Data Handling section', () => {
+      render(
+        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
+      );
+
+      expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
+      expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
+    });
+
+    it('should call onFormDataChange when number format changes', async () => {
+      const user = userEvent.setup();
+      render(
+        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
+      );
+
+      await user.click(screen.getByLabelText('Number Format'));
+      await user.click(screen.getByRole('option', { name: 'Indian (1234567 => 12,34,567)' }));
+
+      expect(mockOnFormDataChange).toHaveBeenCalledWith({
+        ...defaultFormData,
+        customizations: {
+          ...defaultFormData.customizations,
+          numberFormat: 'indian',
+        },
+      });
+    });
+
+    it('should call onFormDataChange when decimal places changes', async () => {
+      const user = userEvent.setup();
+      render(
+        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
+      );
+
+      const decimalInput = screen.getByLabelText('Decimal Places');
+      await user.clear(decimalInput);
+      await user.type(decimalInput, '2');
+
+      // Check the last call has the expected structure
+      const calls = mockOnFormDataChange.mock.calls;
+      const lastCall = calls[calls.length - 1][0];
+      expect(lastCall.customizations.decimalPlaces).toBe(2);
+    });
+
     it('should update null value label', async () => {
       const user = userEvent.setup();
       render(
