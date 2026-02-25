@@ -1,21 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
 import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '../shared/NumberFormatSection';
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
-  precision?: number;
+  decimalPlaces?: number;
   prefix?: string;
   suffix?: string;
 }
@@ -57,7 +50,7 @@ export function TableChartCustomizations({
       ...columnFormatting,
       [column]: {
         numberFormat: numberFormat,
-        precision: columnFormatting[column]?.precision || 0,
+        decimalPlaces: columnFormatting[column]?.decimalPlaces || 0,
       },
     };
 
@@ -65,12 +58,12 @@ export function TableChartCustomizations({
   };
 
   // Auto-save decimal places on any change
-  const handleDecimalChange = (column: string, precision: number) => {
+  const handleDecimalChange = (column: string, decimalPlaces: number) => {
     const newFormatting = {
       ...columnFormatting,
       [column]: {
         numberFormat: columnFormatting[column]?.numberFormat || 'default',
-        precision: precision,
+        decimalPlaces: decimalPlaces,
       },
     };
 
@@ -110,14 +103,14 @@ export function TableChartCustomizations({
     // If no config, show No Formatting
     if (!config) return 'No Formatting';
 
-    const hasDecimalPlaces = config.precision !== undefined && config.precision > 0;
+    const hasDecimalPlaces = config.decimalPlaces !== undefined && config.decimalPlaces > 0;
     const isDefaultFormat = !config.numberFormat || config.numberFormat === 'default';
     if (isDefaultFormat && hasDecimalPlaces) {
-      return `${config.precision} decimal places`;
+      return `${config.decimalPlaces} decimal places`;
     }
 
     const formatLabel = formatLabels[config.numberFormat || 'default'] || config.numberFormat;
-    const decimals = hasDecimalPlaces ? ` • ${config.precision} dec` : '';
+    const decimals = hasDecimalPlaces ? ` • ${config.decimalPlaces} dec` : '';
 
     return `${formatLabel}${decimals}`;
   };
@@ -191,45 +184,15 @@ export function TableChartCustomizations({
               {/* Expanded Configuration Section */}
               {isExpanded && (
                 <div className="ml-6 py-3 space-y-3">
-                  {/* Format Type */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Format Type</label>
-                    <Select
-                      value={config?.numberFormat || 'default'}
-                      onValueChange={(value) => handleFormatChange(column, value as NumberFormat)}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">No Formatting</SelectItem>
-                        <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
-                        <SelectItem value="adaptive_international">
-                          Adaptive International (1.23M)
-                        </SelectItem>
-                        <SelectItem value="indian">Indian (12,34,567)</SelectItem>
-                        <SelectItem value="international">International (1,234,567)</SelectItem>
-                        <SelectItem value="european">European (1.234.567)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Decimal Places */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Decimal Places
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={config?.precision || 0}
-                      onChange={(e) => handleDecimalChange(column, parseInt(e.target.value) || 0)}
-                      disabled={disabled}
-                      className="h-9"
-                    />
-                  </div>
+                  <NumberFormatSection
+                    idPrefix={`table-${column}`}
+                    numberFormat={config?.numberFormat}
+                    decimalPlaces={config?.decimalPlaces}
+                    onNumberFormatChange={(value) => handleFormatChange(column, value)}
+                    onDecimalPlacesChange={(value) => handleDecimalChange(column, value)}
+                    excludeFormats={['percentage', 'currency']}
+                    disabled={disabled}
+                  />
                 </div>
               )}
             </div>

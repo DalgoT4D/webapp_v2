@@ -64,6 +64,8 @@ interface TableChartProps {
       {
         type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
         numberFormat?: NumberFormat;
+        decimalPlaces?: number;
+        /** @deprecated Use decimalPlaces instead. Kept for backwards compatibility. */
         precision?: number;
         prefix?: string;
         suffix?: string;
@@ -162,17 +164,19 @@ export function TableChart({
       return value?.toString() || '';
     }
 
-    const { type, numberFormat, precision, prefix = '', suffix = '' } = formatting;
+    const { type, numberFormat, prefix = '', suffix = '' } = formatting;
+    // Support both decimalPlaces (new) and precision (old) for backwards compatibility
+    const decimalPlaces = formatting.decimalPlaces ?? formatting.precision;
 
     // Use formatNumber path when:
     // - numberFormat is explicitly specified, OR
-    // - precision is specified AND no type is specified (for pure decimal formatting)
+    // - decimalPlaces is specified AND no type is specified (for pure decimal formatting)
     // Only format actual numeric values (typeof === 'number'), don't parse strings
-    if (numberFormat || (precision !== undefined && !type)) {
+    if (numberFormat || (decimalPlaces !== undefined && !type)) {
       if (typeof value === 'number' && !isNaN(value)) {
         const formatted = formatNumber(value, {
           format: numberFormat || 'default',
-          decimalPlaces: precision,
+          decimalPlaces: decimalPlaces,
         });
         return `${prefix}${formatted}${suffix}`;
       }
@@ -183,15 +187,15 @@ export function TableChart({
     switch (type) {
       case 'currency':
         if (typeof value !== 'number') return value?.toString() || '';
-        return `${prefix}$${value.toFixed(precision ?? 2)}${suffix}`;
+        return `${prefix}$${value.toFixed(decimalPlaces ?? 2)}${suffix}`;
 
       case 'percentage':
         if (typeof value !== 'number') return value?.toString() || '';
-        return `${prefix}${(value * 100).toFixed(precision ?? 2)}%${suffix}`;
+        return `${prefix}${(value * 100).toFixed(decimalPlaces ?? 2)}%${suffix}`;
 
       case 'number':
         if (typeof value !== 'number') return value?.toString() || '';
-        return `${prefix}${value.toFixed(precision ?? 0)}${suffix}`;
+        return `${prefix}${value.toFixed(decimalPlaces ?? 0)}${suffix}`;
 
       case 'date':
         try {

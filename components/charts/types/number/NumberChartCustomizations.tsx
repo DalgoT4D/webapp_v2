@@ -3,13 +3,8 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '../shared/NumberFormatSection';
 
 interface NumberChartCustomizationsProps {
   customizations: Record<string, any>;
@@ -69,50 +64,14 @@ export function NumberChartCustomizations({
       <div className="space-y-4 pb-4 border-b">
         <h4 className="text-sm font-medium">Number Formatting</h4>
 
-        <div className="space-y-2">
-          <Label htmlFor="numberFormat">Number Format</Label>
-          <Select
-            value={customizations.numberFormat || 'default'}
-            onValueChange={(value) => updateCustomization('numberFormat', value)}
-            disabled={disabled}
-          >
-            <SelectTrigger id="numberFormat">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">No Formatting</SelectItem>
-              <SelectItem value="adaptive_indian">
-                Adaptive Indian ({`1234567 => 12.35L`})
-              </SelectItem>
-              <SelectItem value="adaptive_international">
-                Adaptive International ({`1234567 => 1.23M`})
-              </SelectItem>
-              <SelectItem value="indian">Indian ({`1234567 => 12,34,567`})</SelectItem>
-              <SelectItem value="international">
-                International ({`1234567 => 1,234,567`})
-              </SelectItem>
-              <SelectItem value="european">European ({`1234567 => 1.234.567`})</SelectItem>
-              <SelectItem value="percentage">Percentage (%)</SelectItem>
-              <SelectItem value="currency">Currency ($)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="decimalPlaces">Decimal Places</Label>
-          <Input
-            id="decimalPlaces"
-            type="number"
-            min="0"
-            max="10"
-            value={customizations.decimalPlaces || 0}
-            onChange={(e) => updateCustomization('decimalPlaces', parseInt(e.target.value) || 0)}
-            disabled={disabled}
-          />
-          <p className="text-xs text-muted-foreground">
-            Number of digits after decimal point (0-10)
-          </p>
-        </div>
+        <NumberFormatSection
+          idPrefix="number"
+          numberFormat={customizations.numberFormat as NumberFormat}
+          decimalPlaces={customizations.decimalPlaces}
+          onNumberFormatChange={(value) => updateCustomization('numberFormat', value)}
+          onDecimalPlacesChange={(value) => updateCustomization('decimalPlaces', value)}
+          disabled={disabled}
+        />
       </div>
 
       {/* Prefix and Suffix */}

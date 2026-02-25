@@ -93,23 +93,19 @@ describe('PieChartCustomizations', () => {
     expect(mockUpdateCustomization).toHaveBeenCalledWith('showDataLabels', false);
   });
 
-  it('should render number formatting section and handle changes', async () => {
-    const user = userEvent.setup();
+  // Note: Detailed number formatting behavior (clamping, callbacks, etc.)
+  // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
+
+  it('should render NumberFormatSection in Number Formatting section', () => {
     render(<PieChartCustomizations {...defaultProps} />);
 
     expect(screen.getByText('Number Formatting')).toBeInTheDocument();
-    expect(screen.getByLabelText('Format Type')).toBeInTheDocument();
+    expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
     expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
     expect(screen.getByLabelText('Decimal Places')).toHaveValue(0);
-
-    // Change decimal places
-    const decimalInput = screen.getByLabelText('Decimal Places');
-    await user.clear(decimalInput);
-    await user.type(decimalInput, '2');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('decimalPlaces', 2);
   });
 
-  it('should display existing number formatting customizations', () => {
+  it('should pass customization values to NumberFormatSection correctly', () => {
     render(
       <PieChartCustomizations
         {...defaultProps}

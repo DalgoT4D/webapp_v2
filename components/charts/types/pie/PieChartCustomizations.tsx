@@ -10,8 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { NumberFormat } from '@/lib/formatters';
+import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '../shared/NumberFormatSection';
 
 interface PieChartCustomizationsProps {
   customizations: Record<string, any>;
@@ -209,48 +209,14 @@ export function PieChartCustomizations({
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Number Formatting</h4>
 
-        <div className="space-y-2">
-          <Label htmlFor="numberFormat">Format Type</Label>
-          <Select
-            value={(customizations.numberFormat as NumberFormat) || 'default'}
-            onValueChange={(value) => updateCustomization('numberFormat', value)}
-            disabled={disabled}
-          >
-            <SelectTrigger id="numberFormat">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">No Formatting</SelectItem>
-              <SelectItem value="adaptive_indian">Adaptive Indian (12.35L)</SelectItem>
-              <SelectItem value="adaptive_international">Adaptive International (1.23M)</SelectItem>
-              <SelectItem value="indian">Indian (12,34,567)</SelectItem>
-              <SelectItem value="international">International (1,234,567)</SelectItem>
-              <SelectItem value="european">European (1.234.567)</SelectItem>
-              <SelectItem value="percentage">Percentage (%)</SelectItem>
-              <SelectItem value="currency">Currency ($)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="decimalPlaces">Decimal Places</Label>
-          <Input
-            id="decimalPlaces"
-            type="number"
-            min={0}
-            max={10}
-            value={customizations.decimalPlaces ?? 0}
-            onChange={(e) => {
-              const value = Math.min(10, Math.max(0, parseInt(e.target.value) || 0));
-              updateCustomization('decimalPlaces', value);
-            }}
-            disabled={disabled}
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground">
-            Number of digits after decimal point (0-10)
-          </p>
-        </div>
+        <NumberFormatSection
+          idPrefix="pie"
+          numberFormat={customizations.numberFormat as NumberFormat}
+          decimalPlaces={customizations.decimalPlaces}
+          onNumberFormatChange={(value) => updateCustomization('numberFormat', value)}
+          onDecimalPlacesChange={(value) => updateCustomization('decimalPlaces', value)}
+          disabled={disabled}
+        />
       </div>
     </div>
   );

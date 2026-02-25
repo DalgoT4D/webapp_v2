@@ -126,27 +126,32 @@ describe('BarChartCustomizations', () => {
   });
 
   describe('Number Formatting', () => {
-    it('should render Y-axis number formatting within Y-Axis section', () => {
+    // Note: Detailed number formatting behavior (clamping, callbacks, etc.)
+    // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
+
+    it('should render NumberFormatSection in Y-Axis section with description', () => {
       render(<BarChartCustomizations {...defaultProps} />);
 
       expect(screen.getByText('Y-Axis')).toBeInTheDocument();
+      expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
+      expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
       expect(
         screen.getByText('Applied to Y-axis labels, data labels, and tooltips')
       ).toBeInTheDocument();
     });
 
-    it('should render X-axis number formatting only when hasNumericXAxis is true', () => {
+    it('should render X-axis NumberFormatSection only when hasNumericXAxis is true', () => {
       const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
 
-      // X-axis Number Format field should NOT be visible by default (only 1 Number Format for Y-Axis)
+      // Only Y-Axis number format by default
       expect(screen.getAllByLabelText('Number Format').length).toBe(1);
 
-      // X-axis Number Format should be visible when hasNumericXAxis is true
+      // Both X-Axis and Y-Axis when hasNumericXAxis is true
       rerender(<BarChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
       expect(screen.getAllByLabelText('Number Format').length).toBe(2);
     });
 
-    it('should display existing Y-axis number format customizations', () => {
+    it('should pass customization values to NumberFormatSection correctly', () => {
       render(
         <BarChartCustomizations
           {...defaultProps}
@@ -154,57 +159,7 @@ describe('BarChartCustomizations', () => {
         />
       );
 
-      expect(screen.getByDisplayValue('2')).toBeInTheDocument();
-    });
-
-    it('should handle Y-axis decimal places input changes', async () => {
-      const user = userEvent.setup();
-      render(
-        <BarChartCustomizations {...defaultProps} customizations={{ yAxisDecimalPlaces: 0 }} />
-      );
-
-      // Only one Decimal Places field (Y-Axis) when hasNumericXAxis is false
-      const decimalInput = screen.getByLabelText('Decimal Places');
-      await user.clear(decimalInput);
-      await user.type(decimalInput, '3');
-
-      expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisDecimalPlaces', 3);
-    });
-
-    it('should handle X-axis decimal places input changes', async () => {
-      const user = userEvent.setup();
-      render(
-        <BarChartCustomizations
-          {...defaultProps}
-          customizations={{ xAxisDecimalPlaces: 0 }}
-          hasNumericXAxis={true}
-        />
-      );
-
-      // Two Decimal Places fields when hasNumericXAxis is true
-      const decimalInputs = screen.getAllByLabelText('Decimal Places');
-      await user.clear(decimalInputs[0]); // X-Axis decimal places (first)
-      await user.type(decimalInputs[0], '2');
-
-      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisDecimalPlaces', 2);
-    });
-
-    it('should clamp Y-axis decimal places between 0 and 10', async () => {
-      const user = userEvent.setup();
-      render(
-        <BarChartCustomizations {...defaultProps} customizations={{ yAxisDecimalPlaces: 5 }} />
-      );
-
-      const decimalInput = screen.getByLabelText('Decimal Places');
-
-      await user.clear(decimalInput);
-      await user.type(decimalInput, '1');
-      await user.type(decimalInput, '5');
-
-      const calls = mockUpdateCustomization.mock.calls;
-      const decimalCalls = calls.filter((call) => call[0] === 'yAxisDecimalPlaces');
-      const lastDecimalCall = decimalCalls[decimalCalls.length - 1];
-      expect(lastDecimalCall[1]).toBeLessThanOrEqual(10);
+      expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
     });
   });
 });

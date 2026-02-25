@@ -66,7 +66,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['salary'],
-            column_formatting: { salary: { type: 'currency', precision: 2 } },
+            column_formatting: { salary: { type: 'currency', decimalPlaces: 2 } },
           }}
         />
       );
@@ -77,7 +77,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['score'],
-            column_formatting: { score: { type: 'percentage', precision: 1 } },
+            column_formatting: { score: { type: 'percentage', decimalPlaces: 1 } },
           }}
         />
       );
@@ -88,7 +88,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['score'],
-            column_formatting: { score: { type: 'number', precision: 3 } },
+            column_formatting: { score: { type: 'number', decimalPlaces: 3 } },
           }}
         />
       );
@@ -102,7 +102,7 @@ describe('TableChart', () => {
           config={{
             table_columns: ['salary'],
             column_formatting: {
-              salary: { type: 'currency', precision: 0, prefix: 'USD ', suffix: '/yr' },
+              salary: { type: 'currency', decimalPlaces: 0, prefix: 'USD ', suffix: '/yr' },
             },
           }}
         />
@@ -116,7 +116,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['salary'],
-            column_formatting: { salary: { numberFormat: 'indian', precision: 0 } },
+            column_formatting: { salary: { numberFormat: 'indian', decimalPlaces: 0 } },
           }}
         />
       );
@@ -127,7 +127,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['salary'],
-            column_formatting: { salary: { numberFormat: 'international', precision: 2 } },
+            column_formatting: { salary: { numberFormat: 'international', decimalPlaces: 2 } },
           }}
         />
       );
@@ -138,7 +138,9 @@ describe('TableChart', () => {
           data={[{ id: 1, name: 'Test', value: 1500000 }]}
           config={{
             table_columns: ['value'],
-            column_formatting: { value: { numberFormat: 'adaptive_international', precision: 1 } },
+            column_formatting: {
+              value: { numberFormat: 'adaptive_international', decimalPlaces: 1 },
+            },
           }}
         />
       );
@@ -149,7 +151,7 @@ describe('TableChart', () => {
           data={[{ id: 1, name: 'Test', value: 1500000 }]}
           config={{
             table_columns: ['value'],
-            column_formatting: { value: { numberFormat: 'adaptive_indian', precision: 1 } },
+            column_formatting: { value: { numberFormat: 'adaptive_indian', decimalPlaces: 1 } },
           }}
         />
       );
@@ -163,7 +165,7 @@ describe('TableChart', () => {
           config={{
             table_columns: ['salary'],
             column_formatting: {
-              salary: { numberFormat: 'indian', precision: 0, prefix: '₹', suffix: ' INR' },
+              salary: { numberFormat: 'indian', decimalPlaces: 0, prefix: '₹', suffix: ' INR' },
             },
           }}
         />
@@ -345,7 +347,7 @@ describe('TableChart', () => {
           data={[{ value: '123.456' }]}
           config={{
             table_columns: ['value'],
-            column_formatting: { value: { type: 'number', precision: 2 } },
+            column_formatting: { value: { type: 'number', decimalPlaces: 2 } },
           }}
         />
       );

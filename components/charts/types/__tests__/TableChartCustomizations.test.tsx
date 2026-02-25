@@ -30,16 +30,17 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
   });
 
-  it('should expand/collapse column and show configuration options', async () => {
+  it('should expand/collapse column and show NumberFormatSection', async () => {
     const user = userEvent.setup();
     render(<TableChartCustomizations {...defaultProps} />);
 
     await user.click(screen.getByText('budget'));
-    expect(screen.getByText('Format Type')).toBeInTheDocument();
-    expect(screen.getByText('Decimal Places')).toBeInTheDocument();
+    // Now uses NumberFormatSection which has "Number Format" label
+    expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
+    expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
 
     await user.click(screen.getByText('budget'));
-    expect(screen.queryByText('Format Type')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Number Format')).not.toBeInTheDocument();
   });
 
   it('should auto-save format configuration on dropdown change', async () => {
@@ -50,10 +51,10 @@ describe('TableChartCustomizations', () => {
 
     const formatSelect = screen.getByRole('combobox');
     await user.click(formatSelect);
-    await user.click(screen.getByText('Indian (12,34,567)'));
+    await user.click(screen.getByText('Indian (1234567 => 12,34,567)'));
 
     expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
-      budget: { numberFormat: 'indian', precision: 0 },
+      budget: { numberFormat: 'indian', decimalPlaces: 0 },
     });
   });
 
@@ -63,12 +64,12 @@ describe('TableChartCustomizations', () => {
 
     await user.click(screen.getByText('budget'));
 
-    const decimalInput = screen.getByRole('spinbutton');
+    const decimalInput = screen.getByLabelText('Decimal Places');
     await user.clear(decimalInput);
     await user.type(decimalInput, '2');
 
     expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
-      budget: { numberFormat: 'default', precision: 2 },
+      budget: { numberFormat: 'default', decimalPlaces: 2 },
     });
   });
 
@@ -78,7 +79,7 @@ describe('TableChartCustomizations', () => {
       <TableChartCustomizations
         {...defaultProps}
         customizations={{
-          columnFormatting: { budget: { numberFormat: 'indian', precision: 2 } },
+          columnFormatting: { budget: { numberFormat: 'indian', decimalPlaces: 2 } },
         }}
       />
     );
@@ -87,7 +88,7 @@ describe('TableChartCustomizations', () => {
     expect(screen.getAllByText('No Formatting').length).toBe(2);
 
     await user.click(screen.getByText('budget'));
-    expect(screen.getByRole('spinbutton')).toHaveValue(2);
+    expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
   });
 
   it('should display decimal places independently when no format is selected', () => {
@@ -95,7 +96,7 @@ describe('TableChartCustomizations', () => {
       <TableChartCustomizations
         {...defaultProps}
         customizations={{
-          columnFormatting: { budget: { numberFormat: 'default', precision: 3 } },
+          columnFormatting: { budget: { numberFormat: 'default', decimalPlaces: 3 } },
         }}
       />
     );
@@ -111,8 +112,8 @@ describe('TableChartCustomizations', () => {
         {...defaultProps}
         customizations={{
           columnFormatting: {
-            budget: { numberFormat: 'indian', precision: 2 },
-            revenue: { numberFormat: 'percentage', precision: 1 },
+            budget: { numberFormat: 'indian', decimalPlaces: 2 },
+            revenue: { numberFormat: 'international', decimalPlaces: 1 },
           },
         }}
       />
@@ -121,7 +122,7 @@ describe('TableChartCustomizations', () => {
     const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
     await user.click(removeButton!);
     expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
-      revenue: { numberFormat: 'percentage', precision: 1 },
+      revenue: { numberFormat: 'international', decimalPlaces: 1 },
     });
   });
 
@@ -132,16 +133,37 @@ describe('TableChartCustomizations', () => {
         {...defaultProps}
         disabled={true}
         customizations={{
-          columnFormatting: { budget: { numberFormat: 'indian', precision: 2 } },
+          columnFormatting: { budget: { numberFormat: 'indian', decimalPlaces: 2 } },
         }}
       />
     );
 
     await user.click(screen.getByText('budget'));
-    expect(screen.getByRole('combobox')).toBeDisabled();
-    expect(screen.getByRole('spinbutton')).toBeDisabled();
+    expect(screen.getByRole('combobox')).toHaveAttribute('data-disabled');
+    expect(screen.getByLabelText('Decimal Places')).toBeDisabled();
 
     const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
     expect(removeButton).toBeDisabled();
+  });
+
+  // Note: Detailed number formatting behavior (clamping, excludeFormats, etc.)
+  // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
+
+  it('should exclude percentage and currency formats', async () => {
+    const user = userEvent.setup();
+    render(<TableChartCustomizations {...defaultProps} />);
+
+    await user.click(screen.getByText('budget'));
+    await user.click(screen.getByRole('combobox'));
+
+    // These should be present
+    expect(screen.getByRole('option', { name: 'No Formatting' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Indian (1234567 => 12,34,567)' })
+    ).toBeInTheDocument();
+
+    // These should NOT be present (excluded for table charts)
+    expect(screen.queryByRole('option', { name: 'Percentage (%)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Currency ($)' })).not.toBeInTheDocument();
   });
 });
