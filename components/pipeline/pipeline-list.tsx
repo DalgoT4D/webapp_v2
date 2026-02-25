@@ -124,11 +124,11 @@ export function PipelineList() {
   return (
     <div className="h-full flex flex-col">
       {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-6 pb-4">
-        <div className="flex items-center justify-between">
+      <div className="flex-shrink-0 border-b bg-background">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Pipelines</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-3xl font-bold">Pipelines</h1>
+            <p className="text-muted-foreground mt-1">
               Manage your data sync and transformation workflows
             </p>
           </div>
@@ -142,7 +142,7 @@ export function PipelineList() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6">
+      <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6 mt-6">
         <div className="h-full overflow-y-auto">
           {pipelines.length === 0 ? (
             <EmptyState canCreate={canCreatePipeline} onCreate={handleCreate} />
@@ -151,14 +151,12 @@ export function PipelineList() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="text-sm font-semibold text-gray-700">Pipeline</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Schedule</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Status</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Last Run</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Result</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700 text-right">
-                      Actions
-                    </TableHead>
+                    <TableHead className="text-base font-medium">Pipeline</TableHead>
+                    <TableHead className="text-base font-medium">Schedule</TableHead>
+                    <TableHead className="text-base font-medium">Status</TableHead>
+                    <TableHead className="text-base font-medium">Last Run</TableHead>
+                    <TableHead className="text-base font-medium">Result</TableHead>
+                    <TableHead className="text-base font-medium text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -276,7 +274,7 @@ function PipelineRow({
         <div className="flex items-center gap-3">
           <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
           <span
-            className="font-medium text-[15px] text-gray-900"
+            className="font-medium text-base text-gray-900"
             data-testid={`pipeline-name-${deploymentId}`}
           >
             {name}
@@ -286,10 +284,10 @@ function PipelineRow({
 
       {/* Schedule */}
       <TableCell className="py-4">
-        <div className="text-[15px] text-gray-700">
+        <div className="text-base text-gray-700">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-xs text-gray-400">{localTimezone()}</span>}
+        {cron && <span className="text-sm text-gray-400">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
@@ -314,14 +312,14 @@ function PipelineRow({
           <div>
             <span
               className={cn(
-                'text-[15px]',
+                'text-base',
                 lastRunInfo.isRunning ? 'text-amber-600 font-medium' : 'text-gray-700'
               )}
             >
               {lastRunInfo.time}
             </span>
             {lastRunInfo.by && (
-              <div className="text-xs text-gray-500 mt-0.5">
+              <div className="text-sm text-gray-500 mt-0.5">
                 by{' '}
                 <span
                   className={cn(
@@ -334,7 +332,7 @@ function PipelineRow({
             )}
           </div>
         ) : (
-          <span className="text-[15px] text-gray-400">—</span>
+          <span className="text-base text-gray-400">—</span>
         )}
       </TableCell>
 
@@ -351,7 +349,7 @@ function PipelineRow({
             size="sm"
             onClick={() => onViewHistory(pipeline)}
             disabled={!canViewPipeline}
-            className="h-9 px-3 text-[14px] text-gray-600 hover:text-gray-900"
+            className="h-9 px-3 text-[14px] text-gray-600 hover:text-gray-900 border border-gray-200 bg-gray-50 hover:bg-gray-100"
             data-testid={`history-btn-${deploymentId}`}
           >
             <History className="h-4 w-4 mr-1.5" />
@@ -423,7 +421,7 @@ function PipelineRow({
 function StatusBadge({ status, deploymentId }: { status: string | null; deploymentId: string }) {
   if (!status) {
     return (
-      <span className="text-[15px] text-gray-400" data-testid={`run-status-${deploymentId}`}>
+      <span className="text-base text-gray-400" data-testid={`run-status-${deploymentId}`}>
         —
       </span>
     );
@@ -457,7 +455,7 @@ function StatusBadge({ status, deploymentId }: { status: string | null; deployme
     },
     warning: {
       icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
-      label: 'Tests Failed',
+      label: 'DBT Test Failed',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
   };
@@ -467,7 +465,7 @@ function StatusBadge({ status, deploymentId }: { status: string | null; deployme
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium border',
+        'inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium border min-w-[110px]',
         className
       )}
       data-testid={`run-status-${deploymentId}`}
@@ -488,7 +486,7 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         <FlowIcon className="h-16 w-16 rounded-lg" />
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">No pipelines yet</h3>
-      <p className="text-[15px] text-gray-500 text-center max-w-sm mb-6">
+      <p className="text-base text-gray-500 text-center max-w-sm mb-6">
         Pipelines orchestrate your data syncs and transformations. Create your first pipeline to get
         started.
       </p>
