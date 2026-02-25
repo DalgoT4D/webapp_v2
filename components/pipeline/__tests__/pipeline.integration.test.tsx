@@ -204,7 +204,7 @@ describe('Pipeline List - Integration Tests', () => {
     expect(screen.getByText('Queued')).toBeInTheDocument();
     expect(screen.getByText('Success')).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Tests Failed')).toBeInTheDocument();
+    expect(screen.getByText('DBT Test Failed')).toBeInTheDocument();
     unmount2();
 
     // Empty state

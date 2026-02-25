@@ -268,7 +268,7 @@ describe('PipelineList', () => {
     expect(screen.getAllByText('Locked').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Success')).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Tests Failed')).toBeInTheDocument();
+    expect(screen.getByText('DBT Test Failed')).toBeInTheDocument();
 
     // Schedule and user display
     expect(screen.getByText('Manual')).toBeInTheDocument();

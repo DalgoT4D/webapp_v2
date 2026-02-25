@@ -221,7 +221,7 @@ function PipelineRow({
   const { tempSyncState, setTempSyncState } = useSyncLock(lock);
 
   const isLocked = !!lock;
-  const isRunning = lock?.status === 'running' || lock?.status === 'queued' || tempSyncState;
+  const isRunning = !!lock || tempSyncState;
   const isDisabled = isLocked || tempSyncState;
 
   const handleRunClick = async () => {
@@ -431,7 +431,7 @@ function StatusBadge({ status, deploymentId }: { status: string | null; deployme
     running: {
       icon: <LoopIcon className="h-3.5 w-3.5" />,
       label: 'Running',
-      className: 'bg-transparent text-amber-600 border-amber-300',
+      className: 'bg-transparent text-green-600 border-green-300',
     },
     queued: {
       icon: <Clock className="h-3.5 w-3.5" />,
