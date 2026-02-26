@@ -67,7 +67,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      actions: write
+      deployments: write
 
     steps:
       - uses: actions/checkout@v4
@@ -81,9 +81,13 @@ jobs:
 
       # Fail fast: check if staging is on main before spending time on docker build
       - name: Check staging branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT="${{ vars.CURRENT_BRANCH }}"
-          if [ "$CURRENT" != "main" ]; then
+          CURRENT=$(gh api repos/${{ github.repository }}/deployments?environment=staging --jq '.[0].ref // empty')
+          if [ -z "$CURRENT" ]; then
+            echo "No previous staging deployment found. Proceeding with deploy."
+          elif [ "$CURRENT" != "main" ]; then
             echo "Error: Staging is on '$CURRENT', not main. Skipping deploy."
             exit 1
           fi
@@ -142,10 +146,17 @@ jobs:
           ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           ghcr_user: ${{ github.actor }}
 
-      - name: Update staging branch tracker
+      - name: Record staging deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh variable set CURRENT_BRANCH --body "main" --env staging
+        run: |
+          jq -n '{
+            "ref": "main",
+            "environment": "staging",
+            "description": "staging-main-${{ steps.sha.outputs.short }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |

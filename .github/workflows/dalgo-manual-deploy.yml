@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       rollback_tag:
-        description: 'Rollback only: specific image tag (leave empty to use previous version from PREVIOUS_TAG environment variable)'
+        description: 'Rollback only: specific image tag (leave empty to use previous deployment record)'
         required: false
         type: string
 
@@ -38,7 +38,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      actions: write
+      deployments: write
 
     steps:
       - name: Verify confirmation
@@ -116,11 +116,17 @@ jobs:
           ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           ghcr_user: ${{ github.actor }}
 
-      - name: Update staging branch tracker
+      - name: Record staging deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          STAGING_BRANCH: ${{ steps.info.outputs.branch }}
-        run: gh variable set CURRENT_BRANCH --body "$STAGING_BRANCH" --env staging
+        run: |
+          jq -n '{
+            "ref": "${{ steps.info.outputs.branch }}",
+            "environment": "staging",
+            "description": "staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |
@@ -139,7 +145,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      actions: write
+      deployments: write
 
     steps:
       - name: Verify confirmation
@@ -215,24 +221,27 @@ jobs:
           ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           ghcr_user: ${{ github.actor }}
 
-      - name: Update production tag tracking
+      - name: Record production deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Current becomes previous (for rollback)
-          CURRENT="${{ vars.CURRENT_TAG }}"
-          if [ -n "$CURRENT" ]; then
-            gh variable set PREVIOUS_TAG --body "$CURRENT" --env production
-          fi
-          # New becomes current
-          gh variable set CURRENT_TAG --body "prod-main-${{ steps.info.outputs.short_sha }}" --env production
+          jq -n '{
+            "ref": "main",
+            "environment": "production",
+            "description": "prod-main-${{ steps.info.outputs.short_sha }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          PREVIOUS=$(gh api repos/${{ github.repository }}/deployments?environment=production --jq '.[1].description // "none"')
           echo "## Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** prod-main-${{ steps.info.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Previous:** ${{ vars.CURRENT_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous:** $PREVIOUS" >> $GITHUB_STEP_SUMMARY
 
   # ============================================
   # ROLLBACK PRODUCTION
@@ -244,7 +253,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-      actions: write
+      deployments: write
 
     steps:
       - name: Verify confirmation
@@ -262,7 +271,7 @@ jobs:
         id: rollback
         env:
           ROLLBACK_TAG: ${{ inputs.rollback_tag }}
-          PREV_TAG: ${{ vars.PREVIOUS_TAG }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "$ROLLBACK_TAG" ]; then
             if ! echo "$ROLLBACK_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
@@ -271,12 +280,16 @@ jobs:
             fi
             echo "tag=$ROLLBACK_TAG" >> "$GITHUB_OUTPUT"
             echo "source=user-specified" >> "$GITHUB_OUTPUT"
-          elif [ -n "$PREV_TAG" ]; then
-            echo "tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
-            echo "source=PREVIOUS_TAG variable" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::No rollback tag specified and PREVIOUS_TAG variable is empty. Specify a tag in the rollback_tag field."
-            exit 1
+            # Get the second most recent production deployment (previous version)
+            PREV_TAG=$(gh api repos/${{ github.repository }}/deployments?environment=production --jq '.[1].description // empty')
+            if [ -n "$PREV_TAG" ]; then
+              echo "tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+              echo "source=previous deployment record" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error::No rollback tag specified and no previous production deployment found. Specify a tag in the rollback_tag field."
+              exit 1
+            fi
           fi
 
       - name: Show rollback target
@@ -296,18 +309,21 @@ jobs:
           ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           ghcr_user: ${{ github.actor }}
 
-      - name: Update current tag tracker
+      - name: Record rollback deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Sync CURRENT_TAG with what's actually running after rollback
-          # This ensures the next deploy saves the correct previous tag
-          gh variable set CURRENT_TAG --body "${{ steps.rollback.outputs.tag }}" --env production
+          # Create a new deployment record so this becomes the "current" deployment
+          jq -n '{
+            "ref": "${{ github.ref_name }}",
+            "environment": "production",
+            "description": "${{ steps.rollback.outputs.tag }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |
           echo "## Production Rollback Complete" >> $GITHUB_STEP_SUMMARY
           echo "- **Rolled back to:** ${{ steps.rollback.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Source:** ${{ steps.rollback.outputs.source }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** PREVIOUS_TAG was not updated — it still points to the stable version for future rollbacks." >> $GITHUB_STEP_SUMMARY
