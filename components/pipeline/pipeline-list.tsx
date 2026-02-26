@@ -156,7 +156,7 @@ export function PipelineList() {
                     <TableHead className="text-base font-medium">Status</TableHead>
                     <TableHead className="text-base font-medium">Last Run</TableHead>
                     <TableHead className="text-base font-medium">Result</TableHead>
-                    <TableHead className="text-base font-medium text-right">Actions</TableHead>
+                    <TableHead className="text-base font-medium text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -343,7 +343,7 @@ function PipelineRow({
 
       {/* Actions */}
       <TableCell className="py-4">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-center gap-1">
           <Button
             variant="ghost"
             size="sm"
