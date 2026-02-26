@@ -125,7 +125,7 @@ jobs:
             -f environment="staging" \
             -f description="staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}" \
             -F auto_merge=false \
-            -f required_contexts="[]"
+            -F 'required_contexts=[]'
 
       - name: Summary
         run: |
@@ -229,7 +229,7 @@ jobs:
             -f environment="production" \
             -f description="prod-main-${{ steps.info.outputs.short_sha }}" \
             -F auto_merge=false \
-            -f required_contexts="[]"
+            -F 'required_contexts=[]'
 
       - name: Summary
         env:
@@ -317,7 +317,7 @@ jobs:
             -f environment="production" \
             -f description="${{ steps.rollback.outputs.tag }}" \
             -F auto_merge=false \
-            -f required_contexts="[]"
+            -F 'required_contexts=[]'
 
       - name: Summary
         run: |

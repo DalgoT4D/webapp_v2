@@ -155,7 +155,7 @@ jobs:
             -f environment="staging" \
             -f description="staging-main-${{ steps.sha.outputs.short }}" \
             -F auto_merge=false \
-            -f required_contexts="[]"
+            -F 'required_contexts=[]'
 
       - name: Summary
         run: |
