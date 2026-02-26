@@ -391,6 +391,27 @@ describe('ChartPreview', () => {
 
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     });
+
+    it('should merge columnFormatting from customizations into table config', () => {
+      const customizations = {
+        columnFormatting: {
+          salary: { numberFormat: 'indian', precision: 2 },
+          revenue: { numberFormat: 'international', precision: 0 },
+        },
+      };
+
+      render(
+        <ChartPreview
+          chartType="table"
+          config={{ table_columns: ['name', 'salary', 'revenue'] }}
+          customizations={customizations}
+        />
+      );
+
+      const configEl = screen.getByTestId('table-config');
+      const passedConfig = JSON.parse(configEl.textContent || '{}');
+      expect(passedConfig.column_formatting).toEqual(customizations.columnFormatting);
+    });
   });
 
   describe('Edge Cases', () => {
@@ -405,6 +426,237 @@ describe('ChartPreview', () => {
       if (config && (config as any).xAxis) {
         expect(echarts.init).toHaveBeenCalled();
       }
+    });
+  });
+
+  describe('Number Chart Formatting', () => {
+    const gaugeConfig = { series: [{ type: 'gauge', data: [{ value: 1000000 }] }] };
+
+    it.each([
+      ['indian format', { numberFormat: 'indian' }, 1000000, '10,00,000'],
+      ['international format', { numberFormat: 'international' }, 1000000, '1,000,000'],
+      [
+        'with prefix/suffix',
+        { numberFormat: 'international', numberPrefix: '$', numberSuffix: 'K' },
+        1000,
+        '$1,000K',
+      ],
+      ['with decimal places', { numberFormat: 'default', decimalPlaces: 2 }, 1234.567, '1234.57'],
+    ])('should apply %s', (_, customizations, inputValue, expected) => {
+      render(
+        <ChartPreview config={gaugeConfig} chartType="number" customizations={customizations} />
+      );
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
+      expect(formatter(inputValue)).toBe(expected);
+    });
+
+    it('should use default format when not specified', () => {
+      render(<ChartPreview config={gaugeConfig} chartType="number" />);
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].detail.formatter;
+      expect(formatter(1234567)).toBe('1234567');
+    });
+
+    it('should call setOption with notMerge: true for clean updates', () => {
+      render(<ChartPreview config={gaugeConfig} chartType="number" />);
+      expect(mockChart.setOption).toHaveBeenCalledWith(expect.any(Object), { notMerge: true });
+    });
+  });
+
+  describe('Pie Chart Label Configuration', () => {
+    const pieConfig = { series: [{ type: 'pie', data: [{ name: 'A', value: 100 }] }] };
+
+    it('should show labels by default (showDataLabels not set)', () => {
+      render(<ChartPreview config={pieConfig} chartType="pie" />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].label.show).toBe(true);
+    });
+
+    it('should hide labels when showDataLabels is false', () => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ showDataLabels: false }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].label.show).toBe(false);
+    });
+
+    it.each([
+      ['outside', 'outside', 'outside'],
+      ['inside', 'inside', 'inside'],
+      ['default (outside)', undefined, 'outside'],
+    ])('should set label position to %s', (_, position, expected) => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ dataLabelPosition: position }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].label.position).toBe(expected);
+    });
+
+    it.each([
+      ['percentage', 'percentage', { name: 'A', value: 100, percent: 50 }, '50%'],
+      ['value', 'value', { name: 'A', value: 1000, percent: 50 }, '1,000'],
+      ['name_percentage', 'name_percentage', { name: 'A', value: 100, percent: 50 }, 'A\n50%'],
+      ['name_value', 'name_value', { name: 'A', value: 1000, percent: 50 }, 'A\n1,000'],
+    ])('should format label as %s', (_, labelFormat, params, expected) => {
+      render(<ChartPreview config={pieConfig} chartType="pie" customizations={{ labelFormat }} />);
+
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+      expect(formatter(params)).toBe(expected);
+    });
+
+    it('should apply number formatting to value labels', () => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ labelFormat: 'value', numberFormat: 'indian' }}
+        />
+      );
+
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+      expect(formatter({ name: 'A', value: 1000000, percent: 50 })).toBe('10,00,000');
+    });
+
+    it('should not format non-number values', () => {
+      render(
+        <ChartPreview
+          config={pieConfig}
+          chartType="pie"
+          customizations={{ labelFormat: 'value' }}
+        />
+      );
+
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+      expect(formatter({ name: 'A', value: 'text', percent: 50 })).toBe('text');
+    });
+  });
+
+  describe('Line Chart Number Formatting', () => {
+    const lineConfig = {
+      series: [{ type: 'line', data: [100, 200, 300] }],
+      yAxis: { type: 'value' },
+      xAxis: { type: 'category', data: ['A', 'B', 'C'] },
+    };
+
+    it('should not apply Y-axis formatter when yAxisNumberFormat is default', () => {
+      render(<ChartPreview config={lineConfig} chartType="line" customizations={{}} />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // Y-axis should not have a custom formatter when format is default
+      expect(calledConfig.yAxis.axisLabel.formatter).toBeUndefined();
+    });
+
+    it('should apply Y-axis formatter when yAxisNumberFormat is set', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'indian' }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.yAxis.axisLabel.formatter).toBeDefined();
+      expect(calledConfig.yAxis.axisLabel.formatter(1234567)).toBe('12,34,567');
+    });
+
+    it('should apply X-axis formatter when xAxisNumberFormat is set', () => {
+      const numericXAxisConfig = {
+        ...lineConfig,
+        xAxis: { type: 'value', data: [1000, 2000, 3000] },
+      };
+
+      render(
+        <ChartPreview
+          config={numericXAxisConfig}
+          chartType="line"
+          customizations={{ xAxisNumberFormat: 'international' }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.xAxis.axisLabel.formatter).toBeDefined();
+      expect(calledConfig.xAxis.axisLabel.formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should apply data label formatter when showDataLabels is true', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'international', showDataLabels: true }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      const labelFormatter = calledConfig.series[0].label.formatter;
+      expect(labelFormatter).toBeDefined();
+      expect(labelFormatter({ value: 1234567 })).toBe('1,234,567');
+    });
+
+    it('should apply Y-axis decimal places to formatted numbers', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'international', yAxisDecimalPlaces: 2 }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.yAxis.axisLabel.formatter(1234.5)).toBe('1,234.50');
+    });
+
+    it('should format X-axis and Y-axis independently', () => {
+      const numericXAxisConfig = {
+        ...lineConfig,
+        xAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={numericXAxisConfig}
+          chartType="line"
+          customizations={{
+            yAxisNumberFormat: 'indian',
+            xAxisNumberFormat: 'international',
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.yAxis.axisLabel.formatter(1234567)).toBe('12,34,567');
+      expect(calledConfig.xAxis.axisLabel.formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should handle array yAxis configuration', () => {
+      const multiAxisConfig = {
+        ...lineConfig,
+        yAxis: [{ type: 'value' }, { type: 'value' }],
+      };
+
+      render(
+        <ChartPreview
+          config={multiAxisConfig}
+          chartType="line"
+          customizations={{ yAxisNumberFormat: 'indian' }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(Array.isArray(calledConfig.yAxis)).toBe(true);
+      expect(calledConfig.yAxis[0].axisLabel.formatter).toBeDefined();
+      expect(calledConfig.yAxis[1].axisLabel.formatter).toBeDefined();
     });
   });
 

@@ -1070,7 +1070,7 @@ export function ChartBuilder({
                   data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                   config={{
                     table_columns: tableChartData?.columns || formData.table_columns || [],
-                    column_formatting: {},
+                    column_formatting: formData.customizations?.columnFormatting || {},
                     sort: formData.sort || [],
                     pagination: formData.pagination || { enabled: true, page_size: 20 },
                   }}

@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
 const URL_PATTERN = /^(https?:\/\/|www\.)/i;
@@ -62,6 +63,9 @@ interface TableChartProps {
       string,
       {
         type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
+        numberFormat?: NumberFormat;
+        decimalPlaces?: number;
+        /** @deprecated Use decimalPlaces instead. Kept for backwards compatibility. */
         precision?: number;
         prefix?: string;
         suffix?: string;
@@ -160,20 +164,38 @@ export function TableChart({
       return value?.toString() || '';
     }
 
-    const { type, precision = 2, prefix = '', suffix = '' } = formatting;
+    const { type, numberFormat, prefix = '', suffix = '' } = formatting;
+    // Support both decimalPlaces (new) and precision (old) for backwards compatibility
+    const decimalPlaces = formatting.decimalPlaces ?? formatting.precision;
 
+    // Use formatNumber path when:
+    // - numberFormat is explicitly specified, OR
+    // - decimalPlaces is specified AND no type is specified (for pure decimal formatting)
+    // Only format actual numeric values (typeof === 'number'), don't parse strings
+    if (numberFormat || (decimalPlaces !== undefined && !type)) {
+      if (typeof value === 'number' && !isNaN(value)) {
+        const formatted = formatNumber(value, {
+          format: numberFormat || 'default',
+          decimalPlaces: decimalPlaces,
+        });
+        return `${prefix}${formatted}${suffix}`;
+      }
+      return value?.toString() || '';
+    }
+
+    // For type-based formatting, only format actual numeric values (typeof === 'number')
     switch (type) {
       case 'currency':
-        const currencyValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}$${currencyValue.toFixed(precision)}${suffix}`;
+        if (typeof value !== 'number') return value?.toString() || '';
+        return `${prefix}$${value.toFixed(decimalPlaces ?? 2)}${suffix}`;
 
       case 'percentage':
-        const percentValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}${(percentValue * 100).toFixed(precision)}%${suffix}`;
+        if (typeof value !== 'number') return value?.toString() || '';
+        return `${prefix}${(value * 100).toFixed(decimalPlaces ?? 2)}%${suffix}`;
 
       case 'number':
-        const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-        return `${prefix}${numValue.toFixed(precision)}${suffix}`;
+        if (typeof value !== 'number') return value?.toString() || '';
+        return `${prefix}${value.toFixed(decimalPlaces ?? 0)}${suffix}`;
 
       case 'date':
         try {

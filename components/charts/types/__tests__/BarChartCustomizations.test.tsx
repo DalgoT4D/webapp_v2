@@ -24,7 +24,8 @@ describe('BarChartCustomizations', () => {
     // Sections
     expect(screen.getByText('Display Options')).toBeInTheDocument();
     expect(screen.getByText('Data Labels')).toBeInTheDocument();
-    expect(screen.getByText('Axis Configuration')).toBeInTheDocument();
+    expect(screen.getByText('X-Axis')).toBeInTheDocument();
+    expect(screen.getByText('Y-Axis')).toBeInTheDocument();
 
     // Default values
     expect(screen.getByLabelText('Vertical')).toBeChecked();
@@ -87,28 +88,25 @@ describe('BarChartCustomizations', () => {
 
     expect(screen.getByDisplayValue('Time')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Value')).toBeInTheDocument();
-    expect(screen.getByLabelText('X-Axis Label Rotation')).toBeInTheDocument();
-    expect(screen.getByLabelText('Y-Axis Label Rotation')).toBeInTheDocument();
+    // Label Rotation fields are now just called "Label Rotation" within each section
+    expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
-    // X-axis title input
-    const xInput = screen.getByLabelText('X-Axis Title');
-    await user.type(xInput, 'M');
+    // X-axis title input (first Title field)
+    const titleInputs = screen.getAllByLabelText('Title');
+    await user.type(titleInputs[0], 'M');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'TimeM');
 
-    // Y-axis title input
-    const yInput = screen.getByLabelText('Y-Axis Title');
-    await user.type(yInput, 's');
+    // Y-axis title input (second Title field)
+    await user.type(titleInputs[1], 's');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisTitle', 'Values');
 
-    // X-axis rotation
-    const xRotationSelect = screen.getByLabelText('X-Axis Label Rotation');
-    await user.click(xRotationSelect);
+    // Label rotation selects
+    const rotationSelects = screen.getAllByLabelText('Label Rotation');
+    await user.click(rotationSelects[0]);
     await user.click(screen.getByRole('option', { name: '45 degrees' }));
     expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisLabelRotation', '45');
 
-    // Y-axis rotation
-    const yRotationSelect = screen.getByLabelText('Y-Axis Label Rotation');
-    await user.click(yRotationSelect);
+    await user.click(rotationSelects[1]);
     await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
     expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
   });
@@ -124,6 +122,44 @@ describe('BarChartCustomizations', () => {
     });
     screen.getAllByRole('textbox').forEach((i) => {
       expect(i).toBeDisabled();
+    });
+  });
+
+  describe('Number Formatting', () => {
+    // Note: Detailed number formatting behavior (clamping, callbacks, etc.)
+    // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
+
+    it('should render NumberFormatSection in Y-Axis section with description', () => {
+      render(<BarChartCustomizations {...defaultProps} />);
+
+      expect(screen.getByText('Y-Axis')).toBeInTheDocument();
+      expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
+      expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
+      expect(
+        screen.getByText('Applied to Y-axis labels, data labels, and tooltips')
+      ).toBeInTheDocument();
+    });
+
+    it('should render X-axis NumberFormatSection only when hasNumericXAxis is true', () => {
+      const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
+
+      // Only Y-Axis number format by default
+      expect(screen.getAllByLabelText('Number Format').length).toBe(1);
+
+      // Both X-Axis and Y-Axis when hasNumericXAxis is true
+      rerender(<BarChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
+      expect(screen.getAllByLabelText('Number Format').length).toBe(2);
+    });
+
+    it('should pass customization values to NumberFormatSection correctly', () => {
+      render(
+        <BarChartCustomizations
+          {...defaultProps}
+          customizations={{ yAxisNumberFormat: 'indian', yAxisDecimalPlaces: 2 }}
+        />
+      );
+
+      expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
     });
   });
 });
