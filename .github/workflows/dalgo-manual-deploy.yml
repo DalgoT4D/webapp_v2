@@ -39,6 +39,7 @@ jobs:
       contents: read
       packages: write
       actions: write
+      variables: write
 
     steps:
       - name: Verify confirmation
@@ -140,6 +141,7 @@ jobs:
       contents: read
       packages: write
       actions: write
+      variables: write
 
     steps:
       - name: Verify confirmation
@@ -245,6 +247,7 @@ jobs:
       contents: read
       packages: read
       actions: write
+      variables: write
 
     steps:
       - name: Verify confirmation
