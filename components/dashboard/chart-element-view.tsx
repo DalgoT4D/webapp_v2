@@ -113,6 +113,7 @@ interface ChartElementViewProps {
   isPublicMode?: boolean;
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig; // For dashboard title configuration
+  frozenChartConfig?: any; // Frozen chart config from report snapshot
 }
 
 interface DrillDownLevel {
@@ -136,6 +137,7 @@ export function ChartElementView({
   isPublicMode = false,
   publicToken,
   config = {},
+  frozenChartConfig,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -179,13 +181,13 @@ export function ChartElementView({
 
   const regions = isPublicMode ? publicRegions : privateRegions;
 
-  // Fetch chart metadata to determine chart type (only in authenticated mode)
+  // Fetch chart metadata to determine chart type (skip in public mode and report/frozen mode)
   const {
     data: chart,
     isLoading: chartLoading,
     isError: chartError,
     error: chartFetchError,
-  } = useChart(isPublicMode ? null : chartId);
+  } = useChart(isPublicMode || frozenChartConfig ? null : chartId);
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -225,7 +227,7 @@ export function ChartElementView({
 
   // Fetch chart metadata - public vs private mode
   const publicChartMetadataUrl =
-    isPublicMode && publicToken
+    isPublicMode && publicToken && !frozenChartConfig
       ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/`
       : null;
 
@@ -251,9 +253,9 @@ export function ChartElementView({
     }
   );
 
-  // Private mode metadata
+  // Private mode metadata (skip in report/frozen mode)
   const { data: chartMetadata, error: metadataError } = useSWR(
-    !isPublicMode ? `/api/charts/${chartId}` : null,
+    !isPublicMode && !frozenChartConfig ? `/api/charts/${chartId}` : null,
     apiGet,
     {
       revalidateOnFocus: false,
@@ -274,8 +276,8 @@ export function ChartElementView({
     }
   );
 
-  // Use public chart metadata when in public mode, chart when in private mode
-  const effectiveChart = isPublicMode ? publicChartMetadata : chart;
+  // Use frozen config in report mode, public metadata in public mode, or chart in private mode
+  const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === 'table';
@@ -285,14 +287,16 @@ export function ChartElementView({
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
-  const shouldFetchChartData = effectiveChart
-    ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
-    : false;
+  // Skip in report/frozen mode — those use POST /api/charts/chart-data/ instead
+  const shouldFetchChartData =
+    effectiveChart && !frozenChartConfig
+      ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+      : false;
   const {
-    data: chartData,
-    isLoading,
-    error: isError,
-    mutate,
+    data: chartDataGet,
+    isLoading: isLoadingGet,
+    error: isErrorGet,
+    mutate: mutateGet,
   } = useSWR(shouldFetchChartData ? apiUrl : null, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
@@ -434,6 +438,29 @@ export function ChartElementView({
         : null,
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
   );
+
+  // Report/frozen mode: fetch chart data via POST with inline config (no chart ID needed)
+  const shouldFetchReportChartData =
+    !!frozenChartConfig && !!chartDataPayload && !!effectiveChart
+      ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+      : false;
+
+  const {
+    data: chartDataPost,
+    isLoading: isLoadingPost,
+    error: isErrorPost,
+    mutate: mutatePost,
+  } = useSWR(
+    shouldFetchReportChartData ? ['report-chart-data', chartId, filterHash] : null,
+    shouldFetchReportChartData ? () => apiPost('/api/charts/chart-data/', chartDataPayload!) : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
+
+  // Unified chart data — one source is always null depending on mode
+  const chartData = chartDataPost ?? chartDataGet;
+  const isLoading = isLoadingPost || isLoadingGet;
+  const isError = isErrorPost || isErrorGet;
+  const mutate = frozenChartConfig ? mutatePost : mutateGet;
 
   // For table charts - public vs private mode
   const publicTableDataUrl =
@@ -1423,7 +1450,10 @@ export function ChartElementView({
     try {
       // Handle table chart export
       if (isTableChart && tableRef.current) {
-        const filename = generateFilename(chartMetadata?.title || `table-${chartId}`, 'png');
+        const filename = generateFilename(
+          chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
+          'png'
+        );
         await ChartExporter.exportTableAsImage(tableRef.current, {
           filename,
           format: 'png',
@@ -1498,7 +1528,11 @@ export function ChartElementView({
 
       // Generate filename
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const sanitizedTitle = (chartMetadata?.title || `chart-${chartId}`)
+      const sanitizedTitle = (
+        chartMetadata?.title ||
+        frozenChartConfig?.title ||
+        `chart-${chartId}`
+      )
         .replace(/[^a-z0-9]/gi, '_')
         .replace(/_+/g, '_')
         .toLowerCase();
@@ -1666,7 +1700,7 @@ export function ChartElementView({
       {/* Chart Title - HTML title for better styling and interaction */}
       <div className="px-2 pt-2 flex-shrink-0">
         <ChartTitleEditor
-          chartData={isPublicMode ? effectiveChart : chartMetadata}
+          chartData={frozenChartConfig || (isPublicMode ? effectiveChart : chartMetadata)}
           config={config}
           onTitleChange={() => {}} // Read-only in view mode
           isEditMode={false}
