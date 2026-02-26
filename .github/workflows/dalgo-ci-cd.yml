@@ -57,10 +57,35 @@ jobs:
           tags: webapp_v2:test
 
   # ============================================
-  # CD: AUTO-DEPLOY TO STAGING (only on main push, after checks pass)
+  # STAGING GUARD: Check if staging is on main
+  # (separate job WITHOUT environment: to avoid auto-created deployment records)
+  # ============================================
+  staging-guard:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: read
+    steps:
+      - name: Check staging branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT=$(gh api repos/${{ github.repository }}/deployments?environment=staging --jq '.[0].ref // empty')
+          if [ -z "$CURRENT" ]; then
+            echo "No previous staging deployment found. Proceeding with deploy."
+          elif [ "$CURRENT" != "main" ]; then
+            echo "::error::Staging is on '$CURRENT', not main. Skipping auto-deploy."
+            exit 1
+          else
+            echo "Staging is on main. Proceeding with deploy."
+          fi
+
+  # ============================================
+  # CD: AUTO-DEPLOY TO STAGING (only on main push, after checks and guard pass)
   # ============================================
   deploy-staging:
-    needs: checks
+    needs: [checks, staging-guard]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging
@@ -78,19 +103,6 @@ jobs:
       - name: Get commit SHA
         id: sha
         run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-      # Fail fast: check if staging is on main before spending time on docker build
-      - name: Check staging branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          CURRENT=$(gh api repos/${{ github.repository }}/deployments?environment=staging --jq '.[0].ref // empty')
-          if [ -z "$CURRENT" ]; then
-            echo "No previous staging deployment found. Proceeding with deploy."
-          elif [ "$CURRENT" != "main" ]; then
-            echo "Error: Staging is on '$CURRENT', not main. Skipping deploy."
-            exit 1
-          fi
 
       - name: Validate build secrets
         run: |
