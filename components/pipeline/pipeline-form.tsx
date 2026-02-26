@@ -320,7 +320,7 @@ function PipelineFormContent({
       </div>
 
       {/* Form content - Two column layout */}
-      <div className="bg-white rounded-lg border shadow-sm">
+      <div className="bg-white rounded-lg border shadow-sm max-h-[calc(100vh-12rem)] overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x">
           {/* Left column - Pipeline details */}
           <div className="lg:col-span-3 p-6 space-y-6">
