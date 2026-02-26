@@ -1,11 +1,11 @@
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
+# Stage 1: Dependencies (runs on native build platform - fast, no emulation)
+FROM --platform=$BUILDPLATFORM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Stage 2: Builder
-FROM node:20-alpine AS builder
+# Stage 2: Builder (runs on native build platform - fast, no emulation)
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,12 +25,9 @@ ENV NEXT_PUBLIC_USAGE_DASHBOARD_ID=$NEXT_PUBLIC_USAGE_DASHBOARD_ID
 ENV NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=$NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN
 ENV NEXT_PUBLIC_PENDO_API_KEY=$NEXT_PUBLIC_PENDO_API_KEY
 
-# Increase Node memory limit for QEMU-emulated ARM64 builds
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
 RUN npm run build
 
-# Stage 3: Runner
+# Stage 3: Runner (this is the only stage that runs on ARM64)
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -39,9 +36,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# copying only relevant files from the previous build stage. 
+# copying only relevant files from the previous build stage.
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./ 
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
