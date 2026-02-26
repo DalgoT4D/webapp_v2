@@ -535,13 +535,12 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // For number/pie charts: exclude numberFormat and decimalPlaces (frontend-only)
-            // For line charts: exclude axis-specific number formatting (frontend-only)
-            // For table charts: don't send customizations in preview payload (formatting is frontend-only)
-            // For other charts: send all customizations to API
+            // Number formatting is frontend-only - exclude from API payload
             ...(formData.chart_type !== 'table' && {
               customizations:
-                formData.chart_type === 'number' || formData.chart_type === 'pie'
+                formData.chart_type === 'number' ||
+                formData.chart_type === 'pie' ||
+                formData.chart_type === 'map'
                   ? Object.fromEntries(
                       Object.entries(formData.customizations || {}).filter(
                         ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
