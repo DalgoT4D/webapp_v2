@@ -49,7 +49,9 @@ const numericTypes = [
 
 const textTypes = ['varchar', 'text', 'char', 'character varying', 'string', 'character'];
 
-const dateTimeTypes = ['timestamp', 'timestamptz', 'date', 'datetime', 'time', 'interval'];
+const dateOnlyTypes = ['date'];
+const timestampTypes = ['timestamp', 'timestamptz', 'datetime', 'time', 'interval'];
+const dateTimeTypes = [...dateOnlyTypes, ...timestampTypes];
 
 const booleanTypes = ['boolean', 'bool'];
 
@@ -127,4 +129,32 @@ export function ColumnTypeIcon({ dataType, className = 'w-4 h-4' }: ColumnTypeIc
       </TooltipContent>
     </Tooltip>
   );
+}
+
+/**
+ * Determines if a column type is date-only (not timestamp/datetime)
+ * Date-only columns should only show day, month, year time grains
+ */
+export function isDateOnlyColumn(dataType: string): boolean {
+  const normalizedType = dataType.toLowerCase().trim();
+  // Use exact equality to avoid 'datetime'.includes('date') being true
+  return dateOnlyTypes.some((type) => normalizedType === type);
+}
+
+/**
+ * Determines if a column type supports full time granularity (timestamp/datetime)
+ * These columns can show all time grains including second, minute, hour
+ */
+export function isTimestampColumn(dataType: string): boolean {
+  const normalizedType = dataType.toLowerCase().trim();
+  return timestampTypes.some((type) => normalizedType.includes(type));
+}
+
+/**
+ * Determines if a column type is any kind of date & timestamp column
+ * This includes both date-only and timestamp/datetime columns
+ */
+export function isDateAndTimestampColumn(dataType: string): boolean {
+  const normalizedType = dataType.toLowerCase().trim();
+  return dateTimeTypes.some((type) => normalizedType.includes(type));
 }

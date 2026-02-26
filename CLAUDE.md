@@ -165,6 +165,31 @@ Always add these attributes to interactive components for testability and debugg
 <Input id="pipeline-name" data-testid="pipeline-name-input" />
 ```
 
+### Component Attributes (Required)
+Always add these attributes to interactive components for testability and debugging:
+
+- **`data-testid`**: Required for all interactive elements (buttons, inputs, rows, etc.)
+  - Use descriptive, kebab-case names: `data-testid="create-pipeline-btn"`
+  - Include unique identifiers for list items: `data-testid="pipeline-row-${id}"`
+- **`id`**: Required for form elements and elements referenced by labels
+- **`key`**: Required for all items in lists/arrays (use unique identifiers, not array indices)
+
+```typescript
+// Example: Button with testid
+<Button data-testid="submit-btn" onClick={handleSubmit}>Submit</Button>
+
+// Example: List items with dynamic testids
+{items.map((item) => (
+  <div key={item.id} data-testid={`item-row-${item.id}`}>
+    <button data-testid={`delete-btn-${item.id}`}>Delete</button>
+  </div>
+))}
+
+// Example: Form element with id for label association
+<Label htmlFor="pipeline-name">Name</Label>
+<Input id="pipeline-name" data-testid="pipeline-name-input" />
+```
+
 ### Creating New Features
 1. **Start with the API hook** in `hooks/api/` using SWR
 2. **Build UI components** in appropriate feature directory under `components/`
@@ -211,6 +236,20 @@ Always add these attributes to interactive components for testability and debugg
 - **NEVER fake tests to pass** - If a test fails, leave it failing. Do not change expected values or assertions just to make tests pass. We debug failing tests together.
 - **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
 - **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
+
+### Critical Testing Principles
+- **NEVER fake tests to pass** - If a test fails, leave it failing. Do not change expected values or assertions just to make tests pass. We debug failing tests together.
+- **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
+- **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
+
+### Test File Conventions
+- **Location**: Tests live in `__tests__/` folders **inside** the component directory (e.g., `components/pipeline/__tests__/`, `components/notifications/__tests__/`)
+- **Mock data factories**: Create a `*-mock-data.ts` file in the `__tests__/` folder with factory functions (`createMockPipeline()`, `createMockNotification()`) following the pattern in `components/pipeline/__tests__/pipeline-mock-data.ts`
+- **Global API mocks**: API is mocked globally in `jest.setup.ts` — use `mockApiGet`/`mockApiPut` from `test-utils/api.ts` for typed references
+- **Test wrappers**: Use `TestWrapper` from `test-utils/render.tsx` for SWR isolation (fresh cache, no deduping, no polling)
+- **Permissions**: Mock `useUserPermissions` from `@/hooks/api/usePermissions` — never mock `useAuthStore` directly for permission checks
+- **Relative imports for siblings**: Tests import components via relative paths (`../ComponentName`), mock data from `./mock-data`
+- **No `__tests__/integration/` or `__tests__/components/` folders**: All tests go in the component's own `__tests__/` directory, integration tests included (e.g., `notifications.integration.test.tsx`)
 
 ### Unit Tests
 - Test utility functions and custom hooks in isolation
