@@ -51,7 +51,6 @@ interface NavItemType {
 const PRODUCTION_HIDDEN_ITEMS = [
   // Add menu item titles to hide in production
   'Metrics',
-  'Reports',
   'Alerts',
 ];
 // Function to filter menu items for production environment
