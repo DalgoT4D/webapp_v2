@@ -208,8 +208,9 @@ describe('ChartCustomizations', () => {
           ]}
         />
       );
-      // No numeric columns available, so the component shows empty state
+      // No numeric or date columns available, so the component shows separate empty states
       expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
+      expect(screen.getByText('No date columns to format.')).toBeInTheDocument();
       // No numeric columns, so none should be shown for formatting
       expect(screen.queryByText('name')).not.toBeInTheDocument();
       expect(screen.queryByText('category')).not.toBeInTheDocument();

@@ -1440,8 +1440,21 @@ export function ChartElementV2({
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
                       table_columns: tableData?.columns || [],
-                      column_formatting:
-                        chart?.extra_config?.customizations?.columnFormatting || {},
+                      column_formatting: {
+                        ...(chart?.extra_config?.customizations?.columnFormatting || {}),
+                        // Merge date formatting into column_formatting
+                        ...Object.fromEntries(
+                          Object.entries(
+                            chart?.extra_config?.customizations?.dateColumnFormatting || {}
+                          ).map(([col, format]) => [
+                            col,
+                            {
+                              dateFormat:
+                                (format as { dateFormat?: string })?.dateFormat || 'default',
+                            },
+                          ])
+                        ),
+                      },
                       sort: chart?.extra_config?.sort || [],
                       pagination: chart?.extra_config?.pagination || {
                         enabled: true,

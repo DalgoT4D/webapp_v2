@@ -1139,7 +1139,21 @@ function ConfigureChartPageContent() {
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
                             table_columns: tableChartData?.columns || formData.table_columns || [],
-                            column_formatting: formData.customizations?.columnFormatting || {},
+                            column_formatting: {
+                              ...(formData.customizations?.columnFormatting || {}),
+                              // Merge date formatting into column_formatting
+                              ...Object.fromEntries(
+                                Object.entries(
+                                  formData.customizations?.dateColumnFormatting || {}
+                                ).map(([col, format]) => [
+                                  col,
+                                  {
+                                    dateFormat:
+                                      (format as { dateFormat?: string })?.dateFormat || 'default',
+                                  },
+                                ])
+                              ),
+                            },
                             sort: formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                           }}

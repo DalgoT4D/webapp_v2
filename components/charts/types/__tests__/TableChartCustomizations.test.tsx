@@ -26,8 +26,11 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByText('revenue')).toBeInTheDocument();
     expect(screen.getAllByText('No Formatting').length).toBe(3);
 
-    rerender(<TableChartCustomizations {...defaultProps} availableColumns={[]} />);
+    rerender(
+      <TableChartCustomizations {...defaultProps} availableColumns={[]} availableDateColumns={[]} />
+    );
     expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
+    expect(screen.getByText('No date columns to format.')).toBeInTheDocument();
   });
 
   it('should expand/collapse column and show NumberFormatSection', async () => {
@@ -165,5 +168,106 @@ describe('TableChartCustomizations', () => {
     // These should NOT be present (excluded for table charts)
     expect(screen.queryByRole('option', { name: 'Percentage (%)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Currency ($)' })).not.toBeInTheDocument();
+  });
+
+  // Date Formatting Tests
+  describe('Date Formatting', () => {
+    const propsWithDateColumns = {
+      ...defaultProps,
+      availableDateColumns: ['created_at', 'updated_at'],
+    };
+
+    it('should render Date Formatting section when date columns are provided', () => {
+      render(<TableChartCustomizations {...propsWithDateColumns} />);
+
+      expect(screen.getByText('Date Formatting')).toBeInTheDocument();
+      expect(screen.getByText('created_at')).toBeInTheDocument();
+      expect(screen.getByText('updated_at')).toBeInTheDocument();
+    });
+
+    it('should expand/collapse date column and show DateFormatSection', async () => {
+      const user = userEvent.setup();
+      render(<TableChartCustomizations {...propsWithDateColumns} />);
+
+      await user.click(screen.getByText('created_at'));
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
+
+      await user.click(screen.getByText('created_at'));
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+    });
+
+    it('should auto-save date format configuration on dropdown change', async () => {
+      const user = userEvent.setup();
+      render(<TableChartCustomizations {...propsWithDateColumns} />);
+
+      await user.click(screen.getByText('created_at'));
+
+      const formatSelect = screen.getByLabelText('Date Format');
+      await user.click(formatSelect);
+      await user.click(screen.getByRole('option', { name: '%d/%m/%Y (14/01/2019)' }));
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('dateColumnFormatting', {
+        created_at: { dateFormat: 'dd_mm_yyyy' },
+      });
+    });
+
+    it('should display existing date customizations', () => {
+      render(
+        <TableChartCustomizations
+          {...propsWithDateColumns}
+          customizations={{
+            dateColumnFormatting: { created_at: { dateFormat: 'dd_mm_yyyy' } },
+          }}
+        />
+      );
+
+      expect(screen.getByText('%d/%m/%Y')).toBeInTheDocument();
+    });
+
+    it('should handle remove date format button', async () => {
+      const user = userEvent.setup();
+      const { container } = render(
+        <TableChartCustomizations
+          {...propsWithDateColumns}
+          customizations={{
+            dateColumnFormatting: {
+              created_at: { dateFormat: 'dd_mm_yyyy' },
+              updated_at: { dateFormat: 'iso_datetime' },
+            },
+          }}
+        />
+      );
+
+      // Find the remove button in the Date Formatting section (second section)
+      const dateSection = screen.getByText('Date Formatting').parentElement;
+      const removeButton = dateSection?.querySelector('.lucide-refresh-cw')?.closest('button');
+      await user.click(removeButton!);
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('dateColumnFormatting', {
+        updated_at: { dateFormat: 'iso_datetime' },
+      });
+    });
+
+    it('should show both Number and Date formatting sections when both column types exist', () => {
+      render(<TableChartCustomizations {...propsWithDateColumns} />);
+
+      expect(screen.getByText('Number Formatting')).toBeInTheDocument();
+      expect(screen.getByText('Date Formatting')).toBeInTheDocument();
+    });
+
+    it('should show empty state for Number Formatting when no numeric columns exist', () => {
+      render(
+        <TableChartCustomizations
+          {...defaultProps}
+          availableColumns={[]}
+          availableDateColumns={['created_at']}
+        />
+      );
+
+      expect(screen.getByText('Number Formatting')).toBeInTheDocument();
+      expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
+      expect(screen.getByText('Date Formatting')).toBeInTheDocument();
+      expect(screen.getByText('created_at')).toBeInTheDocument();
+    });
   });
 });

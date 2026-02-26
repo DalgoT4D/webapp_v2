@@ -533,17 +533,35 @@ export function ChartPreview({
 
   // Render table chart
   if (chartType === 'table') {
-    // Merge customizations.columnFormatting into config.column_formatting for table charts
+    // Merge customizations.columnFormatting and dateColumnFormatting into config.column_formatting for table charts
     const customizations = propCustomizations || config?.extra_config?.customizations || {};
-    const tableConfig = customizations?.columnFormatting
-      ? {
-          ...config,
-          column_formatting: {
-            ...(config?.column_formatting || {}),
-            ...customizations.columnFormatting,
-          },
-        }
-      : config;
+    const hasColumnFormatting =
+      customizations?.columnFormatting || customizations?.dateColumnFormatting;
+
+    let tableConfig = config;
+    if (hasColumnFormatting) {
+      // Merge number formatting from columnFormatting
+      const numberFormatting = customizations.columnFormatting || {};
+
+      // Merge date formatting from dateColumnFormatting into column_formatting
+      const dateFormatting: Record<string, { dateFormat: string }> = {};
+      if (customizations.dateColumnFormatting) {
+        Object.entries(customizations.dateColumnFormatting).forEach(([col, format]) => {
+          dateFormatting[col] = {
+            dateFormat: (format as { dateFormat?: string })?.dateFormat || 'default',
+          };
+        });
+      }
+
+      tableConfig = {
+        ...config,
+        column_formatting: {
+          ...(config?.column_formatting || {}),
+          ...numberFormatting,
+          ...dateFormatting,
+        },
+      };
+    }
 
     return (
       <TableChart

@@ -22,6 +22,19 @@ const NUMERIC_DATA_TYPES = [
   'decimal',
 ];
 
+// Date/timestamp data types that can have date formatting applied
+const DATE_DATA_TYPES = [
+  'date',
+  'timestamp',
+  'timestamp without time zone',
+  'timestamp with time zone',
+  'timestamptz',
+  'time',
+  'time without time zone',
+  'time with time zone',
+  'timetz',
+];
+
 interface ColumnInfo {
   column_name?: string;
   name?: string;
@@ -160,6 +173,7 @@ export function ChartCustomizations({
       // Dimension columns are also included if they have a numeric data type
       // In raw mode, filter by actual column data type
       let numericColumns: string[] = [];
+      let dateColumns: string[] = [];
 
       if (hasAggregation) {
         // Metric columns are always numeric (aggregation results)
@@ -175,15 +189,26 @@ export function ChartCustomizations({
           return dataType && NUMERIC_DATA_TYPES.includes(dataType);
         });
 
+        // Dimension columns that have date/timestamp data types
+        const dateDimensionColumns = dimensionColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && DATE_DATA_TYPES.includes(dataType);
+        });
+
         numericColumns = [...numericDimensionColumns, ...metricColumns];
+        dateColumns = dateDimensionColumns;
       } else {
         // In raw mode: filter by actual column data type
         numericColumns = displayedColumns.filter((colName) => {
           const dataType = columnTypeMap[colName];
           return dataType && NUMERIC_DATA_TYPES.includes(dataType);
         });
-      }
 
+        dateColumns = displayedColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && DATE_DATA_TYPES.includes(dataType);
+        });
+      }
       // Clean up formatting for columns that no longer exist or are no longer numeric
       const existingFormatting = customizations.columnFormatting || {};
       const numericColumnsSet = new Set(numericColumns);
@@ -200,12 +225,27 @@ export function ChartCustomizations({
         updateCustomization('columnFormatting', cleanedFormatting);
       }
 
+      // Clean up date formatting for columns that no longer exist or are no longer date type
+      const existingDateFormatting = customizations.dateColumnFormatting || {};
+      const dateColumnsSet = new Set(dateColumns);
+      const hasStaleDateFormatting = Object.keys(existingDateFormatting).some(
+        (col) => !dateColumnsSet.has(col)
+      );
+
+      if (hasStaleDateFormatting) {
+        const cleanedDateFormatting = Object.fromEntries(
+          Object.entries(existingDateFormatting).filter(([col]) => dateColumnsSet.has(col))
+        );
+        updateCustomization('dateColumnFormatting', cleanedDateFormatting);
+      }
+
       return (
         <TableChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
           availableColumns={numericColumns}
+          availableDateColumns={dateColumns}
         />
       );
     }
