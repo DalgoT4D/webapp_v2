@@ -375,12 +375,16 @@ describe('Pipeline Utilities', () => {
   describe('Task Utilities', () => {
     it('handles task ordering and validation', () => {
       // getTaskOrder - system commands
-      expect(getTaskOrder('git-pull')).toBe(1);
-      expect(getTaskOrder('dbt-clean')).toBe(2);
-      expect(getTaskOrder('dbt-deps')).toBe(3);
-      expect(getTaskOrder('dbt-run')).toBe(5);
-      expect(getTaskOrder('dbt-test')).toBe(6);
-      expect(getTaskOrder('custom-task')).toBe(5); // default
+      expect(getTaskOrder('git-pull', 'system')).toBe(1);
+      expect(getTaskOrder('dbt-clean', 'system')).toBe(2);
+      expect(getTaskOrder('dbt-deps', 'system')).toBe(3);
+      expect(getTaskOrder('dbt-run', 'system')).toBe(4);
+      expect(getTaskOrder('dbt-test', 'system')).toBe(7);
+
+      // getTaskOrder - custom commands
+      expect(getTaskOrder('dbt-run', 'client')).toBe(5);
+      expect(getTaskOrder('dbt-test', 'client')).toBe(6);
+      expect(getTaskOrder('custom-task', 'client')).toBe(5); // default
 
       // makeReadable
       expect(makeReadable('run-airbyte-connection-flow-v1')).toBe('sync');

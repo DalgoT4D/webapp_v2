@@ -21,10 +21,16 @@ export const SYSTEM_COMMAND_ORDER: Record<string, number> = {
   'git-pull': 1,
   'dbt-clean': 2,
   'dbt-deps': 3,
+  'dbt-run': 4,
+  'dbt-test': 7,
+  'dbt-docs-generate': 8,
+  'dbt-cloud-job': 9,
+};
+
+// Custom command ordering - custom tasks sit between system dbt-run (4) and system dbt-test (7)
+export const CUSTOM_COMMAND_ORDER: Record<string, number> = {
   'dbt-run': 5,
   'dbt-test': 6,
-  'dbt-docs-generate': 7,
-  'dbt-cloud-job': 8,
 };
 
 // Custom commands default to order 5 if not specified
