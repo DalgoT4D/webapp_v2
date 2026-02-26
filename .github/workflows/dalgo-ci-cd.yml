@@ -150,12 +150,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api repos/${{ github.repository }}/deployments \
-            -f ref="main" \
-            -f environment="staging" \
-            -f description="staging-main-${{ steps.sha.outputs.short }}" \
-            -F auto_merge=false \
-            -F 'required_contexts=[]'
+          jq -n '{
+            "ref": "main",
+            "environment": "staging",
+            "description": "staging-main-${{ steps.sha.outputs.short }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |

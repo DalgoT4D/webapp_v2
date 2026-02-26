@@ -120,12 +120,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api repos/${{ github.repository }}/deployments \
-            -f ref="${{ steps.info.outputs.branch }}" \
-            -f environment="staging" \
-            -f description="staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}" \
-            -F auto_merge=false \
-            -F 'required_contexts=[]'
+          jq -n '{
+            "ref": "${{ steps.info.outputs.branch }}",
+            "environment": "staging",
+            "description": "staging-${{ steps.info.outputs.safe_branch }}-${{ steps.info.outputs.short_sha }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |
@@ -224,12 +225,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api repos/${{ github.repository }}/deployments \
-            -f ref="main" \
-            -f environment="production" \
-            -f description="prod-main-${{ steps.info.outputs.short_sha }}" \
-            -F auto_merge=false \
-            -F 'required_contexts=[]'
+          jq -n '{
+            "ref": "main",
+            "environment": "production",
+            "description": "prod-main-${{ steps.info.outputs.short_sha }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         env:
@@ -312,12 +314,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Create a new deployment record so this becomes the "current" deployment
-          gh api repos/${{ github.repository }}/deployments \
-            -f ref="${{ github.ref_name }}" \
-            -f environment="production" \
-            -f description="${{ steps.rollback.outputs.tag }}" \
-            -F auto_merge=false \
-            -F 'required_contexts=[]'
+          jq -n '{
+            "ref": "${{ github.ref_name }}",
+            "environment": "production",
+            "description": "${{ steps.rollback.outputs.tag }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |
