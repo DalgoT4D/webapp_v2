@@ -287,7 +287,7 @@ function PipelineRow({
         <div className="text-base text-gray-700">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-sm text-gray-400">{localTimezone()}</span>}
+        {cron && <span className="text-sm text-gray-500">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
