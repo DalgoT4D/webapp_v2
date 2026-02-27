@@ -535,7 +535,7 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // Number formatting is frontend-only - exclude from API payload
+            // Number/Date formatting is frontend-only - exclude from API payload
             ...(formData.chart_type !== 'table' && {
               customizations:
                 formData.chart_type === 'number' ||
@@ -543,7 +543,8 @@ function EditChartPageContent() {
                 formData.chart_type === 'map'
                   ? Object.fromEntries(
                       Object.entries(formData.customizations || {}).filter(
-                        ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
+                        ([key]) =>
+                          key !== 'numberFormat' && key !== 'decimalPlaces' && key !== 'dateFormat'
                       )
                     )
                   : formData.chart_type === 'line' || formData.chart_type === 'bar'

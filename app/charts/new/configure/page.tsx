@@ -359,7 +359,7 @@ function ConfigureChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        // Number formatting is frontend-only - exclude from API payload
+        // Number/Date formatting is frontend-only - exclude from API payload
         ...(formData.chart_type !== 'table' && {
           customizations:
             formData.chart_type === 'number' ||
@@ -367,7 +367,8 @@ function ConfigureChartPageContent() {
             formData.chart_type === 'map'
               ? Object.fromEntries(
                   Object.entries(formData.customizations || {}).filter(
-                    ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
+                    ([key]) =>
+                      key !== 'numberFormat' && key !== 'decimalPlaces' && key !== 'dateFormat'
                   )
                 )
               : formData.chart_type === 'line' || formData.chart_type === 'bar'
