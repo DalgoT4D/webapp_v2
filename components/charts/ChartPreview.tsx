@@ -11,7 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
-import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -149,12 +149,21 @@ export function ChartPreview({
               });
             };
 
+            // Helper to format name (dimension) with date formatting for pie charts
+            const formatName = (name: any) => {
+              const dateFormat = customizations.dateFormat as DateFormat;
+              if (isPieChart && dateFormat && dateFormat !== 'default') {
+                return formatDate(name, { format: dateFormat });
+              }
+              return name;
+            };
+
             if (Array.isArray(params)) {
               // For multiple series (line/bar charts with multiple lines/bars)
               let result = '';
               params.forEach((param: any, index: number) => {
                 if (index === 0) {
-                  result += param.name + '<br/>';
+                  result += formatName(param.name) + '<br/>';
                 }
                 const value = formatValue(param.value);
                 result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
@@ -163,12 +172,13 @@ export function ChartPreview({
             } else {
               // For single series (pie charts, single bar/line)
               const value = formatValue(params.value);
+              const name = formatName(params.name);
               if (params.percent !== undefined) {
                 // Pie chart with percentage
-                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
+                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${name} (${params.percent}%)`;
               } else {
                 // Regular chart
-                return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
+                return `${params.marker}${params.seriesName}<br/>${name}: <b>${value}</b>`;
               }
             }
           },
@@ -328,6 +338,7 @@ export function ChartPreview({
       if (isPieChart && modifiedConfig.series) {
         const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
         const decimalPlaces = customizations.decimalPlaces;
+        const dateFormat = customizations.dateFormat as DateFormat;
         const labelFormat = customizations.labelFormat || 'percentage';
         const showDataLabels = customizations.showDataLabels !== false; // Default to true
         const dataLabelPosition = customizations.dataLabelPosition || 'outside';
@@ -350,13 +361,19 @@ export function ChartPreview({
                     : params.value.toLocaleString()
                   : params.value;
 
+              // Format name (dimension value) with date formatting if configured
+              const formattedName =
+                dateFormat && dateFormat !== 'default'
+                  ? formatDate(params.name, { format: dateFormat })
+                  : params.name;
+
               switch (labelFormat) {
                 case 'value':
                   return formattedValue;
                 case 'name_percentage':
-                  return `${params.name}\n${params.percent}%`;
+                  return `${formattedName}\n${params.percent}%`;
                 case 'name_value':
-                  return `${params.name}\n${formattedValue}`;
+                  return `${formattedName}\n${formattedValue}`;
                 case 'percentage':
                 default:
                   return `${params.percent}%`;
@@ -364,6 +381,14 @@ export function ChartPreview({
             },
           },
         }));
+
+        // Add legend formatter for pie charts to format date values in legend
+        if (dateFormat && dateFormat !== 'default' && modifiedConfig.legend) {
+          modifiedConfig.legend = {
+            ...modifiedConfig.legend,
+            formatter: (name: string) => formatDate(name, { format: dateFormat }),
+          };
+        }
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)

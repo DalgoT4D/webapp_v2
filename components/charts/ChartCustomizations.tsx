@@ -107,14 +107,26 @@ export function ChartCustomizations({
       );
     }
 
-    case 'pie':
+    case 'pie': {
+      // Check if the dimension column is a date type
+      const dimensionColumn = formData.dimension_column || '';
+      const dimensionDataType = columns
+        .find((col) => (col.column_name || col.name) === dimensionColumn)
+        ?.data_type?.toLowerCase();
+      const hasDimensionDate = dimensionDataType
+        ? DATE_DATA_TYPES.includes(dimensionDataType)
+        : false;
+
       return (
         <PieChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          hasDimensionDate={hasDimensionDate}
+          dimensionColumn={dimensionColumn}
         />
       );
+    }
 
     case 'number':
       return (
