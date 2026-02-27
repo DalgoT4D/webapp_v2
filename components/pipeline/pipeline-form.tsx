@@ -312,7 +312,14 @@ function PipelineFormContent({
           <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting} data-testid="submit-btn">
+          <Button
+            type="submit"
+            variant="ghost"
+            disabled={submitting}
+            className="text-white hover:opacity-90 shadow-xs"
+            style={{ backgroundColor: '#06887b' }}
+            data-testid="submit-btn"
+          >
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
