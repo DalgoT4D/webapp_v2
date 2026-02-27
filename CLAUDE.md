@@ -237,6 +237,11 @@ Always add these attributes to interactive components for testability and debugg
 - **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
 - **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
 
+### Critical Testing Principles
+- **NEVER fake tests to pass** - If a test fails, leave it failing. Do not change expected values or assertions just to make tests pass. We debug failing tests together.
+- **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
+- **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
+
 ### Test File Conventions
 - **Location**: Tests live in `__tests__/` folders **inside** the component directory (e.g., `components/pipeline/__tests__/`, `components/notifications/__tests__/`)
 - **Mock data factories**: Create a `*-mock-data.ts` file in the `__tests__/` folder with factory functions (`createMockPipeline()`, `createMockNotification()`) following the pattern in `components/pipeline/__tests__/pipeline-mock-data.ts`
