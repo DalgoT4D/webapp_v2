@@ -10,11 +10,43 @@ import { NumberChartCustomizations } from './types/number/NumberChartCustomizati
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
 
+// Numeric data types that can have number formatting applied
+const NUMERIC_DATA_TYPES = [
+  'integer',
+  'smallint',
+  'bigint',
+  'numeric',
+  'double precision',
+  'real',
+  'float',
+  'decimal',
+];
+
+// Date/timestamp data types that can have date formatting applied
+const DATE_DATA_TYPES = [
+  'date',
+  'timestamp',
+  'timestamp without time zone',
+  'timestamp with time zone',
+  'timestamptz',
+  'time',
+  'time without time zone',
+  'time with time zone',
+  'timetz',
+];
+
+interface ColumnInfo {
+  column_name?: string;
+  name?: string;
+  data_type: string;
+}
+
 interface ChartCustomizationsProps {
   chartType: string;
   formData: ChartBuilderFormData;
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
+  columns?: ColumnInfo[]; // Column metadata for filtering by type
 }
 
 export function ChartCustomizations({
@@ -22,6 +54,7 @@ export function ChartCustomizations({
   formData,
   onChange,
   disabled,
+  columns = [],
 }: ChartCustomizationsProps) {
   // Safety check for undefined formData
   if (!formData) {
@@ -45,32 +78,55 @@ export function ChartCustomizations({
 
   switch (chartType) {
     case 'bar':
-      return (
-        <BarChartCustomizations
-          customizations={customizations}
-          updateCustomization={updateCustomization}
-          disabled={disabled}
-          hasExtraDimension={!!formData.extra_dimension_column}
-        />
-      );
+    case 'line': {
+      // Check if the X-axis (dimension) column is numeric
+      const xAxisColumn = formData.dimension_column || '';
+      const xAxisDataType = columns
+        .find((col) => (col.column_name || col.name) === xAxisColumn)
+        ?.data_type?.toLowerCase();
+      const hasNumericXAxis = xAxisDataType ? NUMERIC_DATA_TYPES.includes(xAxisDataType) : false;
 
-    case 'line':
+      if (chartType === 'bar') {
+        return (
+          <BarChartCustomizations
+            customizations={customizations}
+            updateCustomization={updateCustomization}
+            disabled={disabled}
+            hasExtraDimension={!!formData.extra_dimension_column}
+            hasNumericXAxis={hasNumericXAxis}
+          />
+        );
+      }
       return (
         <LineChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          hasNumericXAxis={hasNumericXAxis}
         />
       );
+    }
 
-    case 'pie':
+    case 'pie': {
+      // Check if the dimension column is a date type
+      const dimensionColumn = formData.dimension_column || '';
+      const dimensionDataType = columns
+        .find((col) => (col.column_name || col.name) === dimensionColumn)
+        ?.data_type?.toLowerCase();
+      const hasDimensionDate = dimensionDataType
+        ? DATE_DATA_TYPES.includes(dimensionDataType)
+        : false;
+
       return (
         <PieChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          hasDimensionDate={hasDimensionDate}
+          dimensionColumn={dimensionColumn}
         />
       );
+    }
 
     case 'number':
       return (
@@ -90,14 +146,121 @@ export function ChartCustomizations({
         />
       );
 
-    case 'table':
+    case 'table': {
+      // Only show columns that are actually displayed in the table
+      // For raw mode: use table_columns (user selected columns)
+      // For aggregated mode: use dimensions + metrics (computed columns)
+
+      const hasAggregation =
+        (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+      let displayedColumns: string[] = [];
+
+      if (hasAggregation) {
+        // Aggregated mode: columns are dimensions + metrics
+        const dimensionColumns = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+
+        const metricColumns =
+          formData.metrics
+            ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+            .filter(Boolean) || [];
+
+        displayedColumns = [...dimensionColumns, ...metricColumns];
+      } else {
+        // Raw mode: only show selected table_columns
+        displayedColumns = formData.table_columns || [];
+      }
+
+      // Build a map of column names to their data types
+      const columnTypeMap: Record<string, string> = {};
+      columns.forEach((col) => {
+        const colName = col.column_name || col.name || '';
+        if (colName) {
+          columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
+        }
+      });
+
+      // Filter to only show numeric columns for number formatting
+      // In aggregated mode, metric columns are always numeric (aggregation results)
+      // Dimension columns are also included if they have a numeric data type
+      // In raw mode, filter by actual column data type
+      let numericColumns: string[] = [];
+      let dateColumns: string[] = [];
+
+      if (hasAggregation) {
+        // Metric columns are always numeric (aggregation results)
+        const metricColumns =
+          formData.metrics
+            ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+            .filter(Boolean) || [];
+
+        // Dimension columns that have numeric data types should also be included
+        const dimensionColumns = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+        const numericDimensionColumns = dimensionColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        });
+
+        // Dimension columns that have date/timestamp data types
+        const dateDimensionColumns = dimensionColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && DATE_DATA_TYPES.includes(dataType);
+        });
+
+        numericColumns = [...numericDimensionColumns, ...metricColumns];
+        dateColumns = dateDimensionColumns;
+      } else {
+        // In raw mode: filter by actual column data type
+        numericColumns = displayedColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        });
+
+        dateColumns = displayedColumns.filter((colName) => {
+          const dataType = columnTypeMap[colName];
+          return dataType && DATE_DATA_TYPES.includes(dataType);
+        });
+      }
+      // Clean up formatting for columns that no longer exist or are no longer numeric
+      const existingFormatting = customizations.columnFormatting || {};
+      const numericColumnsSet = new Set(numericColumns);
+      const hasStaleFormatting = Object.keys(existingFormatting).some(
+        (col) => !numericColumnsSet.has(col)
+      );
+
+      if (hasStaleFormatting) {
+        // Remove formatting for columns that are no longer displayed or not numeric
+        const cleanedFormatting = Object.fromEntries(
+          Object.entries(existingFormatting).filter(([col]) => numericColumnsSet.has(col))
+        );
+        // Update the customizations to remove stale entries
+        updateCustomization('columnFormatting', cleanedFormatting);
+      }
+
+      // Clean up date formatting for columns that no longer exist or are no longer date type
+      const existingDateFormatting = customizations.dateColumnFormatting || {};
+      const dateColumnsSet = new Set(dateColumns);
+      const hasStaleDateFormatting = Object.keys(existingDateFormatting).some(
+        (col) => !dateColumnsSet.has(col)
+      );
+
+      if (hasStaleDateFormatting) {
+        const cleanedDateFormatting = Object.fromEntries(
+          Object.entries(existingDateFormatting).filter(([col]) => dateColumnsSet.has(col))
+        );
+        updateCustomization('dateColumnFormatting', cleanedDateFormatting);
+      }
+
       return (
         <TableChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          availableColumns={numericColumns}
+          availableDateColumns={dateColumns}
         />
       );
+    }
 
     default:
       return null;

@@ -817,7 +817,21 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       config={{
                         table_columns:
                           tableData?.columns || chart.extra_config?.table_columns || [],
-                        column_formatting: {},
+                        column_formatting: {
+                          ...(chart.extra_config?.customizations?.columnFormatting || {}),
+                          // Merge date formatting into column_formatting
+                          ...Object.fromEntries(
+                            Object.entries(
+                              chart.extra_config?.customizations?.dateColumnFormatting || {}
+                            ).map(([col, format]) => [
+                              col,
+                              {
+                                dateFormat:
+                                  (format as { dateFormat?: string })?.dateFormat || 'default',
+                              },
+                            ])
+                          ),
+                        },
                         sort: chart.extra_config?.sort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,

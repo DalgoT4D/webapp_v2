@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, Map, ArrowLeft, Home } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatNumber } from '@/lib/formatters';
 
 interface DrillDownLevel {
   level: number;
@@ -283,7 +284,18 @@ export function MapPreview({
                         ? rawName.substring(0, 18) + '...'
                         : rawName;
                   const name = escapeHtml(truncatedName);
-                  return `<b>${name}</b><br/>${label}: ${params.data.value}`;
+                  // Apply number formatting if configured
+                  let formattedValue = params.data.value;
+                  if (
+                    safeCustomizations.numberFormat ||
+                    safeCustomizations.decimalPlaces !== undefined
+                  ) {
+                    formattedValue = formatNumber(params.data.value, {
+                      format: safeCustomizations.numberFormat || 'default',
+                      decimalPlaces: safeCustomizations.decimalPlaces,
+                    });
+                  }
+                  return `<b>${name}</b><br/>${label}: ${formattedValue}`;
                 }
                 const rawNullLabel =
                   safeCustomizations.nullValueLabel !== undefined

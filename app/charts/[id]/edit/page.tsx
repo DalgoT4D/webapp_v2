@@ -535,7 +535,30 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            customizations: formData.customizations,
+            // Number/Date formatting is frontend-only - exclude from API payload
+            ...(formData.chart_type !== 'table' && {
+              customizations:
+                formData.chart_type === 'number' ||
+                formData.chart_type === 'pie' ||
+                formData.chart_type === 'map'
+                  ? Object.fromEntries(
+                      Object.entries(formData.customizations || {}).filter(
+                        ([key]) =>
+                          key !== 'numberFormat' && key !== 'decimalPlaces' && key !== 'dateFormat'
+                      )
+                    )
+                  : formData.chart_type === 'line' || formData.chart_type === 'bar'
+                    ? Object.fromEntries(
+                        Object.entries(formData.customizations || {}).filter(
+                          ([key]) =>
+                            key !== 'yAxisNumberFormat' &&
+                            key !== 'yAxisDecimalPlaces' &&
+                            key !== 'xAxisNumberFormat' &&
+                            key !== 'xAxisDecimalPlaces'
+                        )
+                      )
+                    : formData.customizations,
+            }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -1516,9 +1539,7 @@ function EditChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
               <div className="px-4 pt-4">
-                <TabsList
-                  className={`grid w-full h-11 ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-                >
+                <TabsList className="grid w-full h-11 grid-cols-2">
                   <TabsTrigger
                     value="configuration"
                     className="flex items-center justify-center gap-2 text-sm h-full"
@@ -1526,15 +1547,13 @@ function EditChartPageContent() {
                     <BarChart3 className="h-4 w-4" />
                     Data Configuration
                   </TabsTrigger>
-                  {formData.chart_type !== 'table' && (
-                    <TabsTrigger
-                      value="styling"
-                      className="flex items-center justify-center gap-2 text-sm h-full"
-                    >
-                      <Database className="h-4 w-4" />
-                      Chart Styling
-                    </TabsTrigger>
-                  )}
+                  <TabsTrigger
+                    value="styling"
+                    className="flex items-center justify-center gap-2 text-sm h-full"
+                  >
+                    <Database className="h-4 w-4" />
+                    Chart Styling
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -1558,21 +1577,20 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              {formData.chart_type !== 'table' && (
-                <TabsContent value="styling" className="mt-0 flex-1 overflow-y-auto">
-                  <div className="p-4">
-                    {formData.chart_type === 'map' ? (
-                      <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                    ) : (
-                      <ChartCustomizations
-                        chartType={formData.chart_type || 'bar'}
-                        formData={formData}
-                        onChange={handleFormChange}
-                      />
-                    )}
-                  </div>
-                </TabsContent>
-              )}
+              <TabsContent value="styling" className="mt-0 flex-1 overflow-y-auto">
+                <div className="p-4">
+                  {formData.chart_type === 'map' ? (
+                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+                  ) : (
+                    <ChartCustomizations
+                      chartType={formData.chart_type || 'bar'}
+                      formData={formData}
+                      onChange={handleFormChange}
+                      columns={columns}
+                    />
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </div>
 
@@ -1664,7 +1682,21 @@ function EditChartPageContent() {
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
                             table_columns: tableChartData?.columns || formData.table_columns,
-                            column_formatting: {},
+                            column_formatting: {
+                              ...(formData.customizations?.columnFormatting || {}),
+                              // Merge date formatting into column_formatting
+                              ...Object.fromEntries(
+                                Object.entries(
+                                  formData.customizations?.dateColumnFormatting || {}
+                                ).map(([col, format]) => [
+                                  col,
+                                  {
+                                    dateFormat:
+                                      (format as { dateFormat?: string })?.dateFormat || 'default',
+                                  },
+                                ])
+                              ),
+                            },
                             sort: formData.sort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                           }}

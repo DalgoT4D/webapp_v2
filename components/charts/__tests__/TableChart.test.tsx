@@ -66,7 +66,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['salary'],
-            column_formatting: { salary: { type: 'currency', precision: 2 } },
+            column_formatting: { salary: { type: 'currency', decimalPlaces: 2 } },
           }}
         />
       );
@@ -77,7 +77,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['score'],
-            column_formatting: { score: { type: 'percentage', precision: 1 } },
+            column_formatting: { score: { type: 'percentage', decimalPlaces: 1 } },
           }}
         />
       );
@@ -88,7 +88,7 @@ describe('TableChart', () => {
           data={mockData}
           config={{
             table_columns: ['score'],
-            column_formatting: { score: { type: 'number', precision: 3 } },
+            column_formatting: { score: { type: 'number', decimalPlaces: 3 } },
           }}
         />
       );
@@ -102,12 +102,75 @@ describe('TableChart', () => {
           config={{
             table_columns: ['salary'],
             column_formatting: {
-              salary: { type: 'currency', precision: 0, prefix: 'USD ', suffix: '/yr' },
+              salary: { type: 'currency', decimalPlaces: 0, prefix: 'USD ', suffix: '/yr' },
             },
           }}
         />
       );
       expect(screen.getByText('USD $50000/yr')).toBeInTheDocument();
+    });
+
+    it('should format using numberFormat types (indian, international, adaptive)', () => {
+      const { rerender } = render(
+        <TableChart
+          data={mockData}
+          config={{
+            table_columns: ['salary'],
+            column_formatting: { salary: { numberFormat: 'indian', decimalPlaces: 0 } },
+          }}
+        />
+      );
+      expect(screen.getByText('50,000')).toBeInTheDocument();
+
+      rerender(
+        <TableChart
+          data={mockData}
+          config={{
+            table_columns: ['salary'],
+            column_formatting: { salary: { numberFormat: 'international', decimalPlaces: 2 } },
+          }}
+        />
+      );
+      expect(screen.getByText('50,000.00')).toBeInTheDocument();
+
+      rerender(
+        <TableChart
+          data={[{ id: 1, name: 'Test', value: 1500000 }]}
+          config={{
+            table_columns: ['value'],
+            column_formatting: {
+              value: { numberFormat: 'adaptive_international', decimalPlaces: 1 },
+            },
+          }}
+        />
+      );
+      expect(screen.getByText('1.5M')).toBeInTheDocument();
+
+      rerender(
+        <TableChart
+          data={[{ id: 1, name: 'Test', value: 1500000 }]}
+          config={{
+            table_columns: ['value'],
+            column_formatting: { value: { numberFormat: 'adaptive_indian', decimalPlaces: 1 } },
+          }}
+        />
+      );
+      expect(screen.getByText('15.0L')).toBeInTheDocument();
+    });
+
+    it('should apply prefix and suffix with numberFormat', () => {
+      render(
+        <TableChart
+          data={mockData}
+          config={{
+            table_columns: ['salary'],
+            column_formatting: {
+              salary: { numberFormat: 'indian', decimalPlaces: 0, prefix: '₹', suffix: ' INR' },
+            },
+          }}
+        />
+      );
+      expect(screen.getByText('₹50,000 INR')).toBeInTheDocument();
     });
   });
 
@@ -277,17 +340,19 @@ describe('TableChart', () => {
       expect(screen.getByText('Test')).toBeInTheDocument();
     });
 
-    it('should handle invalid formatting values', () => {
+    it('should not format string values - only actual numeric types', () => {
+      // String values should be displayed as-is, not parsed to numbers
       const { rerender } = render(
         <TableChart
           data={[{ value: '123.456' }]}
           config={{
             table_columns: ['value'],
-            column_formatting: { value: { type: 'number', precision: 2 } },
+            column_formatting: { value: { type: 'number', decimalPlaces: 2 } },
           }}
         />
       );
-      expect(screen.getByText('123.46')).toBeInTheDocument();
+      // String '123.456' should NOT be parsed - displayed as-is
+      expect(screen.getByText('123.456')).toBeInTheDocument();
 
       rerender(
         <TableChart
@@ -298,7 +363,8 @@ describe('TableChart', () => {
           }}
         />
       );
-      expect(screen.getByText('$0.00')).toBeInTheDocument();
+      // String should be displayed as-is
+      expect(screen.getByText('not-a-number')).toBeInTheDocument();
     });
   });
 });
