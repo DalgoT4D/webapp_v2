@@ -73,12 +73,13 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
     const selectedTask = options.find((t) => t.uuid === uuid);
     if (!selectedTask) return;
 
-    // Add task and sort by order
-    const newTasks = [
-      ...value,
-      { ...selectedTask, order: getTaskOrder(selectedTask.slug, selectedTask.generated_by) },
-    ];
-    newTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Add task and sort by computed order (matching old webapp behavior)
+    const newTasks = [...value, selectedTask];
+    newTasks.sort(
+      (a, b) =>
+        (a.order ?? getTaskOrder(a.slug, a.generated_by)) -
+        (b.order ?? getTaskOrder(b.slug, b.generated_by))
+    );
     onChange(newTasks);
   };
 
