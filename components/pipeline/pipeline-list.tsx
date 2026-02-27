@@ -359,6 +359,7 @@ function PipelineRow({
             disabled={!canViewPipeline}
             className="h-8 w-8 p-0 hover:bg-gray-100"
             data-testid={`history-btn-${deploymentId}`}
+            aria-label="History"
           >
             <History className="w-4 h-4 text-gray-600" />
           </Button>
@@ -370,6 +371,7 @@ function PipelineRow({
             disabled={isDisabled || !canRunPipeline}
             data-testid={`run-btn-${deploymentId}`}
             className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
+            aria-label="Run"
           >
             {isRunning ? (
               <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
