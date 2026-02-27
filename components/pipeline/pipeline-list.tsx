@@ -37,6 +37,12 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import type { Pipeline } from '@/types/pipeline';
+import {
+  LockStatus,
+  FlowRunStatus,
+  FlowRunStateName,
+  PipelineRunDisplayStatus,
+} from '@/constants/pipeline';
 import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from './utils';
 import { useSyncLock } from '@/hooks/useSyncLock';
 import { PipelineRunHistory } from './pipeline-run-history';
@@ -235,14 +241,16 @@ function PipelineRow({
   // Determine run status
   // locked (optimistic + backend) → queued → running → success/failed
   const getRunStatus = () => {
-    if (lock?.status === 'running') return 'running';
-    if (lock?.status === 'queued') return 'queued';
-    if (lock?.status === 'locked' || lock?.status === 'complete') return 'locked';
-    if (tempSyncState) return 'locked';
+    if (lock?.status === LockStatus.RUNNING) return PipelineRunDisplayStatus.RUNNING;
+    if (lock?.status === LockStatus.QUEUED) return PipelineRunDisplayStatus.QUEUED;
+    if (lock?.status === LockStatus.LOCKED || lock?.status === LockStatus.COMPLETE)
+      return PipelineRunDisplayStatus.LOCKED;
+    if (tempSyncState) return PipelineRunDisplayStatus.LOCKED;
     if (!lastRun) return null;
-    if (lastRun.state_name === 'DBT_TEST_FAILED') return 'warning';
-    if (lastRun.status === 'COMPLETED') return 'success';
-    return 'failed';
+    if (lastRun.state_name === FlowRunStateName.DBT_TEST_FAILED)
+      return PipelineRunDisplayStatus.WARNING;
+    if (lastRun.status === FlowRunStatus.COMPLETED) return PipelineRunDisplayStatus.SUCCESS;
+    return PipelineRunDisplayStatus.FAILED;
   };
 
   const runStatus = getRunStatus();
@@ -418,7 +426,13 @@ function PipelineRow({
   );
 }
 
-function StatusBadge({ status, deploymentId }: { status: string | null; deploymentId: string }) {
+function StatusBadge({
+  status,
+  deploymentId,
+}: {
+  status: PipelineRunDisplayStatus | null;
+  deploymentId: string;
+}) {
   if (!status) {
     return (
       <span className="text-base text-gray-400" data-testid={`run-status-${deploymentId}`}>
@@ -427,40 +441,43 @@ function StatusBadge({ status, deploymentId }: { status: string | null; deployme
     );
   }
 
-  const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
-    running: {
+  const config: Record<
+    PipelineRunDisplayStatus,
+    { icon: React.ReactNode; label: string; className: string }
+  > = {
+    [PipelineRunDisplayStatus.RUNNING]: {
       icon: <LoopIcon className="h-3.5 w-3.5" />,
       label: 'Running',
       className: 'bg-transparent text-green-600 border-green-300',
     },
-    queued: {
+    [PipelineRunDisplayStatus.QUEUED]: {
       icon: <Clock className="h-3.5 w-3.5" />,
       label: 'Queued',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
-    locked: {
+    [PipelineRunDisplayStatus.LOCKED]: {
       icon: <Lock className="h-3.5 w-3.5" />,
       label: 'Locked',
       className: 'bg-gray-50 text-gray-600 border-gray-200',
     },
-    success: {
+    [PipelineRunDisplayStatus.SUCCESS]: {
       icon: <TaskAltIcon className="h-3.5 w-3.5" />,
       label: 'Success',
       className: 'bg-green-50 text-green-700 border-green-200',
     },
-    failed: {
+    [PipelineRunDisplayStatus.FAILED]: {
       icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'Failed',
       className: 'bg-red-50 text-red-700 border-red-200',
     },
-    warning: {
+    [PipelineRunDisplayStatus.WARNING]: {
       icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'DBT Test Failed',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
   };
 
-  const { icon, label, className } = config[status] || config.failed;
+  const { icon, label, className } = config[status] || config[PipelineRunDisplayStatus.FAILED];
 
   return (
     <div

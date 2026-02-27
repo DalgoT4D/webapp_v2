@@ -5,6 +5,7 @@
  */
 
 import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mock Data Factories ============
 
@@ -66,7 +67,11 @@ export const mockPipelines: Pipeline[] = [
   createMockPipeline({
     name: 'Running Pipeline',
     deploymentId: 'dep-3',
-    lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'running' },
+    lock: {
+      lockedBy: 'user@test.com',
+      lockedAt: new Date().toISOString(),
+      status: LockStatus.RUNNING,
+    },
   }),
 ];
 
@@ -133,7 +138,7 @@ export const createPipelinesWithSharedConnection = (sharedConnectionId: string) 
   const sharedLock = {
     lockedBy: 'user@test.com',
     lockedAt: new Date().toISOString(),
-    status: 'running' as const,
+    status: LockStatus.RUNNING,
   };
 
   return {
@@ -145,12 +150,12 @@ export const createPipelinesWithSharedConnection = (sharedConnectionId: string) 
     lockedPipeline1: createMockPipeline({
       name: 'Locked Pipeline 1',
       deploymentId: 'locked-dep-1',
-      lock: { ...sharedLock, status: 'locked' as const },
+      lock: { ...sharedLock, status: LockStatus.LOCKED },
     }),
     lockedPipeline2: createMockPipeline({
       name: 'Locked Pipeline 2',
       deploymentId: 'locked-dep-2',
-      lock: { ...sharedLock, status: 'locked' as const },
+      lock: { ...sharedLock, status: LockStatus.LOCKED },
     }),
   };
 };

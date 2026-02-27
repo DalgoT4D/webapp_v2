@@ -1,5 +1,42 @@
 // Pipeline/Orchestrate constants
 
+// Lock status - pipeline lock lifecycle from the backend
+export enum LockStatus {
+  QUEUED = 'queued',
+  RUNNING = 'running',
+  LOCKED = 'locked',
+  COMPLETE = 'complete',
+  CANCELLED = 'cancelled',
+}
+
+// Prefect flow run status (state_type) - uppercase values from the API
+export enum FlowRunStatus {
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CRASHED = 'CRASHED',
+}
+
+// Prefect flow run state name
+export enum FlowRunStateName {
+  DBT_TEST_FAILED = 'DBT_TEST_FAILED',
+}
+
+// UI display status - derived in getRunStatus() for the pipeline list StatusBadge
+export enum PipelineRunDisplayStatus {
+  RUNNING = 'running',
+  QUEUED = 'queued',
+  LOCKED = 'locked',
+  SUCCESS = 'success',
+  FAILED = 'failed',
+  WARNING = 'warning',
+}
+
+// Celery task progress status - used for polling async tasks (e.g., AI log summaries)
+export enum TaskProgressStatus {
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
 export const DEFAULT_LOAD_MORE_LIMIT = 3;
 export const FLOW_RUN_LOGS_OFFSET_LIMIT = 200;
 

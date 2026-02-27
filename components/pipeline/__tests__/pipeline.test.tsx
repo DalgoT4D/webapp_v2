@@ -13,6 +13,7 @@ import { TaskSequence } from '../task-sequence';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
 import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
 
@@ -182,17 +183,29 @@ describe('PipelineList', () => {
       createPipeline({
         name: 'Running Pipeline',
         deploymentId: 'dep-3',
-        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'running' },
+        lock: {
+          lockedBy: 'user@test.com',
+          lockedAt: new Date().toISOString(),
+          status: LockStatus.RUNNING,
+        },
       }),
       createPipeline({
         name: 'Queued Pipeline',
         deploymentId: 'dep-4',
-        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'queued' },
+        lock: {
+          lockedBy: 'user@test.com',
+          lockedAt: new Date().toISOString(),
+          status: LockStatus.QUEUED,
+        },
       }),
       createPipeline({
         name: 'Locked Pipeline',
         deploymentId: 'dep-lock',
-        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'locked' },
+        lock: {
+          lockedBy: 'user@test.com',
+          lockedAt: new Date().toISOString(),
+          status: LockStatus.LOCKED,
+        },
       }),
       createPipeline({
         name: 'Complete Lock Pipeline',
@@ -200,7 +213,7 @@ describe('PipelineList', () => {
         lock: {
           lockedBy: 'user@test.com',
           lockedAt: new Date().toISOString(),
-          status: 'complete',
+          status: LockStatus.COMPLETE,
         },
       }),
       createPipeline({
