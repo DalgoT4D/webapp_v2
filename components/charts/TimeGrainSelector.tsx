@@ -9,11 +9,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { isDateOnlyColumn } from '@/lib/columnTypeIcons';
 
 interface TimeGrainSelectorProps {
   value: string | null;
   onChange: (value: string | null) => void;
   disabled?: boolean;
+  columnDataType?: string;
 }
 
 const TIME_GRAIN_OPTIONS = [
@@ -26,9 +29,25 @@ const TIME_GRAIN_OPTIONS = [
   { value: 'second', label: 'Second' },
 ];
 
-export function TimeGrainSelector({ value, onChange, disabled }: TimeGrainSelectorProps) {
+export function TimeGrainSelector({
+  value,
+  onChange,
+  disabled,
+  columnDataType,
+}: TimeGrainSelectorProps) {
   const handleValueChange = (selectedValue: string) => {
     onChange(selectedValue === '__none__' ? null : selectedValue);
+  };
+
+  // Determine which options should be disabled based on column type
+  const isDateOnly = columnDataType ? isDateOnlyColumn(columnDataType) : false;
+
+  const getOptionDisabledState = (optionValue: string) => {
+    if (!columnDataType) return false;
+    if (isDateOnly && ['hour', 'minute', 'second'].includes(optionValue)) {
+      return true;
+    }
+    return false;
   };
 
   return (
@@ -39,11 +58,36 @@ export function TimeGrainSelector({ value, onChange, disabled }: TimeGrainSelect
           <SelectValue placeholder="Select time grain" />
         </SelectTrigger>
         <SelectContent>
-          {TIME_GRAIN_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          {TIME_GRAIN_OPTIONS.map((option) => {
+            const isDisabled = getOptionDisabledState(option.value);
+
+            if (isDisabled) {
+              return (
+                <Tooltip key={option.value} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <SelectItem
+                        value={option.value}
+                        disabled={true}
+                        className="opacity-50 cursor-not-allowed"
+                      >
+                        {option.label}
+                      </SelectItem>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs">
+                    Not available for date columns
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     </div>
