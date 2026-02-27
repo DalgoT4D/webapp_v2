@@ -220,6 +220,8 @@ interface DashboardNativeViewProps {
   showMinimalHeader?: boolean; // Show only title when used as landing page
   isEmbedMode?: boolean; // Hide all non-essential UI for iframe embedding
   embedTheme?: 'light' | 'dark'; // Theme for embed mode
+  isReportMode?: boolean; // Report snapshot mode — frozen config, no editing
+  frozenChartConfigs?: Record<string, any>; // Chart configs keyed by chart ID
 }
 
 export function DashboardNativeView({
@@ -231,6 +233,8 @@ export function DashboardNativeView({
   showMinimalHeader = false,
   isEmbedMode = false,
   embedTheme = 'light',
+  isReportMode = false,
+  frozenChartConfigs,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -284,14 +288,15 @@ export function DashboardNativeView({
     isLoading: apiIsLoading,
     isError: apiIsError,
     mutate,
-  } = useDashboard(isPublicMode && dashboardData ? null : dashboardId);
+  } = useDashboard((isPublicMode || isReportMode) && dashboardData ? null : dashboardId);
 
-  // Use pre-fetched data for public mode, otherwise use API data
-  const dashboard = isPublicMode && dashboardData ? dashboardData : dashboardFromApi;
+  // Use pre-fetched data for public/report mode, otherwise use API data
+  const dashboard =
+    (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
 
-  // Override loading and error states for public mode when we have pre-fetched data
-  const isLoading = isPublicMode && dashboardData ? false : apiIsLoading;
-  const isError = isPublicMode && dashboardData ? false : apiIsError;
+  // Override loading and error states when we have pre-fetched data
+  const isLoading = (isPublicMode || isReportMode) && dashboardData ? false : apiIsLoading;
+  const isError = (isPublicMode || isReportMode) && dashboardData ? false : apiIsError;
 
   // Use responsive layout hook
   const responsive = useResponsiveLayout();
@@ -513,6 +518,11 @@ export function DashboardNativeView({
               isPublicMode={isPublicMode}
               publicToken={publicToken}
               config={component.config}
+              frozenChartConfig={
+                isReportMode && frozenChartConfigs
+                  ? frozenChartConfigs[String(component.config?.chartId)]
+                  : undefined
+              }
             />
           </div>
         );
