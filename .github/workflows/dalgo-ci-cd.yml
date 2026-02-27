@@ -39,22 +39,60 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Set up QEMU
+        if: github.event_name == 'pull_request'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: github.event_name == 'pull_request'
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image (verify only)
         if: github.event_name == 'pull_request'
-        run: docker build -t webapp_v2:test .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          tags: webapp_v2:test
 
   # ============================================
-  # CD: AUTO-DEPLOY TO STAGING (only on main push, after checks pass)
+  # STAGING GUARD: Check if staging is on main
+  # (separate job WITHOUT environment: to avoid auto-created deployment records)
+  # ============================================
+  staging-guard:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: read
+    steps:
+      - name: Check staging branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT=$(gh api repos/${{ github.repository }}/deployments?environment=staging --jq '.[0].ref // empty')
+          if [ -z "$CURRENT" ]; then
+            echo "No previous staging deployment found. Proceeding with deploy."
+          elif [ "$CURRENT" != "main" ]; then
+            echo "::error::Staging is on '$CURRENT', not main. Skipping auto-deploy."
+            exit 1
+          else
+            echo "Staging is on main. Proceeding with deploy."
+          fi
+
+  # ============================================
+  # CD: AUTO-DEPLOY TO STAGING (only on main push, after checks and guard pass)
   # ============================================
   deploy-staging:
-    needs: checks
+    needs: [checks, staging-guard]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging
     permissions:
       contents: read
       packages: write
-      actions: write
+      deployments: write
 
     steps:
       - uses: actions/checkout@v4
@@ -65,15 +103,6 @@ jobs:
       - name: Get commit SHA
         id: sha
         run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-      # Fail fast: check if staging is on main before spending time on docker build
-      - name: Check staging branch
-        run: |
-          CURRENT="${{ vars.CURRENT_BRANCH }}"
-          if [ "$CURRENT" != "main" ]; then
-            echo "Error: Staging is on '$CURRENT', not main. Skipping deploy."
-            exit 1
-          fi
 
       - name: Validate build secrets
         run: |
@@ -88,16 +117,11 @@ jobs:
             exit 1
           fi
 
-      - name: Build Docker image
-        run: |
-          docker build \
-            --build-arg "NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" \
-            --build-arg "NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" \
-            --build-arg "NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" \
-            --build-arg "NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" \
-            --build-arg "NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }} .
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -106,12 +130,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to GHCR
-        run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
-          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }} \
-                     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          build-args: |
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}
+            NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging
+            NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}
+            NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}
+            NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}
 
       - name: Deploy to staging
         uses: ./.github/actions/deploy
@@ -124,10 +158,17 @@ jobs:
           ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           ghcr_user: ${{ github.actor }}
 
-      - name: Update staging branch tracker
+      - name: Record staging deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh variable set CURRENT_BRANCH --body "main" --env staging
+        run: |
+          jq -n '{
+            "ref": "main",
+            "environment": "staging",
+            "description": "staging-main-${{ steps.sha.outputs.short }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
 
       - name: Summary
         run: |
