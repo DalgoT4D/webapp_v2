@@ -8,7 +8,7 @@ import {
   Loader2,
   MoreHorizontal,
   History,
-  Play,
+  RefreshCw,
   Pencil,
   Trash2,
   Clock,
@@ -354,34 +354,27 @@ function PipelineRow({
         <div className="flex items-center justify-center gap-1">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={() => onViewHistory(pipeline)}
             disabled={!canViewPipeline}
-            className="h-9 px-3 text-[14px] text-gray-600 hover:text-gray-900 border border-gray-200 bg-gray-50 hover:bg-gray-100"
+            className="h-8 w-8 p-0 hover:bg-gray-100"
             data-testid={`history-btn-${deploymentId}`}
           >
-            <History className="h-4 w-4 mr-1.5" />
-            History
+            <History className="w-4 h-4 text-gray-600" />
           </Button>
 
           <Button
-            variant="default"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={handleRunClick}
             disabled={isDisabled || !canRunPipeline}
             data-testid={`run-btn-${deploymentId}`}
-            className={cn(
-              'h-9 text-[14px] min-w-[72px]',
-              isRunning ? 'bg-primary/70 hover:bg-primary/70 cursor-not-allowed px-4' : 'px-4'
-            )}
+            className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
           >
             {isRunning ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
             ) : (
-              <>
-                <Play className="h-3.5 w-3.5 mr-1.5" />
-                Run
-              </>
+              <RefreshCw className="w-4 h-4 text-gray-600" />
             )}
           </Button>
 
@@ -389,12 +382,12 @@ function PipelineRow({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 disabled={isDisabled}
-                className="h-9 w-9 p-0 text-gray-400 hover:text-gray-600"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
                 data-testid={`more-btn-${deploymentId}`}
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="w-4 h-4 text-gray-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
