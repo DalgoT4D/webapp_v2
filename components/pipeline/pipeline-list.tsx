@@ -282,7 +282,7 @@ function PipelineRow({
         <div className="flex items-center gap-3">
           <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
           <span
-            className="font-medium text-base text-gray-900"
+            className="font-medium text-lg text-gray-900"
             data-testid={`pipeline-name-${deploymentId}`}
           >
             {name}
@@ -295,7 +295,7 @@ function PipelineRow({
         <div className="text-base text-gray-700">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-sm text-gray-500">{localTimezone()}</span>}
+        {cron && <span className="text-base text-gray-700">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
