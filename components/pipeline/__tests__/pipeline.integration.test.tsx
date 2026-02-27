@@ -25,6 +25,7 @@ import {
 } from './pipeline-mock-data';
 import { PipelineList } from '../pipeline-list';
 import { PipelineForm } from '../pipeline-form';
+import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
 
@@ -135,13 +136,17 @@ describe('Pipeline List - Integration Tests', () => {
         lock: {
           lockedBy: 'user@test.com',
           lockedAt: new Date().toISOString(),
-          status: 'running',
+          status: LockStatus.RUNNING,
         },
       }),
       createMockPipeline({
         name: 'Queued Pipeline',
         deploymentId: 'status-4',
-        lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'queued' },
+        lock: {
+          lockedBy: 'user@test.com',
+          lockedAt: new Date().toISOString(),
+          status: LockStatus.QUEUED,
+        },
       }),
       createMockPipeline({
         name: 'Success Pipeline',
@@ -204,7 +209,7 @@ describe('Pipeline List - Integration Tests', () => {
     expect(screen.getByText('Queued')).toBeInTheDocument();
     expect(screen.getByText('Success')).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Tests Failed')).toBeInTheDocument();
+    expect(screen.getByText('DBT Test Failed')).toBeInTheDocument();
     unmount2();
 
     // Empty state
@@ -330,7 +335,7 @@ describe('Pipeline List - Integration Tests', () => {
             lock: {
               lockedBy: 'user@test.com',
               lockedAt: new Date().toISOString(),
-              status: 'running',
+              status: LockStatus.RUNNING,
             },
           }),
         ]);
@@ -666,7 +671,7 @@ describe('Pipeline Polling Behavior', () => {
               ? {
                   lockedBy: 'user@test.com',
                   lockedAt: new Date().toISOString(),
-                  status: 'running',
+                  status: LockStatus.RUNNING,
                 }
               : null,
             lastRun: isStillRunning

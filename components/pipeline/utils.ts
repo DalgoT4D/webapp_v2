@@ -3,6 +3,7 @@ import type { TransformTask } from '@/types/pipeline';
 import {
   TASK_READABLE_NAMES,
   SYSTEM_COMMAND_ORDER,
+  CUSTOM_COMMAND_ORDER,
   CUSTOM_COMMAND_DEFAULT_ORDER,
   FLOW_RUN_STARTED_BY_DATE_CUTOFF,
   WEEKDAYS,
@@ -66,10 +67,14 @@ export function trimEmail(email: string): string {
 }
 
 /**
- * Get task order from system commands or default
+ * Get task order based on slug and whether it's system or custom generated.
+ * System tasks use SYSTEM_COMMAND_ORDER, custom tasks use CUSTOM_COMMAND_ORDER.
  */
-export function getTaskOrder(slug: string): number {
-  return SYSTEM_COMMAND_ORDER[slug] ?? CUSTOM_COMMAND_DEFAULT_ORDER;
+export function getTaskOrder(slug: string, generatedBy?: string): number {
+  if (generatedBy === 'system') {
+    return SYSTEM_COMMAND_ORDER[slug] ?? CUSTOM_COMMAND_DEFAULT_ORDER;
+  }
+  return CUSTOM_COMMAND_ORDER[slug] ?? CUSTOM_COMMAND_DEFAULT_ORDER;
 }
 
 /**

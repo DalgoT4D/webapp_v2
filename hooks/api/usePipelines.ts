@@ -13,6 +13,7 @@ import {
   POLLING_INTERVAL_IDLE,
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
+  TaskProgressStatus,
 } from '@/constants/pipeline';
 
 /**
@@ -224,7 +225,9 @@ export function useLogSummaryPoll(taskId: string | null) {
       refreshInterval: (latestData) => {
         if (!latestData) return POLLING_INTERVAL_WHEN_LOCKED;
         const lastMessage = latestData.progress[latestData.progress.length - 1];
-        return ['completed', 'failed'].includes(lastMessage?.status)
+        return [TaskProgressStatus.COMPLETED, TaskProgressStatus.FAILED].includes(
+          lastMessage?.status as TaskProgressStatus
+        )
           ? POLLING_INTERVAL_IDLE
           : POLLING_INTERVAL_WHEN_LOCKED;
       },
@@ -233,7 +236,11 @@ export function useLogSummaryPoll(taskId: string | null) {
   );
 
   const lastMessage = data?.progress?.[data.progress.length - 1];
-  const isComplete = !!lastMessage && ['completed', 'failed'].includes(lastMessage.status);
+  const isComplete =
+    !!lastMessage &&
+    [TaskProgressStatus.COMPLETED, TaskProgressStatus.FAILED].includes(
+      lastMessage.status as TaskProgressStatus
+    );
 
   const summary =
     isComplete && lastMessage.result && lastMessage.result.length > 0

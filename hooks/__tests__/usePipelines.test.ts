@@ -21,6 +21,7 @@ import {
 } from '../api/usePipelines';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { TaskLock } from '@/types/pipeline';
+import { LockStatus } from '@/constants/pipeline';
 
 jest.mock('swr');
 jest.mock('@/lib/api', () => ({
@@ -35,7 +36,7 @@ describe('useSyncLock Hook', () => {
     const runningLock: TaskLock = {
       lockedBy: 'user@example.com',
       lockedAt: new Date().toISOString(),
-      status: 'running',
+      status: LockStatus.RUNNING,
     };
 
     // Initial state
@@ -65,7 +66,11 @@ describe('useSyncLock Hook', () => {
     act(() => result.current.setTempSyncState(true));
 
     // Test queued -> running -> complete -> null
-    const statuses: Array<TaskLock['status']> = ['queued', 'running', 'complete'];
+    const statuses: Array<TaskLock['status']> = [
+      LockStatus.QUEUED,
+      LockStatus.RUNNING,
+      LockStatus.COMPLETE,
+    ];
     statuses.forEach((status) => {
       rerender({ lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status } });
       expect(result.current.tempSyncState).toBe(true);

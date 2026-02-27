@@ -132,8 +132,8 @@ describe('TaskSequence - Selection and Filtering', () => {
     const user = userEvent.setup();
     const tasks = [
       createTask({ uuid: 'task-1', slug: 'git-pull', command: 'git pull', order: 1 }),
-      createTask({ uuid: 'task-2', slug: 'dbt-run', command: 'dbt run', order: 5 }),
-      createTask({ uuid: 'task-3', slug: 'dbt-test', command: 'dbt test', order: 6 }),
+      createTask({ uuid: 'task-2', slug: 'dbt-run', command: 'dbt run', order: 4 }),
+      createTask({ uuid: 'task-3', slug: 'dbt-test', command: 'dbt test', order: 7 }),
     ];
 
     // Filtering: selected task-1 should not appear in options
@@ -230,8 +230,8 @@ describe('TaskSequence - Drag and Drop', () => {
 
   const systemTasks = [
     createTask({ uuid: 'task-1', slug: 'git-pull', generated_by: 'system', order: 1 }),
-    createTask({ uuid: 'task-2', slug: 'dbt-run', generated_by: 'system', order: 5 }),
-    createTask({ uuid: 'task-3', slug: 'dbt-test', generated_by: 'system', order: 6 }),
+    createTask({ uuid: 'task-2', slug: 'dbt-run', generated_by: 'system', order: 4 }),
+    createTask({ uuid: 'task-3', slug: 'dbt-test', generated_by: 'system', order: 7 }),
   ];
 
   const clientTask = createTask({
