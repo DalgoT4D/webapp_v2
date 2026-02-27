@@ -157,22 +157,9 @@ interface FlowRunRowProps {
 }
 
 function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowRunRowProps) {
-  const isFailed = run.status === 'failed' || run.status === 'warning';
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-
-  const hasExpandedContent = expandedTasks.size > 0;
-
-  const handleTaskExpandChange = useCallback((taskId: string, isExpanded: boolean) => {
-    setExpandedTasks((prev) => {
-      const next = new Set(prev);
-      if (isExpanded) {
-        next.add(taskId);
-      } else {
-        next.delete(taskId);
-      }
-      return next;
-    });
-  }, []);
+  const isFailed =
+    run.status === PipelineRunDisplayStatus.FAILED ||
+    run.status === PipelineRunDisplayStatus.WARNING;
 
   const formattedDate =
     run.date && isValid(new Date(run.date)) ? format(new Date(run.date), 'MMMM d, yyyy') : '—';
@@ -180,9 +167,8 @@ function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowR
   return (
     <div
       className={cn(
-        'grid grid-cols-12 rounded-lg overflow-hidden transition-all duration-200',
-        isFailed ? 'bg-red-50/70 border border-red-200/60' : 'bg-white border border-gray-200/70',
-        hasExpandedContent && 'border-l-4 border-l-teal-500'
+        'grid grid-cols-12 rounded-lg overflow-hidden',
+        isFailed ? 'bg-red-50/70 border border-red-200/60' : 'bg-white border border-gray-200/70'
       )}
     >
       {/* Date Cell - Fixed width, vertically centered */}
@@ -220,7 +206,6 @@ function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowR
             onFetchLogs={onFetchLogs}
             onStartSummary={onStartSummary}
             enableAISummary={enableAISummary}
-            onExpandChange={handleTaskExpandChange}
           />
         ))}
       </div>
@@ -239,7 +224,6 @@ interface TaskRunRowProps {
   onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
   onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   enableAISummary?: boolean;
-  onExpandChange?: (taskId: string, isExpanded: boolean) => void;
 }
 
 function TaskRunRow({
@@ -250,7 +234,6 @@ function TaskRunRow({
   onFetchLogs,
   onStartSummary,
   enableAISummary,
-  onExpandChange,
 }: TaskRunRowProps) {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -277,18 +260,15 @@ function TaskRunRow({
         setLogsLoading(false);
       }
     }
-    const nextShowLogs = !showLogs;
-    setShowLogs(nextShowLogs);
+    setShowLogs(!showLogs);
     setShowSummary(false);
-    onExpandChange?.(task.id, nextShowLogs);
-  }, [showLogs, logs.length, onFetchLogs, flowRunId, task.id, task.kind, onExpandChange]);
+  }, [showLogs, logs.length, onFetchLogs, flowRunId, task.id, task.kind]);
 
   const handleTriggerSummary = useCallback(async () => {
     if (!onStartSummary) return;
 
     setShowSummary(true);
     setShowLogs(false);
-    onExpandChange?.(task.id, true);
 
     try {
       const taskId = await onStartSummary(flowRunId, task.id);
@@ -296,7 +276,7 @@ function TaskRunRow({
     } catch (error) {
       console.error('Failed to start summary:', error);
     }
-  }, [onStartSummary, flowRunId, task.id, onExpandChange]);
+  }, [onStartSummary, flowRunId, task.id]);
 
   const summaryText = pollError ? 'Failed to generate summary.' : pollSummary || '';
 

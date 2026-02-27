@@ -164,10 +164,10 @@ export function PipelineList() {
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
                     <TableHead className="text-base font-medium text-center">Pipeline</TableHead>
-                    <TableHead className="text-base font-medium">Schedule</TableHead>
-                    <TableHead className="text-base font-medium">Status</TableHead>
-                    <TableHead className="text-base font-medium">Last Run</TableHead>
-                    <TableHead className="text-base font-medium">Result</TableHead>
+                    <TableHead className="text-base font-medium text-center">Schedule</TableHead>
+                    <TableHead className="text-base font-medium text-center">Status</TableHead>
+                    <TableHead className="text-base font-medium text-center">Last Run</TableHead>
+                    <TableHead className="text-base font-medium text-center">Result</TableHead>
                     <TableHead className="text-base font-medium text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -289,11 +289,13 @@ function PipelineRow({
           <FlowIcon
             className="h-10 w-10 rounded-lg"
             bgColor={
-              runStatus === PipelineRunDisplayStatus.FAILED
-                ? '#b91c1c'
-                : status
-                  ? '#369B44'
-                  : '#9CA3AF'
+              !status
+                ? '#9CA3AF'
+                : runStatus === PipelineRunDisplayStatus.FAILED
+                  ? '#b91c1c'
+                  : runStatus === PipelineRunDisplayStatus.WARNING
+                    ? '#b91c1c'
+                    : '#369B44'
             }
           />
           <span
