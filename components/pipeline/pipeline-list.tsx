@@ -163,11 +163,11 @@ export function PipelineList() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="text-base font-medium">Pipeline</TableHead>
-                    <TableHead className="text-base font-medium">Schedule</TableHead>
-                    <TableHead className="text-base font-medium">Status</TableHead>
-                    <TableHead className="text-base font-medium">Last Run</TableHead>
-                    <TableHead className="text-base font-medium">Result</TableHead>
+                    <TableHead className="text-base font-medium text-center">Pipeline</TableHead>
+                    <TableHead className="text-base font-medium text-center">Schedule</TableHead>
+                    <TableHead className="text-base font-medium text-center">Status</TableHead>
+                    <TableHead className="text-base font-medium text-center">Last Run</TableHead>
+                    <TableHead className="text-base font-medium text-center">Result</TableHead>
                     <TableHead className="text-base font-medium text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -286,7 +286,18 @@ function PipelineRow({
       {/* Pipeline Name */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
-          <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
+          <FlowIcon
+            className="h-10 w-10 rounded-lg"
+            bgColor={
+              !status
+                ? '#9CA3AF'
+                : runStatus === PipelineRunDisplayStatus.FAILED
+                  ? '#b91c1c'
+                  : runStatus === PipelineRunDisplayStatus.WARNING
+                    ? '#b91c1c'
+                    : '#369B44'
+            }
+          />
           <span
             className="font-medium text-lg text-gray-900"
             data-testid={`pipeline-name-${deploymentId}`}

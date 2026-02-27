@@ -28,7 +28,7 @@ export enum PipelineRunDisplayStatus {
   LOCKED = 'locked',
   SUCCESS = 'success',
   FAILED = 'failed',
-  WARNING = 'warning',
+  WARNING = 'warning', //dbt failure
 }
 
 // Celery task progress status - used for polling async tasks (e.g., AI log summaries)
