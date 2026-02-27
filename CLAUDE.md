@@ -400,8 +400,8 @@ const [search, setSearch] = useState('');
 **Files:**
 - Components: `PascalCase.tsx` (e.g., `ChartBuilder.tsx`)
 - Hooks: `camelCase.ts` with `use` prefix (e.g., `useCharts.ts`)
-- Utilities: `kebab-case.ts` or `camelCase.ts` (e.g., `chart-utils.ts`)
-- Constants: `camelCase.ts` or `kebab-case.ts`
+- Utilities: `kebab-case.ts` (e.g., `chart-export.ts`, `form-utils.ts`)
+- Constants: `kebab-case.ts` (e.g., `chart-types.ts`)
 
 **Code:**
 - Components: `PascalCase` (e.g., `ChartCard`)
