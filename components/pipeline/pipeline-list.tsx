@@ -139,7 +139,13 @@ export function PipelineList() {
             </p>
           </div>
           {canCreatePipeline && (
-            <Button onClick={handleCreate} className="h-10" data-testid="create-pipeline-btn">
+            <Button
+              variant="ghost"
+              onClick={handleCreate}
+              className="text-white hover:opacity-90 shadow-xs"
+              style={{ backgroundColor: '#06887b' }}
+              data-testid="create-pipeline-btn"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Pipeline
             </Button>
@@ -318,24 +324,10 @@ function PipelineRow({
       <TableCell className="py-4">
         {lastRunInfo ? (
           <div>
-            <span
-              className={cn(
-                'text-base',
-                lastRunInfo.isRunning ? 'text-amber-600 font-medium' : 'text-gray-700'
-              )}
-            >
-              {lastRunInfo.time}
-            </span>
+            <span className="text-base text-gray-900">{lastRunInfo.time}</span>
             {lastRunInfo.by && (
               <div className="text-sm text-gray-500 mt-0.5">
-                by{' '}
-                <span
-                  className={cn(
-                    lastRunInfo.by === 'System' ? 'text-gray-600' : 'text-primary font-medium'
-                  )}
-                >
-                  {lastRunInfo.by}
-                </span>
+                by <span className="text-gray-900">{lastRunInfo.by}</span>
               </div>
             )}
           </div>
@@ -503,7 +495,13 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         started.
       </p>
       {canCreate && (
-        <Button onClick={onCreate} data-testid="create-pipeline-empty-btn">
+        <Button
+          variant="ghost"
+          onClick={onCreate}
+          className="text-white hover:opacity-90 shadow-xs"
+          style={{ backgroundColor: '#06887b' }}
+          data-testid="create-pipeline-empty-btn"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Create Pipeline
         </Button>
