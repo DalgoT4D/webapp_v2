@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, X } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -105,48 +105,50 @@ export default function NotificationsPage() {
   const hasSelection = selectedIds.length > 0;
 
   return (
-    <div className="flex h-full flex-col bg-gray-50">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b">
-        <div className="flex items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-900">Notifications</h1>
-            {unreadCount > 0 && (
-              <Badge className="bg-teal-600 hover:bg-teal-600 text-white px-2.5 py-0.5 text-xs font-medium">
-                {unreadCount}
-              </Badge>
-            )}
+      <div className="flex-shrink-0 border-b bg-background">
+        <div className="flex items-center justify-between p-6 pb-0 mb-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">Notifications</h1>
+              {unreadCount > 0 && (
+                <Badge className="bg-teal-600 hover:bg-teal-600 text-white px-2.5 py-0.5 text-xs font-medium">
+                  {unreadCount}
+                </Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground mt-1">View And Manage Your Notifications</p>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
               <Button
-                variant="default"
-                size="sm"
+                variant="ghost"
                 onClick={handleMarkAllAsRead}
                 disabled={isLoading}
-                className="bg-teal-600 hover:bg-teal-700 text-white"
+                className="text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: '#06887b' }}
               >
-                Mark all as read
+                MARK ALL AS READ
               </Button>
             )}
             <Button
-              variant="default"
-              size="sm"
+              variant="ghost"
               onClick={handleMarkAsRead}
               disabled={!hasSelection || isLoading || activeTab === 'read'}
-              className="bg-teal-600 hover:bg-teal-700 text-white disabled:bg-teal-600/50"
+              className="text-white hover:opacity-90 shadow-xs disabled:opacity-50"
+              style={{ backgroundColor: '#06887b' }}
             >
-              Mark as read
+              MARK AS READ
             </Button>
             <Button
               variant="outline"
-              size="sm"
               onClick={handleMarkAsUnread}
               disabled={!hasSelection || isLoading || activeTab === 'unread'}
             >
-              Mark as unread
+              MARK AS UNREAD
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -154,60 +156,44 @@ export default function NotificationsPage() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowPreferences(true)}
-                  className="h-9 w-9 text-gray-500 hover:text-gray-700"
+                  className="h-9 w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                   aria-label="Manage notification preferences"
                 >
                   <Settings className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Manage Preferences</TooltipContent>
+              <TooltipContent className="bg-gray-900 text-white border-gray-700">
+                Manage Preferences
+              </TooltipContent>
             </Tooltip>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="px-6 border-b">
+        <div className="px-6">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="bg-transparent p-0 h-auto gap-4">
               <TabsTrigger
                 value="all"
-                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-slate-500 data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
               >
                 All
               </TabsTrigger>
               <TabsTrigger
                 value="read"
-                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-slate-500 data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
               >
                 Read
               </TabsTrigger>
               <TabsTrigger
                 value="unread"
-                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-slate-500 data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
               >
                 Unread
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
-
-        {/* Selection Info Bar */}
-        {hasSelection && (
-          <div className="bg-blue-50 border-t border-blue-100 px-6 py-2">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleClearSelection}
-                className="p-1 hover:bg-blue-100 rounded-md transition-colors"
-                aria-label="Clear selection"
-              >
-                <X className="h-4 w-4 text-blue-600" />
-              </button>
-              <span className="text-sm font-medium text-blue-800">
-                {selectedIds.length} selected
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Content */}
@@ -217,6 +203,7 @@ export default function NotificationsPage() {
           totalCount={totalCount}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          onClearSelection={handleClearSelection}
           page={page}
           pageSize={pageSize}
           onPageChange={handlePageChange}

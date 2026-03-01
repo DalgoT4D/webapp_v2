@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Inbox } from 'lucide-react';
+import { Inbox, X } from 'lucide-react';
 import type { Notification } from '@/types/notifications';
 import { NotificationRow } from './NotificationRow';
 import { TablePagination } from './TablePagination';
@@ -14,6 +14,7 @@ interface NotificationsListProps {
   totalCount: number;
   selectedIds: number[];
   onSelectionChange: (ids: number[]) => void;
+  onClearSelection: () => void;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -26,6 +27,7 @@ export function NotificationsList({
   totalCount,
   selectedIds,
   onSelectionChange,
+  onClearSelection,
   page,
   pageSize,
   onPageChange,
@@ -59,19 +61,21 @@ export function NotificationsList({
     setExpandedRow(expandedRow === id ? null : id);
   };
 
+  const hasSelection = selectedIds.length > 0;
+
   if (isLoading) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex-1 overflow-auto">
-          <div className="bg-white rounded-lg border shadow-sm mx-6 my-4">
+        <div className="flex-1 overflow-auto px-6 pt-4">
+          <div className="bg-white rounded-lg border shadow-sm">
             <div className="p-4 space-y-3">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 py-3">
+                <div key={i} className="flex items-center gap-4 py-4">
                   <Skeleton className="h-4 w-4 rounded" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/4" />
+                    <Skeleton className="h-4 w-1/4" />
                   </div>
                   <Skeleton className="h-4 w-4 rounded-full" />
                 </div>
@@ -85,7 +89,7 @@ export function NotificationsList({
 
   if (notifications.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 px-6">
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 pt-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
           <Inbox className="h-8 w-8 text-gray-400" />
         </div>
@@ -102,20 +106,36 @@ export function NotificationsList({
   return (
     <div className="flex h-full flex-col">
       {/* Table Container */}
-      <div className="flex-1 overflow-hidden mx-6 my-4">
+      <div className="flex-1 overflow-hidden px-6 pt-4">
         <div className="h-full flex flex-col bg-white rounded-lg border shadow-sm">
           {/* Header Bar */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b">
-            <Checkbox
-              checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-              onCheckedChange={handleSelectAll}
-              aria-label="Select all notifications"
-            />
-            <span className="text-sm text-slate-700 font-medium">
-              Select all
-              <span className="text-slate-500 mx-2">|</span>
-              Showing {notifications.length} of {totalCount} notifications
-            </span>
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                onCheckedChange={handleSelectAll}
+                aria-label="Select all notifications"
+              />
+              <span className="text-sm text-gray-700 font-medium">
+                Select all
+                <span className="text-gray-500 mx-2">|</span>
+                Showing {notifications.length} of {totalCount} notifications
+              </span>
+            </div>
+            {hasSelection && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedIds.length} selected
+                </span>
+                <button
+                  onClick={onClearSelection}
+                  className="p-1 hover:bg-blue-100 rounded cursor-pointer"
+                  aria-label="Clear selection"
+                >
+                  <X className="h-4 w-4 text-blue-600" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Scrollable Table */}
@@ -146,7 +166,7 @@ export function NotificationsList({
 
           {/* Pagination Footer */}
           {totalCount > 0 && (
-            <div className="border-t">
+            <div className="flex-shrink-0">
               <TablePagination
                 count={totalCount}
                 page={page}

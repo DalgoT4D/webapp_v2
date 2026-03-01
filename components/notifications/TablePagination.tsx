@@ -25,51 +25,62 @@ export function TablePagination({
   onPageSizeChange,
 }: TablePaginationProps) {
   const totalPages = Math.ceil(count / pageSize) || 1;
-  const startItem = (page - 1) * pageSize + 1;
+  const startItem = count === 0 ? 0 : (page - 1) * pageSize + 1;
   const endItem = Math.min(page * pageSize, count);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-gray-50/50">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Rows per page:</span>
-        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
-          <SelectTrigger className="w-[70px] h-8 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="flex items-center justify-between px-6 py-3 bg-gray-50/30 border-t border-gray-100">
+      {/* Left: Compact Item Count */}
+      <div className="text-sm text-gray-600">
+        {count === 0 ? '0–0 of 0' : `${startItem}–${endItem} of ${count}`}
       </div>
 
-      <div className="flex items-center gap-6">
-        <span className="text-sm text-gray-600">
-          {startItem}-{endItem} of {count}
-        </span>
+      {/* Right: Streamlined Controls */}
+      <div className="flex items-center gap-4">
+        {/* Compact Page Size Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Show</span>
+          <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+            <SelectTrigger
+              className="h-7 text-sm border-gray-200 bg-white"
+              style={{ width: '70px' }}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Simplified Navigation */}
         <div className="flex items-center gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => onPageChange(page - 1)}
             disabled={page === 1}
-            className="h-8 px-2"
+            className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
           >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Previous
+            <ChevronLeft className="h-4 w-4" />
           </Button>
+
+          <span className="text-sm text-gray-600 px-3 py-1">
+            {page} of {totalPages}
+          </span>
+
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
-            className="h-8 px-2"
+            className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
           >
-            Next
-            <ChevronRight className="h-4 w-4 ml-1" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
