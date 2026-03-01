@@ -53,9 +53,13 @@ export function NotificationRow({
       : notification.message;
 
   return (
-    <TableRow className={cn('hover:bg-gray-50', !notification.read_status && 'bg-teal-50/30')}>
+    <TableRow
+      data-testid={`notification-row-${notification.id}`}
+      className={cn('hover:bg-gray-50', !notification.read_status && 'bg-teal-50/30')}
+    >
       <TableCell className="w-12 pl-4 align-top py-4">
         <Checkbox
+          data-testid={`notification-checkbox-${notification.id}`}
           checked={isSelected}
           onCheckedChange={(checked) => onSelect(notification.id, checked as boolean)}
           aria-label={`Select notification ${notification.id}`}
@@ -94,6 +98,7 @@ export function NotificationRow({
       <TableCell className="w-12 pr-4 align-top py-4">
         {isTruncatable && (
           <Button
+            data-testid={`notification-expand-btn-${notification.id}`}
             variant="ghost"
             size="icon"
             onClick={() => onToggleExpand(notification.id)}

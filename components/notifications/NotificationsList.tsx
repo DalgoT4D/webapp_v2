@@ -112,6 +112,7 @@ export function NotificationsList({
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
             <div className="flex items-center gap-3">
               <Checkbox
+                data-testid="select-all-checkbox"
                 checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                 onCheckedChange={handleSelectAll}
                 aria-label="Select all notifications"
@@ -128,6 +129,7 @@ export function NotificationsList({
                   {selectedIds.length} selected
                 </span>
                 <button
+                  data-testid="clear-selection-btn"
                   onClick={onClearSelection}
                   className="p-1 hover:bg-blue-100 rounded cursor-pointer"
                   aria-label="Clear selection"
@@ -139,7 +141,10 @@ export function NotificationsList({
           </div>
 
           {/* Scrollable Table */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div
+            className="flex-1 overflow-y-auto overflow-x-hidden"
+            data-testid="notifications-table"
+          >
             <Table>
               <TableHeader className="sr-only">
                 <TableRow>

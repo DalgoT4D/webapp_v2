@@ -42,6 +42,7 @@ export function TablePagination({
           <span className="text-sm text-gray-500">Show</span>
           <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
             <SelectTrigger
+              data-testid="page-size-select"
               className="h-7 text-sm border-gray-200 bg-white"
               style={{ width: '70px' }}
             >
@@ -60,6 +61,7 @@ export function TablePagination({
         {/* Simplified Navigation */}
         <div className="flex items-center gap-1">
           <Button
+            data-testid="prev-page-btn"
             variant="ghost"
             size="sm"
             onClick={() => onPageChange(page - 1)}
@@ -75,6 +77,7 @@ export function TablePagination({
           </span>
 
           <Button
+            data-testid="next-page-btn"
             variant="ghost"
             size="sm"
             onClick={() => onPageChange(page + 1)}

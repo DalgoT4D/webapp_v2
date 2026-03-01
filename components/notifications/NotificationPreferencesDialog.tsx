@@ -165,6 +165,7 @@ export function NotificationPreferencesDialog({
             </div>
             <Switch
               id="email-notifications"
+              data-testid="email-notifications-switch"
               checked={formData.enable_email_notifications}
               onCheckedChange={(checked) =>
                 setFormData((prev) => ({
@@ -189,6 +190,7 @@ export function NotificationPreferencesDialog({
                   <div>
                     <Switch
                       id="discord-notifications"
+                      data-testid="discord-notifications-switch"
                       checked={formData.enable_discord_notifications}
                       onCheckedChange={(checked) =>
                         setFormData((prev) => ({
@@ -214,6 +216,7 @@ export function NotificationPreferencesDialog({
                 <Label htmlFor="discord-webhook">Discord Webhook URL</Label>
                 <Input
                   id="discord-webhook"
+                  data-testid="discord-webhook-input"
                   type="url"
                   placeholder="https://discord.com/api/webhooks/..."
                   value={formData.discord_webhook}
@@ -235,6 +238,7 @@ export function NotificationPreferencesDialog({
 
           <DialogFooter>
             <Button
+              data-testid="preferences-cancel-btn"
               type="button"
               variant="outline"
               onClick={() => handleDialogOpenChange(false)}
@@ -242,7 +246,11 @@ export function NotificationPreferencesDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || isLoadingPrefs}>
+            <Button
+              data-testid="preferences-submit-btn"
+              type="submit"
+              disabled={isSubmitting || isLoadingPrefs}
+            >
               {isSubmitting ? 'Updating...' : 'Update Preferences'}
             </Button>
           </DialogFooter>

@@ -1,5 +1,13 @@
 import { NotificationTab } from '@/types/notifications';
 
+// Read status values for API filtering
+export const READ_STATUS = {
+  UNREAD: 0,
+  READ: 1,
+} as const;
+
+export type ReadStatus = (typeof READ_STATUS)[keyof typeof READ_STATUS];
+
 export const NOTIFICATION_TABS: readonly { value: NotificationTab; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'read', label: 'Read' },
