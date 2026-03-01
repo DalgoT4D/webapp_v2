@@ -25,8 +25,10 @@ export function TablePagination({
   onPageSizeChange,
 }: TablePaginationProps) {
   const totalPages = Math.ceil(count / pageSize) || 1;
-  const startItem = count === 0 ? 0 : (page - 1) * pageSize + 1;
-  const endItem = Math.min(page * pageSize, count);
+  // Clamp page to valid bounds for display calculations
+  const clampedPage = Math.max(1, Math.min(page, totalPages));
+  const startItem = count === 0 ? 0 : (clampedPage - 1) * pageSize + 1;
+  const endItem = Math.min(clampedPage * pageSize, count);
 
   return (
     <div className="flex items-center justify-between px-6 py-3 bg-gray-50/30 border-t border-gray-100">
@@ -64,8 +66,8 @@ export function TablePagination({
             data-testid="prev-page-btn"
             variant="ghost"
             size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
+            onClick={() => onPageChange(clampedPage - 1)}
+            disabled={clampedPage === 1}
             className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
             aria-label="Previous page"
           >
@@ -73,15 +75,15 @@ export function TablePagination({
           </Button>
 
           <span className="text-sm text-gray-600 px-3 py-1">
-            {page} of {totalPages}
+            {clampedPage} of {totalPages}
           </span>
 
           <Button
             data-testid="next-page-btn"
             variant="ghost"
             size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
+            onClick={() => onPageChange(clampedPage + 1)}
+            disabled={clampedPage >= totalPages}
             className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
             aria-label="Next page"
           >

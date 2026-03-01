@@ -87,7 +87,8 @@ export function NotificationsList({
     );
   }
 
-  if (notifications.length === 0) {
+  // Global empty state - no notifications at all
+  if (totalCount === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 px-6 pt-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
@@ -98,6 +99,29 @@ export function NotificationsList({
           <p className="text-sm text-gray-500 mt-1">
             You&apos;re all caught up! Check back later for new notifications.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Current page is empty but notifications exist on other pages
+  if (notifications.length === 0 && totalCount > 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 pt-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+          <Inbox className="h-8 w-8 text-gray-400" />
+        </div>
+        <div className="text-center">
+          <h3 className="font-semibold text-gray-900 text-lg">No notifications on this page</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Try going back to the first page to see your notifications.
+          </p>
+          <button
+            onClick={() => onPageChange(1)}
+            className="mt-3 text-sm text-teal-600 hover:text-teal-700 font-medium"
+          >
+            Go to first page
+          </button>
         </div>
       </div>
     );
