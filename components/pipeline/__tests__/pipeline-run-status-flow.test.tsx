@@ -14,6 +14,7 @@ import { PipelineList } from '../pipeline-list';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
 import type { Pipeline } from '@/types/pipeline';
+import { LockStatus } from '@/constants/pipeline';
 
 jest.mock('@/hooks/api/usePipelines');
 jest.mock('@/hooks/api/usePermissions');
@@ -80,7 +81,11 @@ it('status flow: click → locked (optimistic) → locked (backend) → queued �
   // Backend returns lock with status "locked"
   updatePipelines(
     createPipeline({
-      lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'locked' },
+      lock: {
+        lockedBy: 'user@test.com',
+        lockedAt: new Date().toISOString(),
+        status: LockStatus.LOCKED,
+      },
     })
   );
   rerender(<PipelineList />);
@@ -89,7 +94,11 @@ it('status flow: click → locked (optimistic) → locked (backend) → queued �
   // Backend transitions to "queued"
   updatePipelines(
     createPipeline({
-      lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'queued' },
+      lock: {
+        lockedBy: 'user@test.com',
+        lockedAt: new Date().toISOString(),
+        status: LockStatus.QUEUED,
+      },
     })
   );
   rerender(<PipelineList />);
@@ -98,7 +107,11 @@ it('status flow: click → locked (optimistic) → locked (backend) → queued �
   // Backend transitions to "running"
   updatePipelines(
     createPipeline({
-      lock: { lockedBy: 'user@test.com', lockedAt: new Date().toISOString(), status: 'running' },
+      lock: {
+        lockedBy: 'user@test.com',
+        lockedAt: new Date().toISOString(),
+        status: LockStatus.RUNNING,
+      },
     })
   );
   rerender(<PipelineList />);

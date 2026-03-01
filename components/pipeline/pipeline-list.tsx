@@ -8,7 +8,7 @@ import {
   Loader2,
   MoreHorizontal,
   History,
-  Play,
+  RefreshCw,
   Pencil,
   Trash2,
   Clock,
@@ -37,6 +37,12 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import type { Pipeline } from '@/types/pipeline';
+import {
+  LockStatus,
+  FlowRunStatus,
+  FlowRunStateName,
+  PipelineRunDisplayStatus,
+} from '@/constants/pipeline';
 import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from './utils';
 import { useSyncLock } from '@/hooks/useSyncLock';
 import { PipelineRunHistory } from './pipeline-run-history';
@@ -124,16 +130,22 @@ export function PipelineList() {
   return (
     <div className="h-full flex flex-col">
       {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-6 pb-4">
-        <div className="flex items-center justify-between">
+      <div className="flex-shrink-0 border-b bg-background">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Pipelines</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-3xl font-bold">Pipelines</h1>
+            <p className="text-muted-foreground mt-1">
               Manage your data sync and transformation workflows
             </p>
           </div>
           {canCreatePipeline && (
-            <Button onClick={handleCreate} className="h-10" data-testid="create-pipeline-btn">
+            <Button
+              variant="ghost"
+              onClick={handleCreate}
+              className="text-white hover:opacity-90 shadow-xs"
+              style={{ backgroundColor: '#06887b' }}
+              data-testid="create-pipeline-btn"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Pipeline
             </Button>
@@ -142,7 +154,7 @@ export function PipelineList() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6">
+      <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6 mt-6">
         <div className="h-full overflow-y-auto">
           {pipelines.length === 0 ? (
             <EmptyState canCreate={canCreatePipeline} onCreate={handleCreate} />
@@ -151,14 +163,12 @@ export function PipelineList() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="text-sm font-semibold text-gray-700">Pipeline</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Schedule</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Status</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Last Run</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700">Result</TableHead>
-                    <TableHead className="text-sm font-semibold text-gray-700 text-right">
-                      Actions
-                    </TableHead>
+                    <TableHead className="text-base font-medium text-center">Pipeline</TableHead>
+                    <TableHead className="text-base font-medium text-center">Schedule</TableHead>
+                    <TableHead className="text-base font-medium text-center">Status</TableHead>
+                    <TableHead className="text-base font-medium text-center">Last Run</TableHead>
+                    <TableHead className="text-base font-medium text-center">Result</TableHead>
+                    <TableHead className="text-base font-medium text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -223,7 +233,7 @@ function PipelineRow({
   const { tempSyncState, setTempSyncState } = useSyncLock(lock);
 
   const isLocked = !!lock;
-  const isRunning = lock?.status === 'running' || lock?.status === 'queued' || tempSyncState;
+  const isRunning = !!lock || tempSyncState;
   const isDisabled = isLocked || tempSyncState;
 
   const handleRunClick = async () => {
@@ -237,14 +247,16 @@ function PipelineRow({
   // Determine run status
   // locked (optimistic + backend) → queued → running → success/failed
   const getRunStatus = () => {
-    if (lock?.status === 'running') return 'running';
-    if (lock?.status === 'queued') return 'queued';
-    if (lock?.status === 'locked' || lock?.status === 'complete') return 'locked';
-    if (tempSyncState) return 'locked';
+    if (lock?.status === LockStatus.RUNNING) return PipelineRunDisplayStatus.RUNNING;
+    if (lock?.status === LockStatus.QUEUED) return PipelineRunDisplayStatus.QUEUED;
+    if (lock?.status === LockStatus.LOCKED || lock?.status === LockStatus.COMPLETE)
+      return PipelineRunDisplayStatus.LOCKED;
+    if (tempSyncState) return PipelineRunDisplayStatus.LOCKED;
     if (!lastRun) return null;
-    if (lastRun.state_name === 'DBT_TEST_FAILED') return 'warning';
-    if (lastRun.status === 'COMPLETED') return 'success';
-    return 'failed';
+    if (lastRun.state_name === FlowRunStateName.DBT_TEST_FAILED)
+      return PipelineRunDisplayStatus.WARNING;
+    if (lastRun.status === FlowRunStatus.COMPLETED) return PipelineRunDisplayStatus.SUCCESS;
+    return PipelineRunDisplayStatus.FAILED;
   };
 
   const runStatus = getRunStatus();
@@ -274,9 +286,20 @@ function PipelineRow({
       {/* Pipeline Name */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
-          <FlowIcon className="h-10 w-10 rounded-lg" bgColor={status ? '#369B44' : '#9CA3AF'} />
+          <FlowIcon
+            className="h-10 w-10 rounded-lg"
+            bgColor={
+              !status
+                ? '#9CA3AF'
+                : runStatus === PipelineRunDisplayStatus.FAILED
+                  ? '#b91c1c'
+                  : runStatus === PipelineRunDisplayStatus.WARNING
+                    ? '#b91c1c'
+                    : '#369B44'
+            }
+          />
           <span
-            className="font-medium text-[15px] text-gray-900"
+            className="font-medium text-lg text-gray-900"
             data-testid={`pipeline-name-${deploymentId}`}
           >
             {name}
@@ -286,10 +309,10 @@ function PipelineRow({
 
       {/* Schedule */}
       <TableCell className="py-4">
-        <div className="text-[15px] text-gray-700">
+        <div className="text-base text-gray-700">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-xs text-gray-400">{localTimezone()}</span>}
+        {cron && <span className="text-base text-gray-700">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
@@ -312,29 +335,15 @@ function PipelineRow({
       <TableCell className="py-4">
         {lastRunInfo ? (
           <div>
-            <span
-              className={cn(
-                'text-[15px]',
-                lastRunInfo.isRunning ? 'text-amber-600 font-medium' : 'text-gray-700'
-              )}
-            >
-              {lastRunInfo.time}
-            </span>
+            <span className="text-base text-gray-900">{lastRunInfo.time}</span>
             {lastRunInfo.by && (
-              <div className="text-xs text-gray-500 mt-0.5">
-                by{' '}
-                <span
-                  className={cn(
-                    lastRunInfo.by === 'System' ? 'text-gray-600' : 'text-primary font-medium'
-                  )}
-                >
-                  {lastRunInfo.by}
-                </span>
+              <div className="text-sm text-gray-500 mt-0.5">
+                by <span className="text-gray-900">{lastRunInfo.by}</span>
               </div>
             )}
           </div>
         ) : (
-          <span className="text-[15px] text-gray-400">—</span>
+          <span className="text-base text-gray-400">—</span>
         )}
       </TableCell>
 
@@ -345,37 +354,32 @@ function PipelineRow({
 
       {/* Actions */}
       <TableCell className="py-4">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-center gap-1">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={() => onViewHistory(pipeline)}
             disabled={!canViewPipeline}
-            className="h-9 px-3 text-[14px] text-gray-600 hover:text-gray-900"
+            className="h-8 w-8 p-0 hover:bg-gray-100"
             data-testid={`history-btn-${deploymentId}`}
+            aria-label="History"
           >
-            <History className="h-4 w-4 mr-1.5" />
-            History
+            <History className="w-4 h-4 text-gray-600" />
           </Button>
 
           <Button
-            variant="default"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={handleRunClick}
             disabled={isDisabled || !canRunPipeline}
             data-testid={`run-btn-${deploymentId}`}
-            className={cn(
-              'h-9 text-[14px] min-w-[72px]',
-              isRunning ? 'bg-primary/70 hover:bg-primary/70 cursor-not-allowed px-4' : 'px-4'
-            )}
+            className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
+            aria-label="Run"
           >
             {isRunning ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
             ) : (
-              <>
-                <Play className="h-3.5 w-3.5 mr-1.5" />
-                Run
-              </>
+              <RefreshCw className="w-4 h-4 text-gray-600" />
             )}
           </Button>
 
@@ -383,12 +387,12 @@ function PipelineRow({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 disabled={isDisabled}
-                className="h-9 w-9 p-0 text-gray-400 hover:text-gray-600"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
                 data-testid={`more-btn-${deploymentId}`}
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="w-4 h-4 text-gray-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
@@ -420,54 +424,63 @@ function PipelineRow({
   );
 }
 
-function StatusBadge({ status, deploymentId }: { status: string | null; deploymentId: string }) {
+function StatusBadge({
+  status,
+  deploymentId,
+}: {
+  status: PipelineRunDisplayStatus | null;
+  deploymentId: string;
+}) {
   if (!status) {
     return (
-      <span className="text-[15px] text-gray-400" data-testid={`run-status-${deploymentId}`}>
+      <span className="text-base text-gray-400" data-testid={`run-status-${deploymentId}`}>
         —
       </span>
     );
   }
 
-  const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
-    running: {
+  const config: Record<
+    PipelineRunDisplayStatus,
+    { icon: React.ReactNode; label: string; className: string }
+  > = {
+    [PipelineRunDisplayStatus.RUNNING]: {
       icon: <LoopIcon className="h-3.5 w-3.5" />,
       label: 'Running',
-      className: 'bg-transparent text-amber-600 border-amber-300',
+      className: 'bg-transparent text-green-600 border-green-300',
     },
-    queued: {
+    [PipelineRunDisplayStatus.QUEUED]: {
       icon: <Clock className="h-3.5 w-3.5" />,
       label: 'Queued',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
-    locked: {
+    [PipelineRunDisplayStatus.LOCKED]: {
       icon: <Lock className="h-3.5 w-3.5" />,
       label: 'Locked',
       className: 'bg-gray-50 text-gray-600 border-gray-200',
     },
-    success: {
+    [PipelineRunDisplayStatus.SUCCESS]: {
       icon: <TaskAltIcon className="h-3.5 w-3.5" />,
       label: 'Success',
       className: 'bg-green-50 text-green-700 border-green-200',
     },
-    failed: {
+    [PipelineRunDisplayStatus.FAILED]: {
       icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
       label: 'Failed',
       className: 'bg-red-50 text-red-700 border-red-200',
     },
-    warning: {
+    [PipelineRunDisplayStatus.WARNING]: {
       icon: <WarningAmberIcon className="h-3.5 w-3.5" />,
-      label: 'Tests Failed',
+      label: 'DBT Test Failed',
       className: 'bg-amber-50 text-amber-700 border-amber-200',
     },
   };
 
-  const { icon, label, className } = config[status] || config.failed;
+  const { icon, label, className } = config[status] || config[PipelineRunDisplayStatus.FAILED];
 
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium border',
+        'inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium border min-w-[110px]',
         className
       )}
       data-testid={`run-status-${deploymentId}`}
@@ -488,12 +501,18 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         <FlowIcon className="h-16 w-16 rounded-lg" />
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">No pipelines yet</h3>
-      <p className="text-[15px] text-gray-500 text-center max-w-sm mb-6">
+      <p className="text-base text-gray-500 text-center max-w-sm mb-6">
         Pipelines orchestrate your data syncs and transformations. Create your first pipeline to get
         started.
       </p>
       {canCreate && (
-        <Button onClick={onCreate} data-testid="create-pipeline-empty-btn">
+        <Button
+          variant="ghost"
+          onClick={onCreate}
+          className="text-white hover:opacity-90 shadow-xs"
+          style={{ backgroundColor: '#06887b' }}
+          data-testid="create-pipeline-empty-btn"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Create Pipeline
         </Button>

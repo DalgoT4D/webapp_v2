@@ -312,7 +312,14 @@ function PipelineFormContent({
           <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting} data-testid="submit-btn">
+          <Button
+            type="submit"
+            variant="ghost"
+            disabled={submitting}
+            className="text-white hover:opacity-90 shadow-xs"
+            style={{ backgroundColor: '#06887b' }}
+            data-testid="submit-btn"
+          >
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
@@ -320,7 +327,7 @@ function PipelineFormContent({
       </div>
 
       {/* Form content - Two column layout */}
-      <div className="bg-white rounded-lg border shadow-sm">
+      <div className="bg-white rounded-lg border shadow-sm max-h-[calc(100vh-12rem)] overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x">
           {/* Left column - Pipeline details */}
           <div className="lg:col-span-3 p-6 space-y-6">
