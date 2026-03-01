@@ -65,6 +65,7 @@ export function TablePagination({
             onClick={() => onPageChange(page - 1)}
             disabled={page === 1}
             className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+            aria-label="Previous page"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -79,6 +80,7 @@ export function TablePagination({
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
             className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+            aria-label="Next page"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

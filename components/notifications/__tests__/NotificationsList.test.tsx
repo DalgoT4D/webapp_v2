@@ -26,6 +26,7 @@ describe('NotificationsList', () => {
     totalCount: 3,
     selectedIds: [] as number[],
     onSelectionChange: jest.fn(),
+    onClearSelection: jest.fn(),
     page: 1,
     pageSize: 10,
     onPageChange: jest.fn(),
@@ -122,22 +123,22 @@ describe('NotificationsList', () => {
   it('handles pagination controls', () => {
     render(<NotificationsList {...defaultProps} totalCount={30} page={1} pageSize={10} />);
 
-    expect(screen.getByText(/1-10 of 30/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+    expect(screen.getByText(/1–10 of 30/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /previous page/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next page/i })).toBeInTheDocument();
   });
 
   it('disables previous button on first page', () => {
     render(<NotificationsList {...defaultProps} totalCount={30} page={1} pageSize={10} />);
 
-    const previousButton = screen.getByRole('button', { name: /previous/i });
+    const previousButton = screen.getByRole('button', { name: /previous page/i });
     expect(previousButton).toBeDisabled();
   });
 
   it('disables next button on last page', () => {
     render(<NotificationsList {...defaultProps} totalCount={30} page={3} pageSize={10} />);
 
-    const nextButton = screen.getByRole('button', { name: /next/i });
+    const nextButton = screen.getByRole('button', { name: /next page/i });
     expect(nextButton).toBeDisabled();
   });
 
@@ -152,11 +153,11 @@ describe('NotificationsList', () => {
       <NotificationsList {...defaultProps} notifications={[]} totalCount={0} />
     );
 
-    expect(screen.queryByText('Previous')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /previous page/i })).not.toBeInTheDocument();
 
     rerender(<NotificationsList {...defaultProps} />);
 
-    expect(screen.getByText('Previous')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /previous page/i })).toBeInTheDocument();
   });
 
   it('shows urgent indicator for urgent notifications', () => {
@@ -173,6 +174,6 @@ describe('NotificationsList', () => {
     const secondNotification = screen.getByText('Second notification');
 
     expect(firstNotification.closest('p')).toHaveClass('font-medium');
-    expect(secondNotification.closest('div')).toHaveClass('text-slate-500');
+    expect(secondNotification.closest('div')).toHaveClass('text-gray-700');
   });
 });

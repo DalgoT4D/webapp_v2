@@ -16,7 +16,10 @@ import {
 } from '@/hooks/api/useNotifications';
 import { buildFilters } from '@/lib/notifications';
 import type { NotificationTab } from '@/types/notifications';
-import { DEFAULT_PAGE_SIZE } from '@/constants/notifications';
+import { DEFAULT_PAGE_SIZE, NOTIFICATION_TABS } from '@/constants/notifications';
+
+const TAB_TRIGGER_CLASS =
+  'relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600';
 
 export default function NotificationsPage() {
   const [activeTab, setActiveTab] = useState<NotificationTab>('all');
@@ -113,7 +116,10 @@ export default function NotificationsPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold">Notifications</h1>
               {unreadCount > 0 && (
-                <Badge className="bg-teal-600 hover:bg-teal-600 text-white px-2.5 py-0.5 text-xs font-medium">
+                <Badge
+                  data-testid="unread-count-badge"
+                  className="bg-teal-600 hover:bg-teal-600 text-white px-2.5 py-0.5 text-xs font-medium"
+                >
                   {unreadCount}
                 </Badge>
               )}
@@ -173,24 +179,11 @@ export default function NotificationsPage() {
         <div className="px-6">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="bg-transparent p-0 h-auto gap-4">
-              <TabsTrigger
-                value="all"
-                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
-              >
-                All
-              </TabsTrigger>
-              <TabsTrigger
-                value="read"
-                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
-              >
-                Read
-              </TabsTrigger>
-              <TabsTrigger
-                value="unread"
-                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
-              >
-                Unread
-              </TabsTrigger>
+              {NOTIFICATION_TABS.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className={TAB_TRIGGER_CLASS}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
           </Tabs>
         </div>
