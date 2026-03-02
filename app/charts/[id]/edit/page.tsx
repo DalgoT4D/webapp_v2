@@ -554,7 +554,8 @@ function EditChartPageContent() {
                             key !== 'yAxisNumberFormat' &&
                             key !== 'yAxisDecimalPlaces' &&
                             key !== 'xAxisNumberFormat' &&
-                            key !== 'xAxisDecimalPlaces'
+                            key !== 'xAxisDecimalPlaces' &&
+                            key !== 'xAxisDateFormat'
                         )
                       )
                     : formData.customizations,

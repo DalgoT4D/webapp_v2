@@ -79,12 +79,13 @@ export function ChartCustomizations({
   switch (chartType) {
     case 'bar':
     case 'line': {
-      // Check if the X-axis (dimension) column is numeric
+      // Check if the X-axis (dimension) column is numeric or date
       const xAxisColumn = formData.dimension_column || '';
       const xAxisDataType = columns
         .find((col) => (col.column_name || col.name) === xAxisColumn)
         ?.data_type?.toLowerCase();
       const hasNumericXAxis = xAxisDataType ? NUMERIC_DATA_TYPES.includes(xAxisDataType) : false;
+      const hasDateXAxis = xAxisDataType ? DATE_DATA_TYPES.includes(xAxisDataType) : false;
 
       if (chartType === 'bar') {
         return (
@@ -94,6 +95,7 @@ export function ChartCustomizations({
             disabled={disabled}
             hasExtraDimension={!!formData.extra_dimension_column}
             hasNumericXAxis={hasNumericXAxis}
+            hasDateXAxis={hasDateXAxis}
           />
         );
       }
@@ -103,6 +105,7 @@ export function ChartCustomizations({
           updateCustomization={updateCustomization}
           disabled={disabled}
           hasNumericXAxis={hasNumericXAxis}
+          hasDateXAxis={hasDateXAxis}
         />
       );
     }

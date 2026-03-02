@@ -42,7 +42,7 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
-import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -1298,12 +1298,31 @@ export function ChartElementView({
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
         formatter: function (params: any) {
+          // Helper to format name (dimension) with date formatting
+          const formatName = (name: any) => {
+            // For pie charts, use dateFormat
+            if (isPieChart) {
+              const dateFormat = customizations.dateFormat as DateFormat;
+              if (dateFormat && dateFormat !== 'default') {
+                return formatDate(name, { format: dateFormat });
+              }
+            }
+            // For bar/line charts, use xAxisDateFormat
+            if (chart?.chart_type === 'bar' || chart?.chart_type === 'line') {
+              const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
+              if (xAxisDateFormat && xAxisDateFormat !== 'default') {
+                return formatDate(name, { format: xAxisDateFormat });
+              }
+            }
+            return name;
+          };
+
           if (Array.isArray(params)) {
             // For multiple series (line/bar charts with multiple lines/bars)
             let result = '';
             params.forEach((param: any, index: number) => {
               if (index === 0) {
-                result += param.name + '<br/>';
+                result += formatName(param.name) + '<br/>';
               }
               const value =
                 typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
@@ -1314,12 +1333,13 @@ export function ChartElementView({
             // For single series (pie charts, single bar/line)
             const value =
               typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
+            const name = formatName(params.name);
             if (params.percent !== undefined) {
               // Pie chart with percentage
-              return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
+              return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${name} (${params.percent}%)`;
             } else {
               // Regular chart
-              return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
+              return `${params.marker}${params.seriesName}<br/>${name}: <b>${value}</b>`;
             }
           }
         },
@@ -1355,6 +1375,7 @@ export function ChartElementView({
     if (isPieChart && styledConfig.series) {
       const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
       const decimalPlaces = customizations.decimalPlaces;
+      const dateFormat = customizations.dateFormat as DateFormat;
       const labelFormat = customizations.labelFormat || 'percentage';
       const showDataLabels = customizations.showDataLabels !== false; // Default to true
       const dataLabelPosition = customizations.dataLabelPosition || 'outside';
@@ -1377,13 +1398,19 @@ export function ChartElementView({
                   : params.value.toLocaleString()
                 : params.value;
 
+            // Format name (dimension value) with date formatting if configured
+            const formattedName =
+              dateFormat && dateFormat !== 'default'
+                ? formatDate(params.name, { format: dateFormat })
+                : params.name;
+
             switch (labelFormat) {
               case 'value':
                 return formattedValue;
               case 'name_percentage':
-                return `${params.name}\n${params.percent}%`;
+                return `${formattedName}\n${params.percent}%`;
               case 'name_value':
-                return `${params.name}\n${formattedValue}`;
+                return `${formattedName}\n${formattedValue}`;
               case 'percentage':
               default:
                 return `${params.percent}%`;
@@ -1391,14 +1418,23 @@ export function ChartElementView({
           },
         },
       }));
+
+      // Add legend formatter for pie charts to format date values in legend
+      if (dateFormat && dateFormat !== 'default' && styledConfig.legend) {
+        styledConfig.legend = {
+          ...styledConfig.legend,
+          formatter: (name: string) => formatDate(name, { format: dateFormat }),
+        };
+      }
     }
 
-    // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+    // Apply number/date formatting for line/bar charts (separate X-axis and Y-axis formatting)
     if (isLineChart || isBarChart) {
       const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
       const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
       const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
       const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
+      const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
 
       // Format Y-axis labels
       if (styledConfig.yAxis && yAxisNumberFormat && yAxisNumberFormat !== 'default') {
@@ -1455,6 +1491,31 @@ export function ChartElementView({
             axisLabel: {
               ...styledConfig.xAxis.axisLabel,
               formatter: formatXAxisLabel,
+            },
+          };
+        }
+      }
+
+      // Format X-axis labels (for date values)
+      if (styledConfig.xAxis && xAxisDateFormat && xAxisDateFormat !== 'default') {
+        const formatXAxisDateLabel = (value: any) => {
+          return formatDate(value, { format: xAxisDateFormat });
+        };
+
+        if (Array.isArray(styledConfig.xAxis)) {
+          styledConfig.xAxis = styledConfig.xAxis.map((axis: any) => ({
+            ...axis,
+            axisLabel: {
+              ...axis.axisLabel,
+              formatter: formatXAxisDateLabel,
+            },
+          }));
+        } else {
+          styledConfig.xAxis = {
+            ...styledConfig.xAxis,
+            axisLabel: {
+              ...styledConfig.xAxis.axisLabel,
+              formatter: formatXAxisDateLabel,
             },
           };
         }

@@ -149,11 +149,21 @@ export function ChartPreview({
               });
             };
 
-            // Helper to format name (dimension) with date formatting for pie charts
+            // Helper to format name (dimension) with date formatting
             const formatName = (name: any) => {
-              const dateFormat = customizations.dateFormat as DateFormat;
-              if (isPieChart && dateFormat && dateFormat !== 'default') {
-                return formatDate(name, { format: dateFormat });
+              // For pie charts, use dateFormat
+              if (isPieChart) {
+                const dateFormat = customizations.dateFormat as DateFormat;
+                if (dateFormat && dateFormat !== 'default') {
+                  return formatDate(name, { format: dateFormat });
+                }
+              }
+              // For bar/line charts, use xAxisDateFormat
+              if (isBarChart || isLineChart) {
+                const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
+                if (xAxisDateFormat && xAxisDateFormat !== 'default') {
+                  return formatDate(name, { format: xAxisDateFormat });
+                }
               }
               return name;
             };
@@ -391,7 +401,7 @@ export function ChartPreview({
         }
       }
 
-      // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+      // Apply number/date formatting for line/bar charts (separate X-axis and Y-axis formatting)
       const isLineChart = detectedChartType === 'line';
       const isBarChart = detectedChartType === 'bar';
       if (isLineChart || isBarChart) {
@@ -399,6 +409,7 @@ export function ChartPreview({
         const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
         const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
         const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
+        const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
 
         // Format Y-axis labels
         if (modifiedConfig.yAxis && yAxisNumberFormat && yAxisNumberFormat !== 'default') {
@@ -455,6 +466,31 @@ export function ChartPreview({
               axisLabel: {
                 ...modifiedConfig.xAxis.axisLabel,
                 formatter: formatXAxisLabel,
+              },
+            };
+          }
+        }
+
+        // Format X-axis labels (for date values)
+        if (modifiedConfig.xAxis && xAxisDateFormat && xAxisDateFormat !== 'default') {
+          const formatXAxisDateLabel = (value: any) => {
+            return formatDate(value, { format: xAxisDateFormat });
+          };
+
+          if (Array.isArray(modifiedConfig.xAxis)) {
+            modifiedConfig.xAxis = modifiedConfig.xAxis.map((axis: any) => ({
+              ...axis,
+              axisLabel: {
+                ...axis.axisLabel,
+                formatter: formatXAxisDateLabel,
+              },
+            }));
+          } else {
+            modifiedConfig.xAxis = {
+              ...modifiedConfig.xAxis,
+              axisLabel: {
+                ...modifiedConfig.xAxis.axisLabel,
+                formatter: formatXAxisDateLabel,
               },
             };
           }
