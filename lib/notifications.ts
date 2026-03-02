@@ -1,4 +1,5 @@
 import type { NotificationFilters, NotificationTab } from '@/types/notifications';
+import { READ_STATUS } from '@/constants/notifications';
 
 /**
  * Build query string from notification filters
@@ -28,8 +29,8 @@ export function buildFilters(
     page: page,
   };
 
-  if (tab === 'read') filters.read_status = 1;
-  if (tab === 'unread') filters.read_status = 0;
+  if (tab === 'read') filters.read_status = READ_STATUS.READ;
+  if (tab === 'unread') filters.read_status = READ_STATUS.UNREAD;
 
   return filters;
 }

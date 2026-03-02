@@ -55,9 +55,11 @@ export interface MarkAsReadPayload {
 // Tab types
 export type NotificationTab = 'all' | 'read' | 'unread';
 
+import { ReadStatus } from '@/constants/notifications';
+
 // Filter parameters
 export interface NotificationFilters {
   limit: number;
   page: number;
-  read_status?: 0 | 1; // 0 = unread, 1 = read, undefined = all
+  read_status?: ReadStatus; // undefined = all
 }
