@@ -245,8 +245,8 @@ export function DashboardListV2() {
     const filtered = dashboards.filter((dashboard) => {
       // Name filters
       if (nameFilters.text) {
-        const title = (dashboard.title || dashboard.dashboard_title || '').toUpperCase();
-        if (!title.includes(nameFilters.text.toUpperCase())) {
+        const title = (dashboard.title || dashboard.dashboard_title || '').toLowerCase();
+        if (!title.includes(nameFilters.text.toLowerCase())) {
           return false;
         }
       }
@@ -506,12 +506,12 @@ export function DashboardListV2() {
   // Render sort icon for table headers
   const renderSortIcon = (column: 'name' | 'updated_at' | 'created_by') => {
     if (sortBy !== column) {
-      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+      return <ArrowUpDown className="w-4 h-4 text-slate-400" />;
     }
     return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4 text-gray-600" />
+      <ChevronUp className="w-4 h-4 text-white" />
     ) : (
-      <ChevronDownSort className="w-4 h-4 text-gray-600" />
+      <ChevronDownSort className="w-4 h-4 text-white" />
     );
   };
 
@@ -542,10 +542,12 @@ export function DashboardListV2() {
         <Filter
           className={cn(
             'w-4 h-4 transition-colors',
-            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
+            isActive ? 'text-indigo-300' : 'text-slate-400 hover:text-slate-200'
           )}
         />
-        {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
+        {isActive && (
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-400 rounded-full" />
+        )}
       </div>
     );
   };
@@ -785,14 +787,17 @@ export function DashboardListV2() {
     };
 
     return (
-      <TableRow key={dashboard.id} className="hover:bg-gray-50">
+      <TableRow
+        key={dashboard.id}
+        className="hover:bg-indigo-50/60 transition-colors duration-100 border-b border-slate-100"
+      >
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 p-0 hover:bg-yellow-50"
+              className="h-8 w-8 p-0 hover:bg-amber-50"
               onClick={(e) => {
                 e.preventDefault();
                 handleToggleFavorite(dashboard.id);
@@ -807,7 +812,7 @@ export function DashboardListV2() {
             <div className="flex flex-col">
               <Link
                 href={getNavigationUrl()}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+                className="font-semibold text-base text-slate-800 hover:text-indigo-600 hover:underline transition-colors"
               >
                 {dashboard.title || dashboard.dashboard_title}
               </Link>
@@ -816,7 +821,7 @@ export function DashboardListV2() {
                   {isPersonalLanding && (
                     <Badge
                       variant="default"
-                      className="text-sm bg-blue-100 text-blue-700 border-blue-200"
+                      className="text-xs bg-indigo-100 text-indigo-700 border-indigo-200 font-medium"
                     >
                       My Landing
                     </Badge>
@@ -824,7 +829,7 @@ export function DashboardListV2() {
                   {isOrgDefault && (
                     <Badge
                       variant="outline"
-                      className="text-sm bg-emerald-50 text-emerald-700 border-emerald-200"
+                      className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-medium"
                     >
                       Org Default
                     </Badge>
@@ -833,10 +838,10 @@ export function DashboardListV2() {
                     <Badge
                       variant="outline"
                       className={cn(
-                        'text-sm',
+                        'text-xs font-medium',
                         isLockedByOther
-                          ? 'bg-red-50 text-red-700 border-red-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-sky-50 text-sky-700 border-sky-200'
                       )}
                     >
                       <Lock className="w-3 h-3 mr-1" />
@@ -859,17 +864,17 @@ export function DashboardListV2() {
         {/* Owner Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-3 h-3 text-gray-600" />
+            <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center ring-1 ring-indigo-200">
+              <User className="w-3.5 h-3.5 text-indigo-600" />
             </div>
-            <span className="text-base text-gray-700">
+            <span className="text-sm text-slate-600 font-medium">
               {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
             </span>
           </div>
         </TableCell>
 
         {/* Last Modified Column */}
-        <TableCell className="py-4 text-base text-gray-600">
+        <TableCell className="py-4 text-sm text-slate-500">
           {dashboard.updated_at
             ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
             : 'Unknown'}
@@ -877,11 +882,15 @@ export function DashboardListV2() {
 
         {/* Actions Column */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {hasPermission('can_edit_dashboards') && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <Edit className="w-4 h-4 text-gray-600" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-indigo-50 hover:text-indigo-600"
+                >
+                  <Edit className="w-4 h-4 text-slate-500" />
                 </Button>
               </Link>
             )}
@@ -889,16 +898,16 @@ export function DashboardListV2() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-indigo-50 hover:text-indigo-600"
                 onClick={() => handleShareDashboard(dashboard)}
               >
-                <Share2 className="w-4 h-4 text-gray-600" />
+                <Share2 className="w-4 h-4 text-slate-500" />
               </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-indigo-50">
+                  <MoreHorizontal className="w-4 h-4 text-slate-500" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -1582,9 +1591,18 @@ export function DashboardListV2() {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <AlertCircle className="w-12 h-12 text-destructive" />
-        <p className="text-muted-foreground">Failed to load dashboards</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center">
+          <AlertCircle className="w-7 h-7 text-rose-500" />
+        </div>
+        <div className="text-center">
+          <p className="text-slate-700 font-medium">Failed to load dashboards</p>
+          <p className="text-slate-400 text-sm mt-1">Something went wrong. Please try again.</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+          className="border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 text-slate-600"
+        >
           Retry
         </Button>
       </div>
@@ -1594,15 +1612,18 @@ export function DashboardListV2() {
   return (
     <div id="dashboard-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
-      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background px-6 py-4">
+      <div
+        id="dashboard-header"
+        className="flex-shrink-0 bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5 shadow-lg"
+      >
         {/* Title Section */}
         <div id="dashboard-title-section" className="flex items-center justify-between mb-3">
           <div id="dashboard-title-wrapper">
-            <h1 id="dashboard-page-title" className="text-3xl font-bold">
+            <h1 id="dashboard-page-title" className="text-3xl font-bold text-white tracking-tight">
               Dashboards
             </h1>
-            <p id="dashboard-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Dashboards
+            <p id="dashboard-page-description" className="text-slate-400 mt-1 text-sm">
+              Create and manage your dashboards
             </p>
           </div>
 
@@ -1610,12 +1631,10 @@ export function DashboardListV2() {
             <Link id="dashboard-create-link" href="/dashboards/create">
               <Button
                 id="dashboard-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
+                className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold shadow-md border-0 transition-colors"
               >
                 <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                CREATE DASHBOARD
+                Create Dashboard
               </Button>
             </Link>
           )}
@@ -1624,14 +1643,14 @@ export function DashboardListV2() {
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
           <div id="dashboard-filters-section" className="flex items-center gap-2 mt-2">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-slate-300">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
-              className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
+              className="h-8 px-2 text-xs text-slate-400 hover:text-white hover:bg-slate-700"
             >
               <X className="w-3 h-3 mr-1" />
               Clear all
@@ -1641,39 +1660,39 @@ export function DashboardListV2() {
       </div>
 
       {/* Scrollable Content - Only the dashboard list scrolls */}
-      <div className="flex-1 overflow-hidden px-6">
+      <div className="flex-1 overflow-hidden px-6 bg-slate-50/40">
         <div className="h-full overflow-y-auto">
           {isLoading ? (
             viewMode === 'table' ? (
               <div className="py-6">
-                <div className="border rounded-lg bg-white">
+                <div className="rounded-xl shadow-sm overflow-hidden border border-slate-200">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50">
-                        <TableHead className="w-[40%]">
+                      <TableRow className="bg-slate-700 hover:bg-slate-700 border-0">
+                        <TableHead className="w-[40%] border-0">
                           <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-4 w-4" />
+                            <Skeleton className="h-4 w-20 bg-slate-500" />
+                            <Skeleton className="h-4 w-4 bg-slate-500" />
                           </div>
                         </TableHead>
                         {/* Commenting Type column skeleton */}
                         {/* <TableHead className="w-[15%]">
                           <Skeleton className="h-4 w-16" />
                         </TableHead> */}
-                        <TableHead className="w-[35%]">
+                        <TableHead className="w-[35%] border-0">
                           <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-16" />
-                            <Skeleton className="h-4 w-4" />
+                            <Skeleton className="h-4 w-16 bg-slate-500" />
+                            <Skeleton className="h-4 w-4 bg-slate-500" />
                           </div>
                         </TableHead>
-                        <TableHead className="w-[15%]">
+                        <TableHead className="w-[15%] border-0">
                           <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-4 w-4" />
+                            <Skeleton className="h-4 w-20 bg-slate-500" />
+                            <Skeleton className="h-4 w-4 bg-slate-500" />
                           </div>
                         </TableHead>
-                        <TableHead className="w-[10%]">
-                          <Skeleton className="h-4 w-16" />
+                        <TableHead className="w-[10%] border-0">
+                          <Skeleton className="h-4 w-16 bg-slate-500" />
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1748,15 +1767,15 @@ export function DashboardListV2() {
           ) : pinnedDashboards.length > 0 || paginatedRegularDashboards.length > 0 ? (
             viewMode === 'table' ? (
               <div className="py-6">
-                <div className="border rounded-lg bg-white">
+                <div className="rounded-xl shadow-sm overflow-hidden border border-slate-200">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50">
-                        <TableHead className="w-[40%]">
+                      <TableRow className="bg-slate-700 hover:bg-slate-700 border-0">
+                        <TableHead className="w-[40%] border-0">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-semibold text-sm hover:bg-transparent flex-1 text-white hover:text-slate-200"
                               onClick={() => handleSort('name')}
                             >
                               <div className="flex items-center gap-2">
@@ -1774,7 +1793,7 @@ export function DashboardListV2() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  className="h-6 w-6 p-0 hover:bg-slate-600"
                                 >
                                   {renderFilterIcon('name')}
                                 </Button>
@@ -1785,11 +1804,11 @@ export function DashboardListV2() {
                         </TableHead>
                         {/* Commenting Type column as all dashboards are Native for now */}
                         {/* <TableHead className="w-[15%] font-medium">Type</TableHead> */}
-                        <TableHead className="w-[35%]">
+                        <TableHead className="w-[35%] border-0">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-semibold text-sm hover:bg-transparent flex-1 text-white hover:text-slate-200"
                               onClick={() => handleSort('created_by')}
                             >
                               <div className="flex items-center gap-2">
@@ -1807,7 +1826,7 @@ export function DashboardListV2() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  className="h-6 w-6 p-0 hover:bg-slate-600"
                                 >
                                   {renderFilterIcon('owner')}
                                 </Button>
@@ -1816,11 +1835,11 @@ export function DashboardListV2() {
                             </Popover>
                           </div>
                         </TableHead>
-                        <TableHead className="w-[15%]">
+                        <TableHead className="w-[15%] border-0">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-semibold text-sm hover:bg-transparent flex-1 text-white hover:text-slate-200"
                               onClick={() => handleSort('updated_at')}
                             >
                               <div className="flex items-center gap-2">
@@ -1838,7 +1857,7 @@ export function DashboardListV2() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  className="h-6 w-6 p-0 hover:bg-slate-600"
                                 >
                                   {renderFilterIcon('date')}
                                 </Button>
@@ -1847,7 +1866,9 @@ export function DashboardListV2() {
                             </Popover>
                           </div>
                         </TableHead>
-                        <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
+                        <TableHead className="w-[10%] font-semibold text-sm text-white border-0">
+                          Actions
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1903,22 +1924,29 @@ export function DashboardListV2() {
           ) : (
             <div
               id="dashboard-empty-state"
-              className="flex flex-col items-center justify-center h-full gap-4"
+              className="flex flex-col items-center justify-center h-full gap-5"
             >
-              <Layout id="dashboard-empty-icon" className="w-12 h-12 text-muted-foreground" />
-              <p id="dashboard-empty-text" className="text-muted-foreground">
-                {getActiveFilterCount() > 0 ? 'No dashboards found' : 'No dashboards yet'}
-              </p>
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <Layout id="dashboard-empty-icon" className="w-8 h-8 text-slate-400" />
+              </div>
+              <div className="text-center">
+                <p id="dashboard-empty-text" className="text-slate-600 font-medium text-lg">
+                  {getActiveFilterCount() > 0 ? 'No dashboards found' : 'No dashboards yet'}
+                </p>
+                <p className="text-slate-400 text-sm mt-1">
+                  {getActiveFilterCount() > 0
+                    ? 'Try adjusting your filters'
+                    : 'Create your first dashboard to get started'}
+                </p>
+              </div>
               {hasPermission('can_create_dashboards') && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
                   <Button
                     id="dashboard-empty-create-button"
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: '#06887b' }}
+                    className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold shadow-md border-0 transition-colors"
                   >
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
-                    CREATE YOUR FIRST DASHBOARD
+                    Create Your First Dashboard
                   </Button>
                 </Link>
               )}
@@ -1927,37 +1955,37 @@ export function DashboardListV2() {
         </div>
       </div>
 
-      {/* Lightweight Modern Pagination */}
+      {/* Pagination */}
       <div
         id="dashboard-pagination-footer"
-        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+        className="flex-shrink-0 border-t border-slate-200 bg-slate-50 py-3 px-6"
       >
         <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
-          {/* Left: Compact Item Count */}
-          <div id="dashboard-pagination-info" className="text-sm text-gray-600">
+          {/* Left: Item Count */}
+          <div id="dashboard-pagination-info" className="text-sm text-slate-500 font-medium">
             {total === 0
-              ? '0–0 of 0'
-              : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total}`}
+              ? 'No results'
+              : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total} dashboards`}
           </div>
 
-          {/* Right: Streamlined Controls */}
+          {/* Right: Controls */}
           <div id="dashboard-pagination-controls" className="flex items-center gap-4">
-            {/* Compact Page Size Selector */}
+            {/* Page Size Selector */}
             <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
-              <span id="dashboard-page-size-label" className="text-sm text-gray-500">
-                Show
+              <span id="dashboard-page-size-label" className="text-sm text-slate-400">
+                Rows per page
               </span>
               <Select
                 id="dashboard-page-size-select"
                 value={pageSize.toString()}
                 onValueChange={(value) => {
                   setPageSize(parseInt(value));
-                  setCurrentPage(1); // Reset to first page when page size changes
+                  setCurrentPage(1);
                 }}
               >
                 <SelectTrigger
                   id="dashboard-page-size-trigger"
-                  className="h-7 text-sm border-gray-200 bg-white"
+                  className="h-7 text-sm border-slate-200 bg-white text-slate-600"
                   style={{ width: '70px' }}
                 >
                   <SelectValue id="dashboard-page-size-value" />
@@ -1979,32 +2007,35 @@ export function DashboardListV2() {
               </Select>
             </div>
 
-            {/* Simplified Navigation */}
+            {/* Navigation */}
             <div className="flex items-center gap-1">
               <Button
                 id="dashboard-prev-page-button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+                className="h-7 w-7 p-0 border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 disabled:opacity-40"
               >
-                <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
+                <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4 text-slate-600" />
               </Button>
 
-              <span id="dashboard-page-info" className="text-sm text-gray-600 px-3 py-1">
-                {currentPage} of {totalPages}
+              <span
+                id="dashboard-page-info"
+                className="text-sm text-slate-600 px-3 py-1 font-medium"
+              >
+                {currentPage} / {totalPages}
               </span>
 
               <Button
                 id="dashboard-next-page-button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage >= totalPages}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+                className="h-7 w-7 p-0 border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 disabled:opacity-40"
               >
-                <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
+                <ChevronRight id="dashboard-next-icon" className="h-4 w-4 text-slate-600" />
               </Button>
             </div>
           </div>
