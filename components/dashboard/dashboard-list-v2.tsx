@@ -245,8 +245,8 @@ export function DashboardListV2() {
     const filtered = dashboards.filter((dashboard) => {
       // Name filters
       if (nameFilters.text) {
-        const title = (dashboard.title || dashboard.dashboard_title || '').toLowerCase();
-        if (!title.includes(nameFilters.text.toLowerCase())) {
+        const title = (dashboard.title || dashboard.dashboard_title || '').toUpperCase();
+        if (!title.includes(nameFilters.text.toUpperCase())) {
           return false;
         }
       }
