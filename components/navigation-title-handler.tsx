@@ -10,7 +10,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/metrics': 'Metrics',
   '/ingest': 'Ingest',
   '/transform': 'Transform',
-  '/orchestrate': 'Orchestrate',
+  '/orchestrate': 'Pipelines',
   '/explore': 'Explore',
   '/data-quality': 'Data Quality',
   '/pipeline': 'Pipeline Overview',
