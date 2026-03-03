@@ -183,6 +183,81 @@ Always add these attributes to interactive components for testability and debugg
 - **Class merging**: Use `cn()` utility (tailwind-merge) for safe class combinations
 - **Responsive design**: Mobile-first approach with responsive breakpoints
 
+### UI/UX Design Guidelines
+
+**IMPORTANT**: All components must have proper spacing, alignment, and visual hierarchy. Never create cramped or poorly aligned UIs.
+
+#### Spacing Standards
+- **Page containers**: Add `space-y-6` or `space-y-8` for vertical spacing between major sections
+- **Card spacing**: Use `mb-4` or `mb-6` between cards
+- **Section padding**: Pages should have proper padding (`p-6` or `px-6 py-8`)
+- **Component gaps**: Use `gap-2`, `gap-4`, or `gap-6` for flex/grid layouts
+- **Button groups**: Use `space-x-2` or `gap-2` for horizontal button spacing
+- **Form fields**: Use `space-y-4` between form fields
+
+#### Layout Principles
+- **Consistent margins**: Bottom margins on cards (`mb-4`, `mb-6`)
+- **Proper alignment**: Use flex utilities (`items-center`, `justify-between`, etc.)
+- **White space**: Don't cram elements together - give them room to breathe
+- **Visual hierarchy**: Use size, weight, and spacing to establish importance
+- **Grid layouts**: Use responsive grids (`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`)
+
+#### Typography
+- **Headings**: Use proper heading sizes (`text-3xl`, `text-2xl`, `text-xl`) with `font-bold`
+- **Body text**: Default size with `text-muted-foreground` for secondary text
+- **Spacing**: Add `mb-4` or `mb-6` below headings
+- **Line height**: Use `leading-relaxed` or `leading-loose` for better readability
+
+#### Component Patterns
+```typescript
+// Page layout example
+<div className="container mx-auto p-6 space-y-6">
+  <h1 className="text-3xl font-bold mb-6">Page Title</h1>
+
+  <Card className="mb-6">
+    <CardHeader>
+      <CardTitle>Section Title</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      {/* Content with proper spacing */}
+    </CardContent>
+  </Card>
+</div>
+
+// Form layout example
+<form className="space-y-4">
+  <div className="space-y-2">
+    <Label>Field Name</Label>
+    <Input />
+  </div>
+  <div className="flex justify-end gap-2">
+    <Button variant="outline">Cancel</Button>
+    <Button>Submit</Button>
+  </div>
+</form>
+
+// List layout example
+<div className="space-y-2">
+  {items.map((item) => (
+    <div key={item.id} className="p-4 border rounded-lg hover:bg-muted/50">
+      <div className="flex items-center justify-between gap-4">
+        {/* Item content */}
+      </div>
+    </div>
+  ))}
+</div>
+```
+
+#### Common Mistakes to Avoid
+- ❌ No spacing between sections
+- ❌ Elements touching card edges (missing padding)
+- ❌ Buttons/inputs without proper gaps
+- ❌ Inconsistent spacing (mixing px values)
+- ❌ No visual separation between different sections
+- ✅ Use Tailwind spacing scale consistently (2, 4, 6, 8, etc.)
+- ✅ Add hover states for interactive elements
+- ✅ Use proper container widths (max-w-7xl, etc.)
+
 ### API Integration
 - **Use centralized API helpers**: `apiGet`, `apiPost`, `apiPut`, `apiDelete` from `lib/api.ts`
 - **Handle auth automatically**: API client manages tokens and organization context
