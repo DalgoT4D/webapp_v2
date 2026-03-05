@@ -52,10 +52,12 @@ export function NotificationRow({
       ? notification.message.substring(0, MESSAGE_TRUNCATE_LENGTH) + '...'
       : notification.message;
 
+  const isRead = notification.read_status;
+
   return (
     <TableRow
       data-testid={`notification-row-${notification.id}`}
-      className={cn('hover:bg-gray-50', !notification.read_status && 'bg-teal-50/30')}
+      className={cn(isRead ? 'bg-gray-50 hover:bg-gray-100' : 'bg-white hover:bg-gray-50/50')}
     >
       <TableCell className="w-12 pl-4 align-top py-4">
         <Checkbox
@@ -63,30 +65,28 @@ export function NotificationRow({
           checked={isSelected}
           onCheckedChange={(checked) => onSelect(notification.id, checked as boolean)}
           aria-label={`Select notification ${notification.id}`}
+          className={cn(
+            isRead
+              ? 'border-gray-300 data-[state=checked]:bg-gray-400 data-[state=checked]:border-gray-400'
+              : 'border-gray-800 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900'
+          )}
         />
       </TableCell>
 
       <TableCell className="w-full py-4 align-top whitespace-normal">
-        <div
+        <p
           className={cn(
-            'transition-colors',
-            notification.read_status ? 'text-gray-700' : 'text-gray-900'
+            'leading-relaxed text-base break-words whitespace-normal',
+            isRead ? 'text-gray-500 font-normal' : 'text-gray-800 font-medium'
           )}
         >
-          <p
-            className={cn(
-              'leading-relaxed text-base break-words whitespace-normal',
-              !notification.read_status && 'font-medium'
-            )}
-          >
-            {renderMessageWithLinks(displayMessage)}
-          </p>
-          <p className="text-base text-gray-600 mt-2">
-            {formatDistanceToNow(new Date(notification.timestamp), {
-              addSuffix: true,
-            })}
-          </p>
-        </div>
+          {renderMessageWithLinks(displayMessage)}
+        </p>
+        <p className={cn('text-sm mt-2', isRead ? 'text-gray-400' : 'text-gray-600')}>
+          {formatDistanceToNow(new Date(notification.timestamp), {
+            addSuffix: true,
+          })}
+        </p>
       </TableCell>
 
       <TableCell className="w-16 text-center align-top py-4">

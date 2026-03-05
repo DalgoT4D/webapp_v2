@@ -140,6 +140,7 @@ export function NotificationsList({
                 checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                 onCheckedChange={handleSelectAll}
                 aria-label="Select all notifications"
+                className="border-gray-800 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 data-[state=indeterminate]:bg-gray-600 data-[state=indeterminate]:border-gray-600"
               />
               <span className="text-sm text-gray-700 font-medium">
                 Select all
