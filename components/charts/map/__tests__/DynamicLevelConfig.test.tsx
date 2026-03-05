@@ -17,12 +17,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DynamicLevelConfig } from '../DynamicLevelConfig';
 import * as useChartHooks from '@/hooks/api/useChart';
-import * as useToastHook from '@/hooks/use-toast';
+import * as toastLib from '@/lib/toast';
 import * as csvUtils from '@/lib/csvUtils';
 
 // Mock all dependencies
 jest.mock('@/hooks/api/useChart');
-jest.mock('@/hooks/use-toast');
+jest.mock('@/lib/toast');
 jest.mock('@/lib/csvUtils');
 
 describe('DynamicLevelConfig', () => {
@@ -80,9 +80,12 @@ describe('DynamicLevelConfig', () => {
       error: null,
     });
 
-    (useToastHook.useToast as jest.Mock).mockReturnValue({
-      toast: mockToast,
-    });
+    (toastLib.toastSuccess as any) = {
+      generic: mockToast,
+    };
+    (toastLib.toastError as any) = {
+      api: mockToast,
+    };
 
     (csvUtils.downloadRegionNames as jest.Mock).mockResolvedValue(undefined);
   });
@@ -409,16 +412,15 @@ describe('DynamicLevelConfig', () => {
       await user.click(downloadButton);
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith({
-          title: 'Download complete',
-          description: 'Download successful',
-        });
+        // toastSuccess.generic is called with just the message string
+        expect(mockToast).toHaveBeenCalledWith('Download successful');
       });
     });
 
     it('should show error toast on failed download', async () => {
       const user = userEvent.setup();
-      (csvUtils.downloadRegionNames as jest.Mock).mockRejectedValue(new Error('Download failed'));
+      const downloadError = new Error('Download failed');
+      (csvUtils.downloadRegionNames as jest.Mock).mockRejectedValue(downloadError);
 
       render(<DynamicLevelConfig formData={defaultFormData} onChange={mockOnChange} />);
 
@@ -426,11 +428,11 @@ describe('DynamicLevelConfig', () => {
       await user.click(downloadButton);
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith({
-          title: 'Download failed',
-          description: 'Failed to download state names. Please try again.',
-          variant: 'destructive',
-        });
+        // toastError.api is called with (error, fallbackMessage)
+        expect(mockToast).toHaveBeenCalledWith(
+          downloadError,
+          'Failed to download state names. Please try again.'
+        );
       });
     });
 

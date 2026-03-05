@@ -1,6 +1,20 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
+// Polyfill TextEncoder/TextDecoder (required by jspdf/iobuffer)
+global.TextEncoder = TextEncoder;
+// @ts-expect-error - polyfilling globals
+global.TextDecoder = TextDecoder;
+
+// Global API mock - available in all tests
+// Individual tests can use mockApiGet.mockResolvedValue() to set responses
+jest.mock('@/lib/api', () => ({
+  apiGet: jest.fn(),
+  apiPost: jest.fn(),
+  apiPut: jest.fn(),
+  apiDelete: jest.fn(),
+}));
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -29,10 +43,6 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
-
-// Add TextEncoder/TextDecoder to global
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder;
 
 // Mock hasPointerCapture for Radix UI Select (jsdom doesn't support this)
 if (!Element.prototype.hasPointerCapture) {
