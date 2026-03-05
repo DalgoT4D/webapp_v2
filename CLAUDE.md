@@ -101,7 +101,7 @@ const { data: charts, error, mutate } = useCharts();
 ```
 
 #### 3. **Component Architecture**
-- **Composition Pattern**: Building UIs from small, composable components
+- **Composition Pattern**: Building UIs from focused, single-responsibility components
 - **Headless UI**: Radix UI for accessible, unstyled primitives
 - **Variant-based Styling**: Using CVA (Class Variance Authority) for component variants
 - **Client/Server Split**: Clear separation with 'use client' directives
@@ -181,6 +181,89 @@ function formatCurrency(amount: number): string {
 }
 ```
 
+### API Hook Patterns
+
+All API data fetching is done through SWR hooks in `hooks/api/`. There are two patterns:
+
+**1. Read hooks (GET requests)** — use `useSWR` for data fetching with caching:
+
+```typescript
+// File: hooks/api/useFeature.ts
+import useSWR from 'swr';
+import { apiGet } from '@/lib/api';
+
+// Define response types in the hook file or in types/
+interface Feature {
+  id: number;
+  name: string;
+}
+
+// List hook — returns shaped data with loading/error states
+export function useFeatures() {
+  const { data, error, mutate } = useSWR<Feature[]>('/api/features/', apiGet);
+
+  return {
+    data: data || [],
+    isLoading: !error && !data,
+    isError: error,
+    mutate,
+  };
+}
+
+// Single item hook — use null key to conditionally fetch
+export function useFeature(id: number | null) {
+  const { data, error, mutate } = useSWR<Feature>(
+    id ? `/api/features/${id}/` : null,
+    apiGet
+  );
+
+  return {
+    data,
+    isLoading: !error && !data,
+    isError: error,
+    mutate,
+  };
+}
+```
+
+**2. Mutation hooks (POST/PUT/DELETE)** — use `useSWRMutation` for write operations:
+
+```typescript
+import useSWRMutation from 'swr/mutation';
+import { apiPost, apiPut, apiDelete } from '@/lib/api';
+
+// Define fetchers at the top of the file
+const createFeature = (url: string, { arg }: { arg: FeatureCreate }) => apiPost(url, arg);
+const deleteFeature = (url: string, { arg }: { arg: number }) => apiDelete(`${url}${arg}/`);
+
+export function useCreateFeature() {
+  return useSWRMutation('/api/features/', createFeature);
+}
+
+export function useDeleteFeature() {
+  return useSWRMutation('/api/features/', deleteFeature);
+}
+```
+
+**3. Standalone async functions** — for one-off mutations called from event handlers:
+
+```typescript
+export async function triggerAction(id: string): Promise<void> {
+  return apiPost(`/api/features/${id}/action/`, {});
+}
+```
+
+**Key conventions:**
+- **File naming**: `useFeatures.ts` (plural for the hook file)
+- **Hook naming**: `useFeatures` (list), `useFeature` (single), `useCreateFeature` (mutation)
+- **Conditional fetching**: Pass `null` as SWR key when data isn't ready (e.g., `id ? url : null`)
+- **Return shape**: Always return `{ data, isLoading, isError, mutate }` from read hooks
+- **Types**: Define interfaces in the hook file or import from `types/`
+- **Smart polling**: Use `refreshInterval` callback for dynamic polling (see `usePipelines` for pattern)
+- **SWR options**: Use `revalidateOnFocus: false` for data that doesn't change often
+
+**Real examples:** `hooks/api/useCharts.ts` (read), `hooks/api/useChart.ts` (mutations), `hooks/api/usePipelines.ts` (polling)
+
 ### Utility and Constants Organization
 
 **Global utilities and constants** (used across multiple features):
@@ -189,8 +272,8 @@ function formatCurrency(amount: number): string {
 - `constants/` - Application-wide constants
 
 **Feature-specific utilities** (used only within one feature/component):
-- Keep them in the same file as the component if small
-- Create a `utils.ts` file in the feature folder if larger
+- Always create a `utils.ts` file in the feature folder for utility functions
+- Do not keep utility functions inline in component files
 
 ```
 components/
@@ -198,6 +281,10 @@ components/
 │   ├── ChartBuilder.tsx
 │   ├── utils.ts              # Chart-specific utilities
 │   └── constants.ts          # Chart-specific constants
+├── pipeline/
+│   ├── pipeline-list.tsx
+│   ├── utils.ts              # Pipeline-specific utilities (real example)
+│   └── ...
 ```
 
 ### Memoization and Performance
@@ -233,9 +320,9 @@ function ChartCard({ chart, onFavorite }: ChartCardProps) {
 
 **Memoization patterns:**
 
-- **`React.memo`**: Wrap components that receive the same props frequently
-- **`useMemo`**: Memoize expensive calculations or object/array creation
-- **`useCallback`**: Wrap functions passed as props to prevent child re-renders
+- **`React.memo`**: Wrap components that re-render without prop changes (e.g., parent state updates that don't affect the child)
+- **`useMemo`**: Memoize calculations that iterate over arrays or transform data (e.g., sorting, filtering lists)
+- **`useCallback`**: Wrap functions passed as props to memoized child components to prevent their re-renders
 
 ```typescript
 // Wrap prop functions in useCallback
@@ -248,7 +335,7 @@ const sortedCharts = useMemo(() => {
   return [...charts].sort((a, b) => a.title.localeCompare(b.title));
 }, [charts]);
 
-// Wrap component if it receives stable props often
+// Wrap component when parent re-renders but this component's props don't change
 const ChartCard = memo(function ChartCard({ chart, onFavorite }: ChartCardProps) {
   // ...
 });
@@ -340,6 +427,92 @@ Before adding a new package:
 - Use composition over configuration
 - Avoid hardcoding values that might change
 
+### Page Layout Pattern
+
+All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent layout structure:
+
+**Structure:**
+1. **Fixed header** with border-bottom and background
+2. **Title section** with heading + subheading + optional action button (top-right)
+3. **Scrollable content area** below the header
+
+**Typography & Styling:**
+- **Font**: Anek Latin (`var(--font-anek-latin)`) — set globally, no need to specify per-component
+- **Page heading**: `text-3xl font-bold` (~30px, bold) — e.g., "Charts", "Pipelines"
+- **Page subheading**: `text-muted-foreground mt-1` (gray, 1 unit below heading) — e.g., "Create And Manage Your Visualizations"
+- **Primary action button**: `variant="ghost"` with `backgroundColor: '#06887b'` (Dalgo teal), white text, shadow-xs
+
+**Template:**
+```tsx
+<div className="h-full flex flex-col">
+  {/* Fixed Header */}
+  <div className="flex-shrink-0 border-b bg-background">
+    <div className="flex items-center justify-between mb-6 p-6 pb-0">
+      <div>
+        <h1 className="text-3xl font-bold">Page Title</h1>
+        <p className="text-muted-foreground mt-1">
+          Page description or subtitle
+        </p>
+      </div>
+
+      {/* Optional action button (top-right) */}
+      <Button
+        variant="ghost"
+        className="text-white hover:opacity-90 shadow-xs"
+        style={{ backgroundColor: '#06887b' }}
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        ACTION LABEL
+      </Button>
+    </div>
+  </div>
+
+  {/* Scrollable Content */}
+  <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6 mt-6">
+    <div className="h-full overflow-y-auto">
+      {/* Page content (tables, cards, lists, etc.) */}
+    </div>
+  </div>
+</div>
+```
+
+**Real examples:** `app/charts/page.tsx`, `components/pipeline/pipeline-list.tsx`
+
+### Color & Theme Conventions
+
+**Font**: Anek Latin (Google Font), set globally via `var(--font-anek-latin)` in `app/globals.css`. Never set font-family on individual components.
+
+**Brand colors**:
+- CSS variable `--primary: #00897B` — used via Tailwind classes `text-primary`, `bg-primary`
+- CTA buttons use inline `style={{ backgroundColor: '#06887b' }}` (slightly different shade)
+
+**Tailwind theme classes used in the codebase:**
+- `text-muted-foreground` — gray subtext, descriptions, subtitles
+- `text-destructive` — delete buttons, error states
+- `text-primary` — brand teal for links, active states
+- `bg-primary` — brand teal backgrounds on badges, checkboxes
+- `bg-background` — page/section backgrounds
+- `text-foreground` — main text color
+
+**CTA button pattern** (used on all primary action buttons like "Create Chart", "Create Pipeline"):
+```tsx
+<Button
+  variant="ghost"
+  className="text-white hover:opacity-90 shadow-xs"
+  style={{ backgroundColor: '#06887b' }}
+>
+```
+
+**Typography used across pages:**
+
+| Class | Where it's used |
+|-------|-----------------|
+| `text-3xl font-bold` | Page headings — Charts, Pipelines, Dashboards, Settings |
+| `text-xl font-semibold` | Section headings, card titles, modal titles |
+| `text-base` | Form labels, body text in settings/user management |
+| `text-sm` | Table cells, form hints, secondary text |
+| `text-xs` | Badges, timestamps, chart metadata |
+
 ### Folder Structure for New Features
 
 When adding a new feature (e.g., a new page like "pipeline"):
@@ -351,9 +524,9 @@ app/
 
 components/
 ├── pipeline/                  # Feature-specific components
-│   ├── PipelineList.tsx      # Large component - separate file
-│   ├── PipelineHistory.tsx   # Large component - separate file
-│   ├── PipelineCard.tsx      # Can be in same file if small and just receives props
+│   ├── PipelineList.tsx      # Separate file — has own state, effects, or API calls
+│   ├── PipelineHistory.tsx   # Separate file — has own state, effects, or API calls
+│   ├── PipelineCard.tsx      # Can be in parent file if it only renders props (no state/effects)
 │   └── utils.ts              # Feature-specific utilities
 
 hooks/
@@ -362,9 +535,9 @@ hooks/
 ```
 
 **Guidelines for component files:**
-- **Separate file**: If the component is large, has its own state, or has complex logic
-- **Same file**: If the component is small, mostly receives props, and is tightly coupled to the parent
-- **Always separate**: If the component is reused in multiple places
+- **Separate file**: If the component has its own `useState`, `useEffect`, API calls, or event handler logic
+- **Same file as parent**: If the component only renders props passed from the parent (no state, no effects, no API calls) and is only used by that parent
+- **Always separate**: If the component is used by more than one parent
 
 ### State Management Decision Tree
 
@@ -497,7 +670,7 @@ If confused about where to put scrolling (parent vs child container), ask the de
 
 ### Comments in Code
 
-- Add comments only for complex logic that isn't self-explanatory
+- Add comments only for logic involving non-obvious algorithms, workarounds, or business rules
 - Developers can add comments where they feel necessary
 - Use `// TODO:` for future improvements with context
 
@@ -618,8 +791,8 @@ Always add these attributes to interactive components for testability and debugg
 ## Testing Strategy
 
 ### Philosophy
-- **Quality over quantity**: Focus on getting good coverage of functions and lines, not just writing many small tests
-- **Merge related tests**: Combine small, repetitive tests into single comprehensive tests
+- **Quality over quantity**: Focus on covering all code paths (happy path, error cases, edge cases) rather than writing one assertion per test
+- **Merge related tests**: Combine tests that set up the same component/state into a single test with multiple assertions
 - **Bug fix = test**: Whenever a bug is fixed, write a test to verify the fix
 - **New feature = tests**: New features should have accompanying tests
 
