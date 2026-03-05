@@ -1612,7 +1612,7 @@ export function DashboardListV2() {
                 id="dashboard-create-button"
                 variant="ghost"
                 className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
+                style={{ backgroundColor: 'var(--primary)' }}
               >
                 <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
                 CREATE DASHBOARD
@@ -1915,7 +1915,7 @@ export function DashboardListV2() {
                     id="dashboard-empty-create-button"
                     variant="ghost"
                     className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: '#06887b' }}
+                    style={{ backgroundColor: 'var(--primary)' }}
                   >
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST DASHBOARD
