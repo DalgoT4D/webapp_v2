@@ -317,7 +317,7 @@ function PipelineFormContent({
             variant="ghost"
             disabled={submitting}
             className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: '#06887b' }}
+            style={{ backgroundColor: 'var(--primary)' }}
             data-testid="submit-btn"
           >
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

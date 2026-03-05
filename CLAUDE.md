@@ -42,7 +42,7 @@ npm run format:write           # Format code and auto-stage changes
 - **Framework**: Next.js 15 with App Router and React 19
 - **Language**: TypeScript (with relaxed strictness)
 - **Styling**: Tailwind CSS v4 with utility-first approach
-- **State Management**: Zustand for global state, SWR for server state
+- **State Management**: Zustand for global state, SWR (stale-while-revalidate) for server state caching
 - **UI Components**: Radix UI headless components with custom styling
 - **Charts**: ECharts for interactive visualizations
 - **Forms**: React Hook Form with validation
@@ -56,14 +56,24 @@ webapp_v2/
 ├── app/                      # Next.js App Router pages
 │   ├── charts/              # Chart management and builder
 │   ├── dashboards/          # Dashboard CRUD operations
-│   ├── data/                # Data management features
+│   ├── data-quality/        # Data quality management
+│   ├── explore/             # Data exploration
+│   ├── impact/              # Impact tracking
 │   ├── ingest/              # Data ingestion workflows
+│   ├── login/               # Authentication pages
+│   ├── notifications/       # Notification management
 │   ├── orchestrate/         # Orchestration management
+│   ├── pipeline/            # Pipeline management
+│   ├── settings/            # Application settings
+│   ├── share/               # Shared/public dashboard views
 │   └── transform/           # Data transformation tools
 ├── components/
 │   ├── ui/                  # Reusable Radix-based UI components (GLOBAL)
 │   ├── charts/              # Chart-specific components
-│   └── dashboard/           # Dashboard builder components
+│   ├── dashboard/           # Dashboard builder components
+│   ├── dashboards/          # Dashboard list and management
+│   ├── pipeline/            # Pipeline-specific components
+│   └── settings/            # Settings-specific components
 ├── hooks/
 │   ├── api/                 # SWR-based API hooks
 │   └── [custom hooks]       # Utility hooks (toast, mobile, etc.)
@@ -75,13 +85,13 @@ webapp_v2/
 ### Key Architectural Patterns
 
 #### 1. **Authentication & API Integration**
-- **Token-based Authentication**: JWT access tokens with refresh token flow
-- **Automatic Token Refresh**: Implemented in `lib/api.ts` with retry logic
+- **Cookie-based Authentication**: Backend sets HTTP-only cookies containing JWT tokens; frontend never handles tokens directly
+- **Automatic Token Refresh**: On 401 response, `lib/api.ts` calls `/api/v2/token/refresh` with `credentials: 'include'` and retries the original request
 - **Organization Context**: Multi-tenant with `x-dalgo-org` header
-- **Centralized API Client**: All API calls go through `lib/api.ts` with automatic auth injection
+- **Centralized API Client**: All API calls go through `lib/api.ts` which includes `credentials: 'include'` on every request
 
 ```typescript
-// API calls automatically include auth headers and handle token refresh
+// API calls automatically include cookies and handle token refresh
 import { apiGet, apiPost } from '@/lib/api';
 const data = await apiGet('/api/charts');
 ```
@@ -93,8 +103,8 @@ const data = await apiGet('/api/charts');
 - **Local State**: React useState for component-specific state
 
 ```typescript
-// Authentication state with persistence
-const { token, selectedOrgSlug, setSelectedOrg } = useAuthStore();
+// Authentication state (cookies handled by browser, org selection in localStorage)
+const { selectedOrgSlug, setSelectedOrg, isAuthenticated } = useAuthStore();
 
 // Server state with automatic caching
 const { data: charts, error, mutate } = useCharts();
@@ -104,7 +114,7 @@ const { data: charts, error, mutate } = useCharts();
 - **Composition Pattern**: Building UIs from focused, single-responsibility components
 - **Headless UI**: Radix UI for accessible, unstyled primitives
 - **Variant-based Styling**: Using CVA (Class Variance Authority) for component variants
-- **Client/Server Split**: Clear separation with 'use client' directives
+- **Client/Server Split**: Next.js renders components on the server by default. Add `'use client'` at the top of a file when the component needs browser APIs, hooks (useState, useEffect), or event handlers
 
 ```typescript
 // Typical component pattern
@@ -147,7 +157,7 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 #### Environment & API
 - **Backend URL**: Configurable via `NEXT_PUBLIC_BACKEND_URL` (defaults to localhost:8002)
 - **E2E Base URL**: `E2E_BASE_URL` env var to test against staging/production
-- **Local Storage**: Used for auth tokens and organization selection
+- **Local Storage**: Used for organization selection (auth tokens are in HTTP-only cookies)
 - **CORS**: Handled by backend, frontend makes direct API calls
 
 ---
@@ -160,7 +170,7 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 - Use when you need React features: state, effects, context, or other hooks
 - Use for data fetching with SWR
 - Use when the logic needs to re-render the component
-- Always prefix with `use` (e.g., `useCharts`, `useMobile`, `useToast`)
+- Always prefix with `use` (e.g., `useCharts`, `useMobile`, `useSyncLock`)
 
 **Utility Functions (`lib/`):**
 - Use for pure functions that transform data
@@ -418,13 +428,17 @@ Before adding a new package:
 
 **Don't create new components unless necessary.** Before creating a new component:
 
-1. Check if an existing component in `components/ui/` can be used
-2. Check if an existing component can be extended with variants
+1. Check if an existing component in `components/ui/` can be used as-is
+2. Check if an existing component can be extended with variants or new props
 3. Check if the logic can be added to an existing component
+
+**Enhance existing components instead of creating new ones.** If a component lacks a behavior you need, propose enhancing it rather than building a separate component. For example: need a filterable table? Add filtering to the existing table component. Need a searchable dropdown? Add search to the existing dropdown. This keeps the component library lean and avoids duplicate components that diverge over time.
+
+**Never modify shared/base components (especially `components/ui/`) without informing the user first.** These components are used across the codebase — changing them can have unintended side effects. Always explain what you want to change, why, and let the user verify before making the edit.
 
 **Make components reusable:**
 - Accept customization via props
-- Use composition over configuration
+- **Use composition over configuration**: Build flexible primitive components that accept children/slots (e.g., `<Card>`, `<CardHeader>`, `<CardBody>`), then create pre-configured shortcut components for common use cases (e.g., `<ChartCard title="Sales">`). This way the common case stays simple, but uncommon layouts are possible without adding more props. Avoid components with many boolean/string props that control rendering — they become unmaintainable as requirements grow.
 - Avoid hardcoding values that might change
 
 ### Page Layout Pattern
@@ -440,7 +454,7 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 - **Font**: Anek Latin (`var(--font-anek-latin)`) — set globally, no need to specify per-component
 - **Page heading**: `text-3xl font-bold` (~30px, bold) — e.g., "Charts", "Pipelines"
 - **Page subheading**: `text-muted-foreground mt-1` (gray, 1 unit below heading) — e.g., "Create And Manage Your Visualizations"
-- **Primary action button**: `variant="ghost"` with `backgroundColor: '#06887b'` (Dalgo teal), white text, shadow-xs
+- **Primary action button**: `variant="ghost"` with `backgroundColor: 'var(--primary)'` (Dalgo teal), white text, shadow-xs
 
 **Template:**
 ```tsx
@@ -459,7 +473,7 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
       <Button
         variant="ghost"
         className="text-white hover:opacity-90 shadow-xs"
-        style={{ backgroundColor: '#06887b' }}
+        style={{ backgroundColor: 'var(--primary)' }}
       >
         <Plus className="h-4 w-4 mr-2" />
         ACTION LABEL
@@ -483,14 +497,15 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 **Font**: Anek Latin (Google Font), set globally via `var(--font-anek-latin)` in `app/globals.css`. Never set font-family on individual components.
 
 **Brand colors**:
-- CSS variable `--primary: #00897B` — used via Tailwind classes `text-primary`, `bg-primary`
-- CTA buttons use inline `style={{ backgroundColor: '#06887b' }}` (slightly different shade)
+- CSS variable `--primary: #00897B` — use via Tailwind classes `text-primary`, `bg-primary`
+- For inline styles, reference the CSS variable: `style={{ backgroundColor: 'var(--primary)' }}`
+- Never hardcode hex values like `#06887b` or `#00897B` in components — always use the CSS variable
 
 **Tailwind theme classes used in the codebase:**
 - `text-muted-foreground` — gray subtext, descriptions, subtitles
 - `text-destructive` — delete buttons, error states
 - `text-primary` — brand teal for links, active states
-- `bg-primary` — brand teal backgrounds on badges, checkboxes
+- `bg-primary` — brand teal backgrounds on badges, checkboxes, CTA buttons
 - `bg-background` — page/section backgrounds
 - `text-foreground` — main text color
 
@@ -499,9 +514,10 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 <Button
   variant="ghost"
   className="text-white hover:opacity-90 shadow-xs"
-  style={{ backgroundColor: '#06887b' }}
+  style={{ backgroundColor: 'var(--primary)' }}
 >
 ```
+Uses `variant="ghost"` with an inline style referencing the CSS variable. The inline style ensures the background color wins over Tailwind's hover classes, and `hover:opacity-90` provides a subtle fade on hover.
 
 **Typography used across pages:**
 
@@ -515,24 +531,49 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 
 ### Folder Structure for New Features
 
-When adding a new feature (e.g., a new page like "pipeline"):
+When adding a new feature, follow the **pipeline feature** as the reference implementation. It demonstrates every pattern in this document.
 
+**Pipeline structure (reference):**
 ```
 app/
 ├── pipeline/
-│   └── page.tsx              # Main page component
+│   └── page.tsx                  # Thin page — delegates to a component
 
 components/
-├── pipeline/                  # Feature-specific components
-│   ├── PipelineList.tsx      # Separate file — has own state, effects, or API calls
-│   ├── PipelineHistory.tsx   # Separate file — has own state, effects, or API calls
-│   ├── PipelineCard.tsx      # Can be in parent file if it only renders props (no state/effects)
-│   └── utils.ts              # Feature-specific utilities
+├── pipeline/                      # Feature-specific components
+│   ├── pipeline-list.tsx          # Separate file — has own state, effects, API calls
+│   ├── pipeline-form.tsx          # Separate file — has own state, effects, API calls
+│   ├── pipeline-run-history.tsx   # Separate file — has own state, effects, API calls
+│   ├── task-sequence.tsx          # Separate file — has own state, effects, API calls
+│   ├── utils.ts                   # Feature-specific utility functions
+│   └── __tests__/                 # Co-located tests with mock data
+│       ├── pipeline.test.tsx
+│       ├── pipeline-utils.test.ts
+│       └── pipeline-mock-data.ts
 
 hooks/
 ├── api/
-│   └── usePipelines.ts       # SWR hook for pipeline data
+│   └── usePipelines.ts            # SWR read hooks + standalone mutation functions
+
+types/
+├── pipeline.ts                    # TypeScript interfaces for API responses
+
+constants/
+├── pipeline.ts                    # Named constants (polling intervals, status enums, etc.)
 ```
+
+**What the pipeline does right:**
+- Page is a thin wrapper, all logic lives in components
+- Each component with its own state/effects/API calls is a separate file
+- SWR hooks for reads (`usePipelines`, `usePipeline`) + standalone async functions for mutations (`createPipeline`, `deletePipeline`)
+- Feature-specific `utils.ts` for cron parsing, time formatting, etc. — not inline in components
+- Named constants (`POLLING_INTERVAL_WHEN_LOCKED`, `LockStatus`, `FlowRunStatus`) in `constants/pipeline.ts`
+- Proper TypeScript types in `types/pipeline.ts`
+- Uses `toastSuccess`/`toastError` from `lib/toast.ts` — never raw `toast()`
+- Follows the page layout pattern (fixed header + scrollable content)
+- Uses the CTA button pattern (`variant="ghost"` + `style={{ backgroundColor: 'var(--primary)' }}`)
+- `data-testid` on key elements, `key` using stable IDs, `useCallback`/`useMemo` where appropriate
+- Co-located `__tests__/` directory with unit tests and mock data
 
 **Guidelines for component files:**
 - **Separate file**: If the component has its own `useState`, `useEffect`, API calls, or event handler logic
@@ -626,9 +667,7 @@ const firstChart = charts?.[0] ?? null;
 
 ### Toast Notifications
 
-> **TODO**: Update this section after orchestrate branch is merged.
-
-Currently using Sonner for toast notifications. Patterns will be documented here.
+Uses **Sonner** via centralized semantic helpers in `lib/toast.ts`. Never call `toast()` directly — always use `toastSuccess`, `toastError`, `toastInfo`, or `toastPromise` from that file.
 
 ### No Magic Numbers
 
@@ -718,6 +757,12 @@ For complex UI components, prefer well-maintained packages over building from sc
 
 Check existing `package.json` before implementing complex functionality.
 
+### Chart Implementation
+- **Use ECharts**: All charts are implemented using ECharts library
+- **Use existing patterns**: Follow established chart component patterns in `components/charts/`
+- **Handle data formatting**: Transform API data to chart-compatible formats
+- **Export capabilities**: Implement PNG/PDF export using existing utilities
+
 ### CI/CD Awareness
 
 When making changes that affect the build or deployment:
@@ -726,65 +771,6 @@ When making changes that affect the build or deployment:
 - **Build script changes**: Test locally with `npm run build` before pushing
 
 Don't change existing CI/CD functionality - only add new values/configurations as needed.
-
----
-
-## Development Patterns to Follow
-
-### Component Attributes (Required)
-Always add these attributes to interactive components for testability and debugging:
-
-- **`data-testid`**: Required for all interactive elements (buttons, inputs, rows, etc.)
-  - Use descriptive, kebab-case names: `data-testid="create-pipeline-btn"`
-  - Include unique identifiers for list items: `data-testid="pipeline-row-${id}"`
-- **`id`**: Required for form elements and elements referenced by labels
-- **`key`**: Required for all items in lists/arrays (use unique identifiers, not array indices)
-
-```typescript
-// Example: Button with testid
-<Button data-testid="submit-btn" onClick={handleSubmit}>Submit</Button>
-
-// Example: List items with dynamic testids
-{items.map((item) => (
-  <div key={item.id} data-testid={`item-row-${item.id}`}>
-    <button data-testid={`delete-btn-${item.id}`}>Delete</button>
-  </div>
-))}
-
-// Example: Form element with id for label association
-<Label htmlFor="pipeline-name">Name</Label>
-<Input id="pipeline-name" data-testid="pipeline-name-input" />
-```
-
-### Creating New Features
-1. **Start with the API hook** in `hooks/api/` using SWR
-2. **Build UI components** in appropriate feature directory under `components/`
-3. **Create pages** in `app/` directory following App Router conventions
-4. **Use existing UI components** from `components/ui/` for consistency
-
-### State Management Guidelines
-- Use **Zustand** for global application state that persists across routes
-- Use **SWR hooks** for server data that needs caching and revalidation
-- Use **React Hook Form** for complex forms with validation
-- Use **local useState** for simple component-specific state
-
-### Styling Approach
-- **Tailwind-first**: Use utility classes for styling
-- **Component variants**: Use CVA for consistent component styling variations
-- **Class merging**: Use `cn()` utility (tailwind-merge) for safe class combinations
-- **Responsive design**: Mobile-first approach with responsive breakpoints
-
-### API Integration
-- **Use centralized API helpers**: `apiGet`, `apiPost`, `apiPut`, `apiDelete` from `lib/api.ts`
-- **Handle auth automatically**: API client manages tokens and organization context
-- **Error handling**: API errors are thrown as Error objects with meaningful messages
-- **Type safety**: Define TypeScript interfaces for API responses
-
-### Chart Implementation
-- **Use ECharts**: All charts are implemented using ECharts library
-- **Use existing patterns**: Follow established chart component patterns in `components/charts/`
-- **Handle data formatting**: Transform API data to chart-compatible formats
-- **Export capabilities**: Implement PNG/PDF export using existing utilities
 
 ---
 
