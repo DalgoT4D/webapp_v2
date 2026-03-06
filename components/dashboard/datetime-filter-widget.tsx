@@ -89,6 +89,7 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
               <Calendar
                 mode="single"
                 selected={startDate}
+                defaultMonth={startDate}
                 onSelect={handleStartDateSelect}
                 disabled={(date) => {
                   // Disable dates after end date if end date is selected
@@ -120,6 +121,7 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
               <Calendar
                 mode="single"
                 selected={endDate}
+                defaultMonth={endDate}
                 onSelect={handleEndDateSelect}
                 disabled={(date) => {
                   // Disable dates before start date if start date is selected
