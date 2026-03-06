@@ -11,17 +11,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { NumberFormat, DateFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '../shared/NumberFormatSection';
+import { DateFormatSection } from '../shared/DateFormatSection';
 
 interface LineChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
+  hasNumericXAxis?: boolean;
+  hasDateXAxis?: boolean;
 }
 
 export function LineChartCustomizations({
   customizations,
   updateCustomization,
   disabled,
+  hasNumericXAxis = false,
+  hasDateXAxis = false,
 }: LineChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -161,12 +168,12 @@ export function LineChartCustomizations({
         )}
       </div>
 
-      {/* Axis Configuration */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium">Axis Configuration</h4>
+      {/* X-Axis Configuration */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">X-Axis</h4>
 
         <div className="space-y-2">
-          <Label htmlFor="xAxisTitle">X-Axis Title</Label>
+          <Label htmlFor="xAxisTitle">Title</Label>
           <Input
             id="xAxisTitle"
             value={customizations.xAxisTitle || ''}
@@ -177,7 +184,7 @@ export function LineChartCustomizations({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="xAxisLabelRotation">X-Axis Label Rotation</Label>
+          <Label htmlFor="xAxisLabelRotation">Label Rotation</Label>
           <Select
             value={customizations.xAxisLabelRotation || 'horizontal'}
             onValueChange={(value) => updateCustomization('xAxisLabelRotation', value)}
@@ -194,8 +201,35 @@ export function LineChartCustomizations({
           </Select>
         </div>
 
+        {/* X-Axis Number Formatting - only shown for numeric X-axis */}
+        {hasNumericXAxis && (
+          <NumberFormatSection
+            idPrefix="xAxis"
+            numberFormat={customizations.xAxisNumberFormat as NumberFormat}
+            decimalPlaces={customizations.xAxisDecimalPlaces}
+            onNumberFormatChange={(value) => updateCustomization('xAxisNumberFormat', value)}
+            onDecimalPlacesChange={(value) => updateCustomization('xAxisDecimalPlaces', value)}
+            disabled={disabled}
+          />
+        )}
+
+        {/* X-Axis Date Formatting - only shown for date X-axis */}
+        {hasDateXAxis && (
+          <DateFormatSection
+            idPrefix="xAxis"
+            dateFormat={customizations.xAxisDateFormat as DateFormat}
+            onDateFormatChange={(value) => updateCustomization('xAxisDateFormat', value)}
+            disabled={disabled}
+          />
+        )}
+      </div>
+
+      {/* Y-Axis Configuration */}
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium">Y-Axis</h4>
+
         <div className="space-y-2">
-          <Label htmlFor="yAxisTitle">Y-Axis Title</Label>
+          <Label htmlFor="yAxisTitle">Title</Label>
           <Input
             id="yAxisTitle"
             value={customizations.yAxisTitle || ''}
@@ -206,7 +240,7 @@ export function LineChartCustomizations({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="yAxisLabelRotation">Y-Axis Label Rotation</Label>
+          <Label htmlFor="yAxisLabelRotation">Label Rotation</Label>
           <Select
             value={customizations.yAxisLabelRotation || 'horizontal'}
             onValueChange={(value) => updateCustomization('yAxisLabelRotation', value)}
@@ -222,6 +256,17 @@ export function LineChartCustomizations({
             </SelectContent>
           </Select>
         </div>
+
+        <NumberFormatSection
+          idPrefix="yAxis"
+          numberFormat={customizations.yAxisNumberFormat as NumberFormat}
+          decimalPlaces={customizations.yAxisDecimalPlaces}
+          onNumberFormatChange={(value) => updateCustomization('yAxisNumberFormat', value)}
+          onDecimalPlacesChange={(value) => updateCustomization('yAxisDecimalPlaces', value)}
+          disabled={disabled}
+          showDescription={true}
+          description="Applied to Y-axis labels, data labels, and tooltips"
+        />
       </div>
     </div>
   );

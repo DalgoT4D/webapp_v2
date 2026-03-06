@@ -23,7 +23,10 @@ describe('LineChartCustomizations', () => {
     // Sections
     expect(screen.getByText('Display Options')).toBeInTheDocument();
     expect(screen.getByText('Data Labels')).toBeInTheDocument();
-    expect(screen.getByText('Axis Configuration')).toBeInTheDocument();
+    expect(screen.getByText('X-Axis')).toBeInTheDocument();
+    expect(screen.getByText('Y-Axis')).toBeInTheDocument();
+    // X-Axis Number Format is only shown when hasNumericXAxis is true
+    expect(screen.getAllByLabelText('Number Format').length).toBe(1);
 
     // Default values
     expect(screen.getByLabelText('Smooth Curves')).toBeChecked();
@@ -85,11 +88,12 @@ describe('LineChartCustomizations', () => {
 
     expect(screen.getByDisplayValue('Months')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Sales')).toBeInTheDocument();
-    expect(screen.getByLabelText('X-Axis Label Rotation')).toBeInTheDocument();
-    expect(screen.getByLabelText('Y-Axis Label Rotation')).toBeInTheDocument();
+    // Label Rotation fields are now just called "Label Rotation" within each section
+    expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
-    const xInput = screen.getByLabelText('X-Axis Title');
-    await user.type(xInput, 'D');
+    // X-axis title input (first Title field)
+    const titleInputs = screen.getAllByLabelText('Title');
+    await user.type(titleInputs[0], 'D');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'MonthsD');
   });
 
@@ -104,6 +108,85 @@ describe('LineChartCustomizations', () => {
     });
     screen.getAllByRole('textbox').forEach((i) => {
       expect(i).toBeDisabled();
+    });
+  });
+
+  describe('Number Formatting', () => {
+    // Note: Detailed number formatting behavior (clamping, callbacks, etc.)
+    // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
+
+    it('should render NumberFormatSection in Y-Axis section with description', () => {
+      render(<LineChartCustomizations {...defaultProps} />);
+
+      expect(screen.getByText('Y-Axis')).toBeInTheDocument();
+      expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
+      expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
+      expect(
+        screen.getByText('Applied to Y-axis labels, data labels, and tooltips')
+      ).toBeInTheDocument();
+    });
+
+    it('should render X-axis NumberFormatSection only when hasNumericXAxis is true', () => {
+      const { rerender } = render(<LineChartCustomizations {...defaultProps} />);
+
+      // Only Y-Axis number format by default
+      expect(screen.getAllByLabelText('Number Format').length).toBe(1);
+
+      // Both X-Axis and Y-Axis when hasNumericXAxis is true
+      rerender(<LineChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
+      expect(screen.getAllByLabelText('Number Format').length).toBe(2);
+    });
+
+    it('should pass customization values to NumberFormatSection correctly', () => {
+      render(
+        <LineChartCustomizations
+          {...defaultProps}
+          customizations={{ yAxisNumberFormat: 'indian', yAxisDecimalPlaces: 2 }}
+        />
+      );
+
+      expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
+    });
+  });
+
+  describe('Date Formatting', () => {
+    it('should not show Date Format when hasDateXAxis is false', () => {
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={false} />);
+
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+    });
+
+    it('should show Date Format in X-Axis section when hasDateXAxis is true', () => {
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
+    });
+
+    it('should call updateCustomization when date format changes', async () => {
+      const user = userEvent.setup();
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+
+      const formatSelect = screen.getByLabelText('Date Format');
+      await user.click(formatSelect);
+      await user.click(screen.getByRole('option', { name: '%d/%m/%Y (14/01/2019)' }));
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisDateFormat', 'dd_mm_yyyy');
+    });
+
+    it('should not show both number and date format simultaneously', () => {
+      // When X-axis is numeric, show number format
+      const { rerender } = render(
+        <LineChartCustomizations {...defaultProps} hasNumericXAxis={true} hasDateXAxis={false} />
+      );
+      expect(screen.getAllByLabelText('Number Format').length).toBe(2);
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+
+      // When X-axis is date, show date format
+      rerender(
+        <LineChartCustomizations {...defaultProps} hasNumericXAxis={false} hasDateXAxis={true} />
+      );
+      expect(screen.getAllByLabelText('Number Format').length).toBe(1); // Only Y-axis
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
     });
   });
 });
