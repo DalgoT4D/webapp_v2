@@ -118,8 +118,8 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {formatDate(snapshot.period_start)} — {formatDate(snapshot.period_end)}
-                      {snapshot.is_rolling_end && ' (till today)'}
+                      {snapshot.period_start ? formatDate(snapshot.period_start) : 'All'} —{' '}
+                      {formatDate(snapshot.period_end)}
                     </span>
                     {snapshot.dashboard_title && (
                       <span className="truncate max-w-48">From: {snapshot.dashboard_title}</span>

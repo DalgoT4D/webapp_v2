@@ -1,13 +1,19 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 
+export interface DateColumn {
+  schema_name: string;
+  table_name: string;
+  column_name: string;
+}
+
 export interface ReportSnapshot {
   id: number;
   title: string;
   dashboard_title?: string;
-  period_start: string;
-  period_end: string; // Always resolved (stored value or today)
-  is_rolling_end: boolean; // true = "till today" (no fixed end date)
+  date_column?: DateColumn;
+  period_start?: string; // Optional (no lower bound)
+  period_end: string;
   status: 'generated' | 'viewed' | 'archived';
   summary?: string;
   created_by?: string;
@@ -29,9 +35,9 @@ export interface SnapshotViewData {
   report_metadata: {
     snapshot_id: number;
     title: string;
-    period_start: string;
-    period_end: string; // Always resolved
-    is_rolling_end: boolean; // true = "till today"
+    date_column?: DateColumn;
+    period_start?: string;
+    period_end: string;
     summary?: string;
     status: string;
     created_at: string;
@@ -64,8 +70,9 @@ export function useSnapshotView(snapshotId: number | null) {
 export async function createSnapshot(data: {
   title: string;
   dashboard_id: number;
-  period_start: string;
-  period_end?: string | null; // Omit or null = "till today"
+  date_column: DateColumn;
+  period_start?: string | null; // Optional (no lower bound)
+  period_end: string;
 }) {
   return apiPost('/api/reports/', data);
 }

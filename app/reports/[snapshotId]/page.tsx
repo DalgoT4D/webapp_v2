@@ -78,9 +78,8 @@ export default function SnapshotViewerPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="h-3 w-3" />
               <span>
-                {formatDate(report_metadata.period_start)} —{' '}
+                {report_metadata.period_start ? formatDate(report_metadata.period_start) : 'All'} —{' '}
                 {formatDate(report_metadata.period_end)}
-                {report_metadata.is_rolling_end && ' (till today)'}
               </span>
             </div>
           </div>
@@ -137,7 +136,7 @@ export default function SnapshotViewerPage() {
       </div>
 
       {/* Dashboard - reused component */}
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden min-h-0">
         <DashboardNativeView
           dashboardId={dashboard_data.id}
           dashboardData={dashboard_data}

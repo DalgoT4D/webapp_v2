@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -23,8 +22,8 @@ import {
 } from '@/components/ui/select';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
-import { createSnapshot } from '@/hooks/api/useReports';
-import { useDashboards } from '@/hooks/api/useDashboards';
+import { createSnapshot, type DateColumn } from '@/hooks/api/useReports';
+import { useDashboards, useDashboard, type DashboardFilter } from '@/hooks/api/useDashboards';
 
 interface CreateSnapshotDialogProps {
   dashboardId?: number;
@@ -45,20 +44,29 @@ export function CreateSnapshotDialog({
   const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(
     preselectedDashboardId ?? null
   );
+  const [selectedDateColumn, setSelectedDateColumn] = useState<string>('');
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
-  const [isTillToday, setIsTillToday] = useState(false);
 
   const needsDashboardPicker = !preselectedDashboardId;
+  const effectiveDashboardId = preselectedDashboardId ?? selectedDashboardId;
 
   // Only fetch dashboards when the picker is needed and dialog is open
   const { data: dashboards } = useDashboards(
     needsDashboardPicker && open ? { dashboard_type: 'native' } : undefined
   );
 
-  const effectiveDashboardId = preselectedDashboardId ?? selectedDashboardId;
+  // Fetch the selected dashboard to get its datetime filters
+  const { data: dashboardData } = useDashboard(
+    open && effectiveDashboardId ? effectiveDashboardId : 0
+  );
+
   const effectiveDashboardTitle =
     preselectedDashboardTitle ?? dashboards?.find((d: any) => d.id === selectedDashboardId)?.title;
+
+  // Extract datetime filters from the dashboard
+  const datetimeFilters: DashboardFilter[] =
+    dashboardData?.filters?.filter((f: DashboardFilter) => f.filter_type === 'datetime') || [];
 
   const handleSubmit = async () => {
     if (!effectiveDashboardId) {
@@ -69,22 +77,27 @@ export function CreateSnapshotDialog({
       toast.error('Please enter a title');
       return;
     }
-    if (!periodStart) {
-      toast.error('Please select a start date');
+    if (!selectedDateColumn) {
+      toast.error('Please select a date column');
       return;
     }
-    if (!isTillToday && !periodEnd) {
-      toast.error('Please select an end date or choose "Till today"');
+    if (!periodEnd) {
+      toast.error('Please select an end date');
       return;
     }
+
+    // Parse selected date column
+    const [schema_name, table_name, column_name] = selectedDateColumn.split('.');
+    const dateColumn: DateColumn = { schema_name, table_name, column_name };
 
     setIsSubmitting(true);
     try {
       await createSnapshot({
         title: title.trim(),
         dashboard_id: effectiveDashboardId,
-        period_start: periodStart,
-        period_end: isTillToday ? null : periodEnd,
+        date_column: dateColumn,
+        period_start: periodStart || undefined,
+        period_end: periodEnd,
       });
       toast.success('Snapshot created');
       setOpen(false);
@@ -100,9 +113,9 @@ export function CreateSnapshotDialog({
   const resetForm = () => {
     setTitle('');
     if (!preselectedDashboardId) setSelectedDashboardId(null);
+    setSelectedDateColumn('');
     setPeriodStart('');
     setPeriodEnd('');
-    setIsTillToday(false);
   };
 
   return (
@@ -130,7 +143,10 @@ export function CreateSnapshotDialog({
               <Label htmlFor="dashboard-select">Dashboard</Label>
               <Select
                 value={selectedDashboardId?.toString() ?? ''}
-                onValueChange={(val) => setSelectedDashboardId(Number(val))}
+                onValueChange={(val) => {
+                  setSelectedDashboardId(Number(val));
+                  setSelectedDateColumn('');
+                }}
               >
                 <SelectTrigger id="dashboard-select">
                   <SelectValue placeholder="Select a dashboard" />
@@ -156,35 +172,55 @@ export function CreateSnapshotDialog({
             />
           </div>
 
+          {effectiveDashboardId && (
+            <div className="space-y-2">
+              <Label htmlFor="date-column-select">Date Column</Label>
+              {datetimeFilters.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No datetime filters on this dashboard.
+                </p>
+              ) : (
+                <Select value={selectedDateColumn} onValueChange={setSelectedDateColumn}>
+                  <SelectTrigger id="date-column-select">
+                    <SelectValue placeholder="Select a datetime column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datetimeFilters.map((f) => {
+                      const value = `${f.schema_name}.${f.table_name}.${f.column_name}`;
+                      return (
+                        <SelectItem key={f.id} value={value}>
+                          {f.name || `${f.table_name}.${f.column_name}`}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="period-start">Start Date</Label>
+            <Label htmlFor="period-end">End Date</Label>
+            <Input
+              id="period-end"
+              type="date"
+              value={periodEnd}
+              onChange={(e) => setPeriodEnd(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="period-start">
+              Start Date <span className="text-muted-foreground">(optional)</span>
+            </Label>
             <Input
               id="period-start"
               type="date"
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
+              max={periodEnd || undefined}
             />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Switch id="till-today" checked={isTillToday} onCheckedChange={setIsTillToday} />
-            <Label htmlFor="till-today" className="text-sm cursor-pointer">
-              Till today (rolling end date)
-            </Label>
-          </div>
-
-          {!isTillToday && (
-            <div className="space-y-2">
-              <Label htmlFor="period-end">End Date</Label>
-              <Input
-                id="period-end"
-                type="date"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-                min={periodStart || undefined}
-              />
-            </div>
-          )}
         </div>
 
         <DialogFooter>
