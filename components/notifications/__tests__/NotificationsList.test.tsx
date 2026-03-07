@@ -174,6 +174,6 @@ describe('NotificationsList', () => {
     const secondNotification = screen.getByText('Second notification');
 
     expect(firstNotification.closest('p')).toHaveClass('font-medium');
-    expect(secondNotification.closest('div')).toHaveClass('text-gray-700');
+    expect(secondNotification.closest('p')).toHaveClass('text-gray-500');
   });
 });
