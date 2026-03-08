@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, RotateCcw } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -92,6 +92,9 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
                 defaultMonth={startDate}
                 onSelect={handleStartDateSelect}
                 fixedWeeks
+                captionLayout="dropdown"
+                startMonth={new Date(2018, 0)}
+                endMonth={new Date(2030, 11)}
                 disabled={(date) => {
                   // Disable dates after end date if end date is selected
                   return endDate ? date > endDate : false;
@@ -125,6 +128,9 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
                 defaultMonth={endDate}
                 onSelect={handleEndDateSelect}
                 fixedWeeks
+                captionLayout="dropdown"
+                startMonth={new Date(2018, 0)}
+                endMonth={new Date(2030, 11)}
                 disabled={(date) => {
                   // Disable dates before start date if start date is selected
                   return startDate ? date < startDate : false;
