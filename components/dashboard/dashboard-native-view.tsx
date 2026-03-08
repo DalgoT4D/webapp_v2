@@ -222,6 +222,7 @@ interface DashboardNativeViewProps {
   embedTheme?: 'light' | 'dark'; // Theme for embed mode
   isReportMode?: boolean; // Report snapshot mode — frozen config, no editing
   frozenChartConfigs?: Record<string, any>; // Chart configs keyed by chart ID
+  beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
 }
 
 export function DashboardNativeView({
@@ -235,6 +236,7 @@ export function DashboardNativeView({
   embedTheme = 'light',
   isReportMode = false,
   frozenChartConfigs,
+  beforeContent,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -1084,6 +1086,9 @@ export function DashboardNativeView({
               minHeight: '100%',
             }}
           >
+            {/* Optional content above the chart grid (e.g. Executive Summary) */}
+            {beforeContent}
+
             {/* Show empty state if no layout config */}
             {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
               <div className="p-8 text-center text-gray-500">

@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatDistanceToNow, format, isThisYear } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,44 +20,55 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Search, Calendar, Eye, Trash2, FileText, Plus } from 'lucide-react';
+import { FileText, MoreVertical, Plus, Share2, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSnapshots, deleteSnapshot, type ReportSnapshot } from '@/hooks/api/useReports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [search, setSearch] = useState('');
-  const { snapshots, isLoading, mutate } = useSnapshots(search || undefined);
+  const { snapshots, isLoading, mutate } = useSnapshots();
+  const [deleteTarget, setDeleteTarget] = useState<ReportSnapshot | null>(null);
 
   const handleDelete = async (id: number) => {
     try {
       await deleteSnapshot(id);
       mutate();
-      toast.success('Snapshot deleted');
+      setDeleteTarget(null);
+      toast.success('Report deleted');
     } catch {
-      toast.error('Failed to delete snapshot');
+      toast.error('Failed to delete report');
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const formatCreatedOn = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    // Within last 7 days: relative time
+    if (diffDays < 7) {
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+
+    // This year: "12 Feb"
+    if (isThisYear(date)) {
+      return format(date, 'd MMM');
+    }
+
+    // Older: "20 Dec 2025"
+    return format(date, 'd MMM yyyy');
   };
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Reports</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Immutable snapshots of your dashboards
-          </p>
+          <h1 className="text-3xl font-bold">Reports</h1>
+          <p className="text-muted-foreground mt-1">Create And Manage Your Reports</p>
         </div>
         <CreateSnapshotDialog
           onCreated={() => mutate()}
@@ -65,20 +80,11 @@ export default function ReportsPage() {
         />
       </div>
 
-      <div className="relative w-80">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search reports..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
+      {/* Table */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
+            <Skeleton key={i} className="h-14 w-full" />
           ))}
         </div>
       ) : snapshots.length === 0 ? (
@@ -86,7 +92,7 @@ export default function ReportsPage() {
           <FileText className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">No reports yet</h3>
           <p className="text-sm text-muted-foreground mt-1 mb-4">
-            Create a report snapshot from any dashboard
+            Create a report from any dashboard
           </p>
           <CreateSnapshotDialog
             onCreated={() => mutate()}
@@ -98,73 +104,92 @@ export default function ReportsPage() {
           />
         </div>
       ) : (
-        <div className="space-y-3">
-          {snapshots.map((snapshot: ReportSnapshot) => (
-            <Card
-              key={snapshot.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => router.push(`/reports/${snapshot.id}`)}
-            >
-              <CardContent className="flex items-center justify-between py-4 px-5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium truncate">{snapshot.title}</h3>
-                    {snapshot.status === 'generated' && (
-                      <Badge variant="secondary" className="text-xs">
-                        New
-                      </Badge>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left text-sm font-semibold px-6 py-3">Title</th>
+                <th className="text-left text-sm font-semibold px-6 py-3">Dashboard Used</th>
+                <th className="text-left text-sm font-semibold px-6 py-3">Created by</th>
+                <th className="text-left text-sm font-semibold px-6 py-3">Created on</th>
+                <th className="text-right text-sm font-semibold px-6 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshots.map((snapshot: ReportSnapshot) => (
+                <tr
+                  key={snapshot.id}
+                  className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/reports/${snapshot.id}`)}
+                >
+                  <td className="px-6 py-4 text-sm">{snapshot.title}</td>
+                  <td className="px-6 py-4 text-sm">{snapshot.dashboard_title || '—'}</td>
+                  <td className="px-6 py-4 text-sm">
+                    {snapshot.created_by && (
+                      <span className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        {snapshot.created_by}
+                      </span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {snapshot.period_start ? formatDate(snapshot.period_start) : 'All'} —{' '}
-                      {formatDate(snapshot.period_end)}
-                    </span>
-                    {snapshot.dashboard_title && (
-                      <span className="truncate max-w-48">From: {snapshot.dashboard_title}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 ml-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/reports/${snapshot.id}`);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                  </td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">
+                    {formatCreatedOn(snapshot.created_at)}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div
+                      className="flex items-center justify-end gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button variant="ghost" size="icon" title="Share">
+                        <Share2 className="h-4 w-4" />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete snapshot?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete &quot;{snapshot.title}&quot;. This action
-                          cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(snapshot.id)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/reports/${snapshot.id}`)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Related Reports
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeleteTarget(snapshot)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete report?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete &quot;{deleteTarget?.title}&quot;. This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
