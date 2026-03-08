@@ -13,7 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, PieChart, LineChart, Hash, MapPin, Check } from 'lucide-react';
 import { useColumns, useColumnValues } from '@/hooks/api/useChart';
-import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
+import {
+  ColumnTypeIcon,
+  isDateOnlyColumn,
+  isTimestampColumn,
+  isDateAndTimestampColumn,
+} from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
@@ -283,22 +288,22 @@ export function ChartDataConfigurationV3({
 
   // Reset time grain if dimension column is not datetime or chart type doesn't support it
   React.useEffect(() => {
+    // Only run this effect if columns are loaded to avoid clearing time_grain during initial load
+    if (!columns || columns.length === 0) return;
+
     const shouldHaveTimeGrain =
       ['bar', 'line'].includes(formData.chart_type || '') &&
       formData.dimension_column &&
       allColumns.find(
         (col) =>
-          col.column_name === formData.dimension_column &&
-          ['timestamp', 'timestamptz', 'date', 'datetime', 'time'].some((type) =>
-            col.data_type.toLowerCase().includes(type)
-          )
+          col.column_name === formData.dimension_column && isDateAndTimestampColumn(col.data_type)
       );
 
     if (!shouldHaveTimeGrain && formData.time_grain) {
       onChange({ time_grain: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.chart_type, formData.dimension_column, allColumns]);
+  }, [formData.chart_type, formData.dimension_column, allColumns, columns]);
 
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
@@ -475,15 +480,15 @@ export function ChartDataConfigurationV3({
         formData.dimension_column &&
         allColumns.find(
           (col) =>
-            col.column_name === formData.dimension_column &&
-            ['timestamp', 'timestamptz', 'date', 'datetime', 'time'].some((type) =>
-              col.data_type.toLowerCase().includes(type)
-            )
+            col.column_name === formData.dimension_column && isDateAndTimestampColumn(col.data_type)
         ) && (
           <TimeGrainSelector
             value={formData.time_grain || null}
             onChange={(value) => onChange({ time_grain: value })}
             disabled={disabled}
+            columnDataType={
+              allColumns.find((col) => col.column_name === formData.dimension_column)?.data_type
+            }
           />
         )}
 

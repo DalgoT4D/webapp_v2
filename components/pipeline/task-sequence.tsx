@@ -73,9 +73,13 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
     const selectedTask = options.find((t) => t.uuid === uuid);
     if (!selectedTask) return;
 
-    // Add task and sort by order
-    const newTasks = [...value, { ...selectedTask, order: getTaskOrder(selectedTask.slug) }];
-    newTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Add task and sort by computed order (matching old webapp behavior)
+    const newTasks = [...value, selectedTask];
+    newTasks.sort(
+      (a, b) =>
+        (a.order ?? getTaskOrder(a.slug, a.generated_by)) -
+        (b.order ?? getTaskOrder(b.slug, b.generated_by))
+    );
     onChange(newTasks);
   };
 
@@ -104,16 +108,16 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
     if (draggedTask.generated_by === 'system') return;
 
     // Check drop constraints
-    const orders = value.map((t) => t.order || getTaskOrder(t.slug));
+    const orders = value.map((t) => t.order || getTaskOrder(t.slug, t.generated_by));
     const smallestOrder = draggedTask.slug === 'dbt-run' ? DBT_RUN_MIN_ORDER : DBT_TEST_MIN_ORDER;
     const largestOrder = findNearestOrder(orders, smallestOrder);
 
     // Find bounds
     const runTaskIndex = value.findIndex(
-      (t) => (t.order || getTaskOrder(t.slug)) === smallestOrder
+      (t) => (t.order || getTaskOrder(t.slug, t.generated_by)) === smallestOrder
     );
     const testTaskIndex = value.findIndex(
-      (t) => (t.order || getTaskOrder(t.slug)) === largestOrder
+      (t) => (t.order || getTaskOrder(t.slug, t.generated_by)) === largestOrder
     );
 
     // Check if drop is within valid range

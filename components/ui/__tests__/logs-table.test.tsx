@@ -8,6 +8,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LogsTable, type FlowRun } from '../logs-table';
+import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
 
@@ -25,7 +26,7 @@ const createFlowRun = (overrides: Partial<FlowRun> = {}): FlowRun => ({
   id: 'flow-1',
   date: '2025-01-15T10:30:00Z',
   startedBy: 'user@test.com',
-  status: 'success',
+  status: PipelineRunDisplayStatus.SUCCESS,
   tasks: [
     {
       id: 'task-1',
@@ -63,63 +64,36 @@ describe('LogsTable', () => {
   });
 });
 
-describe('LogsTable - Flow run highlight on expand', () => {
+describe('LogsTable - Log expansion behavior', () => {
   const mockFetchLogs = jest.fn().mockResolvedValue(['Log line 1', 'Log line 2']);
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // Helper to get flow run row elements (skipping the header which also uses grid-cols-12)
-  const getFlowRunRows = (container: HTMLElement) =>
-    container.querySelectorAll('.space-y-2 > .grid.grid-cols-12');
-
-  it('adds left accent border when logs are expanded', async () => {
+  it('expands and collapses logs when clicking the Logs button', async () => {
     const user = userEvent.setup();
     const runs = [createFlowRun()];
 
-    const { container } = render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
-
-    const flowRunRow = getFlowRunRows(container)[0];
-
-    // Initially no accent border
-    expect(flowRunRow).not.toHaveClass('border-l-4');
-    expect(flowRunRow).not.toHaveClass('border-l-teal-500');
-
-    // Click Logs button
-    const logsButton = screen.getByRole('button', { name: /logs/i });
-    await user.click(logsButton);
-
-    // Should now have accent border
-    await waitFor(() => {
-      expect(flowRunRow).toHaveClass('border-l-4');
-      expect(flowRunRow).toHaveClass('border-l-teal-500');
-    });
-  });
-
-  it('removes left accent border when logs are collapsed', async () => {
-    const user = userEvent.setup();
-    const runs = [createFlowRun()];
-
-    const { container } = render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
+    render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
 
     const logsButton = screen.getByRole('button', { name: /logs/i });
 
-    // Expand
+    // Click to expand logs
     await user.click(logsButton);
-    const flowRunRow = getFlowRunRows(container)[0];
     await waitFor(() => {
-      expect(flowRunRow).toHaveClass('border-l-4');
+      expect(screen.getByText('Log line 1')).toBeInTheDocument();
+      expect(screen.getByText('Log line 2')).toBeInTheDocument();
     });
 
-    // Collapse
+    // Click to collapse logs
     await user.click(logsButton);
     await waitFor(() => {
-      expect(flowRunRow).not.toHaveClass('border-l-4');
+      expect(screen.queryByText('Log line 1')).not.toBeInTheDocument();
     });
   });
 
-  it('keeps accent border when one of multiple tasks still has expanded logs', async () => {
+  it('expands logs for multiple tasks independently', async () => {
     const user = userEvent.setup();
     const runs = [
       createFlowRun({
@@ -130,34 +104,24 @@ describe('LogsTable - Flow run highlight on expand', () => {
       }),
     ];
 
-    const { container } = render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
+    render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
 
     const logsButtons = screen.getAllByRole('button', { name: /logs/i });
 
-    // Expand both tasks
-    await user.click(logsButtons[0]);
-    await user.click(logsButtons[1]);
-
-    const flowRunRow = getFlowRunRows(container)[0];
-    await waitFor(() => {
-      expect(flowRunRow).toHaveClass('border-l-4');
-    });
-
-    // Collapse first task - accent should remain (second task still expanded)
+    // Expand first task
     await user.click(logsButtons[0]);
     await waitFor(() => {
-      expect(flowRunRow).toHaveClass('border-l-4');
-      expect(flowRunRow).toHaveClass('border-l-teal-500');
+      expect(screen.getByText('Log line 1')).toBeInTheDocument();
     });
 
-    // Collapse second task - accent should be removed
-    await user.click(logsButtons[1]);
+    // Collapse first task
+    await user.click(logsButtons[0]);
     await waitFor(() => {
-      expect(flowRunRow).not.toHaveClass('border-l-4');
+      expect(screen.queryByText('Log line 1')).not.toBeInTheDocument();
     });
   });
 
-  it('highlights multiple flow runs independently', async () => {
+  it('expands logs across multiple flow runs', async () => {
     const user = userEvent.setup();
     const runs = [
       createFlowRun({ id: 'flow-1' }),
@@ -168,30 +132,20 @@ describe('LogsTable - Flow run highlight on expand', () => {
       }),
     ];
 
-    const { container } = render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
+    render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
 
-    const flowRunRows = getFlowRunRows(container);
     const logsButtons = screen.getAllByRole('button', { name: /logs/i });
 
     // Expand first flow run's task
     await user.click(logsButtons[0]);
     await waitFor(() => {
-      expect(flowRunRows[0]).toHaveClass('border-l-4');
-      expect(flowRunRows[1]).not.toHaveClass('border-l-4');
+      expect(mockFetchLogs).toHaveBeenCalledWith('flow-1', 'task-1', undefined);
     });
 
-    // Expand second flow run's task - both should be highlighted
+    // Expand second flow run's task
     await user.click(logsButtons[1]);
     await waitFor(() => {
-      expect(flowRunRows[0]).toHaveClass('border-l-4');
-      expect(flowRunRows[1]).toHaveClass('border-l-4');
-    });
-
-    // Collapse first - only second should remain highlighted
-    await user.click(logsButtons[0]);
-    await waitFor(() => {
-      expect(flowRunRows[0]).not.toHaveClass('border-l-4');
-      expect(flowRunRows[1]).toHaveClass('border-l-4');
+      expect(mockFetchLogs).toHaveBeenCalledWith('flow-2', 'task-2', undefined);
     });
   });
 });

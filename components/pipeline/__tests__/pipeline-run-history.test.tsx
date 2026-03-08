@@ -9,15 +9,19 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PipelineRunHistory } from '../pipeline-run-history';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
-import { mockApiGet } from '@/test-utils/api';
+import { apiGet as _apiGet } from '@/lib/api';
 import { toastError as _toastError } from '@/lib/toast';
 import type { Pipeline, DeploymentRun } from '@/types/pipeline';
 
+const mockApiGet = _apiGet as jest.Mock;
 const mockToastError = _toastError as jest.MockedObject<typeof _toastError>;
 
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/usePipelines');
+jest.mock('@/lib/api', () => ({
+  apiGet: jest.fn(),
+}));
 
 jest.mock('@/lib/toast', () => ({
   toastError: {

@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { TaskLock } from '@/types/pipeline';
-
-type LockStatus = 'running' | 'queued' | 'locked' | null;
+import { LockStatus } from '@/constants/pipeline';
 
 /**
  * Hook to manage optimistic UI state for sync/run buttons
@@ -20,17 +19,17 @@ type LockStatus = 'running' | 'queued' | 'locked' | null;
  */
 export function useSyncLock(lock: TaskLock | null | undefined) {
   const [tempSyncState, setTempSyncState] = useState(false);
-  const lockLastStateRef = useRef<LockStatus>(null);
+  const lockLastStateRef = useRef<LockStatus | null>(null);
 
   useEffect(() => {
     if (lock) {
       // Track the lock status as it changes
-      if (lock.status === 'running') {
-        lockLastStateRef.current = 'running';
-      } else if (lock.status === 'queued') {
-        lockLastStateRef.current = 'queued';
-      } else if (lock.status === 'locked' || lock.status === 'complete') {
-        lockLastStateRef.current = 'locked';
+      if (lock.status === LockStatus.RUNNING) {
+        lockLastStateRef.current = LockStatus.RUNNING;
+      } else if (lock.status === LockStatus.QUEUED) {
+        lockLastStateRef.current = LockStatus.QUEUED;
+      } else if (lock.status === LockStatus.LOCKED || lock.status === LockStatus.COMPLETE) {
+        lockLastStateRef.current = LockStatus.LOCKED;
       }
     }
 

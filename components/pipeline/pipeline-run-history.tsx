@@ -12,6 +12,9 @@ import {
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
   ENABLE_LOG_SUMMARIES,
+  FlowRunStatus,
+  FlowRunStateName,
+  PipelineRunDisplayStatus,
 } from '@/constants/pipeline';
 import { apiGet } from '@/lib/api';
 
@@ -121,8 +124,10 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
 
   // Transform DeploymentRun[] to FlowRun[] for LogsTable
   const transformedRuns: FlowRun[] = allRuns.map((run) => {
-    const isFailed = ['FAILED', 'CRASHED'].includes(run.status);
-    const isWarning = run.state_name === 'DBT_TEST_FAILED';
+    const isFailed = [FlowRunStatus.FAILED, FlowRunStatus.CRASHED].includes(
+      run.status as FlowRunStatus
+    );
+    const isWarning = run.state_name === FlowRunStateName.DBT_TEST_FAILED;
 
     const tasks: TaskRun[] = run.runs.map((taskRun) => ({
       id: taskRun.id,
@@ -132,7 +137,9 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
         (taskRun.end_time && taskRun.start_time
           ? calculateDuration(taskRun.start_time, taskRun.end_time)
           : 0),
-      isFailed: taskRun.state_type === 'FAILED' || taskRun.state_name === 'DBT_TEST_FAILED',
+      isFailed:
+        taskRun.state_type === FlowRunStatus.FAILED ||
+        taskRun.state_name === FlowRunStateName.DBT_TEST_FAILED,
       kind: taskRun.kind,
       connectionName: taskRun.parameters?.connection_name,
     }));
@@ -141,7 +148,11 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
       id: run.id,
       date: run.startTime,
       startedBy: getFlowRunStartedBy(run.startTime, run.orguser || 'System'),
-      status: isFailed ? 'failed' : isWarning ? 'warning' : 'success',
+      status: isFailed
+        ? PipelineRunDisplayStatus.FAILED
+        : isWarning
+          ? PipelineRunDisplayStatus.WARNING
+          : PipelineRunDisplayStatus.SUCCESS,
       tasks,
     };
   });

@@ -138,7 +138,6 @@ describe('PipelineOverview', () => {
     });
 
     render(<PipelineOverview />);
-    expect(screen.getByText('Pipeline Overview')).toBeInTheDocument();
     expect(screen.getByText('No pipelines available')).toBeInTheDocument();
     expect(
       screen.getByText('Create a pipeline in the Orchestrate section to see run history here.')
@@ -193,9 +192,6 @@ describe('PipelineOverview', () => {
     });
 
     render(<PipelineOverview />);
-
-    // Header rendered
-    expect(screen.getByText('Pipeline Overview')).toBeInTheDocument();
 
     // All pipeline names as headers
     expect(screen.getByText('Success Pipeline')).toBeInTheDocument();

@@ -14,6 +14,7 @@ import {
   POLLING_INTERVAL_IDLE,
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
+  TaskProgressStatus,
 } from '@/constants/pipeline';
 
 /**
@@ -203,7 +204,7 @@ export async function fetchFlowRunLogs(
 }
 
 /**
- * Trigger log summary generation (for pipeline run history modal)
+ * Trigger log summary generation
  */
 export async function triggerLogSummary(
   flowRunId: string,
@@ -213,15 +214,9 @@ export async function triggerLogSummary(
 }
 
 /**
- * Fetch log summaries for a flow run (for pipeline overview page)
- * Returns pre-computed summaries if available
- */
-export async function fetchFlowRunLogSummary(flowRunId: string): Promise<any[]> {
-  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logsummary`);
-}
-
-/**
- * Poll for task run status (used for AI summary)
+ * SWR-based polling for AI log summary status
+ * Polls every 3s while task is in progress, stops when completed/failed
+ * Similar pattern to usePipelines refreshInterval
  */
 export function useLogSummaryPoll(taskId: string | null) {
   const { data, error } = useSWR<TaskProgressResponse>(
@@ -231,7 +226,9 @@ export function useLogSummaryPoll(taskId: string | null) {
       refreshInterval: (latestData) => {
         if (!latestData) return POLLING_INTERVAL_WHEN_LOCKED;
         const lastMessage = latestData.progress[latestData.progress.length - 1];
-        return ['completed', 'failed'].includes(lastMessage?.status)
+        return [TaskProgressStatus.COMPLETED, TaskProgressStatus.FAILED].includes(
+          lastMessage?.status as TaskProgressStatus
+        )
           ? POLLING_INTERVAL_IDLE
           : POLLING_INTERVAL_WHEN_LOCKED;
       },
@@ -240,7 +237,11 @@ export function useLogSummaryPoll(taskId: string | null) {
   );
 
   const lastMessage = data?.progress?.[data.progress.length - 1];
-  const isComplete = !!lastMessage && ['completed', 'failed'].includes(lastMessage.status);
+  const isComplete =
+    !!lastMessage &&
+    [TaskProgressStatus.COMPLETED, TaskProgressStatus.FAILED].includes(
+      lastMessage.status as TaskProgressStatus
+    );
 
   const summary =
     isComplete && lastMessage.result && lastMessage.result.length > 0
@@ -255,6 +256,14 @@ export function useLogSummaryPoll(taskId: string | null) {
     isComplete,
     error,
   };
+}
+
+/**
+ * Fetch log summaries for a flow run (for pipeline overview page)
+ * Returns pre-computed summaries if available
+ */
+export async function fetchFlowRunLogSummary(flowRunId: string): Promise<any[]> {
+  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logsummary`);
 }
 
 /**
