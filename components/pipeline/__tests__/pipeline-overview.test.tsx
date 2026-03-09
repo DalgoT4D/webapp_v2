@@ -14,6 +14,7 @@ import type { LogSummary } from '@/types/pipeline';
 import { LogSummaryBlock } from '../log-summary-block';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import { DashboardPipeline, DashboardRun } from '@/types/pipeline';
+import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
 
@@ -269,7 +270,7 @@ describe('LogCard', () => {
         onFetchMore={mockOnFetchMore}
         onClose={mockOnClose}
         title="Pipeline Logs"
-        status="success"
+        status={PipelineRunDisplayStatus.SUCCESS}
       />
     );
 
@@ -308,29 +309,29 @@ describe('LogCard', () => {
 
     // Success status
     const { unmount, rerender, container } = render(
-      <LogCard logs={sampleLogs} isLoading={false} status="success" />
+      <LogCard logs={sampleLogs} isLoading={false} status={PipelineRunDisplayStatus.SUCCESS} />
     );
 
     // Header should have success background color
-    let header = container.querySelector('.bg-\\[\\#00897B\\]');
+    let header = container.querySelector('.bg-primary');
     expect(header).toBeInTheDocument();
     unmount();
 
     // Failed status
     const { unmount: unmount2, container: container2 } = render(
-      <LogCard logs={sampleLogs} isLoading={false} status="failed" />
+      <LogCard logs={sampleLogs} isLoading={false} status={PipelineRunDisplayStatus.FAILED} />
     );
 
-    header = container2.querySelector('.bg-\\[\\#C15E5E\\]');
+    header = container2.querySelector('.bg-failed');
     expect(header).toBeInTheDocument();
     unmount2();
 
     // DBT test failed status (warning color)
     const { container: container3 } = render(
-      <LogCard logs={sampleLogs} isLoading={false} status="dbt_test_failed" />
+      <LogCard logs={sampleLogs} isLoading={false} status={PipelineRunDisplayStatus.WARNING} />
     );
 
-    header = container3.querySelector('.bg-\\[\\#df8e14\\]');
+    header = container3.querySelector('.bg-warning');
     expect(header).toBeInTheDocument();
   });
 
@@ -488,7 +489,7 @@ describe('LogSummaryBlock', () => {
     expect(screen.getByText('git pull')).toBeInTheDocument();
     expect(screen.getByText('Pulling from main branch')).toBeInTheDocument();
     // Success border color
-    expect(container.querySelector('.border-\\[\\#00897B\\]')).toBeInTheDocument();
+    expect(container.querySelector('.border-primary')).toBeInTheDocument();
 
     const logsButton = screen.getByRole('button', { name: /logs/i });
     await user.click(logsButton);
@@ -510,7 +511,7 @@ describe('LogSummaryBlock', () => {
     expect(screen.getByText('sync')).toBeInTheDocument();
     expect(screen.getByText('Sync failed')).toBeInTheDocument();
     // Failed border color
-    expect(container2.querySelector('.border-\\[\\#C15E5E\\]')).toBeInTheDocument();
+    expect(container2.querySelector('.border-failed')).toBeInTheDocument();
     unmount2();
   });
 
@@ -575,7 +576,7 @@ describe('LogSummaryBlock', () => {
     expect(screen.getByText('3')).toBeInTheDocument(); // errors
     expect(screen.getByText('2')).toBeInTheDocument(); // skipped
     // Failed border color
-    expect(container.querySelector('.border-\\[\\#C15E5E\\]')).toBeInTheDocument();
+    expect(container.querySelector('.border-failed')).toBeInTheDocument();
     unmount();
   });
 
@@ -602,7 +603,7 @@ describe('LogSummaryBlock', () => {
     );
 
     // Container exists with border
-    expect(container.querySelector('.border-\\[\\#C15E5E\\]')).toBeInTheDocument();
+    expect(container.querySelector('.border-failed')).toBeInTheDocument();
     // No logs button because DbtTestBlock returned null
     expect(screen.queryByRole('button', { name: /logs/i })).not.toBeInTheDocument();
     unmount();

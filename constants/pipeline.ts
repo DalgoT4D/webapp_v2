@@ -110,3 +110,17 @@ export const TASK_READABLE_NAMES: Record<string, string> = {
 
 // AI summary feature flag
 export const ENABLE_LOG_SUMMARIES = process.env.NEXT_PUBLIC_ENABLE_LOG_SUMMARIES === 'true';
+
+// Pipeline run status colors (used in bar chart, log cards, and summary blocks)
+export const STATUS_COLOR_SUCCESS = '#00897B'; // matches --primary CSS variable
+export const STATUS_COLOR_FAILED = '#C15E5E'; // matches --destructive approximate
+export const STATUS_COLOR_DBT_TEST_FAILED = '#df8e14'; // matches --warning CSS variable
+export const STATUS_COLOR_RUNNING = '#DAA520';
+export const STATUS_COLOR_FAILED_DARK = '#981F1F'; // darker red for warning icon
+
+// Tooltip button colors
+export const TOOLTIP_BUTTON_BG = '#5C7080';
+export const TOOLTIP_BUTTON_HOVER = '#4a5d69';
+
+// Chart baseline color
+export const CHART_BASELINE_COLOR = '#758397';

@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { LogSummary } from '@/types/pipeline';
+import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 
 interface LogSummaryBlockProps {
   logsummary: LogSummary;
@@ -17,7 +18,12 @@ function NameAndPatternBlock({ logsummary, setLogsummaryLogs }: LogSummaryBlockP
     <>
       <div className="flex w-full justify-between items-center pl-1">
         <span className="font-medium text-lg">{logsummary.task_name}</span>
-        <Button variant="default" size="sm" onClick={() => setLogsummaryLogs(logsummary.log_lines)}>
+        <Button
+          variant="default"
+          size="sm"
+          data-testid={`logs-btn-${logsummary.task_name}`}
+          onClick={() => setLogsummaryLogs(logsummary.log_lines)}
+        >
           Logs
         </Button>
       </div>
@@ -48,7 +54,12 @@ function DbtRunBlock({ logsummary, setLogsummaryLogs }: LogSummaryBlockProps) {
     <>
       <div className="flex w-full justify-between items-center pl-1">
         <span className="font-medium text-lg">{logsummary.task_name}</span>
-        <Button variant="default" size="sm" onClick={() => setLogsummaryLogs(logsummary.log_lines)}>
+        <Button
+          variant="default"
+          size="sm"
+          data-testid={`logs-btn-${logsummary.task_name}`}
+          onClick={() => setLogsummaryLogs(logsummary.log_lines)}
+        >
           Logs
         </Button>
       </div>
@@ -74,7 +85,12 @@ function DbtTestBlock({ logsummary, setLogsummaryLogs }: LogSummaryBlockProps) {
     <>
       <div className="flex w-full justify-between items-center pl-1">
         <span className="font-medium text-lg">{logsummary.task_name}</span>
-        <Button variant="default" size="sm" onClick={() => setLogsummaryLogs(logsummary.log_lines)}>
+        <Button
+          variant="default"
+          size="sm"
+          data-testid={`logs-btn-${logsummary.task_name}`}
+          onClick={() => setLogsummaryLogs(logsummary.log_lines)}
+        >
           Logs
         </Button>
       </div>
@@ -91,9 +107,10 @@ function DbtTestBlock({ logsummary, setLogsummaryLogs }: LogSummaryBlockProps) {
  * Shows different layouts based on task type and status
  */
 export function LogSummaryBlock({ logsummary, setLogsummaryLogs }: LogSummaryBlockProps) {
-  const isSuccess = logsummary.status === 'success';
+  const isSuccess = logsummary.status === PipelineRunDisplayStatus.SUCCESS;
   const isDbtRunSuccess = logsummary.task_name === 'dbt run' && isSuccess;
-  const isDbtTestFailed = logsummary.task_name === 'dbt test' && logsummary.status === 'failed';
+  const isDbtTestFailed =
+    logsummary.task_name === 'dbt test' && logsummary.status === PipelineRunDisplayStatus.FAILED;
 
   // Check if special handling is needed
   const useSpecialHandling = isDbtRunSuccess || isDbtTestFailed;
@@ -102,7 +119,7 @@ export function LogSummaryBlock({ logsummary, setLogsummaryLogs }: LogSummaryBlo
     <div
       className={cn(
         'border-[3px] rounded-lg p-2 w-[400px] text-left',
-        isSuccess ? 'border-[#00897B]' : 'border-[#C15E5E]'
+        isSuccess ? 'border-primary' : 'border-failed'
       )}
     >
       {isDbtRunSuccess && (

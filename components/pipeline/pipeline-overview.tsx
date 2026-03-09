@@ -19,6 +19,14 @@ import { FLOW_RUN_LOGS_OFFSET_LIMIT, ENABLE_LOG_SUMMARIES } from '@/constants/pi
 import CheckCircleIcon from '@/assets/icons/check-circle';
 import WarningAmberIcon from '@/assets/icons/warning-amber';
 import { format } from 'date-fns';
+import {
+  FlowRunStatus,
+  FlowRunStateName,
+  PipelineRunDisplayStatus,
+  STATUS_COLOR_DBT_TEST_FAILED,
+  STATUS_COLOR_FAILED_DARK,
+  STATUS_COLOR_RUNNING,
+} from '@/constants/pipeline';
 
 /**
  * PipelineOverview - Main component for the /pipeline page
@@ -200,15 +208,16 @@ function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSe
     : 'Logs';
 
   // Determine log status for coloring
-  const getLogStatus = (): 'success' | 'failed' | 'dbt_test_failed' | undefined => {
+  const getLogStatus = (): PipelineRunDisplayStatus | undefined => {
     if (!selectedRun) return undefined;
-    if (selectedRun.state_name === 'DBT_TEST_FAILED') return 'dbt_test_failed';
-    if (selectedRun.status === 'COMPLETED') return 'success';
-    return 'failed';
+    if (selectedRun.state_name === FlowRunStateName.DBT_TEST_FAILED)
+      return PipelineRunDisplayStatus.WARNING;
+    if (selectedRun.status === FlowRunStatus.COMPLETED) return PipelineRunDisplayStatus.SUCCESS;
+    return PipelineRunDisplayStatus.FAILED;
   };
 
   return (
-    <div>
+    <div data-testid={`pipeline-section-${pipeline.deploymentName}`}>
       {/* Pipeline name as header */}
       <h2 className="text-base font-medium text-gray-700 mb-2">{pipeline.name}</h2>
 
@@ -290,7 +299,7 @@ function PipelineCard({
   const runs = pipeline.runs || [];
   const runCount = runs.length;
   const successfulRuns = runs.filter(
-    (r) => r.status === 'COMPLETED' && r.state_name !== 'DBT_TEST_FAILED'
+    (r) => r.status === FlowRunStatus.COMPLETED && r.state_name !== FlowRunStateName.DBT_TEST_FAILED
   ).length;
   // Use runs[0].startTime like webapp does - runs are sorted most recent first
   const lastRunTimeStr = runs[0]?.startTime ? lastRunTime(runs[0].startTime) : null;
@@ -298,8 +307,9 @@ function PipelineCard({
   // Determine last run status
   const lastRun = runs[0];
   const isLastRunSuccess =
-    lastRun?.status === 'COMPLETED' && lastRun?.state_name !== 'DBT_TEST_FAILED';
-  const isLastRunWarning = lastRun?.state_name === 'DBT_TEST_FAILED';
+    lastRun?.status === FlowRunStatus.COMPLETED &&
+    lastRun?.state_name !== FlowRunStateName.DBT_TEST_FAILED;
+  const isLastRunWarning = lastRun?.state_name === FlowRunStateName.DBT_TEST_FAILED;
 
   // Check if pipeline is currently running
   const isRunning = pipeline.lock;
@@ -312,7 +322,7 @@ function PipelineCard({
           {/* Running state or last run status */}
           {isRunning ? (
             <>
-              <Loader2 className="h-5 w-5 text-[#DAA520] animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: STATUS_COLOR_RUNNING }} />
               <span className="text-sm font-semibold text-gray-700">Currently running</span>
             </>
           ) : (
@@ -321,7 +331,10 @@ function PipelineCard({
               {isLastRunSuccess ? (
                 <CheckCircleIcon size={20} />
               ) : (
-                <WarningAmberIcon size={20} color={isLastRunWarning ? '#df8e14' : '#981F1F'} />
+                <WarningAmberIcon
+                  size={20}
+                  color={isLastRunWarning ? STATUS_COLOR_DBT_TEST_FAILED : STATUS_COLOR_FAILED_DARK}
+                />
               )}
 
               {/* Last run time */}
@@ -355,6 +368,7 @@ function PipelineCard({
         <div className="flex items-center gap-2">
           <Checkbox
             id={`scale-${pipeline.deploymentName}`}
+            data-testid={`scale-toggle-${pipeline.deploymentName}`}
             checked={scaleToRuntime}
             onCheckedChange={(checked) => onScaleChange(checked === true)}
           />
@@ -395,8 +409,8 @@ function PipelineOverviewSkeleton() {
     <div className="w-full animate-pulse">
       {/* Pipeline sections skeleton */}
       <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i}>
+        {['skeleton-1', 'skeleton-2', 'skeleton-3'].map((id) => (
+          <div key={id}>
             <div className="h-5 w-32 bg-gray-200 rounded mb-2" />
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">

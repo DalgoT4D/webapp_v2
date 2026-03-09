@@ -15,9 +15,9 @@ interface LogSummaryCardProps {
 export function LogSummaryCard({ logsummary, setLogsummaryLogs }: LogSummaryCardProps) {
   return (
     <div className="space-y-3">
-      {logsummary.map((log) => (
+      {logsummary.map((log, index) => (
         <LogSummaryBlock
-          key={`${log.task_name}-${log.status}`}
+          key={`${log.task_name}-${log.status}-${index}`}
           logsummary={log}
           setLogsummaryLogs={setLogsummaryLogs}
         />

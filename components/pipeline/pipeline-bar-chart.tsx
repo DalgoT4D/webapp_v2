@@ -2,9 +2,24 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
+import type {
+  CustomSeriesRenderItemParams,
+  CustomSeriesRenderItemAPI,
+  ECElementEvent,
+} from 'echarts';
 import { DashboardRun } from '@/types/pipeline';
 import { formatDuration } from './utils';
 import { format } from 'date-fns';
+import {
+  FlowRunStatus,
+  FlowRunStateName,
+  STATUS_COLOR_SUCCESS,
+  STATUS_COLOR_FAILED,
+  STATUS_COLOR_DBT_TEST_FAILED,
+  TOOLTIP_BUTTON_BG,
+  TOOLTIP_BUTTON_HOVER,
+  CHART_BASELINE_COLOR,
+} from '@/constants/pipeline';
 
 interface PipelineBarChartProps {
   runs: DashboardRun[];
@@ -33,9 +48,9 @@ export function PipelineBarChart({
   const tooltipRef = useRef<HTMLDivElement | null>(null);
 
   const getBarColor = (run: DashboardRun): string => {
-    if (run.state_name === 'DBT_TEST_FAILED') return '#df8e14';
-    if (run.status === 'COMPLETED') return '#00897B';
-    return '#C15E5E';
+    if (run.state_name === FlowRunStateName.DBT_TEST_FAILED) return STATUS_COLOR_DBT_TEST_FAILED;
+    if (run.status === FlowRunStatus.COMPLETED) return STATUS_COLOR_SUCCESS;
+    return STATUS_COLOR_FAILED;
   };
 
   const initChart = useCallback(() => {
@@ -98,7 +113,7 @@ export function PipelineBarChart({
           type: 'custom',
           coordinateSystem: 'cartesian2d',
           data: chartData,
-          renderItem: (params: any, api: any) => {
+          renderItem: (params: CustomSeriesRenderItemParams, api: CustomSeriesRenderItemAPI) => {
             const dataItem = chartData[params.dataIndex];
             const x = dataItem.index * (BAR_WIDTH + BAR_GAP);
             const barHeight = scaleToRuntime
@@ -147,7 +162,7 @@ export function PipelineBarChart({
     chartInstance.current.setOption(option);
 
     // Custom tooltip handling with mouseover/mouseout
-    chartInstance.current.on('mouseover', (params: any) => {
+    chartInstance.current.on('mouseover', (params: ECElementEvent) => {
       if (params.componentType !== 'series') return;
       const run = chartData[params.dataIndex];
       if (!run) return;
@@ -162,7 +177,7 @@ export function PipelineBarChart({
     });
 
     // Click handler
-    chartInstance.current.on('click', (params: any) => {
+    chartInstance.current.on('click', (params: ECElementEvent) => {
       if (params.componentType !== 'series') return;
       const run = chartData[params.dataIndex];
       if (run) {
@@ -228,18 +243,18 @@ export function PipelineBarChart({
       if (!chartRef.current || !tooltipRef.current) return;
 
       const statusText =
-        run.state_name === 'DBT_TEST_FAILED'
+        run.state_name === FlowRunStateName.DBT_TEST_FAILED
           ? 'DBT tests failed'
-          : run.status === 'COMPLETED'
+          : run.status === FlowRunStatus.COMPLETED
             ? 'Completed'
             : 'FAILED';
 
       const statusColor =
-        run.state_name === 'DBT_TEST_FAILED'
-          ? '#df8e14'
-          : run.status === 'COMPLETED'
-            ? '#00897B'
-            : '#C15E5E';
+        run.state_name === FlowRunStateName.DBT_TEST_FAILED
+          ? STATUS_COLOR_DBT_TEST_FAILED
+          : run.status === FlowRunStatus.COMPLETED
+            ? STATUS_COLOR_SUCCESS
+            : STATUS_COLOR_FAILED;
 
       // Build tooltip content
       const contentDiv = document.createElement('div');
@@ -258,7 +273,7 @@ export function PipelineBarChart({
       button.textContent = 'Check logs';
       button.style.cssText = `
         margin-top: 8px;
-        background: #5C7080;
+        background: ${TOOLTIP_BUTTON_BG};
         color: white;
         border: none;
         border-radius: 4px;
@@ -268,10 +283,10 @@ export function PipelineBarChart({
         cursor: pointer;
       `;
       button.addEventListener('mouseover', () => {
-        button.style.background = '#4a5d69';
+        button.style.background = TOOLTIP_BUTTON_HOVER;
       });
       button.addEventListener('mouseout', () => {
-        button.style.background = '#5C7080';
+        button.style.background = TOOLTIP_BUTTON_BG;
       });
       button.addEventListener('click', () => {
         onSelectRun(run);
@@ -340,7 +355,7 @@ export function PipelineBarChart({
           width: `${totalWidth}px`,
           minWidth: '50px',
           height: '1px',
-          backgroundColor: '#758397',
+          backgroundColor: CHART_BASELINE_COLOR,
         }}
       />
     </div>

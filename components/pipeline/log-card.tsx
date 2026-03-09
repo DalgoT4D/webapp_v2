@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 
 interface LogCardProps {
   /** Log messages to display */
@@ -19,7 +20,7 @@ interface LogCardProps {
   /** Title to show in header */
   title?: string;
   /** Run status for background coloring */
-  status?: 'success' | 'failed' | 'dbt_test_failed';
+  status?: PipelineRunDisplayStatus;
 }
 
 /**
@@ -37,26 +38,22 @@ export function LogCard({
 }: LogCardProps) {
   const [expanded, setExpanded] = useState(true);
 
-  const handleFetchMore = useCallback(() => {
-    onFetchMore?.();
-  }, [onFetchMore]);
-
   // Status-based colors - header colored, body grey with matching hover
-  const statusStyles = {
-    success: {
-      header: 'bg-[#00897B] border-[#00897B]',
+  const statusStyles: Record<string, { header: string; headerText: string; hover: string }> = {
+    [PipelineRunDisplayStatus.SUCCESS]: {
+      header: 'bg-primary border-primary',
       headerText: 'text-white',
-      hover: 'hover:bg-[#00897B]/20',
+      hover: 'hover:bg-primary/20',
     },
-    failed: {
-      header: 'bg-[#C15E5E] border-[#C15E5E]',
+    [PipelineRunDisplayStatus.FAILED]: {
+      header: 'bg-failed border-failed',
       headerText: 'text-white',
-      hover: 'hover:bg-[#C15E5E]/20',
+      hover: 'hover:bg-failed/20',
     },
-    dbt_test_failed: {
-      header: 'bg-[#df8e14] border-[#df8e14]',
+    [PipelineRunDisplayStatus.WARNING]: {
+      header: 'bg-warning border-warning',
       headerText: 'text-white',
-      hover: 'hover:bg-[#df8e14]/20',
+      hover: 'hover:bg-warning/20',
     },
   };
 
@@ -135,7 +132,7 @@ export function LogCard({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleFetchMore}
+                    onClick={onFetchMore}
                     disabled={isLoading}
                     className="text-xs text-teal-600 hover:text-teal-700 hover:bg-gray-200"
                   >
