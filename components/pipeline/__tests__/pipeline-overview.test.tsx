@@ -7,6 +7,7 @@
 import React from 'react';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { TestWrapper } from '@/test-utils/render';
 import { PipelineOverview } from '../pipeline-overview';
 import { LogCard } from '../log-card';
 import { LogSummaryCard } from '../log-summary-card';
@@ -110,7 +111,11 @@ describe('PipelineOverview', () => {
       mutate: mockMutate,
     });
 
-    const { unmount, container } = render(<PipelineOverview />);
+    const { unmount, container } = render(
+      <TestWrapper>
+        <PipelineOverview />
+      </TestWrapper>
+    );
 
     // Should show skeleton loader with animate-pulse
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
@@ -126,7 +131,11 @@ describe('PipelineOverview', () => {
       mutate: mockMutate,
     });
 
-    const { unmount: unmount2 } = render(<PipelineOverview />);
+    const { unmount: unmount2 } = render(
+      <TestWrapper>
+        <PipelineOverview />
+      </TestWrapper>
+    );
     expect(screen.getByText('Failed to load pipelines')).toBeInTheDocument();
     expect(screen.getByText('Please try refreshing the page.')).toBeInTheDocument();
     unmount2();
@@ -139,7 +148,11 @@ describe('PipelineOverview', () => {
       mutate: mockMutate,
     });
 
-    render(<PipelineOverview />);
+    render(
+      <TestWrapper>
+        <PipelineOverview />
+      </TestWrapper>
+    );
     expect(screen.getByText('No pipelines available')).toBeInTheDocument();
     expect(
       screen.getByText('Create a pipeline in the Orchestrate section to see run history here.')
@@ -193,7 +206,11 @@ describe('PipelineOverview', () => {
       mutate: mockMutate,
     });
 
-    render(<PipelineOverview />);
+    render(
+      <TestWrapper>
+        <PipelineOverview />
+      </TestWrapper>
+    );
 
     // All pipeline names as headers
     expect(screen.getByText('Success Pipeline')).toBeInTheDocument();

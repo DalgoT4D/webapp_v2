@@ -7,6 +7,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { TestWrapper } from '@/test-utils/render';
 import { LogsTable, type FlowRun } from '../logs-table';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 
@@ -42,7 +43,11 @@ const createFlowRun = (overrides: Partial<FlowRun> = {}): FlowRun => ({
 
 describe('LogsTable', () => {
   it('renders empty state when no runs', () => {
-    render(<LogsTable runs={[]} />);
+    render(
+      <TestWrapper>
+        <LogsTable runs={[]} />
+      </TestWrapper>
+    );
     expect(screen.getByText('No run history')).toBeInTheDocument();
   });
 
@@ -56,7 +61,11 @@ describe('LogsTable', () => {
       }),
     ];
 
-    render(<LogsTable runs={runs} onFetchLogs={jest.fn().mockResolvedValue([])} />);
+    render(
+      <TestWrapper>
+        <LogsTable runs={runs} onFetchLogs={jest.fn().mockResolvedValue([])} />
+      </TestWrapper>
+    );
     expect(screen.getByText('dbt run')).toBeInTheDocument();
     expect(screen.getByText('dbt test')).toBeInTheDocument();
     expect(screen.getByText('1m')).toBeInTheDocument();
@@ -75,7 +84,11 @@ describe('LogsTable - Log expansion behavior', () => {
     const user = userEvent.setup();
     const runs = [createFlowRun()];
 
-    render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
+    render(
+      <TestWrapper>
+        <LogsTable runs={runs} onFetchLogs={mockFetchLogs} />
+      </TestWrapper>
+    );
 
     const logsButton = screen.getByRole('button', { name: /logs/i });
 
@@ -104,7 +117,11 @@ describe('LogsTable - Log expansion behavior', () => {
       }),
     ];
 
-    render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
+    render(
+      <TestWrapper>
+        <LogsTable runs={runs} onFetchLogs={mockFetchLogs} />
+      </TestWrapper>
+    );
 
     const logsButtons = screen.getAllByRole('button', { name: /logs/i });
 
@@ -132,7 +149,11 @@ describe('LogsTable - Log expansion behavior', () => {
       }),
     ];
 
-    render(<LogsTable runs={runs} onFetchLogs={mockFetchLogs} />);
+    render(
+      <TestWrapper>
+        <LogsTable runs={runs} onFetchLogs={mockFetchLogs} />
+      </TestWrapper>
+    );
 
     const logsButtons = screen.getAllByRole('button', { name: /logs/i });
 

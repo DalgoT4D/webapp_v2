@@ -19,6 +19,7 @@ import {
   STATUS_COLOR_FAILED,
   STATUS_COLOR_DBT_TEST_FAILED,
   CHART_BASELINE_COLOR,
+  TOOLTIP_BUTTON_BG,
 } from '@/constants/pipeline';
 
 interface PipelineBarChartProps {
@@ -104,7 +105,7 @@ function ChartTooltip({
           size="sm"
           data-testid="tooltip-check-logs-btn"
           className="mt-2 text-xs text-white"
-          style={{ backgroundColor: '#5C7080' }}
+          style={{ backgroundColor: TOOLTIP_BUTTON_BG }}
           onClick={() => onSelectRun(run)}
         >
           Check logs
