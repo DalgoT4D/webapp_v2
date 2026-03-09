@@ -143,7 +143,7 @@ export function PipelineList() {
               variant="ghost"
               onClick={handleCreate}
               className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: '#06887b' }}
+              style={{ backgroundColor: 'var(--primary)' }}
               data-testid="create-pipeline-btn"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -510,7 +510,7 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
           variant="ghost"
           onClick={onCreate}
           className="text-white hover:opacity-90 shadow-xs"
-          style={{ backgroundColor: '#06887b' }}
+          style={{ backgroundColor: 'var(--primary)' }}
           data-testid="create-pipeline-empty-btn"
         >
           <Plus className="h-4 w-4 mr-2" />
