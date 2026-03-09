@@ -81,6 +81,7 @@ export function LogCard({
             onClick={() => setExpanded(!expanded)}
             className="p-1 rounded transition-colors hover:bg-white/30"
             aria-label={expanded ? 'Collapse logs' : 'Expand logs'}
+            data-testid="log-card-toggle-btn"
           >
             {expanded ? (
               <ChevronUp className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
@@ -93,6 +94,7 @@ export function LogCard({
               onClick={onClose}
               className="p-1 rounded transition-colors hover:bg-white/30"
               aria-label="Close logs"
+              data-testid="log-card-close-btn"
             >
               <X className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
             </button>
@@ -134,6 +136,7 @@ export function LogCard({
                     size="sm"
                     onClick={onFetchMore}
                     disabled={isLoading}
+                    data-testid="log-card-fetch-more-btn"
                     className="text-xs text-teal-600 hover:text-teal-700 hover:bg-gray-200"
                   >
                     {isLoading ? (

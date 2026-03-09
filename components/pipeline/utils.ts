@@ -1,5 +1,5 @@
 import { formatDistanceToNow, differenceInSeconds, parseISO } from 'date-fns';
-import type { TransformTask } from '@/types/pipeline';
+import type { TransformTask, DashboardRun } from '@/types/pipeline';
 import {
   TASK_READABLE_NAMES,
   SYSTEM_COMMAND_ORDER,
@@ -7,6 +7,9 @@ import {
   CUSTOM_COMMAND_DEFAULT_ORDER,
   FLOW_RUN_STARTED_BY_DATE_CUTOFF,
   WEEKDAYS,
+  FlowRunStatus,
+  FlowRunStateName,
+  PipelineRunDisplayStatus,
 } from '@/constants/pipeline';
 
 /**
@@ -362,6 +365,18 @@ export function getFlowRunStartedBy(flowRunStartTime: string | null, user: strin
   }
 
   return user === 'System' ? 'System' : trimEmail(user);
+}
+
+/**
+ * Determine the display status of a pipeline run for log card coloring
+ */
+export function getRunDisplayStatus(
+  run: DashboardRun | null
+): PipelineRunDisplayStatus | undefined {
+  if (!run) return undefined;
+  if (run.state_name === FlowRunStateName.DBT_TEST_FAILED) return PipelineRunDisplayStatus.WARNING;
+  if (run.status === FlowRunStatus.COMPLETED) return PipelineRunDisplayStatus.SUCCESS;
+  return PipelineRunDisplayStatus.FAILED;
 }
 
 /**
