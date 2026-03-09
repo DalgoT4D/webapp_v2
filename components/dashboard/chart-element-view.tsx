@@ -440,6 +440,7 @@ export function ChartElementView({
   );
 
   // Report/frozen mode: fetch chart data via POST with inline config (no chart ID needed)
+  const isPublicReport = isPublicMode && !!frozenChartConfig;
   const shouldFetchReportChartData =
     !!frozenChartConfig && !!chartDataPayload && !!effectiveChart
       ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
@@ -452,7 +453,22 @@ export function ChartElementView({
     mutate: mutatePost,
   } = useSWR(
     shouldFetchReportChartData ? ['report-chart-data', chartId, filterHash] : null,
-    shouldFetchReportChartData ? () => apiPost('/api/charts/chart-data/', chartDataPayload!) : null,
+    shouldFetchReportChartData
+      ? isPublicReport
+        ? async () => {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/chart-data/`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chartDataPayload),
+              }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+          }
+        : () => apiPost('/api/charts/chart-data/', chartDataPayload!)
+      : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
@@ -465,7 +481,9 @@ export function ChartElementView({
   // For table charts - public vs private mode
   const publicTableDataUrl =
     isPublicMode && publicToken && chartDataPayload && isTableChart
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/`
+      ? isPublicReport
+        ? `/api/v1/public/reports/${publicToken}/chart-data-preview/`
+        : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/`
       : null;
 
   const {
@@ -531,7 +549,9 @@ export function ChartElementView({
   // Get total rows for table pagination (public mode) - POST call like data-preview
   const publicTableTotalRowsUrl =
     isPublicMode && publicToken && chartDataPayload && isTableChart
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
+      ? isPublicReport
+        ? `/api/v1/public/reports/${publicToken}/chart-data-preview/total-rows/`
+        : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
       : null;
 
   const { data: publicTableTotalRowsData } = useSWR(
@@ -806,7 +826,9 @@ export function ChartElementView({
   // Fetch map data overlay - public vs private mode
   const publicMapDataUrl =
     isPublicMode && publicToken && mapDataOverlayPayload && isMapChart
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
+      ? isPublicReport
+        ? `/api/v1/public/reports/${publicToken}/map-data/`
+        : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
       : null;
 
   const {

@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
+import { ReportShareModal } from '@/components/reports/ReportShareModal';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -31,6 +32,7 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const dashboardCanvasRef = useRef<HTMLDivElement | null>(null);
@@ -240,7 +242,12 @@ export default function SnapshotViewerPage() {
                 <Download className="h-4 w-4" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" title="Share">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Share"
+              onClick={() => setShareModalOpen(true)}
+            >
               <Share2 className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" title="Comments">
@@ -301,6 +308,12 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
+
+      <ReportShareModal
+        snapshotId={snapshotId}
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+      />
     </div>
   );
 }
