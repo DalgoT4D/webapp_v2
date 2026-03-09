@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as echarts from 'echarts';
 import type {
   CustomSeriesRenderItemParams,
@@ -10,14 +11,13 @@ import type {
 import { DashboardRun } from '@/types/pipeline';
 import { formatDuration } from './utils';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
 import {
   FlowRunStatus,
   FlowRunStateName,
   STATUS_COLOR_SUCCESS,
   STATUS_COLOR_FAILED,
   STATUS_COLOR_DBT_TEST_FAILED,
-  TOOLTIP_BUTTON_BG,
-  TOOLTIP_BUTTON_HOVER,
   CHART_BASELINE_COLOR,
 } from '@/constants/pipeline';
 
@@ -33,6 +33,88 @@ const BAR_WIDTH = 8;
 const BAR_GAP = 6;
 const BAR_HEIGHT = 48;
 
+// Delay before hiding tooltip when mouse leaves bar (allows moving to tooltip)
+const TOOLTIP_HIDE_DELAY_MS = 300;
+
+interface TooltipData {
+  run: DashboardRun & { formattedTime: string; formattedDuration: string };
+  x: number;
+  y: number;
+}
+
+/**
+ * ChartTooltip - React portal-based tooltip for the bar chart
+ * Renders into document.body but stays in the React tree
+ */
+function ChartTooltip({
+  data,
+  onSelectRun,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  data: TooltipData;
+  onSelectRun: (run: DashboardRun) => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const { run, x, y } = data;
+
+  const statusText =
+    run.state_name === FlowRunStateName.DBT_TEST_FAILED
+      ? 'DBT tests failed'
+      : run.status === FlowRunStatus.COMPLETED
+        ? 'Completed'
+        : 'FAILED';
+
+  const statusColor =
+    run.state_name === FlowRunStateName.DBT_TEST_FAILED
+      ? STATUS_COLOR_DBT_TEST_FAILED
+      : run.status === FlowRunStatus.COMPLETED
+        ? STATUS_COLOR_SUCCESS
+        : STATUS_COLOR_FAILED;
+
+  return createPortal(
+    <div
+      data-testid="pipeline-chart-tooltip"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="fixed z-[9999] bg-white border border-black rounded-[10px] px-4 py-3 text-sm shadow-md"
+      style={{
+        left: `${x}px`,
+        top: `${y}px`,
+        transform: 'translate(-50%, -100%)',
+        pointerEvents: 'auto',
+      }}
+    >
+      <div className="leading-[1.8]">
+        <div>
+          <strong>Start time:</strong> {run.formattedTime}
+        </div>
+        <div>
+          <strong>Run time:</strong> {run.formattedDuration}
+        </div>
+        <div>
+          <strong>Status:</strong>{' '}
+          <span className="font-semibold" style={{ color: statusColor }}>
+            {statusText}
+          </span>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          data-testid="tooltip-check-logs-btn"
+          className="mt-2 text-xs text-white"
+          style={{ backgroundColor: '#5C7080' }}
+          onClick={() => onSelectRun(run)}
+        >
+          Check logs
+        </Button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /**
  * PipelineBarChart - ECharts-based bar chart for pipeline run history
  * Uses custom series to match D3 positioning exactly
@@ -45,13 +127,37 @@ export function PipelineBarChart({
 }: PipelineBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
-  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
 
   const getBarColor = (run: DashboardRun): string => {
     if (run.state_name === FlowRunStateName.DBT_TEST_FAILED) return STATUS_COLOR_DBT_TEST_FAILED;
     if (run.status === FlowRunStatus.COMPLETED) return STATUS_COLOR_SUCCESS;
     return STATUS_COLOR_FAILED;
   };
+
+  const clearHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const hideTooltipDelayed = useCallback(() => {
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => {
+      setTooltipData(null);
+    }, TOOLTIP_HIDE_DELAY_MS);
+  }, [clearHideTimeout]);
+
+  const handleTooltipMouseEnter = useCallback(() => {
+    clearHideTimeout();
+  }, [clearHideTimeout]);
+
+  const handleTooltipMouseLeave = useCallback(() => {
+    hideTooltipDelayed();
+  }, [hideTooltipDelayed]);
 
   const initChart = useCallback(() => {
     if (!chartRef.current || runs.length === 0) return;
@@ -104,7 +210,7 @@ export function PipelineBarChart({
       },
 
       tooltip: {
-        show: false, // We'll use custom tooltip
+        show: false, // We use React portal tooltip
       },
 
       // Custom series to draw rectangles at exact positions (like D3)
@@ -119,7 +225,6 @@ export function PipelineBarChart({
             const barHeight = scaleToRuntime
               ? (dataItem.totalRunTime / maxRuntime) * BAR_HEIGHT
               : BAR_HEIGHT;
-            const y = BAR_HEIGHT - barHeight;
 
             // Convert to pixel coordinates
             const startPoint = api.coord([x, 0]);
@@ -161,15 +266,22 @@ export function PipelineBarChart({
 
     chartInstance.current.setOption(option);
 
-    // Custom tooltip handling with mouseover/mouseout
+    // Tooltip handling with mouseover/mouseout
     chartInstance.current.on('mouseover', (params: ECElementEvent) => {
       if (params.componentType !== 'series') return;
       const run = chartData[params.dataIndex];
-      if (!run) return;
+      if (!run || !chartRef.current) return;
 
-      // Calculate bar position for tooltip placement
+      // Calculate position for tooltip
       const barX = run.index * (BAR_WIDTH + BAR_GAP) + BAR_WIDTH / 2;
-      showTooltip(run, barX);
+      const chartRect = chartRef.current.getBoundingClientRect();
+
+      setTooltipData({
+        run,
+        x: chartRect.left + barX,
+        y: chartRect.top - 10, // 10px gap above the chart
+      });
+      clearHideTimeout();
     });
 
     chartInstance.current.on('mouseout', () => {
@@ -184,137 +296,7 @@ export function PipelineBarChart({
         onSelectRun(run);
       }
     });
-  }, [runs, scaleToRuntime, onSelectRun, selectedRunId]);
-
-  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const clearHideTimeout = useCallback(() => {
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-    }
-  }, []);
-
-  const hideTooltipDelayed = useCallback(() => {
-    clearHideTimeout();
-    hideTimeoutRef.current = setTimeout(() => {
-      if (tooltipRef.current) {
-        tooltipRef.current.style.visibility = 'hidden';
-      }
-    }, 300);
-  }, [clearHideTimeout]);
-
-  // Create tooltip DOM node once on mount, clean up on unmount
-  useEffect(() => {
-    const tooltip = document.createElement('div');
-    tooltip.style.cssText = `
-      position: absolute;
-      background: white;
-      border: 1px solid black;
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      z-index: 9999;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      pointer-events: auto;
-      visibility: hidden;
-    `;
-    document.body.appendChild(tooltip);
-    tooltipRef.current = tooltip;
-
-    const handleMouseEnter = () => clearHideTimeout();
-    const handleMouseLeave = () => hideTooltipDelayed();
-    tooltip.addEventListener('mouseenter', handleMouseEnter);
-    tooltip.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      tooltip.removeEventListener('mouseenter', handleMouseEnter);
-      tooltip.removeEventListener('mouseleave', handleMouseLeave);
-      document.body.removeChild(tooltip);
-      tooltipRef.current = null;
-      clearHideTimeout();
-    };
-  }, [clearHideTimeout, hideTooltipDelayed]);
-
-  // Update tooltip content and position — no DOM creation here
-  const showTooltip = useCallback(
-    (run: DashboardRun & { formattedTime: string; formattedDuration: string }, barX: number) => {
-      if (!chartRef.current || !tooltipRef.current) return;
-
-      const statusText =
-        run.state_name === FlowRunStateName.DBT_TEST_FAILED
-          ? 'DBT tests failed'
-          : run.status === FlowRunStatus.COMPLETED
-            ? 'Completed'
-            : 'FAILED';
-
-      const statusColor =
-        run.state_name === FlowRunStateName.DBT_TEST_FAILED
-          ? STATUS_COLOR_DBT_TEST_FAILED
-          : run.status === FlowRunStatus.COMPLETED
-            ? STATUS_COLOR_SUCCESS
-            : STATUS_COLOR_FAILED;
-
-      // Build tooltip content
-      const contentDiv = document.createElement('div');
-      contentDiv.style.lineHeight = '1.8';
-
-      const startTimeDiv = document.createElement('div');
-      startTimeDiv.innerHTML = `<strong>Start time:</strong> ${run.formattedTime}`;
-
-      const runTimeDiv = document.createElement('div');
-      runTimeDiv.innerHTML = `<strong>Run time:</strong> ${run.formattedDuration}`;
-
-      const statusDiv = document.createElement('div');
-      statusDiv.innerHTML = `<strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>`;
-
-      const button = document.createElement('button');
-      button.textContent = 'Check logs';
-      button.style.cssText = `
-        margin-top: 8px;
-        background: ${TOOLTIP_BUTTON_BG};
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 6px 14px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-      `;
-      button.addEventListener('mouseover', () => {
-        button.style.background = TOOLTIP_BUTTON_HOVER;
-      });
-      button.addEventListener('mouseout', () => {
-        button.style.background = TOOLTIP_BUTTON_BG;
-      });
-      button.addEventListener('click', () => {
-        onSelectRun(run);
-      });
-
-      contentDiv.appendChild(startTimeDiv);
-      contentDiv.appendChild(runTimeDiv);
-      contentDiv.appendChild(statusDiv);
-      contentDiv.appendChild(button);
-
-      // Replace tooltip content (clears old listeners on old children)
-      tooltipRef.current.replaceChildren(contentDiv);
-
-      // Position tooltip above the bar, centered on the bar
-      const chartRect = chartRef.current.getBoundingClientRect();
-      const tooltipX = chartRect.left + barX;
-      // 10px gap above the chart
-      const tooltipY = chartRect.top - 10;
-
-      tooltipRef.current.style.left = `${tooltipX}px`;
-      tooltipRef.current.style.top = `${tooltipY}px`;
-      tooltipRef.current.style.transform = 'translate(-50%, -100%)';
-      tooltipRef.current.style.visibility = 'visible';
-
-      clearHideTimeout();
-    },
-    [onSelectRun, clearHideTimeout]
-  );
+  }, [runs, scaleToRuntime, onSelectRun, selectedRunId, clearHideTimeout, hideTooltipDelayed]);
 
   useEffect(() => {
     initChart();
@@ -332,13 +314,18 @@ export function PipelineBarChart({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Clean up hide timeout on unmount
+  useEffect(() => {
+    return () => clearHideTimeout();
+  }, [clearHideTimeout]);
+
   if (runs.length === 0) return null;
 
   // Total width: bars + gaps, matching webapp D3 calculation
   const totalWidth = runs.length * (BAR_WIDTH + BAR_GAP);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" data-testid="pipeline-bar-chart">
       {/* Chart container */}
       <div
         ref={chartRef}
@@ -358,6 +345,16 @@ export function PipelineBarChart({
           backgroundColor: CHART_BASELINE_COLOR,
         }}
       />
+
+      {/* React portal tooltip */}
+      {tooltipData && (
+        <ChartTooltip
+          data={tooltipData}
+          onSelectRun={onSelectRun}
+          onMouseEnter={handleTooltipMouseEnter}
+          onMouseLeave={handleTooltipMouseLeave}
+        />
+      )}
     </div>
   );
 }
