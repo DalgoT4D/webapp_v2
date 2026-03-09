@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { LogSummary } from './log-summary-card';
+import type { LogSummary } from '@/types/pipeline';
 
 interface LogSummaryBlockProps {
   logsummary: LogSummary;

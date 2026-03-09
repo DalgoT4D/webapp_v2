@@ -10,7 +10,8 @@ import {
 import type { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineBarChart } from './pipeline-bar-chart';
 import { LogCard } from './log-card';
-import { LogSummaryCard, type LogSummary } from './log-summary-card';
+import { LogSummaryCard } from './log-summary-card';
+import type { LogSummary } from '@/types/pipeline';
 import { Checkbox } from '@/components/ui/checkbox';
 import { lastRunTime } from './utils';
 import { toastError } from '@/lib/toast';

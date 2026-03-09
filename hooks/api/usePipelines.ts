@@ -8,6 +8,7 @@ import {
   PipelineDetailResponse,
   TaskProgressResponse,
   DashboardPipeline,
+  type LogSummary,
 } from '@/types/pipeline';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
@@ -262,7 +263,7 @@ export function useLogSummaryPoll(taskId: string | null) {
  * Fetch log summaries for a flow run (for pipeline overview page)
  * Returns pre-computed summaries if available
  */
-export async function fetchFlowRunLogSummary(flowRunId: string): Promise<any[]> {
+export async function fetchFlowRunLogSummary(flowRunId: string): Promise<LogSummary[]> {
   return apiGet(`/api/prefect/flow_runs/${flowRunId}/logsummary`);
 }
 

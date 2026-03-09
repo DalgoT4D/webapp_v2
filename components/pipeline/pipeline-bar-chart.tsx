@@ -171,98 +171,6 @@ export function PipelineBarChart({
     });
   }, [runs, scaleToRuntime, onSelectRun, selectedRunId]);
 
-  // Custom tooltip functions
-  const showTooltip = useCallback(
-    (run: DashboardRun & { formattedTime: string; formattedDuration: string }, barX: number) => {
-      if (!chartRef.current) return;
-
-      // Create tooltip if it doesn't exist
-      if (!tooltipRef.current) {
-        tooltipRef.current = document.createElement('div');
-        tooltipRef.current.style.cssText = `
-        position: absolute;
-        background: white;
-        border: 1px solid black;
-        border-radius: 10px;
-        padding: 12px 16px;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        z-index: 9999;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        pointer-events: auto;
-        transform: translateX(-50%);
-      `;
-        document.body.appendChild(tooltipRef.current);
-
-        // Keep tooltip visible when hovering over it
-        tooltipRef.current.addEventListener('mouseenter', () => {
-          clearHideTimeout();
-        });
-        tooltipRef.current.addEventListener('mouseleave', () => {
-          hideTooltipDelayed();
-        });
-      }
-
-      const statusText =
-        run.state_name === 'DBT_TEST_FAILED'
-          ? 'DBT tests failed'
-          : run.status === 'COMPLETED'
-            ? 'Completed'
-            : 'FAILED';
-
-      const statusColor =
-        run.state_name === 'DBT_TEST_FAILED'
-          ? '#df8e14'
-          : run.status === 'COMPLETED'
-            ? '#00897B'
-            : '#C15E5E';
-
-      tooltipRef.current.innerHTML = `
-      <div style="line-height: 1.8;">
-        <div><strong>Start time:</strong> ${run.formattedTime}</div>
-        <div><strong>Run time:</strong> ${run.formattedDuration}</div>
-        <div><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span></div>
-        <button
-          style="
-            margin-top: 8px;
-            background: #5C7080;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 14px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-          "
-          onmouseover="this.style.background='#4a5d69'"
-          onmouseout="this.style.background='#5C7080'"
-        >Check logs</button>
-      </div>
-    `;
-
-      // Add click handler to the button
-      const button = tooltipRef.current.querySelector('button');
-      if (button) {
-        button.onclick = () => {
-          onSelectRun(run);
-        };
-      }
-
-      // Position tooltip above the bar, centered on the bar
-      const chartRect = chartRef.current.getBoundingClientRect();
-      const tooltipX = chartRect.left + barX;
-      const tooltipY = chartRect.top - 10; // 10px gap above the chart
-
-      tooltipRef.current.style.left = `${tooltipX}px`;
-      tooltipRef.current.style.top = `${tooltipY}px`;
-      tooltipRef.current.style.transform = 'translate(-50%, -100%)';
-      tooltipRef.current.style.visibility = 'visible';
-
-      clearHideTimeout();
-    },
-    [onSelectRun]
-  );
-
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const clearHideTimeout = useCallback(() => {
@@ -281,16 +189,117 @@ export function PipelineBarChart({
     }, 300);
   }, [clearHideTimeout]);
 
-  // Cleanup tooltip on unmount
+  // Create tooltip DOM node once on mount, clean up on unmount
   useEffect(() => {
+    const tooltip = document.createElement('div');
+    tooltip.style.cssText = `
+      position: absolute;
+      background: white;
+      border: 1px solid black;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      pointer-events: auto;
+      visibility: hidden;
+    `;
+    document.body.appendChild(tooltip);
+    tooltipRef.current = tooltip;
+
+    const handleMouseEnter = () => clearHideTimeout();
+    const handleMouseLeave = () => hideTooltipDelayed();
+    tooltip.addEventListener('mouseenter', handleMouseEnter);
+    tooltip.addEventListener('mouseleave', handleMouseLeave);
+
     return () => {
-      if (tooltipRef.current) {
-        document.body.removeChild(tooltipRef.current);
-        tooltipRef.current = null;
-      }
+      tooltip.removeEventListener('mouseenter', handleMouseEnter);
+      tooltip.removeEventListener('mouseleave', handleMouseLeave);
+      document.body.removeChild(tooltip);
+      tooltipRef.current = null;
       clearHideTimeout();
     };
-  }, [clearHideTimeout]);
+  }, [clearHideTimeout, hideTooltipDelayed]);
+
+  // Update tooltip content and position — no DOM creation here
+  const showTooltip = useCallback(
+    (run: DashboardRun & { formattedTime: string; formattedDuration: string }, barX: number) => {
+      if (!chartRef.current || !tooltipRef.current) return;
+
+      const statusText =
+        run.state_name === 'DBT_TEST_FAILED'
+          ? 'DBT tests failed'
+          : run.status === 'COMPLETED'
+            ? 'Completed'
+            : 'FAILED';
+
+      const statusColor =
+        run.state_name === 'DBT_TEST_FAILED'
+          ? '#df8e14'
+          : run.status === 'COMPLETED'
+            ? '#00897B'
+            : '#C15E5E';
+
+      // Build tooltip content
+      const contentDiv = document.createElement('div');
+      contentDiv.style.lineHeight = '1.8';
+
+      const startTimeDiv = document.createElement('div');
+      startTimeDiv.innerHTML = `<strong>Start time:</strong> ${run.formattedTime}`;
+
+      const runTimeDiv = document.createElement('div');
+      runTimeDiv.innerHTML = `<strong>Run time:</strong> ${run.formattedDuration}`;
+
+      const statusDiv = document.createElement('div');
+      statusDiv.innerHTML = `<strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>`;
+
+      const button = document.createElement('button');
+      button.textContent = 'Check logs';
+      button.style.cssText = `
+        margin-top: 8px;
+        background: #5C7080;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      `;
+      button.addEventListener('mouseover', () => {
+        button.style.background = '#4a5d69';
+      });
+      button.addEventListener('mouseout', () => {
+        button.style.background = '#5C7080';
+      });
+      button.addEventListener('click', () => {
+        onSelectRun(run);
+      });
+
+      contentDiv.appendChild(startTimeDiv);
+      contentDiv.appendChild(runTimeDiv);
+      contentDiv.appendChild(statusDiv);
+      contentDiv.appendChild(button);
+
+      // Replace tooltip content (clears old listeners on old children)
+      tooltipRef.current.replaceChildren(contentDiv);
+
+      // Position tooltip above the bar, centered on the bar
+      const chartRect = chartRef.current.getBoundingClientRect();
+      const tooltipX = chartRect.left + barX;
+      // 10px gap above the chart
+      const tooltipY = chartRect.top - 10;
+
+      tooltipRef.current.style.left = `${tooltipX}px`;
+      tooltipRef.current.style.top = `${tooltipY}px`;
+      tooltipRef.current.style.transform = 'translate(-50%, -100%)';
+      tooltipRef.current.style.visibility = 'visible';
+
+      clearHideTimeout();
+    },
+    [onSelectRun, clearHideTimeout]
+  );
 
   useEffect(() => {
     initChart();

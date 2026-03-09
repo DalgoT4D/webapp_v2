@@ -1,24 +1,7 @@
 'use client';
 
 import { LogSummaryBlock } from './log-summary-block';
-
-export interface LogSummary {
-  task_name: string;
-  status: string;
-  pattern?: string;
-  log_lines: string[];
-  errors?: number;
-  passed?: number;
-  skipped?: number;
-  warnings?: number;
-  tests: Array<{
-    pattern: string;
-    passed?: number;
-    errors?: number;
-    skipped?: number;
-    warnings?: number;
-  }>;
-}
+import { LogSummary } from '@/types/pipeline';
 
 interface LogSummaryCardProps {
   logsummary: LogSummary[];
