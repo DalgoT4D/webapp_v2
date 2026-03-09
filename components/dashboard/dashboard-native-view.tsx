@@ -223,6 +223,7 @@ interface DashboardNativeViewProps {
   isReportMode?: boolean; // Report snapshot mode — frozen config, no editing
   frozenChartConfigs?: Record<string, any>; // Chart configs keyed by chart ID
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
+  onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
 }
 
 export function DashboardNativeView({
@@ -237,6 +238,7 @@ export function DashboardNativeView({
   isReportMode = false,
   frozenChartConfigs,
   beforeContent,
+  onContainerRef,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -1077,7 +1079,10 @@ export function DashboardNativeView({
           )}
         >
           <div
-            ref={dashboardContainerRef}
+            ref={(el) => {
+              dashboardContainerRef.current = el;
+              onContainerRef?.(el);
+            }}
             className={`dashboard-canvas relative z-10 ${
               isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
             }`}
