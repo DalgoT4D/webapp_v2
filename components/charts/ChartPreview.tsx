@@ -133,19 +133,46 @@ export function ChartPreview({
           },
           extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
           formatter: function (params: any) {
-            // Helper to format values based on customizations
-            const formatValue = (val: any) => {
-              // Try to parse string values to numbers (like TableChart does)
-              const numVal = typeof val === 'number' ? val : parseFloat(val);
-              if (isNaN(numVal)) return val; // Return original if not a valid number
+            const isAxisChart = detectedChartType === 'bar' || detectedChartType === 'line';
 
-              const numFormat = (customizations.numberFormat || 'default') as NumberFormat;
+            // Helper to format Y-axis values based on customizations
+            const formatYValue = (val: any) => {
+              const numVal = typeof val === 'number' ? val : parseFloat(val);
+              if (isNaN(numVal)) return val;
+
+              const numFormat =
+                ((isAxisChart
+                  ? customizations.yAxisNumberFormat || customizations.numberFormat
+                  : customizations.numberFormat) as NumberFormat) || 'default';
+              const decimalPlaces = isAxisChart
+                ? (customizations.yAxisDecimalPlaces ?? customizations.decimalPlaces)
+                : customizations.decimalPlaces;
+
               if (numFormat === 'default') {
                 return numVal.toLocaleString();
               }
               return formatNumber(numVal, {
                 format: numFormat,
-                decimalPlaces: customizations.decimalPlaces,
+                decimalPlaces: decimalPlaces,
+              });
+            };
+
+            // Helper to format X-axis values (only for bar/line charts with numeric X-axis)
+            const formatXValue = (val: any) => {
+              if (!isAxisChart) return val;
+
+              const numFormat = customizations.xAxisNumberFormat as NumberFormat;
+              // Only format if xAxisNumberFormat is explicitly set (means X-axis is numeric)
+              if (!numFormat || numFormat === 'default') return val;
+
+              // xAxisNumberFormat is set, so X-axis is numeric - safe to parseFloat
+              const numVal = typeof val === 'number' ? val : parseFloat(val);
+              if (isNaN(numVal)) return val;
+
+              const decimalPlaces = customizations.xAxisDecimalPlaces;
+              return formatNumber(numVal, {
+                format: numFormat,
+                decimalPlaces: decimalPlaces,
               });
             };
 
@@ -154,21 +181,22 @@ export function ChartPreview({
               let result = '';
               params.forEach((param: any, index: number) => {
                 if (index === 0) {
-                  result += param.name + '<br/>';
+                  result += formatXValue(param.name) + '<br/>';
                 }
-                const value = formatValue(param.value);
+                const value = formatYValue(param.value);
                 result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
               });
               return result;
             } else {
               // For single series (pie charts, single bar/line)
-              const value = formatValue(params.value);
+              const value = formatYValue(params.value);
+              const xValue = formatXValue(params.name);
               if (params.percent !== undefined) {
                 // Pie chart with percentage
-                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
+                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${xValue} (${params.percent}%)`;
               } else {
                 // Regular chart
-                return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
+                return `${params.marker}${params.seriesName}<br/>${xValue}: <b>${value}</b>`;
               }
             }
           },
