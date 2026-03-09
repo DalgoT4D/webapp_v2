@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useCallback } from 'react';
 import type { ChartBuilderFormData } from '@/types/charts';
 
 // Import chart type-specific customization components from modules
@@ -43,7 +44,79 @@ export function ChartCustomizations({
   disabled,
   columns = [],
 }: ChartCustomizationsProps) {
-  // Safety check for undefined formData
+  // Memoize customizations to avoid dependency issues
+  const customizations = useMemo(() => formData?.customizations || {}, [formData?.customizations]);
+
+  // Memoize updateCustomization to avoid re-creating on every render
+  const updateCustomization = useCallback(
+    (key: string, value: unknown) => {
+      onChange({
+        customizations: {
+          ...customizations,
+          [key]: value,
+        },
+      });
+    },
+    [onChange, customizations]
+  );
+
+  // Compute numericColumns for table charts (needed for useEffect cleanup)
+  const numericColumns = useMemo(() => {
+    if (chartType !== 'table' || !formData) return [];
+
+    const hasAggregation =
+      (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+    // Build a map of column names to their data types
+    const columnTypeMap: Record<string, string> = {};
+    columns.forEach((col) => {
+      const colName = col.column_name || col.name || '';
+      if (colName) {
+        columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
+      }
+    });
+
+    if (hasAggregation) {
+      const metricCols =
+        formData.metrics
+          ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+          .filter(Boolean) || [];
+
+      const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+      const numericDimensionCols = dimensionCols.filter((colName) => {
+        const dataType = columnTypeMap[colName];
+        return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+      });
+
+      return [...numericDimensionCols, ...metricCols];
+    } else {
+      const displayedCols = formData.table_columns || [];
+      return displayedCols.filter((colName) => {
+        const dataType = columnTypeMap[colName];
+        return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+      });
+    }
+  }, [chartType, formData, columns]);
+
+  // Clean up stale column formatting using useEffect (side effect, not during render)
+  useEffect(() => {
+    if (chartType !== 'table') return;
+
+    const existingFormatting = customizations.columnFormatting || {};
+    const numericColumnsSet = new Set(numericColumns);
+    const hasStaleFormatting = Object.keys(existingFormatting).some(
+      (col) => !numericColumnsSet.has(col)
+    );
+
+    if (hasStaleFormatting) {
+      const cleanedFormatting = Object.fromEntries(
+        Object.entries(existingFormatting).filter(([col]) => numericColumnsSet.has(col))
+      );
+      updateCustomization('columnFormatting', cleanedFormatting);
+    }
+  }, [chartType, customizations.columnFormatting, numericColumns, updateCustomization]);
+
+  // Safety check for undefined formData (after hooks)
   if (!formData) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -51,17 +124,6 @@ export function ChartCustomizations({
       </div>
     );
   }
-
-  const customizations = formData.customizations || {};
-
-  const updateCustomization = (key: string, value: any) => {
-    onChange({
-      customizations: {
-        ...customizations,
-        [key]: value,
-      },
-    });
-  };
 
   switch (chartType) {
     case 'bar':
@@ -122,84 +184,8 @@ export function ChartCustomizations({
       );
 
     case 'table': {
-      // Only show columns that are actually displayed in the table
-      // For raw mode: use table_columns (user selected columns)
-      // For aggregated mode: use dimensions + metrics (computed columns)
-
-      const hasAggregation =
-        (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
-
-      let displayedColumns: string[] = [];
-
-      if (hasAggregation) {
-        // Aggregated mode: columns are dimensions + metrics
-        const dimensionColumns = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
-
-        const metricColumns =
-          formData.metrics
-            ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
-            .filter(Boolean) || [];
-
-        displayedColumns = [...dimensionColumns, ...metricColumns];
-      } else {
-        // Raw mode: only show selected table_columns
-        displayedColumns = formData.table_columns || [];
-      }
-
-      // Build a map of column names to their data types
-      const columnTypeMap: Record<string, string> = {};
-      columns.forEach((col) => {
-        const colName = col.column_name || col.name || '';
-        if (colName) {
-          columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
-        }
-      });
-
-      // Filter to only show numeric columns for number formatting
-      // In aggregated mode, metric columns are always numeric (aggregation results)
-      // Dimension columns are also included if they have a numeric data type
-      // In raw mode, filter by actual column data type
-      let numericColumns: string[] = [];
-
-      if (hasAggregation) {
-        // Metric columns are always numeric (aggregation results)
-        const metricColumns =
-          formData.metrics
-            ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
-            .filter(Boolean) || [];
-
-        // Dimension columns that have numeric data types should also be included
-        const dimensionColumns = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
-        const numericDimensionColumns = dimensionColumns.filter((colName) => {
-          const dataType = columnTypeMap[colName];
-          return dataType && NUMERIC_DATA_TYPES.includes(dataType);
-        });
-
-        numericColumns = [...numericDimensionColumns, ...metricColumns];
-      } else {
-        // In raw mode: filter by actual column data type
-        numericColumns = displayedColumns.filter((colName) => {
-          const dataType = columnTypeMap[colName];
-          return dataType && NUMERIC_DATA_TYPES.includes(dataType);
-        });
-      }
-
-      // Clean up formatting for columns that no longer exist or are no longer numeric
-      const existingFormatting = customizations.columnFormatting || {};
-      const numericColumnsSet = new Set(numericColumns);
-      const hasStaleFormatting = Object.keys(existingFormatting).some(
-        (col) => !numericColumnsSet.has(col)
-      );
-
-      if (hasStaleFormatting) {
-        // Remove formatting for columns that are no longer displayed or not numeric
-        const cleanedFormatting = Object.fromEntries(
-          Object.entries(existingFormatting).filter(([col]) => numericColumnsSet.has(col))
-        );
-        // Update the customizations to remove stale entries
-        updateCustomization('columnFormatting', cleanedFormatting);
-      }
-
+      // numericColumns is computed in useMemo above
+      // Stale formatting cleanup is handled in useEffect above
       return (
         <TableChartCustomizations
           customizations={customizations}
