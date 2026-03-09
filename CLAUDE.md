@@ -160,102 +160,41 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 - **Local Storage**: Used for organization selection (auth tokens are in HTTP-only cookies)
 - **CORS**: Handled by backend, frontend makes direct API calls
 
----
+## Development Patterns to Follow
 
-## Development Guidelines
+### Component Attributes (Required)
+Always add these attributes to interactive components for testability and debugging:
 
-### Custom Hooks vs Utility Functions
-
-**Custom Hooks (`hooks/`):**
-- Use when you need React features: state, effects, context, or other hooks
-- Use for data fetching with SWR
-- Use when the logic needs to re-render the component
-- Always prefix with `use` (e.g., `useCharts`, `useMobile`, `useSyncLock`)
-
-**Utility Functions (`lib/`):**
-- Use for pure functions that transform data
-- Use for helpers that don't need React lifecycle
-- Use for calculations, formatting, validation logic
+- **`data-testid`**: Required for all interactive elements (buttons, inputs, rows, etc.)
+  - Use descriptive, kebab-case names: `data-testid="create-pipeline-btn"`
+  - Include unique identifiers for list items: `data-testid="pipeline-row-${id}"`
+- **`id`**: Required for form elements and elements referenced by labels
+- **`key`**: Required for all items in lists/arrays (use unique identifiers, not array indices)
 
 ```typescript
-// Hook - needs React state/effects
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => { /* ... */ }, [value, delay]);
-  return debouncedValue;
-}
+// Example: Button with testid
+<Button data-testid="submit-btn" onClick={handleSubmit}>Submit</Button>
 
-// Utility - pure function
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-}
+// Example: List items with dynamic testids
+{items.map((item) => (
+  <div key={item.id} data-testid={`item-row-${item.id}`}>
+    <button data-testid={`delete-btn-${item.id}`}>Delete</button>
+  </div>
+))}
+
+// Example: Form element with id for label association
+<Label htmlFor="pipeline-name">Name</Label>
+<Input id="pipeline-name" data-testid="pipeline-name-input" />
 ```
 
-### API Hook Patterns
+### Component Attributes (Required)
+Always add these attributes to interactive components for testability and debugging:
 
-All API data fetching is done through SWR hooks in `hooks/api/`. There are two patterns:
-
-**1. Read hooks (GET requests)** — use `useSWR` for data fetching with caching:
-
-```typescript
-// File: hooks/api/useFeature.ts
-import useSWR from 'swr';
-import { apiGet } from '@/lib/api';
-
-// Define response types in the hook file or in types/
-interface Feature {
-  id: number;
-  name: string;
-}
-
-// List hook — returns shaped data with loading/error states
-export function useFeatures() {
-  const { data, error, mutate } = useSWR<Feature[]>('/api/features/', apiGet);
-
-  return {
-    data: data || [],
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
-}
-
-// Single item hook — use null key to conditionally fetch
-export function useFeature(id: number | null) {
-  const { data, error, mutate } = useSWR<Feature>(
-    id ? `/api/features/${id}/` : null,
-    apiGet
-  );
-
-  return {
-    data,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
-}
-```
-
-**2. Mutation hooks (POST/PUT/DELETE)** — use `useSWRMutation` for write operations:
-
-```typescript
-import useSWRMutation from 'swr/mutation';
-import { apiPost, apiPut, apiDelete } from '@/lib/api';
-
-// Define fetchers at the top of the file
-const createFeature = (url: string, { arg }: { arg: FeatureCreate }) => apiPost(url, arg);
-const deleteFeature = (url: string, { arg }: { arg: number }) => apiDelete(`${url}${arg}/`);
-
-export function useCreateFeature() {
-  return useSWRMutation('/api/features/', createFeature);
-}
-
-export function useDeleteFeature() {
-  return useSWRMutation('/api/features/', deleteFeature);
-}
-```
-
-**3. Standalone async functions** — for one-off mutations called from event handlers:
+- **`data-testid`**: Required for all interactive elements (buttons, inputs, rows, etc.)
+  - Use descriptive, kebab-case names: `data-testid="create-pipeline-btn"`
+  - Include unique identifiers for list items: `data-testid="pipeline-row-${id}"`
+- **`id`**: Required for form elements and elements referenced by labels
+- **`key`**: Required for all items in lists/arrays (use unique identifiers, not array indices)
 
 ```typescript
 export async function triggerAction(id: string): Promise<void> {
@@ -776,16 +715,21 @@ Don't change existing CI/CD functionality - only add new values/configurations a
 
 ## Testing Strategy
 
-### Philosophy
-- **Quality over quantity**: Focus on covering all code paths (happy path, error cases, edge cases) rather than writing one assertion per test
-- **Merge related tests**: Combine tests that set up the same component/state into a single test with multiple assertions
-- **Bug fix = test**: Whenever a bug is fixed, write a test to verify the fix
-- **New feature = tests**: New features should have accompanying tests
+### Critical Testing Principles
+- **NEVER fake tests to pass** - If a test fails, leave it failing. Do not change expected values or assertions just to make tests pass. We debug failing tests together. If a test fails 4-5 times, stop trying and explain why it's failing.
+- **Tests must reflect real behavior** - Assertions should match actual expected behavior, not be adjusted to match incorrect output.
+- **Failing tests are valuable** - They indicate bugs or misunderstandings that need investigation.
+- **Explain untestable code** - If a component or function can't be tested, or certain lines can't be covered, explain the specific reason why. Human intervention will decide what to do.
+- **No blind fixes** - Don't guess at solutions. If unclear, ask.
 
-### Human Intervention Required
-- **Don't fake passing tests**: If a test fails 4-5 times, don't add wrong parameters just to make it pass. Let it fail and explain why.
-- **Explain untestable code**: If a component or function can't be tested, or certain lines can't be covered, explain the specific reason why. Human intervention will decide what to do.
-- **No blind fixes**: Don't guess at solutions. If unclear, ask.
+### Test File Conventions
+- **Location**: Tests live in `__tests__/` folders **inside** the component directory (e.g., `components/pipeline/__tests__/`, `components/notifications/__tests__/`)
+- **Mock data factories**: Create a `*-mock-data.ts` file in the `__tests__/` folder with factory functions (`createMockPipeline()`, `createMockNotification()`) following the pattern in `components/pipeline/__tests__/pipeline-mock-data.ts`
+- **Global API mocks**: API is mocked globally in `jest.setup.ts` — use `mockApiGet`/`mockApiPut` from `test-utils/api.ts` for typed references
+- **Test wrappers**: Use `TestWrapper` from `test-utils/render.tsx` for SWR isolation (fresh cache, no deduping, no polling)
+- **Permissions**: Mock `useUserPermissions` from `@/hooks/api/usePermissions` — never mock `useAuthStore` directly for permission checks
+- **Relative imports for siblings**: Tests import components via relative paths (`../ComponentName`), mock data from `./mock-data`
+- **No `__tests__/integration/` or `__tests__/components/` folders**: All tests go in the component's own `__tests__/` directory, integration tests included (e.g., `notifications.integration.test.tsx`)
 
 ### Unit Tests
 - Test utility functions and custom hooks in isolation
