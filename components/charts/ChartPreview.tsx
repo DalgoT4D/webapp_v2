@@ -12,6 +12,7 @@ import {
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { createTooltipFormatter } from '@/lib/bar-line-chart-formatting-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -132,74 +133,7 @@ export function ChartPreview({
             fontSize: 12,
           },
           extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-          formatter: function (params: any) {
-            const isAxisChart = detectedChartType === 'bar' || detectedChartType === 'line';
-
-            // Helper to format Y-axis values based on customizations
-            const formatYValue = (val: any) => {
-              const numVal = typeof val === 'number' ? val : parseFloat(val);
-              if (isNaN(numVal)) return val;
-
-              const numFormat =
-                ((isAxisChart
-                  ? customizations.yAxisNumberFormat || customizations.numberFormat
-                  : customizations.numberFormat) as NumberFormat) || 'default';
-              const decimalPlaces = isAxisChart
-                ? (customizations.yAxisDecimalPlaces ?? customizations.decimalPlaces)
-                : customizations.decimalPlaces;
-
-              if (numFormat === 'default') {
-                return numVal.toLocaleString();
-              }
-              return formatNumber(numVal, {
-                format: numFormat,
-                decimalPlaces: decimalPlaces,
-              });
-            };
-
-            // Helper to format X-axis values (only for bar/line charts with numeric X-axis)
-            const formatXValue = (val: any) => {
-              if (!isAxisChart) return val;
-
-              const numFormat = customizations.xAxisNumberFormat as NumberFormat;
-              // Only format if xAxisNumberFormat is explicitly set (means X-axis is numeric)
-              if (!numFormat || numFormat === 'default') return val;
-
-              // xAxisNumberFormat is set, so X-axis is numeric - safe to parseFloat
-              const numVal = typeof val === 'number' ? val : parseFloat(val);
-              if (isNaN(numVal)) return val;
-
-              const decimalPlaces = customizations.xAxisDecimalPlaces;
-              return formatNumber(numVal, {
-                format: numFormat,
-                decimalPlaces: decimalPlaces,
-              });
-            };
-
-            if (Array.isArray(params)) {
-              // For multiple series (line/bar charts with multiple lines/bars)
-              let result = '';
-              params.forEach((param: any, index: number) => {
-                if (index === 0) {
-                  result += formatXValue(param.name) + '<br/>';
-                }
-                const value = formatYValue(param.value);
-                result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
-              });
-              return result;
-            } else {
-              // For single series (pie charts, single bar/line)
-              const value = formatYValue(params.value);
-              const xValue = formatXValue(params.name);
-              if (params.percent !== undefined) {
-                // Pie chart with percentage
-                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${xValue} (${params.percent}%)`;
-              } else {
-                // Regular chart
-                return `${params.marker}${params.seriesName}<br/>${xValue}: <b>${value}</b>`;
-              }
-            }
-          },
+          formatter: createTooltipFormatter(customizations, detectedChartType || ''),
         },
         // For pie and number charts, completely remove grid and axis configurations
         ...(isPieChart || isNumberChart
