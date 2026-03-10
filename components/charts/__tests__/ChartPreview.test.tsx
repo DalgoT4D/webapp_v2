@@ -442,4 +442,43 @@ describe('ChartPreview', () => {
       expect(console.error).toHaveBeenCalledWith('Error initializing chart:', expect.any(Error));
     });
   });
+
+  describe('Stacked Bar Chart Data Labels', () => {
+    const stackedConfig = { series: [{ type: 'bar', data: [1, 2, 3], stack: 'total' }] };
+    const nonStackedConfig = { series: [{ type: 'bar', data: [1, 2, 3] }] };
+
+    it.each([
+      ['stacked with showDataLabels', stackedConfig, { stacked: true, showDataLabels: true }, true],
+      ['detected from series stack', stackedConfig, { showDataLabels: true }, true],
+      ['non-stacked bar', nonStackedConfig, { showDataLabels: true }, false],
+      ['showDataLabels false', stackedConfig, { stacked: true, showDataLabels: false }, false],
+    ])('should handle %s correctly', (_, config, customizations, shouldApply) => {
+      render(<ChartPreview config={config} chartType="bar" customizations={customizations} />);
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+
+      if (shouldApply) {
+        expect(calledConfig.series[0].label.position).toBe('top');
+        expect(calledConfig.labelLayout).toEqual({ hideOverlap: true });
+      } else {
+        expect(calledConfig.labelLayout).toBeUndefined();
+      }
+    });
+
+    it('should format values correctly in label formatter', () => {
+      render(
+        <ChartPreview
+          config={stackedConfig}
+          chartType="bar"
+          customizations={{ stacked: true, showDataLabels: true }}
+        />
+      );
+      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
+
+      expect(formatter({ value: 1000 })).toBe('1,000');
+      expect(formatter({ value: ['A', 500] })).toBe('500');
+      expect(formatter({ value: { value: 250 } })).toBe('250');
+      expect(formatter({ value: 0 })).toBe('');
+      expect(formatter(null)).toBe('');
+    });
+  });
 });
