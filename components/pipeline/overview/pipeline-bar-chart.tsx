@@ -9,18 +9,20 @@ import type {
   ECElementEvent,
 } from 'echarts';
 import { DashboardRun } from '@/types/pipeline';
-import { formatDuration } from './utils';
+import { formatDuration } from '../utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   FlowRunStatus,
   FlowRunStateName,
-  STATUS_COLOR_SUCCESS,
-  STATUS_COLOR_FAILED,
-  STATUS_COLOR_DBT_TEST_FAILED,
   CHART_BASELINE_COLOR,
   TOOLTIP_BUTTON_BG,
 } from '@/constants/pipeline';
+
+// ECharts needs resolved hex values — CSS variables (var(--primary)) don't work in canvas
+const ECHART_COLOR_SUCCESS = '#00897B'; // --primary
+const ECHART_COLOR_FAILED = '#C15E5E'; // --failed
+const ECHART_COLOR_DBT_TEST_FAILED = '#df8e14'; // --warning
 
 interface PipelineBarChartProps {
   runs: DashboardRun[];
@@ -69,10 +71,10 @@ function ChartTooltip({
 
   const statusColor =
     run.state_name === FlowRunStateName.DBT_TEST_FAILED
-      ? STATUS_COLOR_DBT_TEST_FAILED
+      ? 'var(--warning)'
       : run.status === FlowRunStatus.COMPLETED
-        ? STATUS_COLOR_SUCCESS
-        : STATUS_COLOR_FAILED;
+        ? 'var(--primary)'
+        : 'var(--failed)';
 
   return createPortal(
     <div
@@ -133,9 +135,9 @@ export function PipelineBarChart({
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
 
   const getBarColor = (run: DashboardRun): string => {
-    if (run.state_name === FlowRunStateName.DBT_TEST_FAILED) return STATUS_COLOR_DBT_TEST_FAILED;
-    if (run.status === FlowRunStatus.COMPLETED) return STATUS_COLOR_SUCCESS;
-    return STATUS_COLOR_FAILED;
+    if (run.state_name === FlowRunStateName.DBT_TEST_FAILED) return ECHART_COLOR_DBT_TEST_FAILED;
+    if (run.status === FlowRunStatus.COMPLETED) return ECHART_COLOR_SUCCESS;
+    return ECHART_COLOR_FAILED;
   };
 
   const clearHideTimeout = useCallback(() => {

@@ -1,4 +1,4 @@
-import { PipelineOverview } from '@/components/pipeline/pipeline-overview';
+import { PipelineOverview } from '@/components/pipeline/overview/pipeline-overview';
 
 export default function PipelineOverviewPage() {
   return (

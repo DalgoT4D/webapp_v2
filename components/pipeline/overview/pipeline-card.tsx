@@ -4,13 +4,12 @@ import { Loader2 } from 'lucide-react';
 import type { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineBarChart } from './pipeline-bar-chart';
 import { Checkbox } from '@/components/ui/checkbox';
-import { lastRunTime } from './utils';
+import { lastRunTime } from '../utils';
 import CheckCircleIcon from '@/assets/icons/check-circle';
 import WarningAmberIcon from '@/assets/icons/warning-amber';
 import {
   FlowRunStatus,
   FlowRunStateName,
-  STATUS_COLOR_DBT_TEST_FAILED,
   STATUS_COLOR_FAILED_DARK,
   STATUS_COLOR_RUNNING,
 } from '@/constants/pipeline';
@@ -70,7 +69,7 @@ export function PipelineCard({
               ) : (
                 <WarningAmberIcon
                   size={20}
-                  color={isLastRunWarning ? STATUS_COLOR_DBT_TEST_FAILED : STATUS_COLOR_FAILED_DARK}
+                  color={isLastRunWarning ? 'var(--warning)' : STATUS_COLOR_FAILED_DARK}
                 />
               )}
 

@@ -7,7 +7,7 @@ import { PipelineCard } from './pipeline-card';
 import { LogCard } from './log-card';
 import { LogSummaryCard } from './log-summary-card';
 import { toastError } from '@/lib/toast';
-import { getRunDisplayStatus } from './utils';
+import { getRunDisplayStatus } from '../utils';
 import { FLOW_RUN_LOGS_OFFSET_LIMIT, ENABLE_LOG_SUMMARIES } from '@/constants/pipeline';
 import { format } from 'date-fns';
 
