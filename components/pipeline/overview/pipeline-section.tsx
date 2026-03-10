@@ -36,7 +36,9 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
 
   // Fetch logs/summaries when a run is selected
   useEffect(() => {
-    if (selectedRun) {
+    if (!selectedRun) return;
+
+    async function loadLogs() {
       setLogs([]);
       setLogsOffset(0);
       setLogsLoading(true);
@@ -44,47 +46,44 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
       setLogSummary([]);
       setLogSummaryLogs([]);
 
-      // If log summaries are enabled, try to fetch them first
-      if (ENABLE_LOG_SUMMARIES) {
-        fetchFlowRunLogSummary(selectedRun.id)
-          .then((summaryData) => {
+      try {
+        // If log summaries are enabled, try to fetch them first
+        if (ENABLE_LOG_SUMMARIES) {
+          try {
+            const summaryData = await fetchFlowRunLogSummary(selectedRun.id);
             if (summaryData && summaryData.length > 0) {
               setLogSummary(summaryData);
-              setLogsLoading(false);
-            } else {
-              // No summaries available, fetch regular logs
-              fetchRegularLogs();
+              return;
             }
-          })
-          .catch(() => {
-            // Summary fetch failed, fall back to regular logs
-            fetchRegularLogs();
-          });
-      } else {
-        fetchRegularLogs();
+          } catch {
+            // Summary fetch failed, fall back to regular logs below
+          }
+        }
+
+        // Fetch regular logs (either summaries disabled, empty, or failed)
+        const data = await fetchFlowRunLogs(
+          selectedRun.id,
+          undefined,
+          0,
+          FLOW_RUN_LOGS_OFFSET_LIMIT
+        );
+        if (data?.logs?.logs) {
+          const messages = data.logs.logs.map((log: { message?: string } | string) =>
+            typeof log === 'object' ? log?.message || '' : log
+          );
+          setLogs(messages);
+          setHasMoreLogs(messages.length >= FLOW_RUN_LOGS_OFFSET_LIMIT);
+          setLogsOffset(FLOW_RUN_LOGS_OFFSET_LIMIT);
+        }
+      } catch (error) {
+        console.error('Failed to fetch logs:', error);
+        toastError.load(error, 'logs');
+      } finally {
+        setLogsLoading(false);
       }
     }
 
-    function fetchRegularLogs() {
-      fetchFlowRunLogs(selectedRun!.id, undefined, 0, FLOW_RUN_LOGS_OFFSET_LIMIT)
-        .then((data) => {
-          if (data?.logs?.logs) {
-            const messages = data.logs.logs.map((log: { message?: string } | string) =>
-              typeof log === 'object' ? log?.message || '' : log
-            );
-            setLogs(messages);
-            setHasMoreLogs(messages.length >= FLOW_RUN_LOGS_OFFSET_LIMIT);
-            setLogsOffset(FLOW_RUN_LOGS_OFFSET_LIMIT);
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to fetch logs:', error);
-          toastError.load(error, 'logs');
-        })
-        .finally(() => {
-          setLogsLoading(false);
-        });
-    }
+    loadLogs();
   }, [selectedRun]);
 
   const handleSelectRun = useCallback((run: DashboardRun) => {
