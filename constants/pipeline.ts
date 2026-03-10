@@ -111,13 +111,14 @@ export const TASK_READABLE_NAMES: Record<string, string> = {
 // AI summary feature flag
 export const ENABLE_LOG_SUMMARIES = process.env.NEXT_PUBLIC_ENABLE_LOG_SUMMARIES === 'true';
 
-// Colors without CSS variable equivalents
+// Hex codes used here because these colors have no CSS variable equivalents
+// and are passed to ECharts / SVG icons which cannot consume CSS variables
 export const STATUS_COLOR_RUNNING = '#DAA520';
 export const STATUS_COLOR_FAILED_DARK = '#981F1F'; // darker red for warning icon
 
-// Tooltip button colors
+// Tooltip button colors (used in ECharts custom tooltip)
 export const TOOLTIP_BUTTON_BG = '#5C7080';
 export const TOOLTIP_BUTTON_HOVER = '#4a5d69';
 
-// Chart baseline color
+// Chart baseline color (ECharts)
 export const CHART_BASELINE_COLOR = '#758397';
