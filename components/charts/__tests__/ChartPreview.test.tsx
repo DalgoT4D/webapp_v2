@@ -610,6 +610,131 @@ describe('ChartPreview', () => {
     });
   });
 
+  describe('Stacked Bar Chart Data Labels', () => {
+    const stackedBarConfig = {
+      series: [
+        { type: 'bar', data: [100, 200, 300], stack: 'total', label: { show: true } },
+        { type: 'bar', data: [150, 250, 350], stack: 'total', label: { show: true } },
+        { type: 'bar', data: [200, 300, 400], stack: 'total', label: { show: true } },
+      ],
+      xAxis: { type: 'category', data: ['A', 'B', 'C'] },
+      yAxis: { type: 'value' },
+    };
+
+    it('should show labels on all segments when stacked with showDataLabels', () => {
+      render(
+        <ChartPreview
+          config={stackedBarConfig}
+          chartType="bar"
+          customizations={{ stacked: true, showDataLabels: true }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // All series should have labels visible
+      expect(calledConfig.series[0].label.show).toBe(true);
+      expect(calledConfig.series[1].label.show).toBe(true);
+      expect(calledConfig.series[2].label.show).toBe(true);
+      // All series should have position 'top'
+      expect(calledConfig.series[0].label.position).toBe('top');
+      expect(calledConfig.series[1].label.position).toBe('top');
+      expect(calledConfig.series[2].label.position).toBe('top');
+    });
+
+    it('should show individual slice values using formatter on all segments', () => {
+      render(
+        <ChartPreview
+          config={stackedBarConfig}
+          chartType="bar"
+          customizations={{ stacked: true, showDataLabels: true }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // All series should have a formatter function
+      expect(typeof calledConfig.series[0].label.formatter).toBe('function');
+      expect(typeof calledConfig.series[1].label.formatter).toBe('function');
+      expect(typeof calledConfig.series[2].label.formatter).toBe('function');
+
+      // Test formatter returns individual values (not totals)
+      const formatter0 = calledConfig.series[0].label.formatter;
+      expect(formatter0({ value: 100 })).toBe('100');
+      expect(formatter0({ value: 200 })).toBe('200');
+
+      const formatter1 = calledConfig.series[1].label.formatter;
+      expect(formatter1({ value: 150 })).toBe('150');
+      expect(formatter1({ value: 250 })).toBe('250');
+
+      // Test that zero values return empty string
+      expect(formatter0({ value: 0 })).toBe('');
+      expect(formatter0({ value: NaN })).toBe('');
+
+      // Test handling of array values (like [x, y])
+      expect(formatter0({ value: ['A', 100] })).toBe('100');
+
+      // Test handling of object values with 'value' property
+      expect(formatter0({ value: { value: 150 } })).toBe('150');
+
+      // Test null/undefined params
+      expect(formatter0(null)).toBe('');
+      expect(formatter0(undefined)).toBe('');
+    });
+
+    it('should add labelLayout with hideOverlap for stacked bars', () => {
+      render(
+        <ChartPreview
+          config={stackedBarConfig}
+          chartType="bar"
+          customizations={{ stacked: true, showDataLabels: true }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.labelLayout).toEqual({ hideOverlap: true });
+    });
+
+    it('should not modify labels when not stacked', () => {
+      // Use a non-stacked config (no stack property on series)
+      const nonStackedBarConfig = {
+        series: [
+          { type: 'bar', data: [100, 200, 300], label: { show: true } },
+          { type: 'bar', data: [150, 250, 350], label: { show: true } },
+          { type: 'bar', data: [200, 300, 400], label: { show: true } },
+        ],
+        xAxis: { type: 'category', data: ['A', 'B', 'C'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={nonStackedBarConfig}
+          chartType="bar"
+          customizations={{ stacked: false, showDataLabels: true }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // All series should retain their original label.show value
+      expect(calledConfig.series[0].label.show).toBe(true);
+      expect(calledConfig.series[1].label.show).toBe(true);
+      expect(calledConfig.series[2].label.show).toBe(true);
+      expect(calledConfig.labelLayout).toBeUndefined();
+    });
+
+    it('should not modify labels when showDataLabels is false', () => {
+      render(
+        <ChartPreview
+          config={stackedBarConfig}
+          chartType="bar"
+          customizations={{ stacked: true, showDataLabels: false }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.labelLayout).toBeUndefined();
+    });
+  });
+
   describe('Console Logging', () => {
     beforeEach(() => {
       jest.spyOn(console, 'log').mockImplementation();

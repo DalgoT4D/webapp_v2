@@ -1146,8 +1146,21 @@ export function ChartElementV2({
             label: {
               ...series.label,
               formatter: (params: any) => {
-                const value = params.value;
-                if (typeof value !== 'number' || isNaN(value)) return value;
+                if (!params) return '';
+
+                let value = params.value;
+
+                // Handle array values (like [x, y] for certain chart data formats)
+                if (Array.isArray(value)) {
+                  value = value[1]; // Get the y value (second element)
+                }
+
+                // Handle object values with 'value' property
+                if (value !== null && typeof value === 'object' && 'value' in value) {
+                  value = value.value;
+                }
+
+                if (typeof value !== 'number' || isNaN(value)) return '';
                 return formatNumber(value, {
                   format: yAxisNumberFormat,
                   decimalPlaces: yAxisDecimalPlaces,
@@ -1155,6 +1168,63 @@ export function ChartElementV2({
               },
             },
           }));
+        }
+
+        // Handle stacked bar chart data labels - show individual slice values at top of each segment
+        // Check both customizations.stacked and series stack property
+        const seriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : modifiedConfig.series
+            ? [modifiedConfig.series]
+            : [];
+        const isStackedFromSeries = seriesArray.some((s: any) => s.stack);
+        const isStacked = customizations.stacked || isStackedFromSeries;
+        // Check for data labels from customizations OR from series config
+        const hasDataLabelsFromSeries = seriesArray.some((s: any) => s.label?.show === true);
+        const hasDataLabels = customizations.showDataLabels || hasDataLabelsFromSeries;
+
+        if (isBarChart && isStacked && hasDataLabels) {
+          // Show labels for all series, positioned at top of each segment
+          modifiedConfig.series = seriesArray.map((series: any) => ({
+            ...series,
+            label: {
+              ...series.label,
+              show: true,
+              position: 'top', // Position at top of each segment
+              formatter: (params: any) => {
+                if (!params) return '';
+
+                let value = params.value;
+
+                // Handle array values (like [x, y] for certain chart data formats)
+                if (Array.isArray(value)) {
+                  value = value[1]; // Get the y value (second element)
+                }
+
+                // Handle object values with 'value' property
+                if (value !== null && typeof value === 'object' && 'value' in value) {
+                  value = value.value;
+                }
+
+                // Don't show label for zero or invalid values
+                if (typeof value !== 'number' || isNaN(value) || value === 0) {
+                  return '';
+                }
+                if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+                  return formatNumber(value, {
+                    format: yAxisNumberFormat,
+                    decimalPlaces: yAxisDecimalPlaces,
+                  });
+                }
+                return String(value.toLocaleString());
+              },
+            },
+          }));
+
+          // Add labelLayout to hide overlapping labels (for small segments)
+          (modifiedConfig as any).labelLayout = {
+            hideOverlap: true,
+          };
         }
       }
 

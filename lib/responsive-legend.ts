@@ -134,6 +134,10 @@ export function calculateLegendSpace(
  * Truncate legend text to fit available space
  */
 export function truncateLegendText(text: string, maxLength: number): string {
+  // Ensure text is a string
+  if (typeof text !== 'string') {
+    text = String(text ?? '');
+  }
   if (!text || text.length <= maxLength) {
     return text;
   }
