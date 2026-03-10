@@ -23,8 +23,12 @@ import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
-import { createSnapshot, type DateColumn } from '@/hooks/api/useReports';
-import { useDashboards, useDashboard, type DashboardFilter } from '@/hooks/api/useDashboards';
+import {
+  createSnapshot,
+  useDashboardDatetimeColumns,
+  type DateColumn,
+} from '@/hooks/api/useReports';
+import { useDashboards, useDashboard } from '@/hooks/api/useDashboards';
 
 interface CreateSnapshotDialogProps {
   dashboardId?: number;
@@ -59,14 +63,15 @@ export function CreateSnapshotDialog({
     needsDashboardPicker && open ? { dashboard_type: 'native' } : undefined
   );
 
-  // Fetch the selected dashboard to get its datetime filters
+  // Fetch the selected dashboard (for display purposes)
   const { data: dashboardData } = useDashboard(
     open && effectiveDashboardId ? effectiveDashboardId : 0
   );
 
-  // Extract datetime filters from the dashboard
-  const datetimeFilters: DashboardFilter[] =
-    dashboardData?.filters?.filter((f: DashboardFilter) => f.filter_type === 'datetime') || [];
+  // Discover datetime columns from the dashboard's chart tables via warehouse introspection
+  const { columns: discoveredColumns, isLoading: columnsLoading } = useDashboardDatetimeColumns(
+    open && effectiveDashboardId ? effectiveDashboardId : null
+  );
 
   // Map dashboards to combobox items
   const dashboardItems: ComboboxItem[] = (dashboards || []).map((d: any) => ({
@@ -178,25 +183,34 @@ export function CreateSnapshotDialog({
             <Label className="font-semibold">
               Filter by <span className="text-red-600 ml-1">*</span>
             </Label>
-            {effectiveDashboardId && datetimeFilters.length === 0 && dashboardData ? (
+            {effectiveDashboardId &&
+            !columnsLoading &&
+            discoveredColumns.length === 0 &&
+            dashboardData ? (
               <p className="text-sm text-muted-foreground">
-                No datetime filters on this dashboard.
+                No datetime columns found in this dashboard&apos;s data sources.
               </p>
             ) : (
               <Select
                 value={selectedDateColumn}
                 onValueChange={setSelectedDateColumn}
-                disabled={!effectiveDashboardId || datetimeFilters.length === 0}
+                disabled={!effectiveDashboardId || columnsLoading || discoveredColumns.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick the date-time column to filter by" />
+                  <SelectValue
+                    placeholder={
+                      columnsLoading
+                        ? 'Discovering date columns...'
+                        : 'Pick the date-time column to filter by'
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {datetimeFilters.map((f) => {
-                    const value = `${f.schema_name}.${f.table_name}.${f.column_name}`;
+                  {discoveredColumns.map((col) => {
+                    const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
                     return (
-                      <SelectItem key={f.id} value={value}>
-                        {f.name || `${f.table_name}.${f.column_name}`}
+                      <SelectItem key={value} value={value}>
+                        {col.table_name}.{col.column_name}
                       </SelectItem>
                     );
                   })}

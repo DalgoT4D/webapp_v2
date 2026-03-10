@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
+import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +49,7 @@ interface UnifiedFiltersPanelProps {
   isPublicMode?: boolean;
   publicToken?: string;
   initiallyCollapsed?: boolean;
+  isReportMode?: boolean;
 }
 
 // Unified sortable filter item component
@@ -152,42 +154,9 @@ export function UnifiedFiltersPanel({
   isPublicMode = false,
   publicToken,
   initiallyCollapsed = false,
+  isReportMode = false,
 }: UnifiedFiltersPanelProps) {
-  // Helper function to extract default values from filters
-  const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
-    const defaultValues: Record<string, any> = {};
-
-    filters.forEach((filter) => {
-      // Check for default values based on filter type
-      if (filter.filter_type === 'value') {
-        const valueFilter = filter as any;
-        if (valueFilter.settings?.has_default_value && valueFilter.settings?.default_value) {
-          defaultValues[String(filter.id)] = valueFilter.settings.default_value;
-        }
-      } else if (filter.filter_type === 'numerical') {
-        const numFilter = filter as any;
-        if (
-          numFilter.settings?.default_min !== undefined ||
-          numFilter.settings?.default_max !== undefined
-        ) {
-          defaultValues[String(filter.id)] = {
-            min: numFilter.settings.default_min,
-            max: numFilter.settings.default_max,
-          };
-        }
-      } else if (filter.filter_type === 'datetime') {
-        const dateFilter = filter as any;
-        if (dateFilter.settings?.default_start_date || dateFilter.settings?.default_end_date) {
-          defaultValues[String(filter.id)] = {
-            start_date: dateFilter.settings.default_start_date,
-            end_date: dateFilter.settings.default_end_date,
-          };
-        }
-      }
-    });
-
-    return defaultValues;
-  }, []);
+  // getDefaultFilterValues is now imported from @/lib/dashboard-filter-utils
 
   // Internal state - changes here don't affect parent component
   const [filters, setFilters] = useState<DashboardFilterConfig[]>(initialFilters);
@@ -507,39 +476,41 @@ export function UnifiedFiltersPanel({
                   )}
                 </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={handleApplyFilters}
-                    size="sm"
-                    disabled={isApplyingFilters}
-                    className="h-8"
-                  >
-                    {isApplyingFilters ? (
-                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
-                    ) : (
-                      <Check className="w-3 h-3 mr-1" />
-                    )}
-                    Apply
-                  </Button>
-                  <Button
-                    onClick={handleClearAllFilters}
-                    size="sm"
-                    variant="outline"
-                    className="h-8"
-                    disabled={!hasActiveFilters || isApplyingFilters}
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                  </Button>
-                  <button
-                    onClick={togglePanelCollapse}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
-                    aria-label="Hide filters"
-                    title="Hide filters"
-                  >
-                    <X className="w-4 h-4 text-gray-500" />
-                  </button>
-                </div>
+                {/* Action buttons - hidden in report mode (filters are auto-applied) */}
+                {!isReportMode && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleApplyFilters}
+                      size="sm"
+                      disabled={isApplyingFilters}
+                      className="h-8"
+                    >
+                      {isApplyingFilters ? (
+                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                      ) : (
+                        <Check className="w-3 h-3 mr-1" />
+                      )}
+                      Apply
+                    </Button>
+                    <Button
+                      onClick={handleClearAllFilters}
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      disabled={!hasActiveFilters || isApplyingFilters}
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </Button>
+                    <button
+                      onClick={togglePanelCollapse}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
+                      aria-label="Hide filters"
+                      title="Hide filters"
+                    >
+                      <X className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -653,31 +624,33 @@ export function UnifiedFiltersPanel({
               </p>
             </div>
 
-            {/* Action buttons - always show in header */}
-            <div className="flex gap-2 mt-3">
-              <Button
-                onClick={handleApplyFilters}
-                size="sm"
-                className="flex-1 h-8"
-                disabled={isApplyingFilters}
-              >
-                {isApplyingFilters ? (
-                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
-                ) : (
-                  <Check className="w-3 h-3 mr-1" />
-                )}
-                Apply
-              </Button>
-              <Button
-                onClick={handleClearAllFilters}
-                size="sm"
-                variant="outline"
-                className="h-8"
-                disabled={!hasActiveFilters || isApplyingFilters}
-              >
-                <RotateCcw className="w-3 h-3" />
-              </Button>
-            </div>
+            {/* Action buttons - hidden in report mode (filters are auto-applied) */}
+            {!isReportMode && (
+              <div className="flex gap-2 mt-3">
+                <Button
+                  onClick={handleApplyFilters}
+                  size="sm"
+                  className="flex-1 h-8"
+                  disabled={isApplyingFilters}
+                >
+                  {isApplyingFilters ? (
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                  ) : (
+                    <Check className="w-3 h-3 mr-1" />
+                  )}
+                  Apply
+                </Button>
+                <Button
+                  onClick={handleClearAllFilters}
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  disabled={!hasActiveFilters || isApplyingFilters}
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Filters List - Collapsible */}

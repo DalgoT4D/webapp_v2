@@ -85,6 +85,24 @@ export async function deleteSnapshot(snapshotId: number) {
   return apiDelete(`/api/reports/${snapshotId}/`);
 }
 
+// Datetime column discovery for create-snapshot dialog
+
+export interface DiscoveredDatetimeColumn {
+  schema_name: string;
+  table_name: string;
+  column_name: string;
+  data_type: string;
+}
+
+export function useDashboardDatetimeColumns(dashboardId: number | null) {
+  const { data, error, isLoading } = useSWR<DiscoveredDatetimeColumn[]>(
+    dashboardId ? `/api/reports/dashboards/${dashboardId}/datetime-columns/` : null,
+    apiGet,
+    { revalidateOnFocus: false }
+  );
+  return { columns: data || [], isLoading, error };
+}
+
 // Sharing mutations (same pattern as useDashboards)
 
 export async function updateReportSharing(snapshotId: number, data: { is_public: boolean }) {

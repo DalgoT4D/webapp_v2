@@ -56,6 +56,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
+import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import {
   DashboardFilterType,
@@ -346,6 +347,18 @@ export function DashboardNativeView({
       convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
     );
   }, [dashboard?.filters]);
+
+  // Auto-apply default filter values in report mode so charts render pre-filtered.
+  // The backend injects period dates into the datetime filter's settings,
+  // so getDefaultFilterValues() extracts them automatically.
+  useEffect(() => {
+    if (isReportMode && dashboardFilters.length > 0) {
+      const defaultValues = getDefaultFilterValues(dashboardFilters);
+      if (Object.keys(defaultValues).length > 0) {
+        setSelectedFilters(defaultValues);
+      }
+    }
+  }, [isReportMode, dashboardFilters]);
 
   // Allow editing in preview mode without any conditions
 
@@ -1050,6 +1063,7 @@ export function DashboardNativeView({
           publicToken={publicToken}
           appliedFiltersCount={appliedFiltersCount}
           className="px-4 pb-2"
+          isReportMode={isReportMode}
         />
       )}
       {/* Main Content Area */}
@@ -1067,6 +1081,7 @@ export function DashboardNativeView({
             isPublicMode={isPublicMode}
             publicToken={publicToken}
             initiallyCollapsed={showMinimalHeader || isPublicMode}
+            isReportMode={isReportMode}
           />
         )}
 

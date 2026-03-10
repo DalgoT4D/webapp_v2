@@ -426,9 +426,11 @@ export function ChartElementView({
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
             },
-            // Dashboard filters passed separately
+            // Dashboard filters passed separately (skip in report mode — synthetic
+            // filter IDs can't be resolved by the backend; extra_config.filters
+            // already contains the resolved filters via formatAsChartFilters above)
             dashboard_filters:
-              Object.keys(dashboardFilters).length > 0
+              !frozenChartConfig && Object.keys(dashboardFilters).length > 0
                 ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
                     filter_id,
                     value,

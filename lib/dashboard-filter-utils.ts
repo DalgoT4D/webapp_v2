@@ -71,7 +71,7 @@ export function resolveDashboardFilters(
           schema_name: filterConfig.schema_name,
           table_name: filterConfig.table_name,
           column_name: filterConfig.column_name,
-          operator: 'gte',
+          operator: 'greater_than_equal',
           value: value.min,
           filter_type: filterConfig.filter_type,
         });
@@ -80,7 +80,7 @@ export function resolveDashboardFilters(
           schema_name: filterConfig.schema_name,
           table_name: filterConfig.table_name,
           column_name: filterConfig.column_name,
-          operator: 'lte',
+          operator: 'less_than_equal',
           value: value.max,
           filter_type: filterConfig.filter_type,
         });
@@ -89,8 +89,35 @@ export function resolveDashboardFilters(
         operator = 'eq'; // Single numerical value
       }
     } else if (filterConfig.filter_type === 'datetime') {
-      // Handle datetime filters similarly to numerical
-      operator = 'eq';
+      // Date range filter — create separate filters matching backend operators
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        ('start_date' in value || 'end_date' in value)
+      ) {
+        if (value.start_date) {
+          resolvedFilters.push({
+            schema_name: filterConfig.schema_name,
+            table_name: filterConfig.table_name,
+            column_name: filterConfig.column_name,
+            operator: 'greater_than_equal',
+            value: value.start_date,
+            filter_type: filterConfig.filter_type,
+          });
+        }
+        if (value.end_date) {
+          resolvedFilters.push({
+            schema_name: filterConfig.schema_name,
+            table_name: filterConfig.table_name,
+            column_name: filterConfig.column_name,
+            operator: 'less_than_equal',
+            value: value.end_date + 'T23:59:59',
+            filter_type: filterConfig.filter_type,
+          });
+        }
+        return; // Already pushed, skip the generic push below
+      }
+      operator = 'eq'; // Single date value fallback
     }
 
     // Add the resolved filter
@@ -134,4 +161,40 @@ export function formatAsChartFilters(resolvedFilters: ResolvedDashboardFilter[])
     schema_name: filter.schema_name,
     table_name: filter.table_name,
   }));
+}
+
+/**
+ * Extract default filter values from filter configurations.
+ * Used by both DashboardNativeView (for auto-apply in report mode)
+ * and UnifiedFiltersPanel (for initial state).
+ */
+export function getDefaultFilterValues(filters: DashboardFilterConfig[]): Record<string, any> {
+  const defaultValues: Record<string, any> = {};
+
+  filters.forEach((filter) => {
+    if (filter.filter_type === 'value') {
+      const settings = filter.settings as any;
+      if (settings?.has_default_value && settings?.default_value) {
+        defaultValues[String(filter.id)] = settings.default_value;
+      }
+    } else if (filter.filter_type === 'numerical') {
+      const settings = filter.settings as any;
+      if (settings?.default_min !== undefined || settings?.default_max !== undefined) {
+        defaultValues[String(filter.id)] = {
+          min: settings.default_min,
+          max: settings.default_max,
+        };
+      }
+    } else if (filter.filter_type === 'datetime') {
+      const settings = filter.settings as any;
+      if (settings?.default_start_date || settings?.default_end_date) {
+        defaultValues[String(filter.id)] = {
+          start_date: settings.default_start_date,
+          end_date: settings.default_end_date,
+        };
+      }
+    }
+  });
+
+  return defaultValues;
 }
