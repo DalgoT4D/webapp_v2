@@ -1323,6 +1323,50 @@ export function ChartElementView({
       },
     };
 
+    // Handle stacked bar chart data labels - show individual slice values at top
+    const isBarChartType = effectiveChart?.chart_type === 'bar';
+    if (isBarChartType) {
+      const stackedSeriesArray = Array.isArray(styledConfig.series)
+        ? styledConfig.series
+        : styledConfig.series
+          ? [styledConfig.series]
+          : [];
+      const isStackedFromSeries = stackedSeriesArray.some((s: any) => s.stack);
+      const isStacked = customizations.stacked || isStackedFromSeries;
+      const showDataLabels =
+        customizations.showDataLabels ||
+        stackedSeriesArray.some((s: any) => s.label?.show === true);
+
+      if (isStacked && showDataLabels) {
+        styledConfig.series = stackedSeriesArray.map((series: any) => ({
+          ...series,
+          label: {
+            ...series.label,
+            show: true,
+            position: 'top',
+            formatter: (params: any) => {
+              if (!params) return '';
+              let value = params.value;
+              // Handle array values like [x, y]
+              if (Array.isArray(value)) {
+                value = value[1];
+              }
+              // Handle object values like { value: ... }
+              if (value !== null && typeof value === 'object' && 'value' in value) {
+                value = value.value;
+              }
+              // Skip zero or invalid values
+              if (typeof value !== 'number' || isNaN(value) || value === 0) {
+                return '';
+              }
+              return value.toLocaleString();
+            },
+          },
+          labelLayout: { hideOverlap: true },
+        }));
+      }
+    }
+
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
 

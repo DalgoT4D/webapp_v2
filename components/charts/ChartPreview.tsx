@@ -281,6 +281,48 @@ export function ChartPreview({
         });
       }
 
+      // Handle stacked bar chart data labels - show individual slice values at top
+      const isBarChart = detectedChartType === 'bar';
+      if (isBarChart) {
+        const stackedSeriesArray = Array.isArray(modifiedConfig.series)
+          ? modifiedConfig.series
+          : modifiedConfig.series
+            ? [modifiedConfig.series]
+            : [];
+        const isStackedFromSeries = stackedSeriesArray.some((s: any) => s.stack);
+        const isStacked = customizations.stacked || isStackedFromSeries;
+        const showDataLabels = customizations.showDataLabels;
+
+        if (isStacked && showDataLabels) {
+          modifiedConfig.series = stackedSeriesArray.map((series: any) => ({
+            ...series,
+            label: {
+              ...series.label,
+              show: true,
+              position: 'top',
+              formatter: (params: any) => {
+                if (!params) return '';
+                let value = params.value;
+                // Handle array values like [x, y]
+                if (Array.isArray(value)) {
+                  value = value[1];
+                }
+                // Handle object values like { value: ... }
+                if (value !== null && typeof value === 'object' && 'value' in value) {
+                  value = value.value;
+                }
+                // Skip zero or invalid values
+                if (typeof value !== 'number' || isNaN(value) || value === 0) {
+                  return '';
+                }
+                return value.toLocaleString();
+              },
+            },
+            labelLayout: { hideOverlap: true },
+          }));
+        }
+      }
+
       // Set chart option
       chartInstance.current.setOption(modifiedConfig);
 
