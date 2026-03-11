@@ -146,53 +146,42 @@ export default function SnapshotViewerPage() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       const canvas = await html2canvas(wrapper, {
-        scale: 2,
+        scale: 3, // Increased from 2 to 3 for better quality
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         windowWidth: 1200,
+        logging: false,
+        imageTimeout: 0,
+        removeContainer: false,
+        // Better color rendering options
+        foreignObjectRendering: false, // Force canvas rendering for better colors
       });
 
       document.body.removeChild(wrapper);
 
-      // A4 dimensions in points
-      const a4Width = 595.28;
-      const a4Height = 841.89;
+      // Create single-page PDF with custom dimensions to fit all content
       const margin = 20;
+      const a4Width = 595.28; // Keep A4 width for readability
       const contentWidth = a4Width - margin * 2;
-      const contentHeight = a4Height - margin * 2;
 
-      // Scale canvas to fit A4 width
+      // Calculate height needed to fit all content
       const imgWidth = contentWidth;
       const imgHeight = (canvas.height * contentWidth) / canvas.width;
-      const totalPages = Math.ceil(imgHeight / contentHeight);
+      const pageHeight = imgHeight + margin * 2;
 
-      const pdf = new jsPDF('p', 'pt', 'a4');
+      // Create PDF with custom page size to fit all content on one page
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: [a4Width, pageHeight], // Custom page size: A4 width × content height
+        compress: false, // Disable compression to preserve colors
+      });
 
-      for (let page = 0; page < totalPages; page++) {
-        if (page > 0) pdf.addPage();
-
-        const srcY = (page * contentHeight * canvas.width) / contentWidth;
-        const srcHeight = Math.min(
-          (contentHeight * canvas.width) / contentWidth,
-          canvas.height - srcY
-        );
-
-        // Create a page-sized canvas slice
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = srcHeight;
-        const ctx = pageCanvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          ctx.drawImage(canvas, 0, srcY, canvas.width, srcHeight, 0, 0, canvas.width, srcHeight);
-        }
-
-        const pageImgData = pageCanvas.toDataURL('image/png');
-        const drawHeight = (srcHeight * contentWidth) / canvas.width;
-        pdf.addImage(pageImgData, 'PNG', margin, margin, imgWidth, drawHeight);
-      }
+      // Convert canvas to image with maximum quality
+      // Use JPEG with high quality for better color preservation
+      const imgData = canvas.toDataURL('image/jpeg', 1.0); // 1.0 = maximum quality
+      pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight, undefined, 'FAST');
 
       const sanitizedTitle = (report_metadata.title || 'report')
         .replace(/[^a-zA-Z0-9\s-]/g, '')
