@@ -98,7 +98,7 @@ export default function SnapshotViewerPage() {
     try {
       const { default: html2canvas } = await import('html2canvas-pro');
       const { default: jsPDF } = await import('jspdf');
-      const { saveAs } = await import('file-saver');
+      const { default: saveAs } = await import('file-saver');
 
       // Create an off-screen wrapper to render the combined content
       const wrapper = document.createElement('div');
