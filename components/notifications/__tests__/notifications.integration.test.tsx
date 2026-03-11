@@ -78,7 +78,9 @@ describe('Notifications Page Integration', () => {
   it('displays unread count badge', () => {
     render(<NotificationsPage />);
 
-    expect(screen.getByText('1')).toBeInTheDocument();
+    const badge = screen.getByTestId('unread-count-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent('1');
   });
 
   it('renders tab navigation', () => {
@@ -92,16 +94,16 @@ describe('Notifications Page Integration', () => {
   it('renders action buttons in header', () => {
     render(<NotificationsPage />);
 
-    expect(screen.getByRole('button', { name: 'Mark all as read' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Mark as read' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Mark as unread' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mark all as read/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^mark as read$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mark as unread/i })).toBeInTheDocument();
   });
 
   it('disables mark as read/unread buttons when no selection', () => {
     render(<NotificationsPage />);
 
-    expect(screen.getByRole('button', { name: 'Mark as read' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Mark as unread' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^mark as read$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /mark as unread/i })).toBeDisabled();
   });
 
   it('enables mark as read/unread buttons when items selected', async () => {
@@ -111,8 +113,8 @@ describe('Notifications Page Integration', () => {
     fireEvent.click(checkboxes[1]);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Mark as read' })).not.toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Mark as unread' })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /^mark as read$/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /mark as unread/i })).not.toBeDisabled();
     });
   });
 
@@ -122,7 +124,7 @@ describe('Notifications Page Integration', () => {
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
 
-    const markAsReadButton = screen.getByRole('button', { name: 'Mark as read' });
+    const markAsReadButton = screen.getByRole('button', { name: /^mark as read$/i });
     fireEvent.click(markAsReadButton);
 
     await waitFor(() => {
@@ -134,7 +136,7 @@ describe('Notifications Page Integration', () => {
   it('marks all as read', async () => {
     render(<NotificationsPage />);
 
-    const markAllButton = screen.getByRole('button', { name: 'Mark all as read' });
+    const markAllButton = screen.getByRole('button', { name: /mark all as read/i });
     fireEvent.click(markAllButton);
 
     await waitFor(() => {
@@ -238,7 +240,7 @@ describe('Notifications Page Integration', () => {
 
   it('shows mark all as read button only when there are unread notifications', () => {
     render(<NotificationsPage />);
-    expect(screen.getByRole('button', { name: 'Mark all as read' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mark all as read/i })).toBeInTheDocument();
   });
 
   it('hides mark all as read when no unread notifications', () => {
@@ -250,7 +252,7 @@ describe('Notifications Page Integration', () => {
     });
 
     render(<NotificationsPage />);
-    expect(screen.queryByRole('button', { name: 'Mark all as read' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mark all as read/i })).not.toBeInTheDocument();
   });
 
   it('switches between tabs', async () => {

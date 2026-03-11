@@ -1,9 +1,11 @@
 // Pipeline/Orchestrate types
 
+import { LockStatus } from '@/constants/pipeline';
+
 export interface TaskLock {
   lockedBy: string;
   lockedAt: string;
-  status: 'queued' | 'running' | 'locked' | 'complete' | 'cancelled';
+  status: LockStatus;
   flowRunId?: string;
   celeryTaskId?: string;
 }

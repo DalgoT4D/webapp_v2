@@ -95,7 +95,10 @@ export function useNotificationActions() {
       toast.success(readStatus ? 'Marked as read' : 'Marked as unread');
       return true;
     } catch (error) {
-      toast.error('Failed to update notifications');
+      console.error('Failed to update notifications:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update notifications';
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -106,7 +109,9 @@ export function useNotificationActions() {
       toast.success('All notifications marked as read');
       return true;
     } catch (error) {
-      toast.error('Failed to mark all as read');
+      console.error('Failed to mark all as read:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to mark all as read';
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -122,8 +127,11 @@ export function usePreferenceActions() {
     try {
       await apiPut('/api/userpreferences/', data);
       return true;
-    } catch {
-      toast.error('Failed to update email preferences');
+    } catch (error) {
+      console.error('Failed to update email preferences:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update email preferences';
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -135,8 +143,11 @@ export function usePreferenceActions() {
     try {
       await apiPut('/api/orgpreferences/enable-discord-notifications', data);
       return true;
-    } catch {
-      toast.error('Failed to update Discord preferences');
+    } catch (error) {
+      console.error('Failed to update Discord preferences:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update Discord preferences';
+      toast.error(errorMessage);
       return false;
     }
   };

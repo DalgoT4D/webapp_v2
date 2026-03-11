@@ -7,6 +7,7 @@ import { FileText, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLogSummaryPoll } from '@/hooks/api/usePipelines';
+import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 
 /**
  * Types for LogsTable
@@ -30,7 +31,10 @@ export interface FlowRun {
   id: string;
   date: string; // ISO date string
   startedBy?: string;
-  status: 'success' | 'failed' | 'warning';
+  status:
+    | PipelineRunDisplayStatus.SUCCESS
+    | PipelineRunDisplayStatus.FAILED
+    | PipelineRunDisplayStatus.WARNING;
   tasks: TaskRun[];
 }
 
@@ -153,7 +157,9 @@ interface FlowRunRowProps {
 }
 
 function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowRunRowProps) {
-  const isFailed = run.status === 'failed' || run.status === 'warning';
+  const isFailed =
+    run.status === PipelineRunDisplayStatus.FAILED ||
+    run.status === PipelineRunDisplayStatus.WARNING;
 
   const formattedDate =
     run.date && isValid(new Date(run.date)) ? format(new Date(run.date), 'MMMM d, yyyy') : '—';

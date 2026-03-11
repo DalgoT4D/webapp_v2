@@ -52,57 +52,57 @@ export function NotificationRow({
       ? notification.message.substring(0, MESSAGE_TRUNCATE_LENGTH) + '...'
       : notification.message;
 
+  const isRead = notification.read_status;
+
   return (
     <TableRow
-      className={cn(
-        'hover:bg-slate-50 transition-colors border-b',
-        !notification.read_status && 'bg-teal-50/30'
-      )}
+      data-testid={`notification-row-${notification.id}`}
+      className={cn(isRead ? 'bg-gray-50 hover:bg-gray-100' : 'bg-white hover:bg-gray-50/50')}
     >
-      <TableCell className="w-12 pl-4 align-top pt-4">
+      <TableCell className="w-12 pl-4 align-top py-4">
         <Checkbox
+          data-testid={`notification-checkbox-${notification.id}`}
           checked={isSelected}
           onCheckedChange={(checked) => onSelect(notification.id, checked as boolean)}
           aria-label={`Select notification ${notification.id}`}
+          className={cn(
+            isRead
+              ? 'border-gray-300 data-[state=checked]:bg-gray-400 data-[state=checked]:border-gray-400'
+              : 'border-gray-800 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900'
+          )}
         />
       </TableCell>
 
       <TableCell className="w-full py-4 align-top whitespace-normal">
-        <div
+        <p
           className={cn(
-            'transition-colors',
-            notification.read_status ? 'text-slate-500' : 'text-slate-800'
+            'leading-relaxed text-base break-words whitespace-normal',
+            isRead ? 'text-gray-500 font-normal' : 'text-gray-800 font-medium'
           )}
         >
-          <p
-            className={cn(
-              'leading-relaxed text-[15px] break-words whitespace-normal',
-              !notification.read_status && 'font-medium'
-            )}
-          >
-            {renderMessageWithLinks(displayMessage)}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            {formatDistanceToNow(new Date(notification.timestamp), {
-              addSuffix: true,
-            })}
-          </p>
-        </div>
+          {renderMessageWithLinks(displayMessage)}
+        </p>
+        <p className={cn('text-sm mt-2', isRead ? 'text-gray-400' : 'text-gray-600')}>
+          {formatDistanceToNow(new Date(notification.timestamp), {
+            addSuffix: true,
+          })}
+        </p>
       </TableCell>
 
-      <TableCell className="w-16 text-center align-top pt-4">
+      <TableCell className="w-16 text-center align-top py-4">
         {notification.urgent && (
           <AlertCircle className="h-5 w-5 text-red-500 inline-block" aria-label="Urgent" />
         )}
       </TableCell>
 
-      <TableCell className="w-12 pr-4 align-top pt-3">
+      <TableCell className="w-12 pr-4 align-top py-4">
         {isTruncatable && (
           <Button
+            data-testid={`notification-expand-btn-${notification.id}`}
             variant="ghost"
             size="icon"
             onClick={() => onToggleExpand(notification.id)}
-            className="h-8 w-8 text-slate-400 hover:text-slate-600"
+            className="h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             aria-label={isExpanded ? 'Collapse message' : 'Expand message'}
           >
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
