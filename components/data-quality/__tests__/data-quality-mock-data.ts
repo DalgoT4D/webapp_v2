@@ -5,7 +5,7 @@ import {
   ElementaryRefreshResponse,
   CreateTrackingTablesResponse,
   TaskProgressResponse,
-} from '../types';
+} from '@/types/data-quality';
 
 export function createMockSetupStatusResponse(
   status: 'set-up' | 'not-set-up' = 'set-up'

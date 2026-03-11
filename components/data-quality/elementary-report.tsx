@@ -3,13 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { API_BASE_URL } from '@/lib/config';
 import { formatDistanceToNow } from 'date-fns';
-import { ElementaryReportTokenResponse } from './types';
-
-const LOCK_POLL_INTERVAL = 5000;
+import { LOCK_POLL_INTERVAL_MS } from '@/constants/data-quality';
+import {
+  fetchElementaryReport,
+  refreshElementaryReport,
+  checkElementaryLock,
+} from '@/hooks/api/useElementaryStatus';
 
 export function ElementaryReport() {
   const [loading, setLoading] = useState(true);
@@ -28,15 +30,12 @@ export function ElementaryReport() {
 
   const fetchReportToken = useCallback(async () => {
     try {
-      const response: ElementaryReportTokenResponse = await apiPost(
-        '/api/dbt/fetch-elementary-report/',
-        {}
-      );
+      const response = await fetchElementaryReport();
       if (response.token) {
         setElementaryToken(response.token);
         setGeneratedAt(formatDistanceToNow(new Date(response.created_on_utc), { addSuffix: true }));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastError.api(err, 'Failed to fetch report');
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -47,7 +46,7 @@ export function ElementaryReport() {
     clearLockPolling();
     lockIntervalRef.current = setInterval(async () => {
       try {
-        const response = await apiGet('/api/prefect/tasks/elementary-lock/');
+        const response = await checkElementaryLock();
         if (!response) {
           // Lock released — report is ready
           clearLockPolling();
@@ -57,24 +56,24 @@ export function ElementaryReport() {
             fetchReportToken();
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         clearLockPolling();
         if (mountedRef.current) {
           setIsGenerating(false);
           toastError.api(err, 'Error checking report status');
         }
       }
-    }, LOCK_POLL_INTERVAL);
+    }, LOCK_POLL_INTERVAL_MS);
   }, [clearLockPolling, fetchReportToken]);
 
   const checkForLock = useCallback(async () => {
     try {
-      const response = await apiGet('/api/prefect/tasks/elementary-lock/');
+      const response = await checkElementaryLock();
       if (response) {
         setIsGenerating(true);
         startLockPolling();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Lock check error is non-fatal on initial load
       console.error('Lock check error:', err);
     }
@@ -83,14 +82,14 @@ export function ElementaryReport() {
   const handleRegenerate = async () => {
     try {
       setIsGenerating(true);
-      const response = await apiPost('/api/dbt/v1/refresh-elementary-report/', {});
+      const response = await refreshElementaryReport();
       if (response.flow_run_id) {
         toastSuccess.generic(
           'Your latest report is being generated. This may take a few minutes. Thank you for your patience'
         );
         startLockPolling();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastError.api(err, 'Failed to regenerate report');
       setIsGenerating(false);
     }
@@ -107,7 +106,7 @@ export function ElementaryReport() {
   }, [fetchReportToken, checkForLock, clearLockPolling]);
 
   return (
-    <div className="flex flex-col h-full" data-testid="elementary-report">
+    <div id="elementary-report" className="flex flex-col h-full" data-testid="elementary-report">
       {/* Header bar */}
       <div className="flex items-center justify-between px-1 py-2">
         <div>

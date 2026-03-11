@@ -35,3 +35,19 @@ export interface CreateTrackingTablesResponse {
   task_id: string;
   hashkey: string;
 }
+
+export interface GitPullResponse {
+  success: boolean;
+}
+
+export interface ElementaryProfileResponse {
+  status: string;
+}
+
+export interface EdrDeploymentResponse {
+  status: string;
+}
+
+export interface ElementaryLockResponse {
+  is_locked: boolean;
+}

@@ -4,16 +4,17 @@ import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { ElementaryStatus, CreateTrackingTablesResponse, TaskProgressResponse } from './types';
-
-const TASK_POLL_INTERVAL = 3000;
-
-const KEY_TO_FILENAME: Record<string, string> = {
-  elementary_package: 'packages.yml',
-  elementary_target_schema: 'dbt_project.yml',
-};
+import { ElementaryStatus } from '@/types/data-quality';
+import { TASK_POLL_INTERVAL_MS, KEY_TO_FILENAME } from '@/constants/data-quality';
+import {
+  gitPull,
+  checkDbtFiles,
+  createElementaryProfile,
+  createElementaryTrackingTables,
+  createEdrDeployment,
+  pollTaskProgress,
+} from '@/hooks/api/useElementaryStatus';
 
 function MappingComponent({ elementaryStatus }: { elementaryStatus: ElementaryStatus }) {
   const hasExists = Object.keys(elementaryStatus.exists).length > 0;
@@ -80,13 +81,13 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
   const abortRef = useRef(false);
 
   const pollForTaskRun = useCallback(async (taskId: string, hashKey: string) => {
-    const response: TaskProgressResponse = await apiGet(`/api/tasks/${taskId}?hashkey=${hashKey}`);
+    const response = await pollTaskProgress(taskId, hashKey);
     const lastMessage =
       response.progress?.length > 0 ? response.progress[response.progress.length - 1] : null;
 
     if (!lastMessage || !['completed', 'failed'].includes(lastMessage.status)) {
       if (abortRef.current) return;
-      await new Promise((r) => setTimeout(r, TASK_POLL_INTERVAL));
+      await new Promise((r) => setTimeout(r, TASK_POLL_INTERVAL_MS));
       if (abortRef.current) return;
       await pollForTaskRun(taskId, hashKey);
     } else if (lastMessage.status === 'failed') {
@@ -101,14 +102,14 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
     abortRef.current = false;
     try {
       // Step 1: Git pull
-      const gitPullResponse = await apiPost('/api/dbt/git_pull/', {});
+      const gitPullResponse = await gitPull();
       if (!gitPullResponse.success) {
         toastError.api('Something went wrong during git pull');
         return;
       }
 
       // Step 2: Check dbt files
-      const filesStatus: ElementaryStatus = await apiGet('/api/dbt/check-dbt-files');
+      const filesStatus = await checkDbtFiles();
       setElementaryStatus(filesStatus);
 
       if (Object.keys(filesStatus.missing).length > 0) {
@@ -117,7 +118,7 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
       }
 
       // Step 3: Create elementary profile
-      const profileResponse = await apiPost('/api/dbt/create-elementary-profile/', {});
+      const profileResponse = await createElementaryProfile();
       if (profileResponse.status === 'success') {
         toastSuccess.generic('Elementary profile created successfully');
       } else {
@@ -125,19 +126,16 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
       }
 
       // Step 4: Create tracking tables (async, poll)
-      const trackingResponse: CreateTrackingTablesResponse = await apiPost(
-        '/api/dbt/create-elementary-tracking-tables/',
-        {}
-      );
+      const trackingResponse = await createElementaryTrackingTables();
       if (trackingResponse.task_id && trackingResponse.hashkey) {
-        await new Promise((r) => setTimeout(r, TASK_POLL_INTERVAL));
+        await new Promise((r) => setTimeout(r, TASK_POLL_INTERVAL_MS));
         await pollForTaskRun(trackingResponse.task_id, trackingResponse.hashkey);
       } else {
         throw new Error('Failed to start tracking tables task');
       }
 
       // Step 5: Create EDR deployment
-      const edrResponse = await apiPost('/api/dbt/create-edr-deployment/', {});
+      const edrResponse = await createEdrDeployment();
       if (edrResponse.status === 'success') {
         toastSuccess.generic('EDR deployment created successfully');
       } else {
@@ -145,7 +143,7 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
       }
 
       onSetupComplete();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastError.api(err, 'Setup failed');
     } finally {
       setLoading(false);
@@ -154,6 +152,7 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
 
   return (
     <div
+      id="elementary-setup"
       className="flex flex-col items-center justify-center gap-8 mt-6"
       data-testid="elementary-setup"
     >
