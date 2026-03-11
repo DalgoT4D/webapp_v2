@@ -504,10 +504,11 @@ describe('ChartPreview', () => {
 
     it.each([
       ['percentage', 'percentage', { name: 'A', value: 100, percent: 50 }, '50%'],
-      ['value', 'value', { name: 'A', value: 1000, percent: 50 }, '1,000'],
+      ['value', 'value', { name: 'A', value: 1000, percent: 50 }, '1000'],
       ['name_percentage', 'name_percentage', { name: 'A', value: 100, percent: 50 }, 'A\n50%'],
-      ['name_value', 'name_value', { name: 'A', value: 1000, percent: 50 }, 'A\n1,000'],
+      ['name_value', 'name_value', { name: 'A', value: 1000, percent: 50 }, 'A\n1000'],
     ])('should format label as %s', (_, labelFormat, params, expected) => {
+      // Default format returns raw values without thousand separators
       render(<ChartPreview config={pieConfig} chartType="pie" customizations={{ labelFormat }} />);
 
       const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
@@ -538,6 +539,29 @@ describe('ChartPreview', () => {
 
       const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
       expect(formatter({ name: 'A', value: 'text', percent: 50 })).toBe('text');
+    });
+
+    it('should keep raw numeric dimension names when no format is specified', () => {
+      const pieConfigNumeric = {
+        series: [
+          {
+            type: 'pie',
+            data: [
+              { name: 1000, value: 100 },
+              { name: 2000, value: 200 },
+            ],
+          },
+        ],
+        legend: { data: [1000, 2000] },
+      };
+
+      render(<ChartPreview config={pieConfigNumeric} chartType="pie" />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // Numbers are kept raw (no formatting) when numberFormat is default
+      expect(calledConfig.series[0].data[0].name).toBe('1000');
+      expect(calledConfig.series[0].data[1].name).toBe('2000');
+      expect(calledConfig.legend.data).toEqual(['1000', '2000']);
     });
   });
 

@@ -42,7 +42,7 @@ import {
   getLegendMode,
 } from '@/lib/responsive-legend';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
-import { createTooltipFormatter } from '@/lib/bar-line-chart-formatting-utils';
+import { createTooltipFormatter } from '@/lib/chart-formatting-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';

@@ -12,7 +12,7 @@ import {
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
-import { createTooltipFormatter } from '@/lib/bar-line-chart-formatting-utils';
+import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -93,6 +93,7 @@ export function ChartPreview({
       const configWithLegend = config.legend
         ? applyLegendPosition(config, legendPosition, isPaginated, detectedChartType)
         : config;
+      console.log('configWithLegend', configWithLegend);
 
       // Modify config to ensure proper margins for axis titles and axis title styling
       // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
@@ -297,6 +298,9 @@ export function ChartPreview({
           ? modifiedConfig.series
           : [modifiedConfig.series];
 
+        // Use shared formatter for pie dimension values (handles numbers, bigint, and "dimension - extra_dimension" strings)
+        const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+
         modifiedConfig.series = seriesArray.map((series: any) => ({
           ...series,
           label: {
@@ -304,21 +308,16 @@ export function ChartPreview({
             show: showDataLabels,
             position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
             formatter: (params: any) => {
-              // Only format if value is already a number type
-              const formattedValue =
-                typeof params.value === 'number'
-                  ? numberFormat !== 'default'
-                    ? formatNumber(params.value, { format: numberFormat, decimalPlaces })
-                    : params.value.toLocaleString()
-                  : params.value;
+              const formattedValue = formatIfNumber(params.value);
+              const formattedName = formatIfNumber(params.name);
 
               switch (labelFormat) {
                 case 'value':
                   return formattedValue;
                 case 'name_percentage':
-                  return `${params.name}\n${params.percent}%`;
+                  return `${formattedName}\n${params.percent}%`;
                 case 'name_value':
-                  return `${params.name}\n${formattedValue}`;
+                  return `${formattedName}\n${formattedValue}`;
                 case 'percentage':
                 default:
                   return `${params.percent}%`;
@@ -326,6 +325,31 @@ export function ChartPreview({
             },
           },
         }));
+
+        // Format numeric dimension values and update legend.data to match
+        modifiedConfig.series = (
+          Array.isArray(modifiedConfig.series) ? modifiedConfig.series : [modifiedConfig.series]
+        ).map((series: any) => {
+          if (series.type === 'pie' && Array.isArray(series.data)) {
+            return {
+              ...series,
+              data: series.data.map((item: any) => ({
+                ...item,
+                name: formatIfNumber(item.name),
+              })),
+            };
+          }
+          return series;
+        });
+
+        // Update legend.data to match the formatted names
+        const chartConfig = modifiedConfig as Record<string, any>;
+        if (chartConfig.legend && Array.isArray(chartConfig.legend.data)) {
+          chartConfig.legend = {
+            ...chartConfig.legend,
+            data: chartConfig.legend.data.map((item: any) => formatIfNumber(item)),
+          };
+        }
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)

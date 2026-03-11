@@ -1,8 +1,8 @@
 /**
- * Bar & Line Chart Formatting Utilities
+ * Chart Formatting Utilities
  *
- * Reusable formatting functions for tooltips and axis labels
- * specifically for bar and line charts that have X/Y axes.
+ * Reusable formatting functions for tooltips, axis labels, and dimensions
+ * for all chart types (bar, line, pie, etc.).
  *
  * Used by ChartPreview, chart-element-view, and chart-element-v2 components.
  */
@@ -93,6 +93,10 @@ export function createTooltipFormatter(
   return function (params: unknown): string {
     const formatYValue = (val: unknown) => formatAxisValue(val, customizations, 'y', chartType);
     const formatXValue = (val: unknown) => formatAxisValue(val, customizations, 'x', chartType);
+    const formatPieDimension = createPieDimensionFormatter(
+      customizations.numberFormat as NumberFormat,
+      customizations.decimalPlaces
+    );
 
     if (Array.isArray(params)) {
       // For multiple series (line/bar charts with multiple lines/bars)
@@ -109,12 +113,13 @@ export function createTooltipFormatter(
       // For single series (pie charts, single bar/line)
       const p = params as any;
       const value = formatYValue(p.value);
-      const xValue = formatXValue(p.name);
       if (p.percent !== undefined) {
-        // Pie chart with percentage
-        return `${p.marker}${p.seriesName}<br/><b>${value}</b>: ${xValue} (${p.percent}%)`;
+        // Pie chart with percentage - format dimension name if numeric
+        const dimensionName = formatPieDimension(p.name);
+        return `${p.marker}${p.seriesName}<br/><b>${value}</b>: ${dimensionName} (${p.percent}%)`;
       } else {
         // Regular chart
+        const xValue = formatXValue(p.name);
         return `${p.marker}${p.seriesName}<br/>${xValue}: <b>${value}</b>`;
       }
     }
@@ -169,6 +174,58 @@ export function createXAxisLabelFormatter(
       format: xAxisNumberFormat,
       decimalPlaces: xAxisDecimalPlaces,
     });
+  };
+}
+
+/**
+ * Creates a formatter for pie chart dimensions that handles:
+ * - Pure number types (number or bigint)
+ * - Strings with " - " separator (dimension - extra_dimension)
+ * - Numeric strings
+ *
+ * @param numberFormat - The number format to apply
+ * @param decimalPlaces - The decimal places for formatting
+ * @returns A function that formats dimension values
+ */
+export function createPieDimensionFormatter(
+  numberFormat: NumberFormat | undefined,
+  decimalPlaces: number | undefined
+): (val: any) => string {
+  const numFormat = numberFormat || 'default';
+
+  // Helper to format a single numeric string
+  const formatNumericString = (val: string): string => {
+    const trimmed = val.trim();
+    // Only format if a specific number format is set (not 'default')
+    if (numFormat !== 'default' && /^-?\d+(\.\d+)?$/.test(trimmed)) {
+      const numVal = Number(trimmed);
+      if (!isNaN(numVal)) {
+        return formatNumber(numVal, { format: numFormat, decimalPlaces });
+      }
+    }
+    // Return raw value for 'default' format or non-numeric strings
+    return trimmed;
+  };
+
+  return (val: any): string => {
+    // Handle pure number type
+    if (typeof val === 'number' || typeof val === 'bigint') {
+      const numVal = Number(val);
+      // Return raw value for 'default' format, otherwise apply number formatting
+      return numFormat !== 'default'
+        ? formatNumber(numVal, { format: numFormat, decimalPlaces })
+        : String(numVal);
+    }
+
+    const strVal = String(val);
+    // Check if it contains " - " separator (dimension - extra_dimension)
+    if (strVal.includes(' - ')) {
+      const parts = strVal.split(' - ');
+      const formattedParts = parts.map((part) => formatNumericString(part));
+      return formattedParts.join(' - ');
+    }
+    // Single value - format if numeric string
+    return formatNumericString(strVal);
   };
 }
 

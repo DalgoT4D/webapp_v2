@@ -43,7 +43,7 @@ import {
   shouldShowLegend,
 } from '@/lib/responsive-legend';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
-import { createTooltipFormatter } from '@/lib/bar-line-chart-formatting-utils';
+import { createTooltipFormatter } from '@/lib/chart-formatting-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';

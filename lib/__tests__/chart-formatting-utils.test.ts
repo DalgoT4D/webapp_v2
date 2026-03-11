@@ -1,5 +1,5 @@
 /**
- * Tests for Bar & Line Chart Formatting Utilities
+ * Tests for Chart Formatting Utilities
  */
 
 import {
@@ -8,9 +8,10 @@ import {
   createYAxisLabelFormatter,
   createXAxisLabelFormatter,
   createDataLabelFormatter,
-} from '../bar-line-chart-formatting-utils';
+  createPieDimensionFormatter,
+} from '../chart-formatting-utils';
 
-describe('bar-line-chart-formatting-utils', () => {
+describe('chart-formatting-utils', () => {
   describe('formatAxisValue', () => {
     it('should format Y-axis values for bar/line charts using yAxisNumberFormat', () => {
       const customizations = {
@@ -137,6 +138,37 @@ describe('bar-line-chart-formatting-utils', () => {
 
       const defaultFormatter = createDataLabelFormatter({ yAxisNumberFormat: 'default' }, 'bar');
       expect(defaultFormatter({ value: 1500 })).toBe('1,500');
+    });
+  });
+
+  describe('createPieDimensionFormatter', () => {
+    it('should return raw values when format is default (no formatting)', () => {
+      const formatter = createPieDimensionFormatter(undefined, undefined);
+      expect(formatter(1000)).toBe('1000');
+      expect(formatter(1234567)).toBe('1234567');
+      expect(formatter('Maharashtra - 11060148')).toBe('Maharashtra - 11060148');
+    });
+
+    it('should format number types with specified format', () => {
+      const formatter = createPieDimensionFormatter('adaptive_international', 1);
+      expect(formatter(1500000)).toBe('1.5M');
+    });
+
+    it('should format bigint types with specified format', () => {
+      const formatter = createPieDimensionFormatter('indian', undefined);
+      expect(formatter(BigInt(1000000))).toBe('10,00,000');
+    });
+
+    it('should format "dimension - extra_dimension" strings with specified format', () => {
+      const formatter = createPieDimensionFormatter('international', undefined);
+      expect(formatter('Maharashtra - 11060148')).toBe('Maharashtra - 11,060,148');
+      expect(formatter('1000 - 2000')).toBe('1,000 - 2,000');
+    });
+
+    it('should not format non-numeric strings', () => {
+      const formatter = createPieDimensionFormatter('international', undefined);
+      expect(formatter('Category A')).toBe('Category A');
+      expect(formatter('Product - Description')).toBe('Product - Description');
     });
   });
 });
