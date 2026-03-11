@@ -771,11 +771,23 @@ export function ChartElementView({
             effectiveChart.extra_config.value_column,
           aggregate_function: effectiveChart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
-          // Send dashboardFilters directly as dashboard_filters (dict format)
-          dashboard_filters: dashboardFilters,
-          // Chart-level filters go in extra_config.filters
+          // In report mode, skip dashboard_filters (frozen IDs can't be resolved
+          // by backend DB lookup); resolved filters go in extra_config.filters instead
+          dashboard_filters: frozenChartConfig ? undefined : dashboardFilters,
+          // Chart-level filters + resolved dashboard filters in report mode
           extra_config: {
-            filters: effectiveChart.extra_config.filters || [], // Chart-level filters only
+            filters: [
+              ...(effectiveChart.extra_config.filters || []),
+              ...(frozenChartConfig
+                ? formatAsChartFilters(
+                    resolvedDashboardFilters.filter(
+                      (f) =>
+                        f.schema_name === effectiveChart.schema_name &&
+                        f.table_name === effectiveChart.table_name
+                    )
+                  )
+                : []),
+            ],
             pagination: effectiveChart.extra_config.pagination,
             sort: effectiveChart.extra_config.sort,
           },
@@ -788,7 +800,9 @@ export function ChartElementView({
     effectiveChart?.extra_config,
     activeGeographicColumn,
     filters,
-    dashboardFilters, // Use raw dashboardFilters (filter_id -> value mapping)
+    dashboardFilters,
+    frozenChartConfig,
+    resolvedDashboardFilters,
   ]);
 
   // Fetch GeoJSON data - public vs private mode

@@ -286,10 +286,16 @@ export function UnifiedFiltersPanel({
     }
   };
 
-  // Clear all filters
+  // Clear all filters (in report mode, reset to defaults to preserve frozen date)
   const handleClearAllFilters = () => {
-    setCurrentFilterValues({});
-    onFiltersCleared?.();
+    if (isReportMode) {
+      const defaults = getDefaultFilterValues(filters);
+      setCurrentFilterValues(defaults);
+      onFiltersApplied?.(defaults);
+    } else {
+      setCurrentFilterValues({});
+      onFiltersCleared?.();
+    }
   };
 
   const sensors = useSensors(
@@ -476,41 +482,38 @@ export function UnifiedFiltersPanel({
                   )}
                 </div>
 
-                {/* Action buttons - hidden in report mode (filters are auto-applied) */}
-                {!isReportMode && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handleApplyFilters}
-                      size="sm"
-                      disabled={isApplyingFilters}
-                      className="h-8"
-                    >
-                      {isApplyingFilters ? (
-                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
-                      ) : (
-                        <Check className="w-3 h-3 mr-1" />
-                      )}
-                      Apply
-                    </Button>
-                    <Button
-                      onClick={handleClearAllFilters}
-                      size="sm"
-                      variant="outline"
-                      className="h-8"
-                      disabled={!hasActiveFilters || isApplyingFilters}
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                    </Button>
-                    <button
-                      onClick={togglePanelCollapse}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
-                      aria-label="Hide filters"
-                      title="Hide filters"
-                    >
-                      <X className="w-4 h-4 text-gray-500" />
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleApplyFilters}
+                    size="sm"
+                    disabled={isApplyingFilters}
+                    className="h-8"
+                  >
+                    {isApplyingFilters ? (
+                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                    ) : (
+                      <Check className="w-3 h-3 mr-1" />
+                    )}
+                    Apply
+                  </Button>
+                  <Button
+                    onClick={handleClearAllFilters}
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    disabled={!hasActiveFilters || isApplyingFilters}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </Button>
+                  <button
+                    onClick={togglePanelCollapse}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
+                    aria-label="Hide filters"
+                    title="Hide filters"
+                  >
+                    <X className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -624,33 +627,30 @@ export function UnifiedFiltersPanel({
               </p>
             </div>
 
-            {/* Action buttons - hidden in report mode (filters are auto-applied) */}
-            {!isReportMode && (
-              <div className="flex gap-2 mt-3">
-                <Button
-                  onClick={handleApplyFilters}
-                  size="sm"
-                  className="flex-1 h-8"
-                  disabled={isApplyingFilters}
-                >
-                  {isApplyingFilters ? (
-                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
-                  ) : (
-                    <Check className="w-3 h-3 mr-1" />
-                  )}
-                  Apply
-                </Button>
-                <Button
-                  onClick={handleClearAllFilters}
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  disabled={!hasActiveFilters || isApplyingFilters}
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2 mt-3">
+              <Button
+                onClick={handleApplyFilters}
+                size="sm"
+                className="flex-1 h-8"
+                disabled={isApplyingFilters}
+              >
+                {isApplyingFilters ? (
+                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                ) : (
+                  <Check className="w-3 h-3 mr-1" />
+                )}
+                Apply
+              </Button>
+              <Button
+                onClick={handleClearAllFilters}
+                size="sm"
+                variant="outline"
+                className="h-8"
+                disabled={!hasActiveFilters || isApplyingFilters}
+              >
+                <RotateCcw className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
 
           {/* Filters List - Collapsible */}
