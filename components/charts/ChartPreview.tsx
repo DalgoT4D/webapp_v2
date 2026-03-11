@@ -318,8 +318,8 @@ export function ChartPreview({
                 return value.toLocaleString();
               },
             },
+            labelLayout: { hideOverlap: true },
           }));
-          (modifiedConfig as any).labelLayout = { hideOverlap: true };
         }
       }
 

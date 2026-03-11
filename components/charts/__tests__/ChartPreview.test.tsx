@@ -458,9 +458,9 @@ describe('ChartPreview', () => {
 
       if (shouldApply) {
         expect(calledConfig.series[0].label.position).toBe('top');
-        expect(calledConfig.labelLayout).toEqual({ hideOverlap: true });
+        expect(calledConfig.series[0].labelLayout).toEqual({ hideOverlap: true });
       } else {
-        expect(calledConfig.labelLayout).toBeUndefined();
+        expect(calledConfig.series[0].labelLayout).toBeUndefined();
       }
     });
 

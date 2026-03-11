@@ -1362,8 +1362,8 @@ export function ChartElementView({
               return value.toLocaleString();
             },
           },
+          labelLayout: { hideOverlap: true },
         }));
-        (styledConfig as any).labelLayout = { hideOverlap: true };
       }
     }
 

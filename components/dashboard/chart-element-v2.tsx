@@ -1056,8 +1056,8 @@ export function ChartElementV2({
                 return value.toLocaleString();
               },
             },
+            labelLayout: { hideOverlap: true },
           }));
-          (modifiedConfig as any).labelLayout = { hideOverlap: true };
         }
       }
 
