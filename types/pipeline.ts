@@ -164,3 +164,42 @@ export interface TaskProgressResponse {
     result?: LogSummaryResult[];
   }>;
 }
+
+// Dashboard API types (for /pipeline overview page)
+export interface DashboardRun {
+  id: string;
+  name: string;
+  status: string;
+  state_name: string;
+  startTime: string;
+  totalRunTime: number;
+}
+
+export interface DashboardPipeline {
+  id: string;
+  deploymentName: string;
+  name: string;
+  status: string;
+  lock: boolean;
+  runs: DashboardRun[];
+  lastRun?: { startTime: string };
+}
+
+// Log summary types (for pipeline overview log analysis)
+export interface LogSummary {
+  task_name: string;
+  status: string;
+  pattern?: string;
+  log_lines: string[];
+  errors?: number;
+  passed?: number;
+  skipped?: number;
+  warnings?: number;
+  tests: Array<{
+    pattern: string;
+    passed?: number;
+    errors?: number;
+    skipped?: number;
+    warnings?: number;
+  }>;
+}

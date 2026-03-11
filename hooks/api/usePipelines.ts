@@ -7,6 +7,8 @@ import {
   DeploymentRun,
   PipelineDetailResponse,
   TaskProgressResponse,
+  DashboardPipeline,
+  type LogSummary,
 } from '@/types/pipeline';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
@@ -254,5 +256,38 @@ export function useLogSummaryPoll(taskId: string | null) {
     isPolling: !!taskId && !isComplete,
     isComplete,
     error,
+  };
+}
+
+/**
+ * Fetch log summaries for a flow run (for pipeline overview page)
+ * Returns pre-computed summaries if available
+ */
+export async function fetchFlowRunLogSummary(flowRunId: string): Promise<LogSummary[]> {
+  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logsummary`);
+}
+
+/**
+ * Fetch pipeline overview data for the /pipeline page
+ * Uses smart polling: active (3s) when any pipeline is locked/running
+ */
+export function usePipelineOverview() {
+  const { data, error, mutate, isLoading } = useSWR<DashboardPipeline[]>(
+    '/api/dashboard/v1',
+    apiGet,
+    {
+      refreshInterval: (latestData) => {
+        const hasLockedPipeline = latestData?.some((p) => p.lock);
+        return hasLockedPipeline ? POLLING_INTERVAL_WHEN_LOCKED : POLLING_INTERVAL_IDLE;
+      },
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    pipelines: data || [],
+    isLoading,
+    isError: error,
+    mutate,
   };
 }
