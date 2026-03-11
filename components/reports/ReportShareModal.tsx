@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { Share2, Copy, Shield, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,19 +10,12 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { updateReportSharing, getReportSharingStatus } from '@/hooks/api/useReports';
+import type { ShareStatus } from '@/types/reports';
 
 interface ReportShareModalProps {
   snapshotId: number;
   isOpen: boolean;
   onClose: () => void;
-}
-
-interface ShareStatus {
-  is_public: boolean;
-  public_url?: string;
-  public_access_count: number;
-  last_public_accessed?: string;
-  public_shared_at?: string;
 }
 
 export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareModalProps) {
@@ -32,14 +25,7 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
     public_access_count: 0,
   });
 
-  // Fetch current share status when modal opens
-  useEffect(() => {
-    if (isOpen && snapshotId) {
-      fetchShareStatus();
-    }
-  }, [isOpen, snapshotId]);
-
-  const fetchShareStatus = async () => {
+  const fetchShareStatus = useCallback(async () => {
     try {
       const status = await getReportSharingStatus(snapshotId);
       setShareStatus(status);
@@ -47,35 +33,45 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
       console.error('Failed to fetch share status:', error);
       toastError.load(error, 'sharing status');
     }
-  };
+  }, [snapshotId]);
 
-  const handleToggleSharing = async (isPublic: boolean) => {
-    setIsLoading(true);
-
-    try {
-      const response = await updateReportSharing(snapshotId, { is_public: isPublic });
-
-      setShareStatus((prev) => ({
-        ...prev,
-        is_public: response.is_public,
-        public_url: response.public_url,
-      }));
-
-      if (isPublic && response.public_url) {
-        await navigator.clipboard.writeText(response.public_url);
-        toastSuccess.generic('Report made public and URL copied to clipboard!');
-      } else {
-        toastSuccess.generic('Report sharing disabled');
-      }
-    } catch (error: any) {
-      console.error('Failed to toggle sharing:', error);
-      toastError.share(error);
-    } finally {
-      setIsLoading(false);
+  // Fetch current share status when modal opens
+  useEffect(() => {
+    if (isOpen && snapshotId) {
+      fetchShareStatus();
     }
-  };
+  }, [isOpen, snapshotId, fetchShareStatus]);
 
-  const handleCopyUrl = async () => {
+  const handleToggleSharing = useCallback(
+    async (isPublic: boolean) => {
+      setIsLoading(true);
+
+      try {
+        const response = await updateReportSharing(snapshotId, { is_public: isPublic });
+
+        setShareStatus((prev) => ({
+          ...prev,
+          is_public: response.is_public,
+          public_url: response.public_url,
+        }));
+
+        if (isPublic && response.public_url) {
+          await navigator.clipboard.writeText(response.public_url);
+          toastSuccess.generic('Report made public and URL copied to clipboard!');
+        } else {
+          toastSuccess.generic('Report sharing disabled');
+        }
+      } catch (error) {
+        console.error('Failed to toggle sharing:', error);
+        toastError.share(error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [snapshotId]
+  );
+
+  const handleCopyUrl = useCallback(async () => {
     if (shareStatus.public_url) {
       try {
         await navigator.clipboard.writeText(shareStatus.public_url);
@@ -84,11 +80,11 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
         toastError.api(error, 'Failed to copy URL');
       }
     }
-  };
+  }, [shareStatus.public_url]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent data-testid="report-share-modal" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
@@ -130,6 +126,7 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
                     </div>
                   </div>
                   <Switch
+                    data-testid="report-share-toggle"
                     checked={shareStatus.is_public}
                     onCheckedChange={handleToggleSharing}
                     disabled={isLoading}
@@ -151,7 +148,12 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
                 {shareStatus.is_public && shareStatus.public_url && (
                   <div className="space-y-2">
                     <Label className="text-xs font-medium">Share this report:</Label>
-                    <Button variant="outline" onClick={handleCopyUrl} className="w-full">
+                    <Button
+                      data-testid="report-copy-link-btn"
+                      variant="outline"
+                      onClick={handleCopyUrl}
+                      className="w-full"
+                    >
                       <Copy className="h-4 w-4 mr-2" />
                       Copy Public Link
                     </Button>
@@ -175,7 +177,7 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
 
           {/* Actions */}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button data-testid="report-share-close-btn" variant="outline" onClick={onClose}>
               Close
             </Button>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,14 +12,24 @@ import {
   Download,
   LayoutGrid,
   Loader2,
-  MessageSquare,
   Share2,
   User,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareModal } from '@/components/reports/ReportShareModal';
+import { formatDateShort } from '@/components/reports/utils';
+import {
+  PDF_CLONE_WIDTH_PX,
+  PDF_CLONE_PADDING_PX,
+  PDF_HEADER_MARGIN_BOTTOM_PX,
+  PDF_RENDER_DELAY_MS,
+  PDF_CANVAS_SCALE,
+  PDF_PAGE_MARGIN_PT,
+  PDF_A4_WIDTH_PT,
+  PDF_JPEG_QUALITY,
+} from '@/constants/reports';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -41,59 +51,31 @@ export default function SnapshotViewerPage() {
     dashboardCanvasRef.current = el;
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-80" />
-        <Skeleton className="h-5 w-96" />
-        <Skeleton className="h-[600px] w-full" />
-      </div>
-    );
-  }
+  // Initialize summary draft when viewData loads (replaces state-during-render pattern)
+  useEffect(() => {
+    if (!summaryTouched && viewData?.report_metadata.summary) {
+      setSummaryDraft(viewData.report_metadata.summary);
+    }
+  }, [viewData?.report_metadata.summary, summaryTouched]);
 
-  if (isError || !viewData) {
-    return (
-      <div className="p-6">
-        <p className="text-red-500">Failed to load report.</p>
-        <Button variant="outline" onClick={() => router.back()}>
-          Go Back
-        </Button>
-      </div>
-    );
-  }
-
-  const { dashboard_data, report_metadata, frozen_chart_configs } = viewData;
-
-  // Initialize summary draft on first render if not touched
-  if (!summaryTouched && report_metadata.summary && !summaryDraft) {
-    setSummaryDraft(report_metadata.summary);
-  }
-
-  const formatDateShort = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  };
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
       await updateSnapshot(snapshotId, { summary: summaryDraft });
       mutate();
-      toast.success('Report saved');
-    } catch {
-      toast.error('Failed to save report');
+      toastSuccess.saved('Report');
+    } catch (error) {
+      toastError.save(error, 'report');
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [snapshotId, summaryDraft, mutate]);
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
+    if (!viewData) return;
+
     setIsExporting(true);
-    toast.info('Generating PDF...');
+    toastInfo.generic('Generating PDF...');
 
     try {
       const { default: html2canvas } = await import('html2canvas-pro');
@@ -105,14 +87,14 @@ export default function SnapshotViewerPage() {
       wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
       wrapper.style.top = '0';
-      wrapper.style.width = '1200px';
+      wrapper.style.width = `${PDF_CLONE_WIDTH_PX}px`;
       wrapper.style.backgroundColor = '#ffffff';
-      wrapper.style.padding = '32px';
+      wrapper.style.padding = `${PDF_CLONE_PADDING_PX}px`;
 
       // Clone the header
       if (headerRef.current) {
         const headerClone = headerRef.current.cloneNode(true) as HTMLElement;
-        headerClone.style.marginBottom = '16px';
+        headerClone.style.marginBottom = `${PDF_HEADER_MARGIN_BOTTOM_PX}px`;
         wrapper.appendChild(headerClone);
       }
 
@@ -143,69 +125,94 @@ export default function SnapshotViewerPage() {
       document.body.appendChild(wrapper);
 
       // Wait for cloned content to render
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, PDF_RENDER_DELAY_MS));
 
       const canvas = await html2canvas(wrapper, {
-        scale: 3, // Increased from 2 to 3 for better quality
+        scale: PDF_CANVAS_SCALE,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        windowWidth: 1200,
+        windowWidth: PDF_CLONE_WIDTH_PX,
         logging: false,
         imageTimeout: 0,
         removeContainer: false,
-        // Better color rendering options
-        foreignObjectRendering: false, // Force canvas rendering for better colors
+        foreignObjectRendering: false,
       });
 
       document.body.removeChild(wrapper);
 
       // Create single-page PDF with custom dimensions to fit all content
-      const margin = 20;
-      const a4Width = 595.28; // Keep A4 width for readability
-      const contentWidth = a4Width - margin * 2;
-
-      // Calculate height needed to fit all content
+      const contentWidth = PDF_A4_WIDTH_PT - PDF_PAGE_MARGIN_PT * 2;
       const imgWidth = contentWidth;
       const imgHeight = (canvas.height * contentWidth) / canvas.width;
-      const pageHeight = imgHeight + margin * 2;
+      const pageHeight = imgHeight + PDF_PAGE_MARGIN_PT * 2;
 
-      // Create PDF with custom page size to fit all content on one page
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'pt',
-        format: [a4Width, pageHeight], // Custom page size: A4 width × content height
-        compress: false, // Disable compression to preserve colors
+        format: [PDF_A4_WIDTH_PT, pageHeight],
+        compress: false,
       });
 
-      // Convert canvas to image with maximum quality
-      // Use JPEG with high quality for better color preservation
-      const imgData = canvas.toDataURL('image/jpeg', 1.0); // 1.0 = maximum quality
-      pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight, undefined, 'FAST');
+      const imgData = canvas.toDataURL('image/jpeg', PDF_JPEG_QUALITY);
+      pdf.addImage(
+        imgData,
+        'JPEG',
+        PDF_PAGE_MARGIN_PT,
+        PDF_PAGE_MARGIN_PT,
+        imgWidth,
+        imgHeight,
+        undefined,
+        'FAST'
+      );
 
-      const sanitizedTitle = (report_metadata.title || 'report')
+      const sanitizedTitle = (viewData.report_metadata.title || 'report')
         .replace(/[^a-zA-Z0-9\s-]/g, '')
         .replace(/\s+/g, '-')
         .toLowerCase();
       saveAs(pdf.output('blob'), `${sanitizedTitle}.pdf`);
-      toast.success('PDF downloaded');
+      toastSuccess.exported('Report', 'pdf');
     } catch (error) {
       console.error('PDF export failed:', error);
-      toast.error('Failed to generate PDF');
+      toastError.export(error, 'pdf');
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [viewData]);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-10 w-80" />
+        <Skeleton className="h-5 w-96" />
+        <Skeleton className="h-[600px] w-full" />
+      </div>
+    );
+  }
+
+  if (isError || !viewData) {
+    return (
+      <div className="p-6">
+        <p className="text-red-500">Failed to load report.</p>
+        <Button data-testid="report-go-back-btn" variant="outline" onClick={() => router.back()}>
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  const { dashboard_data, report_metadata, frozen_chart_configs } = viewData;
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div ref={headerRef} className="px-6 pt-4 pb-3">
+      <div ref={headerRef} className="flex-shrink-0 border-b bg-background px-6 pt-4 pb-3">
         {/* Top row: Back + Title + Actions */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               type="button"
+              data-testid="report-back-btn"
               onClick={() => router.push('/reports')}
               className="flex items-center gap-1 text-sm text-foreground hover:text-primary"
             >
@@ -219,9 +226,10 @@ export default function SnapshotViewerPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button
+              data-testid="report-download-btn"
               variant="ghost"
               size="icon"
-              title="Download"
+              aria-label="Download report as PDF"
               onClick={handleDownload}
               disabled={isExporting}
             >
@@ -232,17 +240,15 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             <Button
+              data-testid="report-share-btn"
               variant="ghost"
               size="icon"
-              title="Share"
+              aria-label="Share report"
               onClick={() => setShareModalOpen(true)}
             >
               <Share2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" title="Comments">
-              <MessageSquare className="h-4 w-4" />
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button data-testid="report-save-btn" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </div>
@@ -284,6 +290,7 @@ export default function SnapshotViewerPage() {
             <div className="border rounded-lg p-5 mb-2 bg-background">
               <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
               <Textarea
+                data-testid="report-summary-textarea"
                 value={summaryDraft}
                 onChange={(e) => {
                   setSummaryDraft(e.target.value);

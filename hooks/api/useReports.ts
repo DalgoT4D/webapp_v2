@@ -1,51 +1,20 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import type {
+  ReportSnapshot,
+  SnapshotViewData,
+  DiscoveredDatetimeColumn,
+  CreateSnapshotPayload,
+  ShareStatus,
+} from '@/types/reports';
 
-export interface DateColumn {
-  schema_name: string;
-  table_name: string;
-  column_name: string;
-}
-
-export interface ReportSnapshot {
-  id: number;
-  title: string;
-  dashboard_title?: string;
-  date_column?: DateColumn;
-  period_start?: string; // Optional (no lower bound)
-  period_end: string;
-  status: 'generated' | 'viewed' | 'archived';
-  summary?: string;
-  created_by?: string;
-  created_at: string;
-}
-
-export interface FrozenChartConfig {
-  id: number;
-  title: string;
-  description?: string;
-  chart_type: string;
-  schema_name: string;
-  table_name: string;
-  extra_config: Record<string, any>;
-}
-
-export interface SnapshotViewData {
-  dashboard_data: any;
-  report_metadata: {
-    snapshot_id: number;
-    title: string;
-    date_column?: DateColumn;
-    period_start?: string;
-    period_end: string;
-    summary?: string;
-    status: string;
-    created_at: string;
-    created_by?: string;
-    dashboard_title: string;
-  };
-  frozen_chart_configs: Record<string, FrozenChartConfig>;
-}
+// Re-export types for consumers
+export type {
+  DateColumn,
+  ReportSnapshot,
+  SnapshotViewData,
+  FrozenChartConfig,
+} from '@/types/reports';
 
 // Hooks
 
@@ -67,13 +36,7 @@ export function useSnapshotView(snapshotId: number | null) {
 
 // Mutations
 
-export async function createSnapshot(data: {
-  title: string;
-  dashboard_id: number;
-  date_column: DateColumn;
-  period_start?: string | null; // Optional (no lower bound)
-  period_end: string;
-}) {
+export async function createSnapshot(data: CreateSnapshotPayload) {
   return apiPost('/api/reports/', data);
 }
 
@@ -87,13 +50,6 @@ export async function deleteSnapshot(snapshotId: number) {
 
 // Datetime column discovery for create-snapshot dialog
 
-export interface DiscoveredDatetimeColumn {
-  schema_name: string;
-  table_name: string;
-  column_name: string;
-  data_type: string;
-}
-
 export function useDashboardDatetimeColumns(dashboardId: number | null) {
   const { data, error, isLoading } = useSWR<DiscoveredDatetimeColumn[]>(
     dashboardId ? `/api/reports/dashboards/${dashboardId}/datetime-columns/` : null,
@@ -103,13 +59,16 @@ export function useDashboardDatetimeColumns(dashboardId: number | null) {
   return { columns: data || [], isLoading, error };
 }
 
-// Sharing mutations (same pattern as useDashboards)
+// Sharing mutations
 
-export async function updateReportSharing(snapshotId: number, data: { is_public: boolean }) {
+export async function updateReportSharing(
+  snapshotId: number,
+  data: { is_public: boolean }
+): Promise<ShareStatus> {
   return apiPut(`/api/reports/${snapshotId}/share/`, data);
 }
 
-export async function getReportSharingStatus(snapshotId: number) {
+export async function getReportSharingStatus(snapshotId: number): Promise<ShareStatus> {
   return apiGet(`/api/reports/${snapshotId}/share/`);
 }
 

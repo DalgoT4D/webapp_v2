@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,13 +22,10 @@ import {
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Camera } from 'lucide-react';
-import { toast } from 'sonner';
-import {
-  createSnapshot,
-  useDashboardDatetimeColumns,
-  type DateColumn,
-} from '@/hooks/api/useReports';
-import { useDashboards, useDashboard } from '@/hooks/api/useDashboards';
+import { toastSuccess, toastError } from '@/lib/toast';
+import { createSnapshot, useDashboardDatetimeColumns } from '@/hooks/api/useReports';
+import type { DateColumn } from '@/types/reports';
+import { useDashboards, useDashboard, type Dashboard } from '@/hooks/api/useDashboards';
 
 interface CreateSnapshotDialogProps {
   dashboardId?: number;
@@ -74,26 +71,35 @@ export function CreateSnapshotDialog({
   );
 
   // Map dashboards to combobox items
-  const dashboardItems: ComboboxItem[] = (dashboards || []).map((d: any) => ({
+  const dashboardItems: ComboboxItem[] = (dashboards || []).map((d: Dashboard) => ({
     value: d.id.toString(),
     label: d.title,
   }));
 
-  const handleSubmit = async () => {
+  const resetForm = useCallback(() => {
+    if (!preselectedDashboardId) setSelectedDashboardId('');
+    setReportName('');
+    setSelectedDateColumn('');
+    setPeriodStart(undefined);
+    setPeriodEnd(undefined);
+    setFrequency('onetime');
+  }, [preselectedDashboardId]);
+
+  const handleSubmit = useCallback(async () => {
     if (!effectiveDashboardId) {
-      toast.error('Please select a dashboard');
+      toastError.api('Please select a dashboard');
       return;
     }
     if (!reportName.trim()) {
-      toast.error('Please enter a report name');
+      toastError.api('Please enter a report name');
       return;
     }
     if (!selectedDateColumn) {
-      toast.error('Please select a date-time column');
+      toastError.api('Please select a date-time column');
       return;
     }
     if (!periodEnd) {
-      toast.error('Please select an end date');
+      toastError.api('Please select an end date');
       return;
     }
 
@@ -110,36 +116,35 @@ export function CreateSnapshotDialog({
         period_start: periodStart ? format(periodStart, 'yyyy-MM-dd') : undefined,
         period_end: format(periodEnd, 'yyyy-MM-dd'),
       });
-      toast.success('Report created');
+      toastSuccess.created('Report');
       setOpen(false);
       resetForm();
       onCreated?.();
-    } catch {
-      toast.error('Failed to create report');
+    } catch (error) {
+      toastError.create(error, 'report');
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const resetForm = () => {
-    if (!preselectedDashboardId) setSelectedDashboardId('');
-    setReportName('');
-    setSelectedDateColumn('');
-    setPeriodStart(undefined);
-    setPeriodEnd(undefined);
-    setFrequency('onetime');
-  };
+  }, [
+    effectiveDashboardId,
+    reportName,
+    selectedDateColumn,
+    periodEnd,
+    periodStart,
+    resetForm,
+    onCreated,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm">
+          <Button data-testid="create-snapshot-trigger" variant="outline" size="sm">
             <Camera className="h-4 w-4 mr-1" /> Create Report
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent data-testid="create-snapshot-dialog" className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Create a report</DialogTitle>
         </DialogHeader>
@@ -172,6 +177,7 @@ export function CreateSnapshotDialog({
               Report Name <span className="text-red-600">*</span>
             </Label>
             <Input
+              data-testid="snapshot-report-name"
               placeholder="Pick a unique name"
               value={reportName}
               onChange={(e) => setReportName(e.target.value)}
@@ -196,7 +202,7 @@ export function CreateSnapshotDialog({
                 onValueChange={setSelectedDateColumn}
                 disabled={!effectiveDashboardId || columnsLoading || discoveredColumns.length === 0}
               >
-                <SelectTrigger>
+                <SelectTrigger data-testid="snapshot-date-column">
                   <SelectValue
                     placeholder={
                       columnsLoading
@@ -244,22 +250,24 @@ export function CreateSnapshotDialog({
             <div className="flex gap-2">
               <button
                 type="button"
+                data-testid="snapshot-freq-onetime"
                 onClick={() => setFrequency('onetime')}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
                   frequency === 'onetime'
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-white text-foreground border border-input hover:bg-muted'
+                    : 'bg-background text-foreground border border-input hover:bg-muted'
                 }`}
               >
                 One time
               </button>
               <button
                 type="button"
+                data-testid="snapshot-freq-schedule"
                 onClick={() => setFrequency('schedule')}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
                   frequency === 'schedule'
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-white text-foreground border border-input hover:bg-muted'
+                    : 'bg-background text-foreground border border-input hover:bg-muted'
                 }`}
               >
                 Schedule
@@ -270,10 +278,10 @@ export function CreateSnapshotDialog({
 
         {/* Buttons - left aligned */}
         <div className="flex gap-3 pt-2">
-          <Button variant="cancel" onClick={() => setOpen(false)}>
+          <Button data-testid="snapshot-cancel-btn" variant="cancel" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button data-testid="snapshot-submit-btn" onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? 'Generating...' : 'Generate Report'}
           </Button>
         </div>
