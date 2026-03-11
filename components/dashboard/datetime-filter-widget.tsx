@@ -87,6 +87,7 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
+                key={`start-${startDate?.toISOString()}`}
                 mode="single"
                 selected={startDate}
                 defaultMonth={startDate}
@@ -123,6 +124,7 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
+                key={`end-${endDate?.toISOString()}`}
                 mode="single"
                 selected={endDate}
                 defaultMonth={endDate}
