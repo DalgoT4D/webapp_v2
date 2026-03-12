@@ -18,11 +18,23 @@ export type {
 
 // Hooks
 
-export function useSnapshots(search?: string) {
-  const params = search ? `?search=${encodeURIComponent(search)}` : '';
-  const { data, error, mutate } = useSWR<ReportSnapshot[]>(`/api/reports/${params}`, apiGet, {
-    revalidateOnFocus: true,
-  });
+interface SnapshotFilters {
+  search?: string;
+  dashboard_title?: string;
+  created_by?: string;
+}
+
+export function useSnapshots(filters?: SnapshotFilters) {
+  const params = new URLSearchParams();
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.dashboard_title) params.set('dashboard_title', filters.dashboard_title);
+  if (filters?.created_by) params.set('created_by', filters.created_by);
+  const query = params.toString();
+  const { data, error, mutate } = useSWR<ReportSnapshot[]>(
+    `/api/reports/${query ? `?${query}` : ''}`,
+    apiGet,
+    { revalidateOnFocus: true }
+  );
   return { snapshots: data || [], isLoading: !error && !data, isError: error, mutate };
 }
 
