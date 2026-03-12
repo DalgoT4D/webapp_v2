@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { PoweredByDalgoFooter } from '@/components/ui/powered-by-dalgo-footer';
 
 interface EmbedOptions {
   showTitle: boolean;
@@ -428,33 +429,7 @@ export function PublicDashboardView({
 
       {/* Footer - Responsive - Only show in embed mode */}
       {isEmbedMode && (
-        <footer
-          className={`border-t flex-shrink-0 ${
-            embedOptions?.theme === 'dark'
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}
-        >
-          <div
-            className={`px-3 sm:px-4 py-2 text-center text-xs ${
-              embedOptions?.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-            }`}
-          >
-            <p>
-              Powered by{' '}
-              <Link
-                href="https://dalgo.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`font-medium hover:underline ${
-                  embedOptions?.theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
-                }`}
-              >
-                Dalgo
-              </Link>
-            </p>
-          </div>
-        </footer>
+        <PoweredByDalgoFooter theme={embedOptions?.theme === 'dark' ? 'dark' : 'light'} />
       )}
     </div>
   );

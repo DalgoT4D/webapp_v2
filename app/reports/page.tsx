@@ -12,16 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { FileText, Filter, MoreVertical, Plus, Trash2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -35,7 +26,7 @@ const FILTER_DEBOUNCE_MS = 400;
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [deleteTarget, setDeleteTarget] = useState<ReportSnapshot | null>(null);
+  const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
 
   // Filter input states (what the user types)
   const [titleFilter, setTitleFilter] = useState('');
@@ -111,17 +102,23 @@ export default function ReportsPage() {
   };
 
   const handleDelete = useCallback(
-    async (id: number) => {
+    async (snapshot: ReportSnapshot) => {
+      const confirmed = await confirm({
+        title: 'Delete report?',
+        description: `This will permanently delete "${snapshot.title}". This action cannot be undone.`,
+        confirmText: 'Delete',
+        type: 'warning',
+      });
+      if (!confirmed) return;
       try {
-        await deleteSnapshot(id);
+        await deleteSnapshot(snapshot.id);
         mutate();
-        setDeleteTarget(null);
         toastSuccess.deleted('Report');
       } catch (error) {
         toastError.delete(error, 'report');
       }
     },
-    [mutate]
+    [mutate, confirm]
   );
 
   return (
@@ -375,7 +372,7 @@ export default function ReportsPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   data-testid={`report-delete-${snapshot.id}`}
-                                  onClick={() => setDeleteTarget(snapshot)}
+                                  onClick={() => handleDelete(snapshot)}
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
@@ -395,27 +392,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent data-testid="delete-report-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete report?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete &quot;{deleteTarget?.title}&quot;. This action cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="delete-report-cancel">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              data-testid="delete-report-confirm"
-              onClick={() => deleteTarget && handleDelete(deleteTarget.id)}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteDialog />
     </div>
   );
 }

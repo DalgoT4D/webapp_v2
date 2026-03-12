@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { copyUrlToClipboard } from '@/lib/clipboard';
 import { Share2, Copy, Shield, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -73,12 +74,7 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
 
   const handleCopyUrl = useCallback(async () => {
     if (shareStatus.public_url) {
-      try {
-        await navigator.clipboard.writeText(shareStatus.public_url);
-        toastSuccess.generic('URL copied to clipboard!');
-      } catch (error) {
-        toastError.api(error, 'Failed to copy URL');
-      }
+      await copyUrlToClipboard(shareStatus.public_url);
     }
   }, [shareStatus.public_url]);
 

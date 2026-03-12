@@ -4,10 +4,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, ExternalLink, AlertCircle, Calendar } from 'lucide-react';
 import { usePublicReport } from '@/hooks/api/useReports';
+import { formatDateShort } from '@/components/reports/utils';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { PoweredByDalgoFooter } from '@/components/ui/powered-by-dalgo-footer';
 
 interface PublicReportViewProps {
   token: string;
@@ -50,15 +52,6 @@ export function PublicReportView({ token }: PublicReportViewProps) {
   }
 
   const { dashboard_data, report_metadata, frozen_chart_configs, org_name } = viewData;
-
-  const formatDateShort = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
@@ -161,21 +154,7 @@ export function PublicReportView({ token }: PublicReportViewProps) {
       />
 
       {/* Footer */}
-      <footer className="bg-white border-t">
-        <div className="px-3 sm:px-4 py-2 text-center text-xs text-gray-600">
-          <p>
-            Powered by{' '}
-            <Link
-              href="https://dalgo.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-blue-600 hover:underline"
-            >
-              Dalgo
-            </Link>
-          </p>
-        </div>
-      </footer>
+      <PoweredByDalgoFooter />
     </div>
   );
 }
