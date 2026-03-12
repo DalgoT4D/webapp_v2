@@ -632,6 +632,18 @@ describe('ChartPreview', () => {
       expect(calledConfig.yAxis[0].axisLabel.formatter).toBeDefined();
       expect(calledConfig.yAxis[1].axisLabel.formatter).toBeDefined();
     });
+
+    it('should apply decimal places without thousand separators when only decimalPlaces is set', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisDecimalPlaces: 2 }}
+        />
+      );
+      const formatter = mockChart.setOption.mock.calls[0][0].yAxis.axisLabel.formatter;
+      expect(formatter(1234567.5)).toBe('1234567.50');
+    });
   });
 
   describe('Console Logging', () => {

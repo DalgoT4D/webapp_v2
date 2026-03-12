@@ -361,14 +361,22 @@ export function ChartPreview({
         const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
         const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
 
-        // Format Y-axis labels
-        if (modifiedConfig.yAxis && yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+        // Format Y-axis labels (apply if number format is set OR decimal places are specified)
+        const hasYAxisFormatting =
+          (yAxisNumberFormat && yAxisNumberFormat !== 'default') ||
+          yAxisDecimalPlaces !== undefined;
+        if (modifiedConfig.yAxis && hasYAxisFormatting) {
           const formatYAxisLabel = (value: number) => {
             if (typeof value !== 'number' || isNaN(value)) return value;
-            return formatNumber(value, {
-              format: yAxisNumberFormat,
-              decimalPlaces: yAxisDecimalPlaces,
-            });
+            // If a specific number format is selected, use formatNumber
+            if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+              return formatNumber(value, {
+                format: yAxisNumberFormat,
+                decimalPlaces: yAxisDecimalPlaces,
+              });
+            }
+            // Otherwise, just apply decimal places without thousand separators
+            return value.toFixed(yAxisDecimalPlaces);
           };
 
           if (Array.isArray(modifiedConfig.yAxis)) {
@@ -390,16 +398,24 @@ export function ChartPreview({
           }
         }
 
-        // Format X-axis labels (only if numeric values)
-        if (modifiedConfig.xAxis && xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+        // Format X-axis labels (only if numeric values, apply if number format is set OR decimal places are specified)
+        const hasXAxisFormatting =
+          (xAxisNumberFormat && xAxisNumberFormat !== 'default') ||
+          xAxisDecimalPlaces !== undefined;
+        if (modifiedConfig.xAxis && hasXAxisFormatting) {
           const formatXAxisLabel = (value: any) => {
             // Try to parse string values to numbers
             const numVal = typeof value === 'number' ? value : parseFloat(value);
             if (isNaN(numVal)) return value; // Return original if not a valid number
-            return formatNumber(numVal, {
-              format: xAxisNumberFormat,
-              decimalPlaces: xAxisDecimalPlaces,
-            });
+            // If a specific number format is selected, use formatNumber
+            if (xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+              return formatNumber(numVal, {
+                format: xAxisNumberFormat,
+                decimalPlaces: xAxisDecimalPlaces,
+              });
+            }
+            // Otherwise, just apply decimal places without thousand separators
+            return numVal.toFixed(xAxisDecimalPlaces);
           };
 
           if (Array.isArray(modifiedConfig.xAxis)) {
@@ -422,12 +438,7 @@ export function ChartPreview({
         }
 
         // Format data labels on the chart points/bars (uses Y-axis format since data labels show Y values)
-        if (
-          modifiedConfig.series &&
-          customizations.showDataLabels &&
-          yAxisNumberFormat &&
-          yAxisNumberFormat !== 'default'
-        ) {
+        if (modifiedConfig.series && customizations.showDataLabels && hasYAxisFormatting) {
           const seriesArray = Array.isArray(modifiedConfig.series)
             ? modifiedConfig.series
             : [modifiedConfig.series];
@@ -439,10 +450,15 @@ export function ChartPreview({
               formatter: (params: any) => {
                 const value = params.value;
                 if (typeof value !== 'number' || isNaN(value)) return value;
-                return formatNumber(value, {
-                  format: yAxisNumberFormat,
-                  decimalPlaces: yAxisDecimalPlaces,
-                });
+                // If a specific number format is selected, use formatNumber
+                if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+                  return formatNumber(value, {
+                    format: yAxisNumberFormat,
+                    decimalPlaces: yAxisDecimalPlaces,
+                  });
+                }
+                // Otherwise, just apply decimal places without thousand separators
+                return value.toFixed(yAxisDecimalPlaces);
               },
             },
           }));

@@ -1067,14 +1067,22 @@ export function ChartElementV2({
         const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
         const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
 
-        // Format Y-axis labels
-        if (modifiedConfig.yAxis && yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+        // Format Y-axis labels (apply if number format is set OR decimal places are specified)
+        const hasYAxisFormatting =
+          (yAxisNumberFormat && yAxisNumberFormat !== 'default') ||
+          yAxisDecimalPlaces !== undefined;
+        if (modifiedConfig.yAxis && hasYAxisFormatting) {
           const formatYAxisLabel = (value: number) => {
             if (typeof value !== 'number' || isNaN(value)) return value;
-            return formatNumber(value, {
-              format: yAxisNumberFormat,
-              decimalPlaces: yAxisDecimalPlaces,
-            });
+            // Use formatNumber for specific formats, toLocaleString with options for 'default' with decimal places
+            if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+              return formatNumber(value, {
+                format: yAxisNumberFormat,
+                decimalPlaces: yAxisDecimalPlaces,
+              });
+            }
+            // 'default' format with decimal places - use toFixed (no thousand separators)
+            return value.toFixed(yAxisDecimalPlaces);
           };
 
           if (Array.isArray(modifiedConfig.yAxis)) {
@@ -1096,16 +1104,24 @@ export function ChartElementV2({
           }
         }
 
-        // Format X-axis labels (only if numeric values)
-        if (modifiedConfig.xAxis && xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+        // Format X-axis labels (only if numeric values and formatting is specified)
+        const hasXAxisFormatting =
+          (xAxisNumberFormat && xAxisNumberFormat !== 'default') ||
+          xAxisDecimalPlaces !== undefined;
+        if (modifiedConfig.xAxis && hasXAxisFormatting) {
           const formatXAxisLabel = (value: any) => {
             // Try to parse string values to numbers
             const numVal = typeof value === 'number' ? value : parseFloat(value);
             if (isNaN(numVal)) return value; // Return original if not a valid number
-            return formatNumber(numVal, {
-              format: xAxisNumberFormat,
-              decimalPlaces: xAxisDecimalPlaces,
-            });
+            // Use formatNumber for specific formats, toLocaleString with options for 'default' with decimal places
+            if (xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+              return formatNumber(numVal, {
+                format: xAxisNumberFormat,
+                decimalPlaces: xAxisDecimalPlaces,
+              });
+            }
+            // 'default' format with decimal places - use toFixed (no thousand separators)
+            return numVal.toFixed(xAxisDecimalPlaces);
           };
 
           if (Array.isArray(modifiedConfig.xAxis)) {
