@@ -9,8 +9,6 @@ import { NumberFormatSection } from '../shared/NumberFormatSection';
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
   decimalPlaces?: number;
-  prefix?: string;
-  suffix?: string;
 }
 
 interface TableChartCustomizationsProps {
