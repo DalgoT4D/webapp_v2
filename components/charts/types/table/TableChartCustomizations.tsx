@@ -10,8 +10,6 @@ import { DateFormatSection } from '../shared/DateFormatSection';
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
   decimalPlaces?: number;
-  prefix?: string;
-  suffix?: string;
 }
 
 interface DateColumnFormatConfig {

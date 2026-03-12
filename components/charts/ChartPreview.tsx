@@ -11,7 +11,8 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
-import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
+import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -92,6 +93,7 @@ export function ChartPreview({
       const configWithLegend = config.legend
         ? applyLegendPosition(config, legendPosition, isPaginated, detectedChartType)
         : config;
+      console.log('configWithLegend', configWithLegend);
 
       // Modify config to ensure proper margins for axis titles and axis title styling
       // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
@@ -132,66 +134,7 @@ export function ChartPreview({
             fontSize: 12,
           },
           extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-          formatter: function (params: any) {
-            // Helper to format values based on customizations
-            const formatValue = (val: any) => {
-              // Try to parse string values to numbers (like TableChart does)
-              const numVal = typeof val === 'number' ? val : parseFloat(val);
-              if (isNaN(numVal)) return val; // Return original if not a valid number
-
-              const numFormat = (customizations.numberFormat || 'default') as NumberFormat;
-              if (numFormat === 'default') {
-                return numVal.toLocaleString();
-              }
-              return formatNumber(numVal, {
-                format: numFormat,
-                decimalPlaces: customizations.decimalPlaces,
-              });
-            };
-
-            // Helper to format name (dimension) with date formatting
-            const formatName = (name: any) => {
-              // For pie charts, use dateFormat
-              if (isPieChart) {
-                const dateFormat = customizations.dateFormat as DateFormat;
-                if (dateFormat && dateFormat !== 'default') {
-                  return formatDate(name, { format: dateFormat });
-                }
-              }
-              // For bar/line charts, use xAxisDateFormat
-              if (isBarChart || isLineChart) {
-                const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
-                if (xAxisDateFormat && xAxisDateFormat !== 'default') {
-                  return formatDate(name, { format: xAxisDateFormat });
-                }
-              }
-              return name;
-            };
-
-            if (Array.isArray(params)) {
-              // For multiple series (line/bar charts with multiple lines/bars)
-              let result = '';
-              params.forEach((param: any, index: number) => {
-                if (index === 0) {
-                  result += formatName(param.name) + '<br/>';
-                }
-                const value = formatValue(param.value);
-                result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
-              });
-              return result;
-            } else {
-              // For single series (pie charts, single bar/line)
-              const value = formatValue(params.value);
-              const name = formatName(params.name);
-              if (params.percent !== undefined) {
-                // Pie chart with percentage
-                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${name} (${params.percent}%)`;
-              } else {
-                // Regular chart
-                return `${params.marker}${params.seriesName}<br/>${name}: <b>${value}</b>`;
-              }
-            }
-          },
+          formatter: createTooltipFormatter(customizations, detectedChartType || ''),
         },
         // For pie and number charts, completely remove grid and axis configurations
         ...(isPieChart || isNumberChart
@@ -356,6 +299,9 @@ export function ChartPreview({
           ? modifiedConfig.series
           : [modifiedConfig.series];
 
+        // Use shared formatter for pie dimension values (handles numbers, bigint, and "dimension - extra_dimension" strings)
+        const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+
         modifiedConfig.series = seriesArray.map((series: any) => ({
           ...series,
           label: {
@@ -363,19 +309,13 @@ export function ChartPreview({
             show: showDataLabels,
             position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
             formatter: (params: any) => {
-              // Only format if value is already a number type
-              const formattedValue =
-                typeof params.value === 'number'
-                  ? numberFormat !== 'default'
-                    ? formatNumber(params.value, { format: numberFormat, decimalPlaces })
-                    : params.value.toLocaleString()
-                  : params.value;
+              const formattedValue = formatIfNumber(params.value);
 
-              // Format name (dimension value) with date formatting if configured
+              // Format name (dimension value) - date formatting takes priority over number formatting
               const formattedName =
                 dateFormat && dateFormat !== 'default'
                   ? formatDate(params.name, { format: dateFormat })
-                  : params.name;
+                  : formatIfNumber(params.name);
 
               switch (labelFormat) {
                 case 'value':
@@ -392,11 +332,28 @@ export function ChartPreview({
           },
         }));
 
-        // Add legend formatter for pie charts to format date values in legend
-        if (dateFormat && dateFormat !== 'default' && modifiedConfig.legend) {
-          modifiedConfig.legend = {
-            ...modifiedConfig.legend,
-            formatter: (name: string) => formatDate(name, { format: dateFormat }),
+        // Format numeric dimension values and update legend.data to match
+        modifiedConfig.series = (
+          Array.isArray(modifiedConfig.series) ? modifiedConfig.series : [modifiedConfig.series]
+        ).map((series: any) => {
+          if (series.type === 'pie' && Array.isArray(series.data)) {
+            return {
+              ...series,
+              data: series.data.map((item: any) => ({
+                ...item,
+                name: formatIfNumber(item.name),
+              })),
+            };
+          }
+          return series;
+        });
+
+        // Update legend.data to match the formatted names
+        const chartConfig = modifiedConfig as Record<string, any>;
+        if (chartConfig.legend && Array.isArray(chartConfig.legend.data)) {
+          chartConfig.legend = {
+            ...chartConfig.legend,
+            data: chartConfig.legend.data.map((item: any) => formatIfNumber(item)),
           };
         }
       }
@@ -411,14 +368,22 @@ export function ChartPreview({
         const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
         const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
 
-        // Format Y-axis labels
-        if (modifiedConfig.yAxis && yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+        // Format Y-axis labels (apply if number format is set OR decimal places are specified)
+        const hasYAxisFormatting =
+          (yAxisNumberFormat && yAxisNumberFormat !== 'default') ||
+          yAxisDecimalPlaces !== undefined;
+        if (modifiedConfig.yAxis && hasYAxisFormatting) {
           const formatYAxisLabel = (value: number) => {
             if (typeof value !== 'number' || isNaN(value)) return value;
-            return formatNumber(value, {
-              format: yAxisNumberFormat,
-              decimalPlaces: yAxisDecimalPlaces,
-            });
+            // If a specific number format is selected, use formatNumber
+            if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+              return formatNumber(value, {
+                format: yAxisNumberFormat,
+                decimalPlaces: yAxisDecimalPlaces,
+              });
+            }
+            // Otherwise, just apply decimal places without thousand separators
+            return value.toFixed(yAxisDecimalPlaces);
           };
 
           if (Array.isArray(modifiedConfig.yAxis)) {
@@ -440,16 +405,24 @@ export function ChartPreview({
           }
         }
 
-        // Format X-axis labels (only if numeric values)
-        if (modifiedConfig.xAxis && xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+        // Format X-axis labels (only if numeric values, apply if number format is set OR decimal places are specified)
+        const hasXAxisFormatting =
+          (xAxisNumberFormat && xAxisNumberFormat !== 'default') ||
+          xAxisDecimalPlaces !== undefined;
+        if (modifiedConfig.xAxis && hasXAxisFormatting) {
           const formatXAxisLabel = (value: any) => {
             // Try to parse string values to numbers
             const numVal = typeof value === 'number' ? value : parseFloat(value);
             if (isNaN(numVal)) return value; // Return original if not a valid number
-            return formatNumber(numVal, {
-              format: xAxisNumberFormat,
-              decimalPlaces: xAxisDecimalPlaces,
-            });
+            // If a specific number format is selected, use formatNumber
+            if (xAxisNumberFormat && xAxisNumberFormat !== 'default') {
+              return formatNumber(numVal, {
+                format: xAxisNumberFormat,
+                decimalPlaces: xAxisDecimalPlaces,
+              });
+            }
+            // Otherwise, just apply decimal places without thousand separators
+            return numVal.toFixed(xAxisDecimalPlaces);
           };
 
           if (Array.isArray(modifiedConfig.xAxis)) {
@@ -497,12 +470,7 @@ export function ChartPreview({
         }
 
         // Format data labels on the chart points/bars (uses Y-axis format since data labels show Y values)
-        if (
-          modifiedConfig.series &&
-          customizations.showDataLabels &&
-          yAxisNumberFormat &&
-          yAxisNumberFormat !== 'default'
-        ) {
+        if (modifiedConfig.series && customizations.showDataLabels && hasYAxisFormatting) {
           const seriesArray = Array.isArray(modifiedConfig.series)
             ? modifiedConfig.series
             : [modifiedConfig.series];
@@ -514,10 +482,15 @@ export function ChartPreview({
               formatter: (params: any) => {
                 const value = params.value;
                 if (typeof value !== 'number' || isNaN(value)) return value;
-                return formatNumber(value, {
-                  format: yAxisNumberFormat,
-                  decimalPlaces: yAxisDecimalPlaces,
-                });
+                // If a specific number format is selected, use formatNumber
+                if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+                  return formatNumber(value, {
+                    format: yAxisNumberFormat,
+                    decimalPlaces: yAxisDecimalPlaces,
+                  });
+                }
+                // Otherwise, just apply decimal places without thousand separators
+                return value.toFixed(yAxisDecimalPlaces);
               },
             },
           }));

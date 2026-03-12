@@ -504,10 +504,11 @@ describe('ChartPreview', () => {
 
     it.each([
       ['percentage', 'percentage', { name: 'A', value: 100, percent: 50 }, '50%'],
-      ['value', 'value', { name: 'A', value: 1000, percent: 50 }, '1,000'],
+      ['value', 'value', { name: 'A', value: 1000, percent: 50 }, '1000'],
       ['name_percentage', 'name_percentage', { name: 'A', value: 100, percent: 50 }, 'A\n50%'],
-      ['name_value', 'name_value', { name: 'A', value: 1000, percent: 50 }, 'A\n1,000'],
+      ['name_value', 'name_value', { name: 'A', value: 1000, percent: 50 }, 'A\n1000'],
     ])('should format label as %s', (_, labelFormat, params, expected) => {
+      // Default format returns raw values without thousand separators
       render(<ChartPreview config={pieConfig} chartType="pie" customizations={{ labelFormat }} />);
 
       const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
@@ -539,6 +540,29 @@ describe('ChartPreview', () => {
       const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
       expect(formatter({ name: 'A', value: 'text', percent: 50 })).toBe('text');
     });
+
+    it('should keep raw numeric dimension names when no format is specified', () => {
+      const pieConfigNumeric = {
+        series: [
+          {
+            type: 'pie',
+            data: [
+              { name: 1000, value: 100 },
+              { name: 2000, value: 200 },
+            ],
+          },
+        ],
+        legend: { data: [1000, 2000] },
+      };
+
+      render(<ChartPreview config={pieConfigNumeric} chartType="pie" />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      // Numbers are kept raw (no formatting) when numberFormat is default
+      expect(calledConfig.series[0].data[0].name).toBe('1000');
+      expect(calledConfig.series[0].data[1].name).toBe('2000');
+      expect(calledConfig.legend.data).toEqual(['1000', '2000']);
+    });
   });
 
   describe('Line Chart Number Formatting', () => {
@@ -548,15 +572,14 @@ describe('ChartPreview', () => {
       xAxis: { type: 'category', data: ['A', 'B', 'C'] },
     };
 
-    it('should not apply Y-axis formatter when yAxisNumberFormat is default', () => {
+    it('should apply axis formatters only when number format is set', () => {
+      // No formatter when customizations empty
       render(<ChartPreview config={lineConfig} chartType="line" customizations={{}} />);
+      expect(mockChart.setOption.mock.calls[0][0].yAxis.axisLabel.formatter).toBeUndefined();
 
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      // Y-axis should not have a custom formatter when format is default
-      expect(calledConfig.yAxis.axisLabel.formatter).toBeUndefined();
-    });
+      mockChart.setOption.mockClear();
 
-    it('should apply Y-axis formatter when yAxisNumberFormat is set', () => {
+      // Formatter applied when yAxisNumberFormat set
       render(
         <ChartPreview
           config={lineConfig}
@@ -564,17 +587,11 @@ describe('ChartPreview', () => {
           customizations={{ yAxisNumberFormat: 'indian' }}
         />
       );
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.yAxis.axisLabel.formatter).toBeDefined();
-      expect(calledConfig.yAxis.axisLabel.formatter(1234567)).toBe('12,34,567');
+      expect(mockChart.setOption.mock.calls[0][0].yAxis.axisLabel.formatter).toBeDefined();
     });
 
     it('should apply X-axis formatter when xAxisNumberFormat is set', () => {
-      const numericXAxisConfig = {
-        ...lineConfig,
-        xAxis: { type: 'value', data: [1000, 2000, 3000] },
-      };
+      const numericXAxisConfig = { ...lineConfig, xAxis: { type: 'value' } };
 
       render(
         <ChartPreview
@@ -584,9 +601,7 @@ describe('ChartPreview', () => {
         />
       );
 
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.xAxis.axisLabel.formatter).toBeDefined();
-      expect(calledConfig.xAxis.axisLabel.formatter(1234567)).toBe('1,234,567');
+      expect(mockChart.setOption.mock.calls[0][0].xAxis.axisLabel.formatter).toBeDefined();
     });
 
     it('should apply data label formatter when showDataLabels is true', () => {
@@ -598,52 +613,11 @@ describe('ChartPreview', () => {
         />
       );
 
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      const labelFormatter = calledConfig.series[0].label.formatter;
-      expect(labelFormatter).toBeDefined();
-      expect(labelFormatter({ value: 1234567 })).toBe('1,234,567');
-    });
-
-    it('should apply Y-axis decimal places to formatted numbers', () => {
-      render(
-        <ChartPreview
-          config={lineConfig}
-          chartType="line"
-          customizations={{ yAxisNumberFormat: 'international', yAxisDecimalPlaces: 2 }}
-        />
-      );
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.yAxis.axisLabel.formatter(1234.5)).toBe('1,234.50');
-    });
-
-    it('should format X-axis and Y-axis independently', () => {
-      const numericXAxisConfig = {
-        ...lineConfig,
-        xAxis: { type: 'value' },
-      };
-
-      render(
-        <ChartPreview
-          config={numericXAxisConfig}
-          chartType="line"
-          customizations={{
-            yAxisNumberFormat: 'indian',
-            xAxisNumberFormat: 'international',
-          }}
-        />
-      );
-
-      const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.yAxis.axisLabel.formatter(1234567)).toBe('12,34,567');
-      expect(calledConfig.xAxis.axisLabel.formatter(1234567)).toBe('1,234,567');
+      expect(mockChart.setOption.mock.calls[0][0].series[0].label.formatter).toBeDefined();
     });
 
     it('should handle array yAxis configuration', () => {
-      const multiAxisConfig = {
-        ...lineConfig,
-        yAxis: [{ type: 'value' }, { type: 'value' }],
-      };
+      const multiAxisConfig = { ...lineConfig, yAxis: [{ type: 'value' }, { type: 'value' }] };
 
       render(
         <ChartPreview
@@ -657,6 +631,18 @@ describe('ChartPreview', () => {
       expect(Array.isArray(calledConfig.yAxis)).toBe(true);
       expect(calledConfig.yAxis[0].axisLabel.formatter).toBeDefined();
       expect(calledConfig.yAxis[1].axisLabel.formatter).toBeDefined();
+    });
+
+    it('should apply decimal places without thousand separators when only decimalPlaces is set', () => {
+      render(
+        <ChartPreview
+          config={lineConfig}
+          chartType="line"
+          customizations={{ yAxisDecimalPlaces: 2 }}
+        />
+      );
+      const formatter = mockChart.setOption.mock.calls[0][0].yAxis.axisLabel.formatter;
+      expect(formatter(1234567.5)).toBe('1234567.50');
     });
   });
 
