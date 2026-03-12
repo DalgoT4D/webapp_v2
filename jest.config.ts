@@ -16,14 +16,14 @@ const customJestConfig: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jsdom',
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
   // Run tests in component-level __tests__ folders and lib tests
   testMatch: [
-    '<rootDir>/components/**/__tests__/**/*.test.{ts,tsx}',
-    '<rootDir>/app/**/__tests__/**/*.test.{ts,tsx}',
-    '<rootDir>/hooks/**/__tests__/**/*.test.{ts,tsx}',
-    '<rootDir>/lib/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/src/components/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/src/app/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/src/hooks/**/__tests__/**/*.test.{ts,tsx}',
+    '<rootDir>/src/lib/**/__tests__/**/*.test.{ts,tsx}',
     '<rootDir>/__tests__/lib/**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
@@ -32,11 +32,11 @@ const customJestConfig: Config = {
     '<rootDir>/e2e/', // Exclude Playwright E2E tests
   ],
   collectCoverageFrom: [
-    'components/**/*.{js,jsx,ts,tsx}',
-    'app/**/*.{js,jsx,ts,tsx}',
-    'lib/**/*.{js,jsx,ts,tsx}',
-    'hooks/**/*.{js,jsx,ts,tsx}',
-    'stores/**/*.{js,jsx,ts,tsx}',
+    'src/components/**/*.{js,jsx,ts,tsx}',
+    'src/app/**/*.{js,jsx,ts,tsx}',
+    'src/lib/**/*.{js,jsx,ts,tsx}',
+    'src/hooks/**/*.{js,jsx,ts,tsx}',
+    'src/stores/**/*.{js,jsx,ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],
