@@ -94,8 +94,6 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
                 onSelect={handleStartDateSelect}
                 fixedWeeks
                 captionLayout="dropdown"
-                startMonth={new Date(2018, 0)}
-                endMonth={new Date(2030, 11)}
                 disabled={(date) => {
                   // Disable dates after end date if end date is selected
                   return endDate ? date > endDate : false;
@@ -131,8 +129,6 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
                 onSelect={handleEndDateSelect}
                 fixedWeeks
                 captionLayout="dropdown"
-                startMonth={new Date(2018, 0)}
-                endMonth={new Date(2030, 11)}
                 disabled={(date) => {
                   // Disable dates before start date if start date is selected
                   return startDate ? date < startDate : false;
