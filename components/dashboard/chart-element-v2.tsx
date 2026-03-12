@@ -42,7 +42,7 @@ import {
   getLegendMode,
 } from '@/lib/responsive-legend';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
-import { createTooltipFormatter } from '@/lib/chart-formatting-utils';
+import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1030,6 +1030,9 @@ export function ChartElementV2({
           ? modifiedConfig.series
           : [modifiedConfig.series];
 
+        // Use shared formatter for pie dimension values (handles numbers, bigint, and "dimension - extra_dimension" strings)
+        const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+
         modifiedConfig.series = seriesArray.map((series: any) => ({
           ...series,
           label: {
@@ -1037,13 +1040,7 @@ export function ChartElementV2({
             show: showDataLabels,
             position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
             formatter: (params: any) => {
-              // Only format if value is already a number type
-              const formattedValue =
-                typeof params.value === 'number'
-                  ? numberFormat !== 'default'
-                    ? formatNumber(params.value, { format: numberFormat, decimalPlaces })
-                    : params.value.toLocaleString()
-                  : params.value;
+              const formattedValue = formatIfNumber(params.value);
 
               switch (labelFormat) {
                 case 'value':
