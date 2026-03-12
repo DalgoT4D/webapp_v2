@@ -55,6 +55,7 @@ export interface DiscoveredDatetimeColumn {
   table_name: string;
   column_name: string;
   data_type: string;
+  is_dashboard_filter: boolean;
 }
 
 export interface CreateSnapshotPayload {

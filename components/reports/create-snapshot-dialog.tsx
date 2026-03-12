@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +75,17 @@ export function CreateSnapshotDialog({
     value: d.id.toString(),
     label: d.title,
   }));
+
+  // Auto-select the dashboard's existing datetime filter, or the only available column
+  useEffect(() => {
+    if (columnsLoading || discoveredColumns.length === 0 || selectedDateColumn) return;
+
+    const dashboardFilter = discoveredColumns.find((col) => col.is_dashboard_filter);
+    const col = dashboardFilter ?? (discoveredColumns.length === 1 ? discoveredColumns[0] : null);
+    if (col) {
+      setSelectedDateColumn(`${col.schema_name}.${col.table_name}.${col.column_name}`);
+    }
+  }, [columnsLoading, discoveredColumns, selectedDateColumn]);
 
   const resetForm = useCallback(() => {
     if (!preselectedDashboardId) setSelectedDashboardId('');
