@@ -1,7 +1,7 @@
 /**
  * Pipeline Overview Components - Comprehensive Tests
  *
- * Tests for PipelineOverview, LogCard, LogSummaryCard, and LogSummaryBlock
+ * Tests for PipelineOverview and LogCard
  */
 
 import React from 'react';
@@ -10,9 +10,6 @@ import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
 import { PipelineOverview } from '../pipeline-overview';
 import { LogCard } from '../log-card';
-import { LogSummaryCard } from '../log-summary-card';
-import type { LogSummary } from '@/types/pipeline';
-import { LogSummaryBlock } from '../log-summary-block';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
@@ -70,19 +67,6 @@ const createDashboardPipeline = (
   ...overrides,
 });
 
-const createLogSummary = (overrides: Partial<LogSummary> = {}): LogSummary => ({
-  task_name: 'dbt run',
-  status: 'success',
-  pattern: 'Running dbt...',
-  log_lines: ['Line 1', 'Line 2', 'Line 3'],
-  passed: 10,
-  errors: 0,
-  skipped: 2,
-  warnings: 1,
-  tests: [],
-  ...overrides,
-});
-
 // ============ PipelineOverview Tests ============
 
 describe('PipelineOverview', () => {
@@ -99,7 +83,6 @@ describe('PipelineOverview', () => {
     (usePipelinesHook.fetchFlowRunLogs as jest.Mock).mockResolvedValue({
       logs: { logs: [] },
     });
-    (usePipelinesHook.fetchFlowRunLogSummary as jest.Mock).mockResolvedValue([]);
   });
 
   it('renders loading skeleton, error state, and empty state correctly', () => {
@@ -394,299 +377,5 @@ describe('LogCard', () => {
     expect(screen.queryByRole('button', { name: /close logs/i })).not.toBeInTheDocument();
     // Collapse button should still work
     expect(screen.getByRole('button', { name: /collapse logs/i })).toBeInTheDocument();
-  });
-});
-
-// ============ LogSummaryCard Tests ============
-
-describe('LogSummaryCard', () => {
-  it('renders all log summaries with correct task names and allows clicking logs button', async () => {
-    const user = userEvent.setup();
-    const mockSetLogs = jest.fn();
-
-    const summaries: LogSummary[] = [
-      createLogSummary({
-        task_name: 'git pull',
-        status: 'success',
-        pattern: 'Pulling from origin...',
-        log_lines: ['Cloning repo', 'Pull complete'],
-      }),
-      createLogSummary({
-        task_name: 'dbt run',
-        status: 'success',
-        passed: 15,
-        errors: 0,
-        skipped: 3,
-        warnings: 2,
-        log_lines: ['Running models', 'Models complete'],
-      }),
-      createLogSummary({
-        task_name: 'dbt test',
-        status: 'failed',
-        tests: [
-          {
-            pattern: 'test-summary',
-            passed: 8,
-            errors: 4,
-            skipped: 1,
-            warnings: 0,
-          },
-        ],
-        log_lines: ['Running tests', 'Test failed: unique_check'],
-      }),
-      createLogSummary({
-        task_name: 'sync connections',
-        status: 'success',
-        pattern: 'Syncing data...',
-        log_lines: ['Sync started', 'Sync complete'],
-      }),
-    ];
-
-    render(<LogSummaryCard logsummary={summaries} setLogsummaryLogs={mockSetLogs} />);
-
-    // All task names are rendered
-    expect(screen.getByText('git pull')).toBeInTheDocument();
-    expect(screen.getByText('dbt run')).toBeInTheDocument();
-    expect(screen.getByText('dbt test')).toBeInTheDocument();
-    expect(screen.getByText('sync connections')).toBeInTheDocument();
-
-    // Pattern shown for non-special tasks
-    expect(screen.getByText('Pulling from origin...')).toBeInTheDocument();
-    expect(screen.getByText('Syncing data...')).toBeInTheDocument();
-
-    // DBT run stats
-    expect(screen.getByText('15')).toBeInTheDocument(); // passed
-
-    // DBT test stats (from test-summary) - use unique values
-    expect(screen.getByText('8')).toBeInTheDocument(); // passed from test-summary
-    expect(screen.getByText('4')).toBeInTheDocument(); // errors from test-summary
-
-    // Click Logs button for each summary
-    const logsButtons = screen.getAllByRole('button', { name: /logs/i });
-    expect(logsButtons.length).toBe(4);
-
-    // Click first logs button (git pull)
-    await user.click(logsButtons[0]);
-    expect(mockSetLogs).toHaveBeenCalledWith(['Cloning repo', 'Pull complete']);
-
-    // Click second logs button (dbt run)
-    await user.click(logsButtons[1]);
-    expect(mockSetLogs).toHaveBeenCalledWith(['Running models', 'Models complete']);
-
-    // Click third logs button (dbt test)
-    await user.click(logsButtons[2]);
-    expect(mockSetLogs).toHaveBeenCalledWith(['Running tests', 'Test failed: unique_check']);
-  });
-});
-
-// ============ LogSummaryBlock Tests ============
-
-describe('LogSummaryBlock', () => {
-  const mockSetLogs = jest.fn();
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('renders NameAndPatternBlock for regular success and failed tasks with correct border colors', async () => {
-    const user = userEvent.setup();
-
-    // Test 1: Regular success task (NameAndPatternBlock)
-    const regularSuccessTask = createLogSummary({
-      task_name: 'git pull',
-      status: 'success',
-      pattern: 'Pulling from main branch',
-      log_lines: ['Log 1', 'Log 2'],
-    });
-
-    const { unmount, container } = render(
-      <LogSummaryBlock logsummary={regularSuccessTask} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    expect(screen.getByText('git pull')).toBeInTheDocument();
-    expect(screen.getByText('Pulling from main branch')).toBeInTheDocument();
-    // Success border color
-    expect(container.querySelector('.border-primary')).toBeInTheDocument();
-
-    const logsButton = screen.getByRole('button', { name: /logs/i });
-    await user.click(logsButton);
-    expect(mockSetLogs).toHaveBeenCalledWith(['Log 1', 'Log 2']);
-    unmount();
-
-    // Test 2: Regular failed task (NameAndPatternBlock with red border)
-    const regularFailedTask = createLogSummary({
-      task_name: 'sync',
-      status: 'failed',
-      pattern: 'Sync failed',
-      log_lines: ['Error occurred'],
-    });
-
-    const { unmount: unmount2, container: container2 } = render(
-      <LogSummaryBlock logsummary={regularFailedTask} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    expect(screen.getByText('sync')).toBeInTheDocument();
-    expect(screen.getByText('Sync failed')).toBeInTheDocument();
-    // Failed border color
-    expect(container2.querySelector('.border-failed')).toBeInTheDocument();
-    unmount2();
-  });
-
-  it('renders DbtRunBlock with stats for successful dbt run tasks', () => {
-    const dbtRunSuccess = createLogSummary({
-      task_name: 'dbt run',
-      status: 'success',
-      passed: 25,
-      errors: 1,
-      skipped: 5,
-      warnings: 3,
-      log_lines: ['DBT run complete'],
-    });
-
-    const { unmount } = render(
-      <LogSummaryBlock logsummary={dbtRunSuccess} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    expect(screen.getByText('dbt run')).toBeInTheDocument();
-    // Stats are displayed
-    expect(screen.getByText('25')).toBeInTheDocument();
-    expect(screen.getByText('passed')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
-    expect(screen.getByText('errors')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('skipped')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('warnings')).toBeInTheDocument();
-    unmount();
-  });
-
-  it('renders DbtTestBlock with test-summary stats for failed dbt test tasks', () => {
-    const dbtTestFailed = createLogSummary({
-      task_name: 'dbt test',
-      status: 'failed',
-      tests: [
-        {
-          pattern: 'test-summary',
-          passed: 10,
-          errors: 3,
-          skipped: 2,
-          warnings: 1,
-        },
-        {
-          pattern: 'other-test',
-          passed: 5,
-          errors: 0,
-          skipped: 0,
-          warnings: 0,
-        },
-      ],
-      log_lines: ['Test failures'],
-    });
-
-    const { unmount, container } = render(
-      <LogSummaryBlock logsummary={dbtTestFailed} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    expect(screen.getByText('dbt test')).toBeInTheDocument();
-    // Stats from test-summary pattern
-    expect(screen.getByText('10')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument(); // errors
-    expect(screen.getByText('2')).toBeInTheDocument(); // skipped
-    // Failed border color
-    expect(container.querySelector('.border-failed')).toBeInTheDocument();
-    unmount();
-  });
-
-  it('renders empty container when dbt test failed has no test-summary pattern', () => {
-    // When dbt test fails without test-summary, DbtTestBlock returns null
-    // and since useSpecialHandling is true, NameAndPatternBlock won't render either
-    const dbtTestNoSummary = createLogSummary({
-      task_name: 'dbt test',
-      status: 'failed',
-      tests: [
-        {
-          pattern: 'not-test-summary',
-          passed: 5,
-          errors: 2,
-          skipped: 0,
-          warnings: 0,
-        },
-      ],
-      log_lines: ['No summary'],
-    });
-
-    const { container, unmount } = render(
-      <LogSummaryBlock logsummary={dbtTestNoSummary} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    // Container exists with border
-    expect(container.querySelector('.border-failed')).toBeInTheDocument();
-    // No logs button because DbtTestBlock returned null
-    expect(screen.queryByRole('button', { name: /logs/i })).not.toBeInTheDocument();
-    unmount();
-  });
-
-  it('uses NameAndPatternBlock for failed dbt run tasks (not DbtRunBlock)', () => {
-    // DbtRunBlock is only for successful dbt run, failed dbt run uses NameAndPatternBlock
-    const dbtRunFailed = createLogSummary({
-      task_name: 'dbt run',
-      status: 'failed',
-      passed: 10,
-      errors: 5,
-      skipped: 0,
-      warnings: 0,
-      pattern: 'DBT run failed',
-      log_lines: ['Failed'],
-    });
-
-    const { unmount } = render(
-      <LogSummaryBlock logsummary={dbtRunFailed} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    // Should use NameAndPatternBlock since it's not success
-    expect(screen.getByText('dbt run')).toBeInTheDocument();
-    expect(screen.getByText('DBT run failed')).toBeInTheDocument();
-    // Should NOT show stats (NameAndPatternBlock doesn't show them)
-    expect(screen.queryByText('passed')).not.toBeInTheDocument();
-    unmount();
-  });
-
-  it('handles edge cases: missing pattern, zero values in stats', () => {
-    // Task without pattern
-    const noPatternTask = createLogSummary({
-      task_name: 'custom task',
-      status: 'success',
-      pattern: undefined,
-      log_lines: ['Log'],
-    });
-
-    const { unmount } = render(
-      <LogSummaryBlock logsummary={noPatternTask} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    expect(screen.getByText('custom task')).toBeInTheDocument();
-    // No pattern paragraph should be rendered
-    expect(screen.queryByText('undefined')).not.toBeInTheDocument();
-    unmount();
-
-    // DBT run with zero values
-    const zeroValuesTask = createLogSummary({
-      task_name: 'dbt run',
-      status: 'success',
-      passed: 0,
-      errors: 0,
-      skipped: 0,
-      warnings: 0,
-      log_lines: [],
-    });
-
-    const { unmount: unmount2 } = render(
-      <LogSummaryBlock logsummary={zeroValuesTask} setLogsummaryLogs={mockSetLogs} />
-    );
-
-    // Should show 0 for all stats
-    const zeros = screen.getAllByText('0');
-    expect(zeros.length).toBe(4); // passed, errors, skipped, warnings
-    unmount2();
   });
 });
