@@ -25,8 +25,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiPost } from '@/lib/api';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 
 interface HeaderProps {
@@ -56,29 +57,13 @@ export function Header({
     isAuthenticated,
   } = useAuthStore();
 
-  const [unreadCount, setUnreadCount] = useState(0);
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
 
   const { hasPermission } = useUserPermissions();
   const canCreateOrg = hasPermission('can_create_org');
 
-  // Fetch unread notification count
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const data = await apiGet('/api/notifications/unread_count');
-        setUnreadCount(data?.res || 0);
-      } catch (error) {
-        console.error('Failed to fetch notification count:', error);
-      }
-    };
-
-    fetchUnreadCount();
-    // Refresh count every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Fetch unread notification count (uses SWR with 30s polling)
+  const { unreadCount } = useUnreadCount();
 
   // Get current user email
   const currentOrgUser = getCurrentOrgUser();
