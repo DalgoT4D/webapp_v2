@@ -285,7 +285,7 @@ export function MapPreview({
                         : rawName;
                   const name = escapeHtml(truncatedName);
                   // Apply number formatting if configured
-                  let formattedValue = params.data.value;
+                  let formattedValue: string | number = params.data.value;
                   if (
                     safeCustomizations.numberFormat ||
                     safeCustomizations.decimalPlaces !== undefined
@@ -295,7 +295,9 @@ export function MapPreview({
                       decimalPlaces: safeCustomizations.decimalPlaces,
                     });
                   }
-                  return `<b>${name}</b><br/>${label}: ${formattedValue}`;
+                  // Escape formattedValue for defense-in-depth
+                  const safeFormattedValue = escapeHtml(String(formattedValue));
+                  return `<b>${name}</b><br/>${label}: ${safeFormattedValue}`;
                 }
                 const rawNullLabel =
                   safeCustomizations.nullValueLabel !== undefined
