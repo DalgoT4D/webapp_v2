@@ -53,33 +53,40 @@ npm run format:write           # Format code and auto-stage changes
 
 ```
 webapp_v2/
-├── app/                      # Next.js App Router pages
-│   ├── charts/              # Chart management and builder
-│   ├── dashboards/          # Dashboard CRUD operations
-│   ├── data-quality/        # Data quality management
-│   ├── explore/             # Data exploration
-│   ├── impact/              # Impact tracking
-│   ├── ingest/              # Data ingestion workflows
-│   ├── login/               # Authentication pages
-│   ├── notifications/       # Notification management
-│   ├── orchestrate/         # Orchestration management
-│   ├── pipeline/            # Pipeline management
-│   ├── settings/            # Application settings
-│   ├── share/               # Shared/public dashboard views
-│   └── transform/           # Data transformation tools
-├── components/
-│   ├── ui/                  # Reusable Radix-based UI components (GLOBAL)
-│   ├── charts/              # Chart-specific components
-│   ├── dashboard/           # Dashboard builder components
-│   ├── dashboards/          # Dashboard list and management
-│   ├── pipeline/            # Pipeline-specific components
-│   └── settings/            # Settings-specific components
-├── hooks/
-│   ├── api/                 # SWR-based API hooks
-│   └── [custom hooks]       # Utility hooks (toast, mobile, etc.)
-├── stores/                  # Zustand stores (currently just authStore)
-├── lib/                     # Global utilities (API client, SWR config, utils)
-└── constants/               # Application constants (GLOBAL)
+├── src/                     # All source code under src/ directory
+│   ├── app/                 # Next.js App Router pages
+│   │   ├── charts/          # Chart management and builder
+│   │   ├── dashboards/      # Dashboard CRUD operations
+│   │   ├── data-quality/    # Data quality management
+│   │   ├── explore/         # Data exploration
+│   │   ├── impact/          # Impact tracking
+│   │   ├── ingest/          # Data ingestion workflows
+│   │   ├── login/           # Authentication pages
+│   │   ├── notifications/   # Notification management
+│   │   ├── orchestrate/     # Orchestration management
+│   │   ├── pipeline/        # Pipeline management
+│   │   ├── settings/        # Application settings
+│   │   ├── share/           # Shared/public dashboard views
+│   │   └── transform/       # Data transformation tools
+│   ├── components/
+│   │   ├── ui/              # Reusable Radix-based UI components (GLOBAL)
+│   │   ├── charts/          # Chart-specific components
+│   │   ├── dashboard/       # Dashboard builder components
+│   │   ├── dashboards/      # Dashboard list and management
+│   │   ├── pipeline/        # Pipeline-specific components
+│   │   └── settings/        # Settings-specific components
+│   ├── hooks/
+│   │   ├── api/             # SWR-based API hooks
+│   │   └── [custom hooks]   # Utility hooks (toast, mobile, etc.)
+│   ├── stores/              # Zustand stores (currently just authStore)
+│   ├── lib/                 # Global utilities (API client, SWR config, utils)
+│   ├── constants/           # Application constants (GLOBAL)
+│   ├── types/               # TypeScript type definitions
+│   ├── assets/              # Static assets (icons, etc.)
+│   └── test-utils/          # Testing utilities and helpers
+├── e2e/                     # Playwright E2E tests (outside src/)
+├── public/                  # Static files served by Next.js (outside src/)
+└── [config files]          # Configuration files (outside src/)
 ```
 
 ### Key Architectural Patterns
@@ -145,14 +152,16 @@ const MyComponent = ({ variant = 'default', ...props }) => {
 - **TypeScript**: Configured with `strict: false` but selective strict options enabled
 - **Build Errors Ignored**: Both TypeScript and ESLint errors ignored during build
 - **Coverage Thresholds**: Set to minimal 1% for all metrics
-- **Path Aliases**: `@/*` maps to project root for clean imports
+- **Path Aliases**: `@/*` maps to `src/` directory for clean imports
 - **No barrel exports**: We don't use `index.ts` barrel exports
+- **Source Structure**: All source code organized under `src/` directory
 
 #### Testing Setup
-- **Jest Configuration**: Custom setup with module name mapping for path aliases
-- **Coverage Collection**: Includes components, app, lib, hooks, and stores directories
+- **Jest Configuration**: Custom setup with module name mapping for path aliases (`@/*` → `src/*`)
+- **Coverage Collection**: Includes all directories under `src/` (components, app, lib, hooks, stores)
 - **Component Testing**: React Testing Library with jsdom environment
-- **E2E Testing**: Playwright configured in `playwright.config.ts`, tests in `/e2e/` directory
+- **E2E Testing**: Playwright configured in `playwright.config.ts`, tests in `/e2e/` directory (outside src/)
+- **Test Utils**: Testing utilities located in `src/test-utils/`
 
 #### Environment & API
 - **Backend URL**: Configurable via `NEXT_PUBLIC_BACKEND_URL` (defaults to localhost:8002)
@@ -211,21 +220,21 @@ export async function triggerAction(id: string): Promise<void> {
 - **Smart polling**: Use `refreshInterval` callback for dynamic polling (see `usePipelines` for pattern)
 - **SWR options**: Use `revalidateOnFocus: false` for data that doesn't change often
 
-**Real examples:** `hooks/api/useCharts.ts` (read), `hooks/api/useChart.ts` (mutations), `hooks/api/usePipelines.ts` (polling)
+**Real examples:** `src/hooks/api/useCharts.ts` (read), `src/hooks/api/useChart.ts` (mutations), `src/hooks/api/usePipelines.ts` (polling)
 
 ### Utility and Constants Organization
 
 **Global utilities and constants** (used across multiple features):
-- `lib/utils.ts` - General utility functions
-- `lib/api.ts` - API client functions
-- `constants/` - Application-wide constants
+- `src/lib/utils.ts` - General utility functions
+- `src/lib/api.ts` - API client functions
+- `src/constants/` - Application-wide constants
 
 **Feature-specific utilities** (used only within one feature/component):
 - Always create a `utils.ts` file in the feature folder for utility functions
 - Do not keep utility functions inline in component files
 
 ```
-components/
+src/components/
 ├── charts/
 │   ├── ChartBuilder.tsx
 │   ├── utils.ts              # Chart-specific utilities
@@ -429,11 +438,11 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 </div>
 ```
 
-**Real examples:** `app/charts/page.tsx`, `components/pipeline/pipeline-list.tsx`
+**Real examples:** `src/app/charts/page.tsx`, `src/components/pipeline/pipeline-list.tsx`
 
 ### Color & Theme Conventions
 
-**Font**: Anek Latin (Google Font), set globally via `var(--font-anek-latin)` in `app/globals.css`. Never set font-family on individual components.
+**Font**: Anek Latin (Google Font), set globally via `var(--font-anek-latin)` in `src/app/globals.css`. Never set font-family on individual components.
 
 **Brand colors**:
 - CSS variable `--primary: #00897B` — use via Tailwind classes `text-primary`, `bg-primary`
@@ -474,31 +483,28 @@ When adding a new feature, follow the **pipeline feature** as the reference impl
 
 **Pipeline structure (reference):**
 ```
-app/
-├── pipeline/
-│   └── page.tsx                  # Thin page — delegates to a component
-
-components/
-├── pipeline/                      # Feature-specific components
-│   ├── pipeline-list.tsx          # Separate file — has own state, effects, API calls
-│   ├── pipeline-form.tsx          # Separate file — has own state, effects, API calls
-│   ├── pipeline-run-history.tsx   # Separate file — has own state, effects, API calls
-│   ├── task-sequence.tsx          # Separate file — has own state, effects, API calls
-│   ├── utils.ts                   # Feature-specific utility functions
-│   └── __tests__/                 # Co-located tests with mock data
-│       ├── pipeline.test.tsx
-│       ├── pipeline-utils.test.ts
-│       └── pipeline-mock-data.ts
-
-hooks/
-├── api/
-│   └── usePipelines.ts            # SWR read hooks + standalone mutation functions
-
-types/
-├── pipeline.ts                    # TypeScript interfaces for API responses
-
-constants/
-├── pipeline.ts                    # Named constants (polling intervals, status enums, etc.)
+src/
+├── app/
+│   └── pipeline/
+│       └── page.tsx               # Thin page — delegates to a component
+├── components/
+│   └── pipeline/                  # Feature-specific components
+│       ├── pipeline-list.tsx      # Separate file — has own state, effects, API calls
+│       ├── pipeline-form.tsx      # Separate file — has own state, effects, API calls
+│       ├── pipeline-run-history.tsx # Separate file — has own state, effects, API calls
+│       ├── task-sequence.tsx      # Separate file — has own state, effects, API calls
+│       ├── utils.ts               # Feature-specific utility functions
+│       └── __tests__/             # Co-located tests with mock data
+│           ├── pipeline.test.tsx
+│           ├── pipeline-utils.test.ts
+│           └── pipeline-mock-data.ts
+├── hooks/
+│   └── api/
+│       └── usePipelines.ts        # SWR read hooks + standalone mutation functions
+├── types/
+│   └── pipeline.ts                # TypeScript interfaces for API responses
+└── constants/
+    └── pipeline.ts                # Named constants (polling intervals, status enums, etc.)
 ```
 
 **What the pipeline does right:**
@@ -506,9 +512,9 @@ constants/
 - Each component with its own state/effects/API calls is a separate file
 - SWR hooks for reads (`usePipelines`, `usePipeline`) + standalone async functions for mutations (`createPipeline`, `deletePipeline`)
 - Feature-specific `utils.ts` for cron parsing, time formatting, etc. — not inline in components
-- Named constants (`POLLING_INTERVAL_WHEN_LOCKED`, `LockStatus`, `FlowRunStatus`) in `constants/pipeline.ts`
-- Proper TypeScript types in `types/pipeline.ts`
-- Uses `toastSuccess`/`toastError` from `lib/toast.ts` — never raw `toast()`
+- Named constants (`POLLING_INTERVAL_WHEN_LOCKED`, `LockStatus`, `FlowRunStatus`) in `src/constants/pipeline.ts`
+- Proper TypeScript types in `src/types/pipeline.ts`
+- Uses `toastSuccess`/`toastError` from `src/lib/toast.ts` — never raw `toast()`
 - Follows the page layout pattern (fixed header + scrollable content)
 - Uses the CTA button pattern (`variant="ghost"` + `style={{ backgroundColor: 'var(--primary)' }}`)
 - `data-testid` on key elements, `key` using stable IDs, `useCallback`/`useMemo` where appropriate
@@ -723,10 +729,10 @@ Don't change existing CI/CD functionality - only add new values/configurations a
 - **No blind fixes** - Don't guess at solutions. If unclear, ask.
 
 ### Test File Conventions
-- **Location**: Tests live in `__tests__/` folders **inside** the component directory (e.g., `components/pipeline/__tests__/`, `components/notifications/__tests__/`)
-- **Mock data factories**: Create a `*-mock-data.ts` file in the `__tests__/` folder with factory functions (`createMockPipeline()`, `createMockNotification()`) following the pattern in `components/pipeline/__tests__/pipeline-mock-data.ts`
-- **Global API mocks**: API is mocked globally in `jest.setup.ts` — use `mockApiGet`/`mockApiPut` from `test-utils/api.ts` for typed references
-- **Test wrappers**: Use `TestWrapper` from `test-utils/render.tsx` for SWR isolation (fresh cache, no deduping, no polling)
+- **Location**: Tests live in `__tests__/` folders **inside** the component directory (e.g., `src/components/pipeline/__tests__/`, `src/components/notifications/__tests__/`)
+- **Mock data factories**: Create a `*-mock-data.ts` file in the `__tests__/` folder with factory functions (`createMockPipeline()`, `createMockNotification()`) following the pattern in `src/components/pipeline/__tests__/pipeline-mock-data.ts`
+- **Global API mocks**: API is mocked globally in `jest.setup.ts` — use `mockApiGet`/`mockApiPut` from `src/test-utils/api.ts` for typed references
+- **Test wrappers**: Use `TestWrapper` from `src/test-utils/render.tsx` for SWR isolation (fresh cache, no deduping, no polling)
 - **Permissions**: Mock `useUserPermissions` from `@/hooks/api/usePermissions` — never mock `useAuthStore` directly for permission checks
 - **Relative imports for siblings**: Tests import components via relative paths (`../ComponentName`), mock data from `./mock-data`
 - **No `__tests__/integration/` or `__tests__/components/` folders**: All tests go in the component's own `__tests__/` directory, integration tests included (e.g., `notifications.integration.test.tsx`)
@@ -744,27 +750,28 @@ Don't change existing CI/CD functionality - only add new values/configurations a
 ### Test Organization
 Tests live in `__tests__` directories co-located with source code:
 ```
-components/
+src/components/
 ├── charts/
 │   ├── ChartBuilder.tsx
 │   └── __tests__/
 │       └── ChartBuilder.test.tsx
 ```
 
-E2E tests live in `/e2e/` directory.
+E2E tests live in `/e2e/` directory (outside src/).
 
 ---
 
 ## Key Files & Their Purpose
 
-- `lib/api.ts`: Centralized API client with auth and error handling
-- `stores/authStore.ts`: Authentication state management with Zustand
-- `app/layout.tsx`: Root layout with SWR provider and client layout wrapper
-- `components/ui/`: Radix-based reusable UI component library
-- `hooks/api/`: SWR-based hooks for server state management
-- `next.config.ts`: Next.js configuration with alias setup and build settings
-- `jest.config.ts`: Test configuration with path aliases and coverage settings
-- `playwright.config.ts`: E2E test configuration
+- `src/lib/api.ts`: Centralized API client with auth and error handling
+- `src/stores/authStore.ts`: Authentication state management with Zustand
+- `src/app/layout.tsx`: Root layout with SWR provider and client layout wrapper
+- `src/components/ui/`: Radix-based reusable UI component library
+- `src/hooks/api/`: SWR-based hooks for server state management
+- `src/test-utils/`: Testing utilities and helpers
+- `next.config.ts`: Next.js configuration with alias setup and build settings (project root)
+- `jest.config.ts`: Test configuration with path aliases and coverage settings (project root)
+- `playwright.config.ts`: E2E test configuration (project root)
 
 ---
 

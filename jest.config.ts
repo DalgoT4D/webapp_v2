@@ -24,7 +24,7 @@ const customJestConfig: Config = {
     '<rootDir>/src/app/**/__tests__/**/*.test.{ts,tsx}',
     '<rootDir>/src/hooks/**/__tests__/**/*.test.{ts,tsx}',
     '<rootDir>/src/lib/**/__tests__/**/*.test.{ts,tsx}',
-    '<rootDir>/__tests__/lib/**/*.test.{ts,tsx}',
+    '<rootDir>/src/__tests__/**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
