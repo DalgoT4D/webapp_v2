@@ -92,11 +92,16 @@ export async function updateReportSharing(
   snapshotId: number,
   data: { is_public: boolean }
 ): Promise<ShareStatus> {
-  return apiPut(`/api/reports/${snapshotId}/share/`, data);
+  const response: ApiResponse<ShareStatus> = await apiPut(
+    `/api/reports/${snapshotId}/share/`,
+    data
+  );
+  return response.data;
 }
 
 export async function getReportSharingStatus(snapshotId: number): Promise<ShareStatus> {
-  return apiGet(`/api/reports/${snapshotId}/share/`);
+  const response: ApiResponse<ShareStatus> = await apiGet(`/api/reports/${snapshotId}/share/`);
+  return response.data;
 }
 
 // Public report hook (no auth, direct fetch — same pattern as usePublicDashboard)
