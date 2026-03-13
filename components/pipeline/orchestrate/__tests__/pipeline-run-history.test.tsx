@@ -52,7 +52,7 @@ jest.mock('@/components/ui/full-screen-modal', () => ({
     ) : null,
 }));
 
-jest.mock('@/components/ui/logs-table', () => ({
+jest.mock('@/components/pipeline/logs-table', () => ({
   LogsTable: ({
     runs,
     hasMore,
