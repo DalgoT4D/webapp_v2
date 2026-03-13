@@ -38,7 +38,12 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
 
   // Support both old (string) and new (object) format
   const format = typeof options === 'string' ? options : options.format;
-  const decimalPlaces = typeof options === 'object' ? options.decimalPlaces : undefined;
+  const rawDecimalPlaces = typeof options === 'object' ? options.decimalPlaces : undefined;
+  // Sanitize decimalPlaces to prevent RangeError in toFixed() (UI allows 0-10)
+  const decimalPlaces =
+    typeof rawDecimalPlaces === 'number' && Number.isFinite(rawDecimalPlaces)
+      ? Math.min(10, Math.max(0, rawDecimalPlaces))
+      : undefined;
 
   // Apply decimal places if specified
   const processedValue = decimalPlaces !== undefined ? Number(value.toFixed(decimalPlaces)) : value;
