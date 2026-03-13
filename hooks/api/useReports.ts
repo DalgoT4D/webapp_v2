@@ -16,6 +16,13 @@ export type {
   FrozenChartConfig,
 } from '@/types/reports';
 
+// API Response wrapper type (matches backend ApiResponse)
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
 // Hooks
 
 interface SnapshotFilters {
@@ -30,45 +37,53 @@ export function useSnapshots(filters?: SnapshotFilters) {
   if (filters?.dashboard_title) params.set('dashboard_title', filters.dashboard_title);
   if (filters?.created_by) params.set('created_by', filters.created_by);
   const query = params.toString();
-  const { data, error, mutate } = useSWR<ReportSnapshot[]>(
+  const { data, error, mutate } = useSWR<ApiResponse<ReportSnapshot[]>>(
     `/api/reports/${query ? `?${query}` : ''}`,
     apiGet,
     { revalidateOnFocus: true }
   );
-  return { snapshots: data || [], isLoading: !error && !data, isError: error, mutate };
+  return { snapshots: data?.data || [], isLoading: !error && !data, isError: error, mutate };
 }
 
 export function useSnapshotView(snapshotId: number | null) {
-  const { data, error, mutate } = useSWR<SnapshotViewData>(
+  const { data, error, mutate } = useSWR<ApiResponse<SnapshotViewData>>(
     snapshotId ? `/api/reports/${snapshotId}/view/` : null,
     apiGet
   );
-  return { viewData: data, isLoading: !error && !data, isError: error, mutate };
+  return { viewData: data?.data, isLoading: !error && !data, isError: error, mutate };
 }
 
 // Mutations
 
-export async function createSnapshot(data: CreateSnapshotPayload) {
-  return apiPost('/api/reports/', data);
+export async function createSnapshot(data: CreateSnapshotPayload): Promise<ReportSnapshot> {
+  const response: ApiResponse<ReportSnapshot> = await apiPost('/api/reports/', data);
+  return response.data;
 }
 
-export async function updateSnapshot(snapshotId: number, data: { summary?: string }) {
-  return apiPut(`/api/reports/${snapshotId}/`, data);
+export async function updateSnapshot(
+  snapshotId: number,
+  data: { summary?: string }
+): Promise<{ summary?: string }> {
+  const response: ApiResponse<{ summary?: string }> = await apiPut(
+    `/api/reports/${snapshotId}/`,
+    data
+  );
+  return response.data;
 }
 
-export async function deleteSnapshot(snapshotId: number) {
-  return apiDelete(`/api/reports/${snapshotId}/`);
+export async function deleteSnapshot(snapshotId: number): Promise<void> {
+  await apiDelete(`/api/reports/${snapshotId}/`);
 }
 
 // Datetime column discovery for create-snapshot dialog
 
 export function useDashboardDatetimeColumns(dashboardId: number | null) {
-  const { data, error, isLoading } = useSWR<DiscoveredDatetimeColumn[]>(
+  const { data, error, isLoading } = useSWR<ApiResponse<DiscoveredDatetimeColumn[]>>(
     dashboardId ? `/api/reports/dashboards/${dashboardId}/datetime-columns/` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
-  return { columns: data || [], isLoading, error };
+  return { columns: data?.data || [], isLoading, error };
 }
 
 // Sharing mutations
