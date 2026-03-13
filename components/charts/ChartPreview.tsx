@@ -11,7 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
-import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
 
 interface ChartPreviewProps {
