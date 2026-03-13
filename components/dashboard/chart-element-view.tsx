@@ -1433,8 +1433,8 @@ export function ChartElementView({
         (xAxisNumberFormat && xAxisNumberFormat !== 'default') || xAxisDecimalPlaces !== undefined;
       if (styledConfig.xAxis && hasXAxisFormatting) {
         const formatXAxisLabel = (value: any) => {
-          // Try to parse string values to numbers
-          const numVal = typeof value === 'number' ? value : parseFloat(value);
+          // Strict numeric check - Number() returns NaN for "2019-01-14" or "123abc" unlike parseFloat
+          const numVal = typeof value === 'number' ? value : Number(value);
           if (isNaN(numVal)) return value; // Return original if not a valid number
           // If a specific number format is selected, use formatNumber
           if (xAxisNumberFormat && xAxisNumberFormat !== 'default') {
