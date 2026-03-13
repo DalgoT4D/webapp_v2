@@ -204,16 +204,21 @@ export function TableChartCustomizations({
                 <div key={column} className="space-y-0">
                   {/* Column Row */}
                   <div
-                    className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between p-2 rounded-md border transition-colors ${
                       isExpanded
                         ? 'shadow-sm'
                         : isConfigured
                           ? 'bg-muted/30 hover:bg-muted/50'
                           : 'hover:bg-muted/30'
                     }`}
-                    onClick={() => handleToggleColumn(column)}
                   >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left bg-transparent border-none cursor-pointer"
+                      onClick={() => handleToggleColumn(column)}
+                      aria-expanded={isExpanded}
+                      data-testid={`table-column-toggle-${column}`}
+                    >
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       ) : (
@@ -227,7 +232,7 @@ export function TableChartCustomizations({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
 
                     {/* Remove button for configured columns */}
                     {isConfigured && (
@@ -237,6 +242,8 @@ export function TableChartCustomizations({
                         className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
                         onClick={(e) => handleRemoveFormat(column, e)}
                         disabled={disabled}
+                        aria-label={`Reset format for ${column}`}
+                        data-testid={`table-column-reset-${column}`}
                       >
                         <RefreshCw className="h-3 w-3 " />
                       </Button>
@@ -284,16 +291,21 @@ export function TableChartCustomizations({
                 <div key={column} className="space-y-0">
                   {/* Column Row */}
                   <div
-                    className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between p-2 rounded-md border transition-colors ${
                       isExpanded
                         ? 'shadow-sm'
                         : isConfigured
                           ? 'bg-muted/30 hover:bg-muted/50'
                           : 'hover:bg-muted/30'
                     }`}
-                    onClick={() => handleToggleDateColumn(column)}
                   >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left bg-transparent border-none cursor-pointer"
+                      onClick={() => handleToggleDateColumn(column)}
+                      aria-expanded={isExpanded}
+                      data-testid={`table-date-column-toggle-${column}`}
+                    >
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       ) : (
@@ -307,7 +319,7 @@ export function TableChartCustomizations({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
 
                     {/* Remove button for configured columns */}
                     {isConfigured && (
@@ -317,6 +329,8 @@ export function TableChartCustomizations({
                         className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
                         onClick={(e) => handleRemoveDateFormat(column, e)}
                         disabled={disabled}
+                        aria-label={`Reset date format for ${column}`}
+                        data-testid={`table-date-column-reset-${column}`}
                       >
                         <RefreshCw className="h-3 w-3 " />
                       </Button>
