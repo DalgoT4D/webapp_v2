@@ -34,6 +34,7 @@ interface FilterWidgetProps {
   compact?: boolean;
   isPublicMode?: boolean;
   publicToken?: string;
+  isLocked?: boolean;
 }
 
 // Value Filter Widget (Dropdown/Multi-select)
@@ -482,7 +483,7 @@ export function DashboardFilterWidget(props: FilterWidgetProps) {
     } else if (props.filter.filter_type === DashboardFilterType.NUMERICAL) {
       return <NumericalFilterWidget {...props} />;
     } else if (props.filter.filter_type === DashboardFilterType.DATETIME) {
-      return <DateTimeFilterWidget {...props} />;
+      return <DateTimeFilterWidget {...props} isLocked={props.isLocked} />;
     }
 
     return (

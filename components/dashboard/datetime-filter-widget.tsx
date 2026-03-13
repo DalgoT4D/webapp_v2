@@ -12,9 +12,15 @@ interface DateTimeFilterWidgetProps {
   filter: any;
   value: { start_date?: string; end_date?: string } | null;
   onChange: (filterId: string, value: { start_date?: string; end_date?: string } | null) => void;
+  isLocked?: boolean;
 }
 
-export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilterWidgetProps) {
+export function DateTimeFilterWidget({
+  filter,
+  value,
+  onChange,
+  isLocked = false,
+}: DateTimeFilterWidgetProps) {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [startOpen, setStartOpen] = useState(false);
@@ -72,63 +78,85 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
         {/* Start Date */}
         <div>
           <label className="text-xs text-gray-500 mb-1 block">From</label>
-          <Popover open={startOpen} onOpenChange={setStartOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'w-full justify-start text-left font-normal',
-                  !startDate && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {startDate ? format(startDate, 'MMM dd, yyyy') : 'Start date'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={startDate}
-                onSelect={handleStartDateSelect}
-                disabled={(date) => {
-                  // Disable dates after end date if end date is selected
-                  return endDate ? date > endDate : false;
-                }}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          {isLocked ? (
+            <Button
+              variant="outline"
+              disabled
+              className="w-full justify-start text-left font-normal opacity-70"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {startDate ? format(startDate, 'MMM dd, yyyy') : 'Start date'}
+            </Button>
+          ) : (
+            <Popover open={startOpen} onOpenChange={setStartOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'w-full justify-start text-left font-normal',
+                    !startDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, 'MMM dd, yyyy') : 'Start date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={handleStartDateSelect}
+                  disabled={(date) => {
+                    // Disable dates after end date if end date is selected
+                    return endDate ? date > endDate : false;
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
 
         {/* End Date */}
         <div>
           <label className="text-xs text-gray-500 mb-1 block">To</label>
-          <Popover open={endOpen} onOpenChange={setEndOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'w-full justify-start text-left font-normal',
-                  !endDate && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {endDate ? format(endDate, 'MMM dd, yyyy') : 'End date'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={endDate}
-                onSelect={handleEndDateSelect}
-                disabled={(date) => {
-                  // Disable dates before start date if start date is selected
-                  return startDate ? date < startDate : false;
-                }}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          {isLocked ? (
+            <Button
+              variant="outline"
+              disabled
+              className="w-full justify-start text-left font-normal opacity-70"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {endDate ? format(endDate, 'MMM dd, yyyy') : 'End date'}
+            </Button>
+          ) : (
+            <Popover open={endOpen} onOpenChange={setEndOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'w-full justify-start text-left font-normal',
+                    !endDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, 'MMM dd, yyyy') : 'End date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={handleEndDateSelect}
+                  disabled={(date) => {
+                    // Disable dates before start date if start date is selected
+                    return startDate ? date < startDate : false;
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
 
