@@ -58,7 +58,7 @@ export function TableChartCustomizations({
       ...columnFormatting,
       [column]: {
         numberFormat: numberFormat,
-        decimalPlaces: columnFormatting[column]?.decimalPlaces || 0,
+        decimalPlaces: columnFormatting[column]?.decimalPlaces,
       },
     };
 

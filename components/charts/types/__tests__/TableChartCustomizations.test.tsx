@@ -56,8 +56,9 @@ describe('TableChartCustomizations', () => {
     await user.click(formatSelect);
     await user.click(screen.getByText('Indian (1234567 => 12,34,567)'));
 
+    // decimalPlaces should be undefined until user explicitly sets it (prevents unintended integer rounding)
     expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
-      budget: { numberFormat: 'indian', decimalPlaces: 0 },
+      budget: { numberFormat: 'indian', decimalPlaces: undefined },
     });
   });
 
