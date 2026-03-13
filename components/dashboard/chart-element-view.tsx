@@ -1933,8 +1933,20 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting:
-                  effectiveChart?.extra_config?.customizations?.columnFormatting || {},
+                column_formatting: {
+                  ...(effectiveChart?.extra_config?.customizations?.columnFormatting || {}),
+                  // Merge date formatting into column_formatting
+                  ...Object.fromEntries(
+                    Object.entries(
+                      effectiveChart?.extra_config?.customizations?.dateColumnFormatting || {}
+                    ).map(([col, format]) => [
+                      col,
+                      {
+                        dateFormat: (format as { dateFormat?: string })?.dateFormat || 'default',
+                      },
+                    ])
+                  ),
+                },
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,
