@@ -6,9 +6,10 @@ import { format, isValid } from 'date-fns';
 import { FileText, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { formatDuration } from '@/components/pipeline/utils';
 import { useLogSummaryPoll } from '@/hooks/api/usePipelines';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
-import { LogCard } from '@/components/ui/log-card';
+import { LogCard } from '@/components/pipeline/log-card';
 
 /**
  * Types for LogsTable
@@ -283,13 +284,6 @@ function TaskRunRow({
   }, [onStartSummary, flowRunId, task.id]);
 
   const summaryText = pollError ? 'Failed to generate summary.' : pollSummary || '';
-
-  const formatDuration = (seconds: number): string => {
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.round(seconds % 60);
-    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-  };
 
   return (
     <div className={cn(!isLast && 'border-b', isFailed ? 'border-red-100/50' : 'border-gray-50')}>

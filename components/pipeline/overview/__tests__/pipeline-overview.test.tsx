@@ -9,7 +9,7 @@ import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
 import { PipelineOverview } from '../pipeline-overview';
-import { LogCard } from '../log-card';
+import { LogCard } from '@/components/pipeline/log-card';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';

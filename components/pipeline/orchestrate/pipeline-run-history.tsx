@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import { FullScreenModal } from '@/components/ui/full-screen-modal';
-import { LogsTable, type FlowRun, type TaskRun } from '@/components/ui/logs-table';
+import { LogsTable, type FlowRun, type TaskRun } from '@/components/pipeline/logs-table';
 import { toastError } from '@/lib/toast';
 import { usePipelineHistory, fetchFlowRunLogs, triggerLogSummary } from '@/hooks/api/usePipelines';
 import type { Pipeline, DeploymentRun } from '@/types/pipeline';
