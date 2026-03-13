@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { fetchFlowRunLogs } from '@/hooks/api/usePipelines';
 import type { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineCard } from './pipeline-card';
-import { LogCard } from './log-card';
+import { LogCard } from '@/components/ui/log-card';
 import { toastError } from '@/lib/toast';
 import { getRunDisplayStatus } from '../utils';
 import { FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/pipeline';

@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import type { TransformTask } from '@/types/pipeline';
 import { DBT_RUN_MIN_ORDER, DBT_TEST_MIN_ORDER } from '@/constants/pipeline';
-import { validateDefaultTasksToApplyInPipeline, getTaskOrder } from './utils';
+import { validateDefaultTasksToApplyInPipeline, getTaskOrder } from '../utils';
 import { cn } from '@/lib/utils';
 
 interface TaskSequenceProps {

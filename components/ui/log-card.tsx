@@ -21,11 +21,44 @@ interface LogCardProps {
   title?: string;
   /** Run status for background coloring */
   status?: PipelineRunDisplayStatus;
+  /** Optional className for the wrapper */
+  className?: string;
+  /** Whether to show the colored header (default: true). When false, status color applies to body background instead */
+  showHeader?: boolean;
 }
 
+// Status-based colors for header and body variants
+const STATUS_STYLES: Record<
+  string,
+  { header: string; headerText: string; hover: string; bodyBg: string }
+> = {
+  [PipelineRunDisplayStatus.SUCCESS]: {
+    header: 'bg-primary border-primary',
+    headerText: 'text-white',
+    hover: 'hover:bg-primary/20',
+    bodyBg: 'bg-primary/5',
+  },
+  [PipelineRunDisplayStatus.FAILED]: {
+    header: 'bg-failed border-failed',
+    headerText: 'text-white',
+    hover: 'hover:bg-failed/20',
+    bodyBg: 'bg-failed/5',
+  },
+  [PipelineRunDisplayStatus.WARNING]: {
+    header: 'bg-warning border-warning',
+    headerText: 'text-white',
+    hover: 'hover:bg-warning/20',
+    bodyBg: 'bg-warning/5',
+  },
+};
+
 /**
- * LogCard - Simple collapsible card for displaying log messages
- * Similar to webapp v1's LogCard component
+ * LogCard - Shared collapsible card for displaying log messages
+ * Used in both pipeline overview and orchestrate run history
+ *
+ * Two modes:
+ * - showHeader=true (default): Colored header bar + neutral body (pipeline overview)
+ * - showHeader=false: No header, light status-tinted body background (orchestrate table)
  */
 export function LogCard({
   logs,
@@ -35,76 +68,69 @@ export function LogCard({
   onClose,
   title = 'Logs',
   status,
+  className,
+  showHeader = true,
 }: LogCardProps) {
   const [expanded, setExpanded] = useState(true);
 
-  // Status-based colors - header colored, body grey with matching hover
-  const statusStyles: Record<string, { header: string; headerText: string; hover: string }> = {
-    [PipelineRunDisplayStatus.SUCCESS]: {
-      header: 'bg-primary border-primary',
-      headerText: 'text-white',
-      hover: 'hover:bg-primary/20',
-    },
-    [PipelineRunDisplayStatus.FAILED]: {
-      header: 'bg-failed border-failed',
-      headerText: 'text-white',
-      hover: 'hover:bg-failed/20',
-    },
-    [PipelineRunDisplayStatus.WARNING]: {
-      header: 'bg-warning border-warning',
-      headerText: 'text-white',
-      hover: 'hover:bg-warning/20',
-    },
-  };
-
-  const styles = status ? statusStyles[status] : null;
+  const styles = status ? STATUS_STYLES[status] : null;
 
   return (
     <div
       className={cn(
-        'mt-4 border rounded-lg shadow-sm overflow-hidden',
-        'bg-gray-50 border-gray-200'
+        'border rounded-lg shadow-sm overflow-hidden',
+        'bg-gray-50 border-gray-200',
+        className ?? 'mt-4'
       )}
     >
-      {/* Header - colored based on status */}
-      <div
-        className={cn(
-          'flex items-center justify-between px-4 py-3 border-b',
-          styles?.header || 'bg-gray-200 border-gray-300'
-        )}
-      >
-        <span className={cn('text-sm font-medium', styles?.headerText || 'text-gray-700')}>
-          {title}
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-1 rounded transition-colors hover:bg-white/30"
-            aria-label={expanded ? 'Collapse logs' : 'Expand logs'}
-            data-testid="log-card-toggle-btn"
-          >
-            {expanded ? (
-              <ChevronUp className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
-            ) : (
-              <ChevronDown className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
-            )}
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded transition-colors hover:bg-white/30"
-              aria-label="Close logs"
-              data-testid="log-card-close-btn"
-            >
-              <X className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
-            </button>
+      {/* Header - colored based on status (only when showHeader is true) */}
+      {showHeader && (
+        <div
+          className={cn(
+            'flex items-center justify-between px-4 py-3 border-b',
+            styles?.header || 'bg-gray-200 border-gray-300'
           )}
+        >
+          <span className={cn('text-sm font-medium', styles?.headerText || 'text-gray-700')}>
+            {title}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="p-1 rounded transition-colors hover:bg-white/30"
+              aria-label={expanded ? 'Collapse logs' : 'Expand logs'}
+              data-testid="log-card-toggle-btn"
+            >
+              {expanded ? (
+                <ChevronUp className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
+              ) : (
+                <ChevronDown
+                  className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')}
+                />
+              )}
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded transition-colors hover:bg-white/30"
+                aria-label="Close logs"
+                data-testid="log-card-close-btn"
+              >
+                <X className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Content - grey body with colored hover */}
+      {/* Content - body background depends on mode */}
       {expanded && (
-        <div className="max-h-80 overflow-y-auto bg-gray-50">
+        <div
+          className={cn(
+            'max-h-80 overflow-y-auto',
+            !showHeader && styles ? styles.bodyBg : 'bg-gray-50'
+          )}
+        >
           {isLoading && logs.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
