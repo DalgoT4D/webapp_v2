@@ -40,7 +40,8 @@ export function formatAxisValue(
 
   if (axis === 'y') {
     // Y-axis formatting: always attempt to format
-    const numVal = typeof val === 'number' ? val : parseFloat(String(val));
+    // Use Number() instead of parseFloat() - Number("2019-01-14") returns NaN, parseFloat returns 2019
+    const numVal = typeof val === 'number' ? val : Number(val);
     if (isNaN(numVal)) return val;
 
     const numFormat =
@@ -67,8 +68,8 @@ export function formatAxisValue(
     // Only format if xAxisNumberFormat is explicitly set (means X-axis is numeric)
     if (!numFormat || numFormat === 'default') return val;
 
-    // xAxisNumberFormat is set, so X-axis is numeric - safe to parseFloat
-    const numVal = typeof val === 'number' ? val : parseFloat(String(val));
+    // xAxisNumberFormat is set, so X-axis is numeric - use Number() for strict parsing
+    const numVal = typeof val === 'number' ? val : Number(val);
     if (isNaN(numVal)) return val;
 
     const decimalPlaces = customizations.xAxisDecimalPlaces;
@@ -168,7 +169,8 @@ export function createXAxisLabelFormatter(
   }
 
   return (value: unknown) => {
-    const numVal = typeof value === 'number' ? value : parseFloat(String(value));
+    // Use Number() instead of parseFloat() for strict numeric parsing
+    const numVal = typeof value === 'number' ? value : Number(value);
     if (isNaN(numVal)) return value;
     return formatNumber(numVal, {
       format: xAxisNumberFormat,

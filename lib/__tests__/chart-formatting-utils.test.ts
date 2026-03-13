@@ -36,6 +36,24 @@ describe('chart-formatting-utils', () => {
       expect(formatAxisValue('January', withFormat, 'x', 'bar')).toBe('January');
     });
 
+    it('should preserve date strings instead of parsing them as numbers', () => {
+      // Number("2019-01-14") returns NaN, while parseFloat("2019-01-14") returns 2019
+      // This ensures date strings are returned as-is, not corrupted to "2,019"
+      const withFormat = {
+        yAxisNumberFormat: 'international' as const,
+        xAxisNumberFormat: 'international' as const,
+      };
+
+      // Y-axis: date strings should be preserved
+      expect(formatAxisValue('2019-01-14', withFormat, 'y', 'bar')).toBe('2019-01-14');
+      expect(formatAxisValue('2025-04-15T10:30:00', withFormat, 'y', 'line')).toBe(
+        '2025-04-15T10:30:00'
+      );
+
+      // X-axis: date strings should be preserved
+      expect(formatAxisValue('2019-01-14', withFormat, 'x', 'bar')).toBe('2019-01-14');
+    });
+
     it('should use numberFormat for non-axis charts (pie)', () => {
       const customizations = { numberFormat: 'adaptive_international' as const, decimalPlaces: 1 };
       expect(formatAxisValue(1500000, customizations, 'y', 'pie')).toBe('1.5M');
@@ -119,6 +137,15 @@ describe('chart-formatting-utils', () => {
       });
       expect(formatter!(2500000)).toBe('2.5M');
       expect(formatter!('January')).toBe('January');
+    });
+
+    it('should preserve date strings instead of parsing them as numbers', () => {
+      const formatter = createXAxisLabelFormatter({
+        xAxisNumberFormat: 'international' as const,
+      });
+      // Date strings should be returned as-is, not corrupted
+      expect(formatter!('2019-01-14')).toBe('2019-01-14');
+      expect(formatter!('2025-04-15T10:30:00')).toBe('2025-04-15T10:30:00');
     });
   });
 
