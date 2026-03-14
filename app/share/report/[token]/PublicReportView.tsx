@@ -13,12 +13,14 @@ import { PoweredByDalgoFooter } from '@/components/ui/powered-by-dalgo-footer';
 
 interface PublicReportViewProps {
   token: string;
+  printMode?: boolean;
 }
 
-export function PublicReportView({ token }: PublicReportViewProps) {
+export function PublicReportView({ token, printMode = false }: PublicReportViewProps) {
   const { viewData, isLoading, isError } = usePublicReport(token);
 
   if (isLoading) {
+    if (printMode) return null;
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -53,6 +55,46 @@ export function PublicReportView({ token }: PublicReportViewProps) {
 
   const { dashboard_data, report_metadata, frozen_chart_configs, org_name } = viewData;
 
+  // Print mode: clean layout for Playwright PDF capture
+  if (printMode) {
+    return (
+      <div className="bg-white w-full" data-pdf-ready="true">
+        <div className="px-6 py-4 border-b">
+          <h1 className="text-xl font-semibold text-gray-900">{report_metadata.title}</h1>
+          <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+            <Calendar className="h-4 w-4" />
+            <span>
+              {report_metadata.period_start ? formatDateShort(report_metadata.period_start) : 'All'}{' '}
+              - {formatDateShort(report_metadata.period_end)}
+            </span>
+          </div>
+        </div>
+
+        <DashboardNativeView
+          dashboardId={0}
+          dashboardData={dashboard_data}
+          isReportMode={true}
+          isPublicMode={true}
+          isPrintMode={true}
+          publicToken={token}
+          frozenChartConfigs={frozen_chart_configs}
+          hideHeader={true}
+          beforeContent={
+            report_metadata.summary ? (
+              <div className="border rounded-lg p-5 mb-2 bg-background overflow-hidden">
+                <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                  {report_metadata.summary}
+                </p>
+              </div>
+            ) : undefined
+          }
+        />
+      </div>
+    );
+  }
+
+  // Normal public view
   return (
     <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
       {/* Public Header */}
@@ -143,9 +185,9 @@ export function PublicReportView({ token }: PublicReportViewProps) {
         hideHeader={true}
         beforeContent={
           report_metadata.summary ? (
-            <div className="border rounded-lg p-5 mb-2 bg-background">
+            <div className="border rounded-lg p-5 mb-2 bg-background overflow-hidden">
               <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
                 {report_metadata.summary}
               </p>
             </div>

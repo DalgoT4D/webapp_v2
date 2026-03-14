@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +20,7 @@ import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareModal } from '@/components/reports/ReportShareModal';
 import { formatDateShort } from '@/components/reports/utils';
-import { usePdfDownload } from '@/hooks/usePdfDownload';
+import { apiPostBinary } from '@/lib/api';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -34,18 +34,30 @@ export default function SnapshotViewerPage() {
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
-  const headerRef = useRef<HTMLDivElement>(null);
-  const dashboardCanvasRef = useRef<HTMLDivElement | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const onContainerRef = useCallback((el: HTMLDivElement | null) => {
-    dashboardCanvasRef.current = el;
-  }, []);
-
-  const { isExporting, download: handleDownload } = usePdfDownload({
-    title: viewData?.report_metadata.title || 'report',
-    headerRef,
-    canvasRef: dashboardCanvasRef,
-  });
+  const handleDownload = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const blob = await apiPostBinary(`/api/reports/${snapshotId}/export/pdf/`, {});
+      const safeTitle = (viewData?.report_metadata.title || 'report')
+        .replace(/[^a-zA-Z0-9 \-_]/g, '')
+        .trim();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeTitle || 'report'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toastSuccess.exported('Report', 'pdf');
+    } catch (error) {
+      toastError.export(error, 'pdf');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [snapshotId, viewData?.report_metadata.title]);
 
   // Initialize summary draft when viewData loads (replaces state-during-render pattern)
   useEffect(() => {
@@ -93,7 +105,7 @@ export default function SnapshotViewerPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div ref={headerRef} className="flex-shrink-0 border-b bg-background px-6 pt-4 pb-3">
+      <div className="flex-shrink-0 border-b bg-background px-6 pt-4 pb-3">
         {/* Top row: Back + Title + Actions */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -172,7 +184,6 @@ export default function SnapshotViewerPage() {
           isReportMode={true}
           frozenChartConfigs={frozen_chart_configs}
           hideHeader={true}
-          onContainerRef={onContainerRef}
           beforeContent={
             <div className="border rounded-lg p-5 mb-2 bg-background">
               <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>

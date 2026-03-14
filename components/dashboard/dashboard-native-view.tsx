@@ -225,6 +225,7 @@ interface DashboardNativeViewProps {
   frozenChartConfigs?: Record<string, any>; // Chart configs keyed by chart ID
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
+  isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
 }
 
 export function DashboardNativeView({
@@ -240,6 +241,7 @@ export function DashboardNativeView({
   frozenChartConfigs,
   beforeContent,
   onContainerRef,
+  isPrintMode = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -672,8 +674,10 @@ export function DashboardNativeView({
       className={cn(
         'h-full flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50',
-        // Public dashboards are rendered outside MainLayout so they need h-screen
-        isPublicMode && 'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
+        isPublicMode &&
+          !isPrintMode &&
+          'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto',
+        isPrintMode && 'h-auto overflow-visible print-mode'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
@@ -1067,7 +1071,7 @@ export function DashboardNativeView({
         />
       )}
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className={cn('flex-1 flex overflow-hidden', isPrintMode && 'overflow-visible')}>
         {/* Desktop Vertical Filters Sidebar - Only show on desktop */}
         {responsive.isDesktop && dashboardFilters.length > 0 && !isEmbedMode && (
           <UnifiedFiltersPanel
@@ -1089,8 +1093,8 @@ export function DashboardNativeView({
         <div
           className={cn(
             'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
-            // Only apply special mobile padding for public dashboards
-            isPublicMode && 'pb-24 sm:pb-16'
+            isPublicMode && 'pb-24 sm:pb-16',
+            isPrintMode && 'overflow-visible pb-4'
           )}
         >
           <div
@@ -1204,6 +1208,10 @@ export function DashboardNativeView({
           position: relative;
           border-radius: 8px;
           overflow: hidden;
+        }
+
+        .print-mode .dashboard-canvas {
+          overflow: visible !important;
         }
 
         .dashboard-canvas .dashboard-grid {
