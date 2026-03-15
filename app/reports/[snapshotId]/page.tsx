@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
+import { useCommentStates } from '@/hooks/api/useComments';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareModal } from '@/components/reports/ReportShareModal';
+import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { apiPostBinary } from '@/lib/api';
 
@@ -35,6 +37,11 @@ export default function SnapshotViewerPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const [isExporting, setIsExporting] = useState(false);
+
+  const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(snapshotId);
+  const handleCommentStateChange = useCallback(() => {
+    mutateCommentStates();
+  }, [mutateCommentStates]);
 
   const handleDownload = useCallback(async () => {
     setIsExporting(true);
@@ -138,6 +145,14 @@ export default function SnapshotViewerPage() {
                 <Download className="h-4 w-4" />
               )}
             </Button>
+            <CommentPopover
+              snapshotId={snapshotId}
+              targetType="report"
+              state={commentStates?.['report']?.state ?? 'none'}
+              count={commentStates?.['report']?.count ?? 0}
+              triggerClassName="h-9 w-9"
+              onStateChange={handleCommentStateChange}
+            />
             <Button
               data-testid="report-share-btn"
               variant="ghost"
@@ -184,6 +199,9 @@ export default function SnapshotViewerPage() {
           isReportMode={true}
           frozenChartConfigs={frozen_chart_configs}
           hideHeader={true}
+          snapshotId={snapshotId}
+          commentStates={commentStates}
+          onCommentStateChange={handleCommentStateChange}
           beforeContent={
             <div className="border rounded-lg p-5 mb-2 bg-background">
               <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>

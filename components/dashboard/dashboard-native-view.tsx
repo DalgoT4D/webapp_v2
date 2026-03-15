@@ -226,6 +226,9 @@ interface DashboardNativeViewProps {
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: Record<string, { state: string; count: number }>; // Comment states keyed by chart_id or "report"
+  onCommentStateChange?: () => void; // Callback to revalidate comment states
 }
 
 export function DashboardNativeView({
@@ -242,6 +245,9 @@ export function DashboardNativeView({
   beforeContent,
   onContainerRef,
   isPrintMode = false,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -542,6 +548,9 @@ export function DashboardNativeView({
                   ? frozenChartConfigs[String(component.config?.chartId)]
                   : undefined
               }
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
             />
           </div>
         );
