@@ -12,7 +12,11 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, PivotDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  PivotDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface PivotValueItem {
   col: string;

@@ -13,7 +13,12 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { parseStringForNull } from './shared/OperandInput';
-import type { OperationFormProps, GenericColDataConfig, GenericCol, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  GenericColDataConfig,
+  GenericCol,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';

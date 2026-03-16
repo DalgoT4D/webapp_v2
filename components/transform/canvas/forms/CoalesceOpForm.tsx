@@ -12,7 +12,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, CoalesceDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  CoalesceDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface FormValues {
   columns: { col: string }[];

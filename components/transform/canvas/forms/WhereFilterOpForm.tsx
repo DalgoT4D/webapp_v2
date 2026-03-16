@@ -24,7 +24,11 @@ import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { parseStringForNull } from './shared/OperandInput';
 import { LogicalOperators } from '@/constants/transform';
-import type { OperationFormProps, WherefilterDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  WherefilterDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface FormValues {
   filterCol: string;

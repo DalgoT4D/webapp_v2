@@ -10,7 +10,11 @@ import { Info } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, GenericSqlDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  GenericSqlDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface FormValues {
   sql_statement_1: string;

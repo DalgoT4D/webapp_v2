@@ -65,7 +65,17 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
       setPreviewData({ schema, table: tableName });
     }
     dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'create' } });
-  }, [id, type, data, selected, schema, tableName, setSelectedNode, setPreviewData, dispatchCanvasAction]);
+  }, [
+    id,
+    type,
+    data,
+    selected,
+    schema,
+    tableName,
+    setSelectedNode,
+    setPreviewData,
+    dispatchCanvasAction,
+  ]);
 
   const handleDeleteClick = useCallback(
     (e: React.MouseEvent) => {
@@ -128,10 +138,7 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
             borderRadius: '5px 5px 0 0',
           }}
         >
-          <span
-            style={{ color: '#fff', fontWeight: 700, fontSize: 12 }}
-            title={displayName}
-          >
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 12 }} title={displayName}>
             {headerText}
           </span>
           {canDelete && (

@@ -19,7 +19,11 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { AggregateOperations } from '@/constants/transform';
-import type { OperationFormProps, GroupbyDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  GroupbyDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface DimensionCol {
   col: string;

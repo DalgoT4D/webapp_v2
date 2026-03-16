@@ -106,7 +106,9 @@ export function FlattenJsonOpForm({
           const data = (await apiGet(
             `/api/warehouse/table_columns/${node.data.dbtmodel.schema}/${node.data.dbtmodel.name}`
           )) as { name: string }[];
-          const colNames = data.map((col: { name: string }) => col.name).sort((a: string, b: string) => a.localeCompare(b));
+          const colNames = data
+            .map((col: { name: string }) => col.name)
+            .sort((a: string, b: string) => a.localeCompare(b));
           setSrcColumns(colNames);
         } catch (error) {
           console.error('Failed to fetch table columns:', error);

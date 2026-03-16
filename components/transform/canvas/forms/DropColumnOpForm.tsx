@@ -10,7 +10,11 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
 import { cn } from '@/lib/utils';
-import type { OperationFormProps, DropDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  DropDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 /**
  * Form for dropping (removing) columns from a table.

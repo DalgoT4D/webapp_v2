@@ -16,7 +16,11 @@ import {
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
 import { apiGet } from '@/lib/api';
-import type { OperationFormProps, CastDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
+import type {
+  OperationFormProps,
+  CastDataConfig,
+  ModelSrcOtherInputPayload,
+} from '@/types/transform';
 
 interface ColumnConfig {
   name: string;
