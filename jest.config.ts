@@ -18,7 +18,6 @@ const customJestConfig: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  transformIgnorePatterns: ['/node_modules/(?!(echarts|zrender)/)'],
   // Run tests in component-level __tests__ folders and lib tests
   testMatch: [
     '<rootDir>/components/**/__tests__/**/*.test.{ts,tsx}',

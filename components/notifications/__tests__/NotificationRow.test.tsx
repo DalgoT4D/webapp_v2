@@ -180,7 +180,7 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const messageContainer = container.querySelector('.text-gray-700');
+    const messageContainer = container.querySelector('.text-gray-500');
     expect(messageContainer).toBeInTheDocument();
   });
 
@@ -199,7 +199,7 @@ describe('NotificationRow', () => {
       </table>
     );
 
-    const messageContainer = container.querySelector('.text-gray-900');
+    const messageContainer = container.querySelector('.text-gray-800');
     expect(messageContainer).toBeInTheDocument();
   });
 
