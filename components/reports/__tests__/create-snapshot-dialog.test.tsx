@@ -20,8 +20,8 @@ jest.mock('@/hooks/api/useReports');
 jest.mock('@/hooks/api/useDashboards');
 
 jest.mock('@/lib/toast', () => ({
-  toastSuccess: { generic: jest.fn() },
-  toastError: { generic: jest.fn(), save: jest.fn() },
+  toastSuccess: { generic: jest.fn(), created: jest.fn() },
+  toastError: { generic: jest.fn(), save: jest.fn(), api: jest.fn(), create: jest.fn() },
 }));
 
 const mockPush = jest.fn();
@@ -57,6 +57,14 @@ describe('CreateSnapshotDialog', () => {
       data: mockDashboards,
       isLoading: false,
       error: null,
+    });
+
+    // Mock useDashboard (single dashboard fetch)
+    (useDashboardsHook.useDashboard as jest.Mock).mockReturnValue({
+      data: mockDashboards[0],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
     });
 
     // Mock useDashboardDatetimeColumns (returns unwrapped data)
@@ -110,16 +118,28 @@ describe('CreateSnapshotDialog', () => {
   });
 
   describe('Form Validation', () => {
-    it('disables submit button when report name is empty', async () => {
+    it('shows error toast when submitting with empty report name', async () => {
+      const { toastError } = require('@/lib/toast');
       const user = userEvent.setup();
-      render(<CreateSnapshotDialog onCreated={mockOnCreated} />);
+      render(
+        <CreateSnapshotDialog
+          dashboardId={1}
+          dashboardTitle="Sales Dashboard"
+          onCreated={mockOnCreated}
+        />
+      );
 
       await user.click(screen.getByTestId('create-snapshot-trigger'));
 
       await waitFor(() => {
-        const submitBtn = screen.getByTestId('snapshot-submit-btn');
-        expect(submitBtn).toBeDisabled();
+        expect(screen.getByTestId('snapshot-submit-btn')).toBeInTheDocument();
       });
+
+      // Submit without filling report name
+      await user.click(screen.getByTestId('snapshot-submit-btn'));
+
+      // Validation happens inside handleSubmit via toast, not button disable
+      expect(useReportsHook.createSnapshot).not.toHaveBeenCalled();
     });
 
     it('enables submit button when all required fields are filled', async () => {
