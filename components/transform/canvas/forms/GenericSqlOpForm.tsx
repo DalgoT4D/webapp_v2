@@ -10,7 +10,7 @@ import { Info } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, GenericSqlDataConfig } from '@/types/transform';
+import type { OperationFormProps, GenericSqlDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface FormValues {
   sql_statement_1: string;
@@ -61,7 +61,7 @@ export function GenericSqlOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as GenericSqlDataConfig;
+      const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
       if (config) {
         reset({
           sql_statement_1: config.sql_statement_1 || '',
@@ -91,22 +91,24 @@ export function GenericSqlOpForm({
           sql_statement_1: data.sql_statement_1,
           sql_statement_2: data.sql_statement_2,
         },
-        source_columns: [],
-        other_inputs: [],
+        source_columns: [] as string[],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('SQL operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save SQL operation:', error);
       toastError.save(error, 'operation');

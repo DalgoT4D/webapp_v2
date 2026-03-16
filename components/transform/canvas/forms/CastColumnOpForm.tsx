@@ -16,7 +16,7 @@ import {
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
 import { apiGet } from '@/lib/api';
-import type { OperationFormProps, CastDataConfig } from '@/types/transform';
+import type { OperationFormProps, CastDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface ColumnConfig {
   name: string;
@@ -53,7 +53,7 @@ export function CastColumnOpForm({
   useEffect(() => {
     const fetchDataTypes = async () => {
       try {
-        const types = await apiGet<string[]>('/api/transform/dbt_project/data_type/');
+        const types = (await apiGet('/api/transform/dbt_project/data_type/')) as string[];
         setDataTypes(types);
       } catch (error) {
         console.error('Failed to fetch data types:', error);
@@ -85,9 +85,9 @@ export function CastColumnOpForm({
         const model = node.data?.dbtmodel;
         if (model?.schema && model?.name) {
           try {
-            const cols = await apiGet(
+            const cols = (await apiGet(
               `/api/warehouse/table_columns/${model.schema}/${model.name}/`
-            ) as { name: string; data_type: string }[];
+            )) as { name: string; data_type: string }[];
             setSrcColumns(cols);
             // Pre-populate existing types
             const typeMap: Record<string, string> = {};
@@ -118,7 +118,7 @@ export function CastColumnOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as CastDataConfig;
+      const config = node.data.operation_config.config as unknown as CastDataConfig;
       if (config?.columns) {
         const typeMap: Record<string, string> = {};
         config.columns.forEach((col) => {
@@ -178,21 +178,23 @@ export function CastColumnOpForm({
         op_type: operation.slug,
         config: { columns: columnsTocast },
         source_columns: srcColumns.map((c) => c.name),
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Cast operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save cast operation:', error);
       toastError.save(error, 'operation');

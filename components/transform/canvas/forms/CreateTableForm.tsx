@@ -148,13 +148,6 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       return;
     }
 
-    // Only operation nodes can terminate chains and create tables
-    const nodeType = node.type || node.data?.node_type;
-    if (nodeType !== 'operation') {
-      toastError.api('Only operation nodes can create tables');
-      return;
-    }
-
     // Use custom values if entered
     const finalSchema = customSchema || data.dest_schema;
     const finalDirectory = customDirectory || data.rel_dir_to_models;

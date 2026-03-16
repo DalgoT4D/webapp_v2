@@ -11,7 +11,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, RenameDataConfig } from '@/types/transform';
+import type { OperationFormProps, RenameDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface RenameRow {
   oldName: string;
@@ -70,7 +70,7 @@ export function RenameColumnOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as RenameDataConfig;
+      const config = node.data.operation_config.config as unknown as RenameDataConfig;
       if (config?.columns) {
         const renames = Object.entries(config.columns).map(([oldName, newName]) => ({
           oldName,
@@ -122,21 +122,23 @@ export function RenameColumnOpForm({
         op_type: operation.slug,
         config: { columns: columnsMap },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic(`Column${validRenames.length > 1 ? 's' : ''} renamed successfully`);
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save rename operation:', error);
       toastError.save(error, 'operation');

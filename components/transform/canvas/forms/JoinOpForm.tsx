@@ -81,7 +81,7 @@ export function JoinOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as JoinDataConfig;
+      const config = node.data.operation_config.config as unknown as JoinDataConfig;
       if (config) {
         reset({
           join_type: config.join_type || '',
@@ -178,17 +178,19 @@ export function JoinOpForm({
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Join operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save join operation:', error);
       toastError.save(error, 'operation');

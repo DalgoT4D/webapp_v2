@@ -19,7 +19,7 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { AggregateOperations } from '@/constants/transform';
-import type { OperationFormProps, GroupbyDataConfig } from '@/types/transform';
+import type { OperationFormProps, GroupbyDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface DimensionCol {
   col: string;
@@ -95,7 +95,7 @@ export function GroupByOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as GroupbyDataConfig;
+      const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
       if (config) {
         const dimensions = config.dimension_columns?.map((col) => ({ col })) || [];
         dimensions.push({ col: '' }); // Empty row for adding more
@@ -165,21 +165,23 @@ export function GroupByOpForm({
           })),
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Group by operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save group by operation:', error);
       toastError.save(error, 'operation');

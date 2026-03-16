@@ -94,7 +94,7 @@ export function UnionTablesOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as UnionDataConfig;
+      const config = node.data.operation_config.config as unknown as UnionDataConfig;
       if (config?.source_columns) {
         setSrcColumns(config.source_columns);
       }
@@ -177,10 +177,10 @@ export function UnionTablesOpForm({
           // Try to fetch columns from warehouse if not available
           if (columns.length === 0 && model) {
             try {
-              const data = await apiGet<{ name: string }[]>(
+              const data = (await apiGet(
                 `/api/warehouse/table_columns/${model.schema}/${model.name}`
-              );
-              columns = data.map((c) => c.name);
+              )) as { name: string }[];
+              columns = data.map((c: { name: string }) => c.name);
             } catch (error) {
               console.error('Failed to fetch columns for table:', model.name);
             }
@@ -202,17 +202,19 @@ export function UnionTablesOpForm({
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Union operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save union operation:', error);
       toastError.save(error, 'operation');

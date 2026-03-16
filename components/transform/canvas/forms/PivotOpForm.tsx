@@ -12,7 +12,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, PivotDataConfig } from '@/types/transform';
+import type { OperationFormProps, PivotDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface PivotValueItem {
   col: string;
@@ -91,7 +91,7 @@ export function PivotOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as PivotDataConfig;
+      const config = node.data.operation_config.config as unknown as PivotDataConfig;
       if (config) {
         const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
         setSrcColumns(sorted);
@@ -197,21 +197,23 @@ export function PivotOpForm({
           groupby_columns: groupbyColumns,
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Pivot operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save pivot operation:', error);
       toastError.save(error, 'operation');

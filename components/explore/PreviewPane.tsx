@@ -319,9 +319,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
       </div>
 
       {/* Table */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        {tableContent}
-      </div>
+      <div className="flex-1 min-h-0 overflow-auto">{tableContent}</div>
 
       {/* Pagination */}
       <div

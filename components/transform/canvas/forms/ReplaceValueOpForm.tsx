@@ -12,7 +12,7 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { parseStringForNull } from './shared/OperandInput';
-import type { OperationFormProps, ReplaceDataConfig } from '@/types/transform';
+import type { OperationFormProps, ReplaceDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface ReplaceRow {
   find: string;
@@ -67,7 +67,7 @@ export function ReplaceValueOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as ReplaceDataConfig;
+      const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
       if (config?.columns && config.columns.length > 0) {
         const col = config.columns[0];
         const replacements = col.replace_ops.map((op) => ({
@@ -136,21 +136,23 @@ export function ReplaceValueOpForm({
           ],
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Replace operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save replace operation:', error);
       toastError.save(error, 'operation');

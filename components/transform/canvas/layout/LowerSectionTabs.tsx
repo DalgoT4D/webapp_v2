@@ -94,8 +94,8 @@ export function LowerSectionTabs({
       </div>
 
       {/* Preview Tab */}
-      {selectedTab === 'preview' && (
-        previewTable ? (
+      {selectedTab === 'preview' &&
+        (previewTable ? (
           <PreviewPane
             key={`${previewTable.schema}.${previewTable.table}`}
             schema={previewTable.schema}
@@ -109,17 +109,12 @@ export function LowerSectionTabs({
           >
             Select a node to preview its data
           </div>
-        )
-      )}
+        ))}
 
       {/* Logs Tab */}
       {selectedTab === 'logs' && (
         <div style={{ height: contentHeight }}>
-          <LogsPane
-            height={contentHeight}
-            dbtRunLogs={dbtRunLogs}
-            isLoading={isLogsLoading}
-          />
+          <LogsPane height={contentHeight} dbtRunLogs={dbtRunLogs} isLoading={isLogsLoading} />
         </div>
       )}
     </div>

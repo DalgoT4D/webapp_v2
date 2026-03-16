@@ -10,7 +10,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
 import { cn } from '@/lib/utils';
-import type { OperationFormProps, DropDataConfig } from '@/types/transform';
+import type { OperationFormProps, DropDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 /**
  * Form for dropping (removing) columns from a table.
@@ -43,7 +43,7 @@ export function DropColumnOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as DropDataConfig;
+      const config = node.data.operation_config.config as unknown as DropDataConfig;
       if (config?.columns) {
         setSelectedColumns(config.columns);
       }
@@ -98,23 +98,25 @@ export function DropColumnOpForm({
         op_type: operation.slug,
         config: { columns: selectedColumns },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic(
         `${selectedColumns.length} column${selectedColumns.length > 1 ? 's' : ''} will be dropped`
       );
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save drop operation:', error);
       toastError.save(error, 'operation');

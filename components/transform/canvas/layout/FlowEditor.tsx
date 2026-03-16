@@ -16,11 +16,7 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasLock } from '@/hooks/api/useCanvasLock';
 import { useGitIntegration } from '@/hooks/api/useGitIntegration';
 import { useWorkflowExecution, type RunWorkflowParams } from '@/hooks/api/useWorkflowExecution';
-import {
-  useTransformStore,
-  useOperationPanelOpen,
-  useCanvasAction,
-} from '@/stores/transformStore';
+import { useTransformStore, useOperationPanelOpen, useCanvasAction } from '@/stores/transformStore';
 import { CanvasNodeTypeEnum } from '@/types/transform';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { useSWRConfig } from 'swr';
@@ -44,9 +40,7 @@ interface FlowEditorProps {
 
 export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
-  const [lowerSectionHeight, setLowerSectionHeight] = useState(
-    LOWER_SECTION_DEFAULT_HEIGHT
-  );
+  const [lowerSectionHeight, setLowerSectionHeight] = useState(LOWER_SECTION_DEFAULT_HEIGHT);
   const [isLowerFullScreen, setIsLowerFullScreen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -84,24 +78,18 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   } = useCanvasSources();
 
   // Operations for adding/deleting nodes
-  const { addNodeToCanvas, deleteOperationNode, deleteModelNode } =
-    useCanvasOperations();
+  const { addNodeToCanvas, deleteOperationNode } = useCanvasOperations();
 
   // Canvas lock - auto-acquires on mount, auto-releases on unmount
-  const { hasLock, isLockedByOther } = useCanvasLock({
+  const { isLockedByOther } = useCanvasLock({
     autoAcquire: !isPreview,
     onLockLost: () => {
-      toast.error(
-        'Canvas lock was lost. Another user may have taken control.'
-      );
+      toast.error('Canvas lock was lost. Another user may have taken control.');
     },
   });
 
   // Git integration
-  const {
-    gitRepoUrl,
-    checkPatStatus,
-  } = useGitIntegration();
+  const { gitRepoUrl, checkPatStatus } = useGitIntegration();
 
   // Workflow execution
   const {
@@ -141,9 +129,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     }
   }, [checkPatStatus, isPreview]);
 
-  // Determine canvas interaction state
-  const canInteract = hasLock && !isWorkflowRunning;
-
   // Handle canvas actions (delete-node, open-opconfig-panel, run-workflow, sync-sources)
   useEffect(() => {
     if (!canvasAction.type) return;
@@ -171,22 +156,16 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
           setTempLockCanvas(true);
           try {
-            if (
-              nodeType === CanvasNodeTypeEnum.Operation ||
-              nodeType === 'operation'
-            ) {
-              await deleteOperationNode(deleteId);
-              toast.success('Operation deleted');
-            } else {
-              await deleteModelNode(deleteId);
-              toast.success('Node removed from canvas');
-            }
+            // v1 uses unified /nodes/ endpoint for all canvas node deletions
+            await deleteOperationNode(deleteId);
+            toast.success(
+              nodeType === CanvasNodeTypeEnum.Operation || nodeType === 'operation'
+                ? 'Operation deleted'
+                : 'Node removed from canvas'
+            );
             await mutate(CANVAS_GRAPH_KEY);
           } catch (error: unknown) {
-            const message =
-              error instanceof Error
-                ? error.message
-                : 'Failed to delete node';
+            const message = error instanceof Error ? error.message : 'Failed to delete node';
             toast.error(message);
           } finally {
             setTempLockCanvas(false);
@@ -208,10 +187,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             // Refresh canvas after workflow completes
             await mutate(CANVAS_GRAPH_KEY);
           } catch (error: unknown) {
-            const message =
-              error instanceof Error
-                ? error.message
-                : 'Failed to run workflow';
+            const message = error instanceof Error ? error.message : 'Failed to run workflow';
             toast.error(message);
           }
           clearCanvasAction();
@@ -248,8 +224,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       await refreshSources();
       toast.success('Sources synced successfully');
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to sync sources';
+      const message = error instanceof Error ? error.message : 'Failed to sync sources';
       toast.error(message);
     } finally {
       setIsSyncing(false);
@@ -271,9 +246,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   // Handle add to canvas
   const handleAddToCanvas = useCallback(
     async (schema: string, table: string) => {
-      const model = sourcesModels.find(
-        (m) => m.schema === schema && m.name === table
-      );
+      const model = sourcesModels.find((m) => m.schema === schema && m.name === table);
 
       if (!model) {
         toast.error(`Could not find ${schema}.${table}`);
@@ -286,10 +259,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
         await mutate(CANVAS_GRAPH_KEY);
         toast.success(`Added ${table} to canvas`);
       } catch (error: unknown) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : `Failed to add ${table} to canvas`;
+        const message = error instanceof Error ? error.message : `Failed to add ${table} to canvas`;
         toast.error(message);
       } finally {
         setTempLockCanvas(false);
@@ -343,9 +313,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
   // Derive preview data from node click (previewData) or explicit preview action
   const previewTable =
-    previewAction?.type === 'preview'
-      ? previewAction.data
-      : previewData ?? null;
+    previewAction?.type === 'preview' ? previewAction.data : (previewData ?? null);
 
   return (
     <div
@@ -355,13 +323,10 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     >
       <ReactFlowProvider>
         {/* Header */}
-        <div
-          className="flex-shrink-0"
-          style={{ height: HEADER_HEIGHT }}
-        >
+        <div className="flex-shrink-0" style={{ height: HEADER_HEIGHT }}>
           <CanvasHeader
-            canInteract={canInteract}
             isLocked={isLockedByOther}
+            isWorkflowRunning={isWorkflowRunning}
             gitRepoUrl={gitRepoUrl || storeGitRepoUrl}
             isPreviewMode={isPreview}
           />
@@ -373,9 +338,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
           <div
             className="flex min-h-0"
             style={{
-              height: isLowerFullScreen
-                ? 0
-                : `calc(100% - ${lowerSectionHeight}px)`,
+              height: isLowerFullScreen ? 0 : `calc(100% - ${lowerSectionHeight}px)`,
             }}
           >
             {/* Resizable Sidebar */}
@@ -443,9 +406,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             minConstraints={[0, LOWER_SECTION_MIN_HEIGHT]}
             maxConstraints={[
               0,
-              containerRef.current
-                ? containerRef.current.clientHeight - HEADER_HEIGHT - 100
-                : 600,
+              containerRef.current ? containerRef.current.clientHeight - HEADER_HEIGHT - 100 : 600,
             ]}
             handle={
               <div className="absolute top-0 left-0 right-0 h-1 cursor-row-resize bg-border hover:bg-primary/50 transition-colors z-10" />
@@ -453,10 +414,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             axis="y"
             resizeHandles={['n']}
           >
-            <div
-              className="relative"
-              style={{ height: lowerSectionHeight }}
-            >
+            <div className="relative" style={{ height: lowerSectionHeight }}>
               <LowerSectionTabs
                 height={lowerSectionHeight}
                 isFullScreen={isLowerFullScreen}

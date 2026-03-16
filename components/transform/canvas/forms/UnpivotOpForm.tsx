@@ -10,7 +10,7 @@ import { Search } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, UnpivotDataConfig } from '@/types/transform';
+import type { OperationFormProps, UnpivotDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface UnpivotColumn {
   col: string;
@@ -89,7 +89,7 @@ export function UnpivotOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as UnpivotDataConfig;
+      const config = node.data.operation_config.config as unknown as UnpivotDataConfig;
       if (config) {
         const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
         setSrcColumns(sorted);
@@ -186,21 +186,23 @@ export function UnpivotOpForm({
           exclude_columns: excludeCols,
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Unpivot operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save unpivot operation:', error);
       toastError.save(error, 'operation');

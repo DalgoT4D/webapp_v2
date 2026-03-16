@@ -7,7 +7,7 @@ import useResizeObserver from '@/hooks/useResizeObserver';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, RefreshCw, Folder, FolderOpen, Table2, Loader2 } from 'lucide-react';
+import { Search, RefreshCw, Folder, FolderOpen, Table2, Loader2, Plus } from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
@@ -21,6 +21,10 @@ interface ProjectTreeProps {
   onTableSelect: (schema: string, table: string) => void;
   selectedTable: { schema: string; table: string } | null;
   included_in?: 'explore' | 'visual_designer';
+  /** Mode determines behavior: 'explore' for data preview, 'canvas' for adding to canvas */
+  mode?: 'explore' | 'canvas';
+  /** Callback when user clicks add-to-canvas button on a table node (canvas mode only) */
+  onAddToCanvas?: (schema: string, table: string) => void;
 }
 
 interface NodeRendererProps {
@@ -42,6 +46,8 @@ export function ProjectTree({
   onTableSelect,
   selectedTable,
   included_in = 'explore',
+  mode = 'explore',
+  onAddToCanvas,
 }: ProjectTreeProps) {
   const { ref: containerRef, width = 280, height = 400 } = useResizeObserver<HTMLDivElement>();
   const treeRef = useRef<TreeApi<TreeNode>>(null);
@@ -153,6 +159,7 @@ export function ProjectTree({
         node.data.schema === selectedTable.schema;
 
       const displayName = isRoot ? 'Data' : isFolder ? node.data.schema : (node.data.name ?? '');
+      const isLeaf = !isFolder && node.data.name && node.data.schema;
 
       return (
         <div
@@ -162,7 +169,7 @@ export function ProjectTree({
             paddingRight: 0,
           }}
           className={cn(
-            'flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors',
+            'group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors',
             'hover:bg-gray-100',
             isSelected && 'bg-teal-50 border-l-2 border-l-teal-500',
             !isSelected && 'border-l-2 border-l-transparent',
@@ -197,7 +204,7 @@ export function ProjectTree({
               <TooltipTrigger asChild>
                 <span
                   className={cn(
-                    'truncate',
+                    'truncate flex-1',
                     isSelected ? 'text-teal-700 font-medium text-base' : 'text-gray-700 text-base',
                     isFolder && 'font-medium text-gray-800'
                   )}
@@ -210,10 +217,24 @@ export function ProjectTree({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Add to canvas button - only in canvas mode for leaf nodes */}
+          {mode === 'canvas' && isLeaf && onAddToCanvas && (
+            <button
+              className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-teal-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCanvas(node.data.schema!, node.data.name!);
+              }}
+              data-testid={`add-to-canvas-${node.data.name}`}
+            >
+              <Plus className="h-4 w-4 text-teal-600" />
+            </button>
+          )}
         </div>
       );
     },
-    [canCreateModel, selectedTable]
+    [canCreateModel, selectedTable, mode, onAddToCanvas]
   );
 
   return (

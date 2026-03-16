@@ -1,0 +1,201 @@
+// components/transform/canvas/nodes/OperationNode.tsx
+'use client';
+
+import { memo, useCallback } from 'react';
+import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
+import Image from 'next/image';
+import { Trash2 } from 'lucide-react';
+import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
+import type { CanvasNodeRenderData } from '@/types/transform';
+
+// Operation labels mapping
+const operationLabels: Record<string, string> = {
+  renamecolumns: 'Rename',
+  flattenjson: 'Flatten JSON',
+  castdatatypes: 'Cast',
+  coalescecolumns: 'Coalesce',
+  arithmetic: 'Arithmetic',
+  dropcolumns: 'Drop',
+  replace: 'Replace',
+  join: 'Join',
+  where: 'Filter',
+  groupby: 'Group By',
+  aggregate: 'Aggregate',
+  casewhen: 'Case',
+  unionall: 'Union',
+  pivot: 'Pivot',
+  unpivot: 'Unpivot',
+  generic: 'Generic Column',
+  rawsql: 'Generic SQL',
+};
+
+// Operation icon mapping
+const operationIcons: Record<string, string> = {
+  renamecolumns: '/icons/transform/rename.svg',
+  flattenjson: '/icons/transform/flatten.svg',
+  castdatatypes: '/icons/transform/cast.svg',
+  coalescecolumns: '/icons/transform/coalesce.svg',
+  arithmetic: '/icons/transform/arithmetic.svg',
+  dropcolumns: '/icons/transform/drop.svg',
+  replace: '/icons/transform/replace.svg',
+  join: '/icons/transform/join.svg',
+  where: '/icons/transform/filter.svg',
+  groupby: '/icons/transform/groupby.svg',
+  aggregate: '/icons/transform/aggregate.svg',
+  casewhen: '/icons/transform/case.svg',
+  unionall: '/icons/transform/union.svg',
+  pivot: '/icons/transform/pivot.svg',
+  unpivot: '/icons/transform/unpivot.svg',
+  generic: '/icons/transform/generic.svg',
+  rawsql: '/icons/transform/generic.svg',
+};
+
+type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
+
+function OperationNode({ id, type, data, selected }: OperationNodeProps) {
+  const edges = useEdges();
+  const selectedNode = useSelectedNode();
+  const { setSelectedNode, dispatchCanvasAction } = useTransformStore();
+
+  const operationType = data?.operation_config?.type || 'unknown';
+  const operationLabel = operationLabels[operationType] || operationType;
+  const operationIcon = operationIcons[operationType];
+
+  // Leaf node check — can delete only leaf nodes
+  const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
+  const isLeafNode = edgesEmanatingOutOfNode.length === 0;
+  const canDelete = isLeafNode;
+
+  // Handle node click — open panel in edit/view mode
+  const handleNodeClick = useCallback(() => {
+    const nodeProps = { id, type, data, selected };
+    setSelectedNode(nodeProps);
+    dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'edit' } });
+  }, [id, type, data, selected, setSelectedNode, dispatchCanvasAction]);
+
+  // Handle delete click
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      dispatchCanvasAction({
+        type: 'delete-node',
+        data: { nodeId: id, nodeType: type, isDummy: data?.isDummy },
+      });
+    },
+    [id, type, data?.isDummy, dispatchCanvasAction]
+  );
+
+  const isSelected = selected || selectedNode?.id === id || data?.isDummy;
+
+  return (
+    <div
+      data-testid={`operation-node-${id}`}
+      className="cursor-pointer relative"
+      style={{
+        border: isSelected ? '2px dotted #000' : 'none',
+        borderRadius: 5,
+        padding: isSelected ? 0 : 2,
+      }}
+      onClick={handleNodeClick}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ width: 8, height: 8, background: '#999' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ width: 8, height: 8, background: '#999' }}
+      />
+
+      {/* Delete button — v1 style: absolute at top-right corner outside the node */}
+      {canDelete && !data?.isDummy && (
+        <button
+          onClick={handleDeleteClick}
+          style={{
+            position: 'absolute',
+            right: -15,
+            top: -15,
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: '#fff',
+            border: '1px solid #ccc',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            cursor: 'pointer',
+          }}
+          data-testid={`delete-operation-${id}`}
+        >
+          <Trash2 style={{ width: 12, height: 12, color: '#666' }} />
+        </button>
+      )}
+
+      <div
+        style={{
+          width: 90,
+          height: 100,
+          background: '#fff',
+          borderRadius: 5,
+          boxShadow: '0px 2px 4px 0px rgba(0, 0, 0, 0.16)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Icon area */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#F5FAFA',
+          }}
+        >
+          {operationIcon ? (
+            <Image
+              src={operationIcon}
+              alt={operationLabel}
+              width={28}
+              height={28}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : (
+            <span style={{ color: '#00897B', fontSize: 14, fontWeight: 700 }}>
+              {operationLabel.substring(0, 3).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div style={{ borderTop: '1px solid #EEEEEE' }} />
+
+        {/* Label */}
+        <div style={{ padding: 8, textAlign: 'center' }}>
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#212121',
+              margin: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={operationLabel}
+          >
+            {operationLabel}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default memo(OperationNode);

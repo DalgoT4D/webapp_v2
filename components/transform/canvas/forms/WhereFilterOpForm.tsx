@@ -24,7 +24,7 @@ import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { parseStringForNull } from './shared/OperandInput';
 import { LogicalOperators } from '@/constants/transform';
-import type { OperationFormProps, WherefilterDataConfig } from '@/types/transform';
+import type { OperationFormProps, WherefilterDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface FormValues {
   filterCol: string;
@@ -82,7 +82,7 @@ export function WhereFilterOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as WherefilterDataConfig;
+      const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
       if (config) {
         const isAdvance = config.where_type === 'sql';
         let clauseValues = {};
@@ -153,21 +153,23 @@ export function WhereFilterOpForm({
           sql_snippet: data.sql_snippet,
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Filter operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save where filter operation:', error);
       toastError.save(error, 'operation');

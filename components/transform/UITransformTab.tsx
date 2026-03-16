@@ -1,6 +1,7 @@
 // components/transform/UITransformTab.tsx
 'use client';
 
+import Link from 'next/link';
 import { DBTRepositoryCard } from './DBTRepositoryCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,9 +38,11 @@ export function UITransformTab({ onGitConnected, gitConnected }: UITransformTabP
                 transformation pipelines with drag-and-drop simplicity.
               </p>
             </div>
-            <Button disabled variant="outline" size="lg">
-              Edit Workflow (Coming Soon)
-            </Button>
+            <Link href="/transform/canvas">
+              <Button variant="outline" size="lg" data-testid="edit-workflow-btn">
+                EDIT WORKFLOW
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

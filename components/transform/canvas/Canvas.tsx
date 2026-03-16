@@ -1,0 +1,222 @@
+// components/transform/canvas/Canvas.tsx
+'use client';
+
+import { useMemo, useCallback, useRef, useEffect } from 'react';
+import ReactFlow, {
+  useNodesState,
+  useEdgesState,
+  Controls,
+  Background,
+  MarkerType,
+  type NodeTypes,
+  type Node,
+  type Edge,
+  type DefaultEdgeOptions,
+} from 'reactflow';
+import dagre from 'dagre';
+import 'reactflow/dist/style.css';
+
+import DbtSourceModelNode from './nodes/DbtSourceModelNode';
+import OperationNode from './nodes/OperationNode';
+import { useCanvasGraph } from '@/hooks/api/useCanvasGraph';
+import { useTransformStore } from '@/stores/transformStore';
+import {
+  type CanvasNodeRenderData,
+  type CanvasNodeDataResponse,
+  type CanvasEdgeDataResponse,
+} from '@/types/transform';
+
+// Node types - must be defined outside component
+const nodeTypes: NodeTypes = {
+  source: DbtSourceModelNode,
+  model: DbtSourceModelNode,
+  operation: OperationNode,
+};
+
+// Layout constants matching v1
+const NODE_WIDTH = 250;
+const NODE_HEIGHT = 150;
+const DAGRE_NODESEP = 100;
+const DAGRE_EDGESEP = 50;
+const DAGRE_RANKSEP = 150;
+const DAGRE_MARGIN_X = 50;
+const DAGRE_MARGIN_Y = 50;
+
+// Default edge styling — smoothstep (right-angle with rounded corners) + arrow marker
+const defaultEdgeOptions: DefaultEdgeOptions = {
+  type: 'default',
+  style: { stroke: '#000', strokeWidth: 1 },
+  markerEnd: {
+    type: MarkerType.Arrow,
+    width: 20,
+    height: 20,
+    color: '#000',
+  },
+};
+
+// Create a dagre graph for layout calculation
+function getLayoutedElements(
+  nodes: Node<CanvasNodeRenderData>[],
+  edges: Edge[]
+): { nodes: Node<CanvasNodeRenderData>[]; edges: Edge[] } {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({
+    rankdir: 'LR',
+    nodesep: DAGRE_NODESEP,
+    edgesep: DAGRE_EDGESEP,
+    ranksep: DAGRE_RANKSEP,
+    marginx: DAGRE_MARGIN_X,
+    marginy: DAGRE_MARGIN_Y,
+  });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
+
+// Transform API data to React Flow format
+function transformToFlowNodes(apiNodes: CanvasNodeDataResponse[]): Node<CanvasNodeRenderData>[] {
+  return apiNodes.map((node) => ({
+    id: node.uuid,
+    type: node.node_type as string,
+    data: {
+      ...node,
+      isDummy: false,
+    },
+    position: { x: 0, y: 0 },
+  }));
+}
+
+function transformToFlowEdges(apiEdges: CanvasEdgeDataResponse[]): Edge[] {
+  return apiEdges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+  }));
+}
+
+interface CanvasProps {
+  isPreviewMode?: boolean;
+}
+
+export default function Canvas({ isPreviewMode = false }: CanvasProps) {
+  const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNodeRenderData>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  const processedDataRef = useRef<string>('');
+  const { setSelectedNode, tempLockCanvas } = useTransformStore();
+
+  const {
+    nodes: apiNodes,
+    edges: apiEdges,
+    isLoading,
+  } = useCanvasGraph({ skipInitialFetch: isPreviewMode });
+
+  // Process API data when it changes
+  useEffect(() => {
+    const dataHash = JSON.stringify({
+      nodeIds: apiNodes.map((n) => n.uuid).sort(),
+      edgeIds: apiEdges.map((e) => e.id).sort(),
+    });
+
+    if (dataHash === processedDataRef.current) return;
+    processedDataRef.current = dataHash;
+
+    if (apiNodes.length === 0 && apiEdges.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+
+    const flowNodes = transformToFlowNodes(apiNodes);
+    const flowEdges = transformToFlowEdges(apiEdges);
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      flowNodes,
+      flowEdges
+    );
+
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+  }, [apiNodes, apiEdges, setNodes, setEdges]);
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedNode(null);
+  }, [setSelectedNode]);
+
+  const flowProps = useMemo(
+    () => ({
+      fitView: true,
+      fitViewOptions: { padding: 0.2 },
+      defaultViewport: { x: 0, y: 0, zoom: 0.8 },
+      minZoom: 0.1,
+      maxZoom: 2,
+      nodesDraggable: !isPreviewMode,
+      nodesConnectable: false,
+      panOnDrag: true,
+      zoomOnScroll: true,
+    }),
+    [isPreviewMode]
+  );
+
+  return (
+    <div className="h-full w-full relative" style={{ backgroundColor: '#fff' }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onPaneClick={handlePaneClick}
+        nodeTypes={nodeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
+        {...flowProps}
+      >
+        <Controls showInteractive={false} className="!bottom-4 !left-4" />
+        <Background color="#e0e0e0" gap={20} />
+      </ReactFlow>
+
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-white/50">
+          <p className="text-lg font-medium text-gray-500">Loading canvas...</p>
+        </div>
+      )}
+
+      {tempLockCanvas && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/20 z-50">
+          <div className="bg-white rounded-lg shadow-lg px-6 py-4 flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-gray-700 font-medium">Processing...</span>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && nodes.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-center text-gray-500">
+            <p className="text-lg font-medium">No nodes on canvas</p>
+            <p className="text-sm mt-1">Add sources or models from the project tree</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -13,7 +13,7 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { parseStringForNull } from './shared/OperandInput';
-import type { OperationFormProps, GenericColDataConfig, GenericCol } from '@/types/transform';
+import type { OperationFormProps, GenericColDataConfig, GenericCol, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';
@@ -70,7 +70,7 @@ export function GenericColumnOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as GenericColDataConfig;
+      const config = node.data.operation_config.config as unknown as GenericColDataConfig;
       if (config?.computed_columns && config.computed_columns.length > 0) {
         const computed = config.computed_columns[0];
         reset({
@@ -123,21 +123,23 @@ export function GenericColumnOpForm({
           ],
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Generic column operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save generic column operation:', error);
       toastError.save(error, 'operation');

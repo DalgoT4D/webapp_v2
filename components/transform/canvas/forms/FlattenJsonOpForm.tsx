@@ -14,6 +14,7 @@ import type {
   OperationFormProps,
   FlattenJsonDataConfig,
   DbtModelResponse,
+  ModelSrcOtherInputPayload,
 } from '@/types/transform';
 
 interface FormValues {
@@ -82,9 +83,9 @@ export function FlattenJsonOpForm({
 
     setIsFetchingJson(true);
     try {
-      const data = await apiGet<string[]>(
+      const data = (await apiGet(
         `/api/warehouse/dbt_project/json_columnspec/?source_schema=${schema}&input_name=${table}&json_column=${selectedColumn}`
-      );
+      )) as string[];
       setJsonColumns(data || []);
     } catch (error) {
       console.error('Failed to fetch JSON column spec:', error);
@@ -102,10 +103,10 @@ export function FlattenJsonOpForm({
       // For source/model nodes, try to get columns from dbtmodel
       if (['model', 'source'].includes(node.type || '') && node.data?.dbtmodel) {
         try {
-          const data = await apiGet<{ name: string }[]>(
+          const data = (await apiGet(
             `/api/warehouse/table_columns/${node.data.dbtmodel.schema}/${node.data.dbtmodel.name}`
-          );
-          const colNames = data.map((col) => col.name).sort((a, b) => a.localeCompare(b));
+          )) as { name: string }[];
+          const colNames = data.map((col: { name: string }) => col.name).sort((a: string, b: string) => a.localeCompare(b));
           setSrcColumns(colNames);
         } catch (error) {
           console.error('Failed to fetch table columns:', error);
@@ -129,7 +130,7 @@ export function FlattenJsonOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as FlattenJsonDataConfig;
+      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
       if (config) {
         setSrcColumns(config.source_columns || []);
         setJsonColumns(config.json_columns_to_copy || []);
@@ -185,21 +186,23 @@ export function FlattenJsonOpForm({
           json_columns_to_copy: jsonColumns,
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Flatten JSON operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save flatten JSON operation:', error);
       toastError.save(error, 'operation');

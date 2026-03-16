@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, CoalesceDataConfig } from '@/types/transform';
+import type { OperationFormProps, CoalesceDataConfig, ModelSrcOtherInputPayload } from '@/types/transform';
 
 interface FormValues {
   columns: { col: string }[];
@@ -66,7 +66,7 @@ export function CoalesceOpForm({
   // Load existing config in edit mode
   useEffect(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as CoalesceDataConfig;
+      const config = node.data.operation_config.config as unknown as CoalesceDataConfig;
       if (config) {
         const columns = config.columns.map((col) => ({ col }));
         // Add an empty row at the end for convenience
@@ -125,21 +125,23 @@ export function CoalesceOpForm({
           output_column_name: data.output_column_name,
         },
         source_columns: srcColumns,
-        other_inputs: [],
+        other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
       const finalAction = node.data?.isDummy ? 'create' : action;
+      let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
         await editOperation(node.id, payload);
       } else {
-        await createOperation(node.id, {
+        const response = await createOperation(node.id, {
           ...payload,
           input_node_uuid: node.id,
         });
+        createdNodeUuid = response?.uuid;
       }
 
       toastSuccess.generic('Coalesce operation saved successfully');
-      continueOperationChain();
+      continueOperationChain(createdNodeUuid);
     } catch (error) {
       console.error('Failed to save coalesce operation:', error);
       toastError.save(error, 'operation');
