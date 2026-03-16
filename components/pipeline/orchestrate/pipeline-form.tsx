@@ -38,7 +38,7 @@ import {
   validateDefaultTasksToApplyInPipeline,
   localTimeToUTC,
   utcTimeToLocal,
-} from './utils';
+} from '../utils';
 import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
 
 interface PipelineFormProps {
