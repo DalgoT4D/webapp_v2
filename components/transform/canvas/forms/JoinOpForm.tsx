@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
@@ -119,13 +120,12 @@ export function JoinOpForm({
     setTable2Columns(model.output_cols || []);
   };
 
-  // Build table options
-  const tableOptions = sourcesModels
+  // Build table options for searchable combobox
+  const tableItems: ComboboxItem[] = sourcesModels
     .filter((m) => m.uuid !== node?.data?.dbtmodel?.uuid) // Exclude current table
     .map((model) => ({
-      id: model.uuid,
+      value: model.uuid,
       label: model.display_name || `${model.schema}.${model.name}`,
-      schema: model.schema,
     }));
 
   const onSubmit = async (data: FormValues) => {
@@ -260,25 +260,22 @@ export function JoinOpForm({
             name="table2_id"
             rules={{ required: 'Table 2 is required' }}
             render={({ field }) => (
-              <Select
+              <Combobox
+                mode="single"
+                items={tableItems}
                 value={field.value}
                 onValueChange={(value) => {
                   field.onChange(value);
                   handleTable2Select(value);
                 }}
+                placeholder="Select table to join"
+                searchPlaceholder="Search tables..."
+                emptyMessage="No matching tables."
+                noItemsMessage="No tables available."
                 disabled={isViewMode}
-              >
-                <SelectTrigger data-testid="join-table2-select">
-                  <SelectValue placeholder="Select table to join" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tableOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                id="join-table2-select"
+                compact
+              />
             )}
           />
           {errors.table2_id && (

@@ -405,7 +405,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">{renderContent()}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto">{renderContent()}</div>
       </div>
 
       {/* Discard Dialog */}

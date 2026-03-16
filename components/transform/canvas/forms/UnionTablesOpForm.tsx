@@ -5,15 +5,7 @@ import { useEffect, useState } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-  SelectLabel,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { Plus, Trash2, Info } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { apiGet } from '@/lib/api';
@@ -136,22 +128,13 @@ export function UnionTablesOpForm({
     remove(index);
   };
 
-  // Build table options grouped by schema
-  const tableOptions = sourcesModels
+  // Build table items for searchable combobox
+  const tableItems: ComboboxItem[] = sourcesModels
     .filter((m) => m.uuid !== node?.data?.dbtmodel?.uuid) // Exclude current table
-    .reduce(
-      (acc, model) => {
-        const schema = model.schema || 'Other';
-        if (!acc[schema]) acc[schema] = [];
-        acc[schema].push({
-          id: model.uuid,
-          label: model.display_name || model.name,
-          schema,
-        });
-        return acc;
-      },
-      {} as Record<string, { id: string; label: string; schema: string }[]>
-    );
+    .map((model) => ({
+      value: model.uuid,
+      label: model.display_name || `${model.schema}.${model.name}`,
+    }));
 
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {
@@ -237,31 +220,21 @@ export function UnionTablesOpForm({
             }}
             render={({ field: formField, fieldState }) => (
               <div className="space-y-2">
-                <Select
+                <Combobox
+                  mode="single"
+                  items={tableItems}
                   value={formField.value?.id || ''}
                   onValueChange={(value) => {
                     handleTableSelect(index, value);
                   }}
-                  disabled={index === 0 || isViewMode} // First table is current node
-                >
-                  <SelectTrigger data-testid={`union-table-${index}`}>
-                    <SelectValue placeholder="Select table">
-                      {formField.value?.label || 'Select table'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(tableOptions).map(([schema, options]) => (
-                      <SelectGroup key={schema}>
-                        <SelectLabel>{schema}</SelectLabel>
-                        {options.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select table"
+                  searchPlaceholder="Search tables..."
+                  emptyMessage="No matching tables."
+                  noItemsMessage="No tables available."
+                  disabled={index === 0 || isViewMode}
+                  id={`union-table-${index}`}
+                  compact
+                />
                 {fieldState.error && (
                   <p className="text-sm text-destructive">{fieldState.error.message}</p>
                 )}

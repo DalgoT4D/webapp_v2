@@ -6,13 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { FormActions } from './shared/FormActions';
 import { apiGet } from '@/lib/api';
@@ -98,7 +92,7 @@ export function CastColumnOpForm({
             cols.forEach((col) => {
               if (col.data_type) typeMap[col.name] = col.data_type;
             });
-            setColumnTypes((prev) => ({ ...typeMap, ...prev }));
+            setColumnTypes((prev) => ({ ...prev, ...typeMap }));
             return;
           } catch {
             // Fall through to output_columns
@@ -146,6 +140,15 @@ export function CastColumnOpForm({
     const search = searchTerm.toLowerCase();
     return srcColumns.filter((col) => col.name.toLowerCase().includes(search));
   }, [srcColumns, searchTerm]);
+
+  // Merge warehouse types into the dataTypes list so existing column types always appear as valid options
+  const allDataTypeItems: ComboboxItem[] = useMemo(() => {
+    const warehouseTypes = Object.values(columnTypes).filter(Boolean);
+    const merged = new Set([...dataTypes, ...warehouseTypes]);
+    return Array.from(merged)
+      .sort((a, b) => a.localeCompare(b))
+      .map((type) => ({ value: type, label: type }));
+  }, [dataTypes, columnTypes]);
 
   const handleTypeChange = (columnName: string, dataType: string) => {
     setColumnTypes((prev) => ({
@@ -223,7 +226,7 @@ export function CastColumnOpForm({
       </div>
 
       {/* Header */}
-      <div className="grid grid-cols-2 gap-4 bg-muted px-4 py-3 rounded-t-md">
+      <div className="grid grid-cols-[1fr_1.2fr] gap-3 bg-muted px-4 py-3 rounded-t-md">
         <Label className="text-xs font-medium text-muted-foreground uppercase">Column Name</Label>
         <Label className="text-xs font-medium text-muted-foreground uppercase">Type</Label>
       </div>
@@ -237,26 +240,26 @@ export function CastColumnOpForm({
         ) : (
           <div className="divide-y">
             {filteredColumns.map((column) => (
-              <div key={column.name} className="grid grid-cols-2 gap-4 px-4 py-3 items-center">
+              <div
+                key={column.name}
+                className="grid grid-cols-[1fr_1.2fr] gap-3 px-4 py-2 items-center"
+              >
                 <span className="text-sm font-medium truncate" title={column.name}>
                   {column.name}
                 </span>
-                <Select
+                <Combobox
+                  mode="single"
+                  items={allDataTypeItems}
                   value={columnTypes[column.name] || ''}
                   onValueChange={(value) => handleTypeChange(column.name, value)}
+                  placeholder="Select type"
+                  searchPlaceholder="Search types..."
+                  emptyMessage="No matching types."
+                  noItemsMessage="No types available."
                   disabled={isViewMode}
-                >
-                  <SelectTrigger data-testid={`cast-type-${column.name}`}>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dataTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  id={`cast-type-${column.name}`}
+                  compact
+                />
               </div>
             ))}
           </div>

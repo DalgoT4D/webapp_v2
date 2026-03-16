@@ -1,13 +1,8 @@
 // components/transform/canvas/forms/shared/ColumnSelect.tsx
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { useMemo } from 'react';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 
 interface ColumnSelectProps {
@@ -30,7 +25,8 @@ interface ColumnSelectProps {
 }
 
 /**
- * Standard column dropdown selector used across operation forms.
+ * Standard searchable column dropdown selector used across operation forms.
+ * Uses Combobox for search/filter when column lists are large.
  */
 export function ColumnSelect({
   value,
@@ -42,25 +38,29 @@ export function ColumnSelect({
   testId = 'column-select',
   excludeColumns = [],
 }: ColumnSelectProps) {
-  const filteredColumns = columns.filter((col) => !excludeColumns.includes(col));
+  const items: ComboboxItem[] = useMemo(
+    () =>
+      columns
+        .filter((col) => !excludeColumns.includes(col))
+        .map((col) => ({ value: col, label: col })),
+    [columns, excludeColumns]
+  );
 
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger className={cn('w-full', className)} data-testid={testId}>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {filteredColumns.length === 0 ? (
-          <div className="p-2 text-sm text-muted-foreground">No columns available</div>
-        ) : (
-          filteredColumns.map((col) => (
-            <SelectItem key={col} value={col}>
-              {col}
-            </SelectItem>
-          ))
-        )}
-      </SelectContent>
-    </Select>
+    <Combobox
+      mode="single"
+      items={items}
+      value={value}
+      onValueChange={onChange}
+      placeholder={placeholder}
+      searchPlaceholder="Search columns..."
+      emptyMessage="No matching columns."
+      noItemsMessage="No columns available."
+      disabled={disabled}
+      className={cn('w-full', className)}
+      id={testId}
+      compact
+    />
   );
 }
 
@@ -82,54 +82,36 @@ interface MultiColumnSelectProps {
 }
 
 /**
- * Multi-column selector with checkboxes.
- * Used for operations that need multiple column selection.
+ * Multi-column selector with search and checkboxes.
+ * Uses Combobox multi mode for searchable selection of multiple columns.
  */
 export function MultiColumnSelect({
   values,
   onChange,
   columns,
-  placeholder = 'Select columns',
+  placeholder = 'Search and select columns...',
   disabled = false,
   className,
   testId = 'multi-column-select',
 }: MultiColumnSelectProps) {
-  const toggleColumn = (column: string) => {
-    if (values.includes(column)) {
-      onChange(values.filter((v) => v !== column));
-    } else {
-      onChange([...values, column]);
-    }
-  };
+  const items: ComboboxItem[] = useMemo(
+    () => columns.map((col) => ({ value: col, label: col })),
+    [columns]
+  );
 
   return (
-    <div className={cn('border rounded-md', className)} data-testid={testId}>
-      <div className="max-h-48 overflow-y-auto p-2 space-y-1">
-        {columns.length === 0 ? (
-          <div className="p-2 text-sm text-muted-foreground">{placeholder}</div>
-        ) : (
-          columns.map((col) => (
-            <label
-              key={col}
-              className={cn(
-                'flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted/50',
-                values.includes(col) && 'bg-teal-50',
-                disabled && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={values.includes(col)}
-                onChange={() => !disabled && toggleColumn(col)}
-                disabled={disabled}
-                className="rounded border-gray-300"
-                data-testid={`${testId}-${col}`}
-              />
-              <span className="text-sm">{col}</span>
-            </label>
-          ))
-        )}
-      </div>
-    </div>
+    <Combobox
+      mode="multi"
+      items={items}
+      values={values}
+      onValuesChange={onChange}
+      searchPlaceholder={placeholder}
+      emptyMessage="No matching columns."
+      noItemsMessage="No columns available."
+      disabled={disabled}
+      className={className}
+      id={testId}
+      compact
+    />
   );
 }
