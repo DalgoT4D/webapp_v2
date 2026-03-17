@@ -67,12 +67,8 @@ export function LogsPane({ height, dbtRunLogs, isLoading }: LogsPaneProps) {
           {/* Header */}
           <thead className="sticky top-0 z-10" style={{ backgroundColor: '#F5FAFA' }}>
             <tr>
-              <th className="text-left py-2.5 px-5 font-bold text-sm text-gray-800">
-                Last Run
-              </th>
-              <th className="text-left py-2.5 px-5 font-bold text-sm text-gray-800">
-                Description
-              </th>
+              <th className="text-left py-2.5 px-5 font-bold text-sm text-gray-800">Last Run</th>
+              <th className="text-left py-2.5 px-5 font-bold text-sm text-gray-800">Description</th>
             </tr>
           </thead>
           {/* Body */}
