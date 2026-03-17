@@ -130,7 +130,10 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
                 fixedWeeks
                 captionLayout="dropdown"
                 disabled={(date) => {
-                  // Disable dates before start date if start date is selected
+                  const today = new Date();
+                  today.setHours(23, 59, 59, 999); // End of today
+                  // Disable future dates and dates before start date
+                  if (date > today) return true;
                   return startDate ? date < startDate : false;
                 }}
                 initialFocus
