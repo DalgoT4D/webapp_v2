@@ -9,10 +9,16 @@ import { LogsPane } from '@/components/explore/LogsPane';
 import { PreviewPane } from '@/components/explore/PreviewPane';
 import type { TaskProgressLog, PreviewTableData } from '@/types/transform';
 
-type LowerTab = 'preview' | 'logs';
+type LowerTab = 'preview' | 'logs' | 'data statistics';
 
-// Tab bar height in px — keep compact
-const TAB_BAR_HEIGHT = 36;
+const TABS: { key: LowerTab; label: string }[] = [
+  { key: 'preview', label: 'PREVIEW' },
+  { key: 'logs', label: 'LOGS' },
+  { key: 'data statistics', label: 'DATA STATISTICS' },
+];
+
+// Tab bar height in px
+const TAB_BAR_HEIGHT = 40;
 
 export interface LowerSectionTabsProps {
   height: number;
@@ -55,25 +61,25 @@ export function LowerSectionTabs({
       style={{ height }}
       data-testid="lower-section-tabs"
     >
-      {/* Compact Tab Bar */}
+      {/* Tab Bar */}
       <div
         className="flex-shrink-0 flex items-center justify-between px-4 border-b bg-gray-50/50"
         style={{ height: TAB_BAR_HEIGHT }}
       >
-        <div className="flex gap-1">
-          {(['preview', 'logs'] as const).map((tab) => (
+        <div className="flex gap-2">
+          {TABS.map((tab) => (
             <button
-              key={tab}
-              onClick={() => setSelectedTab(tab)}
+              key={tab.key}
+              onClick={() => setSelectedTab(tab.key)}
               className={cn(
-                'px-3 py-1 text-sm font-medium rounded transition-colors capitalize',
-                selectedTab === tab
-                  ? 'bg-white shadow-sm text-gray-900'
+                'px-3 py-1.5 text-xs font-semibold tracking-wide rounded transition-colors',
+                selectedTab === tab.key
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-500 hover:text-gray-700'
               )}
-              data-testid={`${tab}-tab`}
+              data-testid={`${tab.key}-tab`}
             >
-              {tab}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -115,6 +121,16 @@ export function LowerSectionTabs({
       {selectedTab === 'logs' && (
         <div style={{ height: contentHeight }}>
           <LogsPane height={contentHeight} dbtRunLogs={dbtRunLogs} isLoading={isLogsLoading} />
+        </div>
+      )}
+
+      {/* Data Statistics Tab (placeholder) */}
+      {selectedTab === 'data statistics' && (
+        <div
+          className="flex items-center justify-center text-muted-foreground"
+          style={{ height: contentHeight }}
+        >
+          Data statistics coming soon
         </div>
       )}
     </div>

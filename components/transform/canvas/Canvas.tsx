@@ -33,14 +33,14 @@ const nodeTypes: NodeTypes = {
   operation: OperationNode,
 };
 
-// Layout constants matching v1
+// Layout constants matching webapp v1
 const NODE_WIDTH = 250;
-const NODE_HEIGHT = 150;
-const DAGRE_NODESEP = 100;
-const DAGRE_EDGESEP = 50;
-const DAGRE_RANKSEP = 150;
-const DAGRE_MARGIN_X = 50;
-const DAGRE_MARGIN_Y = 50;
+const NODE_HEIGHT = 120;
+const DAGRE_NODESEP = 200;
+const DAGRE_EDGESEP = 100;
+const DAGRE_RANKSEP = 350;
+const DAGRE_MARGIN_X = 100;
+const DAGRE_MARGIN_Y = 100;
 
 // Default edge styling — smoothstep (right-angle with rounded corners) + arrow marker
 const defaultEdgeOptions: DefaultEdgeOptions = {
@@ -54,7 +54,7 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
   },
 };
 
-// Create a dagre graph for layout calculation
+// Create a dagre graph for layout calculation — matches webapp v1 exactly
 function getLayoutedElements(
   nodes: Node<CanvasNodeRenderData>[],
   edges: Edge[]
@@ -68,26 +68,25 @@ function getLayoutedElements(
     ranksep: DAGRE_RANKSEP,
     marginx: DAGRE_MARGIN_X,
     marginy: DAGRE_MARGIN_Y,
-  });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
   });
 
   edges.forEach((edge) => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
 
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, {});
+  });
+
   dagre.layout(dagreGraph);
 
   const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
+    const { x, y } = dagreGraph.node(node.id);
     return {
       ...node,
-      position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
-      },
+      position: { x, y },
     };
   });
 

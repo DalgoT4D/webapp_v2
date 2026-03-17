@@ -2,15 +2,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import type { TaskProgressLog } from '@/types/transform';
 
 interface LogsPaneProps {
@@ -28,15 +20,12 @@ interface LogsPaneProps {
  * or a scrollable table of log entries with timestamps.
  */
 export function LogsPane({ height, dbtRunLogs, isLoading }: LogsPaneProps) {
-  const TABLE_HEADER_HEIGHT = 50;
-  const contentHeight = Math.max(200, height - TABLE_HEADER_HEIGHT);
-
   // Loading state with no logs
   if (isLoading && dbtRunLogs.length === 0) {
     return (
       <div
         className="flex items-center justify-center bg-white"
-        style={{ height: contentHeight }}
+        style={{ height }}
         data-testid="logs-loading"
       >
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -49,7 +38,7 @@ export function LogsPane({ height, dbtRunLogs, isLoading }: LogsPaneProps) {
     return (
       <div
         className="flex items-center justify-center text-muted-foreground bg-white"
-        style={{ height: contentHeight }}
+        style={{ height }}
         data-testid="logs-empty"
       >
         Please press run
@@ -57,47 +46,63 @@ export function LogsPane({ height, dbtRunLogs, isLoading }: LogsPaneProps) {
     );
   }
 
-  // Format timestamp for display
+  // Format timestamp for display — returns null if timestamp is missing/invalid
   const formatTimestamp = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      const dateStr = format(date, 'yyyy/MM/dd');
-      const timeStr = format(date, 'hh:mm:ss a');
-      return `${dateStr}    ${timeStr}`;
-    } catch {
-      return timestamp;
-    }
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    if (!isValid(date)) return null;
+    const dateStr = format(date, 'yyyy/MM/dd');
+    const timeStr = format(date, 'hh:mm:ss a').toUpperCase();
+    return { dateStr, timeStr };
   };
 
-  // Render table with logs
   return (
     <div className="flex flex-col h-full bg-white" data-testid="logs-pane">
-      <div className="overflow-auto" style={{ height: contentHeight }}>
-        <Table>
-          <TableHeader className="sticky top-0 bg-muted/50 z-10">
-            <TableRow>
-              <TableHead className="min-w-[200px] font-bold text-gray-700">Last Run</TableHead>
-              <TableHead className="font-bold text-gray-700">Description</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {dbtRunLogs.map((log, index) => (
-              <TableRow
-                key={index}
-                data-testid={`log-row-${index}`}
-                className="hover:bg-gray-50/50"
-              >
-                <TableCell className="font-medium text-sm text-gray-600 whitespace-nowrap">
-                  {formatTimestamp(log.timestamp)}
-                </TableCell>
-                <TableCell className="text-sm text-gray-700">{log.message}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="overflow-auto" style={{ height }}>
+        <table className="w-full border-collapse table-fixed">
+          <colgroup>
+            <col style={{ width: '35%' }} />
+            <col style={{ width: '65%' }} />
+          </colgroup>
+          {/* Header */}
+          <thead className="sticky top-0 z-10" style={{ backgroundColor: '#F5FAFA' }}>
+            <tr>
+              <th className="text-left py-2.5 px-5 font-bold text-sm text-gray-800">
+                Last Run
+              </th>
+              <th className="text-left py-2.5 px-5 font-bold text-sm text-gray-800">
+                Description
+              </th>
+            </tr>
+          </thead>
+          {/* Body */}
+          <tbody>
+            {dbtRunLogs.map((log, index) => {
+              const ts = formatTimestamp(log.timestamp);
+              return (
+                <tr
+                  key={index}
+                  data-testid={`log-row-${index}`}
+                  className="border-b border-gray-200"
+                >
+                  <td className="py-2.5 px-5 text-sm font-medium text-gray-700 whitespace-nowrap">
+                    {ts ? (
+                      <>
+                        {ts.dateStr}
+                        <span className="inline-block w-8" />
+                        {ts.timeStr}
+                      </>
+                    ) : null}
+                  </td>
+                  <td className="py-2.5 px-5 text-sm text-gray-700">{log.message}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {/* Show loading indicator at bottom when fetching more logs */}
+      {/* Loading indicator at bottom when fetching more logs */}
       {isLoading && dbtRunLogs.length > 0 && (
         <div className="flex items-center justify-center py-2 border-t">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
