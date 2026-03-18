@@ -1,23 +1,6 @@
-import {
-  applyStackedBarLabels,
-  stackedBarLabelFormatter,
-  createStackedTotalFormatter,
-} from '../stacked-bar-utils';
+import { applyStackedBarLabels, createStackedTotalFormatter } from '../stacked-bar-utils';
 
 describe('stacked-bar-utils', () => {
-  describe('stackedBarLabelFormatter', () => {
-    it.each([
-      [{ value: 1000 }, '1,000'],
-      [{ value: ['A', 500] }, '500'],
-      [{ value: { value: 250 } }, '250'],
-      [{ value: 0 }, ''],
-      [{ value: NaN }, ''],
-      [null, ''],
-    ])('should format %p as %s', (params, expected) => {
-      expect(stackedBarLabelFormatter(params)).toBe(expected);
-    });
-  });
-
   describe('createStackedTotalFormatter', () => {
     const seriesArray = [{ data: [10, 20, 30] }, { data: [5, 10, 15] }, { data: [3, 7, 0] }];
 

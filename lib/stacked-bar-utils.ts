@@ -13,16 +13,6 @@ function extractValue(value: any): number {
 }
 
 /**
- * Formatter for stacked bar data labels - handles various value types
- */
-export function stackedBarLabelFormatter(params: any): string {
-  if (!params) return '';
-  const value = extractValue(params.value);
-  if (value === 0) return '';
-  return value.toLocaleString();
-}
-
-/**
  * Create a formatter that shows total of all series at the given data index
  */
 export function createStackedTotalFormatter(seriesArray: any[]) {
