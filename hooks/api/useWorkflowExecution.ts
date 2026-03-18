@@ -1,7 +1,7 @@
 // hooks/api/useWorkflowExecution.ts
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -61,6 +61,17 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
 
   const pollingRef = useRef(false);
   const abortRef = useRef(false);
+  const unmountedRef = useRef(false);
+
+  // Abort polling on unmount so the finally block doesn't clear store state
+  // that a new component instance is managing
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      abortRef.current = true;
+    };
+  }, []);
 
   const clearLogs = useCallback(() => {
     setLogs([]);
@@ -81,7 +92,15 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
           );
 
           if (response?.progress) {
-            setLogs(response.progress);
+            // Add client-side timestamp when backend doesn't provide one
+            const now = new Date().toISOString();
+            const logsWithTimestamps = response.progress.map((log: TaskProgressLog) => ({
+              ...log,
+              timestamp: log.timestamp || now,
+            }));
+            if (!unmountedRef.current) {
+              setLogs(logsWithTimestamps);
+            }
 
             const lastLog = response.progress[response.progress.length - 1];
             if (lastLog?.status === 'completed' || lastLog?.status === 'failed') {
@@ -92,23 +111,29 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
           await delay(POLL_INTERVAL);
         }
       } catch (error) {
-        console.error('Error polling task progress:', error);
-        setLogs((prev) => [
-          ...prev,
-          {
-            message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            status: 'failed',
-            timestamp: new Date().toISOString(),
-          },
-        ]);
+        if (!unmountedRef.current) {
+          console.error('Error polling task progress:', error);
+          setLogs((prev) => [
+            ...prev,
+            {
+              message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              status: 'failed',
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+        }
       } finally {
         pollingRef.current = false;
-        setIsRunning(false);
-        setWorkflowRunning(false);
-        setTaskId(null);
-        setCurrentTaskId(null);
-        setLockUpperSection(false);
-        triggerRefresh();
+        // Only clear store state if component is still mounted
+        // If unmounted, a new instance will manage the lock state
+        if (!unmountedRef.current) {
+          setIsRunning(false);
+          setWorkflowRunning(false);
+          setTaskId(null);
+          setCurrentTaskId(null);
+          setLockUpperSection(false);
+          triggerRefresh();
+        }
       }
     },
     [selectedOrgSlug, setLockUpperSection, setWorkflowRunning, setCurrentTaskId, triggerRefresh]

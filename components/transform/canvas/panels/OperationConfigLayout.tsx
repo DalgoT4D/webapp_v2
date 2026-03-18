@@ -405,7 +405,14 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         )}
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto">{renderContent()}</div>
+        <div className="relative flex-1 min-h-0 overflow-y-auto">
+          {renderContent()}
+
+          {/* Backdrop overlay during form save — prevents double-submit */}
+          {isPanelLoading && (
+            <div className="absolute inset-0 bg-white/70 z-10" data-testid="panel-backdrop" />
+          )}
+        </div>
       </div>
 
       {/* Discard Dialog */}

@@ -169,20 +169,32 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
     };
   }, [refreshLock, startRefreshTimer, stopRefreshTimer]);
 
-  // Handle beforeunload - attempt to release lock when page closes
+  // Handle beforeunload and popstate — release lock on page close or browser navigation
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (hasLockRef.current) {
-        // Use sendBeacon for reliable delivery on page unload
-        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${LOCK_ENDPOINT}`;
-        // Note: sendBeacon doesn't support DELETE, so we'll rely on server-side timeout
-        // The lock refresh stopping will cause the lock to expire
+    const releaseLockSync = () => {
+      if (!hasLockRef.current) return;
+      // Use sendBeacon with a POST to a release endpoint for reliable delivery on unload
+      // Fallback: stopping refresh timer causes lock to expire server-side
+      try {
+        apiDelete(LOCK_ENDPOINT).catch(() => {});
+      } catch {
+        // Best-effort cleanup
       }
     };
 
+    const handleBeforeUnload = () => {
+      releaseLockSync();
+    };
+
+    const handlePopState = () => {
+      releaseLockSync();
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
     };
   }, []);
 

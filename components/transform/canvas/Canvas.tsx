@@ -1,7 +1,7 @@
 // components/transform/canvas/Canvas.tsx
 'use client';
 
-import { useMemo, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -123,7 +123,9 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const processedDataRef = useRef<string>('');
-  const { setSelectedNode, tempLockCanvas } = useTransformStore();
+  const { setSelectedNode, tempLockCanvas, lockUpperSection, isWorkflowRunning } =
+    useTransformStore();
+  const finalLockCanvas = tempLockCanvas || lockUpperSection;
 
   const {
     nodes: apiNodes,
@@ -158,24 +160,12 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     setEdges(layoutedEdges);
   }, [apiNodes, apiEdges, setNodes, setEdges]);
 
+  // canEdit: gates dragging, connecting, and edge changes (disabled when locked or preview)
+  const canEdit = !finalLockCanvas && !isPreviewMode;
+
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null);
   }, [setSelectedNode]);
-
-  const flowProps = useMemo(
-    () => ({
-      fitView: true,
-      fitViewOptions: { padding: 0.2 },
-      defaultViewport: { x: 0, y: 0, zoom: 0.8 },
-      minZoom: 0.1,
-      maxZoom: 2,
-      nodesDraggable: !isPreviewMode,
-      nodesConnectable: false,
-      panOnDrag: true,
-      zoomOnScroll: true,
-    }),
-    [isPreviewMode]
-  );
 
   return (
     <div className="h-full w-full relative" style={{ backgroundColor: '#fff' }}>
@@ -183,27 +173,44 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={canEdit ? onEdgesChange : undefined}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
-        {...flowProps}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
+        minZoom={0.1}
+        maxZoom={2}
+        nodesDraggable={canEdit}
+        nodesConnectable={canEdit}
+        elementsSelectable={!isPreviewMode}
+        zoomOnDoubleClick={canEdit}
+        panOnDrag
+        zoomOnScroll
       >
         <Controls showInteractive={false} className="!bottom-4 !left-4" />
         <Background color="#e0e0e0" gap={20} />
       </ReactFlow>
 
+      {/* Loading overlay — blocks interaction while graph is fetching */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-white/50">
-          <p className="text-lg font-medium text-gray-500">Loading canvas...</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-40">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-lg font-medium text-gray-500">Loading canvas...</p>
+          </div>
         </div>
       )}
 
-      {tempLockCanvas && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/20 z-50">
+      {/* Lock overlay — shown for tempLockCanvas (short ops) or lockUpperSection (workflow running) */}
+      {finalLockCanvas && !isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50">
           <div className="bg-white rounded-lg shadow-lg px-6 py-4 flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-700 font-medium">Processing...</span>
+            <span className="text-gray-700 font-medium">
+              {isWorkflowRunning ? 'Running workflow...' : 'Processing...'}
+            </span>
           </div>
         </div>
       )}
