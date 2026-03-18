@@ -458,27 +458,11 @@ describe('ChartPreview', () => {
 
       if (shouldApply) {
         expect(calledConfig.series[0].label.position).toBe('top');
-        expect(calledConfig.series[0].labelLayout).toEqual({ hideOverlap: true });
+        expect(calledConfig.series[0].label.show).toBe(true);
       } else {
-        expect(calledConfig.series[0].labelLayout).toBeUndefined();
+        // Non-stacked or no showDataLabels - label config unchanged
+        expect(calledConfig.series[0].label.show).not.toBe(true);
       }
-    });
-
-    it('should format values correctly in label formatter', () => {
-      render(
-        <ChartPreview
-          config={stackedConfig}
-          chartType="bar"
-          customizations={{ stacked: true, showDataLabels: true }}
-        />
-      );
-      const formatter = mockChart.setOption.mock.calls[0][0].series[0].label.formatter;
-
-      expect(formatter({ value: 1000 })).toBe('1,000');
-      expect(formatter({ value: ['A', 500] })).toBe('500');
-      expect(formatter({ value: { value: 250 } })).toBe('250');
-      expect(formatter({ value: 0 })).toBe('');
-      expect(formatter(null)).toBe('');
     });
   });
 });

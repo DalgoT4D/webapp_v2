@@ -41,6 +41,7 @@ import {
   shouldShowLegend,
   getLegendMode,
 } from '@/lib/responsive-legend';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1017,48 +1018,9 @@ export function ChartElementV2({
         },
       };
 
-      // Handle stacked bar chart data labels - show individual slice values at top
-      const isBarChart = chart?.chart_type === 'bar';
-      if (isBarChart) {
-        const stackedSeriesArray = Array.isArray(modifiedConfig.series)
-          ? modifiedConfig.series
-          : modifiedConfig.series
-            ? [modifiedConfig.series]
-            : [];
-        const isStackedFromSeries = stackedSeriesArray.some((s: any) => s.stack);
-        const isStacked = customizations.stacked || isStackedFromSeries;
-        const showDataLabels =
-          customizations.showDataLabels ||
-          stackedSeriesArray.some((s: any) => s.label?.show === true);
-
-        if (isStacked && showDataLabels) {
-          modifiedConfig.series = stackedSeriesArray.map((series: any) => ({
-            ...series,
-            label: {
-              ...series.label,
-              show: true,
-              position: 'top',
-              formatter: (params: any) => {
-                if (!params) return '';
-                let value = params.value;
-                // Handle array values like [x, y]
-                if (Array.isArray(value)) {
-                  value = value[1];
-                }
-                // Handle object values like { value: ... }
-                if (value !== null && typeof value === 'object' && 'value' in value) {
-                  value = value.value;
-                }
-                // Skip zero or invalid values
-                if (typeof value !== 'number' || isNaN(value) || value === 0) {
-                  return '';
-                }
-                return value.toLocaleString();
-              },
-            },
-            labelLayout: { hideOverlap: true },
-          }));
-        }
+      // Handle stacked bar chart data labels
+      if (chart?.chart_type === 'bar') {
+        Object.assign(modifiedConfig, applyStackedBarLabels(modifiedConfig, customizations));
       }
 
       // Set chart option with animation disabled for better performance
