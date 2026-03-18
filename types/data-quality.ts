@@ -48,6 +48,11 @@ export interface EdrDeploymentResponse {
   status: string;
 }
 
-export interface ElementaryLockResponse {
+export type ElementaryLockResponse = {
   is_locked: boolean;
-}
+  status: string;
+  task_slug: string;
+  flowRunId: string;
+  lockedBy: string;
+  lockedAt: string;
+} | null;
