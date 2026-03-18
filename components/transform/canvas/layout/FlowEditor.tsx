@@ -1,7 +1,7 @@
 // components/transform/canvas/layout/FlowEditor.tsx
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { Resizable } from 'react-resizable';
 import Canvas from '../Canvas';
@@ -16,10 +16,14 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasLock } from '@/hooks/api/useCanvasLock';
 import { useGitIntegration } from '@/hooks/api/useGitIntegration';
 import { useWorkflowExecution, type RunWorkflowParams } from '@/hooks/api/useWorkflowExecution';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useTransformStore, useOperationPanelOpen, useCanvasAction } from '@/stores/transformStore';
 import { CanvasNodeTypeEnum } from '@/types/transform';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
+import { apiGet } from '@/lib/api';
 import { useSWRConfig } from 'swr';
+import useSWR from 'swr';
+import type { DbtProjectGraphResponse } from '@/types/transform';
 import { toast } from 'sonner';
 
 import 'reactflow/dist/style.css';
@@ -89,6 +93,9 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     },
   });
 
+  // Permissions
+  const { hasPermission } = useUserPermissions();
+
   // Git integration
   const { gitRepoUrl, checkPatStatus } = useGitIntegration();
 
@@ -100,6 +107,14 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     checkRunningTasks,
     resumePolling,
   } = useWorkflowExecution();
+
+  // Read cached graph data to compute hasUnpublishedChanges
+  const { data: graphData } = useSWR<DbtProjectGraphResponse>(
+    isPreview ? null : CANVAS_GRAPH_KEY
+  );
+  const hasUnpublishedChanges = useMemo(() => {
+    return graphData?.nodes?.some((node) => node.isPublished === false) ?? false;
+  }, [graphData?.nodes]);
 
   // Sync workflow logs to store for LowerSectionTabs
   useEffect(() => {
@@ -152,6 +167,17 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isPreview, isWorkflowRunning, checkRunningTasks, resumePolling, setSelectedLowerTab]);
+
+  // Auto-sync sources on first canvas open
+  const hasAutoSynced = useRef(false);
+  useEffect(() => {
+    if (hasAutoSynced.current || isPreview) return;
+    if (!hasPermission('can_sync_sources')) return;
+    hasAutoSynced.current = true;
+    handleSyncSources();
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Check PAT status on mount
   useEffect(() => {
@@ -225,6 +251,29 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
           break;
         }
 
+        case 'delete-source-tree-node': {
+          const actionData = (canvasAction.data || {}) as Record<string, unknown>;
+          const nodeId = actionData.nodeId as string | undefined;
+          if (!nodeId) {
+            clearCanvasAction();
+            return;
+          }
+
+          setTempLockCanvas(true);
+          try {
+            await deleteOperationNode(nodeId);
+            toast.success('Source removed from canvas');
+            await mutate(CANVAS_GRAPH_KEY);
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Failed to remove source';
+            toast.error(message);
+          } finally {
+            setTempLockCanvas(false);
+          }
+          clearCanvasAction();
+          break;
+        }
+
         case 'sync-sources': {
           handleSyncSources();
           clearCanvasAction();
@@ -246,13 +295,56 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasAction.type]);
 
-  // Handle sync sources — locks upper section like v1
+  // Handle sync sources — locks upper section, polls progress into logs pane
   const handleSyncSources = useCallback(async () => {
     setIsSyncing(true);
     setLockUpperSection(true);
     setSelectedLowerTab('logs');
+    setDbtRunLogs([]);
+
+    const POLL_INTERVAL_MS = 2000;
+
     try {
-      await syncSources();
+      const { taskId, hashKey } = await syncSources();
+
+      // Poll for task progress
+      let isComplete = false;
+      while (!isComplete) {
+        try {
+          const response = await apiGet(
+            `/api/tasks/${taskId}?hashkey=${hashKey}`
+          );
+
+          if (response?.progress) {
+            const now = new Date().toISOString();
+            const progressItems = response.progress as Array<{
+              message?: string;
+              status?: string;
+              timestamp?: string;
+            }>;
+            const logs = progressItems.map((log) => ({
+              message: log.message || '',
+              status: log.status || 'running',
+              timestamp: log.timestamp || now,
+            }));
+            setDbtRunLogs(logs);
+
+            const lastLog = response.progress[response.progress.length - 1] as
+              | { status?: string }
+              | undefined;
+            if (lastLog?.status === 'completed' || lastLog?.status === 'failed') {
+              isComplete = true;
+            }
+          }
+        } catch {
+          // Polling failed — continue trying
+        }
+
+        if (!isComplete) {
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+      }
+
       await refreshSources();
       await mutate(CANVAS_GRAPH_KEY);
       toast.success('Sources synced successfully');
@@ -263,7 +355,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       setIsSyncing(false);
       setLockUpperSection(false);
     }
-  }, [syncSources, refreshSources, setSelectedLowerTab, setLockUpperSection, mutate]);
+  }, [syncSources, refreshSources, setSelectedLowerTab, setLockUpperSection, setDbtRunLogs, mutate]);
 
   // Handle table select from project tree (for preview)
   const handleTableSelect = useCallback(
@@ -275,6 +367,17 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       setSelectedLowerTab('preview');
     },
     [setSelectedLowerTab]
+  );
+
+  // Handle delete from canvas (via project tree)
+  const handleDeleteFromCanvas = useCallback(
+    (nodeId: string) => {
+      useTransformStore.getState().dispatchCanvasAction({
+        type: 'delete-source-tree-node',
+        data: { nodeId },
+      });
+    },
+    []
   );
 
   // Handle add to canvas
@@ -405,6 +508,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
                     selectedTable={null}
                     mode="canvas"
                     onAddToCanvas={handleAddToCanvas}
+                    onDeleteFromCanvas={handleDeleteFromCanvas}
                   />
                 </div>
               </Resizable>
@@ -414,7 +518,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             {!isLowerFullScreen && (
               <div className="flex-1 flex flex-col min-w-0 relative">
                 {/* Canvas Messages (lock/unpublished/PAT overlays) */}
-                <CanvasMessages hasUnpublishedChanges={false} />
+                <CanvasMessages hasUnpublishedChanges={hasUnpublishedChanges} />
 
                 {/* Main Canvas */}
                 <div className="flex-1 relative">

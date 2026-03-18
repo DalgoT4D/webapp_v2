@@ -6,6 +6,7 @@ import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
 import { Trash2 } from 'lucide-react';
 import { apiGet } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData, ColumnData } from '@/types/transform';
 
 type DbtSourceModelNodeProps = NodeProps<CanvasNodeRenderData>;
@@ -25,10 +26,11 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
 
   const edges = useEdges();
   const { setSelectedNode, dispatchCanvasAction, setPreviewData } = useTransformStore();
+  const { hasPermission } = useUserPermissions();
 
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
   const isLeafNode = edgesEmanatingOutOfNode.length === 0;
-  const canDelete = isLeafNode;
+  const canDelete = isLeafNode && hasPermission('can_delete_dbt_model');
 
   const schema = data?.dbtmodel?.schema || '';
   const tableName = data?.dbtmodel?.name || data?.name || 'Unknown';
@@ -37,6 +39,14 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
   // v1: #00897B for published/source, #50A85C for unpublished models
   const headerColor =
     type === 'model' && data?.isPublished === false ? COLOR_UNPUBLISHED : COLOR_PUBLISHED;
+
+  // Reset fetch flag when canvas refreshes so columns are re-fetched
+  const refreshTrigger = useTransformStore((s) => s.refreshTrigger);
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      fetchedRef.current = false;
+    }
+  }, [refreshTrigger]);
 
   // Fetch columns once
   useEffect(() => {
@@ -60,11 +70,17 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
   }, [schema, tableName, data?.isDummy]);
 
   const handleNodeClick = useCallback(() => {
-    setSelectedNode({ id, type, data, selected });
+    // Always set preview data
     if (schema && tableName) {
       setPreviewData({ schema, table: tableName });
     }
-    dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'create' } });
+
+    setSelectedNode({ id, type, data, selected });
+
+    // Only open operation panel if user has create permission
+    if (hasPermission('can_create_dbt_model')) {
+      dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'create' } });
+    }
   }, [
     id,
     type,
@@ -75,6 +91,7 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
     setSelectedNode,
     setPreviewData,
     dispatchCanvasAction,
+    hasPermission,
   ]);
 
   const handleDeleteClick = useCallback(

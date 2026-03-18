@@ -1,13 +1,13 @@
 // components/explore/ProjectTree.tsx
 'use client';
 
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef, useState } from 'react';
 import { Tree, TreeApi } from 'react-arborist';
 import useResizeObserver from '@/hooks/useResizeObserver';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, RefreshCw, Folder, FolderOpen, Table2, Loader2, Plus } from 'lucide-react';
+import { Search, RefreshCw, Folder, FolderOpen, Table2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
@@ -25,6 +25,8 @@ interface ProjectTreeProps {
   mode?: 'explore' | 'canvas';
   /** Callback when user clicks add-to-canvas button on a table node (canvas mode only) */
   onAddToCanvas?: (schema: string, table: string) => void;
+  /** Callback when user clicks delete button on a table node (canvas mode only) */
+  onDeleteFromCanvas?: (nodeId: string) => void;
 }
 
 interface NodeRendererProps {
@@ -48,10 +50,17 @@ export function ProjectTree({
   included_in = 'explore',
   mode = 'explore',
   onAddToCanvas,
+  onDeleteFromCanvas,
 }: ProjectTreeProps) {
   const { ref: containerRef, width = 280, height = 400 } = useResizeObserver<HTMLDivElement>();
   const treeRef = useRef<TreeApi<TreeNode>>(null);
-  const { searchTerm, setSearchTerm } = useExploreStore();
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
+  const globalSearchTerm = useExploreStore((s) => s.searchTerm);
+  const setGlobalSearchTerm = useExploreStore((s) => s.setSearchTerm);
+
+  // Use local state in canvas mode to avoid polluting explore page search
+  const searchTerm = mode === 'canvas' ? localSearchTerm : globalSearchTerm;
+  const setSearchTerm = mode === 'canvas' ? setLocalSearchTerm : setGlobalSearchTerm;
   const { hasPermission } = useUserPermissions();
 
   const canCreateModel = hasPermission('can_create_dbt_model');
@@ -218,23 +227,40 @@ export function ProjectTree({
             </Tooltip>
           </TooltipProvider>
 
-          {/* Add to canvas button - only in canvas mode for leaf nodes */}
-          {mode === 'canvas' && isLeaf && onAddToCanvas && (
-            <button
-              className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-teal-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCanvas(node.data.schema!, node.data.name!);
-              }}
-              data-testid={`add-to-canvas-${node.data.name}`}
-            >
-              <Plus className="h-4 w-4 text-teal-600" />
-            </button>
+          {/* Canvas mode actions for leaf nodes */}
+          {mode === 'canvas' && isLeaf && (
+            <>
+              {onDeleteFromCanvas && (
+                <button
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-red-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteFromCanvas(node.data.id);
+                  }}
+                  data-testid={`delete-source-${node.data.id}`}
+                  aria-label="Remove from canvas"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                </button>
+              )}
+              {onAddToCanvas && (
+                <button
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-teal-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCanvas(node.data.schema!, node.data.name!);
+                  }}
+                  data-testid={`add-to-canvas-${node.data.name}`}
+                >
+                  <Plus className="h-4 w-4 text-teal-600" />
+                </button>
+              )}
+            </>
           )}
         </div>
       );
     },
-    [canCreateModel, selectedTable, mode, onAddToCanvas]
+    [canCreateModel, selectedTable, mode, onAddToCanvas, onDeleteFromCanvas]
   );
 
   return (
@@ -243,7 +269,9 @@ export function ProjectTree({
       <div className="flex gap-2 mb-4 px-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <label htmlFor="project-tree-search" className="sr-only">Search schemas and tables</label>
           <Input
+            id="project-tree-search"
             placeholder="Search tables..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -281,8 +309,9 @@ export function ProjectTree({
 
       {/* Loading Overlay */}
       {loading && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground mt-2">Fetching latest schemas and tables...</p>
         </div>
       )}
 

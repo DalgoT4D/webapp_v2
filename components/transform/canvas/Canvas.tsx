@@ -5,6 +5,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
+  addEdge,
   Controls,
   Background,
   MarkerType,
@@ -12,6 +13,7 @@ import ReactFlow, {
   type Node,
   type Edge,
   type DefaultEdgeOptions,
+  type Connection,
 } from 'reactflow';
 import dagre from 'dagre';
 import 'reactflow/dist/style.css';
@@ -123,15 +125,20 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const processedDataRef = useRef<string>('');
-  const { setSelectedNode, tempLockCanvas, lockUpperSection, isWorkflowRunning } =
-    useTransformStore();
+  const {
+    setSelectedNode,
+    tempLockCanvas,
+    lockUpperSection,
+    isWorkflowRunning,
+    canInteractWithCanvas,
+  } = useTransformStore();
   const finalLockCanvas = tempLockCanvas || lockUpperSection;
 
   const {
     nodes: apiNodes,
     edges: apiEdges,
     isLoading,
-  } = useCanvasGraph({ skipInitialFetch: isPreviewMode });
+  } = useCanvasGraph({ skipInitialFetch: isPreviewMode, autoSync: !isPreviewMode });
 
   // Process API data when it changes
   useEffect(() => {
@@ -160,12 +167,49 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     setEdges(layoutedEdges);
   }, [apiNodes, apiEdges, setNodes, setEdges]);
 
-  // canEdit: gates dragging, connecting, and edge changes (disabled when locked or preview)
-  const canEdit = !finalLockCanvas && !isPreviewMode;
+  // canEdit: gates dragging, connecting, and edge changes
+  // Uses store's canInteractWithCanvas which checks lock, PAT, view-only, and isLockedByOther
+  const canEdit = canInteractWithCanvas() && !isPreviewMode;
+
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      setEdges((eds) => addEdge(connection, eds));
+    },
+    [setEdges]
+  );
+
+  const clearPreviewAction = useTransformStore((s) => s.clearPreviewAction);
+  const setPreviewData = useTransformStore((s) => s.setPreviewData);
+
+  // Overlap detection — push dragged node away if it overlaps another
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, draggedNode: Node) => {
+      for (const otherNode of nodes) {
+        if (otherNode.id === draggedNode.id) continue;
+
+        const xOverlap = Math.abs(draggedNode.position.x - otherNode.position.x) < NODE_WIDTH;
+        const yOverlap = Math.abs(draggedNode.position.y - otherNode.position.y) < NODE_HEIGHT;
+
+        if (xOverlap && yOverlap) {
+          const OVERLAP_GAP = 20;
+          const newX = otherNode.position.x + NODE_WIDTH + OVERLAP_GAP;
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === draggedNode.id ? { ...n, position: { ...n.position, x: newX } } : n
+            )
+          );
+          break;
+        }
+      }
+    },
+    [nodes, setNodes]
+  );
 
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null);
-  }, [setSelectedNode]);
+    clearPreviewAction();
+    setPreviewData(null);
+  }, [setSelectedNode, clearPreviewAction, setPreviewData]);
 
   return (
     <div className="h-full w-full relative" style={{ backgroundColor: '#fff' }}>
@@ -174,20 +218,23 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={canEdit ? onEdgesChange : undefined}
-        onPaneClick={handlePaneClick}
+        onConnect={canEdit ? handleConnect : undefined}
+        onPaneClick={canEdit ? handlePaneClick : undefined}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
         minZoom={0.1}
-        maxZoom={2}
+        maxZoom={4}
+        onNodeDragStop={canEdit ? handleNodeDragStop : undefined}
         nodesDraggable={canEdit}
         nodesConnectable={canEdit}
         elementsSelectable={!isPreviewMode}
         zoomOnDoubleClick={canEdit}
         panOnDrag
         zoomOnScroll
+        zoomOnPinch
       >
         <Controls showInteractive={false} className="!bottom-4 !left-4" />
         <Background color="#e0e0e0" gap={20} />

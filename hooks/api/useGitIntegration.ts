@@ -10,6 +10,7 @@ interface DbtWorkspaceResponse {
   gitrepo_url: string;
   default_schema: string;
   target_type?: string;
+  transform_type?: string;
   gitrepo_access_token_secret?: string | null;
 }
 
@@ -54,15 +55,15 @@ export function useGitIntegration(): UseGitIntegrationReturn {
       if (data?.gitrepo_url) {
         setGitRepoUrl(data.gitrepo_url);
       }
-      // Check PAT from workspace response
-      // Only mark as required if field explicitly exists and is null/empty
-      // If the field is absent, assume PAT is configured
-      if ('gitrepo_access_token_secret' in (data || {})) {
-        const hasToken = !!data?.gitrepo_access_token_secret;
-        setPatRequiredLocal(!hasToken);
-        setPatRequired(!hasToken);
+      // Only check PAT for GitHub transform type
+      if (data?.transform_type === 'github') {
+        if ('gitrepo_access_token_secret' in (data || {})) {
+          const hasToken = !!data?.gitrepo_access_token_secret;
+          setPatRequiredLocal(!hasToken);
+          setPatRequired(!hasToken);
+        }
       } else {
-        // Field not in response — PAT check not applicable, assume configured
+        // Non-GitHub transform types don't need PAT
         setPatRequiredLocal(false);
         setPatRequired(false);
       }
@@ -75,13 +76,16 @@ export function useGitIntegration(): UseGitIntegrationReturn {
     try {
       // Re-fetch workspace to check PAT status
       const data = await mutate();
-      if ('gitrepo_access_token_secret' in (data || {})) {
-        const hasToken = !!data?.gitrepo_access_token_secret;
-        setPatRequiredLocal(!hasToken);
-        setPatRequired(!hasToken);
-        return hasToken;
+      // Only check PAT for GitHub transform type
+      if (data?.transform_type === 'github') {
+        if ('gitrepo_access_token_secret' in (data || {})) {
+          const hasToken = !!data?.gitrepo_access_token_secret;
+          setPatRequiredLocal(!hasToken);
+          setPatRequired(!hasToken);
+          return hasToken;
+        }
       }
-      // Field not in response — assume PAT is configured
+      // Non-GitHub or field not in response — assume PAT is configured
       setPatRequiredLocal(false);
       setPatRequired(false);
       return true;

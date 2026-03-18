@@ -13,7 +13,7 @@ import type {
   PreviewAction,
 } from '@/types/transform';
 
-type LowerSectionTab = 'preview' | 'logs' | 'statistics';
+type LowerSectionTab = 'preview' | 'logs' | 'data statistics';
 
 interface TransformState {
   // Tab state
@@ -233,7 +233,11 @@ export const useTransformStore = create<TransformState>()(
         canInteractWithCanvas: () => {
           const state = get();
           const finalLock = state.tempLockCanvas || state.lockUpperSection;
-          return !finalLock && !state.isViewOnlyMode;
+          const isLockedByOther =
+            state.canvasLockStatus?.is_locked === true &&
+            !state.canvasLockStatus?.locked_by_current_user;
+          const patBlocking = state.patRequired && state.isViewOnlyMode;
+          return !finalLock && !state.isViewOnlyMode && !isLockedByOther && !patBlocking;
         },
 
         // Reset

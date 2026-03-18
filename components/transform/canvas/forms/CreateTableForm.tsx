@@ -123,6 +123,9 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       const model = node.data.dbtmodel;
       setValue('output_name', model.name || '');
       setValue('dest_schema', model.schema || '');
+      if (model.rel_dir_to_models) {
+        setValue('rel_dir_to_models', model.rel_dir_to_models);
+      }
     }
   }, [node, setValue]);
 

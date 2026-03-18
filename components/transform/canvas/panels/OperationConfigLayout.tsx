@@ -3,8 +3,9 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useReactFlow } from 'reactflow';
-import { X, ChevronLeft } from 'lucide-react';
+import { X, ChevronLeft, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useSWRConfig } from 'swr';
 import { useTransformStore, useSelectedNode, useCanvasAction } from '@/stores/transformStore';
+import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { OperationList } from './OperationList';
 import { CreateTableOrAddFunction } from './CreateTableOrAddFunction';
 import { getFormForOperation } from '../forms';
@@ -40,6 +43,7 @@ interface OperationConfigLayoutProps {
  */
 export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutProps) {
   const { deleteElements, getNodes, setNodes, setEdges, getEdges } = useReactFlow();
+  const { mutate } = useSWRConfig();
   const selectedNode = useSelectedNode();
   const canvasAction = useCanvasAction();
   const { closeOperationPanel, setSelectedNode, clearCanvasAction } = useTransformStore();
@@ -235,25 +239,59 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       setPanelState('op-list');
       setSelectedOp(null);
     } else if (panelState === 'create-table-or-add-function') {
-      setPanelState('op-list');
-      setSelectedOp(null);
+      // Go back to the edit form for the current operation, not the op list
+      if (selectedNode?.data?.operation_config?.type) {
+        const opSlug = selectedNode.data.operation_config.type;
+        const op = { slug: opSlug, label: getOperationLabel(opSlug) };
+        setSelectedOp(op);
+        setFormMode('edit');
+        setPanelState('op-form');
+      } else {
+        // Fallback to op-list if no operation is found
+        setPanelState('op-list');
+        setSelectedOp(null);
+      }
     }
   }, [panelState, formMode, cleanupDummyNodes]);
 
+  // Track whether to show "Add Function" in the create-table-or-add-function panel
+  const [showAddFunction, setShowAddFunction] = useState(true);
+
   // After operation saved successfully — update selectedNode to the real operation node
   const handleContinueOperationChain = useCallback(
-    (...args: unknown[]) => {
+    async (...args: unknown[]) => {
       cleanupDummyNodes();
 
       // First arg is the new operation node UUID (passed from form after createOperation)
       const newNodeUuid = args[0] as string | undefined;
 
       if (newNodeUuid) {
-        // Find the node in the React Flow graph by UUID
+        // Ensure graph is refetched so the real node exists
+        await mutate(CANVAS_GRAPH_KEY);
+
+        // Small delay to allow React Flow to process the new nodes
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Now look up the node in the updated graph
         const nodes = getNodes();
         const newNode = nodes.find((n) => n.id === newNodeUuid);
         if (newNode) {
           setSelectedNode(newNode as unknown as GenericNodeProps);
+
+          // Check if the saved operation is chain-terminal (rawsql)
+          const savedOpType = newNode.data?.operation_config?.type;
+          const isChainTerminal = savedOpType === 'rawsql';
+
+          // Check is_last_in_chain from the node
+          const isLastInChain = newNode.data?.is_last_in_chain;
+
+          if (isLastInChain) {
+            // Stay in edit mode for this node
+            setPanelState('op-form');
+            return;
+          }
+
+          setShowAddFunction(!isChainTerminal);
         } else {
           // Node might not be in graph yet — create a minimal selectedNode reference
           setSelectedNode({
@@ -261,12 +299,16 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
             type: 'operation',
             data: { uuid: newNodeUuid, node_type: CanvasNodeTypeEnum.Operation },
           } as unknown as GenericNodeProps);
+
+          // Default: check selectedOp for chain-terminal
+          const isChainTerminal = selectedOp?.slug === 'rawsql';
+          setShowAddFunction(!isChainTerminal);
         }
       }
 
       setPanelState('create-table-or-add-function');
     },
-    [cleanupDummyNodes, getNodes, setSelectedNode]
+    [cleanupDummyNodes, getNodes, setSelectedNode, selectedOp, mutate]
   );
 
   // User chose to create a table
@@ -351,7 +393,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
           <CreateTableOrAddFunction
             onCreateTable={handleCreateTable}
             onAddFunction={handleAddFunction}
-            showAddFunction={true}
+            showAddFunction={showAddFunction}
           />
         );
 
@@ -387,6 +429,18 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
               </Button>
             )}
             <h2 className="font-semibold text-lg">{getHeaderTitle()}</h2>
+            {panelState === 'op-form' && selectedOp?.infoToolTip && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-[200px]">{selectedOp.infoToolTip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           <Button
             variant="ghost"

@@ -1,21 +1,18 @@
 // components/transform/canvas/layout/LowerSectionTabs.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogsPane } from '@/components/explore/LogsPane';
 import { PreviewPane } from '@/components/explore/PreviewPane';
+import { StatisticsPane } from '@/components/explore/StatisticsPane';
+import { useTransformStore } from '@/stores/transformStore';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import type { TaskProgressLog, PreviewTableData } from '@/types/transform';
 
 type LowerTab = 'preview' | 'logs' | 'data statistics';
-
-const TABS: { key: LowerTab; label: string }[] = [
-  { key: 'preview', label: 'PREVIEW' },
-  { key: 'logs', label: 'LOGS' },
-  { key: 'data statistics', label: 'DATA STATISTICS' },
-];
 
 // Tab bar height in px
 const TAB_BAR_HEIGHT = 40;
@@ -37,7 +34,20 @@ export function LowerSectionTabs({
   isLogsLoading,
   previewTable,
 }: LowerSectionTabsProps) {
-  const [selectedTab, setSelectedTab] = useState<LowerTab>('logs');
+  const selectedTab = useTransformStore((s) => s.selectedLowerTab) as LowerTab;
+  const setSelectedTab = useTransformStore((s) => s.setSelectedLowerTab);
+  const { isFeatureFlagEnabled } = useFeatureFlags();
+
+  const TABS = useMemo(() => {
+    const tabs: { key: LowerTab; label: string }[] = [
+      { key: 'preview', label: 'PREVIEW' },
+      { key: 'logs', label: 'LOGS' },
+    ];
+    if (isFeatureFlagEnabled(FeatureFlagKeys.DATA_STATISTICS)) {
+      tabs.push({ key: 'data statistics', label: 'DATA STATISTICS' });
+    }
+    return tabs;
+  }, [isFeatureFlagEnabled]);
 
   // Auto-switch to preview tab when a table is selected
   useEffect(() => {
@@ -124,15 +134,22 @@ export function LowerSectionTabs({
         </div>
       )}
 
-      {/* Data Statistics Tab (placeholder) */}
-      {selectedTab === 'data statistics' && (
-        <div
-          className="flex items-center justify-center text-muted-foreground"
-          style={{ height: contentHeight }}
-        >
-          Data statistics coming soon
-        </div>
-      )}
+      {/* Data Statistics Tab */}
+      {selectedTab === 'data statistics' &&
+        (previewTable ? (
+          <StatisticsPane
+            key={`stats-${previewTable.schema}.${previewTable.table}`}
+            schema={previewTable.schema}
+            table={previewTable.table}
+          />
+        ) : (
+          <div
+            className="flex items-center justify-center text-muted-foreground"
+            style={{ height: contentHeight }}
+          >
+            Select a node to view data statistics
+          </div>
+        ))}
     </div>
   );
 }

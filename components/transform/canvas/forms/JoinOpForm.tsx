@@ -1,8 +1,9 @@
 // components/transform/canvas/forms/JoinOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { useReactFlow } from 'reactflow';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -15,6 +16,7 @@ import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
+import { generateDummySrcModelNode } from '../utils/dummynodes';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import type { OperationFormProps, JoinDataConfig, DbtModelResponse } from '@/types/transform';
@@ -51,8 +53,24 @@ export function JoinOpForm({
   const [table2Columns, setTable2Columns] = useState<string[]>([]);
   const [selectedTable2, setSelectedTable2] = useState<DbtModelResponse | null>(null);
 
+  const { addNodes, addEdges, deleteElements, getNodes } = useReactFlow();
+  const dummyNodeIdsRef = useRef<string[]>([]);
+
   const { sourcesModels } = useCanvasSources();
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
+
+  // Cleanup dummy nodes on unmount
+  useEffect(() => {
+    return () => {
+      if (dummyNodeIdsRef.current.length > 0) {
+        deleteElements({
+          nodes: dummyNodeIdsRef.current.map((id) => ({ id })),
+          edges: [],
+        });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     control,
@@ -109,16 +127,54 @@ export function JoinOpForm({
     }
   }, [isEditMode, isViewMode, node, reset, setValue, sourcesModels]);
 
-  // Handle table 2 selection
-  const handleTable2Select = (modelUuid: string) => {
-    const model = sourcesModels.find((m) => m.uuid === modelUuid);
-    if (!model) return;
+  // Handle table 2 selection — also add dummy node to canvas
+  const handleTable2Select = useCallback(
+    (modelUuid: string) => {
+      const model = sourcesModels.find((m) => m.uuid === modelUuid);
+      if (!model) return;
 
-    setSelectedTable2(model);
-    setValue('table2_id', modelUuid);
-    setValue('table2_key', ''); // Reset key when table changes
-    setTable2Columns(model.output_cols || []);
-  };
+      // Clean up previous dummy
+      if (dummyNodeIdsRef.current.length > 0) {
+        deleteElements({
+          nodes: dummyNodeIdsRef.current.map((id) => ({ id })),
+          edges: [],
+        });
+        dummyNodeIdsRef.current = [];
+      }
+
+      // Add new dummy source node to canvas
+      const nodes = getNodes();
+      const sourceNode = nodes.find((n) => n.id === node?.id);
+      const dummyNode = generateDummySrcModelNode({
+        schema: model.schema,
+        name: model.display_name || model.name,
+        type: model.type as 'source' | 'model',
+        position: {
+          x: (sourceNode?.position.x ?? 0) + 350,
+          y: (sourceNode?.position.y ?? 0) + 150,
+        },
+      });
+
+      const dummyEdge = {
+        id: `edge-dummy-${dummyNode.id}`,
+        source: dummyNode.id,
+        target: node?.id || '',
+        type: 'default',
+        animated: true,
+        style: { strokeDasharray: '5,5' },
+      };
+
+      addNodes([dummyNode]);
+      addEdges([dummyEdge]);
+      dummyNodeIdsRef.current.push(dummyNode.id);
+
+      setSelectedTable2(model);
+      setValue('table2_id', modelUuid);
+      setValue('table2_key', ''); // Reset key when table changes
+      setTable2Columns(model.output_cols || []);
+    },
+    [sourcesModels, node?.id, deleteElements, getNodes, addNodes, addEdges, setValue]
+  );
 
   // Build table options for searchable combobox
   const tableItems: ComboboxItem[] = sourcesModels

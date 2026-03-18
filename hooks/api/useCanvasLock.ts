@@ -2,6 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { apiPost, apiPut, apiDelete } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 import type { CanvasLockStatus } from '@/types/transform';
@@ -168,6 +169,19 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refreshLock, startRefreshTimer, stopRefreshTimer]);
+
+  // Handle SPA navigation — release lock when user navigates away via Next.js router
+  const pathname = usePathname();
+  const prevPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname && hasLockRef.current) {
+      // User navigated away via SPA routing — release lock
+      stopRefreshTimer();
+      apiDelete(LOCK_ENDPOINT).catch(() => {});
+    }
+    prevPathnameRef.current = pathname;
+  }, [pathname, stopRefreshTimer]);
 
   // Handle beforeunload and popstate — release lock on page close or browser navigation
   useEffect(() => {

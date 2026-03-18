@@ -6,6 +6,7 @@ import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
 import Image from 'next/image';
 import { Trash2 } from 'lucide-react';
 import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData } from '@/types/transform';
 
 // Operation labels mapping
@@ -56,6 +57,7 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
   const edges = useEdges();
   const selectedNode = useSelectedNode();
   const { setSelectedNode, dispatchCanvasAction } = useTransformStore();
+  const { hasPermission } = useUserPermissions();
 
   const operationType = data?.operation_config?.type || 'unknown';
   const operationLabel = operationLabels[operationType] || operationType;
@@ -64,14 +66,20 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
   // Leaf node check — can delete only leaf nodes
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
   const isLeafNode = edgesEmanatingOutOfNode.length === 0;
-  const canDelete = isLeafNode;
+  const canDelete = isLeafNode && hasPermission('can_delete_dbt_operation');
 
-  // Handle node click — open panel in edit/view mode
+  // Handle node click — open panel in edit or view mode based on permissions
   const handleNodeClick = useCallback(() => {
     const nodeProps = { id, type, data, selected };
     setSelectedNode(nodeProps);
-    dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'edit' } });
-  }, [id, type, data, selected, setSelectedNode, dispatchCanvasAction]);
+
+    if (hasPermission('can_edit_dbt_operation')) {
+      dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'edit' } });
+    } else if (hasPermission('can_view_dbt_operation')) {
+      dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'view' } });
+    }
+    // If neither permission, just select the node but don't open panel
+  }, [id, type, data, selected, setSelectedNode, dispatchCanvasAction, hasPermission]);
 
   // Handle delete click
   const handleDeleteClick = useCallback(

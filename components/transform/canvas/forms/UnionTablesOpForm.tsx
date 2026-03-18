@@ -1,8 +1,9 @@
 // components/transform/canvas/forms/UnionTablesOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useReactFlow } from 'reactflow';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
@@ -11,6 +12,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { apiGet } from '@/lib/api';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
+import { generateDummySrcModelNode } from '../utils/dummynodes';
 import { FormActions } from './shared/FormActions';
 import type { OperationFormProps, UnionDataConfig, DbtModelResponse } from '@/types/transform';
 
@@ -40,8 +42,26 @@ export function UnionTablesOpForm({
 
   const [srcColumns, setSrcColumns] = useState<string[]>([]);
 
+  const { addNodes, addEdges, deleteElements, getNodes } = useReactFlow();
+  // Map index -> dummy node id for cleanup
+  const dummyNodeMapRef = useRef<Map<number, string>>(new Map());
+
   const { sourcesModels } = useCanvasSources();
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
+
+  // Cleanup all dummy nodes on unmount
+  useEffect(() => {
+    return () => {
+      const ids = Array.from(dummyNodeMapRef.current.values());
+      if (ids.length > 0) {
+        deleteElements({
+          nodes: ids.map((id) => ({ id })),
+          edges: [],
+        });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     control,
@@ -111,22 +131,66 @@ export function UnionTablesOpForm({
     }
   }, [isEditMode, isViewMode, node, reset]);
 
-  // Handle table selection
-  const handleTableSelect = (index: number, modelUuid: string) => {
-    const model = sourcesModels.find((m) => m.uuid === modelUuid);
-    if (!model) return;
+  // Handle table selection — also add dummy node to canvas
+  const handleTableSelect = useCallback(
+    (index: number, modelUuid: string) => {
+      const model = sourcesModels.find((m) => m.uuid === modelUuid);
+      if (!model) return;
 
-    // Update form value
-    setValue(`tables.${index}`, {
-      id: modelUuid,
-      label: `${model.schema}.${model.name}`,
-    });
-  };
+      // Clean up previous dummy for this index
+      const prevDummyId = dummyNodeMapRef.current.get(index);
+      if (prevDummyId) {
+        deleteElements({ nodes: [{ id: prevDummyId }], edges: [] });
+        dummyNodeMapRef.current.delete(index);
+      }
 
-  // Handle remove table
-  const handleRemoveTable = (index: number) => {
-    remove(index);
-  };
+      // Add dummy source node to canvas
+      const nodes = getNodes();
+      const sourceNode = nodes.find((n) => n.id === node?.id);
+      const dummyNode = generateDummySrcModelNode({
+        schema: model.schema,
+        name: model.display_name || model.name,
+        type: model.type as 'source' | 'model',
+        position: {
+          x: (sourceNode?.position.x ?? 0) + 350,
+          y: (sourceNode?.position.y ?? 0) + 150 * index,
+        },
+      });
+
+      const dummyEdge = {
+        id: `edge-dummy-${dummyNode.id}`,
+        source: dummyNode.id,
+        target: node?.id || '',
+        type: 'default',
+        animated: true,
+        style: { strokeDasharray: '5,5' },
+      };
+
+      addNodes([dummyNode]);
+      addEdges([dummyEdge]);
+      dummyNodeMapRef.current.set(index, dummyNode.id);
+
+      // Update form value
+      setValue(`tables.${index}`, {
+        id: modelUuid,
+        label: `${model.schema}.${model.name}`,
+      });
+    },
+    [sourcesModels, node?.id, deleteElements, getNodes, addNodes, addEdges, setValue]
+  );
+
+  // Handle remove table — also clean up its dummy node
+  const handleRemoveTable = useCallback(
+    (index: number) => {
+      const dummyId = dummyNodeMapRef.current.get(index);
+      if (dummyId) {
+        deleteElements({ nodes: [{ id: dummyId }], edges: [] });
+        dummyNodeMapRef.current.delete(index);
+      }
+      remove(index);
+    },
+    [deleteElements, remove]
+  );
 
   // Build table items for searchable combobox
   const tableItems: ComboboxItem[] = sourcesModels

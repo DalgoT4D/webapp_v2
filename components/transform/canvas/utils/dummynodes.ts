@@ -63,6 +63,7 @@ export function generateDummyOperationNode({
     id,
     type: 'operation',
     position,
+    selected: true,
     data: {
       uuid: id,
       name: operationType,

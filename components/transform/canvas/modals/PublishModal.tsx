@@ -222,7 +222,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
           </Button>
           <Button
             onClick={handlePublish}
-            disabled={!commitMessage.trim() || publishing || !hasChanges}
+            disabled={!commitMessage.trim() || publishing}
             data-testid="publish-btn"
           >
             {publishing ? (
