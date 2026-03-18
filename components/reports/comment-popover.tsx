@@ -142,14 +142,6 @@ const CommentItem = memo(function CommentItem({
   const isAuthor = comment.author.email === currentUserEmail;
   const avatarColor = useMemo(() => getAvatarColor(comment.author.email), [comment.author.email]);
 
-  if (comment.is_deleted) {
-    return (
-      <div className="px-3 py-2 text-sm text-muted-foreground italic">
-        This comment has been deleted.
-      </div>
-    );
-  }
-
   return (
     <div
       ref={isFirstNew ? firstNewRef : undefined}
@@ -174,7 +166,6 @@ const CommentItem = memo(function CommentItem({
             <span className="text-xs text-muted-foreground flex-shrink-0">
               {formatCommentTime(comment.created_at)}
             </span>
-            {comment.is_edited && <span className="text-xs text-muted-foreground">(edited)</span>}
             {/* Ellipsis menu — only visible on hover for author's own comments */}
             {isAuthor && (
               <DropdownMenu>

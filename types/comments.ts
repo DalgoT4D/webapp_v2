@@ -15,8 +15,6 @@ export interface Comment {
   chart_id?: number;
   content: string;
   author: CommentAuthor;
-  is_edited: boolean;
-  is_deleted: boolean;
   is_new: boolean;
   created_at: string;
   updated_at: string;
