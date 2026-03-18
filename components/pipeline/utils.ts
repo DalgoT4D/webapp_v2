@@ -13,26 +13,8 @@ import {
 } from '@/constants/pipeline';
 
 /**
- * Format a timestamp to relative time (e.g., "5 minutes ago")
- */
-export function lastRunTime(startTime: string | null | undefined): string {
-  if (!startTime) return '-';
-  try {
-    return formatDistanceToNow(new Date(startTime), { addSuffix: true });
-  } catch {
-    return '-';
-  }
-}
-
-/**
- * Get user's local timezone
- */
-export function localTimezone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
-
-/**
  * Format duration in seconds to human-readable string (e.g., "2h 30m")
+ * Shows at most 2 time units for readability
  */
 export function formatDuration(seconds: number): string {
   const days = Math.floor(seconds / 86400);
@@ -60,6 +42,25 @@ export function formatDuration(seconds: number): string {
   }
 
   return formatted.trim();
+}
+
+/**
+ * Format a timestamp to relative time (e.g., "5 minutes ago")
+ */
+export function lastRunTime(startTime: string | null | undefined): string {
+  if (!startTime) return '-';
+  try {
+    return formatDistanceToNow(new Date(startTime), { addSuffix: true });
+  } catch {
+    return '-';
+  }
+}
+
+/**
+ * Get user's local timezone
+ */
+export function localTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 /**

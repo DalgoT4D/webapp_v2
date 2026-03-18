@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { fetchFlowRunLogs, fetchFlowRunLogSummary } from '@/hooks/api/usePipelines';
-import type { DashboardPipeline, DashboardRun, LogSummary } from '@/types/pipeline';
+import { fetchFlowRunLogs } from '@/hooks/api/usePipelines';
+import type { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineCard } from './pipeline-card';
-import { LogCard } from './log-card';
-import { LogSummaryCard } from './log-summary-card';
+import { LogCard } from '@/components/pipeline/log-card';
 import { toastError } from '@/lib/toast';
 import { getRunDisplayStatus } from '../utils';
-import { FLOW_RUN_LOGS_OFFSET_LIMIT, ENABLE_LOG_SUMMARIES } from '@/constants/pipeline';
+import { FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/pipeline';
 import { format } from 'date-fns';
 
 interface PipelineSectionProps {
@@ -30,11 +29,7 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
   const [logsOffset, setLogsOffset] = useState(0);
   const [hasMoreLogs, setHasMoreLogs] = useState(false);
 
-  // State for log summaries
-  const [logSummary, setLogSummary] = useState<LogSummary[]>([]);
-  const [logSummaryLogs, setLogSummaryLogs] = useState<string[]>([]);
-
-  // Fetch logs/summaries when a run is selected
+  // Fetch logs when a run is selected
   useEffect(() => {
     if (!selectedRun) return;
 
@@ -43,24 +38,8 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
       setLogsOffset(0);
       setLogsLoading(true);
       setHasMoreLogs(false);
-      setLogSummary([]);
-      setLogSummaryLogs([]);
 
       try {
-        // If log summaries are enabled, try to fetch them first
-        if (ENABLE_LOG_SUMMARIES) {
-          try {
-            const summaryData = await fetchFlowRunLogSummary(selectedRun.id);
-            if (summaryData && summaryData.length > 0) {
-              setLogSummary(summaryData);
-              return;
-            }
-          } catch {
-            // Summary fetch failed, fall back to regular logs below
-          }
-        }
-
-        // Fetch regular logs (either summaries disabled, empty, or failed)
         const data = await fetchFlowRunLogs(
           selectedRun.id,
           undefined,
@@ -95,8 +74,6 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
     setLogs([]);
     setLogsOffset(0);
     setHasMoreLogs(false);
-    setLogSummary([]);
-    setLogSummaryLogs([]);
   }, []);
 
   const handleFetchMoreLogs = useCallback(async () => {
@@ -152,39 +129,15 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
 
           {/* Inline Logs (shown below the card when a run is selected) */}
           {selectedRun && (
-            <>
-              {logSummary.length > 0 ? (
-                // Two-panel layout: summaries on left, selected logs on right
-                <div className="mt-4 flex gap-4">
-                  <div className="flex-1">
-                    <LogSummaryCard logsummary={logSummary} setLogsummaryLogs={setLogSummaryLogs} />
-                  </div>
-                  <div className="flex-1">
-                    {logSummaryLogs.length > 0 && (
-                      <LogCard
-                        logs={logSummaryLogs}
-                        isLoading={false}
-                        hasMore={false}
-                        onClose={() => setLogSummaryLogs([])}
-                        title="Task Logs"
-                        status={logStatus}
-                      />
-                    )}
-                  </div>
-                </div>
-              ) : (
-                // Single panel: regular logs
-                <LogCard
-                  logs={logs}
-                  isLoading={logsLoading}
-                  hasMore={hasMoreLogs}
-                  onFetchMore={handleFetchMoreLogs}
-                  onClose={handleCloseLogs}
-                  title={logTitle}
-                  status={logStatus}
-                />
-              )}
-            </>
+            <LogCard
+              logs={logs}
+              isLoading={logsLoading}
+              hasMore={hasMoreLogs}
+              onFetchMore={handleFetchMoreLogs}
+              onClose={handleCloseLogs}
+              title={logTitle}
+              status={logStatus}
+            />
           )}
         </>
       ) : (

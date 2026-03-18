@@ -6,8 +6,10 @@ import { format, isValid } from 'date-fns';
 import { FileText, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { formatDuration } from '@/components/pipeline/utils';
 import { useLogSummaryPoll } from '@/hooks/api/usePipelines';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
+import { LogCard } from '@/components/pipeline/log-card';
 
 /**
  * Types for LogsTable
@@ -203,6 +205,7 @@ function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowR
             flowRunId={run.id}
             isLast={index === run.tasks.length - 1}
             isFailed={isFailed}
+            runStatus={run.status}
             onFetchLogs={onFetchLogs}
             onStartSummary={onStartSummary}
             enableAISummary={enableAISummary}
@@ -221,6 +224,7 @@ interface TaskRunRowProps {
   flowRunId: string;
   isLast: boolean;
   isFailed: boolean;
+  runStatus: PipelineRunDisplayStatus;
   onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
   onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   enableAISummary?: boolean;
@@ -231,6 +235,7 @@ function TaskRunRow({
   flowRunId,
   isLast,
   isFailed,
+  runStatus,
   onFetchLogs,
   onStartSummary,
   enableAISummary,
@@ -279,13 +284,6 @@ function TaskRunRow({
   }, [onStartSummary, flowRunId, task.id]);
 
   const summaryText = pollError ? 'Failed to generate summary.' : pollSummary || '';
-
-  const formatDuration = (seconds: number): string => {
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.round(seconds % 60);
-    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-  };
 
   return (
     <div className={cn(!isLast && 'border-b', isFailed ? 'border-red-100/50' : 'border-gray-50')}>
@@ -343,39 +341,27 @@ function TaskRunRow({
         </div>
       </div>
 
-      {/* Logs Panel */}
+      {/* Logs Panel - no header, status color on body background */}
       {showLogs && (
-        <div className="bg-gray-900 max-h-64 overflow-auto">
-          <div className="p-4 font-mono text-[13px] text-gray-200 space-y-0.5">
-            {logsLoading ? (
-              <div className="flex items-center gap-2 text-gray-400">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading logs...
-              </div>
-            ) : logs.length === 0 ? (
-              <span className="text-gray-500">No logs available</span>
-            ) : (
-              logs.map((log, idx) => (
-                <div key={idx} className="break-words leading-relaxed">
-                  <span className="text-gray-500 select-none">{idx + 1}. </span>
-                  {log}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <LogCard
+          logs={logs}
+          isLoading={logsLoading}
+          status={task.isFailed ? runStatus : PipelineRunDisplayStatus.SUCCESS}
+          showHeader={false}
+          className="rounded-none border-x-0 border-b-0 shadow-none"
+        />
       )}
 
-      {/* AI Summary Panel */}
+      {/* AI Summary Panel - neutral gray since it provides info about failures */}
       {showSummary && (
-        <div className="bg-green-50 border-t border-green-200 p-4">
+        <div className="bg-gray-50 border-t border-gray-200 p-4">
           {isPolling ? (
-            <div className="flex items-center gap-2 text-green-700 text-sm">
+            <div className="flex items-center gap-2 text-gray-600 text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Generating AI summary...
             </div>
           ) : (
-            <div className="text-sm text-green-700">{summaryText || 'No summary available'}</div>
+            <div className="text-sm text-gray-700">{summaryText || 'No summary available'}</div>
           )}
         </div>
       )}
