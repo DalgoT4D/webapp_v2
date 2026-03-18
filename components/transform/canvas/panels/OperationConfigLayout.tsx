@@ -263,16 +263,16 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       cleanupDummyNodes();
 
       // First arg is the new operation node UUID (passed from form after createOperation)
-      const newNodeUuid = args[0] as string | undefined;
+      // For edits, it will be undefined — use selectedNode.id as fallback
+      const newNodeUuid = (args[0] as string | undefined) || selectedNode?.id;
+      // Always refetch graph to get updated node data
+      await mutate(CANVAS_GRAPH_KEY);
+
+      // Small delay to allow React Flow to process the new nodes
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       if (newNodeUuid) {
-        // Ensure graph is refetched so the real node exists
-        await mutate(CANVAS_GRAPH_KEY);
-
-        // Small delay to allow React Flow to process the new nodes
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        // Now look up the node in the updated graph
+        // Look up the node in the updated graph
         const nodes = getNodes();
         const newNode = nodes.find((n) => n.id === newNodeUuid);
         if (newNode) {
@@ -281,16 +281,6 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
           // Check if the saved operation is chain-terminal (rawsql)
           const savedOpType = newNode.data?.operation_config?.type;
           const isChainTerminal = savedOpType === 'rawsql';
-
-          // Check is_last_in_chain from the node
-          const isLastInChain = newNode.data?.is_last_in_chain;
-
-          if (isLastInChain) {
-            // Stay in edit mode for this node
-            setPanelState('op-form');
-            return;
-          }
-
           setShowAddFunction(!isChainTerminal);
         } else {
           // Node might not be in graph yet — create a minimal selectedNode reference
@@ -300,15 +290,16 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
             data: { uuid: newNodeUuid, node_type: CanvasNodeTypeEnum.Operation },
           } as unknown as GenericNodeProps);
 
-          // Default: check selectedOp for chain-terminal
           const isChainTerminal = selectedOp?.slug === 'rawsql';
           setShowAddFunction(!isChainTerminal);
         }
       }
 
+      // For new operations: always show "create table or add function"
+      // For edits: also show it so user can chain more or create table
       setPanelState('create-table-or-add-function');
     },
-    [cleanupDummyNodes, getNodes, setSelectedNode, selectedOp, mutate]
+    [cleanupDummyNodes, getNodes, setSelectedNode, selectedNode?.id, selectedOp, formMode, mutate]
   );
 
   // User chose to create a table
