@@ -19,6 +19,7 @@ export interface ReportSnapshot {
   summary?: string;
   created_by?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface FrozenChartConfig {
@@ -40,6 +41,7 @@ export interface ReportMetadata {
   summary?: string;
   status: string;
   created_at: string;
+  updated_at: string;
   created_by?: string;
   dashboard_title: string;
 }

@@ -30,6 +30,7 @@ export const createMockSnapshot = (overrides: Partial<ReportSnapshot> = {}): Rep
   summary: 'Monthly sales overview for January 2025',
   created_by: 'user@test.com',
   created_at: '2025-01-31T10:00:00Z',
+  updated_at: '2025-01-31T10:00:00Z',
   ...overrides,
 });
 
@@ -71,6 +72,7 @@ export const createMockSnapshotViewData = (
     summary: 'Monthly sales overview',
     status: 'generated',
     created_at: '2025-01-31T10:00:00Z',
+    updated_at: '2025-01-31T10:00:00Z',
     created_by: 'user@test.com',
     dashboard_title: 'Sales Dashboard',
   },
