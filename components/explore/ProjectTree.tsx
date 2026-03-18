@@ -269,7 +269,9 @@ export function ProjectTree({
       <div className="flex gap-2 mb-4 px-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <label htmlFor="project-tree-search" className="sr-only">Search schemas and tables</label>
+          <label htmlFor="project-tree-search" className="sr-only">
+            Search schemas and tables
+          </label>
           <Input
             id="project-tree-search"
             placeholder="Search tables..."
@@ -311,7 +313,9 @@ export function ProjectTree({
       {loading && (
         <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground mt-2">Fetching latest schemas and tables...</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Fetching latest schemas and tables...
+          </p>
         </div>
       )}
 

@@ -109,9 +109,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   } = useWorkflowExecution();
 
   // Read cached graph data to compute hasUnpublishedChanges
-  const { data: graphData } = useSWR<DbtProjectGraphResponse>(
-    isPreview ? null : CANVAS_GRAPH_KEY
-  );
+  const { data: graphData } = useSWR<DbtProjectGraphResponse>(isPreview ? null : CANVAS_GRAPH_KEY);
   const hasUnpublishedChanges = useMemo(() => {
     return graphData?.nodes?.some((node) => node.isPublished === false) ?? false;
   }, [graphData?.nodes]);
@@ -311,9 +309,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       let isComplete = false;
       while (!isComplete) {
         try {
-          const response = await apiGet(
-            `/api/tasks/${taskId}?hashkey=${hashKey}`
-          );
+          const response = await apiGet(`/api/tasks/${taskId}?hashkey=${hashKey}`);
 
           if (response?.progress) {
             const now = new Date().toISOString();
@@ -355,7 +351,14 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       setIsSyncing(false);
       setLockUpperSection(false);
     }
-  }, [syncSources, refreshSources, setSelectedLowerTab, setLockUpperSection, setDbtRunLogs, mutate]);
+  }, [
+    syncSources,
+    refreshSources,
+    setSelectedLowerTab,
+    setLockUpperSection,
+    setDbtRunLogs,
+    mutate,
+  ]);
 
   // Handle table select from project tree (for preview)
   const handleTableSelect = useCallback(
@@ -370,15 +373,12 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   );
 
   // Handle delete from canvas (via project tree)
-  const handleDeleteFromCanvas = useCallback(
-    (nodeId: string) => {
-      useTransformStore.getState().dispatchCanvasAction({
-        type: 'delete-source-tree-node',
-        data: { nodeId },
-      });
-    },
-    []
-  );
+  const handleDeleteFromCanvas = useCallback((nodeId: string) => {
+    useTransformStore.getState().dispatchCanvasAction({
+      type: 'delete-source-tree-node',
+      data: { nodeId },
+    });
+  }, []);
 
   // Handle add to canvas
   const handleAddToCanvas = useCallback(
