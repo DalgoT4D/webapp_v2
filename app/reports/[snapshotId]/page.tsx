@@ -145,14 +145,6 @@ export default function SnapshotViewerPage() {
                 <Download className="h-4 w-4" />
               )}
             </Button>
-            <CommentPopover
-              snapshotId={snapshotId}
-              targetType="report"
-              state={commentStates?.['report']?.state ?? 'none'}
-              count={commentStates?.['report']?.count ?? 0}
-              triggerClassName="h-9 w-9"
-              onStateChange={handleCommentStateChange}
-            />
             <Button
               data-testid="report-share-btn"
               variant="ghost"
@@ -204,7 +196,18 @@ export default function SnapshotViewerPage() {
           onCommentStateChange={handleCommentStateChange}
           beforeContent={
             <div className="border rounded-lg p-5 mb-2 bg-background">
-              <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold">Executive Summary</h2>
+                <CommentPopover
+                  snapshotId={snapshotId}
+                  targetType="summary"
+                  state={commentStates?.['summary']?.state ?? 'none'}
+                  count={commentStates?.['summary']?.count ?? 0}
+                  unreadCount={commentStates?.['summary']?.unread_count ?? 0}
+                  triggerClassName="h-8 w-8"
+                  onStateChange={handleCommentStateChange}
+                />
+              </div>
               <Textarea
                 data-testid="report-summary-textarea"
                 value={summaryDraft}

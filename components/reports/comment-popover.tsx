@@ -29,10 +29,11 @@ import type { Comment, CommentIconState, MentionableUser } from '@/types/comment
 
 interface CommentPopoverProps {
   snapshotId: number;
-  targetType: 'report' | 'chart';
+  targetType: 'summary' | 'chart';
   chartId?: number;
   state: CommentIconState;
   count?: number;
+  unreadCount?: number;
   triggerClassName?: string;
   onStateChange?: () => void;
 }
@@ -214,6 +215,7 @@ function CommentPopoverInner({
   chartId,
   state,
   count,
+  unreadCount,
   triggerClassName,
   onStateChange,
 }: CommentPopoverProps) {
@@ -408,9 +410,9 @@ function CommentPopoverInner({
           size="icon"
           className={triggerClassName}
           data-testid={`comment-trigger-${targetType}${chartId ? `-${chartId}` : ''}`}
-          aria-label={`${targetType === 'report' ? 'Report' : 'Chart'} comments`}
+          aria-label={`${targetType === 'summary' ? 'Summary' : 'Chart'} comments`}
         >
-          <CommentIcon state={state} count={count} />
+          <CommentIcon state={state} unreadCount={unreadCount} />
         </Button>
       </PopoverTrigger>
       <PopoverContent

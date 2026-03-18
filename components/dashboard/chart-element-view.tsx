@@ -117,7 +117,7 @@ interface ChartElementViewProps {
   config?: ChartTitleConfig; // For dashboard title configuration
   frozenChartConfig?: any; // Frozen chart config from report snapshot
   snapshotId?: number; // Report snapshot ID for comments
-  commentStates?: Record<string, { state: string; count: number }>; // Comment states
+  commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
   onCommentStateChange?: () => void; // Callback when comment state changes
 }
 
@@ -1748,6 +1748,7 @@ export function ChartElementView({
                 chartId={chartId}
                 state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
                 count={commentStates?.[String(chartId)]?.count ?? 0}
+                unreadCount={commentStates?.[String(chartId)]?.unread_count ?? 0}
                 triggerClassName="h-7 w-7 p-0"
                 onStateChange={onCommentStateChange}
               />

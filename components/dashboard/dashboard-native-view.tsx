@@ -227,7 +227,7 @@ interface DashboardNativeViewProps {
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
   snapshotId?: number; // Report snapshot ID for comments
-  commentStates?: Record<string, { state: string; count: number }>; // Comment states keyed by chart_id or "report"
+  commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states keyed by chart_id or "summary"
   onCommentStateChange?: () => void; // Callback to revalidate comment states
 }
 

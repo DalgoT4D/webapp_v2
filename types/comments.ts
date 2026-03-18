@@ -10,7 +10,7 @@ export interface CommentMention {
 
 export interface Comment {
   id: number;
-  target_type: 'report' | 'chart';
+  target_type: 'summary' | 'chart';
   snapshot_id: number;
   chart_id?: number;
   content: string;
@@ -25,11 +25,12 @@ export type CommentIconState = 'none' | 'unread' | 'read' | 'mentioned';
 
 export interface CommentStateEntry {
   state: CommentIconState;
-  count: number;
+  count: number; // total comments
+  unread_count: number; // unread comments
 }
 
 export interface CommentStates {
-  [key: string]: CommentStateEntry; // chart_id or "report" -> { state, count }
+  [key: string]: CommentStateEntry; // chart_id or "summary" -> { state, count }
 }
 
 export interface MentionableUser {
@@ -39,13 +40,13 @@ export interface MentionableUser {
 
 export interface CreateCommentPayload {
   snapshot_id: number;
-  target_type: 'report' | 'chart';
+  target_type: 'summary' | 'chart';
   chart_id?: number;
   content: string;
 }
 
 export interface MarkReadPayload {
   snapshot_id: number;
-  target_type: 'report' | 'chart';
+  target_type: 'summary' | 'chart';
   chart_id?: number;
 }

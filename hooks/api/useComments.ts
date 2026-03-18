@@ -19,7 +19,7 @@ interface ApiResponse<T> {
 
 export function useComments(
   snapshotId: number | null,
-  targetType: 'report' | 'chart',
+  targetType: 'summary' | 'chart',
   chartId?: number
 ) {
   const params = new URLSearchParams();
