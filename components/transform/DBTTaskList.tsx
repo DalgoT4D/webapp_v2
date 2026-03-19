@@ -41,7 +41,12 @@ import { LogCard } from '@/components/pipeline/log-card';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { TASK_DBTRUN, TASK_DBTTEST, TASK_DOCSGENERATE, FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/dbt-tasks';
+import {
+  TASK_DBTRUN,
+  TASK_DBTTEST,
+  TASK_DOCSGENERATE,
+  FLOW_RUN_LOGS_OFFSET_LIMIT,
+} from '@/constants/dbt-tasks';
 import type { TransformTask } from '@/types/transform';
 
 // Relative time display matching v1's moment().fromNow() behavior
@@ -184,9 +189,7 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
     // Final log fetch and status
     await fetchLogs(response.flow_run_id);
     setLogStatus(
-      status === 'COMPLETED'
-        ? PipelineRunDisplayStatus.SUCCESS
-        : PipelineRunDisplayStatus.FAILED
+      status === 'COMPLETED' ? PipelineRunDisplayStatus.SUCCESS : PipelineRunDisplayStatus.FAILED
     );
     mutate();
   };
@@ -208,8 +211,8 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
     if (task.slug === TASK_DBTTEST && response?.result?.[0]) {
       const firstResult = response.result[0];
       if (typeof firstResult === 'object' && firstResult !== null && 'id' in firstResult) {
-        const runId = (firstResult as { state_details?: { flow_run_id?: string } })
-          ?.state_details?.flow_run_id;
+        const runId = (firstResult as { state_details?: { flow_run_id?: string } })?.state_details
+          ?.flow_run_id;
         if (runId) {
           try {
             const logResponse = await fetchFlowRunLogs(runId);
@@ -293,10 +296,7 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
                 <TableBody>
                   {filteredTasks.map((task) => (
                     <Fragment key={task.uuid}>
-                      <TableRow
-                        data-testid={`task-${task.uuid}`}
-                        className="hover:bg-gray-50/50"
-                      >
+                      <TableRow data-testid={`task-${task.uuid}`} className="hover:bg-gray-50/50">
                         <TableCell className="py-4 font-medium text-lg text-gray-900">
                           {task.label}
                         </TableCell>

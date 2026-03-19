@@ -31,9 +31,7 @@ export async function runPrefectDeployment(deploymentId: string) {
 }
 
 // Run a Prefect task directly (non-deployment, e.g., dbt-test, dbt-deps)
-export async function runPrefectTask(
-  taskUuid: string
-): Promise<{
+export async function runPrefectTask(taskUuid: string): Promise<{
   status: string;
   result: Array<string | { id?: string; state_details?: { flow_run_id?: string } }>;
 }> {

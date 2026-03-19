@@ -186,9 +186,7 @@ export default function Transform() {
             </TabsContent>
 
             <TabsContent value="github" className="mt-0 h-full">
-              <DBTTransformTab
-                onConnectGit={() => setGitConnected(true)}
-              />
+              <DBTTransformTab onConnectGit={() => setGitConnected(true)} />
             </TabsContent>
           </div>
         </div>

@@ -15,11 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
-import {
-  useDbtWorkspace,
-  connectGitRemote,
-  updateSchema,
-} from '@/hooks/api/useDbtWorkspace';
+import { useDbtWorkspace, connectGitRemote, updateSchema } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import Image from 'next/image';
@@ -178,7 +174,10 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5 mt-2">
                 {/* GitHub repo URL */}
                 <div className="space-y-2">
-                  <Label htmlFor="gitrepoUrl" className="text-base font-medium text-muted-foreground">
+                  <Label
+                    htmlFor="gitrepoUrl"
+                    className="text-base font-medium text-muted-foreground"
+                  >
                     GitHub repo URL<span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -189,7 +188,8 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                       required: 'Git repository URL is required',
                       pattern: {
                         value: /^https?:\/\/(www\.)?github\.com\/[\w\-.]+\/[\w\-.]+\/?$/,
-                        message: 'Must be a valid GitHub repository URL (e.g., https://github.com/username/repo)',
+                        message:
+                          'Must be a valid GitHub repository URL (e.g., https://github.com/username/repo)',
                       },
                     })}
                     data-testid="git-url-input"
@@ -203,7 +203,10 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
 
                 {/* Personal access token */}
                 <div className="space-y-2">
-                  <Label htmlFor="gitrepoAccessToken" className="text-base font-medium text-muted-foreground">
+                  <Label
+                    htmlFor="gitrepoAccessToken"
+                    className="text-base font-medium text-muted-foreground"
+                  >
                     Personal access token{!isConnected && <span className="text-red-500">*</span>}
                   </Label>
                   <Input
@@ -225,7 +228,10 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
 
                 {/* Dbt default Schema */}
                 <div className="space-y-2">
-                  <Label htmlFor="defaultSchema" className="text-base font-medium text-muted-foreground">
+                  <Label
+                    htmlFor="defaultSchema"
+                    className="text-base font-medium text-muted-foreground"
+                  >
                     Dbt default Schema<span className="text-red-500">*</span>
                   </Label>
                   <Input
