@@ -1041,14 +1041,15 @@ export function ChartElementV2({
             position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
             formatter: (params: any) => {
               const formattedValue = formatIfNumber(params.value);
+              const formattedName = formatIfNumber(params.name);
 
               switch (labelFormat) {
                 case 'value':
                   return formattedValue;
                 case 'name_percentage':
-                  return `${params.name}\n${params.percent}%`;
+                  return `${formattedName}\n${params.percent}%`;
                 case 'name_value':
-                  return `${params.name}\n${formattedValue}`;
+                  return `${formattedName}\n${formattedValue}`;
                 case 'percentage':
                 default:
                   return `${params.percent}%`;

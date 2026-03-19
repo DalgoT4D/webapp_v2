@@ -43,7 +43,7 @@ import {
   shouldShowLegend,
 } from '@/lib/responsive-legend';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
-import { createTooltipFormatter } from '@/lib/chart-formatting-utils';
+import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -1338,6 +1338,9 @@ export function ChartElementView({
         ? styledConfig.series
         : [styledConfig.series];
 
+      // Use shared formatter for pie dimension values (handles numbers, bigint, and "dimension - extra_dimension" strings)
+      const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+
       styledConfig.series = seriesArray.map((series: any) => ({
         ...series,
         label: {
@@ -1345,21 +1348,16 @@ export function ChartElementView({
           show: showDataLabels,
           position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
           formatter: (params: any) => {
-            // Only format if value is already a number type
-            const formattedValue =
-              typeof params.value === 'number'
-                ? numberFormat !== 'default'
-                  ? formatNumber(params.value, { format: numberFormat, decimalPlaces })
-                  : params.value.toLocaleString()
-                : params.value;
+            const formattedValue = formatIfNumber(params.value);
+            const formattedName = formatIfNumber(params.name);
 
             switch (labelFormat) {
               case 'value':
                 return formattedValue;
               case 'name_percentage':
-                return `${params.name}\n${params.percent}%`;
+                return `${formattedName}\n${params.percent}%`;
               case 'name_value':
-                return `${params.name}\n${formattedValue}`;
+                return `${formattedName}\n${formattedValue}`;
               case 'percentage':
               default:
                 return `${params.percent}%`;
