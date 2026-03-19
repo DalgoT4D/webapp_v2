@@ -454,7 +454,9 @@ function SingleComboboxInner({
                     {renderItem ? (
                       renderItem(item, isSelected, search)
                     ) : (
-                      <div className="font-mono font-medium">{highlightText(item.label, search)}</div>
+                      <div className="font-mono font-medium">
+                        {highlightText(item.label, search)}
+                      </div>
                     )}
                   </div>
                 </React.Fragment>
