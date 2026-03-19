@@ -42,6 +42,7 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -1322,6 +1323,11 @@ export function ChartElementView({
         },
       },
     };
+
+    // Handle stacked bar chart data labels
+    if (effectiveChart?.chart_type === 'bar') {
+      Object.assign(styledConfig, applyStackedBarLabels(styledConfig, customizations));
+    }
 
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
