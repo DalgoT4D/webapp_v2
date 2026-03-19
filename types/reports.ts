@@ -15,7 +15,6 @@ export interface ReportSnapshot {
   date_column?: DateColumn;
   period_start?: string;
   period_end: string;
-  status: 'generated' | 'viewed' | 'archived';
   summary?: string;
   created_by?: string;
   created_at: string;
@@ -39,7 +38,6 @@ export interface ReportMetadata {
   period_start?: string;
   period_end: string;
   summary?: string;
-  status: string;
   created_at: string;
   updated_at: string;
   created_by?: string;

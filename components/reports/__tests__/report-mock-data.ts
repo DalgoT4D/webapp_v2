@@ -26,7 +26,6 @@ export const createMockSnapshot = (overrides: Partial<ReportSnapshot> = {}): Rep
   date_column: createMockDateColumn(),
   period_start: '2025-01-01',
   period_end: '2025-01-31',
-  status: 'generated',
   summary: 'Monthly sales overview for January 2025',
   created_by: 'user@test.com',
   created_at: '2025-01-31T10:00:00Z',
@@ -70,7 +69,6 @@ export const createMockSnapshotViewData = (
     period_start: '2025-01-01',
     period_end: '2025-01-31',
     summary: 'Monthly sales overview',
-    status: 'generated',
     created_at: '2025-01-31T10:00:00Z',
     updated_at: '2025-01-31T10:00:00Z',
     created_by: 'user@test.com',
@@ -99,7 +97,6 @@ export const mockSnapshots: ReportSnapshot[] = [
   createMockSnapshot({
     id: 3,
     title: 'Annual Report 2024',
-    status: 'viewed',
     created_by: 'admin@test.com',
   }),
 ];
