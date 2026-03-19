@@ -1,133 +1,52 @@
 'use client';
 
-import { useState, useCallback, type RefObject } from 'react';
+import { useState, useCallback } from 'react';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-import {
-  PDF_CLONE_WIDTH_PX,
-  PDF_CLONE_PADDING_PX,
-  PDF_HEADER_MARGIN_BOTTOM_PX,
-  PDF_RENDER_DELAY_MS,
-  PDF_CANVAS_SCALE,
-  PDF_PAGE_MARGIN_PT,
-  PDF_A4_WIDTH_PT,
-  PDF_JPEG_QUALITY,
-} from '@/constants/reports';
+import { apiPostBinary } from '@/lib/api';
 
 interface UsePdfDownloadOptions {
+  /** API endpoint that returns PDF binary (e.g. `/api/reports/123/export/pdf/`) */
+  endpoint: string;
+  /** Title used for the downloaded filename */
   title: string;
-  headerRef: RefObject<HTMLDivElement | null>;
-  canvasRef: RefObject<HTMLDivElement | null>;
+  /** Label shown in toast messages (e.g. "Report", "Dashboard") */
+  label?: string;
 }
 
-export function usePdfDownload({ title, headerRef, canvasRef }: UsePdfDownloadOptions) {
+/**
+ * Hook for downloading server-generated PDFs.
+ * Calls a backend endpoint that returns a PDF blob, then triggers a browser download.
+ * Reusable for reports, dashboards, or any entity with a PDF export endpoint.
+ */
+export function usePdfDownload({ endpoint, title, label = 'Report' }: UsePdfDownloadOptions) {
   const [isExporting, setIsExporting] = useState(false);
 
   const download = useCallback(async () => {
     setIsExporting(true);
-    toastInfo.generic('Generating PDF...');
+    toastInfo.generic(`Generating ${label} PDF...`);
 
     try {
-      const { default: html2canvas } = await import('html2canvas-pro');
-      const { default: jsPDF } = await import('jspdf');
-      const { default: saveAs } = await import('file-saver');
+      const blob = await apiPostBinary(endpoint, {});
 
-      // Create an off-screen wrapper to render the combined content
-      const wrapper = document.createElement('div');
-      wrapper.style.position = 'absolute';
-      wrapper.style.left = '-9999px';
-      wrapper.style.top = '0';
-      wrapper.style.width = `${PDF_CLONE_WIDTH_PX}px`;
-      wrapper.style.backgroundColor = '#ffffff';
-      wrapper.style.padding = `${PDF_CLONE_PADDING_PX}px`;
+      const sanitizedTitle = (title || label.toLowerCase()).replace(/[^a-zA-Z0-9 \-_]/g, '').trim();
 
-      // Clone the header
-      if (headerRef.current) {
-        const headerClone = headerRef.current.cloneNode(true) as HTMLElement;
-        headerClone.style.marginBottom = `${PDF_HEADER_MARGIN_BOTTOM_PX}px`;
-        wrapper.appendChild(headerClone);
-      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${sanitizedTitle || label.toLowerCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-      // Clone the dashboard canvas (contains executive summary + charts, no filters)
-      if (canvasRef.current) {
-        const canvasClone = canvasRef.current.cloneNode(true) as HTMLElement;
-        canvasClone.style.width = '100%';
-
-        // Copy canvas pixel data — cloneNode doesn't preserve drawn content
-        // on <canvas> elements (ECharts renders charts to canvas)
-        const originalCanvases = canvasRef.current.querySelectorAll('canvas');
-        const clonedCanvases = canvasClone.querySelectorAll('canvas');
-        originalCanvases.forEach((orig, i) => {
-          const clone = clonedCanvases[i];
-          if (clone) {
-            clone.width = orig.width;
-            clone.height = orig.height;
-            const ctx = clone.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(orig, 0, 0);
-            }
-          }
-        });
-
-        wrapper.appendChild(canvasClone);
-      }
-
-      document.body.appendChild(wrapper);
-
-      // Wait for cloned content to render
-      await new Promise((resolve) => setTimeout(resolve, PDF_RENDER_DELAY_MS));
-
-      const canvas = await html2canvas(wrapper, {
-        scale: PDF_CANVAS_SCALE,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        windowWidth: PDF_CLONE_WIDTH_PX,
-        logging: false,
-        imageTimeout: 0,
-        removeContainer: false,
-        foreignObjectRendering: false,
-      });
-
-      document.body.removeChild(wrapper);
-
-      // Create single-page PDF with custom dimensions to fit all content
-      const contentWidth = PDF_A4_WIDTH_PT - PDF_PAGE_MARGIN_PT * 2;
-      const imgWidth = contentWidth;
-      const imgHeight = (canvas.height * contentWidth) / canvas.width;
-      const pageHeight = imgHeight + PDF_PAGE_MARGIN_PT * 2;
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'pt',
-        format: [PDF_A4_WIDTH_PT, pageHeight],
-        compress: false,
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', PDF_JPEG_QUALITY);
-      pdf.addImage(
-        imgData,
-        'JPEG',
-        PDF_PAGE_MARGIN_PT,
-        PDF_PAGE_MARGIN_PT,
-        imgWidth,
-        imgHeight,
-        undefined,
-        'FAST'
-      );
-
-      const sanitizedTitle = (title || 'report')
-        .replace(/[^a-zA-Z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .toLowerCase();
-      saveAs(pdf.output('blob'), `${sanitizedTitle}.pdf`);
-      toastSuccess.exported('Report', 'pdf');
+      toastSuccess.exported(label, 'pdf');
     } catch (error) {
       console.error('PDF export failed:', error);
       toastError.export(error, 'pdf');
     } finally {
       setIsExporting(false);
     }
-  }, [title, headerRef, canvasRef]);
+  }, [endpoint, title, label]);
 
   return { isExporting, download };
 }
