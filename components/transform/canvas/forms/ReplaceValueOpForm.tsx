@@ -227,6 +227,7 @@ export function ReplaceValueOpForm({
               type="button"
               variant="ghost"
               size="icon"
+              aria-label="Remove row"
               onClick={() => handleRemoveRow(index)}
               disabled={isViewMode || fields.length <= 1}
               className="h-9 w-9"

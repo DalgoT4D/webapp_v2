@@ -15,7 +15,11 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { generateDummySrcModelNode } from '../utils/dummynodes';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, UnionDataConfig, DbtModelResponse } from '@/types/transform';
+import type {
+  OperationFormProps,
+  UnionDataConfig,
+  CanvasNodeDataResponse,
+} from '@/types/transform';
 
 interface TableItem {
   id: string;
@@ -50,7 +54,7 @@ export function UnionTablesOpForm({
   const { sourcesModels } = useCanvasSources();
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  // Cleanup all dummy nodes on unmount
+  // Cleanup all dummy nodes on unmount (backup safety net)
   useEffect(() => {
     return () => {
       const ids = Array.from(dummyNodeMapRef.current.values());
@@ -59,6 +63,7 @@ export function UnionTablesOpForm({
           nodes: ids.map((id) => ({ id })),
           edges: [],
         });
+        dummyNodeMapRef.current.clear();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,53 +89,69 @@ export function UnionTablesOpForm({
     name: 'tables',
   });
 
-  // Fetch source columns from node (Table 1)
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns);
-    }
+  // Fetch node detail from API and pre-fill form (v1 pattern)
+  const fetchAndSetConfigForEdit = useCallback(async () => {
+    if (!node?.id) return;
+    try {
+      setLoading(true);
+      const nodeResponseData = (await apiGet(
+        `/api/transform/v2/dbt_project/nodes/${node.id}/`
+      )) as CanvasNodeDataResponse;
+      const { operation_config, input_nodes } = nodeResponseData;
 
-    // Set Table 1 to current node
-    if (node?.data?.dbtmodel) {
-      setValue('tables.0', {
-        id: node.data.dbtmodel.uuid || node.id,
-        label: `${node.data.dbtmodel.schema}.${node.data.dbtmodel.name}`,
-      });
-    } else if (node?.data?.name) {
-      setValue('tables.0', {
-        id: node.id,
-        label: node.data.name,
-      });
-    }
-  }, [node, setValue]);
+      const { source_columns } = operation_config.config as unknown as UnionDataConfig;
+      setSrcColumns(source_columns);
 
-  // Load existing config in edit mode
+      // Sort input_nodes by seq to ensure correct order
+      const sortedInputNodes =
+        input_nodes?.sort(
+          (a: CanvasNodeDataResponse, b: CanvasNodeDataResponse) => (a.seq || 0) - (b.seq || 0)
+        ) || [];
+
+      // Build the tables array from input_nodes
+      const tablesData = sortedInputNodes
+        .filter((n: CanvasNodeDataResponse) => n.dbtmodel)
+        .map((n: CanvasNodeDataResponse) => ({
+          id: n.dbtmodel!.uuid,
+          label: `${n.dbtmodel!.schema}.${n.dbtmodel!.name}`,
+        }));
+
+      if (tablesData.length > 0) {
+        reset({ tables: tablesData });
+      }
+    } catch (error) {
+      console.error('Failed to fetch node config for edit:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [node?.id, reset, setLoading]);
+
+  // Load form data — matches v1 pattern
   useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as UnionDataConfig;
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns);
+    if (node?.data?.isDummy) return;
+
+    if (isEditMode || isViewMode) {
+      fetchAndSetConfigForEdit();
+    } else {
+      // Create mode: set source columns and Table 1 from current node
+      if (node?.data?.output_columns) {
+        setSrcColumns(node.data.output_columns);
       }
 
-      // Load tables from input_nodes
-      if (node.data?.input_nodes) {
-        const sortedInputNodes = [...(node.data.input_nodes || [])].sort(
-          (a: { seq?: number }, b: { seq?: number }) => (a.seq || 0) - (b.seq || 0)
-        );
-
-        const tablesData = sortedInputNodes
-          .filter((n: { dbtmodel?: DbtModelResponse }) => n.dbtmodel)
-          .map((n: { dbtmodel: DbtModelResponse }) => ({
-            id: n.dbtmodel.uuid,
-            label: `${n.dbtmodel.schema}.${n.dbtmodel.name}`,
-          }));
-
-        if (tablesData.length > 0) {
-          reset({ tables: tablesData });
-        }
+      if (node?.data?.dbtmodel) {
+        setValue('tables.0', {
+          id: node.data.dbtmodel.uuid || node.id,
+          label: `${node.data.dbtmodel.schema}.${node.data.dbtmodel.name}`,
+        });
+      } else if (node?.data?.name) {
+        setValue('tables.0', {
+          id: node.id,
+          label: node.data.name,
+        });
       }
     }
-  }, [isEditMode, isViewMode, node, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node]);
 
   // Handle table selection — also add dummy node to canvas
   const handleTableSelect = useCallback(
@@ -203,6 +224,18 @@ export function UnionTablesOpForm({
     }))
     .sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
 
+  // Clean up all dummy source nodes and their edges before save
+  const cleanupDummySourceNodes = useCallback(() => {
+    const ids = Array.from(dummyNodeMapRef.current.values());
+    if (ids.length > 0) {
+      deleteElements({
+        nodes: ids.map((id) => ({ id })),
+        edges: [],
+      });
+      dummyNodeMapRef.current.clear();
+    }
+  }, [deleteElements]);
+
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {
       toastError.api('No node selected');
@@ -216,6 +249,9 @@ export function UnionTablesOpForm({
     }
 
     setLoading(true);
+
+    // Remove dummy source nodes before API call to prevent orphan edges
+    cleanupDummySourceNodes();
 
     try {
       // Fetch columns for each table (excluding the first one which is the input node)

@@ -8,12 +8,12 @@ import { apiGet } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData, ColumnData } from '@/types/transform';
+import { NODE_COLORS } from '@/constants/transform';
+import { truncateName } from '@/components/transform/utils';
 
 type DbtSourceModelNodeProps = NodeProps<CanvasNodeRenderData>;
 
-// v1 colors
-const COLOR_PUBLISHED = '#00897B';
-const COLOR_UNPUBLISHED = '#50A85C';
+// Node-specific table colors (not brand colors, used for React Flow inline styles)
 const TABLE_HEADER_BG = '#EEF3F3';
 const TABLE_CONTENT_BG = '#F8F8F8';
 const TABLE_ODD_ROW = '#F7F7F7';
@@ -38,7 +38,9 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
 
   // v1: #00897B for published/source, #50A85C for unpublished models
   const headerColor =
-    type === 'model' && data?.isPublished === false ? COLOR_UNPUBLISHED : COLOR_PUBLISHED;
+    type === 'model' && data?.isPublished === false
+      ? NODE_COLORS.SOURCE_MODEL_UNPUBLISHED
+      : NODE_COLORS.SOURCE_MODEL_PUBLISHED;
 
   // Reset fetch flag when canvas refreshes so columns are re-fetched
   const refreshTrigger = useTransformStore((s) => s.refreshTrigger);
@@ -105,11 +107,6 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
     [id, type, data?.isDummy, data?.uuid, dispatchCanvasAction]
   );
 
-  const truncateName = (name: string, maxLength: number = 25) => {
-    if (name.length <= maxLength) return name;
-    return name.substring(0, maxLength - 3) + '...';
-  };
-
   // Format display: "schema.tableName" for header
   const headerText = schema ? `${schema}.${truncateName(displayName)}` : truncateName(displayName);
 
@@ -161,6 +158,7 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
           {canDelete && (
             <button
               onClick={handleDeleteClick}
+              aria-label="Delete node"
               style={{
                 background: 'none',
                 border: 'none',

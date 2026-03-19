@@ -269,6 +269,7 @@ export function PivotOpForm({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label="Remove pivot value"
                   onClick={() => removePivotValue(index)}
                   className="h-9 w-9"
                   data-testid={`pivot-value-remove-${index}`}

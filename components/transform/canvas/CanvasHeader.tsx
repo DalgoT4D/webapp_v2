@@ -111,7 +111,8 @@ export default function CanvasHeader({
               variant="default"
               size="sm"
               disabled={runDisabled}
-              className="bg-teal-600 hover:bg-teal-700 text-white"
+              className="text-white hover:opacity-90 shadow-xs"
+              style={{ backgroundColor: 'var(--primary)' }}
               data-testid="run-button"
             >
               <Play className="w-4 h-4 mr-1" />
@@ -146,7 +147,8 @@ export default function CanvasHeader({
           size="sm"
           disabled={publishDisabled}
           onClick={handlePublish}
-          className="bg-teal-600 hover:bg-teal-700 text-white"
+          className="text-white hover:opacity-90 shadow-xs"
+          style={{ backgroundColor: 'var(--primary)' }}
           data-testid="publish-button"
         >
           <Upload className="w-4 h-4 mr-1" />

@@ -7,10 +7,15 @@ import type { DbtWorkspace, DbtWorkspaceFormData } from '@/types/transform';
 
 // Fetch DBT workspace info
 export function useDbtWorkspace() {
-  return useSWR<DbtWorkspace>('/api/dbt/dbt_workspace', apiGet, {
-    revalidateOnFocus: false,
-    shouldRetryOnError: false, // Don't retry on 404 (workspace not created yet)
-  });
+  const { data, error, isLoading, mutate } = useSWR<DbtWorkspace>(
+    '/api/dbt/dbt_workspace',
+    apiGet,
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false, // Don't retry on 404 (workspace not created yet)
+    }
+  );
+  return { data, isLoading, isError: !!error, mutate };
 }
 
 // Connect Git repository (mutation)

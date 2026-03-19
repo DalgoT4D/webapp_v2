@@ -319,7 +319,7 @@ export interface SecondaryInput {
 }
 
 export interface JoinDataConfig {
-  join_type: 'left' | 'inner' | 'full outer';
+  join_type: 'left' | 'right' | 'inner' | 'full outer';
   join_on: {
     key1: string;
     key2: string;

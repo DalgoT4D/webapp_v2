@@ -195,6 +195,7 @@ export function CoalesceOpForm({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label="Remove column"
                   onClick={() => remove(index)}
                   className="h-9 w-9"
                   data-testid={`coalesce-remove-${index}`}

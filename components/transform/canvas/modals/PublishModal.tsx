@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { apiGet, apiPost } from '@/lib/api';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 interface PublishModalProps {
   open: boolean;
@@ -59,7 +59,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
       setGitStatus(response);
     } catch (error: unknown) {
       console.error('Error fetching git status:', error);
-      toast.error('Failed to load git status');
+      toastError.load('Failed to load git status');
       setGitStatus(null);
     } finally {
       setLoading(false);
@@ -68,7 +68,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
 
   const handlePublish = async () => {
     if (!commitMessage.trim()) {
-      toast.error('Commit message is required');
+      toastError.api('Commit message is required');
       return;
     }
 
@@ -79,16 +79,16 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
       });
 
       if (response.success) {
-        toast.success('Changes published successfully');
+        toastSuccess.published('Changes');
         onPublishSuccess?.();
         onClose();
       } else {
-        toast.error(response.message || 'Failed to publish changes');
+        toastError.api(response.message || 'Failed to publish changes');
       }
     } catch (error: unknown) {
       console.error('Error publishing changes:', error);
       const message = error instanceof Error ? error.message : 'Failed to publish changes';
-      toast.error(message);
+      toastError.api(message);
     } finally {
       setPublishing(false);
     }
@@ -125,11 +125,11 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
                   {gitStatus.added.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-sm font-semibold">Added ({gitStatus.added.length})</p>
-                      {gitStatus.added.map((file, index) => (
+                      {gitStatus.added.map((file) => (
                         <p
-                          key={index}
+                          key={file}
                           className="text-xs font-mono text-green-600 dark:text-green-400 pl-2"
-                          data-testid={`added-file-${index}`}
+                          data-testid={`added-file-${file}`}
                         >
                           + {file}
                         </p>
@@ -143,11 +143,11 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
                       <p className="text-sm font-semibold">
                         Modified ({gitStatus.modified.length})
                       </p>
-                      {gitStatus.modified.map((file, index) => (
+                      {gitStatus.modified.map((file) => (
                         <p
-                          key={index}
+                          key={file}
                           className="text-xs font-mono text-yellow-600 dark:text-yellow-400 pl-2"
-                          data-testid={`modified-file-${index}`}
+                          data-testid={`modified-file-${file}`}
                         >
                           ~ {file}
                         </p>
@@ -159,11 +159,11 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
                   {gitStatus.deleted.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-sm font-semibold">Deleted ({gitStatus.deleted.length})</p>
-                      {gitStatus.deleted.map((file, index) => (
+                      {gitStatus.deleted.map((file) => (
                         <p
-                          key={index}
+                          key={file}
                           className="text-xs font-mono text-red-600 dark:text-red-400 pl-2"
-                          data-testid={`deleted-file-${index}`}
+                          data-testid={`deleted-file-${file}`}
                         >
                           - {file}
                         </p>

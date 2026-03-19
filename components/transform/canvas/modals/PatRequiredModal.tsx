@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiPut } from '@/lib/api';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 interface PatRequiredModalProps {
   open: boolean;
@@ -46,7 +46,7 @@ export default function PatRequiredModal({
         gitrepoAccessToken: data.gitrepoAccessToken,
       });
 
-      toast.success('Personal Access Token added successfully');
+      toastSuccess.generic('Personal Access Token added successfully');
       reset();
       onAddKey();
       onClose();
@@ -54,7 +54,7 @@ export default function PatRequiredModal({
       console.error('Error adding PAT:', error);
       const message =
         error instanceof Error ? error.message : 'Failed to add Personal Access Token';
-      toast.error(message);
+      toastError.api(message);
     } finally {
       setLoading(false);
     }

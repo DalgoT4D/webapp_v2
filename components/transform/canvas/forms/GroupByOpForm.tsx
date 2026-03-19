@@ -235,6 +235,7 @@ export function GroupByOpForm({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label="Remove dimension"
                   onClick={() => removeDim(index)}
                   className="h-9 w-9"
                   data-testid={`groupby-dim-remove-${index}`}

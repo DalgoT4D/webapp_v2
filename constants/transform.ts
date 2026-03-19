@@ -125,6 +125,23 @@ export const operations: UIOperationType[] = [
 ];
 
 // ============================================
+// OPERATION LABEL MAP (derived from operations array)
+// ============================================
+
+export const operationLabelMap: Record<string, string> = Object.fromEntries(
+  operations.map((op) => [op.slug, op.label])
+);
+// Add create-table which isn't in the operations array
+operationLabelMap['create-table'] = 'Create Table';
+
+/**
+ * Get the display label for an operation slug.
+ */
+export function getOperationLabel(slug: string): string {
+  return operationLabelMap[slug] || slug;
+}
+
+// ============================================
 // OPERATION ICON MAPPING
 // ============================================
 

@@ -10,7 +10,8 @@ import CanvasMessages from '../CanvasMessages';
 import { ProjectTree } from '@/components/explore/ProjectTree';
 import { OperationConfigLayout } from '../panels/OperationConfigLayout';
 import { LowerSectionTabs } from './LowerSectionTabs';
-import { PublishModal, PatRequiredModal } from '../modals';
+import PublishModal from '../modals/PublishModal';
+import PatRequiredModal from '../modals/PatRequiredModal';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasLock } from '@/hooks/api/useCanvasLock';
@@ -28,7 +29,7 @@ import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { apiGet } from '@/lib/api';
 import { useSWRConfig } from 'swr';
 import useSWR from 'swr';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 import 'reactflow/dist/style.css';
 import 'react-resizable/css/styles.css';
@@ -93,7 +94,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   const { isLockedByOther } = useCanvasLock({
     autoAcquire: !isPreview,
     onLockLost: () => {
-      toast.error('Canvas lock was lost. Another user may have taken control.');
+      toastError.api('Canvas lock was lost. Another user may have taken control.');
     },
   });
 
@@ -218,14 +219,14 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             // v1 uses unified /nodes/ endpoint for all canvas node deletions
             // deleteOperationNode already calls refreshGraph() internally
             await deleteOperationNode(deleteId);
-            toast.success(
+            toastSuccess.generic(
               nodeType === CanvasNodeTypeEnum.Operation || nodeType === 'operation'
                 ? 'Operation deleted'
                 : 'Node removed from canvas'
             );
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to delete node';
-            toast.error(message);
+            toastError.api(message);
           } finally {
             setTempLockCanvas(false);
           }
@@ -247,7 +248,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             await mutate(CANVAS_GRAPH_KEY);
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to run workflow';
-            toast.error(message);
+            toastError.api(message);
           }
           clearCanvasAction();
           break;
@@ -265,10 +266,10 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
           try {
             // deleteOperationNode already calls refreshGraph() internally
             await deleteOperationNode(nodeId);
-            toast.success('Source removed from canvas');
+            toastSuccess.generic('Source removed from canvas');
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to remove source';
-            toast.error(message);
+            toastError.api(message);
           } finally {
             setTempLockCanvas(false);
           }
@@ -352,10 +353,10 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
       await refreshSources();
       await mutate(CANVAS_GRAPH_KEY);
-      toast.success('Sources synced successfully');
+      toastSuccess.generic('Sources synced successfully');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to sync sources';
-      toast.error(message);
+      toastError.api(message);
     } finally {
       setIsSyncing(false);
       setLockUpperSection(false);
@@ -430,7 +431,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       const model = sourcesModels.find((m) => m.schema === schema && m.name === table);
 
       if (!model) {
-        toast.error(`Could not find ${schema}.${table}`);
+        toastError.api(`Could not find ${schema}.${table}`);
         return;
       }
 
@@ -445,13 +446,13 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       try {
         // addNodeToCanvas already calls refreshGraph() internally
         const newNode = await addNodeToCanvas(model.uuid);
-        toast.success(`Added ${table} to canvas`);
+        toastSuccess.generic(`Added ${table} to canvas`);
 
         // Focus and select the newly added node
         focusAndSelectCanvasNode(newNode.uuid, newNode.node_type, newNode);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : `Failed to add ${table} to canvas`;
-        toast.error(message);
+        toastError.api(message);
       } finally {
         setTempLockCanvas(false);
       }

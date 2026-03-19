@@ -8,27 +8,7 @@ import { Trash2 } from 'lucide-react';
 import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData } from '@/types/transform';
-
-// Operation labels mapping
-const operationLabels: Record<string, string> = {
-  renamecolumns: 'Rename',
-  flattenjson: 'Flatten JSON',
-  castdatatypes: 'Cast',
-  coalescecolumns: 'Coalesce',
-  arithmetic: 'Arithmetic',
-  dropcolumns: 'Drop',
-  replace: 'Replace',
-  join: 'Join',
-  where: 'Filter',
-  groupby: 'Group By',
-  aggregate: 'Aggregate',
-  casewhen: 'Case',
-  unionall: 'Union',
-  pivot: 'Pivot',
-  unpivot: 'Unpivot',
-  generic: 'Generic Column',
-  rawsql: 'Generic SQL',
-};
+import { NODE_COLORS, operationLabelMap } from '@/constants/transform';
 
 // Operation icon mapping
 const operationIcons: Record<string, string> = {
@@ -60,7 +40,7 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
   const { hasPermission } = useUserPermissions();
 
   const operationType = data?.operation_config?.type || 'unknown';
-  const operationLabel = operationLabels[operationType] || operationType;
+  const operationLabel = operationLabelMap[operationType] || operationType;
   const operationIcon = operationIcons[operationType];
 
   // Leaf node check — can delete only leaf nodes
@@ -121,6 +101,7 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
       {canDelete && !data?.isDummy && (
         <button
           onClick={handleDeleteClick}
+          aria-label="Delete operation"
           style={{
             position: 'absolute',
             right: -15,
@@ -176,7 +157,9 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
               }}
             />
           ) : (
-            <span style={{ color: '#00897B', fontSize: 14, fontWeight: 700 }}>
+            <span
+              style={{ color: NODE_COLORS.SOURCE_MODEL_PUBLISHED, fontSize: 14, fontWeight: 700 }}
+            >
               {operationLabel.substring(0, 3).toUpperCase()}
             </span>
           )}

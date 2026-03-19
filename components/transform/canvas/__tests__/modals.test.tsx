@@ -1,7 +1,9 @@
 // components/transform/canvas/__tests__/modals.test.tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DiscardChangesDialog, PatRequiredModal, PublishModal } from '../modals';
+import DiscardChangesDialog from '../modals/DiscardChangesDialog';
+import PatRequiredModal from '../modals/PatRequiredModal';
+import PublishModal from '../modals/PublishModal';
 import { createMockGitStatusWithChanges } from './canvas-mock-data';
 
 // Mock API

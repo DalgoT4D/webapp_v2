@@ -1,4 +1,4 @@
-// components/transform/canvas/forms/index.ts
+// components/transform/canvas/forms/formRegistry.ts
 import type { ComponentType } from 'react';
 import type { OperationFormProps } from '@/types/transform';
 
@@ -42,31 +42,6 @@ import {
   GENERIC_COL_OP,
   GENERIC_SQL_OP,
 } from '@/constants/transform';
-
-// Export all forms
-export { RenameColumnOpForm } from './RenameColumnOpForm';
-export { DropColumnOpForm } from './DropColumnOpForm';
-export { CastColumnOpForm } from './CastColumnOpForm';
-export { ReplaceValueOpForm } from './ReplaceValueOpForm';
-export { AggregationOpForm } from './AggregationOpForm';
-export { GroupByOpForm } from './GroupByOpForm';
-export { ArithmeticOpForm } from './ArithmeticOpForm';
-export { JoinOpForm } from './JoinOpForm';
-export { UnionTablesOpForm } from './UnionTablesOpForm';
-export { CoalesceOpForm } from './CoalesceOpForm';
-export { CaseWhenOpForm } from './CaseWhenOpForm';
-export { WhereFilterOpForm } from './WhereFilterOpForm';
-export { PivotOpForm } from './PivotOpForm';
-export { UnpivotOpForm } from './UnpivotOpForm';
-export { FlattenJsonOpForm } from './FlattenJsonOpForm';
-export { CreateTableForm } from './CreateTableForm';
-export { GenericColumnOpForm } from './GenericColumnOpForm';
-export { GenericSqlOpForm } from './GenericSqlOpForm';
-
-// Export shared components
-export { ColumnSelect } from './shared/ColumnSelect';
-export { FormActions } from './shared/FormActions';
-export { OperandInput } from './shared/OperandInput';
 
 /**
  * Form registry mapping operation slugs to form components.

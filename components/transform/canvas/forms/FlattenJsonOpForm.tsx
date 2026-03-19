@@ -249,8 +249,8 @@ export function FlattenJsonOpForm({
           </div>
         ) : jsonColumns.length > 0 ? (
           <div className="max-h-60 overflow-y-auto divide-y">
-            {jsonColumns.map((column, index) => (
-              <div key={index} className="px-4 py-2 text-sm font-mono">
+            {jsonColumns.map((column) => (
+              <div key={column} className="px-4 py-2 text-sm font-mono">
                 {column}
               </div>
             ))}

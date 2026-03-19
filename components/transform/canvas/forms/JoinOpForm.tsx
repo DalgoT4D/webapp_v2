@@ -14,12 +14,13 @@ import {
 } from '@/components/ui/select';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { apiGet } from '@/lib/api';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { generateDummySrcModelNode } from '../utils/dummynodes';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
-import type { OperationFormProps, JoinDataConfig, DbtModelResponse } from '@/types/transform';
+import type { OperationFormProps, JoinDataConfig, CanvasNodeDataResponse } from '@/types/transform';
 
 const JoinTypes = [
   { id: 'left', label: 'Left Join' },
@@ -52,7 +53,7 @@ export function JoinOpForm({
 
   const [srcColumns, setSrcColumns] = useState<string[]>([]);
   const [table2Columns, setTable2Columns] = useState<string[]>([]);
-  const [selectedTable2, setSelectedTable2] = useState<DbtModelResponse | null>(null);
+  const [selectedTable2, setSelectedTable2] = useState<{ uuid: string } | null>(null);
 
   const { addNodes, addEdges, deleteElements, getNodes } = useReactFlow();
   const dummyNodeIdsRef = useRef<string[]>([]);
@@ -91,42 +92,71 @@ export function JoinOpForm({
 
   const watchedTable2Id = watch('table2_id');
 
-  // Fetch source columns from node (Table 1)
-  useEffect(() => {
+  // Fetch node detail from API and pre-fill form (v1 pattern)
+  const fetchAndSetConfigForEdit = useCallback(async () => {
+    if (!node?.id) return;
+    try {
+      setLoading(true);
+      const nodeResponseData = (await apiGet(
+        `/api/transform/v2/dbt_project/nodes/${node.id}/`
+      )) as CanvasNodeDataResponse;
+      const { operation_config, input_nodes } = nodeResponseData;
+
+      const { source_columns, join_on, join_type } =
+        operation_config.config as unknown as JoinDataConfig;
+      setSrcColumns(source_columns?.sort((a, b) => a.localeCompare(b)) || []);
+
+      if (input_nodes) {
+        let jointype: string = join_type;
+        const lengthInputModels: number = input_nodes.length;
+
+        // Right-join detection: v1 stores right join as left join with seq=0
+        if (lengthInputModels === 1) {
+          if (input_nodes[0].seq === 0 && jointype === 'left') {
+            jointype = 'right';
+          }
+          setTable2Columns(input_nodes[0].dbtmodel?.output_cols || []);
+        }
+
+        // Pre-fill table2 model for submit
+        const table2Node = input_nodes[lengthInputModels - 1];
+        if (table2Node?.dbtmodel) {
+          setSelectedTable2({ uuid: table2Node.dbtmodel.uuid });
+          setTable2Columns(table2Node.dbtmodel.output_cols || []);
+        }
+
+        reset({
+          join_type: jointype,
+          table1_key: join_on?.key1 || '',
+          table2_key: join_on?.key2 || '',
+          table2_id: table2Node?.dbtmodel?.uuid || '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch node config for edit:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [node?.id, reset, setLoading]);
+
+  // Fetch source columns from node (Table 1) — for create mode
+  const fetchAndSetSourceColumns = useCallback(() => {
     if (node?.data?.output_columns) {
       setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
     }
   }, [node]);
 
-  // Load existing config in edit mode
+  // Load form data — matches v1 pattern
   useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as JoinDataConfig;
-      if (config) {
-        reset({
-          join_type: config.join_type || '',
-          table1_key: config.join_on?.key1 || '',
-          table2_key: config.join_on?.key2 || '',
-        });
+    if (node?.data?.isDummy) return;
 
-        // Load table 2 info from other_inputs
-        if (config.other_inputs && config.other_inputs.length > 0) {
-          const secondaryInput = config.other_inputs[0];
-          const model = sourcesModels.find((m) => m.name === secondaryInput.input?.input_name);
-          if (model) {
-            setSelectedTable2(model);
-            setValue('table2_id', model.uuid);
-            setTable2Columns(secondaryInput.source_columns || model.output_cols || []);
-          }
-        }
-
-        // Load source columns
-        if (config.source_columns) {
-          setSrcColumns(config.source_columns.sort((a, b) => a.localeCompare(b)));
-        }
-      }
+    if (isEditMode || isViewMode) {
+      fetchAndSetConfigForEdit();
+    } else {
+      fetchAndSetSourceColumns();
     }
-  }, [isEditMode, isViewMode, node, reset, setValue, sourcesModels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node]);
 
   // Handle table 2 selection — also add dummy node to canvas
   const handleTable2Select = useCallback(
@@ -169,7 +199,7 @@ export function JoinOpForm({
       addEdges([dummyEdge]);
       dummyNodeIdsRef.current.push(dummyNode.id);
 
-      setSelectedTable2(model);
+      setSelectedTable2({ uuid: model.uuid });
       setValue('table2_id', modelUuid);
       setValue('table2_key', ''); // Reset key when table changes
       setTable2Columns(model.output_cols || []);
@@ -215,11 +245,21 @@ export function JoinOpForm({
 
     setLoading(true);
 
+    // Remove dummy source nodes before API call to prevent orphan edges
+    if (dummyNodeIdsRef.current.length > 0) {
+      deleteElements({
+        nodes: dummyNodeIdsRef.current.map((id) => ({ id })),
+        edges: [],
+      });
+      dummyNodeIdsRef.current = [];
+    }
+
     try {
+      // Right-join encoding: store as left join with seq=0 (v1 pattern)
       const payload = {
         op_type: operation.slug,
         config: {
-          join_type: data.join_type,
+          join_type: data.join_type === 'right' ? 'left' : data.join_type,
           join_on: {
             key1: data.table1_key,
             key2: data.table2_key,
@@ -231,7 +271,7 @@ export function JoinOpForm({
           {
             input_model_uuid: selectedTable2.uuid,
             columns: table2Columns,
-            seq: 1,
+            seq: data.join_type === 'right' ? 0 : 2,
           },
         ],
       };

@@ -48,25 +48,7 @@ import {
   FLOW_RUN_LOGS_OFFSET_LIMIT,
 } from '@/constants/dbt-tasks';
 import type { TransformTask } from '@/types/transform';
-
-// Relative time display matching v1's moment().fromNow() behavior
-function timeAgo(dateString: string): string {
-  const now = Date.now();
-  const past = new Date(dateString).getTime();
-  const diffMs = now - past;
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDays = Math.floor(diffHr / 24);
-
-  if (diffSec < 60) return 'a few seconds ago';
-  if (diffMin < 2) return 'a minute ago';
-  if (diffMin < 60) return `${diffMin} minutes ago`;
-  if (diffHr < 2) return 'an hour ago';
-  if (diffHr < 24) return `${diffHr} hours ago`;
-  if (diffDays < 2) return 'a day ago';
-  return `${diffDays} days ago`;
-}
+import { timeAgo } from './utils';
 
 interface DBTTaskListProps {
   isAnyTaskLocked: boolean;

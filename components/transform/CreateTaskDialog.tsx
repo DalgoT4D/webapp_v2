@@ -255,6 +255,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
                       type="button"
                       variant="outline"
                       size="icon"
+                      aria-label="Remove option"
                       onClick={() => {
                         remove(index);
                         optionsRef.current = form.getValues('options');

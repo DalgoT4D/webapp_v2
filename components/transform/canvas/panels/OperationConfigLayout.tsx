@@ -21,9 +21,9 @@ import { useTransformStore, useSelectedNode, useCanvasAction } from '@/stores/tr
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { OperationList } from './OperationList';
 import { CreateTableOrAddFunction } from './CreateTableOrAddFunction';
-import { getFormForOperation } from '../forms';
+import { getFormForOperation } from '../forms/formRegistry';
 import { CanvasNodeTypeEnum, type UIOperationType, type SelectedNodeData } from '@/types/transform';
-import { CANVAS_CONSTANTS } from '@/constants/transform';
+import { CANVAS_CONSTANTS, getOperationLabel } from '@/constants/transform';
 import { cn } from '@/lib/utils';
 
 type PanelState = 'op-list' | 'op-form' | 'create-table-or-add-function';
@@ -96,30 +96,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasAction.type]);
 
-  // Get operation label from slug
-  const getOperationLabel = useCallback((slug: string): string => {
-    const opLabels: Record<string, string> = {
-      renamecolumns: 'Rename',
-      flattenjson: 'Flatten JSON',
-      castdatatypes: 'Cast',
-      coalescecolumns: 'Coalesce',
-      arithmetic: 'Arithmetic',
-      dropcolumns: 'Drop',
-      replace: 'Replace',
-      join: 'Join',
-      where: 'Filter',
-      groupby: 'Group By',
-      aggregate: 'Aggregate',
-      casewhen: 'Case',
-      unionall: 'Table union',
-      pivot: 'Pivot',
-      unpivot: 'Unpivot',
-      generic: 'Generic Column',
-      rawsql: 'Generic SQL',
-      'create-table': 'Create Table',
-    };
-    return opLabels[slug] || slug;
-  }, []);
+  // getOperationLabel imported from @/constants/transform
 
   // Create dummy node when operation selected
   const createDummyNode = useCallback(
@@ -173,17 +150,25 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
     [selectedNode, setNodes, setEdges, getNodes]
   );
 
-  // Clean up dummy nodes
+  // Clean up dummy nodes and any orphan dummy edges
   const cleanupDummyNodes = useCallback(() => {
     const nodes = getNodes();
     const edges = getEdges();
 
     const dummyNodeIds = nodes.filter((n) => n.data?.isDummy).map((n) => n.id);
+
+    // Also find orphan dummy edges (source: edge-dummy-*) whose source/target nodes
+    // may have already been removed by Canvas's setNodes after graph refresh
     const dummyEdgeIds = edges
-      .filter((e) => dummyNodeIds.includes(e.source) || dummyNodeIds.includes(e.target))
+      .filter(
+        (e) =>
+          dummyNodeIds.includes(e.source) ||
+          dummyNodeIds.includes(e.target) ||
+          e.id.startsWith('edge-dummy-')
+      )
       .map((e) => e.id);
 
-    if (dummyNodeIds.length > 0) {
+    if (dummyNodeIds.length > 0 || dummyEdgeIds.length > 0) {
       deleteElements({
         nodes: dummyNodeIds.map((id) => ({ id })),
         edges: dummyEdgeIds.map((id) => ({ id })),
@@ -299,7 +284,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       // For edits: also show it so user can chain more or create table
       setPanelState('create-table-or-add-function');
     },
-    [cleanupDummyNodes, getNodes, setSelectedNode, selectedNode?.id, selectedOp, formMode, mutate]
+    [cleanupDummyNodes, getNodes, setSelectedNode, selectedNode?.id, selectedOp, mutate]
   );
 
   // User chose to create a table
@@ -414,6 +399,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
                 size="icon"
                 onClick={handleBack}
                 className="h-8 w-8"
+                aria-label="Go back"
                 data-testid="panel-back-btn"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -438,6 +424,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
             size="icon"
             onClick={handleClose}
             className="h-8 w-8"
+            aria-label="Close panel"
             data-testid="panel-close-btn"
           >
             <X className="h-5 w-5" />
@@ -446,7 +433,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
 
         {/* Loading indicator */}
         {isPanelLoading && (
-          <div className="h-1 bg-teal-600 animate-pulse" data-testid="panel-loading" />
+          <div className="h-1 bg-primary animate-pulse" data-testid="panel-loading" />
         )}
 
         {/* Content */}

@@ -19,7 +19,7 @@ export function useTransformTypeSWR() {
 
 // Convenience hook with derived booleans
 export function useTransformType() {
-  const { data, error, isLoading } = useTransformTypeSWR();
+  const { data, error, isLoading, mutate } = useTransformTypeSWR();
 
   return {
     data,
@@ -27,7 +27,8 @@ export function useTransformType() {
     isUI: data?.transform_type === TransformTypeEnum.UI,
     isGithub: data?.transform_type === TransformTypeEnum.GITHUB,
     isLoading,
-    error,
+    isError: !!error,
+    mutate,
   };
 }
 

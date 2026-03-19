@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, type Control, type FieldPath } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -68,14 +68,14 @@ function CaseOperandInput({
   operandValue: OperandValue;
   disabled: boolean;
   testIdPrefix: string;
-  control: any;
+  control: Control<FormValues>;
   columns: string[];
 }) {
   return (
     <div className="space-y-2">
       <Controller
         control={control}
-        name={`${name}.type` as any}
+        name={`${name}.type` as FieldPath<FormValues>}
         render={({ field }) => (
           <RadioGroup
             value={field.value}
@@ -101,7 +101,7 @@ function CaseOperandInput({
       {operandValue?.type === 'col' ? (
         <Controller
           control={control}
-          name={`${name}.col_val` as any}
+          name={`${name}.col_val` as FieldPath<FormValues>}
           render={({ field }) => (
             <ColumnSelect
               value={field.value}
@@ -116,7 +116,7 @@ function CaseOperandInput({
       ) : (
         <Controller
           control={control}
-          name={`${name}.const_val` as any}
+          name={`${name}.const_val` as FieldPath<FormValues>}
           render={({ field }) => (
             <Input
               {...field}

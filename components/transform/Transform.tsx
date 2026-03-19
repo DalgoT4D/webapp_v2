@@ -15,8 +15,7 @@ import {
   syncSources,
   deleteDbtRepo,
 } from '@/hooks/api/useTransform';
-import { useUserPreferences } from '@/hooks/api/useNotifications';
-import { apiPut } from '@/lib/api';
+import { useUserPreferences, updateUserPreference } from '@/hooks/api/useNotifications';
 import { UITransformTab } from './UITransformTab';
 import { DBTTransformTab } from './DBTTransformTab';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -106,9 +105,7 @@ export default function Transform() {
 
     // Persist tab preference to backend (matching v1 cross-device sync)
     try {
-      await apiPut('/api/userpreferences/', {
-        last_visited_transform_tab: tabValue,
-      });
+      await updateUserPreference({ last_visited_transform_tab: tabValue });
       mutatePreferences();
     } catch {
       // Non-critical — don't show error for preference save failure

@@ -54,14 +54,14 @@ export function LowerSectionTabs({
     if (previewTable) {
       setSelectedTab('preview');
     }
-  }, [previewTable]);
+  }, [previewTable, setSelectedTab]);
 
   // Auto-switch to logs tab when a workflow starts
   useEffect(() => {
     if (isLogsLoading && dbtRunLogs.length === 0) {
       setSelectedTab('logs');
     }
-  }, [isLogsLoading, dbtRunLogs.length]);
+  }, [isLogsLoading, dbtRunLogs.length, setSelectedTab]);
 
   const contentHeight = Math.max(80, height - TAB_BAR_HEIGHT);
 
@@ -99,6 +99,7 @@ export function LowerSectionTabs({
           size="icon"
           onClick={onToggleFullScreen}
           className="h-6 w-6"
+          aria-label="Toggle fullscreen"
           data-testid="fullscreen-toggle"
         >
           {isFullScreen ? (
