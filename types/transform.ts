@@ -109,6 +109,7 @@ export type CanvasActionType =
   | 'sync-sources'
   | 'run-workflow'
   | 'update-canvas-node'
+  | 'focus-node'
   | ''
   | null;
 

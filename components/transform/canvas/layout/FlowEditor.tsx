@@ -212,13 +212,13 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
           setTempLockCanvas(true);
           try {
             // v1 uses unified /nodes/ endpoint for all canvas node deletions
+            // deleteOperationNode already calls refreshGraph() internally
             await deleteOperationNode(deleteId);
             toast.success(
               nodeType === CanvasNodeTypeEnum.Operation || nodeType === 'operation'
                 ? 'Operation deleted'
                 : 'Node removed from canvas'
             );
-            await mutate(CANVAS_GRAPH_KEY);
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to delete node';
             toast.error(message);
@@ -259,9 +259,9 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
           setTempLockCanvas(true);
           try {
+            // deleteOperationNode already calls refreshGraph() internally
             await deleteOperationNode(nodeId);
             toast.success('Source removed from canvas');
-            await mutate(CANVAS_GRAPH_KEY);
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to remove source';
             toast.error(message);
@@ -281,6 +281,11 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
         case 'refresh-canvas': {
           await mutate(CANVAS_GRAPH_KEY);
           clearCanvasAction();
+          break;
+        }
+
+        case 'focus-node': {
+          // Handled by Canvas component — do not clear here
           break;
         }
 
@@ -360,7 +365,21 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     mutate,
   ]);
 
-  // Handle table select from project tree (for preview)
+  // Find the canvas node UUID for a given source model (by dbtmodel UUID match)
+  const findCanvasNodeId = useCallback(
+    (schema: string, table: string): string | null => {
+      const model = sourcesModels.find((m) => m.schema === schema && m.name === table);
+      if (!model) return null;
+
+      const canvasNode = graphData?.nodes?.find(
+        (n) => n.dbtmodel?.uuid === model.uuid
+      );
+      return canvasNode?.uuid ?? null;
+    },
+    [sourcesModels, graphData?.nodes]
+  );
+
+  // Handle table select from project tree (for preview + focus)
   const handleTableSelect = useCallback(
     (schema: string, table: string) => {
       useTransformStore.getState().setPreviewAction({
@@ -368,8 +387,17 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
         data: { schema, table },
       });
       setSelectedLowerTab('preview');
+
+      // If the table is on the canvas, focus on it
+      const canvasNodeId = findCanvasNodeId(schema, table);
+      if (canvasNodeId) {
+        useTransformStore.getState().dispatchCanvasAction({
+          type: 'focus-node',
+          data: { nodeId: canvasNodeId },
+        });
+      }
     },
-    [setSelectedLowerTab]
+    [setSelectedLowerTab, findCanvasNodeId]
   );
 
   // Handle delete from canvas (via project tree)
@@ -380,7 +408,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     });
   }, []);
 
-  // Handle add to canvas
+  // Handle add to canvas — if already on canvas, just focus on it
   const handleAddToCanvas = useCallback(
     async (schema: string, table: string) => {
       const model = sourcesModels.find((m) => m.schema === schema && m.name === table);
@@ -390,11 +418,27 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
         return;
       }
 
+      // If already on the canvas, focus on it instead of re-adding
+      const existingNodeId = findCanvasNodeId(schema, table);
+      if (existingNodeId) {
+        useTransformStore.getState().dispatchCanvasAction({
+          type: 'focus-node',
+          data: { nodeId: existingNodeId },
+        });
+        return;
+      }
+
       setTempLockCanvas(true);
       try {
-        await addNodeToCanvas(model.uuid);
-        await mutate(CANVAS_GRAPH_KEY);
+        // addNodeToCanvas already calls refreshGraph() internally
+        const newNode = await addNodeToCanvas(model.uuid);
         toast.success(`Added ${table} to canvas`);
+
+        // Focus on the newly added node
+        useTransformStore.getState().dispatchCanvasAction({
+          type: 'focus-node',
+          data: { nodeId: newNode.uuid },
+        });
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : `Failed to add ${table} to canvas`;
         toast.error(message);
@@ -402,7 +446,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
         setTempLockCanvas(false);
       }
     },
-    [sourcesModels, addNodeToCanvas, mutate, setTempLockCanvas]
+    [sourcesModels, addNodeToCanvas, setTempLockCanvas, findCanvasNodeId]
   );
 
   // Handle sidebar resize
