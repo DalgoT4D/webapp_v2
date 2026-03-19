@@ -311,28 +311,6 @@ export function UnpivotOpForm({
         </div>
       </div>
 
-      {/* Output Field Names */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Column Name Field</Label>
-          <Input
-            {...register('unpivot_field_name')}
-            placeholder="col_name"
-            disabled={isViewMode}
-            data-testid="unpivot-field-name"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Value Field</Label>
-          <Input
-            {...register('unpivot_value_name')}
-            placeholder="value"
-            disabled={isViewMode}
-            data-testid="unpivot-value-name"
-          />
-        </div>
-      </div>
-
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}

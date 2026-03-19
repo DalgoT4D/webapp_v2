@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { useReactFlow } from 'reactflow';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
@@ -284,21 +285,29 @@ export function UnionTablesOpForm({
             }}
             render={({ field: formField, fieldState }) => (
               <div className="space-y-2">
-                <Combobox
-                  mode="single"
-                  items={tableItems}
-                  value={formField.value?.id || ''}
-                  onValueChange={(value) => {
-                    handleTableSelect(index, value);
-                  }}
-                  placeholder="Select table"
-                  searchPlaceholder="Search tables..."
-                  emptyMessage="No matching tables."
-                  noItemsMessage="No tables available."
-                  disabled={index === 0 || isViewMode}
-                  id={`union-table-${index}`}
-                  compact
-                />
+                {index === 0 ? (
+                  <Input
+                    value={formField.value?.label || ''}
+                    disabled
+                    data-testid="union-table-0"
+                  />
+                ) : (
+                  <Combobox
+                    mode="single"
+                    items={tableItems}
+                    value={formField.value?.id || ''}
+                    onValueChange={(value) => {
+                      handleTableSelect(index, value);
+                    }}
+                    placeholder="Select table"
+                    searchPlaceholder="Search tables..."
+                    emptyMessage="No matching tables."
+                    noItemsMessage="No tables available."
+                    disabled={isViewMode}
+                    id={`union-table-${index}`}
+                    compact
+                  />
+                )}
                 {fieldState.error && (
                   <p className="text-sm text-destructive">{fieldState.error.message}</p>
                 )}
@@ -321,7 +330,7 @@ export function UnionTablesOpForm({
                   Add Table
                 </Button>
               )}
-              {index > 0 && (
+              {index > 0 && fields.length > 2 && (
                 <Button
                   type="button"
                   variant="outline"

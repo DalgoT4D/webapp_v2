@@ -207,6 +207,10 @@ export function RenameColumnOpForm({
           variant="outline"
           size="sm"
           onClick={handleAddRow}
+          disabled={(() => {
+            const lastRow = watchedRenames[watchedRenames.length - 1];
+            return !lastRow?.oldName || !lastRow?.newName;
+          })()}
           className="w-full"
           data-testid="rename-add-row"
         >

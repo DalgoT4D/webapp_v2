@@ -55,6 +55,82 @@ interface FormValues {
 
 const defaultOperand: OperandValue = { type: 'val', col_val: '', const_val: '' };
 
+/** Extracted outside form to prevent remount on every render (which causes input focus loss) */
+function CaseOperandInput({
+  name,
+  operandValue,
+  disabled,
+  testIdPrefix,
+  control,
+  columns,
+}: {
+  name: string;
+  operandValue: OperandValue;
+  disabled: boolean;
+  testIdPrefix: string;
+  control: any;
+  columns: string[];
+}) {
+  return (
+    <div className="space-y-2">
+      <Controller
+        control={control}
+        name={`${name}.type` as any}
+        render={({ field }) => (
+          <RadioGroup
+            value={field.value}
+            onValueChange={field.onChange}
+            className="flex gap-4"
+            disabled={disabled}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="col" id={`${testIdPrefix}-col`} />
+              <Label htmlFor={`${testIdPrefix}-col`} className="text-sm">
+                Column
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="val" id={`${testIdPrefix}-val`} />
+              <Label htmlFor={`${testIdPrefix}-val`} className="text-sm">
+                Value
+              </Label>
+            </div>
+          </RadioGroup>
+        )}
+      />
+      {operandValue?.type === 'col' ? (
+        <Controller
+          control={control}
+          name={`${name}.col_val` as any}
+          render={({ field }) => (
+            <ColumnSelect
+              value={field.value}
+              onChange={field.onChange}
+              columns={columns}
+              placeholder="Select column"
+              disabled={disabled}
+              testId={`${testIdPrefix}-col-select`}
+            />
+          )}
+        />
+      ) : (
+        <Controller
+          control={control}
+          name={`${name}.const_val` as any}
+          render={({ field }) => (
+            <Input
+              {...field}
+              placeholder="Enter value"
+              disabled={disabled}
+              data-testid={`${testIdPrefix}-val-input`}
+            />
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
 const defaultClause: CaseClause = {
   filterCol: '',
   logicalOp: '',
@@ -260,76 +336,6 @@ export function CaseWhenOpForm({
 
   const isSimpleDisabled = advanceFilter || isViewMode;
 
-  // Component to render col/val input
-  const OperandInput = ({
-    name,
-    operandValue,
-    disabled,
-    testIdPrefix,
-  }: {
-    name: string;
-    operandValue: OperandValue;
-    disabled: boolean;
-    testIdPrefix: string;
-  }) => (
-    <div className="space-y-2">
-      <Controller
-        control={control}
-        name={`${name}.type` as any}
-        render={({ field }) => (
-          <RadioGroup
-            value={field.value}
-            onValueChange={field.onChange}
-            className="flex gap-4"
-            disabled={disabled}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="col" id={`${testIdPrefix}-col`} />
-              <Label htmlFor={`${testIdPrefix}-col`} className="text-sm">
-                Column
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="val" id={`${testIdPrefix}-val`} />
-              <Label htmlFor={`${testIdPrefix}-val`} className="text-sm">
-                Value
-              </Label>
-            </div>
-          </RadioGroup>
-        )}
-      />
-      {operandValue?.type === 'col' ? (
-        <Controller
-          control={control}
-          name={`${name}.col_val` as any}
-          render={({ field }) => (
-            <ColumnSelect
-              value={field.value}
-              onChange={field.onChange}
-              columns={srcColumns}
-              placeholder="Select column"
-              disabled={disabled}
-              testId={`${testIdPrefix}-col-select`}
-            />
-          )}
-        />
-      ) : (
-        <Controller
-          control={control}
-          name={`${name}.const_val` as any}
-          render={({ field }) => (
-            <Input
-              {...field}
-              placeholder="Enter value"
-              disabled={disabled}
-              data-testid={`${testIdPrefix}-val-input`}
-            />
-          )}
-        />
-      )}
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
       {/* Clauses */}
@@ -404,21 +410,25 @@ export function CaseWhenOpForm({
                 )}
               />
 
-              <OperandInput
+              <CaseOperandInput
                 name={`clauses.${index}.operand1`}
                 operandValue={clause?.operand1}
                 disabled={isSimpleDisabled}
                 testIdPrefix={`case-operand1-${index}`}
+                control={control}
+                columns={srcColumns}
               />
 
               {isBetween && (
                 <>
                   <Label className="text-sm text-muted-foreground">AND</Label>
-                  <OperandInput
+                  <CaseOperandInput
                     name={`clauses.${index}.operand2`}
                     operandValue={clause?.operand2}
                     disabled={isSimpleDisabled}
                     testIdPrefix={`case-operand2-${index}`}
+                    control={control}
+                    columns={srcColumns}
                   />
                 </>
               )}
@@ -439,11 +449,13 @@ export function CaseWhenOpForm({
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <OperandInput
+              <CaseOperandInput
                 name={`clauses.${index}.then`}
                 operandValue={clause?.then}
                 disabled={isSimpleDisabled}
                 testIdPrefix={`case-then-${index}`}
+                control={control}
+                columns={srcColumns}
               />
             </div>
           </div>
@@ -480,11 +492,13 @@ export function CaseWhenOpForm({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <OperandInput
+        <CaseOperandInput
           name="elseValue"
           operandValue={watchedElseValue}
           disabled={isSimpleDisabled}
           testIdPrefix="case-else"
+          control={control}
+          columns={srcColumns}
         />
       </div>
 

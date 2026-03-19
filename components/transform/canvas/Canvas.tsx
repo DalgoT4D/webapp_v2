@@ -330,6 +330,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
         onPaneClick={canEdit ? handlePaneClick : undefined}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
+        deleteKeyCode={null}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}

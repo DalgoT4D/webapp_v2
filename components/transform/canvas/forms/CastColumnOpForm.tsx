@@ -84,7 +84,7 @@ export function CastColumnOpForm({
         if (model?.schema && model?.name) {
           try {
             const cols = (await apiGet(
-              `/api/warehouse/table_columns/${model.schema}/${model.name}/`
+              `/api/warehouse/table_columns/${model.schema}/${model.name}`
             )) as { name: string; data_type: string }[];
             setSrcColumns(cols);
             // Pre-populate existing types

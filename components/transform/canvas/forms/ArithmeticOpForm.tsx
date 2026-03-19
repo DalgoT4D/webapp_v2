@@ -92,7 +92,7 @@ export function ArithmeticOpForm({
         reset({
           operator: config.operator,
           output_column_name: config.output_column_name,
-          operands: config.operands.map((op) => ({
+          operands: (config.operands ?? []).map((op) => ({
             type: op.is_col ? 'col' : 'val',
             col_val: op.is_col ? String(op.value) : '',
             const_val: op.is_col ? '' : String(op.value),

@@ -23,6 +23,7 @@ import type { OperationFormProps, JoinDataConfig, DbtModelResponse } from '@/typ
 
 const JoinTypes = [
   { id: 'left', label: 'Left Join' },
+  { id: 'right', label: 'Right Join' },
   { id: 'inner', label: 'Inner Join' },
   { id: 'full outer', label: 'Full Outer Join' },
 ];
