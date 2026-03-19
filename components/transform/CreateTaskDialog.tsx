@@ -22,18 +22,15 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useTaskTemplates, useTaskConfig, createCustomTask } from '@/hooks/api/useTaskTemplates';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { Combobox } from '@/components/ui/combobox';
+import { TASK_GITPULL, TASK_DBTCLEAN, TASK_DBTCLOUD_JOB } from '@/constants/dbt-tasks';
 
 interface TaskFormData {
   task_slug: string;
   flags: string[];
   options: Array<{ key: string; value: string }>;
 }
-
-// Constants to filter out
-const TASK_GITPULL = 'git-pull';
-const TASK_DBTCLEAN = 'dbt-clean';
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -113,7 +110,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
 
   const onSubmit = async (data: TaskFormData) => {
     if (!data.task_slug) {
-      toast.error('Please select a task');
+      toastError.api('Please select a task');
       return;
     }
 
@@ -133,11 +130,11 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
         options: paramOptions,
       });
 
-      toast.success('Org Task created successfully');
+      toastSuccess.created('Org Task');
       handleFormClose();
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create task');
+    } catch (error: unknown) {
+      toastError.create(error, 'task');
     } finally {
       setLoading(false);
     }
@@ -283,8 +280,8 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
               </div>
             </div>
 
-            {/* Command Preview */}
-            {watchedSlug && getCommandPreview() && (
+            {/* Command Preview (hidden for dbt-cloud-job tasks) */}
+            {watchedSlug && watchedSlug !== TASK_DBTCLOUD_JOB && getCommandPreview() && (
               <div className="space-y-1">
                 <Label className="text-[15px] font-medium">Command:</Label>
                 <div className="text-sm text-muted-foreground font-mono bg-gray-50 p-3 rounded">
@@ -312,7 +309,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
                 data-testid="save-task-btn"
                 variant="ghost"
                 className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
+                style={{ backgroundColor: 'var(--primary)' }}
               >
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {loading ? 'Saving...' : 'Save'}

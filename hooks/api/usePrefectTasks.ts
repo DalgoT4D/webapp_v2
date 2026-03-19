@@ -4,16 +4,22 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import type { TransformTask, PrefectFlowRun, TaskProgress } from '@/types/transform';
+import { FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/dbt-tasks';
+
+// Polling interval when any task is locked (ms) - frequent enough for near-real-time status
+const LOCKED_TASK_POLL_INTERVAL_MS = 3000;
+
+// Polling interval for task progress (ms) - balances responsiveness with server load
+const TASK_STATUS_POLL_INTERVAL_MS = 2000;
 
 // Fetch transform tasks
 export function usePrefectTasks() {
   return useSWR<TransformTask[]>('/api/prefect/tasks/transform/', apiGet, {
     refreshInterval: (data) => {
-      // Poll every 3 seconds if any task is locked
       if (data?.some((task) => task.lock)) {
-        return 3000;
+        return LOCKED_TASK_POLL_INTERVAL_MS;
       }
-      return 0; // Don't poll if no tasks are locked
+      return 0;
     },
     revalidateOnFocus: false,
   });
@@ -24,9 +30,38 @@ export async function runPrefectDeployment(deploymentId: string) {
   return apiPost(`/api/prefect/v1/flows/${deploymentId}/flow_run/`, {});
 }
 
+// Run a Prefect task directly (non-deployment, e.g., dbt-test, dbt-deps)
+export async function runPrefectTask(
+  taskUuid: string
+): Promise<{
+  status: string;
+  result: Array<string | { id?: string; state_details?: { flow_run_id?: string } }>;
+}> {
+  return apiPost(`/api/prefect/tasks/${taskUuid}/run/`, {});
+}
+
 // Delete a Prefect task (mutation)
 export async function deletePrefectTask(taskUuid: string) {
-  return apiDelete(`/api/prefect/tasks/${taskUuid}`);
+  return apiDelete(`/api/prefect/tasks/${taskUuid}/`);
+}
+
+// Fetch flow run logs with pagination (for deployment execution logs)
+export async function fetchFlowRunLogs(
+  flowRunId: string,
+  offset: number = 0,
+  limit: number = FLOW_RUN_LOGS_OFFSET_LIMIT
+): Promise<{ logs: { logs: Array<{ level: number; timestamp: string; message: string }> } }> {
+  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logs?offset=${offset}&limit=${limit}`);
+}
+
+// Fetch flow run status (for polling during deployment execution)
+export async function fetchFlowRunStatus(flowRunId: string): Promise<string> {
+  try {
+    const flowRun: PrefectFlowRun = await apiGet(`/api/prefect/flow_runs/${flowRunId}`);
+    return flowRun?.state_type || 'FAILED';
+  } catch {
+    return 'FAILED';
+  }
 }
 
 // Poll task status
@@ -38,12 +73,12 @@ export function useTaskStatus(taskId: string | null, hashkey: string = 'run-dbt-
 
   return useSWR<{ progress: TaskProgress[] }>(url, apiGet, {
     refreshInterval: (data) => {
-      if (!data) return 2000;
+      if (!data) return TASK_STATUS_POLL_INTERVAL_MS;
       const latest = data.progress?.[data.progress.length - 1];
       if (['completed', 'failed'].includes(latest?.status)) {
-        return 0; // Stop polling
+        return 0;
       }
-      return 2000; // Continue polling every 2 seconds
+      return TASK_STATUS_POLL_INTERVAL_MS;
     },
     revalidateOnFocus: false,
   });

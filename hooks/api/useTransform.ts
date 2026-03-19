@@ -5,11 +5,30 @@ import useSWR from 'swr';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import type { TransformTypeResponse } from '@/types/transform';
 
-// Fetch transform type
-export function useTransformType() {
+export enum TransformTypeEnum {
+  GITHUB = 'github',
+  UI = 'ui',
+}
+
+// Fetch raw SWR response for transform type
+export function useTransformTypeSWR() {
   return useSWR<TransformTypeResponse>('/api/dbt/dbt_transform/', apiGet, {
     revalidateOnFocus: false,
   });
+}
+
+// Convenience hook with derived booleans
+export function useTransformType() {
+  const { data, error, isLoading } = useTransformTypeSWR();
+
+  return {
+    data,
+    transformType: data?.transform_type,
+    isUI: data?.transform_type === TransformTypeEnum.UI,
+    isGithub: data?.transform_type === TransformTypeEnum.GITHUB,
+    isLoading,
+    error,
+  };
 }
 
 // Setup workspace (mutation)

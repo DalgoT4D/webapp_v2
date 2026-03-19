@@ -15,19 +15,23 @@ import {
   syncSources,
   deleteDbtRepo,
 } from '@/hooks/api/useTransform';
+import { useUserPreferences } from '@/hooks/api/useNotifications';
+import { apiPut } from '@/lib/api';
 import { UITransformTab } from './UITransformTab';
 import { DBTTransformTab } from './DBTTransformTab';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 export default function Transform() {
   const [workspaceSetup, setWorkspaceSetup] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupError, setSetupError] = useState('');
   const [gitConnected, setGitConnected] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const hasInitiatedSetup = useRef(false);
 
   const { activeTab, setActiveTab } = useTransformStore();
   const { data: transformTypeData, isLoading: transformTypeLoading } = useTransformType();
+  const { preferences, mutate: mutatePreferences } = useUserPreferences();
 
   useEffect(() => {
     if (transformTypeLoading) return;
@@ -47,6 +51,17 @@ export default function Transform() {
     initializeWorkspace();
   }, [transformTypeData, transformTypeLoading]);
 
+  // Load saved tab preference from backend (matching v1 cross-device persistence)
+  useEffect(() => {
+    if (preferences && !preferencesLoaded) {
+      const savedTab = preferences.last_visited_transform_tab;
+      if (savedTab === 'ui' || savedTab === 'github') {
+        setActiveTab(savedTab);
+      }
+      setPreferencesLoaded(true);
+    }
+  }, [preferences, preferencesLoaded, setActiveTab]);
+
   const setupUnifiedWorkspace = async () => {
     setSetupLoading(true);
     setSetupError('');
@@ -62,16 +77,13 @@ export default function Transform() {
       await syncSources();
 
       setWorkspaceSetup(true);
-      toast.success('Transform workspace setup complete');
-    } catch (err: any) {
+      toastSuccess.generic('Transform workspace setup complete');
+    } catch (err: unknown) {
       console.error('Error occurred while setting up unified workspace:', err);
 
-      let errorMessage = 'Failed to set up transform workspace. Please try again.';
-      if (err.cause?.detail) {
-        errorMessage = err.cause.detail;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
+      const fallback = 'Failed to set up transform workspace. Please try again.';
+      const errorMessage =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
 
       setSetupError(errorMessage);
 
@@ -88,8 +100,19 @@ export default function Transform() {
     }
   };
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value as 'ui' | 'github');
+  const handleTabChange = async (value: string) => {
+    const tabValue = value as 'ui' | 'github';
+    setActiveTab(tabValue);
+
+    // Persist tab preference to backend (matching v1 cross-device sync)
+    try {
+      await apiPut('/api/userpreferences/', {
+        last_visited_transform_tab: tabValue,
+      });
+      mutatePreferences();
+    } catch {
+      // Non-critical — don't show error for preference save failure
+    }
   };
 
   // Loading state
@@ -164,7 +187,6 @@ export default function Transform() {
 
             <TabsContent value="github" className="mt-0 h-full">
               <DBTTransformTab
-                gitConnected={gitConnected}
                 onConnectGit={() => setGitConnected(true)}
               />
             </TabsContent>

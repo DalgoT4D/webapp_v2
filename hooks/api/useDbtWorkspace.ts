@@ -30,3 +30,18 @@ export async function updateGitRepository(data: DbtWorkspaceFormData) {
     default_schema: data.defaultSchema,
   });
 }
+
+// Update only the default schema (when git repo hasn't changed)
+export async function updateSchema(schema: string) {
+  return apiPut('/api/dbt/v1/schema/', {
+    target_configs_schema: schema,
+  });
+}
+
+// Connect/update git remote (v1 endpoint used for smart update)
+export async function connectGitRemote(gitrepoUrl: string, gitrepoAccessToken: string) {
+  return apiPut('/api/dbt/connect_git_remote/', {
+    gitrepoUrl,
+    gitrepoAccessToken,
+  });
+}

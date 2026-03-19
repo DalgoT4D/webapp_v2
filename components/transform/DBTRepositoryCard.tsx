@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,13 +17,16 @@ import {
 import { Loader2 } from 'lucide-react';
 import {
   useDbtWorkspace,
-  connectGitRepository,
-  updateGitRepository,
+  connectGitRemote,
+  updateSchema,
 } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { toast } from 'sonner';
+import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import Image from 'next/image';
 import type { DbtWorkspaceFormData } from '@/types/transform';
+
+// Placeholder shown in PAT field when editing an existing connection
+const PAT_PLACEHOLDER = '*********';
 
 interface DBTRepositoryCardProps {
   onConnectGit?: () => void;
@@ -31,13 +34,13 @@ interface DBTRepositoryCardProps {
 
 export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
   const { data: workspace, mutate } = useDbtWorkspace();
-  const { permissions } = useUserPermissions();
+  const { hasPermission } = useUserPermissions();
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isConnected = !!(workspace && workspace.gitrepo_url);
-  const canCreate = permissions.includes('can_create_dbt_workspace');
-  const canEdit = permissions.includes('can_edit_dbt_workspace');
+  const canCreate = hasPermission('can_create_dbt_workspace');
+  const canEdit = hasPermission('can_edit_dbt_workspace');
 
   const form = useForm<DbtWorkspaceFormData>({
     defaultValues: {
@@ -52,29 +55,56 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
     if (showDialog && workspace) {
       form.reset({
         gitrepoUrl: workspace.gitrepo_url || '',
-        gitrepoAccessToken: '', // Never prefill token
+        gitrepoAccessToken: isConnected ? PAT_PLACEHOLDER : '',
         defaultSchema: workspace.default_schema || 'intermediate',
       });
     }
-  }, [showDialog, workspace, form]);
+  }, [showDialog, workspace, form, isConnected]);
 
   const handleSubmit = async (data: DbtWorkspaceFormData) => {
     setLoading(true);
     try {
       if (isConnected) {
-        await updateGitRepository(data);
-        toast.success('Git repository updated successfully');
+        // Smart update: detect what changed
+        const schemaChanged = workspace?.default_schema !== data.defaultSchema;
+        const gitRepoChanged =
+          workspace?.gitrepo_url !== data.gitrepoUrl ||
+          (data.gitrepoAccessToken && data.gitrepoAccessToken !== PAT_PLACEHOLDER);
+
+        if (schemaChanged && !gitRepoChanged) {
+          // Only schema changed — use the schema-only endpoint
+          await updateSchema(data.defaultSchema);
+          toastSuccess.updated('Schema');
+        } else if (gitRepoChanged) {
+          // Git repo changed — use the connect_git_remote endpoint
+          await connectGitRemote(data.gitrepoUrl, data.gitrepoAccessToken);
+          toastSuccess.updated('Git repository');
+          // If schema also changed, update it separately
+          if (schemaChanged) {
+            await updateSchema(data.defaultSchema);
+          }
+        } else {
+          // Nothing changed
+          toastInfo.noChanges();
+          setLoading(false);
+          return;
+        }
       } else {
-        await connectGitRepository(data);
-        toast.success('Git repository connected successfully');
+        // First-time connection — same endpoints as v1
+        await connectGitRemote(data.gitrepoUrl, data.gitrepoAccessToken);
+        // Update schema if not the default
+        if (data.defaultSchema) {
+          await updateSchema(data.defaultSchema);
+        }
+        toastSuccess.generic('Git repository connected successfully');
       }
 
       mutate(); // Revalidate workspace data
       setShowDialog(false);
       form.reset();
       onConnectGit?.();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save Git repository');
+    } catch (error: unknown) {
+      toastError.save(error, 'Git repository');
     } finally {
       setLoading(false);
     }
@@ -106,9 +136,26 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
           <div className="flex-1 min-w-0">
             <CardTitle className="mb-1">GitHub Repository</CardTitle>
             <CardDescription className="break-words">
-              {isConnected
-                ? `Connected: ${workspace.gitrepo_url}`
-                : 'Connect your DBT project Git repository'}
+              {isConnected ? (
+                <>
+                  Connected:{' '}
+                  <a
+                    href={workspace.gitrepo_url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {workspace.gitrepo_url}
+                  </a>
+                  {workspace.default_schema && (
+                    <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">
+                      {workspace.default_schema}
+                    </span>
+                  )}
+                </>
+              ) : (
+                'Connect your DBT project Git repository'
+              )}
             </CardDescription>
           </div>
           <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -121,23 +168,28 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                 {getButtonText()}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[550px]">
               <DialogHeader>
-                <DialogTitle>
-                  {isConnected ? 'Edit Git Repository' : 'Connect Git Repository'}
+                <DialogTitle className="text-2xl font-semibold text-gray-900">
+                  {isConnected ? 'Edit Git Repository' : 'Connect to GitHub'}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <div>
-                  <Label htmlFor="gitrepoUrl">Git Repository URL</Label>
+
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5 mt-2">
+                {/* GitHub repo URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="gitrepoUrl" className="text-base font-medium text-muted-foreground">
+                    GitHub repo URL<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="gitrepoUrl"
-                    placeholder="https://github.com/username/repo"
+                    placeholder="https://github.com/username/repository-name"
+                    className="bg-gray-50 h-12 text-base"
                     {...form.register('gitrepoUrl', {
                       required: 'Git repository URL is required',
                       pattern: {
-                        value: /^https?:\/\/.+/,
-                        message: 'Must be a valid URL starting with http:// or https://',
+                        value: /^https?:\/\/(www\.)?github\.com\/[\w\-.]+\/[\w\-.]+\/?$/,
+                        message: 'Must be a valid GitHub repository URL (e.g., https://github.com/username/repo)',
                       },
                     })}
                     data-testid="git-url-input"
@@ -149,14 +201,18 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="gitrepoAccessToken">Personal Access Token (PAT)</Label>
+                {/* Personal access token */}
+                <div className="space-y-2">
+                  <Label htmlFor="gitrepoAccessToken" className="text-base font-medium text-muted-foreground">
+                    Personal access token{!isConnected && <span className="text-red-500">*</span>}
+                  </Label>
                   <Input
                     id="gitrepoAccessToken"
                     type="password"
-                    placeholder="ghp_xxxxxxxxxxxx"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    className="bg-gray-50 h-12 text-base"
                     {...form.register('gitrepoAccessToken', {
-                      required: 'Access token is required',
+                      required: isConnected ? false : 'Access token is required',
                     })}
                     data-testid="git-token-input"
                   />
@@ -167,11 +223,15 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="defaultSchema">Default Schema</Label>
+                {/* Dbt default Schema */}
+                <div className="space-y-2">
+                  <Label htmlFor="defaultSchema" className="text-base font-medium text-muted-foreground">
+                    Dbt default Schema<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="defaultSchema"
                     placeholder="intermediate"
+                    className="bg-gray-50 h-12 text-base"
                     {...form.register('defaultSchema', {
                       required: 'Default schema is required',
                     })}
@@ -184,18 +244,37 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                   )}
                 </div>
 
-                <div className="flex justify-end gap-2">
+                {/* Warning callout */}
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <span className="text-amber-500 mt-0.5 text-lg">&#9888;</span>
+                  <p className="text-sm text-amber-800">
+                    Make sure your Personal Access Token has the following permissions:{' '}
+                    <strong>repo, workflow</strong>
+                  </p>
+                </div>
+
+                {/* Stacked full-width buttons */}
+                <div className="space-y-3 pt-1">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    data-testid="save-git-btn"
+                    variant="ghost"
+                    className="w-full h-12 text-base font-semibold text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: 'var(--primary)' }}
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isConnected ? 'Save & Update' : 'Save & Connect'}
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setShowDialog(false)}
                     disabled={loading}
+                    className="w-full h-12 text-base font-semibold"
+                    style={{ color: 'var(--primary)', borderColor: 'var(--primary)' }}
                   >
                     Cancel
-                  </Button>
-                  <Button type="submit" disabled={loading} data-testid="save-git-btn">
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isConnected ? 'Update' : 'Connect'}
                   </Button>
                 </div>
               </form>
