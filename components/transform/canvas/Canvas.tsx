@@ -283,9 +283,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
           const newX = otherNode.position.x + NODE_WIDTH + OVERLAP_GAP;
           finalPosition = { ...draggedNode.position, x: newX };
           setNodes((nds) =>
-            nds.map((n) =>
-              n.id === draggedNode.id ? { ...n, position: finalPosition } : n
-            )
+            nds.map((n) => (n.id === draggedNode.id ? { ...n, position: finalPosition } : n))
           );
           break;
         }

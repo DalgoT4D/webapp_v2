@@ -371,9 +371,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
       const model = sourcesModels.find((m) => m.schema === schema && m.name === table);
       if (!model) return null;
 
-      const canvasNode = graphData?.nodes?.find(
-        (n) => n.dbtmodel?.uuid === model.uuid
-      );
+      const canvasNode = graphData?.nodes?.find((n) => n.dbtmodel?.uuid === model.uuid);
       return canvasNode?.uuid ?? null;
     },
     [sourcesModels, graphData?.nodes]
