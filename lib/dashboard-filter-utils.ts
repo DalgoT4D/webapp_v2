@@ -3,6 +3,10 @@
  * for maps and tables that need complete filter specifications
  */
 
+// Appended to date-only strings so a "less_than_equal" comparison includes the full end day
+// e.g. "2025-03-19" + END_OF_DAY_TIME → "2025-03-19T23:59:59"
+const END_OF_DAY_TIME = 'T23:59:59';
+
 // Define the resolved filter format that maps and tables expect
 export interface ResolvedDashboardFilter {
   schema_name: string;
@@ -111,7 +115,7 @@ export function resolveDashboardFilters(
             table_name: filterConfig.table_name,
             column_name: filterConfig.column_name,
             operator: 'less_than_equal',
-            value: value.end_date + 'T23:59:59',
+            value: value.end_date + END_OF_DAY_TIME,
             filter_type: filterConfig.filter_type,
           });
         }
