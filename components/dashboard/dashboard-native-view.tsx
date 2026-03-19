@@ -70,6 +70,7 @@ import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
+import type { FrozenChartConfig } from '@/types/reports';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -222,7 +223,7 @@ interface DashboardNativeViewProps {
   isEmbedMode?: boolean; // Hide all non-essential UI for iframe embedding
   embedTheme?: 'light' | 'dark'; // Theme for embed mode
   isReportMode?: boolean; // Report snapshot mode — frozen config, no editing
-  frozenChartConfigs?: Record<string, any>; // Chart configs keyed by chart ID
+  frozenChartConfigs?: Record<string, FrozenChartConfig>; // Chart configs keyed by chart ID
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
