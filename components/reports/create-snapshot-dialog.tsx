@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { useDatePickerWithConfirm } from '@/hooks/useDatePickerWithConfirm';
 import { Camera } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { createSnapshot, useDashboardDatetimeColumns } from '@/hooks/api/useReports';
@@ -42,6 +43,20 @@ interface SnapshotFormData {
   periodStart: Date | undefined;
   periodEnd: Date | undefined;
   frequency: string;
+}
+
+/** Wrapper that pairs the stateless DatePicker with confirm/cancel staging logic. */
+function ConfirmDatePicker({
+  value,
+  onChange,
+  maxDate,
+}: {
+  value: Date | undefined;
+  onChange: (date: Date | undefined) => void;
+  maxDate?: Date;
+}) {
+  const pickerProps = useDatePickerWithConfirm(value, onChange);
+  return <DatePicker value={value} {...pickerProps} maxDate={maxDate} />;
 }
 
 export function CreateSnapshotDialog({
@@ -281,7 +296,11 @@ export function CreateSnapshotDialog({
                   name="periodStart"
                   control={control}
                   render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} maxDate={periodEnd} />
+                    <ConfirmDatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      maxDate={periodEnd}
+                    />
                   )}
                 />
               </div>
@@ -294,7 +313,7 @@ export function CreateSnapshotDialog({
                   control={control}
                   rules={{ required: 'Please select an end date' }}
                   render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} />
+                    <ConfirmDatePicker value={field.value} onChange={field.onChange} />
                   )}
                 />
                 {errors.periodEnd && (
