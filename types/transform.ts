@@ -205,6 +205,14 @@ export type GenericNode = Node<CanvasNodeRenderData>;
 export type GenericNodeProps = NodeProps<CanvasNodeRenderData>;
 export type GenericEdge = Edge<CanvasEdgeDataResponse>;
 
+/** Subset of NodeProps stored in the transform store for the selected node */
+export interface SelectedNodeData {
+  id: string;
+  type: string;
+  data: CanvasNodeRenderData;
+  selected?: boolean;
+}
+
 // ============================================
 // OPERATION UI TYPES
 // ============================================
@@ -216,7 +224,7 @@ export interface UIOperationType {
 }
 
 export interface OperationFormProps {
-  node: GenericNodeProps | null | undefined;
+  node: SelectedNodeData | null | undefined;
   operation: UIOperationType;
   continueOperationChain: (...args: unknown[]) => void;
   clearAndClosePanel?: (...args: unknown[]) => void;

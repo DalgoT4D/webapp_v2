@@ -170,6 +170,7 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
               alt={operationLabel}
               width={28}
               height={28}
+              draggable={false}
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}

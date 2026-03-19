@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
 import type {
-  GenericNodeProps,
+  SelectedNodeData,
   DbtModelResponse,
   CanvasAction,
   PreviewTableData,
@@ -29,8 +29,8 @@ interface TransformState {
   setGitConnected: (connected: boolean) => void;
 
   // === Canvas Node Selection ===
-  selectedNode: GenericNodeProps | null;
-  setSelectedNode: (node: GenericNodeProps | null) => void;
+  selectedNode: SelectedNodeData | null;
+  setSelectedNode: (node: SelectedNodeData | null) => void;
   clearSelectedNode: () => void;
 
   // === Canvas Actions (Event Bus) ===
@@ -122,7 +122,7 @@ const initialState = {
   workspaceSetup: false,
   gitConnected: false,
 
-  selectedNode: null as GenericNodeProps | null,
+  selectedNode: null as SelectedNodeData | null,
   canvasAction: { type: null, data: null } as CanvasAction,
   sourcesModels: [] as DbtModelResponse[],
 

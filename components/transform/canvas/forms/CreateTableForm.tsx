@@ -11,11 +11,11 @@ import { Loader2 } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useTransformStore } from '@/stores/transformStore';
 import { apiGet, apiPost } from '@/lib/api';
-import type { GenericNodeProps } from '@/types/transform';
+import type { SelectedNodeData } from '@/types/transform';
 
 interface CreateTableFormProps {
   /** Current selected node */
-  node: GenericNodeProps | null | undefined;
+  node: SelectedNodeData | null | undefined;
   /** Callback to close panel and cleanup */
   clearAndClosePanel?: () => void;
   /** Loading state setter */

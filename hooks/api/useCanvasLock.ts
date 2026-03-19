@@ -72,7 +72,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       setLockStatus(status);
       setCanvasLockStatus(status);
 
-      // Check if we lost the lock
+      // Check if we lost the lock (another user took it)
       if (!status.locked_by_current_user && hasLockRef.current) {
         stopRefreshTimer();
         setViewOnlyMode(true);
@@ -82,10 +82,9 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       return status;
     } catch (error) {
       console.error('Failed to refresh lock:', error);
-      // If refresh fails, assume we lost the lock
-      stopRefreshTimer();
-      setViewOnlyMode(true);
-      onLockLost?.();
+      // Network hiccup — don't immediately lock the user out.
+      // The server-side lock has a TTL; if refresh keeps failing,
+      // the next acquireLock or page reload will sort it out.
     }
   }, [setCanvasLockStatus, setViewOnlyMode, onLockLost, stopRefreshTimer]);
 
@@ -100,16 +99,22 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       const status = await apiPost<CanvasLockStatus>(LOCK_ENDPOINT, {});
       setLockStatus(status);
       setCanvasLockStatus(status);
-      setViewOnlyMode(!status.locked_by_current_user);
 
-      // Start refresh timer if we got the lock
       if (status.locked_by_current_user) {
+        // We got the lock — ensure view-only is off and start refresh
+        setViewOnlyMode(false);
         startRefreshTimer();
+      } else if (status.is_locked) {
+        // Another user holds the lock — view-only mode
+        setViewOnlyMode(true);
       }
+      // If API returns no lock info, don't change view-only mode
 
       return status;
     } catch (error) {
       console.error('Failed to acquire lock:', error);
+      // Lock API failed — don't block the user, let them work.
+      // If locking is truly required, the server will reject mutations.
       throw error;
     } finally {
       setIsAcquiring(false);
@@ -136,7 +141,10 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
   // Auto-acquire on mount
   useEffect(() => {
     if (autoAcquire) {
-      acquireLock();
+      acquireLock().catch(() => {
+        // Lock acquisition failed (e.g. no lock endpoint configured).
+        // Don't block the user — server will reject unauthorized mutations.
+      });
     }
 
     // Cleanup: release lock on unmount

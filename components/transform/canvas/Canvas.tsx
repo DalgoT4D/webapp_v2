@@ -185,17 +185,35 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
       .map((n) => n.id);
 
     if (newNodeIds.length > 0) {
-      // Run dagre on the full graph to get positions for new nodes
-      const { nodes: layoutedNodes } = getLayoutedElements(flowNodes, flowEdges);
-      // Apply: existing nodes keep their current position, new nodes get dagre position
-      const mergedNodes = layoutedNodes.map((n) => {
+      // Position new nodes relative to their input (source) node via edges,
+      // instead of running dagre which calculates positions assuming all nodes
+      // are at dagre-ideal positions (causing the "moves up" bug).
+      const mergedNodes = flowNodes.map((n) => {
         const existingPos = nodePositionsRef.current.get(n.id);
         if (existingPos) {
           return { ...n, position: existingPos };
         }
-        // New node — use dagre-calculated position and store it
-        nodePositionsRef.current.set(n.id, n.position);
-        return n;
+
+        // New node — find its input node via edges and position to the right
+        const incomingEdge = flowEdges.find((e) => e.target === n.id);
+        if (incomingEdge) {
+          const sourcePos = nodePositionsRef.current.get(incomingEdge.source);
+          if (sourcePos) {
+            const newPos = {
+              x: sourcePos.x + DAGRE_RANKSEP,
+              y: sourcePos.y,
+            };
+            nodePositionsRef.current.set(n.id, newPos);
+            return { ...n, position: newPos };
+          }
+        }
+
+        // Fallback: no edge found — run dagre for just this node's position
+        const { nodes: layoutedNodes } = getLayoutedElements(flowNodes, flowEdges);
+        const layoutedNode = layoutedNodes.find((ln) => ln.id === n.id);
+        const fallbackPos = layoutedNode?.position ?? { x: 0, y: 0 };
+        nodePositionsRef.current.set(n.id, fallbackPos);
+        return { ...n, position: fallbackPos };
       });
       setNodes(mergedNodes);
     } else {

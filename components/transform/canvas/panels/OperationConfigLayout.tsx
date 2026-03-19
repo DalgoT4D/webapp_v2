@@ -22,7 +22,7 @@ import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { OperationList } from './OperationList';
 import { CreateTableOrAddFunction } from './CreateTableOrAddFunction';
 import { getFormForOperation } from '../forms';
-import { CanvasNodeTypeEnum, type UIOperationType, type GenericNodeProps } from '@/types/transform';
+import { CanvasNodeTypeEnum, type UIOperationType, type SelectedNodeData } from '@/types/transform';
 import { CANVAS_CONSTANTS } from '@/constants/transform';
 import { cn } from '@/lib/utils';
 
@@ -276,7 +276,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         const nodes = getNodes();
         const newNode = nodes.find((n) => n.id === newNodeUuid);
         if (newNode) {
-          setSelectedNode(newNode as unknown as GenericNodeProps);
+          setSelectedNode(newNode as unknown as SelectedNodeData);
 
           // Check if the saved operation is chain-terminal (rawsql)
           const savedOpType = newNode.data?.operation_config?.type;
@@ -288,7 +288,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
             id: newNodeUuid,
             type: 'operation',
             data: { uuid: newNodeUuid, node_type: CanvasNodeTypeEnum.Operation },
-          } as unknown as GenericNodeProps);
+          } as unknown as SelectedNodeData);
 
           const isChainTerminal = selectedOp?.slug === 'rawsql';
           setShowAddFunction(!isChainTerminal);
