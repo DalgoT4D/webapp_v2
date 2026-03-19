@@ -178,7 +178,7 @@ export function ProjectTree({
             paddingRight: 0,
           }}
           className={cn(
-            'group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors',
+            'flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors',
             'hover:bg-gray-100',
             isSelected && 'bg-teal-50 border-l-2 border-l-teal-500',
             !isSelected && 'border-l-2 border-l-transparent',
@@ -221,18 +221,23 @@ export function ProjectTree({
                   {displayName}
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="right" className="bg-gray-900 text-white border-gray-700">
+              <TooltipContent
+                side="bottom"
+                align="start"
+                sideOffset={4}
+                className="bg-gray-900 text-white border-gray-700 z-50"
+              >
                 <p>{displayName}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
-          {/* Canvas mode actions for leaf nodes */}
+          {/* Canvas mode actions for leaf nodes — always visible */}
           {mode === 'canvas' && isLeaf && (
             <>
               {onDeleteFromCanvas && (
                 <button
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-red-100"
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-red-100"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteFromCanvas(node.data.id);
@@ -245,7 +250,7 @@ export function ProjectTree({
               )}
               {onAddToCanvas && (
                 <button
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-teal-100"
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-teal-100"
                   onClick={(e) => {
                     e.stopPropagation();
                     onAddToCanvas(node.data.schema!, node.data.name!);

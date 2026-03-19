@@ -177,13 +177,15 @@ export function JoinOpForm({
     [sourcesModels, node?.id, deleteElements, getNodes, addNodes, addEdges, setValue]
   );
 
-  // Build table options for searchable combobox
+  // Build table options for searchable combobox, grouped by schema
   const tableItems: ComboboxItem[] = sourcesModels
     .filter((m) => m.uuid !== node?.data?.dbtmodel?.uuid) // Exclude current table
     .map((model) => ({
       value: model.uuid,
       label: model.display_name || `${model.schema}.${model.name}`,
-    }));
+      group: model.schema,
+    }))
+    .sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
 
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {
