@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 import type {
   ReportSnapshot,
   SnapshotViewData,
@@ -107,17 +107,11 @@ export async function getReportSharingStatus(snapshotId: number): Promise<ShareS
 // Public report hook (no auth, direct fetch — same pattern as usePublicDashboard)
 
 export function usePublicReport(token: string) {
-  const { data, error, mutate } = useSWR(
-    token ? `/api/v1/public/reports/${token}/view/` : null,
-    async (url: string) => {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
-      const response = await fetch(`${backendUrl}${url}`);
-      if (!response.ok) throw new Error('Report not found');
-      return response.json();
-    }
-  );
+  const { data, error, mutate } = useSWR<
+    SnapshotViewData & { org_name: string; is_valid: boolean }
+  >(token ? `/api/v1/public/reports/${token}/view/` : null, apiPublicGet);
   return {
-    viewData: data as (SnapshotViewData & { org_name: string; is_valid: boolean }) | undefined,
+    viewData: data,
     isLoading: !error && !data,
     isError: error,
     mutate,

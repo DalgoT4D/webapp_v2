@@ -215,6 +215,16 @@ export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
 }
 
+// Helper for public GET requests (no auth, no cookies)
+export async function apiPublicGet(path: string) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Public API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // Helper for POST requests that return binary data
 export async function apiPostBinary(path: string, body: any, options: RequestInit = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
