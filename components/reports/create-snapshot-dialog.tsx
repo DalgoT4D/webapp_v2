@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,15 @@ interface CreateSnapshotDialogProps {
   trigger?: React.ReactNode;
 }
 
+interface SnapshotFormData {
+  selectedDashboardId: string;
+  reportName: string;
+  selectedDateColumn: string;
+  periodStart: Date | undefined;
+  periodEnd: Date | undefined;
+  frequency: string;
+}
+
 export function CreateSnapshotDialog({
   dashboardId: preselectedDashboardId,
   dashboardTitle: preselectedDashboardTitle,
@@ -42,16 +52,28 @@ export function CreateSnapshotDialog({
 }: CreateSnapshotDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedDashboardId, setSelectedDashboardId] = useState<string>(
-    preselectedDashboardId?.toString() ?? ''
-  );
-  const [reportName, setReportName] = useState('');
-  const [selectedDateColumn, setSelectedDateColumn] = useState<string>('');
-  const [periodStart, setPeriodStart] = useState<Date | undefined>(undefined);
-  const [periodEnd, setPeriodEnd] = useState<Date | undefined>(undefined);
-  const [frequency, setFrequency] = useState<string>('onetime');
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<SnapshotFormData>({
+    defaultValues: {
+      selectedDashboardId: preselectedDashboardId?.toString() ?? '',
+      reportName: '',
+      selectedDateColumn: '',
+      periodStart: undefined,
+      periodEnd: undefined,
+      frequency: 'onetime',
+    },
+  });
 
   const needsDashboardPicker = !preselectedDashboardId;
+  const selectedDashboardId = watch('selectedDashboardId');
   const effectiveDashboardId =
     preselectedDashboardId ?? (selectedDashboardId ? Number(selectedDashboardId) : null);
 
@@ -77,55 +99,41 @@ export function CreateSnapshotDialog({
   }));
 
   // Auto-select the dashboard's existing datetime filter, or the only available column
+  const selectedDateColumn = watch('selectedDateColumn');
   useEffect(() => {
     if (columnsLoading || discoveredColumns.length === 0 || selectedDateColumn) return;
 
     const dashboardFilter = discoveredColumns.find((col) => col.is_dashboard_filter);
     const col = dashboardFilter ?? (discoveredColumns.length === 1 ? discoveredColumns[0] : null);
     if (col) {
-      setSelectedDateColumn(`${col.schema_name}.${col.table_name}.${col.column_name}`);
+      setValue('selectedDateColumn', `${col.schema_name}.${col.table_name}.${col.column_name}`);
     }
-  }, [columnsLoading, discoveredColumns, selectedDateColumn]);
+  }, [columnsLoading, discoveredColumns, selectedDateColumn, setValue]);
 
-  const resetForm = useCallback(() => {
-    if (!preselectedDashboardId) setSelectedDashboardId('');
-    setReportName('');
-    setSelectedDateColumn('');
-    setPeriodStart(undefined);
-    setPeriodEnd(undefined);
-    setFrequency('onetime');
-  }, [preselectedDashboardId]);
+  const resetForm = () => {
+    reset({
+      selectedDashboardId: preselectedDashboardId?.toString() ?? '',
+      reportName: '',
+      selectedDateColumn: '',
+      periodStart: undefined,
+      periodEnd: undefined,
+      frequency: 'onetime',
+    });
+  };
 
-  const handleSubmit = useCallback(async () => {
-    if (!effectiveDashboardId) {
-      toastError.api('Please select a dashboard');
-      return;
-    }
-    if (!reportName.trim()) {
-      toastError.api('Please enter a report name');
-      return;
-    }
-    if (!selectedDateColumn) {
-      toastError.api('Please select a date-time column');
-      return;
-    }
-    if (!periodEnd) {
-      toastError.api('Please select an end date');
-      return;
-    }
-
+  const onSubmit = async (data: SnapshotFormData) => {
     // Parse selected date column
-    const [schema_name, table_name, column_name] = selectedDateColumn.split('.');
+    const [schema_name, table_name, column_name] = data.selectedDateColumn.split('.');
     const dateColumn: DateColumn = { schema_name, table_name, column_name };
 
     setIsSubmitting(true);
     try {
       await createSnapshot({
-        title: reportName.trim(),
-        dashboard_id: effectiveDashboardId,
+        title: data.reportName.trim(),
+        dashboard_id: effectiveDashboardId!,
         date_column: dateColumn,
-        period_start: periodStart ? format(periodStart, 'yyyy-MM-dd') : undefined,
-        period_end: format(periodEnd, 'yyyy-MM-dd'),
+        period_start: data.periodStart ? format(data.periodStart, 'yyyy-MM-dd') : undefined,
+        period_end: format(data.periodEnd!, 'yyyy-MM-dd'),
       });
       toastSuccess.created('Report');
       setOpen(false);
@@ -136,15 +144,9 @@ export function CreateSnapshotDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    effectiveDashboardId,
-    reportName,
-    selectedDateColumn,
-    periodEnd,
-    periodStart,
-    resetForm,
-    onCreated,
-  ]);
+  };
+
+  const periodEnd = watch('periodEnd');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -167,16 +169,28 @@ export function CreateSnapshotDialog({
               Select Dashboard <span className="text-red-600">*</span>
             </Label>
             {needsDashboardPicker ? (
-              <Combobox
-                items={dashboardItems}
-                value={selectedDashboardId}
-                onValueChange={(val) => {
-                  setSelectedDashboardId(val);
-                  setSelectedDateColumn('');
-                }}
-                placeholder="Search for your Dashboard here"
-                searchPlaceholder="Search for your Dashboard here"
-              />
+              <>
+                <Controller
+                  name="selectedDashboardId"
+                  control={control}
+                  rules={{ required: 'Please select a dashboard' }}
+                  render={({ field }) => (
+                    <Combobox
+                      items={dashboardItems}
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        setValue('selectedDateColumn', '');
+                      }}
+                      placeholder="Search for your Dashboard here"
+                      searchPlaceholder="Search for your Dashboard here"
+                    />
+                  )}
+                />
+                {errors.selectedDashboardId && (
+                  <p className="text-sm text-red-500">{errors.selectedDashboardId.message}</p>
+                )}
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">{preselectedDashboardTitle}</p>
             )}
@@ -190,9 +204,14 @@ export function CreateSnapshotDialog({
             <Input
               data-testid="snapshot-report-name"
               placeholder="Pick a unique name"
-              value={reportName}
-              onChange={(e) => setReportName(e.target.value)}
+              {...register('reportName', {
+                required: 'Please enter a report name',
+                validate: (v) => v.trim() !== '' || 'Please enter a report name',
+              })}
             />
+            {errors.reportName && (
+              <p className="text-sm text-red-500">{errors.reportName.message}</p>
+            )}
           </div>
 
           {/* Filter by */}
@@ -208,31 +227,45 @@ export function CreateSnapshotDialog({
                 No datetime columns found in this dashboard&apos;s data sources.
               </p>
             ) : (
-              <Select
-                value={selectedDateColumn}
-                onValueChange={setSelectedDateColumn}
-                disabled={!effectiveDashboardId || columnsLoading || discoveredColumns.length === 0}
-              >
-                <SelectTrigger data-testid="snapshot-date-column">
-                  <SelectValue
-                    placeholder={
-                      columnsLoading
-                        ? 'Discovering date columns...'
-                        : 'Pick the date-time column to filter by'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {discoveredColumns.map((col) => {
-                    const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
-                    return (
-                      <SelectItem key={value} value={value}>
-                        {col.table_name}.{col.column_name}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <>
+                <Controller
+                  name="selectedDateColumn"
+                  control={control}
+                  rules={{ required: 'Please select a date-time column' }}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={
+                        !effectiveDashboardId || columnsLoading || discoveredColumns.length === 0
+                      }
+                    >
+                      <SelectTrigger data-testid="snapshot-date-column">
+                        <SelectValue
+                          placeholder={
+                            columnsLoading
+                              ? 'Discovering date columns...'
+                              : 'Pick the date-time column to filter by'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {discoveredColumns.map((col) => {
+                          const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
+                          return (
+                            <SelectItem key={value} value={value}>
+                              {col.table_name}.{col.column_name}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.selectedDateColumn && (
+                  <p className="text-sm text-red-500">{errors.selectedDateColumn.message}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -244,13 +277,29 @@ export function CreateSnapshotDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <span className="text-sm text-muted-foreground">Start date</span>
-                <DatePicker value={periodStart} onChange={setPeriodStart} maxDate={periodEnd} />
+                <Controller
+                  name="periodStart"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker value={field.value} onChange={field.onChange} maxDate={periodEnd} />
+                  )}
+                />
               </div>
               <div className="space-y-1">
                 <span className="text-sm text-muted-foreground">
                   End date <span className="text-red-600">*</span>
                 </span>
-                <DatePicker value={periodEnd} onChange={setPeriodEnd} />
+                <Controller
+                  name="periodEnd"
+                  control={control}
+                  rules={{ required: 'Please select an end date' }}
+                  render={({ field }) => (
+                    <DatePicker value={field.value} onChange={field.onChange} />
+                  )}
+                />
+                {errors.periodEnd && (
+                  <p className="text-sm text-red-500">{errors.periodEnd.message}</p>
+                )}
               </div>
             </div>
           </div>
@@ -258,32 +307,38 @@ export function CreateSnapshotDialog({
           {/* Reporting Frequency */}
           <div className="space-y-2">
             <Label className="font-semibold">Reporting Frequency</Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                data-testid="snapshot-freq-onetime"
-                onClick={() => setFrequency('onetime')}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                  frequency === 'onetime'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-foreground border border-input hover:bg-muted'
-                }`}
-              >
-                One time
-              </button>
-              <button
-                type="button"
-                data-testid="snapshot-freq-schedule"
-                onClick={() => setFrequency('schedule')}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                  frequency === 'schedule'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-foreground border border-input hover:bg-muted'
-                }`}
-              >
-                Schedule
-              </button>
-            </div>
+            <Controller
+              name="frequency"
+              control={control}
+              render={({ field }) => (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    data-testid="snapshot-freq-onetime"
+                    onClick={() => field.onChange('onetime')}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                      field.value === 'onetime'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-foreground border border-input hover:bg-muted'
+                    }`}
+                  >
+                    One time
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="snapshot-freq-schedule"
+                    onClick={() => field.onChange('schedule')}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                      field.value === 'schedule'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-foreground border border-input hover:bg-muted'
+                    }`}
+                  >
+                    Schedule
+                  </button>
+                </div>
+              )}
+            />
           </div>
         </div>
 
@@ -292,7 +347,11 @@ export function CreateSnapshotDialog({
           <Button data-testid="snapshot-cancel-btn" variant="cancel" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button data-testid="snapshot-submit-btn" onClick={handleSubmit} disabled={isSubmitting}>
+          <Button
+            data-testid="snapshot-submit-btn"
+            onClick={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? 'Generating...' : 'Generate Report'}
           </Button>
         </div>
