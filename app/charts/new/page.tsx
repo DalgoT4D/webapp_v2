@@ -198,9 +198,10 @@ function NewChartPageContent() {
                         style={
                           isSelected
                             ? ({
-                                borderColor: '#06887b',
-                                '--tw-ring-color': '#06887b',
-                                backgroundColor: 'rgba(6, 136, 123, 0.04)',
+                                borderColor: 'var(--primary)',
+                                '--tw-ring-color': 'var(--primary)',
+                                backgroundColor:
+                                  'color-mix(in srgb, var(--primary) 4%, transparent)',
                               } as React.CSSProperties)
                             : {}
                         }
@@ -246,9 +247,10 @@ function NewChartPageContent() {
         </Button>
         <Button
           onClick={handleContinue}
+          variant="ghost"
           disabled={!canProceed}
           className="min-w-[120px] text-white hover:opacity-90"
-          style={{ backgroundColor: '#06887b' }}
+          style={{ backgroundColor: 'var(--primary)' }}
         >
           Continue
         </Button>

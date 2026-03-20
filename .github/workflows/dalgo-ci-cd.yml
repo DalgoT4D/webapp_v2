@@ -1,0 +1,177 @@
+name: Dalgo CI/CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ['**']
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================
+  # CI CHECKS (runs on all pushes and PRs)
+  # ============================================
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Prettier
+        run: npm run format:check
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run test and generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4.2.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Set up QEMU
+        if: github.event_name == 'pull_request'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: github.event_name == 'pull_request'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (verify only)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          tags: webapp_v2:test
+
+  # ============================================
+  # STAGING GUARD: Check if staging is on main
+  # (separate job WITHOUT environment: to avoid auto-created deployment records)
+  # ============================================
+  staging-guard:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: read
+    steps:
+      - name: Check staging branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT=$(gh api repos/${{ github.repository }}/deployments?environment=staging --jq '.[0].ref // empty')
+          if [ -z "$CURRENT" ]; then
+            echo "No previous staging deployment found. Proceeding with deploy."
+          elif [ "$CURRENT" != "main" ]; then
+            echo "::error::Staging is on '$CURRENT', not main. Skipping auto-deploy."
+            exit 1
+          else
+            echo "Staging is on main. Proceeding with deploy."
+          fi
+
+  # ============================================
+  # CD: AUTO-DEPLOY TO STAGING (only on main push, after checks and guard pass)
+  # ============================================
+  deploy-staging:
+    needs: [checks, staging-guard]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      packages: write
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize IMAGE_NAME to lowercase
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
+
+      - name: Get commit SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Validate build secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_BACKEND_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_EMBEDDED_WEBAPP_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
+          [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
+          [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "Error: Missing GitHub secrets:$MISSING"
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          build-args: |
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_EMBEDDED_WEBAPP_URL=${{ secrets.NEXT_PUBLIC_EMBEDDED_WEBAPP_URL }}
+            NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging
+            NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}
+            NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}
+            NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}
+
+      - name: Deploy to staging
+        uses: ./.github/actions/deploy
+        with:
+          ssh_host: ${{ secrets.SSH_HOST }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}
+          deploy_dir: /home/ddp/webapp_v2_docker
+          ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          ghcr_user: ${{ github.actor }}
+
+      - name: Record staging deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jq -n '{
+            "ref": "main",
+            "environment": "staging",
+            "description": "staging-main-${{ steps.sha.outputs.short }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }' | gh api repos/${{ github.repository }}/deployments --input -
+
+      - name: Summary
+        run: |
+          echo "## Staging Deploy Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ steps.sha.outputs.short }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-main-${{ steps.sha.outputs.short }}" >> $GITHUB_STEP_SUMMARY
