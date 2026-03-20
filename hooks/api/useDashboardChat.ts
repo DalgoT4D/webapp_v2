@@ -146,6 +146,7 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     };
 
     socket.onerror = () => {
+      setIsThinking(false);
       setError('The chat connection encountered an error');
     };
 
