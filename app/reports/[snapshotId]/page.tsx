@@ -17,9 +17,11 @@ import {
 } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
+import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareModal } from '@/components/reports/ReportShareModal';
+import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 
 export default function SnapshotViewerPage() {
@@ -33,6 +35,11 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(snapshotId);
+  const handleCommentStateChange = useCallback(() => {
+    mutateCommentStates();
+  }, [mutateCommentStates]);
 
   const { isExporting, download: handleDownload } = usePdfDownload({
     endpoint: `/api/reports/${snapshotId}/export/pdf/`,
@@ -164,9 +171,23 @@ export default function SnapshotViewerPage() {
           isReportMode={true}
           frozenChartConfigs={frozen_chart_configs}
           hideHeader={true}
+          snapshotId={snapshotId}
+          commentStates={commentStates}
+          onCommentStateChange={handleCommentStateChange}
           beforeContent={
             <div className="border rounded-lg p-5 mb-2 bg-background">
-              <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold">Executive Summary</h2>
+                <CommentPopover
+                  snapshotId={snapshotId}
+                  targetType="summary"
+                  state={commentStates?.['summary']?.state ?? 'none'}
+                  count={commentStates?.['summary']?.count ?? 0}
+                  unreadCount={commentStates?.['summary']?.unread_count ?? 0}
+                  triggerClassName="h-8 w-8"
+                  onStateChange={handleCommentStateChange}
+                />
+              </div>
               <Textarea
                 data-testid="report-summary-textarea"
                 value={summaryDraft}

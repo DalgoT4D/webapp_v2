@@ -75,6 +75,8 @@ import {
   GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { CommentPopover } from '@/components/reports/comment-popover';
+import type { CommentIconState } from '@/types/comments';
 
 // Register necessary ECharts components
 echarts.use([
@@ -115,6 +117,9 @@ interface ChartElementViewProps {
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
+  onCommentStateChange?: () => void; // Callback when comment state changes
 }
 
 interface DrillDownLevel {
@@ -139,6 +144,9 @@ export function ChartElementView({
   publicToken,
   config = {},
   frozenChartConfig,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -1732,6 +1740,20 @@ export function ChartElementView({
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </Button>
+
+            {/* Comment button — only in report mode */}
+            {frozenChartConfig && snapshotId && (
+              <CommentPopover
+                snapshotId={snapshotId}
+                targetType="chart"
+                chartId={chartId}
+                state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
+                count={commentStates?.[String(chartId)]?.count ?? 0}
+                unreadCount={commentStates?.[String(chartId)]?.unread_count ?? 0}
+                triggerClassName="h-7 w-7 p-0"
+                onStateChange={onCommentStateChange}
+              />
+            )}
           </div>
         </div>
       )}
