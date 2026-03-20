@@ -9,21 +9,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormats, type NumberFormat } from '@/lib/formatters';
 
 /**
  * Format options available for number formatting
  * Labels include examples showing transformation: 1234567 => formatted value
  */
 export const NUMBER_FORMAT_OPTIONS = [
-  { value: 'default', label: 'No Formatting' },
-  { value: 'adaptive_indian', label: 'Adaptive Indian (1234567 => 12.35L)' },
-  { value: 'adaptive_international', label: 'Adaptive International (1234567 => 1.23M)' },
-  { value: 'indian', label: 'Indian (1234567 => 12,34,567)' },
-  { value: 'international', label: 'International (1234567 => 1,234,567)' },
-  { value: 'european', label: 'European (1234567 => 1.234.567)' },
-  { value: 'percentage', label: 'Percentage (%)' },
-  { value: 'currency', label: 'Currency ($)' },
+  { value: NumberFormats.DEFAULT, label: 'No Formatting' },
+  { value: NumberFormats.ADAPTIVE_INDIAN, label: 'Adaptive Indian (1234567 => 12.35L)' },
+  {
+    value: NumberFormats.ADAPTIVE_INTERNATIONAL,
+    label: 'Adaptive International (1234567 => 1.23M)',
+  },
+  { value: NumberFormats.INDIAN, label: 'Indian (1234567 => 12,34,567)' },
+  { value: NumberFormats.INTERNATIONAL, label: 'International (1234567 => 1,234,567)' },
+  { value: NumberFormats.EUROPEAN, label: 'European (1234567 => 1.234.567)' },
+  { value: NumberFormats.PERCENTAGE, label: 'Percentage (%)' },
+  { value: NumberFormats.CURRENCY, label: 'Currency ($)' },
 ] as const;
 
 /**

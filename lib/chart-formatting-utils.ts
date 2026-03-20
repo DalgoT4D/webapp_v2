@@ -7,7 +7,7 @@
  * Used by ChartPreview, chart-element-view, and chart-element-v2 components.
  */
 
-import { formatNumber, type NumberFormat } from './formatters';
+import { formatNumber, NumberFormats, type NumberFormat } from './formatters';
 
 interface ChartCustomizations {
   numberFormat?: NumberFormat;
@@ -46,13 +46,13 @@ export function formatAxisValue(
     const numFormat =
       ((isBarOrLineChart
         ? customizations.yAxisNumberFormat || customizations.numberFormat
-        : customizations.numberFormat) as NumberFormat) || 'default';
+        : customizations.numberFormat) as NumberFormat) || NumberFormats.DEFAULT;
 
     const decimalPlaces = isBarOrLineChart
       ? (customizations.yAxisDecimalPlaces ?? customizations.decimalPlaces)
       : customizations.decimalPlaces;
 
-    if (numFormat === 'default') {
+    if (numFormat === NumberFormats.DEFAULT) {
       return numVal.toLocaleString();
     }
     return formatNumber(numVal, {
@@ -65,7 +65,7 @@ export function formatAxisValue(
 
     const numFormat = customizations.xAxisNumberFormat as NumberFormat;
     // Only format if xAxisNumberFormat is explicitly set (means X-axis is numeric)
-    if (!numFormat || numFormat === 'default') return val;
+    if (!numFormat || numFormat === NumberFormats.DEFAULT) return val;
 
     // xAxisNumberFormat is set, so X-axis is numeric - safe to parseFloat
     const numVal = typeof val === 'number' ? val : parseFloat(String(val));
@@ -138,7 +138,7 @@ export function createYAxisLabelFormatter(
   const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
   const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
 
-  if (!yAxisNumberFormat || yAxisNumberFormat === 'default') {
+  if (!yAxisNumberFormat || yAxisNumberFormat === NumberFormats.DEFAULT) {
     return undefined;
   }
 
@@ -163,7 +163,7 @@ export function createXAxisLabelFormatter(
   const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
   const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
 
-  if (!xAxisNumberFormat || xAxisNumberFormat === 'default') {
+  if (!xAxisNumberFormat || xAxisNumberFormat === NumberFormats.DEFAULT) {
     return undefined;
   }
 
@@ -191,13 +191,13 @@ export function createPieDimensionFormatter(
   numberFormat: NumberFormat | undefined,
   decimalPlaces: number | undefined
 ): (val: any) => string {
-  const numFormat = numberFormat || 'default';
+  const numFormat = numberFormat || NumberFormats.DEFAULT;
 
   // Helper to format a single numeric string
   const formatNumericString = (val: string): string => {
     const trimmed = val.trim();
     // Only format if a specific number format is set (not 'default')
-    if (numFormat !== 'default' && /^-?\d+(\.\d+)?$/.test(trimmed)) {
+    if (numFormat !== NumberFormats.DEFAULT && /^-?\d+(\.\d+)?$/.test(trimmed)) {
       const numVal = Number(trimmed);
       if (!isNaN(numVal)) {
         return formatNumber(numVal, { format: numFormat, decimalPlaces });
@@ -212,7 +212,7 @@ export function createPieDimensionFormatter(
     if (typeof val === 'number' || typeof val === 'bigint') {
       const numVal = Number(val);
       // Return raw value for 'default' format, otherwise apply number formatting
-      return numFormat !== 'default'
+      return numFormat !== NumberFormats.DEFAULT
         ? formatNumber(numVal, { format: numFormat, decimalPlaces })
         : String(numVal);
     }
@@ -249,13 +249,13 @@ export function createDataLabelFormatter(
     const numFormat =
       ((isBarOrLineChart
         ? customizations.yAxisNumberFormat || customizations.numberFormat
-        : customizations.numberFormat) as NumberFormat) || 'default';
+        : customizations.numberFormat) as NumberFormat) || NumberFormats.DEFAULT;
 
     const decimalPlaces = isBarOrLineChart
       ? (customizations.yAxisDecimalPlaces ?? customizations.decimalPlaces)
       : customizations.decimalPlaces;
 
-    if (numFormat === 'default') {
+    if (numFormat === NumberFormats.DEFAULT) {
       return value.toLocaleString();
     }
     return formatNumber(value, {

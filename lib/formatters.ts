@@ -3,16 +3,19 @@
  * Formatting happens on frontend for instant preview (Superset-style)
  */
 
-export type NumberFormat =
-  | 'default'
-  | 'comma'
-  | 'international'
-  | 'indian'
-  | 'european'
-  | 'percentage'
-  | 'currency'
-  | 'adaptive_international'
-  | 'adaptive_indian';
+export const NumberFormats = {
+  DEFAULT: 'default',
+  COMMA: 'comma',
+  INTERNATIONAL: 'international',
+  INDIAN: 'indian',
+  EUROPEAN: 'european',
+  PERCENTAGE: 'percentage',
+  CURRENCY: 'currency',
+  ADAPTIVE_INTERNATIONAL: 'adaptive_international',
+  ADAPTIVE_INDIAN: 'adaptive_indian',
+} as const;
+
+export type NumberFormat = (typeof NumberFormats)[keyof typeof NumberFormats];
 
 export interface FormatOptions {
   format: NumberFormat;
@@ -49,45 +52,45 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
   const processedValue = decimalPlaces !== undefined ? Number(value.toFixed(decimalPlaces)) : value;
 
   switch (format) {
-    case 'default':
+    case NumberFormats.DEFAULT:
       // Raw value, with decimal places if specified
       return decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
 
-    case 'international':
+    case NumberFormats.INTERNATIONAL:
       // 1000000 → 1,000,000
       return processedValue.toLocaleString('en-US', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'indian':
+    case NumberFormats.INDIAN:
       // 1000000 → 10,00,000
       return processedValue.toLocaleString('en-IN', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'european':
+    case NumberFormats.EUROPEAN:
       // 1000000 → 1.000.000 (German locale as representative European format)
       return processedValue.toLocaleString('de-DE', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'percentage':
+    case NumberFormats.PERCENTAGE:
       // 85 → 85%
       const percentValue =
         decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
       return percentValue + '%';
 
-    case 'comma':
+    case NumberFormats.COMMA:
       // Same as international (for backward compatibility)
       return processedValue.toLocaleString('en-US', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'currency':
+    case NumberFormats.CURRENCY:
       // 1000 → $1,000
       return (
         '$' +
@@ -97,7 +100,7 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
         })
       );
 
-    case 'adaptive_international': {
+    case NumberFormats.ADAPTIVE_INTERNATIONAL: {
       // International SI-like notation: K, M, B
       const absValue = Math.abs(processedValue);
       const sign = processedValue < 0 ? '-' : '';
@@ -113,7 +116,7 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
       return decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
     }
 
-    case 'adaptive_indian': {
+    case NumberFormats.ADAPTIVE_INDIAN: {
       // Indian notation: K, L (Lakh), Cr (Crore)
       const absValue = Math.abs(processedValue);
       const sign = processedValue < 0 ? '-' : '';
