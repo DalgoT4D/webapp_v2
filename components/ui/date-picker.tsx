@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, Pencil } from 'lucide-react';
+import type { Matcher } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -10,59 +11,77 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface DatePickerProps {
+  /** Date shown in the trigger button */
   value: Date | undefined;
-  onChange: (date: Date | undefined) => void;
   placeholder?: string;
   disabled?: boolean;
+
+  /** Popover control */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+
+  /** Calendar state — may differ from value during staging */
+  selected: Date | undefined;
+  onSelect: (date: Date | undefined) => void;
+  /** Convenience prop: disables dates after this date */
   maxDate?: Date;
+  /** Flexible date disabling — passed to Calendar's disabled prop */
+  disabledDates?: Matcher | Matcher[];
+
+  /** Footer with OK/Cancel/Clear (default: false) */
+  showFooter?: boolean;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  onClear?: () => void;
+
+  /** Manual text-edit mode (default: false) */
+  showEditButton?: boolean;
+  editMode?: boolean;
+  editText?: string;
+  onEditModeChange?: (editing: boolean) => void;
+  onEditTextChange?: (text: string) => void;
+  onEditSubmit?: () => void;
 }
 
 export function DatePicker({
   value,
-  onChange,
   placeholder = 'Pick a date',
   disabled = false,
+  open,
+  onOpenChange,
+  selected,
+  onSelect,
   maxDate,
+  disabledDates,
+  showFooter = false,
+  onConfirm,
+  onCancel,
+  onClear,
+  showEditButton = false,
+  editMode = false,
+  editText = '',
+  onEditModeChange,
+  onEditTextChange,
+  onEditSubmit,
 }: DatePickerProps) {
-  const [open, setOpen] = React.useState(false);
-  // Staged date: the date highlighted in the calendar before the user confirms
-  const [stagedDate, setStagedDate] = React.useState<Date | undefined>(value);
-  // Edit mode: user clicked pencil to type a date
-  const [editMode, setEditMode] = React.useState(false);
-  const [editText, setEditText] = React.useState('');
-
-  // Sync staged date when the popover opens
-  React.useEffect(() => {
-    if (open) {
-      setStagedDate(value);
-      setEditMode(false);
+  // Build the disabled matcher for Calendar
+  const calendarDisabled = React.useMemo(() => {
+    const matchers: Matcher[] = [];
+    if (maxDate) matchers.push({ after: maxDate });
+    if (disabledDates) {
+      if (Array.isArray(disabledDates)) {
+        matchers.push(...disabledDates);
+      } else {
+        matchers.push(disabledDates);
+      }
     }
-  }, [open, value]);
-
-  const handleConfirm = () => {
-    onChange(stagedDate);
-    setOpen(false);
-  };
-
-  const handleCancel = () => {
-    setStagedDate(value);
-    setOpen(false);
-  };
-
-  const handleClear = () => {
-    setStagedDate(undefined);
-  };
-
-  const handleEditSubmit = () => {
-    const parsed = new Date(editText);
-    if (!isNaN(parsed.getTime())) {
-      setStagedDate(parsed);
-    }
-    setEditMode(false);
-  };
+    if (matchers.length === 0) return undefined;
+    if (matchers.length === 1) return matchers[0];
+    return matchers;
+  }, [maxDate, disabledDates]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -89,26 +108,23 @@ export function DatePicker({
                   autoFocus
                   className="h-8 text-lg font-normal"
                   value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
+                  onChange={(e) => onEditTextChange?.(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleEditSubmit();
-                    if (e.key === 'Escape') setEditMode(false);
+                    if (e.key === 'Enter') onEditSubmit?.();
+                    if (e.key === 'Escape') onEditModeChange?.(false);
                   }}
-                  onBlur={handleEditSubmit}
+                  onBlur={() => onEditSubmit?.()}
                   placeholder="MM/DD/YYYY"
                 />
               ) : (
                 <span className="text-2xl font-normal">
-                  {stagedDate ? format(stagedDate, 'EEE, MMM d') : 'No date'}
+                  {selected ? format(selected, 'EEE, MMM d') : 'No date'}
                 </span>
               )}
-              {!editMode && (
+              {showEditButton && !editMode && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditText(stagedDate ? format(stagedDate, 'MM/dd/yyyy') : '');
-                    setEditMode(true);
-                  }}
+                  onClick={() => onEditModeChange?.(true)}
                   className="p-1 rounded-full hover:bg-muted"
                 >
                   <Pencil className="h-4 w-4 text-muted-foreground" />
@@ -122,40 +138,44 @@ export function DatePicker({
           {/* Calendar */}
           <Calendar
             mode="single"
-            selected={stagedDate}
-            onSelect={(date) => setStagedDate(date)}
-            disabled={maxDate ? { after: maxDate } : undefined}
+            selected={selected}
+            onSelect={(date) => onSelect(date)}
+            disabled={calendarDisabled}
             captionLayout="dropdown"
           />
 
-          <hr className="border-border" />
+          {showFooter && (
+            <>
+              <hr className="border-border" />
 
-          {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-3">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="text-sm text-primary hover:underline"
-            >
-              Clear
-            </button>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="text-sm font-medium uppercase text-red-500 hover:text-red-600"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                className="text-sm font-medium uppercase text-primary hover:text-primary/80"
-              >
-                OK
-              </button>
-            </div>
-          </div>
+              {/* Footer */}
+              <div className="flex items-center justify-between px-4 py-3">
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Clear
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="text-sm font-medium uppercase text-red-500 hover:text-red-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onConfirm}
+                    className="text-sm font-medium uppercase text-primary hover:text-primary/80"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>

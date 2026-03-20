@@ -118,8 +118,7 @@ describe('CreateSnapshotDialog', () => {
   });
 
   describe('Form Validation', () => {
-    it('shows error toast when submitting with empty report name', async () => {
-      const { toastError } = require('@/lib/toast');
+    it('shows inline error when submitting with empty report name', async () => {
       const user = userEvent.setup();
       render(
         <CreateSnapshotDialog
@@ -138,7 +137,10 @@ describe('CreateSnapshotDialog', () => {
       // Submit without filling report name
       await user.click(screen.getByTestId('snapshot-submit-btn'));
 
-      // Validation happens inside handleSubmit via toast, not button disable
+      // Inline error message should appear
+      await waitFor(() => {
+        expect(screen.getByText('Please enter a report name')).toBeInTheDocument();
+      });
       expect(useReportsHook.createSnapshot).not.toHaveBeenCalled();
     });
 

@@ -43,6 +43,7 @@ import {
   shouldShowLegend,
 } from '@/lib/responsive-legend';
 import type { ChartDataPayload } from '@/types/charts';
+import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
@@ -115,7 +116,7 @@ interface ChartElementViewProps {
   isPublicMode?: boolean;
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig; // For dashboard title configuration
-  frozenChartConfig?: any; // Frozen chart config from report snapshot
+  frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
   snapshotId?: number; // Report snapshot ID for comments
   commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
   onCommentStateChange?: () => void; // Callback when comment state changes

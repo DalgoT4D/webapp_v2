@@ -24,6 +24,8 @@ import { formatCreatedOn } from '@/components/reports/utils';
 // Debounce delay in ms before sending filter to API
 const FILTER_DEBOUNCE_MS = 400;
 
+type FilterColumn = 'title' | 'dashboard' | 'createdBy';
+
 export default function ReportsPage() {
   const router = useRouter();
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
@@ -73,7 +75,7 @@ export default function ReportsPage() {
 
   const hasAnyFilter = titleFilter !== '' || dashboardFilter !== '' || createdByFilter !== '';
 
-  const hasActiveFilter = (column: 'title' | 'dashboard' | 'createdBy') => {
+  const hasActiveFilter = (column: FilterColumn) => {
     switch (column) {
       case 'title':
         return titleFilter !== '';
@@ -86,7 +88,7 @@ export default function ReportsPage() {
     }
   };
 
-  const renderFilterIcon = (column: 'title' | 'dashboard' | 'createdBy') => {
+  const renderFilterIcon = (column: FilterColumn) => {
     const isActive = hasActiveFilter(column);
     return (
       <div className="relative">

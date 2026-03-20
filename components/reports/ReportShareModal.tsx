@@ -57,8 +57,8 @@ export function ReportShareModal({ snapshotId, isOpen, onClose }: ReportShareMod
         }));
 
         if (isPublic && response.public_url) {
-          await navigator.clipboard.writeText(response.public_url);
-          toastSuccess.generic('Report made public and URL copied to clipboard!');
+          toastSuccess.generic('Report is now public');
+          await copyUrlToClipboard(response.public_url);
         } else {
           toastSuccess.generic('Report sharing disabled');
         }

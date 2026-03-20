@@ -18,11 +18,11 @@ import {
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
+import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareModal } from '@/components/reports/ReportShareModal';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
-import { apiPostBinary } from '@/lib/api';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -36,35 +36,15 @@ export default function SnapshotViewerPage() {
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
-  const [isExporting, setIsExporting] = useState(false);
-
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(snapshotId);
   const handleCommentStateChange = useCallback(() => {
     mutateCommentStates();
   }, [mutateCommentStates]);
 
-  const handleDownload = useCallback(async () => {
-    setIsExporting(true);
-    try {
-      const blob = await apiPostBinary(`/api/reports/${snapshotId}/export/pdf/`, {});
-      const safeTitle = (viewData?.report_metadata.title || 'report')
-        .replace(/[^a-zA-Z0-9 \-_]/g, '')
-        .trim();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${safeTitle || 'report'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toastSuccess.exported('Report', 'pdf');
-    } catch (error) {
-      toastError.export(error, 'pdf');
-    } finally {
-      setIsExporting(false);
-    }
-  }, [snapshotId, viewData?.report_metadata.title]);
+  const { isExporting, download: handleDownload } = usePdfDownload({
+    endpoint: `/api/reports/${snapshotId}/export/pdf/`,
+    title: viewData?.report_metadata.title || 'report',
+  });
 
   // Initialize summary draft when viewData loads (replaces state-during-render pattern)
   useEffect(() => {

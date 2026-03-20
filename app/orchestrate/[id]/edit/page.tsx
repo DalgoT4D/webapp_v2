@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { PipelineForm } from '@/components/pipeline/pipeline-form';
+import { PipelineForm } from '@/components/pipeline/orchestrate/pipeline-form';
 
 interface EditPipelinePageProps {
   params: Promise<{

@@ -1,15 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Calendar } from '@/components/ui/calendar';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { DatePicker } from '@/components/ui/date-picker';
 
 interface DateTimeFilterWidgetProps {
-  filter: any;
+  filter: { id: string; name: string };
   value: { start_date?: string; end_date?: string } | null;
   onChange: (filterId: string, value: { start_date?: string; end_date?: string } | null) => void;
   isLocked?: boolean;
@@ -35,36 +31,39 @@ export function DateTimeFilterWidget({
     }
   }, [value]);
 
-  const handleDateChange = (start?: Date, end?: Date) => {
-    const newValue = {
-      start_date: start ? format(start, 'yyyy-MM-dd') : undefined,
-      end_date: end ? format(end, 'yyyy-MM-dd') : undefined,
-    };
+  const handleDateChange = useCallback(
+    (start?: Date, end?: Date) => {
+      const newValue = {
+        start_date: start ? format(start, 'yyyy-MM-dd') : undefined,
+        end_date: end ? format(end, 'yyyy-MM-dd') : undefined,
+      };
 
-    if (newValue.start_date || newValue.end_date) {
-      onChange(filter.id, newValue);
-    } else {
-      onChange(filter.id, null);
-    }
-  };
+      if (newValue.start_date || newValue.end_date) {
+        onChange(filter.id, newValue);
+      } else {
+        onChange(filter.id, null);
+      }
+    },
+    [filter.id, onChange]
+  );
 
-  const handleStartDateSelect = (date: Date | undefined) => {
-    setStartDate(date);
-    handleDateChange(date, endDate);
-    setStartOpen(false);
-  };
+  const handleStartDateSelect = useCallback(
+    (date: Date | undefined) => {
+      setStartDate(date);
+      handleDateChange(date, endDate);
+      setStartOpen(false);
+    },
+    [endDate, handleDateChange]
+  );
 
-  const handleEndDateSelect = (date: Date | undefined) => {
-    setEndDate(date);
-    handleDateChange(startDate, date);
-    setEndOpen(false);
-  };
-
-  const clearFilter = () => {
-    setStartDate(undefined);
-    setEndDate(undefined);
-    onChange(filter.id, null);
-  };
+  const handleEndDateSelect = useCallback(
+    (date: Date | undefined) => {
+      setEndDate(date);
+      handleDateChange(startDate, date);
+      setEndOpen(false);
+    },
+    [startDate, handleDateChange]
+  );
 
   const hasValue = startDate || endDate;
 
@@ -78,85 +77,31 @@ export function DateTimeFilterWidget({
         {/* Start Date */}
         <div>
           <label className="text-xs text-gray-500 mb-1 block">From</label>
-          {isLocked ? (
-            <Button
-              variant="outline"
-              disabled
-              className="w-full justify-start text-left font-normal opacity-70"
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {startDate ? format(startDate, 'MMM dd, yyyy') : 'Start date'}
-            </Button>
-          ) : (
-            <Popover open={startOpen} onOpenChange={setStartOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !startDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, 'MMM dd, yyyy') : 'Start date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={handleStartDateSelect}
-                  disabled={(date) => {
-                    // Disable dates after end date if end date is selected
-                    return endDate ? date > endDate : false;
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          )}
+          <DatePicker
+            value={startDate}
+            placeholder="Start date"
+            disabled={isLocked}
+            open={startOpen}
+            onOpenChange={setStartOpen}
+            selected={startDate}
+            onSelect={handleStartDateSelect}
+            disabledDates={endDate ? (date: Date) => date > endDate : undefined}
+          />
         </div>
 
         {/* End Date */}
         <div>
           <label className="text-xs text-gray-500 mb-1 block">To</label>
-          {isLocked ? (
-            <Button
-              variant="outline"
-              disabled
-              className="w-full justify-start text-left font-normal opacity-70"
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {endDate ? format(endDate, 'MMM dd, yyyy') : 'End date'}
-            </Button>
-          ) : (
-            <Popover open={endOpen} onOpenChange={setEndOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !endDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, 'MMM dd, yyyy') : 'End date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={handleEndDateSelect}
-                  disabled={(date) => {
-                    // Disable dates before start date if start date is selected
-                    return startDate ? date < startDate : false;
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          )}
+          <DatePicker
+            value={endDate}
+            placeholder="End date"
+            disabled={isLocked}
+            open={endOpen}
+            onOpenChange={setEndOpen}
+            selected={endDate}
+            onSelect={handleEndDateSelect}
+            disabledDates={startDate ? (date: Date) => date < startDate : undefined}
+          />
         </div>
       </div>
 
