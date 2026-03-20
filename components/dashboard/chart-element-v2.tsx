@@ -1148,8 +1148,8 @@ export function ChartElementV2({
         if (
           modifiedConfig.series &&
           customizations.showDataLabels &&
-          yAxisNumberFormat &&
-          yAxisNumberFormat !== 'default'
+          ((yAxisNumberFormat && yAxisNumberFormat !== 'default') ||
+            yAxisDecimalPlaces !== undefined)
         ) {
           const seriesArray = Array.isArray(modifiedConfig.series)
             ? modifiedConfig.series
@@ -1162,10 +1162,15 @@ export function ChartElementV2({
               formatter: (params: any) => {
                 const value = params.value;
                 if (typeof value !== 'number' || isNaN(value)) return value;
-                return formatNumber(value, {
-                  format: yAxisNumberFormat,
-                  decimalPlaces: yAxisDecimalPlaces,
-                });
+                // If a specific number format is selected, use formatNumber
+                if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
+                  return formatNumber(value, {
+                    format: yAxisNumberFormat,
+                    decimalPlaces: yAxisDecimalPlaces,
+                  });
+                }
+                // Otherwise, just apply decimal places without thousand separators
+                return value.toFixed(yAxisDecimalPlaces);
               },
             },
           }));
