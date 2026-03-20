@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
   BarChart3,
+  Building2,
   Database,
   Settings,
   FileText,
@@ -35,6 +36,7 @@ import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformType, useTransformType } from '@/hooks/api/useTransformType';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import Image from 'next/image';
 
 // Define types for navigation items
@@ -93,6 +95,7 @@ const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
+  hasPermission: (permissionSlug: string) => boolean,
   transformType?: string
 ): NavItemType[] => {
   // Build dashboard children based on feature flags AND Superset setup
@@ -212,6 +215,15 @@ const getNavItems = (
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
+        },
+        {
+          title: 'Organization',
+          href: '/settings/organization',
+          icon: Building2,
+          isActive: currentPath.startsWith('/settings/organization'),
+          hide:
+            !isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT) ||
+            !hasPermission('can_manage_org_settings'),
         },
         {
           title: 'About',
@@ -643,9 +655,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
+  const { hasPermission } = useUserPermissions();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
+  const navItems = getNavItems(
+    pathname,
+    hasSupersetSetup,
+    isFeatureFlagEnabled,
+    hasPermission,
+    transformType
+  );
   const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
 
   // Toggle menu expansion state
