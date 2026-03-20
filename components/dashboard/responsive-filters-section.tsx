@@ -23,6 +23,7 @@ interface ResponsiveFiltersSectionProps {
   publicToken?: string;
   appliedFiltersCount?: number;
   className?: string;
+  isReportMode?: boolean;
 }
 
 export function ResponsiveFiltersSection({
@@ -35,6 +36,7 @@ export function ResponsiveFiltersSection({
   publicToken,
   appliedFiltersCount = 0,
   className,
+  isReportMode = false,
 }: ResponsiveFiltersSectionProps) {
   const responsive = useResponsiveLayout();
 
@@ -75,6 +77,7 @@ export function ResponsiveFiltersSection({
                 onFiltersCleared={onFiltersCleared}
                 isPublicMode={isPublicMode}
                 publicToken={publicToken}
+                isReportMode={isReportMode}
               />
             </div>
           </AccordionContent>
