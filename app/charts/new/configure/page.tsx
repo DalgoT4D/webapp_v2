@@ -30,9 +30,15 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
+import {
+  ChartTypes,
+  type ChartCreate,
+  type ChartDataPayload,
+  type ChartBuilderFormData,
+} from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { getApiCustomizations } from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -360,27 +366,8 @@ function ConfigureChartPageContent() {
           }),
         }),
         // Number formatting is frontend-only - exclude from API payload
-        ...(formData.chart_type !== 'table' && {
-          customizations:
-            formData.chart_type === 'number' ||
-            formData.chart_type === 'pie' ||
-            formData.chart_type === 'map'
-              ? Object.fromEntries(
-                  Object.entries(formData.customizations || {}).filter(
-                    ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
-                  )
-                )
-              : formData.chart_type === 'line' || formData.chart_type === 'bar'
-                ? Object.fromEntries(
-                    Object.entries(formData.customizations || {}).filter(
-                      ([key]) =>
-                        key !== 'yAxisNumberFormat' &&
-                        key !== 'yAxisDecimalPlaces' &&
-                        key !== 'xAxisNumberFormat' &&
-                        key !== 'xAxisDecimalPlaces'
-                    )
-                  )
-                : formData.customizations,
+        ...(formData.chart_type !== ChartTypes.TABLE && {
+          customizations: getApiCustomizations(formData.chart_type, formData.customizations),
         }),
         extra_config: {
           filters: [

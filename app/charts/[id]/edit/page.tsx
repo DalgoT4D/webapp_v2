@@ -35,6 +35,7 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
+import { getApiCustomizations } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -540,27 +541,7 @@ function EditChartPageContent() {
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
             // Number formatting is frontend-only - exclude from API payload
             ...(formData.chart_type !== ChartTypes.TABLE && {
-              customizations:
-                formData.chart_type === ChartTypes.NUMBER ||
-                formData.chart_type === ChartTypes.PIE ||
-                formData.chart_type === ChartTypes.MAP
-                  ? Object.fromEntries(
-                      Object.entries(formData.customizations || {}).filter(
-                        ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
-                      )
-                    )
-                  : formData.chart_type === ChartTypes.LINE ||
-                      formData.chart_type === ChartTypes.BAR
-                    ? Object.fromEntries(
-                        Object.entries(formData.customizations || {}).filter(
-                          ([key]) =>
-                            key !== 'yAxisNumberFormat' &&
-                            key !== 'yAxisDecimalPlaces' &&
-                            key !== 'xAxisNumberFormat' &&
-                            key !== 'xAxisDecimalPlaces'
-                        )
-                      )
-                    : formData.customizations,
+              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
             }),
             extra_config: {
               filters: [
