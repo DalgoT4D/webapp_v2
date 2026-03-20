@@ -43,6 +43,7 @@ import {
   shouldShowLegend,
 } from '@/lib/responsive-legend';
 import type { ChartDataPayload } from '@/types/charts';
+import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
@@ -74,6 +75,8 @@ import {
   GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { CommentPopover } from '@/components/reports/comment-popover';
+import type { CommentIconState } from '@/types/comments';
 
 // Register necessary ECharts components
 echarts.use([
@@ -113,6 +116,10 @@ interface ChartElementViewProps {
   isPublicMode?: boolean;
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig; // For dashboard title configuration
+  frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
+  onCommentStateChange?: () => void; // Callback when comment state changes
 }
 
 interface DrillDownLevel {
@@ -136,6 +143,10 @@ export function ChartElementView({
   isPublicMode = false,
   publicToken,
   config = {},
+  frozenChartConfig,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -179,13 +190,13 @@ export function ChartElementView({
 
   const regions = isPublicMode ? publicRegions : privateRegions;
 
-  // Fetch chart metadata to determine chart type (only in authenticated mode)
+  // Fetch chart metadata to determine chart type (skip in public mode and report/frozen mode)
   const {
     data: chart,
     isLoading: chartLoading,
     isError: chartError,
     error: chartFetchError,
-  } = useChart(isPublicMode ? null : chartId);
+  } = useChart(isPublicMode || frozenChartConfig ? null : chartId);
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -225,7 +236,7 @@ export function ChartElementView({
 
   // Fetch chart metadata - public vs private mode
   const publicChartMetadataUrl =
-    isPublicMode && publicToken
+    isPublicMode && publicToken && !frozenChartConfig
       ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/`
       : null;
 
@@ -251,9 +262,9 @@ export function ChartElementView({
     }
   );
 
-  // Private mode metadata
+  // Private mode metadata (skip in report/frozen mode)
   const { data: chartMetadata, error: metadataError } = useSWR(
-    !isPublicMode ? `/api/charts/${chartId}` : null,
+    !isPublicMode && !frozenChartConfig ? `/api/charts/${chartId}` : null,
     apiGet,
     {
       revalidateOnFocus: false,
@@ -274,8 +285,8 @@ export function ChartElementView({
     }
   );
 
-  // Use public chart metadata when in public mode, chart when in private mode
-  const effectiveChart = isPublicMode ? publicChartMetadata : chart;
+  // Use frozen config in report mode, public metadata in public mode, or chart in private mode
+  const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === 'table';
@@ -285,14 +296,16 @@ export function ChartElementView({
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
-  const shouldFetchChartData = effectiveChart
-    ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
-    : false;
+  // Skip in report/frozen mode — those use POST /api/charts/chart-data/ instead
+  const shouldFetchChartData =
+    effectiveChart && !frozenChartConfig
+      ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+      : false;
   const {
-    data: chartData,
-    isLoading,
-    error: isError,
-    mutate,
+    data: chartDataGet,
+    isLoading: isLoadingGet,
+    error: isErrorGet,
+    mutate: mutateGet,
   } = useSWR(shouldFetchChartData ? apiUrl : null, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
@@ -422,9 +435,11 @@ export function ChartElementView({
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
             },
-            // Dashboard filters passed separately
+            // Dashboard filters passed separately (skip in report mode — synthetic
+            // filter IDs can't be resolved by the backend; extra_config.filters
+            // already contains the resolved filters via formatAsChartFilters above)
             dashboard_filters:
-              Object.keys(dashboardFilters).length > 0
+              !frozenChartConfig && Object.keys(dashboardFilters).length > 0
                 ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
                     filter_id,
                     value,
@@ -435,10 +450,51 @@ export function ChartElementView({
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
   );
 
+  // Report/frozen mode: fetch chart data via POST with inline config (no chart ID needed)
+  const isPublicReport = isPublicMode && !!frozenChartConfig;
+  const shouldFetchReportChartData =
+    !!frozenChartConfig && !!chartDataPayload && !!effectiveChart
+      ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+      : false;
+
+  const {
+    data: chartDataPost,
+    isLoading: isLoadingPost,
+    error: isErrorPost,
+    mutate: mutatePost,
+  } = useSWR(
+    shouldFetchReportChartData ? ['report-chart-data', chartId, filterHash] : null,
+    shouldFetchReportChartData
+      ? isPublicReport
+        ? async () => {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/chart-data/`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chartDataPayload),
+              }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+          }
+        : () => apiPost('/api/charts/chart-data/', chartDataPayload!)
+      : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
+  );
+
+  // Unified chart data — one source is always null depending on mode
+  const chartData = chartDataPost ?? chartDataGet;
+  const isLoading = isLoadingPost || isLoadingGet;
+  const isError = isErrorPost || isErrorGet;
+  const mutate = frozenChartConfig ? mutatePost : mutateGet;
+
   // For table charts - public vs private mode
   const publicTableDataUrl =
     isPublicMode && publicToken && chartDataPayload && isTableChart
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/`
+      ? isPublicReport
+        ? `/api/v1/public/reports/${publicToken}/chart-data-preview/`
+        : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/`
       : null;
 
   const {
@@ -504,7 +560,9 @@ export function ChartElementView({
   // Get total rows for table pagination (public mode) - POST call like data-preview
   const publicTableTotalRowsUrl =
     isPublicMode && publicToken && chartDataPayload && isTableChart
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
+      ? isPublicReport
+        ? `/api/v1/public/reports/${publicToken}/chart-data-preview/total-rows/`
+        : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
       : null;
 
   const { data: publicTableTotalRowsData } = useSWR(
@@ -722,11 +780,23 @@ export function ChartElementView({
             effectiveChart.extra_config.value_column,
           aggregate_function: effectiveChart.extra_config.aggregate_function || 'sum',
           filters: filters, // Drill-down filters
-          // Send dashboardFilters directly as dashboard_filters (dict format)
-          dashboard_filters: dashboardFilters,
-          // Chart-level filters go in extra_config.filters
+          // In report mode, skip dashboard_filters (frozen IDs can't be resolved
+          // by backend DB lookup); resolved filters go in extra_config.filters instead
+          dashboard_filters: frozenChartConfig ? undefined : dashboardFilters,
+          // Chart-level filters + resolved dashboard filters in report mode
           extra_config: {
-            filters: effectiveChart.extra_config.filters || [], // Chart-level filters only
+            filters: [
+              ...(effectiveChart.extra_config.filters || []),
+              ...(frozenChartConfig
+                ? formatAsChartFilters(
+                    resolvedDashboardFilters.filter(
+                      (f) =>
+                        f.schema_name === effectiveChart.schema_name &&
+                        f.table_name === effectiveChart.table_name
+                    )
+                  )
+                : []),
+            ],
             pagination: effectiveChart.extra_config.pagination,
             sort: effectiveChart.extra_config.sort,
           },
@@ -739,7 +809,9 @@ export function ChartElementView({
     effectiveChart?.extra_config,
     activeGeographicColumn,
     filters,
-    dashboardFilters, // Use raw dashboardFilters (filter_id -> value mapping)
+    dashboardFilters,
+    frozenChartConfig,
+    resolvedDashboardFilters,
   ]);
 
   // Fetch GeoJSON data - public vs private mode
@@ -779,7 +851,9 @@ export function ChartElementView({
   // Fetch map data overlay - public vs private mode
   const publicMapDataUrl =
     isPublicMode && publicToken && mapDataOverlayPayload && isMapChart
-      ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
+      ? isPublicReport
+        ? `/api/v1/public/reports/${publicToken}/map-data/`
+        : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
       : null;
 
   const {
@@ -1423,7 +1497,10 @@ export function ChartElementView({
     try {
       // Handle table chart export
       if (isTableChart && tableRef.current) {
-        const filename = generateFilename(chartMetadata?.title || `table-${chartId}`, 'png');
+        const filename = generateFilename(
+          chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
+          'png'
+        );
         await ChartExporter.exportTableAsImage(tableRef.current, {
           filename,
           format: 'png',
@@ -1498,7 +1575,11 @@ export function ChartElementView({
 
       // Generate filename
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const sanitizedTitle = (chartMetadata?.title || `chart-${chartId}`)
+      const sanitizedTitle = (
+        chartMetadata?.title ||
+        frozenChartConfig?.title ||
+        `chart-${chartId}`
+      )
         .replace(/[^a-z0-9]/gi, '_')
         .replace(/_+/g, '_')
         .toLowerCase();
@@ -1659,6 +1740,20 @@ export function ChartElementView({
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </Button>
+
+            {/* Comment button — only in report mode */}
+            {frozenChartConfig && snapshotId && (
+              <CommentPopover
+                snapshotId={snapshotId}
+                targetType="chart"
+                chartId={chartId}
+                state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
+                count={commentStates?.[String(chartId)]?.count ?? 0}
+                unreadCount={commentStates?.[String(chartId)]?.unread_count ?? 0}
+                triggerClassName="h-7 w-7 p-0"
+                onStateChange={onCommentStateChange}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1666,7 +1761,7 @@ export function ChartElementView({
       {/* Chart Title - HTML title for better styling and interaction */}
       <div className="px-2 pt-2 flex-shrink-0">
         <ChartTitleEditor
-          chartData={isPublicMode ? effectiveChart : chartMetadata}
+          chartData={frozenChartConfig || (isPublicMode ? effectiveChart : chartMetadata)}
           config={config}
           onTitleChange={() => {}} // Read-only in view mode
           isEditMode={false}

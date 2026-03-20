@@ -1,25 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
-import { Filter, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   DashboardFilterConfig,
   ValueFilterConfig,
   NumericalFilterConfig,
   FilterOption,
-  AppliedFilters,
 } from '@/types/dashboard-filters';
-import {
-  DashboardFilterType,
-  NumericalFilterUIMode,
-  DateTimeFilterConfig,
-} from '@/types/dashboard-filters';
+import { DashboardFilterType, NumericalFilterUIMode } from '@/types/dashboard-filters';
 import { DateTimeFilterWidget } from './datetime-filter-widget';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
@@ -34,6 +27,7 @@ interface FilterWidgetProps {
   compact?: boolean;
   isPublicMode?: boolean;
   publicToken?: string;
+  isLocked?: boolean;
 }
 
 // Value Filter Widget (Dropdown/Multi-select)
@@ -496,63 +490,4 @@ export function DashboardFilterWidget(props: FilterWidgetProps) {
       <div className="p-4 text-red-500 border border-red-200 rounded">Filter needs attention</div>
     );
   }
-}
-
-// Filter Bar Component for Dashboard View
-interface DashboardFilterBarProps {
-  filters: DashboardFilterConfig[];
-  values: AppliedFilters;
-  onChange: (filterId: string, value: any) => void;
-  onClearAll: () => void;
-  className?: string;
-}
-
-export function DashboardFilterBar({
-  filters,
-  values,
-  onChange,
-  onClearAll,
-  className,
-}: DashboardFilterBarProps) {
-  const hasActiveFilters = Object.values(values).some(
-    (value) =>
-      value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true)
-  );
-
-  if (filters.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className={cn('bg-gray-50 border-b p-4', className)}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4" />
-          <span className="text-sm font-medium">Filters</span>
-          {hasActiveFilters && (
-            <Badge variant="secondary" className="text-xs">
-              {Object.values(values).filter((v) => v !== null && v !== undefined).length} active
-            </Badge>
-          )}
-        </div>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={onClearAll} className="h-6 text-xs">
-            <RotateCcw className="w-3 h-3 mr-1" />
-            Clear All
-          </Button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filters.map((filter) => (
-          <DashboardFilterWidget
-            key={filter.id}
-            filter={filter}
-            value={values[filter.id]}
-            onChange={onChange}
-          />
-        ))}
-      </div>
-    </div>
-  );
 }

@@ -35,6 +35,9 @@ export function FilterElement({
   isPublicMode = false,
   publicToken,
 }: FilterElementProps) {
+  // Check if filter is locked (e.g., date filter in report mode)
+  const isLocked = !!(filter?.settings as any)?.locked;
+
   const [localValue, setLocalValue] = useState<unknown>(value || null);
 
   // Validate filter before proceeding
@@ -100,8 +103,8 @@ export function FilterElement({
         </div>
       )}
 
-      {/* Action buttons - Hidden by default, shown on hover */}
-      {((isEditMode && (onRemove || onEdit)) || hasValue()) && (
+      {/* Action buttons - Hidden by default, shown on hover. Hidden entirely for locked filters. */}
+      {!isLocked && ((isEditMode && (onRemove || onEdit)) || hasValue()) && (
         <div className="absolute -top-2 -right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
           {hasValue() && (
             <button
@@ -136,13 +139,14 @@ export function FilterElement({
       <DashboardFilterWidget
         filter={filter}
         value={localValue}
-        onChange={handleChange}
+        onChange={isLocked ? () => {} : handleChange}
         className={compact ? '' : 'h-full'}
         isEditMode={isEditMode}
         showTitle={showTitle}
         compact={compact}
         isPublicMode={isPublicMode}
         publicToken={publicToken}
+        isLocked={isLocked}
       />
     </div>
   );

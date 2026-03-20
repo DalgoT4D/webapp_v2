@@ -1,0 +1,52 @@
+export interface CommentAuthor {
+  email: string;
+  name?: string;
+}
+
+export interface CommentMention {
+  email: string;
+  name?: string;
+}
+
+export interface Comment {
+  id: number;
+  target_type: 'summary' | 'chart';
+  snapshot_id: number;
+  chart_id?: number;
+  content: string;
+  author: CommentAuthor;
+  is_new: boolean;
+  created_at: string;
+  updated_at: string;
+  mentions: CommentMention[];
+}
+
+export type CommentIconState = 'none' | 'unread' | 'read' | 'mentioned';
+
+export interface CommentStateEntry {
+  state: CommentIconState;
+  count: number; // total comments
+  unread_count: number; // unread comments
+}
+
+export interface CommentStates {
+  [key: string]: CommentStateEntry; // chart_id or "summary" -> { state, count }
+}
+
+export interface MentionableUser {
+  email: string;
+  name?: string;
+}
+
+export interface CreateCommentPayload {
+  snapshot_id: number;
+  target_type: 'summary' | 'chart';
+  chart_id?: number;
+  content: string;
+}
+
+export interface MarkReadPayload {
+  snapshot_id: number;
+  target_type: 'summary' | 'chart';
+  chart_id?: number;
+}
