@@ -67,6 +67,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from './ShareModal';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
+import { DashboardChatTrigger } from './dashboard-chat-trigger';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
@@ -1248,6 +1249,9 @@ export function DashboardNativeView({
           onUpdate={handleDashboardUpdate}
         />
       )}
+      {dashboard && !isPublicMode ? (
+        <DashboardChatTrigger dashboardId={dashboardId} dashboardTitle={dashboard.title} />
+      ) : null}
     </div>
   );
 }
