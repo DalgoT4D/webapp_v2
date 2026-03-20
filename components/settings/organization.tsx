@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { AlertTriangle, Bot, FileText, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ function formatTimestamp(timestamp: string | null) {
 }
 
 export default function OrganizationSettings() {
+  const router = useRouter();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { hasPermission } = useUserPermissions();
   const featureEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT);
@@ -68,7 +70,7 @@ export default function OrganizationSettings() {
     mutate: mutateDashboardContext,
   } = useDashboardAIContext(
     selectedDashboardId,
-    canLoadProtectedData && selectedDashboardId !== null
+    canLoadProtectedData && !!settings?.ai_data_sharing_enabled && selectedDashboardId !== null
   );
   const { updateSettings, updateDashboardContext } = useDashboardAIChatActions();
 
@@ -83,6 +85,12 @@ export default function OrganizationSettings() {
     () => dashboards.filter((dashboard) => dashboard.dashboard_type === 'native'),
     [dashboards]
   );
+
+  useEffect(() => {
+    if (!featureEnabled) {
+      router.replace('/settings/about');
+    }
+  }, [featureEnabled, router]);
 
   useEffect(() => {
     if (!selectedDashboardId && nativeDashboards.length > 0) {
@@ -159,13 +167,7 @@ export default function OrganizationSettings() {
   };
 
   if (!featureEnabled) {
-    return (
-      <SettingsStateCard
-        icon={Bot}
-        title="Organization Settings"
-        description="Chat with Dashboards is not enabled for this organization."
-      />
-    );
+    return null;
   }
 
   if (!canManageOrgSettings) {
