@@ -12,7 +12,11 @@ import {
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
-import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
+import {
+  createTooltipFormatter,
+  createPieDimensionFormatter,
+  createNumberChartFormatter,
+} from '@/lib/chart-formatting-utils';
 import { ChartTypes } from '@/types/charts';
 
 interface ChartPreviewProps {
@@ -262,29 +266,18 @@ export function ChartPreview({
 
       // Apply number formatting for number charts (frontend-only formatting)
       if (isNumberChart && modifiedConfig.series) {
-        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
-        const decimalPlaces = customizations.decimalPlaces;
-
+        const formatter = createNumberChartFormatter(
+          customizations.numberFormat as NumberFormat,
+          customizations.decimalPlaces,
+          customizations.numberPrefix || '',
+          customizations.numberSuffix || ''
+        );
         const seriesArray = Array.isArray(modifiedConfig.series)
           ? modifiedConfig.series
           : [modifiedConfig.series];
-
         modifiedConfig.series = seriesArray.map((series: any) => ({
           ...series,
-          detail: {
-            ...series.detail,
-            formatter: (value: number) => {
-              // Pass both format and decimalPlaces to the formatter
-              const formatted = formatNumber(value, {
-                format: numberFormat,
-                decimalPlaces: decimalPlaces,
-              });
-              // Apply prefix and suffix from customizations
-              const prefix = customizations.numberPrefix || '';
-              const suffix = customizations.numberSuffix || '';
-              return `${prefix}${formatted}${suffix}`;
-            },
-          },
+          detail: { ...series.detail, formatter },
         }));
       }
 

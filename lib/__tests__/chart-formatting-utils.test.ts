@@ -9,6 +9,7 @@ import {
   createXAxisLabelFormatter,
   createDataLabelFormatter,
   createPieDimensionFormatter,
+  createNumberChartFormatter,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -138,6 +139,33 @@ describe('chart-formatting-utils', () => {
 
       const defaultFormatter = createDataLabelFormatter({ yAxisNumberFormat: 'default' }, 'bar');
       expect(defaultFormatter({ value: 1500 })).toBe('1,500');
+    });
+  });
+
+  describe('createNumberChartFormatter', () => {
+    it('should format value with given number format', () => {
+      const formatter = createNumberChartFormatter('comma', undefined, '', '');
+      expect(formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should apply decimal places', () => {
+      const formatter = createNumberChartFormatter('comma', 2, '', '');
+      expect(formatter(1234567)).toBe('1,234,567.00');
+    });
+
+    it('should apply prefix and suffix', () => {
+      const formatter = createNumberChartFormatter('comma', 0, '$', ' USD');
+      expect(formatter(1000)).toBe('$1,000 USD');
+    });
+
+    it('should use default format when numberFormat is undefined', () => {
+      const formatter = createNumberChartFormatter(undefined, undefined, '', '');
+      expect(formatter(1000)).toBe('1000');
+    });
+
+    it('should handle prefix and suffix with default empty strings', () => {
+      const formatter = createNumberChartFormatter('indian', undefined);
+      expect(formatter(1000000)).toBe('10,00,000');
     });
   });
 

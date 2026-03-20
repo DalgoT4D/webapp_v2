@@ -230,6 +230,29 @@ export function createPieDimensionFormatter(
 }
 
 /**
+ * Creates a formatter function for ECharts number chart (gauge) detail labels.
+ * Applies number format, decimal places, and optional prefix/suffix.
+ *
+ * @param numberFormat - The number format to apply
+ * @param decimalPlaces - The decimal places for formatting
+ * @param prefix - Optional prefix string
+ * @param suffix - Optional suffix string
+ * @returns A function that formats number chart values
+ */
+export function createNumberChartFormatter(
+  numberFormat: NumberFormat | undefined,
+  decimalPlaces: number | undefined,
+  prefix: string = '',
+  suffix: string = ''
+): (value: number) => string {
+  const numFormat = numberFormat || NumberFormats.DEFAULT;
+  return (value: number) => {
+    const formatted = formatNumber(value, { format: numFormat, decimalPlaces });
+    return `${prefix}${formatted}${suffix}`;
+  };
+}
+
+/**
  * Creates a data label formatter function for ECharts series.
  *
  * @param customizations - Chart customization settings
