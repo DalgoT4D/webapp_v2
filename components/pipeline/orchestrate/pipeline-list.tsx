@@ -43,7 +43,7 @@ import {
   FlowRunStateName,
   PipelineRunDisplayStatus,
 } from '@/constants/pipeline';
-import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from './utils';
+import { cronToString, lastRunTime, localTimezone, getFlowRunStartedBy, trimEmail } from '../utils';
 import { useSyncLock } from '@/hooks/useSyncLock';
 import { PipelineRunHistory } from './pipeline-run-history';
 import { cn } from '@/lib/utils';

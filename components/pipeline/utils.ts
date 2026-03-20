@@ -1,5 +1,5 @@
 import { formatDistanceToNow, differenceInSeconds, parseISO } from 'date-fns';
-import type { TransformTask } from '@/types/pipeline';
+import type { TransformTask, DashboardRun } from '@/types/pipeline';
 import {
   TASK_READABLE_NAMES,
   SYSTEM_COMMAND_ORDER,
@@ -7,29 +7,14 @@ import {
   CUSTOM_COMMAND_DEFAULT_ORDER,
   FLOW_RUN_STARTED_BY_DATE_CUTOFF,
   WEEKDAYS,
+  FlowRunStatus,
+  FlowRunStateName,
+  PipelineRunDisplayStatus,
 } from '@/constants/pipeline';
 
 /**
- * Format a timestamp to relative time (e.g., "5 minutes ago")
- */
-export function lastRunTime(startTime: string | null | undefined): string {
-  if (!startTime) return '-';
-  try {
-    return formatDistanceToNow(new Date(startTime), { addSuffix: true });
-  } catch {
-    return '-';
-  }
-}
-
-/**
- * Get user's local timezone
- */
-export function localTimezone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
-
-/**
  * Format duration in seconds to human-readable string (e.g., "2h 30m")
+ * Shows at most 2 time units for readability
  */
 export function formatDuration(seconds: number): string {
   const days = Math.floor(seconds / 86400);
@@ -57,6 +42,25 @@ export function formatDuration(seconds: number): string {
   }
 
   return formatted.trim();
+}
+
+/**
+ * Format a timestamp to relative time (e.g., "5 minutes ago")
+ */
+export function lastRunTime(startTime: string | null | undefined): string {
+  if (!startTime) return '-';
+  try {
+    return formatDistanceToNow(new Date(startTime), { addSuffix: true });
+  } catch {
+    return '-';
+  }
+}
+
+/**
+ * Get user's local timezone
+ */
+export function localTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 /**
@@ -362,6 +366,18 @@ export function getFlowRunStartedBy(flowRunStartTime: string | null, user: strin
   }
 
   return user === 'System' ? 'System' : trimEmail(user);
+}
+
+/**
+ * Determine the display status of a pipeline run for log card coloring
+ */
+export function getRunDisplayStatus(
+  run: DashboardRun | null
+): PipelineRunDisplayStatus | undefined {
+  if (!run) return undefined;
+  if (run.state_name === FlowRunStateName.DBT_TEST_FAILED) return PipelineRunDisplayStatus.WARNING;
+  if (run.status === FlowRunStatus.COMPLETED) return PipelineRunDisplayStatus.SUCCESS;
+  return PipelineRunDisplayStatus.FAILED;
 }
 
 /**
