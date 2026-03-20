@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useCallback } from 'react';
-import type { ChartBuilderFormData } from '@/types/charts';
+import { ChartTypes, type ChartBuilderFormData } from '@/types/charts';
 
 // Import chart type-specific customization components from modules
 import { BarChartCustomizations } from './types/bar/BarChartCustomizations';
@@ -62,7 +62,7 @@ export function ChartCustomizations({
 
   // Compute numericColumns for table charts (needed for useEffect cleanup)
   const numericColumns = useMemo(() => {
-    if (chartType !== 'table' || !formData) return [];
+    if (chartType !== ChartTypes.TABLE || !formData) return [];
 
     const hasAggregation =
       (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
@@ -100,7 +100,7 @@ export function ChartCustomizations({
 
   // Clean up stale column formatting using useEffect (side effect, not during render)
   useEffect(() => {
-    if (chartType !== 'table') return;
+    if (chartType !== ChartTypes.TABLE) return;
 
     const existingFormatting = customizations.columnFormatting || {};
     const numericColumnsSet = new Set(numericColumns);
@@ -126,8 +126,8 @@ export function ChartCustomizations({
   }
 
   switch (chartType) {
-    case 'bar':
-    case 'line': {
+    case ChartTypes.BAR:
+    case ChartTypes.LINE: {
       // Check if the X-axis (dimension) column is numeric
       const xAxisColumn = formData.dimension_column || '';
       const xAxisDataType = columns
@@ -135,7 +135,7 @@ export function ChartCustomizations({
         ?.data_type?.toLowerCase();
       const hasNumericXAxis = xAxisDataType ? NUMERIC_DATA_TYPES.includes(xAxisDataType) : false;
 
-      if (chartType === 'bar') {
+      if (chartType === ChartTypes.BAR) {
         return (
           <BarChartCustomizations
             customizations={customizations}
@@ -156,7 +156,7 @@ export function ChartCustomizations({
       );
     }
 
-    case 'pie':
+    case ChartTypes.PIE:
       return (
         <PieChartCustomizations
           customizations={customizations}
@@ -165,7 +165,7 @@ export function ChartCustomizations({
         />
       );
 
-    case 'number':
+    case ChartTypes.NUMBER:
       return (
         <NumberChartCustomizations
           customizations={customizations}
@@ -174,7 +174,7 @@ export function ChartCustomizations({
         />
       );
 
-    case 'map':
+    case ChartTypes.MAP:
       return (
         <MapChartCustomizations
           customizations={customizations}
@@ -183,7 +183,7 @@ export function ChartCustomizations({
         />
       );
 
-    case 'table': {
+    case ChartTypes.TABLE: {
       // numericColumns is computed in useMemo above
       // Stale formatting cleanup is handled in useEffect above
       return (

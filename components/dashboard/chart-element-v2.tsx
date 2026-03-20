@@ -43,7 +43,7 @@ import {
 } from '@/lib/responsive-legend';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
-import type { ChartDataPayload } from '@/types/charts';
+import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
 import {
@@ -157,7 +157,7 @@ export function ChartElementV2({
   // Handle table row click for drill-down (defined after chart is fetched)
   const handleTableRowClick = useCallback(
     (rowData: Record<string, any>, columnName: string) => {
-      if (chart?.chart_type !== 'table') return;
+      if (chart?.chart_type !== ChartTypes.TABLE) return;
 
       // Check if drill-down is enabled
       const isDrillDownEnabled = chart.extra_config?.dimensions?.some(
@@ -270,21 +270,21 @@ export function ChartElementV2({
 
   // Determine if this is a map chart
   const isMapChart = useMemo(() => {
-    return chart ? chart.chart_type === 'map' : false;
+    return chart ? chart.chart_type === ChartTypes.MAP : false;
   }, [chart]);
 
   const isPieChart = useMemo(() => {
-    return chart ? chart.chart_type === 'pie' : false;
+    return chart ? chart.chart_type === ChartTypes.PIE : false;
   }, [chart]);
 
   const isNumberChart = useMemo(() => {
-    return chart ? chart.chart_type === 'number' : false;
+    return chart ? chart.chart_type === ChartTypes.NUMBER : false;
   }, [chart]);
 
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
-    chart?.chart_type === 'map' && chart?.extra_config?.layers
+    chart?.chart_type === ChartTypes.MAP && chart?.extra_config?.layers
       ? chart.extra_config.layers[currentLevel]
       : null;
 
@@ -318,7 +318,7 @@ export function ChartElementV2({
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
 
-  if (chart?.chart_type === 'map') {
+  if (chart?.chart_type === ChartTypes.MAP) {
     if (drillDownPath.length > 0) {
       // We're in a drill-down state, use the first available geojson for this region
       const lastDrillDown = drillDownPath[drillDownPath.length - 1];
@@ -347,7 +347,7 @@ export function ChartElementV2({
 
   // Now that activeGeographicColumn is defined, create the map data overlay payload
   const mapDataOverlayPayload = useMemo(() => {
-    return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
+    return chart?.chart_type === ChartTypes.MAP && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
@@ -410,7 +410,7 @@ export function ChartElementV2({
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   const shouldFetchChartData = chart
-    ? chart.chart_type !== 'map' && chart.chart_type !== 'table'
+    ? chart.chart_type !== ChartTypes.MAP && chart.chart_type !== ChartTypes.TABLE
     : false; // Don't fetch if chart is not loaded yet
 
   const {
@@ -443,7 +443,7 @@ export function ChartElementV2({
     },
     onError: (error) => {
       // Only log errors for non-map charts since maps should use specialized endpoints
-      if (chart?.chart_type !== 'map') {
+      if (chart?.chart_type !== ChartTypes.MAP) {
         console.error(
           `❌ [${chart?.chart_type?.toUpperCase()}] Error fetching data for chart ${chartId}:`,
           {
@@ -460,7 +460,7 @@ export function ChartElementV2({
 
   // For table charts, also fetch raw data using data preview API
   const chartDataPayload: ChartDataPayload | null = useMemo(() => {
-    if (chart?.chart_type === 'table' && chart) {
+    if (chart?.chart_type === ChartTypes.TABLE && chart) {
       const formattedFilters = formatAsChartFilters(
         resolvedDashboardFilters.filter(
           (filter) =>
@@ -480,7 +480,7 @@ export function ChartElementV2({
         aggregate_func: chart.extra_config?.aggregate_function || 'sum',
         extra_dimension: chart.extra_config?.extra_dimension_column,
         // ✅ FIX: Include dimensions array for table charts with drill-down support
-        ...(chart.chart_type === 'table' && {
+        ...(chart.chart_type === ChartTypes.TABLE && {
           dimensions: (() => {
             const isDrillDownEnabled = chart.extra_config?.dimensions?.some(
               (dim: any) => dim.enable_drill_down === true
@@ -524,7 +524,7 @@ export function ChartElementV2({
           filters: [
             ...(chart.extra_config?.filters || []),
             // Add drill-down filters from tableDrillDownState
-            ...(chart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+            ...(chart.chart_type === ChartTypes.TABLE && tableDrillDownState?.appliedFilters
               ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
                   column,
                   operator: 'equals',
@@ -555,14 +555,14 @@ export function ChartElementV2({
   // Compute derived state
   const isLoading =
     chartLoading ||
-    (chart?.chart_type === 'table'
+    (chart?.chart_type === ChartTypes.TABLE
       ? tableLoading
       : isMapChart
         ? mapLoading || geojsonLoading
         : dataLoading);
   const isError =
     chartError ||
-    (chart?.chart_type === 'table'
+    (chart?.chart_type === ChartTypes.TABLE
       ? tableError
       : isMapChart
         ? mapError || geojsonError
@@ -571,7 +571,7 @@ export function ChartElementV2({
   // Get the actual error message with improved messaging
   const rawErrorMessage =
     chartFetchError?.message ||
-    (chart?.chart_type === 'table'
+    (chart?.chart_type === ChartTypes.TABLE
       ? tableError?.message
       : isMapChart
         ? mapError?.message || geojsonError?.message
@@ -594,7 +594,7 @@ export function ChartElementV2({
 
   // Handle region click for drill-down - EXACT COPY FROM WORKING VIEW MODE
   const handleRegionClick = (regionName: string, regionData: any) => {
-    if (chart?.chart_type !== 'map') return;
+    if (chart?.chart_type !== ChartTypes.MAP) return;
 
     // Check for dynamic drill-down configuration (new system)
     const hasDynamicDrillDown =
@@ -736,7 +736,7 @@ export function ChartElementV2({
   // Force refetch for table data when filters change
   useEffect(() => {
     if (
-      chart?.chart_type === 'table' &&
+      chart?.chart_type === ChartTypes.TABLE &&
       Object.keys(appliedFilters).length > 0 &&
       mutateTableData
     ) {
@@ -1060,8 +1060,8 @@ export function ChartElementV2({
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
-      const isLineChart = chart?.chart_type === 'line';
-      const isBarChart = chart?.chart_type === 'bar';
+      const isLineChart = chart?.chart_type === ChartTypes.LINE;
+      const isBarChart = chart?.chart_type === ChartTypes.BAR;
       if (isLineChart || isBarChart) {
         const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
         const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
@@ -1389,9 +1389,9 @@ export function ChartElementV2({
                   <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
                     <p className="text-sm text-muted-foreground">
-                      {chart?.chart_type === 'table'
+                      {chart?.chart_type === ChartTypes.TABLE
                         ? 'Loading table data...'
-                        : chart?.chart_type === 'map'
+                        : chart?.chart_type === ChartTypes.MAP
                           ? 'Loading map...'
                           : 'Loading chart...'}
                     </p>
@@ -1410,7 +1410,7 @@ export function ChartElementV2({
                   </div>
                 </div>
               </div>
-            ) : chart?.chart_type === 'table' ? (
+            ) : chart?.chart_type === ChartTypes.TABLE ? (
               <div className="flex flex-col h-full">
                 {/* Breadcrumb navigation for drill-down */}
                 {tableDrillDownState && (
@@ -1469,7 +1469,7 @@ export function ChartElementV2({
                   />
                 </div>
               </div>
-            ) : chart?.chart_type === 'map' ? (
+            ) : chart?.chart_type === ChartTypes.MAP ? (
               <MapPreview
                 geojsonData={geojsonData?.geojson_data}
                 geojsonLoading={geojsonLoading}

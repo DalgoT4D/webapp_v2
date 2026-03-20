@@ -44,7 +44,7 @@ import {
 } from '@/lib/responsive-legend';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
-import type { ChartDataPayload } from '@/types/charts';
+import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
@@ -280,17 +280,17 @@ export function ChartElementView({
   const effectiveChart = isPublicMode ? publicChartMetadata : chart;
 
   // Determine chart type using effective chart
-  const isTableChart = effectiveChart?.chart_type === 'table';
-  const isMapChart = effectiveChart?.chart_type === 'map';
-  const isPieChart = effectiveChart?.chart_type === 'pie';
-  const isNumberChart = effectiveChart?.chart_type === 'number';
-  const isLineChart = effectiveChart?.chart_type === 'line';
-  const isBarChart = effectiveChart?.chart_type === 'bar';
+  const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
+  const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
+  const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
+  const isLineChart = effectiveChart?.chart_type === ChartTypes.LINE;
+  const isBarChart = effectiveChart?.chart_type === ChartTypes.BAR;
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
   const shouldFetchChartData = effectiveChart
-    ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+    ? effectiveChart.chart_type !== ChartTypes.MAP && effectiveChart.chart_type !== ChartTypes.TABLE
     : false;
   const {
     data: chartData,
@@ -324,7 +324,7 @@ export function ChartElementView({
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
-    effectiveChart?.chart_type === 'map' && effectiveChart?.extra_config?.layers
+    effectiveChart?.chart_type === ChartTypes.MAP && effectiveChart?.extra_config?.layers
       ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
@@ -341,19 +341,19 @@ export function ChartElementView({
             y_axis: effectiveChart.extra_config?.y_axis_column,
             // For map charts, use geographic_column as dimension_col
             dimension_col:
-              effectiveChart.chart_type === 'map'
+              effectiveChart.chart_type === ChartTypes.MAP
                 ? effectiveChart.extra_config?.geographic_column
                 : effectiveChart.extra_config?.dimension_column,
             // For map charts, use value_column or aggregate_column
             aggregate_col:
-              effectiveChart.chart_type === 'map'
+              effectiveChart.chart_type === ChartTypes.MAP
                 ? effectiveChart.extra_config?.value_column ||
                   effectiveChart.extra_config?.aggregate_column
                 : effectiveChart.extra_config?.aggregate_column,
             aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
             extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
             // ✅ FIX: Include dimensions array for table charts with drill-down support
-            ...(effectiveChart.chart_type === 'table' && {
+            ...(effectiveChart.chart_type === ChartTypes.TABLE && {
               dimensions: (() => {
                 const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
                   (dim: any) => dim.enable_drill_down === true
@@ -407,7 +407,8 @@ export function ChartElementView({
                 // Include chart-level filters
                 ...(effectiveChart.extra_config?.filters || []),
                 // Add drill-down filters from tableDrillDownState
-                ...(effectiveChart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                ...(effectiveChart.chart_type === ChartTypes.TABLE &&
+                tableDrillDownState?.appliedFilters
                   ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
                       column,
                       operator: 'equals',
@@ -548,7 +549,7 @@ export function ChartElementView({
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
     (rowData: Record<string, any>, columnName: string) => {
-      if (effectiveChart?.chart_type !== 'table') return;
+      if (effectiveChart?.chart_type !== ChartTypes.TABLE) return;
 
       // Check if drill-down is enabled
       const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
@@ -674,7 +675,7 @@ export function ChartElementView({
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
 
-  if (effectiveChart?.chart_type === 'map') {
+  if (effectiveChart?.chart_type === ChartTypes.MAP) {
     if (drillDownPath.length > 0) {
       // We're in a drill-down state, use the first available geojson for this region
       const lastDrillDown = drillDownPath[drillDownPath.length - 1];
@@ -714,7 +715,7 @@ export function ChartElementView({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
-    return effectiveChart?.chart_type === 'map' &&
+    return effectiveChart?.chart_type === ChartTypes.MAP &&
       effectiveChart.extra_config &&
       activeGeographicColumn
       ? {
@@ -848,7 +849,7 @@ export function ChartElementView({
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
-    if (effectiveChart.chart_type !== 'map') return;
+    if (effectiveChart.chart_type !== ChartTypes.MAP) return;
 
     // Check for dynamic drill-down configuration (new system)
     const hasDynamicDrillDown =
@@ -1617,13 +1618,13 @@ export function ChartElementView({
       }
 
       // Skip CSV export for number charts (no meaningful data)
-      if (effectiveChart?.chart_type === 'number') {
+      if (effectiveChart?.chart_type === ChartTypes.NUMBER) {
         toast.error('Number charts cannot be exported as CSV');
         return;
       }
 
       // Debug logging for maps
-      if (effectiveChart?.chart_type === 'map') {
+      if (effectiveChart?.chart_type === ChartTypes.MAP) {
         console.log('Map CSV Export - Payload:', {
           chart_type: chartDataPayload.chart_type,
           dimension_col: chartDataPayload.dimension_col,
@@ -1794,7 +1795,7 @@ export function ChartElementView({
                   <FileImage className="w-4 h-4 mr-2" />
                   <span>Download as PNG</span>
                 </DropdownMenuItem>
-                {effectiveChart?.chart_type !== 'number' && (
+                {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
                   <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
                     <FileText className="w-4 h-4 mr-2" />
                     <span>Export Data as CSV</span>

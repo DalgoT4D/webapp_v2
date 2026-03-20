@@ -13,6 +13,7 @@ import {
 } from '@/lib/chart-legend-utils';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import { createTooltipFormatter, createPieDimensionFormatter } from '@/lib/chart-formatting-utils';
+import { ChartTypes } from '@/types/charts';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -70,8 +71,8 @@ export function ChartPreview({
       }
     }
 
-    const isPieChart = detectedChartType === 'pie';
-    const isNumberChart = detectedChartType === 'number' || detectedChartType === 'gauge';
+    const isPieChart = detectedChartType === ChartTypes.PIE;
+    const isNumberChart = detectedChartType === ChartTypes.NUMBER || detectedChartType === 'gauge';
 
     try {
       // Dispose existing instance if it exists
@@ -353,8 +354,8 @@ export function ChartPreview({
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
-      const isLineChart = detectedChartType === 'line';
-      const isBarChart = detectedChartType === 'bar';
+      const isLineChart = detectedChartType === ChartTypes.LINE;
+      const isBarChart = detectedChartType === ChartTypes.BAR;
       if (isLineChart || isBarChart) {
         const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
         const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
@@ -521,7 +522,7 @@ export function ChartPreview({
   }
 
   // Only show configure message for truly empty state (no previous chart)
-  if (!config && chartType !== 'table' && !isLoading && !chartInstance.current) {
+  if (!config && chartType !== ChartTypes.TABLE && !isLoading && !chartInstance.current) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -534,7 +535,7 @@ export function ChartPreview({
   }
 
   // Render table chart
-  if (chartType === 'table') {
+  if (chartType === ChartTypes.TABLE) {
     // Merge customizations.columnFormatting into config.column_formatting for table charts
     const customizations = propCustomizations || config?.extra_config?.customizations || {};
     const tableConfig = customizations?.columnFormatting
