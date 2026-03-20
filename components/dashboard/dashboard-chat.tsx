@@ -28,6 +28,14 @@ function AssistantMeta({ message }: { message: DashboardChatMessage }) {
   const citations = message.payload?.citations || [];
   const relatedDashboards = message.payload?.related_dashboards || [];
   const warnings = message.payload?.warnings || [];
+  const warningEntries = warnings.reduce<Array<{ warning: string; key: string }>>(
+    (entries, warning) => {
+      const duplicateCount = entries.filter((entry) => entry.warning === warning).length + 1;
+      entries.push({ warning, key: `${warning}-${duplicateCount}` });
+      return entries;
+    },
+    []
+  );
 
   if (citations.length === 0 && relatedDashboards.length === 0 && warnings.length === 0) {
     return null;
@@ -37,9 +45,9 @@ function AssistantMeta({ message }: { message: DashboardChatMessage }) {
     <div className="mt-3 space-y-3">
       {warnings.length > 0 ? (
         <div className="space-y-2">
-          {warnings.map((warning) => (
+          {warningEntries.map(({ warning, key }) => (
             <div
-              key={warning}
+              key={key}
               className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
             >
               {warning}

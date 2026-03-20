@@ -45,6 +45,62 @@ function formatTimestamp(timestamp: string | null) {
   }
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+  return 'Please try again.';
+}
+
+function DashboardChatConsentDialog({
+  open,
+  isUpdatingConsent,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  isUpdatingConsent: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enable Chat with Dashboards</DialogTitle>
+          <DialogDescription>
+            Turning this on allows Dalgo to send dashboard context, dbt metadata, and relevant
+            warehouse-derived information to OpenAI in order to generate answers.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 text-sm text-slate-700">
+          <p>
+            Use this only if your organization approves sharing data with external AI services for
+            dashboard question answering.
+          </p>
+          <p>
+            Saved context changes will not appear instantly. They are picked up on the next
+            scheduled context build.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={onConfirm} disabled={isUpdatingConsent}>
+            {isUpdatingConsent ? 'Enabling...' : 'Confirm and enable'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function OrganizationSettings() {
   const router = useRouter();
   const { isFeatureFlagEnabled } = useFeatureFlags();
@@ -121,6 +177,8 @@ export default function OrganizationSettings() {
       await updateSettings({ ai_data_sharing_enabled: false });
       await mutateSettings();
       toast.success('AI data sharing has been turned off');
+    } catch (error) {
+      toast.error(`Failed to turn off AI data sharing: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdatingConsent(false);
     }
@@ -133,6 +191,8 @@ export default function OrganizationSettings() {
       await mutateSettings();
       toast.success('AI data sharing has been enabled');
       setConsentDialogOpen(false);
+    } catch (error) {
+      toast.error(`Failed to turn on AI data sharing: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdatingConsent(false);
     }
@@ -144,6 +204,8 @@ export default function OrganizationSettings() {
       await updateSettings({ org_context_markdown: orgContextDraft });
       await mutateSettings();
       toast.success('Organization AI context saved');
+    } catch (error) {
+      toast.error(`Failed to save settings: ${getErrorMessage(error)}`);
     } finally {
       setIsSavingOrgContext(false);
     }
@@ -161,6 +223,8 @@ export default function OrganizationSettings() {
       });
       await mutateDashboardContext();
       toast.success('Dashboard AI context saved');
+    } catch (error) {
+      toast.error(`Failed to save settings: ${getErrorMessage(error)}`);
     } finally {
       setIsSavingDashboardContext(false);
     }
@@ -309,37 +373,12 @@ export default function OrganizationSettings() {
         )}
       </div>
 
-      <Dialog open={consentDialogOpen} onOpenChange={setConsentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enable Chat with Dashboards</DialogTitle>
-            <DialogDescription>
-              Turning this on allows Dalgo to send dashboard context, dbt metadata, and relevant
-              warehouse-derived information to OpenAI in order to generate answers.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 text-sm text-slate-700">
-            <p>
-              Use this only if your organization approves sharing data with external AI services for
-              dashboard question answering.
-            </p>
-            <p>
-              Saved context changes will not appear instantly. They are picked up on the next
-              scheduled context build.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConsentDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={confirmConsent} disabled={isUpdatingConsent}>
-              {isUpdatingConsent ? 'Enabling...' : 'Confirm and enable'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DashboardChatConsentDialog
+        open={consentDialogOpen}
+        isUpdatingConsent={isUpdatingConsent}
+        onOpenChange={setConsentDialogOpen}
+        onConfirm={confirmConsent}
+      />
     </>
   );
 }
