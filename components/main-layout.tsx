@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
   BarChart3,
+  Building2,
   Database,
   Settings,
   FileText,
@@ -95,6 +96,7 @@ export const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
+  hasPermission: (permissionSlug: string) => boolean,
   transformType?: string,
   roleSlug: Role | '' = ''
 ): NavItemType[] => {
@@ -216,6 +218,15 @@ export const getNavItems = (
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
           visibleToRoles: ADMIN_ROLES,
+        },
+        {
+          title: 'Organization',
+          href: '/settings/organization',
+          icon: Building2,
+          isActive: currentPath.startsWith('/settings/organization'),
+          hide:
+            !isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT) ||
+            !hasPermission('can_manage_org_settings'),
         },
         {
           title: 'About',
@@ -517,7 +528,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
-  const { role } = useRbac();
+  const { role, hasPermission } = useRbac();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
@@ -525,9 +536,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     pathname,
     hasSupersetSetup,
     isFeatureFlagEnabled,
+    (permissionSlug) => hasPermission(permissionSlug as Parameters<typeof hasPermission>[0]),
     transformType,
     role ?? ''
   );
+  const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {
