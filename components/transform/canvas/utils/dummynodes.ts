@@ -82,25 +82,46 @@ export function generateDummyOperationNode({
   };
 }
 
+// Positioning constants matching webapp v1 (src/utils/editor.tsx)
+const NODE_GAP = 30;
+const DEFAULT_NODE_HEIGHT = 100;
+
 /**
  * Calculates position for a new node based on the rightmost
- * existing node on the canvas.
+ * existing node on the canvas — matches webapp v1's getNextNodePosition.
+ * Stacks vertically below the rightmost node (same X, Y + height + gap).
  */
 export function calculateNewNodePosition(
   existingNodes: Node[],
-  offset = { x: 350, y: 0 }
+  height?: number
 ): { x: number; y: number } {
   if (existingNodes.length === 0) {
-    return { x: 100, y: 100 };
+    return { x: 50, y: 50 };
   }
 
-  // Find rightmost node
-  const rightmostNode = existingNodes.reduce((rightmost, node) =>
-    node.position.x > rightmost.position.x ? node : rightmost
-  );
+  let rightMostX = 0;
+  let rightMostY = 0;
+  let rightMostHeight = DEFAULT_NODE_HEIGHT;
 
-  return {
-    x: rightmostNode.position.x + offset.x,
-    y: rightmostNode.position.y + offset.y,
-  };
+  for (const node of existingNodes) {
+    const nodeX = node?.position?.x || 0;
+    const nodeY = node?.position?.y || 0;
+    const nodeHeight = height ?? (node?.height || DEFAULT_NODE_HEIGHT);
+
+    if (isNaN(nodeX) || isNaN(nodeY)) continue;
+
+    if (nodeX > rightMostX) {
+      rightMostX = nodeX;
+      rightMostY = nodeY;
+      rightMostHeight = nodeHeight;
+    }
+  }
+
+  const x = isNaN(rightMostX) ? 50 : rightMostX;
+  const y =
+    isNaN(rightMostY) || isNaN(rightMostHeight)
+      ? 50
+      : rightMostY + rightMostHeight + NODE_GAP;
+
+  return { x, y };
 }

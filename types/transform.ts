@@ -211,6 +211,9 @@ export interface SelectedNodeData {
   type: string;
   data: CanvasNodeRenderData;
   selected?: boolean;
+  /** Canvas position — stored so dummy nodes can be placed relative to it
+   *  without needing to look up the node in React Flow state (matches v1's xPos/yPos) */
+  position?: { x: number; y: number };
 }
 
 // ============================================

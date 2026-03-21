@@ -33,7 +33,7 @@ const operationIcons: Record<string, string> = {
 
 type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
 
-function OperationNode({ id, type, data, selected }: OperationNodeProps) {
+function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodeProps) {
   const edges = useEdges();
   const selectedNode = useSelectedNode();
   const { setSelectedNode, dispatchCanvasAction } = useTransformStore();
@@ -50,7 +50,7 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
 
   // Handle node click — open panel in edit or view mode based on permissions
   const handleNodeClick = useCallback(() => {
-    const nodeProps = { id, type, data, selected };
+    const nodeProps = { id, type, data, selected, position: { x: xPos, y: yPos } };
     setSelectedNode(nodeProps);
 
     if (hasPermission('can_edit_dbt_operation')) {
@@ -98,7 +98,7 @@ function OperationNode({ id, type, data, selected }: OperationNodeProps) {
       />
 
       {/* Delete button — v1 style: absolute at top-right corner outside the node */}
-      {canDelete && !data?.isDummy && (
+      {canDelete && (
         <button
           onClick={handleDeleteClick}
           aria-label="Delete operation"

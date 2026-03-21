@@ -59,7 +59,7 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
     async (dbtmodelUuid: string): Promise<CanvasNodeDataResponse> => {
       setIsCreating(true);
       try {
-        const response = await apiPost<CanvasNodeDataResponse>(
+        const response = await apiPost(
           `/api/transform/v2/dbt_project/models/${dbtmodelUuid}/nodes/`,
           {}
         );
@@ -80,20 +80,19 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
       setIsCreating(true);
       try {
         // POST to operations/nodes/ with input_node_uuid in payload
-        const response = await apiPost<CanvasNodeDataResponse>(
-          `/api/transform/v2/dbt_project/operations/nodes/`,
-          {
-            ...payload,
-            input_node_uuid: inputNodeUuid,
-          }
-        );
-        await refreshGraph();
+        // Note: does NOT refresh graph — caller (handleContinueOperationChain)
+        // places the real node at the dummy's position first, then refreshes.
+        // This matches v1's pattern where prepareForNextOperation handles positioning.
+        const response = await apiPost(`/api/transform/v2/dbt_project/operations/nodes/`, {
+          ...payload,
+          input_node_uuid: inputNodeUuid,
+        });
         return response;
       } finally {
         setIsCreating(false);
       }
     },
-    [refreshGraph]
+    []
   );
 
   const editOperation = useCallback(
@@ -104,7 +103,7 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
       setIsEditing(true);
       try {
         // PUT to operations/nodes/{nodeUuid}/
-        const response = await apiPut<CanvasNodeDataResponse>(
+        const response = await apiPut(
           `/api/transform/v2/dbt_project/operations/nodes/${nodeUuid}/`,
           payload
         );

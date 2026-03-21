@@ -101,16 +101,23 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // Create dummy node when operation selected
   const createDummyNode = useCallback(
     (operation: UIOperationType) => {
-      if (!selectedNode) return;
+      // Read selectedNode directly from the store at call time to avoid stale closures.
+      // This matches v1 which reads canvasNode from context at call time.
+      const currentNode = useTransformStore.getState().selectedNode;
+      if (!currentNode) return;
 
       const dummyId = `dummy-${Date.now()}`;
       dummyNodeIdRef.current = dummyId;
 
-      // Get source node position from React Flow
-      const nodes = getNodes();
-      const sourceNode = nodes.find((n) => n.id === selectedNode.id);
-      const sourcePosition = sourceNode?.position || { x: 0, y: 0 };
+      // Use position stored on selectedNode (set during click, like v1's xPos/yPos).
+      // Fallback: look up position from React Flow state.
+      let sourcePosition = currentNode.position;
+      if (!sourcePosition) {
+        const flowNode = getNodes().find((n) => n.id === currentNode.id);
+        sourcePosition = flowNode?.position || { x: 0, y: 0 };
+      }
 
+      // Position to the right of the source node, matching the LR dagre layout
       const dummyNode = {
         id: dummyId,
         type: CanvasNodeTypeEnum.Operation,
@@ -137,7 +144,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
 
       const dummyEdge = {
         id: `edge-dummy-${dummyId}`,
-        source: selectedNode.id,
+        source: currentNode.id,
         target: dummyId,
         type: 'default',
         animated: true,
@@ -147,7 +154,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       setNodes((prevNodes) => [...prevNodes, dummyNode]);
       setEdges((prevEdges) => [...prevEdges, dummyEdge]);
     },
-    [selectedNode, setNodes, setEdges, getNodes]
+    [setNodes, setEdges, getNodes]
   );
 
   // Clean up dummy nodes and any orphan dummy edges
@@ -242,49 +249,101 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // Track whether to show "Add Function" in the create-table-or-add-function panel
   const [showAddFunction, setShowAddFunction] = useState(true);
 
-  // After operation saved successfully — update selectedNode to the real operation node
+  // After operation saved — swap dummy for real node at dummy's position FIRST,
+  // then refresh graph so Canvas.tsx sees the real node already positioned and
+  // preserves it via currentPosMap. New nodes (e.g. second table in union/join)
+  // get positioned via the shift calculation in Canvas.tsx.
   const handleContinueOperationChain = useCallback(
     async (...args: unknown[]) => {
-      cleanupDummyNodes();
-
-      // First arg is the new operation node UUID (passed from form after createOperation)
+      // First arg is the new operation node UUID (from createOperation response)
       // For edits, it will be undefined — use selectedNode.id as fallback
       const newNodeUuid = (args[0] as string | undefined) || selectedNode?.id;
-      // Always refetch graph to get updated node data
+      const dummyId = dummyNodeIdRef.current;
+
+      if (newNodeUuid && dummyId && newNodeUuid !== dummyId) {
+        // --- Swap dummy operation node for real node at the same position ---
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
+        const dummyNode = currentNodes.find((n) => n.id === dummyId);
+        const dummyEdges = currentEdges.filter(
+          (e) => e.source === dummyId || e.target === dummyId
+        );
+
+        if (dummyNode) {
+          const realNode = {
+            id: newNodeUuid,
+            type: CanvasNodeTypeEnum.Operation as string,
+            position: { ...dummyNode.position },
+            data: {
+              ...dummyNode.data,
+              uuid: newNodeUuid,
+              isDummy: false,
+            },
+          };
+
+          // Remap edges from dummy → real node
+          const realEdges = dummyEdges.map((edge) => {
+            const source = edge.source === dummyId ? newNodeUuid : edge.source;
+            const target = edge.target === dummyId ? newNodeUuid : edge.target;
+            return {
+              id: `${source}_${target}`,
+              source,
+              target,
+              sourceHandle: edge.sourceHandle,
+              targetHandle: edge.targetHandle,
+            };
+          });
+
+          // Swap: remove dummy, add real node + remapped edges
+          setNodes((prev) => [
+            ...prev.filter((n) => n.id !== dummyId),
+            realNode,
+          ]);
+          setEdges((prev) => [
+            ...prev.filter((e) => !dummyEdges.some((de) => de.id === e.id)),
+            ...realEdges,
+          ]);
+        } else {
+          cleanupDummyNodes();
+        }
+      } else {
+        // Edit mode or no dummy — just clean up
+        cleanupDummyNodes();
+      }
+
+      dummyNodeIdRef.current = null;
+
+      // Now refresh graph to get full node data from API.
+      // The real operation node is already on the canvas with the correct position,
+      // so Canvas.tsx's incremental update will preserve it via currentPosMap.
+      // Any new nodes (e.g. second table in union) get positioned via shift calculation.
       await mutate(CANVAS_GRAPH_KEY);
 
-      // Small delay to allow React Flow to process the new nodes
+      // Small delay to allow React Flow to process the refreshed nodes
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       if (newNodeUuid) {
-        // Look up the node in the updated graph
         const nodes = getNodes();
         const newNode = nodes.find((n) => n.id === newNodeUuid);
         if (newNode) {
           setSelectedNode(newNode as unknown as SelectedNodeData);
-
-          // Check if the saved operation is chain-terminal (rawsql)
           const savedOpType = newNode.data?.operation_config?.type;
           const isChainTerminal = savedOpType === 'rawsql';
           setShowAddFunction(!isChainTerminal);
         } else {
-          // Node might not be in graph yet — create a minimal selectedNode reference
           setSelectedNode({
             id: newNodeUuid,
             type: 'operation',
             data: { uuid: newNodeUuid, node_type: CanvasNodeTypeEnum.Operation },
           } as unknown as SelectedNodeData);
-
           const isChainTerminal = selectedOp?.slug === 'rawsql';
           setShowAddFunction(!isChainTerminal);
         }
       }
 
-      // For new operations: always show "create table or add function"
-      // For edits: also show it so user can chain more or create table
       setPanelState('create-table-or-add-function');
     },
-    [cleanupDummyNodes, getNodes, setSelectedNode, selectedNode?.id, selectedOp, mutate]
+    [cleanupDummyNodes, getNodes, getEdges, setNodes, setEdges, setSelectedNode, selectedNode?.id, selectedOp, mutate]
   );
 
   // User chose to create a table

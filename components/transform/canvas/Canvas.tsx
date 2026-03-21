@@ -126,9 +126,6 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const processedDataRef = useRef<string>('');
-  // Track positions of nodes that have already been laid out
-  const nodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const isInitialLayoutRef = useRef(true);
   const {
     setSelectedNode,
     tempLockCanvas,
@@ -144,7 +141,14 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     isLoading,
   } = useCanvasGraph({ skipInitialFetch: isPreviewMode, autoSync: !isPreviewMode });
 
-  // Process API data when it changes — preserve existing node positions on incremental updates
+  const { setCenter, getNodes: getFlowNodes } = useReactFlow();
+
+  // Process API data when it changes.
+  // On first load: full dagre layout (like v1's fetchDbtProjectGraph).
+  // On incremental updates: run dagre on the full graph to get ideal positions for NEW nodes,
+  // but preserve existing node positions so the canvas doesn't jump.
+  const isFirstLoadRef = useRef(true);
+
   useEffect(() => {
     const dataHash = JSON.stringify({
       nodeIds: apiNodes.map((n) => n.uuid).sort(),
@@ -157,89 +161,95 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     if (apiNodes.length === 0 && apiEdges.length === 0) {
       setNodes([]);
       setEdges([]);
-      nodePositionsRef.current.clear();
-      isInitialLayoutRef.current = true;
+      isFirstLoadRef.current = true;
       return;
     }
 
     const flowNodes = transformToFlowNodes(apiNodes);
     const flowEdges = transformToFlowEdges(apiEdges);
 
-    // First load: run full dagre layout
-    if (isInitialLayoutRef.current) {
-      isInitialLayoutRef.current = false;
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-        flowNodes,
-        flowEdges
-      );
-      // Store all positions for future incremental updates
-      layoutedNodes.forEach((n) => nodePositionsRef.current.set(n.id, n.position));
-      setNodes(layoutedNodes);
-      setEdges(layoutedEdges);
+    // Run dagre on the full graph to get ideal positions
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      flowNodes,
+      flowEdges
+    );
+
+    if (isFirstLoadRef.current) {
+      // First load: use all dagre positions (like v1)
+      isFirstLoadRef.current = false;
+      setNodes([...layoutedNodes]);
+      setEdges([...layoutedEdges]);
       return;
     }
 
-    // Incremental update: preserve existing positions, only layout new nodes
-    const newNodeIds = flowNodes
-      .filter((n) => !nodePositionsRef.current.has(n.id))
-      .map((n) => n.id);
+    // Incremental update: preserve existing positions, use dagre only for new nodes
+    // Read current positions from React Flow's live state (always up-to-date)
+    const currentNodes = getFlowNodes();
+    const currentPosMap = new Map<string, { x: number; y: number }>(
+      currentNodes
+        .filter((n: Node<CanvasNodeRenderData>) => !n.data?.isDummy)
+        .map((n: Node<CanvasNodeRenderData>) => [n.id, n.position])
+    );
 
-    if (newNodeIds.length > 0) {
-      // Position new nodes relative to their input (source) node via edges,
-      // instead of running dagre which calculates positions assuming all nodes
-      // are at dagre-ideal positions (causing the "moves up" bug).
-      const mergedNodes = flowNodes.map((n) => {
-        const existingPos = nodePositionsRef.current.get(n.id);
-        if (existingPos) {
-          return { ...n, position: existingPos };
-        }
+    // Calculate offset between dagre's coordinate space and actual canvas positions.
+    // Dagre computes from scratch starting near (0,0), but existing nodes are elsewhere.
+    // Sample one existing node to find the translation so new nodes (e.g. second table
+    // in a union/join) land near the rest of the graph, not at the canvas origin.
+    let shiftX = 0;
+    let shiftY = 0;
+    let hasShift = false;
 
-        // New node — find its input node via edges and position to the right
-        const incomingEdge = flowEdges.find((e) => e.target === n.id);
-        if (incomingEdge) {
-          const sourcePos = nodePositionsRef.current.get(incomingEdge.source);
-          if (sourcePos) {
-            const newPos = {
-              x: sourcePos.x + DAGRE_RANKSEP,
-              y: sourcePos.y,
-            };
-            nodePositionsRef.current.set(n.id, newPos);
-            return { ...n, position: newPos };
-          }
-        }
-
-        // Fallback: no edge found — run dagre for just this node's position
-        const { nodes: layoutedNodes } = getLayoutedElements(flowNodes, flowEdges);
-        const layoutedNode = layoutedNodes.find((ln) => ln.id === n.id);
-        const fallbackPos = layoutedNode?.position ?? { x: 0, y: 0 };
-        nodePositionsRef.current.set(n.id, fallbackPos);
-        return { ...n, position: fallbackPos };
-      });
-      setNodes(mergedNodes);
-    } else {
-      // Nodes were removed or data updated — preserve all existing positions
-      const updatedNodes = flowNodes.map((n) => {
-        const existingPos = nodePositionsRef.current.get(n.id);
-        return existingPos ? { ...n, position: existingPos } : n;
-      });
-      setNodes(updatedNodes);
-    }
-
-    // Clean up positions for removed nodes
-    const currentNodeIds = new Set(flowNodes.map((n) => n.id));
-    for (const id of nodePositionsRef.current.keys()) {
-      if (!currentNodeIds.has(id)) {
-        nodePositionsRef.current.delete(id);
+    for (const layoutedNode of layoutedNodes) {
+      const existingPos = currentPosMap.get(layoutedNode.id);
+      if (existingPos) {
+        shiftX = existingPos.x - layoutedNode.position.x;
+        shiftY = existingPos.y - layoutedNode.position.y;
+        hasShift = true;
+        break;
       }
     }
 
-    setEdges(flowEdges);
-  }, [apiNodes, apiEdges, setNodes, setEdges]);
+    const finalNodes = layoutedNodes.map((n) => {
+      const existingPos = currentPosMap.get(n.id);
+      if (existingPos) {
+        // Keep the existing position — don't let dagre move it
+        return { ...n, position: existingPos };
+      }
+      // New node — shift dagre's position into the canvas coordinate space
+      if (hasShift) {
+        return { ...n, position: { x: n.position.x + shiftX, y: n.position.y + shiftY } };
+      }
+      return n;
+    });
+
+    // Push new nodes away from existing nodes if they overlap.
+    // dagre uses zero-size nodes so its spacing can be tighter than the visual node size.
+    const NEW_NODE_GAP = 30;
+    for (const node of finalNodes) {
+      if (currentPosMap.has(node.id)) continue; // skip existing nodes
+      for (const other of finalNodes) {
+        if (other.id === node.id) continue;
+        const otherPos = currentPosMap.get(other.id) || other.position;
+        const dx = Math.abs(node.position.x - otherPos.x);
+        const dy = Math.abs(node.position.y - otherPos.y);
+        // Same column (within NODE_WIDTH) and vertically overlapping
+        if (dx < NODE_WIDTH && dy < NODE_HEIGHT) {
+          // Push below the other node
+          node.position = {
+            x: node.position.x,
+            y: otherPos.y + NODE_HEIGHT + NEW_NODE_GAP,
+          };
+        }
+      }
+    }
+
+    setNodes([...finalNodes]);
+    setEdges([...layoutedEdges]);
+  }, [apiNodes, apiEdges, setNodes, setEdges, getFlowNodes]);
 
   // Focus on a specific node when focus-node action is dispatched
   const canvasAction = useCanvasAction();
   const { clearCanvasAction } = useTransformStore();
-  const { setCenter, getNodes: getFlowNodes } = useReactFlow();
 
   useEffect(() => {
     if (canvasAction.type !== 'focus-node') return undefined;
@@ -285,30 +295,53 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
   const clearPreviewAction = useTransformStore((s) => s.clearPreviewAction);
   const setPreviewData = useTransformStore((s) => s.setPreviewData);
 
-  // Overlap detection — push dragged node away if it overlaps another
+  // Overlap detection — matches webapp v1 Canvas.tsx onNodeDragStop
+  // Uses actual pixel overlap calculation and pushes in both X and Y directions
+  const NODE_GAP = 30;
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, draggedNode: Node) => {
-      let finalPosition = draggedNode.position;
+      let x = draggedNode.position.x;
+      let y = draggedNode.position.y;
+      const draggedWidth = draggedNode.width || NODE_WIDTH;
+      const draggedHeight = draggedNode.height || NODE_HEIGHT;
 
       for (const otherNode of nodes) {
         if (otherNode.id === draggedNode.id) continue;
 
-        const xOverlap = Math.abs(draggedNode.position.x - otherNode.position.x) < NODE_WIDTH;
-        const yOverlap = Math.abs(draggedNode.position.y - otherNode.position.y) < NODE_HEIGHT;
+        const otherWidth = otherNode.width || NODE_WIDTH;
+        const otherHeight = otherNode.height || NODE_HEIGHT;
 
-        if (xOverlap && yOverlap) {
-          const OVERLAP_GAP = 20;
-          const newX = otherNode.position.x + NODE_WIDTH + OVERLAP_GAP;
-          finalPosition = { ...draggedNode.position, x: newX };
-          setNodes((nds) =>
-            nds.map((n) => (n.id === draggedNode.id ? { ...n, position: finalPosition } : n))
-          );
-          break;
+        const xOverlap = Math.max(
+          0,
+          Math.min(x + draggedWidth, otherNode.position.x + otherWidth) -
+            Math.max(x, otherNode.position.x)
+        );
+        const yOverlap = Math.max(
+          0,
+          Math.min(y + draggedHeight, otherNode.position.y + otherHeight) -
+            Math.max(y, otherNode.position.y)
+        );
+
+        if (xOverlap > 0 && yOverlap > 0) {
+          if (x < otherNode.position.x) {
+            x -= xOverlap + NODE_GAP;
+          } else {
+            x += xOverlap + NODE_GAP;
+          }
+
+          if (y < otherNode.position.y) {
+            y -= yOverlap + NODE_GAP;
+          } else {
+            y += yOverlap + NODE_GAP;
+          }
         }
       }
 
-      // Persist the final position so incremental updates don't reset it
-      nodePositionsRef.current.set(draggedNode.id, finalPosition);
+      const finalPosition = { x, y };
+      setNodes((nds) =>
+        nds.map((n) => (n.id === draggedNode.id ? { ...n, position: finalPosition } : n))
+      );
+
     },
     [nodes, setNodes]
   );

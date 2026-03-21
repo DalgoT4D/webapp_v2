@@ -19,7 +19,7 @@ const TABLE_CONTENT_BG = '#F8F8F8';
 const TABLE_ODD_ROW = '#F7F7F7';
 const TABLE_BORDER = '#E8E8E8';
 
-function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProps) {
+function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceModelNodeProps) {
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [isLoadingColumns, setIsLoadingColumns] = useState(false);
   const fetchedRef = useRef(false);
@@ -77,7 +77,7 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
       setPreviewData({ schema, table: tableName });
     }
 
-    setSelectedNode({ id, type, data, selected });
+    setSelectedNode({ id, type, data, selected, position: { x: xPos, y: yPos } });
 
     // Only open operation panel if user has create permission
     if (hasPermission('can_create_dbt_model')) {
@@ -88,6 +88,8 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
     type,
     data,
     selected,
+    xPos,
+    yPos,
     schema,
     tableName,
     setSelectedNode,
@@ -107,8 +109,15 @@ function DbtSourceModelNode({ id, type, data, selected }: DbtSourceModelNodeProp
     [id, type, data?.isDummy, data?.uuid, dispatchCanvasAction]
   );
 
-  // Format display: "schema.tableName" for header
-  const headerText = schema ? `${schema}.${truncateName(displayName)}` : truncateName(displayName);
+  // Format display: "schema.tableName" for header.
+  // data.name from the API may already include the schema prefix (e.g. "intermediate.table_name"),
+  // so only prepend schema if displayName doesn't already start with it.
+  const alreadyHasSchema = schema && displayName.startsWith(`${schema}.`);
+  const headerText = alreadyHasSchema
+    ? truncateName(displayName)
+    : schema
+      ? `${schema}.${truncateName(tableName)}`
+      : truncateName(displayName);
 
   return (
     <div

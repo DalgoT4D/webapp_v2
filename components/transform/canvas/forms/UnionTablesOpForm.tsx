@@ -39,11 +39,20 @@ export function UnionTablesOpForm({
   operation,
   continueOperationChain,
   clearAndClosePanel,
+  dummyNodeId,
   action,
   setLoading,
 }: OperationFormProps) {
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
+
+  // Capture node on mount so it's stable even if selectedNode changes in the store
+  // (e.g. user clicks canvas pane which sets selectedNode to null)
+  const stableNodeRef = useRef(node);
+  if (!stableNodeRef.current && node) {
+    stableNodeRef.current = node;
+  }
+  const stableNode = stableNodeRef.current;
 
   const [srcColumns, setSrcColumns] = useState<string[]>([]);
 
@@ -91,11 +100,11 @@ export function UnionTablesOpForm({
 
   // Fetch node detail from API and pre-fill form (v1 pattern)
   const fetchAndSetConfigForEdit = useCallback(async () => {
-    if (!node?.id) return;
+    if (!stableNode?.id) return;
     try {
       setLoading(true);
       const nodeResponseData = (await apiGet(
-        `/api/transform/v2/dbt_project/nodes/${node.id}/`
+        `/api/transform/v2/dbt_project/nodes/${stableNode.id}/`
       )) as CanvasNodeDataResponse;
       const { operation_config, input_nodes } = nodeResponseData;
 
@@ -124,34 +133,34 @@ export function UnionTablesOpForm({
     } finally {
       setLoading(false);
     }
-  }, [node?.id, reset, setLoading]);
+  }, [stableNode?.id, reset, setLoading]);
 
   // Load form data — matches v1 pattern
   useEffect(() => {
-    if (node?.data?.isDummy) return;
+    if (stableNode?.data?.isDummy) return;
 
     if (isEditMode || isViewMode) {
       fetchAndSetConfigForEdit();
     } else {
       // Create mode: set source columns and Table 1 from current node
-      if (node?.data?.output_columns) {
-        setSrcColumns(node.data.output_columns);
+      if (stableNode?.data?.output_columns) {
+        setSrcColumns(stableNode.data.output_columns);
       }
 
-      if (node?.data?.dbtmodel) {
+      if (stableNode?.data?.dbtmodel) {
         setValue('tables.0', {
-          id: node.data.dbtmodel.uuid || node.id,
-          label: `${node.data.dbtmodel.schema}.${node.data.dbtmodel.name}`,
+          id: stableNode.data.dbtmodel.uuid || stableNode.id,
+          label: `${stableNode.data.dbtmodel.schema}.${stableNode.data.dbtmodel.name}`,
         });
-      } else if (node?.data?.name) {
+      } else if (stableNode?.data?.name) {
         setValue('tables.0', {
-          id: node.id,
-          label: node.data.name,
+          id: stableNode.id,
+          label: stableNode.data.name,
         });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node]);
+  }, [stableNode]);
 
   // Handle table selection — also add dummy node to canvas
   const handleTableSelect = useCallback(
@@ -166,23 +175,26 @@ export function UnionTablesOpForm({
         dummyNodeMapRef.current.delete(index);
       }
 
-      // Add dummy source node to canvas
+      // Position dummy source node relative to the dummy operation node,
+      // falling back to stableNode.position (stored at click time, like v1's xPos/yPos)
       const nodes = getNodes();
-      const sourceNode = nodes.find((n) => n.id === node?.id);
+      const opNode = dummyNodeId ? nodes.find((n) => n.id === dummyNodeId) : null;
+      const refPos = opNode?.position || stableNode?.position || { x: 0, y: 0 };
       const dummyNode = generateDummySrcModelNode({
         schema: model.schema,
         name: model.display_name || model.name,
         type: model.type as 'source' | 'model',
         position: {
-          x: (sourceNode?.position.x ?? 0) + 350,
-          y: (sourceNode?.position.y ?? 0) + 150 * index,
+          x: refPos.x - 350,
+          y: refPos.y + 200 * index,
         },
       });
 
+      // Edge goes from dummy source node → dummy operation node (matching v1)
       const dummyEdge = {
         id: `edge-dummy-${dummyNode.id}`,
         source: dummyNode.id,
-        target: node?.id || '',
+        target: dummyNodeId || stableNode?.id || '',
         type: 'default',
         animated: true,
         style: { strokeDasharray: '5,5' },
@@ -198,7 +210,7 @@ export function UnionTablesOpForm({
         label: `${model.schema}.${model.name}`,
       });
     },
-    [sourcesModels, node?.id, deleteElements, getNodes, addNodes, addEdges, setValue]
+    [sourcesModels, stableNode?.id, dummyNodeId, deleteElements, getNodes, addNodes, addEdges, setValue]
   );
 
   // Handle remove table — also clean up its dummy node
@@ -216,7 +228,7 @@ export function UnionTablesOpForm({
 
   // Build table items for searchable combobox, grouped by schema
   const tableItems: ComboboxItem[] = sourcesModels
-    .filter((m) => m.uuid !== node?.data?.dbtmodel?.uuid) // Exclude current table
+    .filter((m) => m.uuid !== stableNode?.data?.dbtmodel?.uuid) // Exclude current table
     .map((model) => ({
       value: model.uuid,
       label: model.display_name || `${model.schema}.${model.name}`,
@@ -237,7 +249,7 @@ export function UnionTablesOpForm({
   }, [deleteElements]);
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
+    if (!stableNode?.id) {
       toastError.api('No node selected');
       return;
     }
@@ -263,10 +275,10 @@ export function UnionTablesOpForm({
           // Try to fetch columns from warehouse if not available
           if (columns.length === 0 && model) {
             try {
-              const data = (await apiGet(
+              const colData = (await apiGet(
                 `/api/warehouse/table_columns/${model.schema}/${model.name}`
               )) as { name: string }[];
-              columns = data.map((c: { name: string }) => c.name);
+              columns = colData.map((c: { name: string }) => c.name);
             } catch (error) {
               console.error('Failed to fetch columns for table:', model.name);
             }
@@ -287,14 +299,14 @@ export function UnionTablesOpForm({
         other_inputs: otherInputs,
       };
 
-      const finalAction = node.data?.isDummy ? 'create' : action;
+      const finalAction = stableNode.data?.isDummy ? 'create' : action;
       let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
+        await editOperation(stableNode.id, payload);
       } else {
-        const response = await createOperation(node.id, {
+        const response = await createOperation(stableNode.id, {
           ...payload,
-          input_node_uuid: node.id,
+          input_node_uuid: stableNode.id,
         });
         createdNodeUuid = response?.uuid;
       }

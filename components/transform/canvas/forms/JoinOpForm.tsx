@@ -45,11 +45,20 @@ export function JoinOpForm({
   operation,
   continueOperationChain,
   clearAndClosePanel,
+  dummyNodeId,
   action,
   setLoading,
 }: OperationFormProps) {
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
+
+  // Capture node on mount so it's stable even if selectedNode changes in the store
+  // (e.g. user clicks canvas pane which sets selectedNode to null)
+  const stableNodeRef = useRef(node);
+  if (!stableNodeRef.current && node) {
+    stableNodeRef.current = node;
+  }
+  const stableNode = stableNodeRef.current;
 
   const [srcColumns, setSrcColumns] = useState<string[]>([]);
   const [table2Columns, setTable2Columns] = useState<string[]>([]);
@@ -94,11 +103,11 @@ export function JoinOpForm({
 
   // Fetch node detail from API and pre-fill form (v1 pattern)
   const fetchAndSetConfigForEdit = useCallback(async () => {
-    if (!node?.id) return;
+    if (!stableNode?.id) return;
     try {
       setLoading(true);
       const nodeResponseData = (await apiGet(
-        `/api/transform/v2/dbt_project/nodes/${node.id}/`
+        `/api/transform/v2/dbt_project/nodes/${stableNode.id}/`
       )) as CanvasNodeDataResponse;
       const { operation_config, input_nodes } = nodeResponseData;
 
@@ -137,18 +146,18 @@ export function JoinOpForm({
     } finally {
       setLoading(false);
     }
-  }, [node?.id, reset, setLoading]);
+  }, [stableNode?.id, reset, setLoading]);
 
   // Fetch source columns from node (Table 1) — for create mode
   const fetchAndSetSourceColumns = useCallback(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
+    if (stableNode?.data?.output_columns) {
+      setSrcColumns(stableNode.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
     }
-  }, [node]);
+  }, [stableNode]);
 
   // Load form data — matches v1 pattern
   useEffect(() => {
-    if (node?.data?.isDummy) return;
+    if (stableNode?.data?.isDummy) return;
 
     if (isEditMode || isViewMode) {
       fetchAndSetConfigForEdit();
@@ -156,7 +165,7 @@ export function JoinOpForm({
       fetchAndSetSourceColumns();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node]);
+  }, [stableNode]);
 
   // Handle table 2 selection — also add dummy node to canvas
   const handleTable2Select = useCallback(
@@ -173,23 +182,26 @@ export function JoinOpForm({
         dummyNodeIdsRef.current = [];
       }
 
-      // Add new dummy source node to canvas
+      // Position dummy source node relative to the dummy operation node,
+      // falling back to stableNode.position (stored at click time, like v1's xPos/yPos)
       const nodes = getNodes();
-      const sourceNode = nodes.find((n) => n.id === node?.id);
+      const opNode = dummyNodeId ? nodes.find((n) => n.id === dummyNodeId) : null;
+      const refPos = opNode?.position || stableNode?.position || { x: 0, y: 0 };
       const dummyNode = generateDummySrcModelNode({
         schema: model.schema,
         name: model.display_name || model.name,
         type: model.type as 'source' | 'model',
         position: {
-          x: (sourceNode?.position.x ?? 0) + 350,
-          y: (sourceNode?.position.y ?? 0) + 150,
+          x: refPos.x - 350,
+          y: refPos.y + 200,
         },
       });
 
+      // Edge goes from dummy source node → dummy operation node (matching v1)
       const dummyEdge = {
         id: `edge-dummy-${dummyNode.id}`,
         source: dummyNode.id,
-        target: node?.id || '',
+        target: dummyNodeId || stableNode?.id || '',
         type: 'default',
         animated: true,
         style: { strokeDasharray: '5,5' },
@@ -204,12 +216,12 @@ export function JoinOpForm({
       setValue('table2_key', ''); // Reset key when table changes
       setTable2Columns(model.output_cols || []);
     },
-    [sourcesModels, node?.id, deleteElements, getNodes, addNodes, addEdges, setValue]
+    [sourcesModels, stableNode?.id, dummyNodeId, deleteElements, getNodes, addNodes, addEdges, setValue]
   );
 
   // Build table options for searchable combobox, grouped by schema
   const tableItems: ComboboxItem[] = sourcesModels
-    .filter((m) => m.uuid !== node?.data?.dbtmodel?.uuid) // Exclude current table
+    .filter((m) => m.uuid !== stableNode?.data?.dbtmodel?.uuid) // Exclude current table
     .map((model) => ({
       value: model.uuid,
       label: model.display_name || `${model.schema}.${model.name}`,
@@ -218,7 +230,7 @@ export function JoinOpForm({
     .sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
+    if (!stableNode?.id) {
       toastError.api('No node selected');
       return;
     }
@@ -276,14 +288,14 @@ export function JoinOpForm({
         ],
       };
 
-      const finalAction = node.data?.isDummy ? 'create' : action;
+      const finalAction = stableNode.data?.isDummy ? 'create' : action;
       let createdNodeUuid: string | undefined;
       if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
+        await editOperation(stableNode.id, payload);
       } else {
-        const response = await createOperation(node.id, {
+        const response = await createOperation(stableNode.id, {
           ...payload,
-          input_node_uuid: node.id,
+          input_node_uuid: stableNode.id,
         });
         createdNodeUuid = response?.uuid;
       }
@@ -331,9 +343,9 @@ export function JoinOpForm({
         <div className="space-y-2">
           <Label className="text-sm text-muted-foreground">Table</Label>
           <div className="p-2 bg-background border rounded text-sm">
-            {node?.data?.dbtmodel
-              ? `${node.data.dbtmodel.schema}.${node.data.dbtmodel.name}`
-              : node?.data?.name || 'Current Node'}
+            {stableNode?.data?.dbtmodel
+              ? `${stableNode.data.dbtmodel.schema}.${stableNode.data.dbtmodel.name}`
+              : stableNode?.data?.name || 'Current Node'}
           </div>
         </div>
         <div className="space-y-2">
