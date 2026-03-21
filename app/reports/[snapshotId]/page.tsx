@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -155,12 +156,22 @@ export default function SnapshotViewerPage() {
               Created by: {report_metadata.created_by}
             </span>
           )}
-          {report_metadata.dashboard_title && (
-            <span className="flex items-center gap-1.5">
-              <LayoutGrid className="h-3.5 w-3.5" />
-              {report_metadata.dashboard_title}
-            </span>
-          )}
+          {report_metadata.dashboard_title &&
+            (report_metadata.dashboard_id ? (
+              <Link
+                href={`/dashboards/${report_metadata.dashboard_id}`}
+                className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                data-testid="report-dashboard-link"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {report_metadata.dashboard_title}
+              </Link>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {report_metadata.dashboard_title}
+              </span>
+            ))}
         </div>
       </div>
 
