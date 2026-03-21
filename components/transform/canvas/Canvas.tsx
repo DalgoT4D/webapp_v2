@@ -341,7 +341,6 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
       setNodes((nds) =>
         nds.map((n) => (n.id === draggedNode.id ? { ...n, position: finalPosition } : n))
       );
-
     },
     [nodes, setNodes]
   );

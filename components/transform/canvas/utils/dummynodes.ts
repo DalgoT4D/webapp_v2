@@ -119,9 +119,7 @@ export function calculateNewNodePosition(
 
   const x = isNaN(rightMostX) ? 50 : rightMostX;
   const y =
-    isNaN(rightMostY) || isNaN(rightMostHeight)
-      ? 50
-      : rightMostY + rightMostHeight + NODE_GAP;
+    isNaN(rightMostY) || isNaN(rightMostHeight) ? 50 : rightMostY + rightMostHeight + NODE_GAP;
 
   return { x, y };
 }

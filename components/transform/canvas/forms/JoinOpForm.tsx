@@ -151,7 +151,9 @@ export function JoinOpForm({
   // Fetch source columns from node (Table 1) — for create mode
   const fetchAndSetSourceColumns = useCallback(() => {
     if (stableNode?.data?.output_columns) {
-      setSrcColumns(stableNode.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
+      setSrcColumns(
+        stableNode.data.output_columns.sort((a: string, b: string) => a.localeCompare(b))
+      );
     }
   }, [stableNode]);
 
@@ -216,7 +218,16 @@ export function JoinOpForm({
       setValue('table2_key', ''); // Reset key when table changes
       setTable2Columns(model.output_cols || []);
     },
-    [sourcesModels, stableNode?.id, dummyNodeId, deleteElements, getNodes, addNodes, addEdges, setValue]
+    [
+      sourcesModels,
+      stableNode?.id,
+      dummyNodeId,
+      deleteElements,
+      getNodes,
+      addNodes,
+      addEdges,
+      setValue,
+    ]
   );
 
   // Build table options for searchable combobox, grouped by schema

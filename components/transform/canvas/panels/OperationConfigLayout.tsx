@@ -265,9 +265,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         const currentNodes = getNodes();
         const currentEdges = getEdges();
         const dummyNode = currentNodes.find((n) => n.id === dummyId);
-        const dummyEdges = currentEdges.filter(
-          (e) => e.source === dummyId || e.target === dummyId
-        );
+        const dummyEdges = currentEdges.filter((e) => e.source === dummyId || e.target === dummyId);
 
         if (dummyNode) {
           const realNode = {
@@ -295,10 +293,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
           });
 
           // Swap: remove dummy, add real node + remapped edges
-          setNodes((prev) => [
-            ...prev.filter((n) => n.id !== dummyId),
-            realNode,
-          ]);
+          setNodes((prev) => [...prev.filter((n) => n.id !== dummyId), realNode]);
           setEdges((prev) => [
             ...prev.filter((e) => !dummyEdges.some((de) => de.id === e.id)),
             ...realEdges,
@@ -343,7 +338,17 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
 
       setPanelState('create-table-or-add-function');
     },
-    [cleanupDummyNodes, getNodes, getEdges, setNodes, setEdges, setSelectedNode, selectedNode?.id, selectedOp, mutate]
+    [
+      cleanupDummyNodes,
+      getNodes,
+      getEdges,
+      setNodes,
+      setEdges,
+      setSelectedNode,
+      selectedNode?.id,
+      selectedOp,
+      mutate,
+    ]
   );
 
   // User chose to create a table

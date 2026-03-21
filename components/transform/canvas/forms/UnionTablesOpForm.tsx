@@ -210,7 +210,16 @@ export function UnionTablesOpForm({
         label: `${model.schema}.${model.name}`,
       });
     },
-    [sourcesModels, stableNode?.id, dummyNodeId, deleteElements, getNodes, addNodes, addEdges, setValue]
+    [
+      sourcesModels,
+      stableNode?.id,
+      dummyNodeId,
+      deleteElements,
+      getNodes,
+      addNodes,
+      addEdges,
+      setValue,
+    ]
   );
 
   // Handle remove table — also clean up its dummy node
