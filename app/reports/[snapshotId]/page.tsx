@@ -37,6 +37,7 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(snapshotId);
   const handleCommentStateChange = useCallback(() => {
@@ -60,6 +61,7 @@ export default function SnapshotViewerPage() {
     try {
       await updateSnapshot(snapshotId, { summary: summaryDraft });
       mutate();
+      setIsEditingSummary(false);
       toastSuccess.saved('Report');
     } catch (error) {
       toastError.save(error, 'report');
@@ -204,10 +206,13 @@ export default function SnapshotViewerPage() {
                   data-testid="summary-edit-btn"
                   aria-label="Edit summary"
                   onClick={() => {
-                    const textarea = document.querySelector(
-                      '[data-testid="report-summary-textarea"]'
-                    ) as HTMLTextAreaElement;
-                    textarea?.focus();
+                    setIsEditingSummary(true);
+                    setTimeout(() => {
+                      const textarea = document.querySelector(
+                        '[data-testid="report-summary-textarea"]'
+                      ) as HTMLTextAreaElement;
+                      textarea?.focus();
+                    }, 0);
                   }}
                 >
                   <Pencil className="h-4 w-4" />
@@ -222,9 +227,10 @@ export default function SnapshotViewerPage() {
                   setSummaryDraft(e.target.value);
                   setSummaryTouched(true);
                 }}
+                readOnly={!isEditingSummary}
                 placeholder="Add your notes here"
                 rows={2}
-                className="resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground"
+                className={`resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground ${!isEditingSummary ? 'cursor-default' : ''}`}
               />
             </div>
           }
