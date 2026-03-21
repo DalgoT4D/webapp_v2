@@ -42,7 +42,14 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
-import type { ChartDataPayload } from '@/types/charts';
+
+import {
+  createTooltipFormatter,
+  applyNumberChartFormatting,
+  applyPieChartFormatting,
+  applyLineBarChartFormatting,
+} from '@/lib/chart-formatting-utils';
+import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
@@ -278,15 +285,17 @@ export function ChartElementView({
   const effectiveChart = isPublicMode ? publicChartMetadata : chart;
 
   // Determine chart type using effective chart
-  const isTableChart = effectiveChart?.chart_type === 'table';
-  const isMapChart = effectiveChart?.chart_type === 'map';
-  const isPieChart = effectiveChart?.chart_type === 'pie';
-  const isNumberChart = effectiveChart?.chart_type === 'number';
+  const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
+  const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
+  const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
+  const isLineChart = effectiveChart?.chart_type === ChartTypes.LINE;
+  const isBarChart = effectiveChart?.chart_type === ChartTypes.BAR;
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
   const shouldFetchChartData = effectiveChart
-    ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+    ? effectiveChart.chart_type !== ChartTypes.MAP && effectiveChart.chart_type !== ChartTypes.TABLE
     : false;
   const {
     data: chartData,
@@ -320,7 +329,7 @@ export function ChartElementView({
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
-    effectiveChart?.chart_type === 'map' && effectiveChart?.extra_config?.layers
+    effectiveChart?.chart_type === ChartTypes.MAP && effectiveChart?.extra_config?.layers
       ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
@@ -337,19 +346,19 @@ export function ChartElementView({
             y_axis: effectiveChart.extra_config?.y_axis_column,
             // For map charts, use geographic_column as dimension_col
             dimension_col:
-              effectiveChart.chart_type === 'map'
+              effectiveChart.chart_type === ChartTypes.MAP
                 ? effectiveChart.extra_config?.geographic_column
                 : effectiveChart.extra_config?.dimension_column,
             // For map charts, use value_column or aggregate_column
             aggregate_col:
-              effectiveChart.chart_type === 'map'
+              effectiveChart.chart_type === ChartTypes.MAP
                 ? effectiveChart.extra_config?.value_column ||
                   effectiveChart.extra_config?.aggregate_column
                 : effectiveChart.extra_config?.aggregate_column,
             aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
             extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
             // ✅ FIX: Include dimensions array for table charts with drill-down support
-            ...(effectiveChart.chart_type === 'table' && {
+            ...(effectiveChart.chart_type === ChartTypes.TABLE && {
               dimensions: (() => {
                 const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
                   (dim: any) => dim.enable_drill_down === true
@@ -403,7 +412,8 @@ export function ChartElementView({
                 // Include chart-level filters
                 ...(effectiveChart.extra_config?.filters || []),
                 // Add drill-down filters from tableDrillDownState
-                ...(effectiveChart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                ...(effectiveChart.chart_type === ChartTypes.TABLE &&
+                tableDrillDownState?.appliedFilters
                   ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
                       column,
                       operator: 'equals',
@@ -544,7 +554,7 @@ export function ChartElementView({
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
     (rowData: Record<string, any>, columnName: string) => {
-      if (effectiveChart?.chart_type !== 'table') return;
+      if (effectiveChart?.chart_type !== ChartTypes.TABLE) return;
 
       // Check if drill-down is enabled
       const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
@@ -670,7 +680,7 @@ export function ChartElementView({
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
 
-  if (effectiveChart?.chart_type === 'map') {
+  if (effectiveChart?.chart_type === ChartTypes.MAP) {
     if (drillDownPath.length > 0) {
       // We're in a drill-down state, use the first available geojson for this region
       const lastDrillDown = drillDownPath[drillDownPath.length - 1];
@@ -710,7 +720,7 @@ export function ChartElementView({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
-    return effectiveChart?.chart_type === 'map' &&
+    return effectiveChart?.chart_type === ChartTypes.MAP &&
       effectiveChart.extra_config &&
       activeGeographicColumn
       ? {
@@ -844,7 +854,7 @@ export function ChartElementView({
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
-    if (effectiveChart.chart_type !== 'map') return;
+    if (effectiveChart.chart_type !== ChartTypes.MAP) return;
 
     // Check for dynamic drill-down configuration (new system)
     const hasDynamicDrillDown =
@@ -1294,34 +1304,24 @@ export function ChartElementView({
           fontSize: 12,
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-        formatter: function (params: any) {
-          if (Array.isArray(params)) {
-            // For multiple series (line/bar charts with multiple lines/bars)
-            let result = '';
-            params.forEach((param: any, index: number) => {
-              if (index === 0) {
-                result += param.name + '<br/>';
-              }
-              const value =
-                typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
-              result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
-            });
-            return result;
-          } else {
-            // For single series (pie charts, single bar/line)
-            const value =
-              typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
-            if (params.percent !== undefined) {
-              // Pie chart with percentage
-              return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
-            } else {
-              // Regular chart
-              return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
-            }
-          }
-        },
+        formatter: createTooltipFormatter(customizations, effectiveChart?.chart_type || ''),
       },
     };
+
+    // Apply number formatting for number charts (same as ChartPreview.tsx)
+    if (isNumberChart) {
+      applyNumberChartFormatting(styledConfig, customizations);
+    }
+
+    // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
+    if (isPieChart) {
+      applyPieChartFormatting(styledConfig, customizations);
+    }
+
+    // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+    if (isLineChart || isBarChart) {
+      applyLineBarChartFormatting(styledConfig, customizations);
+    }
 
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
@@ -1464,13 +1464,13 @@ export function ChartElementView({
       }
 
       // Skip CSV export for number charts (no meaningful data)
-      if (effectiveChart?.chart_type === 'number') {
+      if (effectiveChart?.chart_type === ChartTypes.NUMBER) {
         toast.error('Number charts cannot be exported as CSV');
         return;
       }
 
       // Debug logging for maps
-      if (effectiveChart?.chart_type === 'map') {
+      if (effectiveChart?.chart_type === ChartTypes.MAP) {
         console.log('Map CSV Export - Payload:', {
           chart_type: chartDataPayload.chart_type,
           dimension_col: chartDataPayload.dimension_col,
@@ -1641,7 +1641,7 @@ export function ChartElementView({
                   <FileImage className="w-4 h-4 mr-2" />
                   <span>Download as PNG</span>
                 </DropdownMenuItem>
-                {effectiveChart?.chart_type !== 'number' && (
+                {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
                   <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
                     <FileText className="w-4 h-4 mr-2" />
                     <span>Export Data as CSV</span>
@@ -1737,7 +1737,8 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting: {},
+                column_formatting:
+                  effectiveChart?.extra_config?.customizations?.columnFormatting || {},
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,

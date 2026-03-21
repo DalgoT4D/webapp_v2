@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '../types/shared/NumberFormatSection';
 
 interface MapCustomizationsProps {
   formData: any;
@@ -109,6 +111,14 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
           <CardTitle className="text-base">Data Handling</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <NumberFormatSection
+            idPrefix="map"
+            numberFormat={customizations.numberFormat as NumberFormat}
+            decimalPlaces={customizations.decimalPlaces}
+            onNumberFormatChange={(value) => updateCustomization('numberFormat', value)}
+            onDecimalPlacesChange={(value) => updateCustomization('decimalPlaces', value)}
+          />
+
           <div>
             <Label className="text-sm font-medium">Label for No Data</Label>
             <p className="text-xs text-muted-foreground mb-2">
