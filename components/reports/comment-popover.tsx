@@ -363,6 +363,7 @@ function CommentPopoverInner({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const firstNewRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const { comments, mutate: mutateComments } = useComments(
     open ? snapshotId : null,
@@ -382,15 +383,15 @@ function CommentPopoverInner({
     return null;
   }, [comments]);
 
-  // Auto-scroll to first new comment when popover opens
+  // Auto-scroll to latest comment when popover opens
   useEffect(() => {
-    if (!open || !firstNewCommentId || !firstNewRef.current) return undefined;
+    if (!open || !bottomRef.current) return undefined;
 
     const timer = setTimeout(() => {
-      firstNewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
     return () => clearTimeout(timer);
-  }, [open, firstNewCommentId]);
+  }, [open, comments.length]);
 
   // Mark as read on close
   const handleOpenChange = useCallback(
@@ -472,8 +473,11 @@ function CommentPopoverInner({
       });
       toastSuccess.created('Comment');
       setDraft('');
-      mutateComments();
+      await mutateComments();
       onStateChange?.();
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     } catch (error) {
       toastError.create(error, 'comment');
     } finally {
@@ -542,8 +546,11 @@ function CommentPopoverInner({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[383px] p-0 flex flex-col max-h-[min(450px,80vh)] rounded-2xl border"
-        style={{ borderColor: 'var(--primary)' }}
+        className="w-[383px] p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-white"
+        style={{
+          borderColor: 'var(--primary)',
+          boxShadow: '-4px 4px 11px 0px rgba(0, 0, 0, 0.22)',
+        }}
         onInteractOutside={(e) => {
           // Prevent close when clicking mention dropdown
           const target = e.target as HTMLElement;
@@ -567,6 +574,7 @@ function CommentPopoverInner({
                 isDeleted={comment.is_deleted}
               />
             ))}
+            <div ref={bottomRef} />
           </div>
         </ScrollArea>
 
