@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, RotateCcw } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -87,9 +87,13 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
+                key={`start-${startDate?.toISOString()}`}
                 mode="single"
                 selected={startDate}
+                defaultMonth={startDate}
                 onSelect={handleStartDateSelect}
+                fixedWeeks
+                captionLayout="dropdown"
                 disabled={(date) => {
                   // Disable dates after end date if end date is selected
                   return endDate ? date > endDate : false;
@@ -118,11 +122,18 @@ export function DateTimeFilterWidget({ filter, value, onChange }: DateTimeFilter
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
+                key={`end-${endDate?.toISOString()}`}
                 mode="single"
                 selected={endDate}
+                defaultMonth={endDate}
                 onSelect={handleEndDateSelect}
+                fixedWeeks
+                captionLayout="dropdown"
                 disabled={(date) => {
-                  // Disable dates before start date if start date is selected
+                  const today = new Date();
+                  today.setHours(23, 59, 59, 999); // End of today
+                  // Disable future dates and dates before start date
+                  if (date > today) return true;
                   return startDate ? date < startDate : false;
                 }}
                 initialFocus
