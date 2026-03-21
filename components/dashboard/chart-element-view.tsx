@@ -1748,8 +1748,6 @@ export function ChartElementView({
                 targetType="chart"
                 chartId={chartId}
                 state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
-                count={commentStates?.[String(chartId)]?.count ?? 0}
-                unreadCount={commentStates?.[String(chartId)]?.unread_count ?? 0}
                 triggerClassName="h-7 w-7 p-0"
                 onStateChange={onCommentStateChange}
               />

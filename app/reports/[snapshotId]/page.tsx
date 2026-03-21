@@ -12,6 +12,7 @@ import {
   Download,
   LayoutGrid,
   Loader2,
+  Pencil,
   Share2,
   User,
 } from 'lucide-react';
@@ -175,19 +176,34 @@ export default function SnapshotViewerPage() {
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
           beforeContent={
-            <div className="border rounded-lg p-5 mb-2 bg-background">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">Executive Summary</h2>
+            <div className="border rounded-lg p-5 mb-2 bg-background relative">
+              {/* Comment + Edit icons in top-right corner */}
+              <div className="absolute top-3 right-3 flex items-center gap-1">
                 <CommentPopover
                   snapshotId={snapshotId}
                   targetType="summary"
                   state={commentStates?.['summary']?.state ?? 'none'}
-                  count={commentStates?.['summary']?.count ?? 0}
-                  unreadCount={commentStates?.['summary']?.unread_count ?? 0}
                   triggerClassName="h-8 w-8"
                   onStateChange={handleCommentStateChange}
                 />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  data-testid="summary-edit-btn"
+                  aria-label="Edit summary"
+                  onClick={() => {
+                    const textarea = document.querySelector(
+                      '[data-testid="report-summary-textarea"]'
+                    ) as HTMLTextAreaElement;
+                    textarea?.focus();
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </div>
+
+              <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
               <Textarea
                 data-testid="report-summary-textarea"
                 value={summaryDraft}
