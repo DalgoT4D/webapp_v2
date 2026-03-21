@@ -243,8 +243,8 @@ const CommentItem = memo(function CommentItem({
                 {comment.is_new && (
                   <span
                     data-testid={`comment-new-dot-${comment.id}`}
-                    className="h-2.5 w-2.5 rounded-full flex-shrink-0 ml-auto"
-                    style={{ backgroundColor: 'var(--primary)' }}
+                    className="h-2 w-2 rounded-full flex-shrink-0 ml-auto"
+                    style={{ backgroundColor: 'rgba(0, 137, 123, 0.4)' }}
                   />
                 )}
                 {isAuthor && (
@@ -542,7 +542,8 @@ function CommentPopoverInner({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 p-0 flex flex-col max-h-[min(450px,80vh)]"
+        className="w-[383px] p-0 flex flex-col max-h-[min(450px,80vh)] rounded-2xl border"
+        style={{ borderColor: 'var(--primary)' }}
         onInteractOutside={(e) => {
           // Prevent close when clicking mention dropdown
           const target = e.target as HTMLElement;
