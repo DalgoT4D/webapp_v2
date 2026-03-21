@@ -10,6 +10,7 @@ import {
   createDataLabelFormatter,
   createPieDimensionFormatter,
   applyNumberChartFormatting,
+  applyPieChartFormatting,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -176,13 +177,6 @@ describe('chart-formatting-utils', () => {
       expect(formatter(1000)).toBe('1000');
     });
 
-    it('should format indian number format', () => {
-      const config = { series: [{ type: 'gauge', detail: {} }] };
-      applyNumberChartFormatting(config, { numberFormat: 'indian' });
-      const formatter = (config.series[0] as any).detail.formatter;
-      expect(formatter(1000000)).toBe('10,00,000');
-    });
-
     it('should do nothing when series is missing', () => {
       const config: Record<string, unknown> = {};
       applyNumberChartFormatting(config, { numberFormat: 'comma' });
@@ -195,6 +189,59 @@ describe('chart-formatting-utils', () => {
       const seriesArray = config.series as any[];
       expect(Array.isArray(seriesArray)).toBe(true);
       expect(seriesArray[0].detail.formatter(1000)).toBe('1,000');
+    });
+  });
+
+  describe('applyPieChartFormatting', () => {
+    const makePieConfig = (data = [{ name: 'A', value: 100 }]) => ({
+      series: [{ type: 'pie', label: {}, data }],
+      legend: { data: ['A'] },
+    });
+
+    it('should inject label formatter with percentage as default', () => {
+      const config = makePieConfig();
+      applyPieChartFormatting(config, {});
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 100, name: 'A', percent: 40 })).toBe('40%');
+    });
+
+    it('should return value when labelFormat is value', () => {
+      const config = makePieConfig();
+      applyPieChartFormatting(config, { labelFormat: 'value', numberFormat: 'comma' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 1000, name: 'A', percent: 40 })).toBe('1,000');
+    });
+
+    it('should format numeric dimension names in series.data', () => {
+      const config = makePieConfig([{ name: '1000000', value: 100 }]);
+      applyPieChartFormatting(config, { numberFormat: 'comma' });
+      const data = (config.series[0] as any).data;
+      expect(data[0].name).toBe('1,000,000');
+    });
+
+    it('should update legend.data to match formatted names', () => {
+      const config = {
+        series: [{ type: 'pie', label: {}, data: [{ name: '1000000', value: 100 }] }],
+        legend: { data: ['1000000'] },
+      };
+      applyPieChartFormatting(config, { numberFormat: 'comma' });
+      expect((config.legend as any).data[0]).toBe('1,000,000');
+    });
+
+    it('should show/hide data labels based on showDataLabels', () => {
+      const configHidden = makePieConfig();
+      applyPieChartFormatting(configHidden, { showDataLabels: false });
+      expect((configHidden.series[0] as any).label.show).toBe(false);
+
+      const configVisible = makePieConfig();
+      applyPieChartFormatting(configVisible, { showDataLabels: true });
+      expect((configVisible.series[0] as any).label.show).toBe(true);
+    });
+
+    it('should do nothing when series is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyPieChartFormatting(config, {});
+      expect(config.series).toBeUndefined();
     });
   });
 

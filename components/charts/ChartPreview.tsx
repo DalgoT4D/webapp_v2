@@ -14,8 +14,8 @@ import {
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import {
   createTooltipFormatter,
-  createPieDimensionFormatter,
   applyNumberChartFormatting,
+  applyPieChartFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes } from '@/types/charts';
 
@@ -269,68 +269,8 @@ export function ChartPreview({
       }
 
       // Apply number formatting and visibility settings for pie chart data labels
-      if (isPieChart && modifiedConfig.series) {
-        const numberFormat = (customizations.numberFormat || 'default') as NumberFormat;
-        const decimalPlaces = customizations.decimalPlaces;
-        const labelFormat = customizations.labelFormat || 'percentage';
-        const showDataLabels = customizations.showDataLabels !== false; // Default to true
-        const dataLabelPosition = customizations.dataLabelPosition || 'outside';
-        const seriesArray = Array.isArray(modifiedConfig.series)
-          ? modifiedConfig.series
-          : [modifiedConfig.series];
-
-        // Use shared formatter for pie dimension values (handles numbers, bigint, and "dimension - extra_dimension" strings)
-        const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
-
-        modifiedConfig.series = seriesArray.map((series: any) => ({
-          ...series,
-          label: {
-            ...series.label,
-            show: showDataLabels,
-            position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
-            formatter: (params: any) => {
-              const formattedValue = formatIfNumber(params.value);
-              const formattedName = formatIfNumber(params.name);
-
-              switch (labelFormat) {
-                case 'value':
-                  return formattedValue;
-                case 'name_percentage':
-                  return `${formattedName}\n${params.percent}%`;
-                case 'name_value':
-                  return `${formattedName}\n${formattedValue}`;
-                case 'percentage':
-                default:
-                  return `${params.percent}%`;
-              }
-            },
-          },
-        }));
-
-        // Format numeric dimension values and update legend.data to match
-        modifiedConfig.series = (
-          Array.isArray(modifiedConfig.series) ? modifiedConfig.series : [modifiedConfig.series]
-        ).map((series: any) => {
-          if (series.type === 'pie' && Array.isArray(series.data)) {
-            return {
-              ...series,
-              data: series.data.map((item: any) => ({
-                ...item,
-                name: formatIfNumber(item.name),
-              })),
-            };
-          }
-          return series;
-        });
-
-        // Update legend.data to match the formatted names
-        const chartConfig = modifiedConfig as Record<string, any>;
-        if (chartConfig.legend && Array.isArray(chartConfig.legend.data)) {
-          chartConfig.legend = {
-            ...chartConfig.legend,
-            data: chartConfig.legend.data.map((item: any) => formatIfNumber(item)),
-          };
-        }
+      if (isPieChart) {
+        applyPieChartFormatting(modifiedConfig, customizations);
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)

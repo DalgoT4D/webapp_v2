@@ -262,6 +262,79 @@ export function applyNumberChartFormatting(
 }
 
 /**
+ * Applies pie chart formatting to the ECharts config in place.
+ * Injects label formatter (with labelFormat switch), formats series.data names,
+ * and updates legend.data to match formatted names.
+ *
+ * @param config - The ECharts config object to mutate
+ * @param customizations - Chart customization settings
+ */
+export function applyPieChartFormatting(
+  config: Record<string, unknown>,
+  customizations: ChartCustomizations
+): void {
+  if (!config.series) return;
+  const numberFormat = customizations.numberFormat || NumberFormats.DEFAULT;
+  const decimalPlaces = customizations.decimalPlaces;
+  const labelFormat = customizations.labelFormat || 'percentage';
+  const showDataLabels = customizations.showDataLabels !== false;
+  const dataLabelPosition = customizations.dataLabelPosition || 'outside';
+  const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+  const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
+
+  // Inject label formatter
+  config.series = seriesArray.map((series: Record<string, unknown>) => ({
+    ...series,
+    label: {
+      ...(series.label as Record<string, unknown>),
+      show: showDataLabels,
+      position: dataLabelPosition === 'inside' ? 'inside' : 'outside',
+      formatter: (params: Record<string, unknown>) => {
+        const formattedValue = formatIfNumber(params.value);
+        const formattedName = formatIfNumber(params.name);
+        switch (labelFormat) {
+          case 'value':
+            return formattedValue;
+          case 'name_percentage':
+            return `${formattedName}\n${params.percent}%`;
+          case 'name_value':
+            return `${formattedName}\n${formattedValue}`;
+          case 'percentage':
+          default:
+            return `${params.percent}%`;
+        }
+      },
+    },
+  }));
+
+  // Format numeric dimension values in series.data
+  config.series = (Array.isArray(config.series) ? config.series : [config.series]).map(
+    (series: Record<string, unknown>) => {
+      if (series.type === 'pie' && Array.isArray(series.data)) {
+        return {
+          ...series,
+          data: (series.data as Record<string, unknown>[]).map((item) => ({
+            ...item,
+            name: formatIfNumber(item.name),
+          })),
+        };
+      }
+      return series;
+    }
+  );
+
+  // Update legend.data to match the formatted names
+  if (config.legend && Array.isArray((config.legend as Record<string, unknown>).data)) {
+    config.legend = {
+      ...(config.legend as Record<string, unknown>),
+      data: ((config.legend as Record<string, unknown>).data as unknown[]).map((item) =>
+        formatIfNumber(item)
+      ),
+    };
+  }
+}
+
+/**
  * Creates a data label formatter function for ECharts series.
  *
  * @param customizations - Chart customization settings
