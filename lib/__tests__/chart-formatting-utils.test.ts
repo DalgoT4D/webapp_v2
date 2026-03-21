@@ -5,9 +5,6 @@
 import {
   formatAxisValue,
   createTooltipFormatter,
-  createYAxisLabelFormatter,
-  createXAxisLabelFormatter,
-  createDataLabelFormatter,
   createPieDimensionFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
@@ -95,52 +92,6 @@ describe('chart-formatting-utils', () => {
       });
       expect(result).toContain('1.5M');
       expect(result).toContain('35.5%');
-    });
-  });
-
-  describe('createYAxisLabelFormatter', () => {
-    it('should return formatter when yAxisNumberFormat is set, undefined otherwise', () => {
-      expect(createYAxisLabelFormatter({})).toBeUndefined();
-      expect(createYAxisLabelFormatter({ yAxisNumberFormat: 'default' })).toBeUndefined();
-
-      const formatter = createYAxisLabelFormatter({
-        yAxisNumberFormat: 'adaptive_international' as const,
-        yAxisDecimalPlaces: 1,
-      });
-      expect(formatter!(1500000)).toBe('1.5M');
-    });
-  });
-
-  describe('createXAxisLabelFormatter', () => {
-    it('should return formatter when xAxisNumberFormat is set, undefined otherwise', () => {
-      expect(createXAxisLabelFormatter({})).toBeUndefined();
-      expect(createXAxisLabelFormatter({ xAxisNumberFormat: 'default' })).toBeUndefined();
-
-      const formatter = createXAxisLabelFormatter({
-        xAxisNumberFormat: 'adaptive_international' as const,
-        xAxisDecimalPlaces: 1,
-      });
-      expect(formatter!(2500000)).toBe('2.5M');
-      expect(formatter!('January')).toBe('January');
-    });
-  });
-
-  describe('createDataLabelFormatter', () => {
-    it('should format data labels using appropriate format based on chart type', () => {
-      const barFormatter = createDataLabelFormatter(
-        { yAxisNumberFormat: 'adaptive_international' as const, yAxisDecimalPlaces: 1 },
-        'bar'
-      );
-      expect(barFormatter({ value: 1500000 })).toBe('1.5M');
-
-      const pieFormatter = createDataLabelFormatter(
-        { numberFormat: 'adaptive_international' as const, decimalPlaces: 1 },
-        'pie'
-      );
-      expect(pieFormatter({ value: 1500000 })).toBe('1.5M');
-
-      const defaultFormatter = createDataLabelFormatter({ yAxisNumberFormat: 'default' }, 'bar');
-      expect(defaultFormatter({ value: 1500 })).toBe('1,500');
     });
   });
 

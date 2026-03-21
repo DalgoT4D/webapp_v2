@@ -134,57 +134,6 @@ export function createTooltipFormatter(
 }
 
 /**
- * Creates a Y-axis label formatter function for ECharts.
- *
- * @param customizations - Chart customization settings
- * @returns ECharts axis label formatter function or undefined if no formatting needed
- */
-export function createYAxisLabelFormatter(
-  customizations: ChartCustomizations
-): ((value: number) => string | number) | undefined {
-  const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
-  const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
-
-  if (!yAxisNumberFormat || yAxisNumberFormat === NumberFormats.DEFAULT) {
-    return undefined;
-  }
-
-  return (value: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return value;
-    return formatNumber(value, {
-      format: yAxisNumberFormat,
-      decimalPlaces: yAxisDecimalPlaces,
-    });
-  };
-}
-
-/**
- * Creates an X-axis label formatter function for ECharts.
- *
- * @param customizations - Chart customization settings
- * @returns ECharts axis label formatter function or undefined if no formatting needed
- */
-export function createXAxisLabelFormatter(
-  customizations: ChartCustomizations
-): ((value: unknown) => string | number | unknown) | undefined {
-  const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
-  const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
-
-  if (!xAxisNumberFormat || xAxisNumberFormat === NumberFormats.DEFAULT) {
-    return undefined;
-  }
-
-  return (value: unknown) => {
-    const numVal = typeof value === 'number' ? value : parseFloat(String(value));
-    if (isNaN(numVal)) return value;
-    return formatNumber(numVal, {
-      format: xAxisNumberFormat,
-      decimalPlaces: xAxisDecimalPlaces,
-    });
-  };
-}
-
-/**
  * Creates a formatter for pie chart dimensions that handles:
  * - Pure number types (number or bigint)
  * - Strings with " - " separator (dimension - extra_dimension)
@@ -443,40 +392,4 @@ export function applyLineBarChartFormatting(
       },
     }));
   }
-}
-
-/**
- * Creates a data label formatter function for ECharts series.
- *
- * @param customizations - Chart customization settings
- * @param chartType - The type of chart ('bar', 'line', or other)
- * @returns ECharts label formatter function
- */
-export function createDataLabelFormatter(
-  customizations: ChartCustomizations,
-  chartType: string
-): (params: any) => string | number {
-  const isBarOrLineChart = chartType === 'bar' || chartType === 'line';
-
-  return (params: any) => {
-    const value = params.value;
-    if (typeof value !== 'number' || isNaN(value)) return value;
-
-    const numFormat =
-      ((isBarOrLineChart
-        ? customizations.yAxisNumberFormat || customizations.numberFormat
-        : customizations.numberFormat) as NumberFormat) || NumberFormats.DEFAULT;
-
-    const decimalPlaces = isBarOrLineChart
-      ? (customizations.yAxisDecimalPlaces ?? customizations.decimalPlaces)
-      : customizations.decimalPlaces;
-
-    if (numFormat === NumberFormats.DEFAULT) {
-      return value.toLocaleString();
-    }
-    return formatNumber(value, {
-      format: numFormat,
-      decimalPlaces: decimalPlaces,
-    });
-  };
 }
