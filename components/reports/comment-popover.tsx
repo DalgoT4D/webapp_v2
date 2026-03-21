@@ -115,7 +115,7 @@ const CommentContent = memo(function CommentContent({ content }: { content: stri
   const parts = useMemo(() => parseCommentMentions(content), [content]);
 
   return (
-    <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">
+    <p className="text-sm mt-0.5 whitespace-pre-wrap break-all">
       {parts.map((part, i) =>
         part.type === 'mention' ? (
           <span key={i} className="text-primary font-medium">
@@ -216,10 +216,7 @@ const CommentItem = memo(function CommentItem({
     <div
       ref={isFirstNew ? firstNewRef : undefined}
       data-testid={`comment-${comment.id}`}
-      className={cn(
-        'group px-3 py-2 rounded-md',
-        comment.is_new && 'bg-yellow-50 dark:bg-yellow-950/30'
-      )}
+      className="group px-3 py-2 rounded-md"
     >
       <div className="flex items-start gap-2">
         <Avatar className="h-7 w-7 text-xs flex-shrink-0 mt-0.5">
@@ -242,6 +239,13 @@ const CommentItem = memo(function CommentItem({
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     &middot; edited
                   </span>
+                )}
+                {comment.is_new && (
+                  <span
+                    data-testid={`comment-new-dot-${comment.id}`}
+                    className="h-2.5 w-2.5 rounded-full flex-shrink-0 ml-auto"
+                    style={{ backgroundColor: 'var(--primary)' }}
+                  />
                 )}
                 {isAuthor && (
                   <DropdownMenu>
