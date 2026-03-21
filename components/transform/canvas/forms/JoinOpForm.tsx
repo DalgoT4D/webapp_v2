@@ -21,13 +21,7 @@ import { generateDummySrcModelNode } from '../utils/dummynodes';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import type { OperationFormProps, JoinDataConfig, CanvasNodeDataResponse } from '@/types/transform';
-
-const JoinTypes = [
-  { id: 'left', label: 'Left Join' },
-  { id: 'right', label: 'Right Join' },
-  { id: 'inner', label: 'Inner Join' },
-  { id: 'full outer', label: 'Full Outer Join' },
-];
+import { JoinTypes } from '@/constants/transform';
 
 interface FormValues {
   join_type: string;

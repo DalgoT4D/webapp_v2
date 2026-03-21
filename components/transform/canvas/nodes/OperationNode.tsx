@@ -8,28 +8,7 @@ import { Trash2 } from 'lucide-react';
 import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData } from '@/types/transform';
-import { NODE_COLORS, operationLabelMap } from '@/constants/transform';
-
-// Operation icon mapping
-const operationIcons: Record<string, string> = {
-  renamecolumns: '/icons/transform/rename.svg',
-  flattenjson: '/icons/transform/flatten.svg',
-  castdatatypes: '/icons/transform/cast.svg',
-  coalescecolumns: '/icons/transform/coalesce.svg',
-  arithmetic: '/icons/transform/arithmetic.svg',
-  dropcolumns: '/icons/transform/drop.svg',
-  replace: '/icons/transform/replace.svg',
-  join: '/icons/transform/join.svg',
-  where: '/icons/transform/filter.svg',
-  groupby: '/icons/transform/groupby.svg',
-  aggregate: '/icons/transform/aggregate.svg',
-  casewhen: '/icons/transform/case.svg',
-  unionall: '/icons/transform/union.svg',
-  pivot: '/icons/transform/pivot.svg',
-  unpivot: '/icons/transform/unpivot.svg',
-  generic: '/icons/transform/generic.svg',
-  rawsql: '/icons/transform/generic.svg',
-};
+import { NODE_COLORS, operationLabelMap, operationIconMapping } from '@/constants/transform';
 
 type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
 
@@ -41,7 +20,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
 
   const operationType = data?.operation_config?.type || 'unknown';
   const operationLabel = operationLabelMap[operationType] || operationType;
-  const operationIcon = operationIcons[operationType];
+  const operationIcon = operationIconMapping[operationType];
 
   // Leaf node check — can delete only leaf nodes
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);

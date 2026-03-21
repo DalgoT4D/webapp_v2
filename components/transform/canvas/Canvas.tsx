@@ -28,6 +28,7 @@ import {
   type CanvasNodeDataResponse,
   type CanvasEdgeDataResponse,
 } from '@/types/transform';
+import { getNodePositionAfterDrag, spreadNewNodesAfterLayout } from './utils/node-positioning';
 
 // Node types - must be defined outside component
 const nodeTypes: NodeTypes = {
@@ -224,24 +225,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
 
     // Push new nodes away from existing nodes if they overlap.
     // dagre uses zero-size nodes so its spacing can be tighter than the visual node size.
-    const NEW_NODE_GAP = 30;
-    for (const node of finalNodes) {
-      if (currentPosMap.has(node.id)) continue; // skip existing nodes
-      for (const other of finalNodes) {
-        if (other.id === node.id) continue;
-        const otherPos = currentPosMap.get(other.id) || other.position;
-        const dx = Math.abs(node.position.x - otherPos.x);
-        const dy = Math.abs(node.position.y - otherPos.y);
-        // Same column (within NODE_WIDTH) and vertically overlapping
-        if (dx < NODE_WIDTH && dy < NODE_HEIGHT) {
-          // Push below the other node
-          node.position = {
-            x: node.position.x,
-            y: otherPos.y + NODE_HEIGHT + NEW_NODE_GAP,
-          };
-        }
-      }
-    }
+    spreadNewNodesAfterLayout(finalNodes, new Set(currentPosMap.keys()));
 
     setNodes([...finalNodes]);
     setEdges([...layoutedEdges]);
@@ -296,48 +280,9 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
   const setPreviewData = useTransformStore((s) => s.setPreviewData);
 
   // Overlap detection — matches webapp v1 Canvas.tsx onNodeDragStop
-  // Uses actual pixel overlap calculation and pushes in both X and Y directions
-  const NODE_GAP = 30;
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, draggedNode: Node) => {
-      let x = draggedNode.position.x;
-      let y = draggedNode.position.y;
-      const draggedWidth = draggedNode.width || NODE_WIDTH;
-      const draggedHeight = draggedNode.height || NODE_HEIGHT;
-
-      for (const otherNode of nodes) {
-        if (otherNode.id === draggedNode.id) continue;
-
-        const otherWidth = otherNode.width || NODE_WIDTH;
-        const otherHeight = otherNode.height || NODE_HEIGHT;
-
-        const xOverlap = Math.max(
-          0,
-          Math.min(x + draggedWidth, otherNode.position.x + otherWidth) -
-            Math.max(x, otherNode.position.x)
-        );
-        const yOverlap = Math.max(
-          0,
-          Math.min(y + draggedHeight, otherNode.position.y + otherHeight) -
-            Math.max(y, otherNode.position.y)
-        );
-
-        if (xOverlap > 0 && yOverlap > 0) {
-          if (x < otherNode.position.x) {
-            x -= xOverlap + NODE_GAP;
-          } else {
-            x += xOverlap + NODE_GAP;
-          }
-
-          if (y < otherNode.position.y) {
-            y -= yOverlap + NODE_GAP;
-          } else {
-            y += yOverlap + NODE_GAP;
-          }
-        }
-      }
-
-      const finalPosition = { x, y };
+      const finalPosition = getNodePositionAfterDrag(draggedNode, nodes);
       setNodes((nds) =>
         nds.map((n) => (n.id === draggedNode.id ? { ...n, position: finalPosition } : n))
       );

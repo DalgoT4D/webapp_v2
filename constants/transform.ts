@@ -223,6 +223,7 @@ export const ArithmeticOperations = [
 
 export const JoinTypes = [
   { id: 'left', label: 'Left Join' },
+  { id: 'right', label: 'Right Join' },
   { id: 'inner', label: 'Inner Join' },
   { id: 'full outer', label: 'Full Outer Join' },
 ];
@@ -238,8 +239,19 @@ export const CANVAS_CONSTANTS = {
   // Task polling interval (5 seconds)
   TASK_POLL_INTERVAL: 5000,
 
+  // Source sync polling interval (2 seconds)
+  SYNC_POLL_INTERVAL: 2000,
+
   // Node dimensions
   NODE_WIDTH: 250,
+
+  // Sidebar dimensions
+  SIDEBAR_MIN_WIDTH: 220,
+  SIDEBAR_MAX_WIDTH: 500,
+  SIDEBAR_DEFAULT_WIDTH: 280,
+
+  // Header height
+  HEADER_HEIGHT: 48,
 
   // Panel dimensions
   PROJECT_TREE_MIN_WIDTH: 280,

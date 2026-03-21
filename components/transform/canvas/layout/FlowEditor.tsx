@@ -30,17 +30,10 @@ import { apiGet } from '@/lib/api';
 import { useSWRConfig } from 'swr';
 import useSWR from 'swr';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { CANVAS_CONSTANTS } from '@/constants/transform';
 
 import 'reactflow/dist/style.css';
 import 'react-resizable/css/styles.css';
-
-// Layout constants
-const SIDEBAR_MIN_WIDTH = 220;
-const SIDEBAR_MAX_WIDTH = 500;
-const SIDEBAR_DEFAULT_WIDTH = 280;
-const HEADER_HEIGHT = 48;
-const LOWER_SECTION_DEFAULT_HEIGHT = 300;
-const LOWER_SECTION_MIN_HEIGHT = 100;
 
 interface FlowEditorProps {
   onClose?: () => void;
@@ -48,8 +41,10 @@ interface FlowEditorProps {
 }
 
 export function FlowEditor({ isPreview = false }: FlowEditorProps) {
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
-  const [lowerSectionHeight, setLowerSectionHeight] = useState(LOWER_SECTION_DEFAULT_HEIGHT);
+  const [sidebarWidth, setSidebarWidth] = useState(CANVAS_CONSTANTS.SIDEBAR_DEFAULT_WIDTH);
+  const [lowerSectionHeight, setLowerSectionHeight] = useState(
+    CANVAS_CONSTANTS.LOWER_SECTION_DEFAULT_HEIGHT
+  );
   const [isLowerFullScreen, setIsLowerFullScreen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -310,7 +305,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     setSelectedLowerTab('logs');
     setDbtRunLogs([]);
 
-    const POLL_INTERVAL_MS = 2000;
+    const POLL_INTERVAL_MS = CANVAS_CONSTANTS.SYNC_POLL_INTERVAL;
 
     try {
       const { taskId, hashKey } = await syncSources();
@@ -480,9 +475,9 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   const toggleLowerFullScreen = useCallback(() => {
     setIsLowerFullScreen((prev) => {
       if (prev) {
-        setLowerSectionHeight(LOWER_SECTION_DEFAULT_HEIGHT);
+        setLowerSectionHeight(CANVAS_CONSTANTS.LOWER_SECTION_DEFAULT_HEIGHT);
       } else if (containerRef.current) {
-        setLowerSectionHeight(containerRef.current.clientHeight - HEADER_HEIGHT);
+        setLowerSectionHeight(containerRef.current.clientHeight - CANVAS_CONSTANTS.HEADER_HEIGHT);
       }
       return !prev;
     });
@@ -515,7 +510,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     >
       <ReactFlowProvider>
         {/* Header */}
-        <div className="flex-shrink-0" style={{ height: HEADER_HEIGHT }}>
+        <div className="flex-shrink-0" style={{ height: CANVAS_CONSTANTS.HEADER_HEIGHT }}>
           <CanvasHeader
             isLocked={isLockedByOther}
             isWorkflowRunning={isWorkflowRunning}
@@ -539,8 +534,8 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
                 width={sidebarWidth}
                 height={0}
                 onResize={handleSidebarResize}
-                minConstraints={[SIDEBAR_MIN_WIDTH, 0]}
-                maxConstraints={[SIDEBAR_MAX_WIDTH, 0]}
+                minConstraints={[CANVAS_CONSTANTS.SIDEBAR_MIN_WIDTH, 0]}
+                maxConstraints={[CANVAS_CONSTANTS.SIDEBAR_MAX_WIDTH, 0]}
                 handle={
                   <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors z-10" />
                 }
@@ -596,10 +591,12 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             width={0}
             height={lowerSectionHeight}
             onResize={handleLowerResize}
-            minConstraints={[0, LOWER_SECTION_MIN_HEIGHT]}
+            minConstraints={[0, CANVAS_CONSTANTS.LOWER_SECTION_MIN_HEIGHT]}
             maxConstraints={[
               0,
-              containerRef.current ? containerRef.current.clientHeight - HEADER_HEIGHT - 100 : 600,
+              containerRef.current
+                ? containerRef.current.clientHeight - CANVAS_CONSTANTS.HEADER_HEIGHT - 100
+                : 600,
             ]}
             handle={
               <div className="absolute top-0 left-0 right-0 h-1 cursor-row-resize bg-border hover:bg-primary/50 transition-colors z-10" />
