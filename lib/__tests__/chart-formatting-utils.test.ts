@@ -11,6 +11,7 @@ import {
   createPieDimensionFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyLineBarChartFormatting,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -242,6 +243,56 @@ describe('chart-formatting-utils', () => {
       const config: Record<string, unknown> = {};
       applyPieChartFormatting(config, {});
       expect(config.series).toBeUndefined();
+    });
+  });
+
+  describe('applyLineBarChartFormatting', () => {
+    it('should apply Y-axis label formatter with number format', () => {
+      const config = { yAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { yAxisNumberFormat: 'comma' });
+      const formatter = (config.yAxis as any).axisLabel.formatter;
+      expect(formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should apply Y-axis label formatter with decimal places only', () => {
+      const config = { yAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { yAxisDecimalPlaces: 2 });
+      const formatter = (config.yAxis as any).axisLabel.formatter;
+      expect(formatter(1234567)).toBe('1234567.00');
+    });
+
+    it('should apply X-axis label formatter with number format', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { xAxisNumberFormat: 'comma' });
+      const formatter = (config.xAxis as any).axisLabel.formatter;
+      expect(formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should apply X-axis label formatter with decimal places only', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { xAxisDecimalPlaces: 2 });
+      const formatter = (config.xAxis as any).axisLabel.formatter;
+      expect(formatter(1000)).toBe('1000.00');
+    });
+
+    it('should apply data label formatter when showDataLabels is true and hasYAxisFormatting', () => {
+      const config = { series: [{ type: 'bar', label: {} }] };
+      applyLineBarChartFormatting(config, { showDataLabels: true, yAxisNumberFormat: 'comma' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 1234567 })).toBe('1,234,567');
+    });
+
+    it('should not apply data label formatter when showDataLabels is false', () => {
+      const config = { series: [{ type: 'bar', label: {} }] };
+      applyLineBarChartFormatting(config, { showDataLabels: false, yAxisNumberFormat: 'comma' });
+      expect((config.series[0] as any).label.formatter).toBeUndefined();
+    });
+
+    it('should do nothing when no formatting is configured', () => {
+      const config = { yAxis: { axisLabel: {} }, xAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, {});
+      expect((config.yAxis as any).axisLabel.formatter).toBeUndefined();
+      expect((config.xAxis as any).axisLabel.formatter).toBeUndefined();
     });
   });
 

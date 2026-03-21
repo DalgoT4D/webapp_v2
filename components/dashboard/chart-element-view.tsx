@@ -42,11 +42,12 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
-import { formatNumber, type NumberFormat } from '@/lib/formatters';
+
 import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyLineBarChartFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -1319,111 +1320,7 @@ export function ChartElementView({
 
     // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
     if (isLineChart || isBarChart) {
-      const yAxisNumberFormat = customizations.yAxisNumberFormat as NumberFormat;
-      const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
-      const xAxisNumberFormat = customizations.xAxisNumberFormat as NumberFormat;
-      const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
-
-      // Format Y-axis labels (apply if number format is set OR decimal places are specified)
-      const hasYAxisFormatting =
-        (yAxisNumberFormat && yAxisNumberFormat !== 'default') || yAxisDecimalPlaces !== undefined;
-      if (styledConfig.yAxis && hasYAxisFormatting) {
-        const formatYAxisLabel = (value: number) => {
-          if (typeof value !== 'number' || isNaN(value)) return value;
-          // If a specific number format is selected, use formatNumber
-          if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
-            return formatNumber(value, {
-              format: yAxisNumberFormat,
-              decimalPlaces: yAxisDecimalPlaces,
-            });
-          }
-          // Otherwise, just apply decimal places without thousand separators
-          return value.toFixed(yAxisDecimalPlaces);
-        };
-
-        if (Array.isArray(styledConfig.yAxis)) {
-          styledConfig.yAxis = styledConfig.yAxis.map((axis: any) => ({
-            ...axis,
-            axisLabel: {
-              ...axis.axisLabel,
-              formatter: formatYAxisLabel,
-            },
-          }));
-        } else {
-          styledConfig.yAxis = {
-            ...styledConfig.yAxis,
-            axisLabel: {
-              ...styledConfig.yAxis.axisLabel,
-              formatter: formatYAxisLabel,
-            },
-          };
-        }
-      }
-
-      // Format X-axis labels (only if numeric values, apply if number format is set OR decimal places are specified)
-      const hasXAxisFormatting =
-        (xAxisNumberFormat && xAxisNumberFormat !== 'default') || xAxisDecimalPlaces !== undefined;
-      if (styledConfig.xAxis && hasXAxisFormatting) {
-        const formatXAxisLabel = (value: any) => {
-          // Try to parse string values to numbers
-          const numVal = typeof value === 'number' ? value : parseFloat(value);
-          if (isNaN(numVal)) return value; // Return original if not a valid number
-          // If a specific number format is selected, use formatNumber
-          if (xAxisNumberFormat && xAxisNumberFormat !== 'default') {
-            return formatNumber(numVal, {
-              format: xAxisNumberFormat,
-              decimalPlaces: xAxisDecimalPlaces,
-            });
-          }
-          // Otherwise, just apply decimal places without thousand separators
-          return numVal.toFixed(xAxisDecimalPlaces);
-        };
-
-        if (Array.isArray(styledConfig.xAxis)) {
-          styledConfig.xAxis = styledConfig.xAxis.map((axis: any) => ({
-            ...axis,
-            axisLabel: {
-              ...axis.axisLabel,
-              formatter: formatXAxisLabel,
-            },
-          }));
-        } else {
-          styledConfig.xAxis = {
-            ...styledConfig.xAxis,
-            axisLabel: {
-              ...styledConfig.xAxis.axisLabel,
-              formatter: formatXAxisLabel,
-            },
-          };
-        }
-      }
-
-      // Format data labels on the chart points/bars (uses Y-axis format since data labels show Y values)
-      if (styledConfig.series && customizations.showDataLabels && hasYAxisFormatting) {
-        const seriesArray = Array.isArray(styledConfig.series)
-          ? styledConfig.series
-          : [styledConfig.series];
-
-        styledConfig.series = seriesArray.map((series: any) => ({
-          ...series,
-          label: {
-            ...series.label,
-            formatter: (params: any) => {
-              const value = params.value;
-              if (typeof value !== 'number' || isNaN(value)) return value;
-              // If a specific number format is selected, use formatNumber
-              if (yAxisNumberFormat && yAxisNumberFormat !== 'default') {
-                return formatNumber(value, {
-                  format: yAxisNumberFormat,
-                  decimalPlaces: yAxisDecimalPlaces,
-                });
-              }
-              // Otherwise, just apply decimal places without thousand separators
-              return value.toFixed(yAxisDecimalPlaces);
-            },
-          },
-        }));
-      }
+      applyLineBarChartFormatting(styledConfig, customizations);
     }
 
     // Check DOM element dimensions before setting options

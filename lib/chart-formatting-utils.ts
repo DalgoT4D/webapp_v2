@@ -55,7 +55,7 @@ export function formatAxisValue(
       : customizations.decimalPlaces;
 
     if (numFormat === NumberFormats.DEFAULT) {
-      return numVal.toLocaleString();
+      return decimalPlaces !== undefined ? numVal.toFixed(decimalPlaces) : numVal.toLocaleString();
     }
     return formatNumber(numVal, {
       format: numFormat,
@@ -66,14 +66,19 @@ export function formatAxisValue(
     if (!isBarOrLineChart) return val;
 
     const numFormat = customizations.xAxisNumberFormat as NumberFormat;
-    // Only format if xAxisNumberFormat is explicitly set (means X-axis is numeric)
-    if (!numFormat || numFormat === NumberFormats.DEFAULT) return val;
+    const decimalPlaces = customizations.xAxisDecimalPlaces;
 
-    // xAxisNumberFormat is set, so X-axis is numeric - safe to parseFloat
+    // Only format if xAxisNumberFormat is explicitly set OR decimal places are specified
+    if ((!numFormat || numFormat === NumberFormats.DEFAULT) && decimalPlaces === undefined)
+      return val;
+
+    // xAxisNumberFormat is set or decimal places specified, so X-axis is numeric - safe to parseFloat
     const numVal = typeof val === 'number' ? val : parseFloat(String(val));
     if (isNaN(numVal)) return val;
 
-    const decimalPlaces = customizations.xAxisDecimalPlaces;
+    if (!numFormat || numFormat === NumberFormats.DEFAULT) {
+      return numVal.toFixed(decimalPlaces);
+    }
     return formatNumber(numVal, {
       format: numFormat,
       decimalPlaces: decimalPlaces,
@@ -331,6 +336,112 @@ export function applyPieChartFormatting(
         formatIfNumber(item)
       ),
     };
+  }
+}
+
+/**
+ * Applies line/bar chart axis and data label formatting to the ECharts config in place.
+ * Injects formatters for Y-axis labels, X-axis labels, and series data labels
+ * based on customizations.
+ *
+ * @param config - The ECharts config object to mutate
+ * @param customizations - Chart customization settings
+ */
+export function applyLineBarChartFormatting(
+  config: Record<string, unknown>,
+  customizations: ChartCustomizations
+): void {
+  const yAxisNumberFormat = customizations.yAxisNumberFormat;
+  const yAxisDecimalPlaces = customizations.yAxisDecimalPlaces;
+  const xAxisNumberFormat = customizations.xAxisNumberFormat;
+  const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
+
+  const hasYAxisFormatting =
+    (yAxisNumberFormat && yAxisNumberFormat !== NumberFormats.DEFAULT) ||
+    yAxisDecimalPlaces !== undefined;
+  const hasXAxisFormatting =
+    (xAxisNumberFormat && xAxisNumberFormat !== NumberFormats.DEFAULT) ||
+    xAxisDecimalPlaces !== undefined;
+
+  // Format Y-axis labels
+  if (config.yAxis && hasYAxisFormatting) {
+    const formatYAxisLabel = (value: number) => {
+      if (typeof value !== 'number' || isNaN(value)) return value;
+      if (yAxisNumberFormat && yAxisNumberFormat !== NumberFormats.DEFAULT) {
+        return formatNumber(value, {
+          format: yAxisNumberFormat,
+          decimalPlaces: yAxisDecimalPlaces,
+        });
+      }
+      return value.toFixed(yAxisDecimalPlaces);
+    };
+
+    if (Array.isArray(config.yAxis)) {
+      config.yAxis = (config.yAxis as Record<string, unknown>[]).map((axis) => ({
+        ...axis,
+        axisLabel: { ...(axis.axisLabel as Record<string, unknown>), formatter: formatYAxisLabel },
+      }));
+    } else {
+      config.yAxis = {
+        ...(config.yAxis as Record<string, unknown>),
+        axisLabel: {
+          ...((config.yAxis as Record<string, unknown>).axisLabel as Record<string, unknown>),
+          formatter: formatYAxisLabel,
+        },
+      };
+    }
+  }
+
+  // Format X-axis labels
+  if (config.xAxis && hasXAxisFormatting) {
+    const formatXAxisLabel = (value: unknown) => {
+      const numVal = typeof value === 'number' ? value : parseFloat(String(value));
+      if (isNaN(numVal)) return value;
+      if (xAxisNumberFormat && xAxisNumberFormat !== NumberFormats.DEFAULT) {
+        return formatNumber(numVal, {
+          format: xAxisNumberFormat,
+          decimalPlaces: xAxisDecimalPlaces,
+        });
+      }
+      return numVal.toFixed(xAxisDecimalPlaces);
+    };
+
+    if (Array.isArray(config.xAxis)) {
+      config.xAxis = (config.xAxis as Record<string, unknown>[]).map((axis) => ({
+        ...axis,
+        axisLabel: { ...(axis.axisLabel as Record<string, unknown>), formatter: formatXAxisLabel },
+      }));
+    } else {
+      config.xAxis = {
+        ...(config.xAxis as Record<string, unknown>),
+        axisLabel: {
+          ...((config.xAxis as Record<string, unknown>).axisLabel as Record<string, unknown>),
+          formatter: formatXAxisLabel,
+        },
+      };
+    }
+  }
+
+  // Format data labels on chart points/bars (uses Y-axis format since data labels show Y values)
+  if (config.series && customizations.showDataLabels && hasYAxisFormatting) {
+    const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
+    config.series = (seriesArray as Record<string, unknown>[]).map((series) => ({
+      ...series,
+      label: {
+        ...(series.label as Record<string, unknown>),
+        formatter: (params: Record<string, unknown>) => {
+          const value = params.value;
+          if (typeof value !== 'number' || isNaN(value)) return value;
+          if (yAxisNumberFormat && yAxisNumberFormat !== NumberFormats.DEFAULT) {
+            return formatNumber(value, {
+              format: yAxisNumberFormat,
+              decimalPlaces: yAxisDecimalPlaces,
+            });
+          }
+          return value.toFixed(yAxisDecimalPlaces);
+        },
+      },
+    }));
   }
 }
 
