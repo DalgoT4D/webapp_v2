@@ -12,6 +12,8 @@ import { formatNumber, NumberFormats, type NumberFormat } from './formatters';
 interface ChartCustomizations {
   numberFormat?: NumberFormat;
   decimalPlaces?: number;
+  numberPrefix?: string;
+  numberSuffix?: string;
   yAxisNumberFormat?: NumberFormat;
   yAxisDecimalPlaces?: number;
   xAxisNumberFormat?: NumberFormat;
@@ -230,26 +232,33 @@ export function createPieDimensionFormatter(
 }
 
 /**
- * Creates a formatter function for ECharts number chart (gauge) detail labels.
- * Applies number format, decimal places, and optional prefix/suffix.
+ * Applies number chart (gauge) formatting to the ECharts config in place.
+ * Injects a detail.formatter into each series using number format, decimal
+ * places, prefix, and suffix from customizations.
  *
- * @param numberFormat - The number format to apply
- * @param decimalPlaces - The decimal places for formatting
- * @param prefix - Optional prefix string
- * @param suffix - Optional suffix string
- * @returns A function that formats number chart values
+ * @param config - The ECharts config object to mutate
+ * @param customizations - Chart customization settings
  */
-export function createNumberChartFormatter(
-  numberFormat: NumberFormat | undefined,
-  decimalPlaces: number | undefined,
-  prefix: string = '',
-  suffix: string = ''
-): (value: number) => string {
-  const numFormat = numberFormat || NumberFormats.DEFAULT;
-  return (value: number) => {
-    const formatted = formatNumber(value, { format: numFormat, decimalPlaces });
+export function applyNumberChartFormatting(
+  config: Record<string, unknown>,
+  customizations: ChartCustomizations
+): void {
+  if (!config.series) return;
+  const numFormat = customizations.numberFormat || NumberFormats.DEFAULT;
+  const prefix = customizations.numberPrefix || '';
+  const suffix = customizations.numberSuffix || '';
+  const formatter = (value: number) => {
+    const formatted = formatNumber(value, {
+      format: numFormat,
+      decimalPlaces: customizations.decimalPlaces,
+    });
     return `${prefix}${formatted}${suffix}`;
   };
+  const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
+  config.series = seriesArray.map((series: Record<string, unknown>) => ({
+    ...series,
+    detail: { ...(series.detail as Record<string, unknown>), formatter },
+  }));
 }
 
 /**

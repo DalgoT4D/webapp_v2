@@ -15,7 +15,7 @@ import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import {
   createTooltipFormatter,
   createPieDimensionFormatter,
-  createNumberChartFormatter,
+  applyNumberChartFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes } from '@/types/charts';
 
@@ -98,7 +98,6 @@ export function ChartPreview({
       const configWithLegend = config.legend
         ? applyLegendPosition(config, legendPosition, isPaginated, detectedChartType)
         : config;
-      console.log('configWithLegend', configWithLegend);
 
       // Modify config to ensure proper margins for axis titles and axis title styling
       // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
@@ -265,20 +264,8 @@ export function ChartPreview({
       }
 
       // Apply number formatting for number charts (frontend-only formatting)
-      if (isNumberChart && modifiedConfig.series) {
-        const formatter = createNumberChartFormatter(
-          customizations.numberFormat as NumberFormat,
-          customizations.decimalPlaces,
-          customizations.numberPrefix || '',
-          customizations.numberSuffix || ''
-        );
-        const seriesArray = Array.isArray(modifiedConfig.series)
-          ? modifiedConfig.series
-          : [modifiedConfig.series];
-        modifiedConfig.series = seriesArray.map((series: any) => ({
-          ...series,
-          detail: { ...series.detail, formatter },
-        }));
+      if (isNumberChart) {
+        applyNumberChartFormatting(modifiedConfig, customizations);
       }
 
       // Apply number formatting and visibility settings for pie chart data labels

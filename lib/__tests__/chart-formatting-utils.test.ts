@@ -9,7 +9,7 @@ import {
   createXAxisLabelFormatter,
   createDataLabelFormatter,
   createPieDimensionFormatter,
-  createNumberChartFormatter,
+  applyNumberChartFormatting,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -142,30 +142,59 @@ describe('chart-formatting-utils', () => {
     });
   });
 
-  describe('createNumberChartFormatter', () => {
+  describe('applyNumberChartFormatting', () => {
     it('should format value with given number format', () => {
-      const formatter = createNumberChartFormatter('comma', undefined, '', '');
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, { numberFormat: 'comma' });
+      const formatter = (config.series[0] as any).detail.formatter;
       expect(formatter(1234567)).toBe('1,234,567');
     });
 
     it('should apply decimal places', () => {
-      const formatter = createNumberChartFormatter('comma', 2, '', '');
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, { numberFormat: 'comma', decimalPlaces: 2 });
+      const formatter = (config.series[0] as any).detail.formatter;
       expect(formatter(1234567)).toBe('1,234,567.00');
     });
 
     it('should apply prefix and suffix', () => {
-      const formatter = createNumberChartFormatter('comma', 0, '$', ' USD');
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, {
+        numberFormat: 'comma',
+        decimalPlaces: 0,
+        numberPrefix: '$',
+        numberSuffix: ' USD',
+      });
+      const formatter = (config.series[0] as any).detail.formatter;
       expect(formatter(1000)).toBe('$1,000 USD');
     });
 
     it('should use default format when numberFormat is undefined', () => {
-      const formatter = createNumberChartFormatter(undefined, undefined, '', '');
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, {});
+      const formatter = (config.series[0] as any).detail.formatter;
       expect(formatter(1000)).toBe('1000');
     });
 
-    it('should handle prefix and suffix with default empty strings', () => {
-      const formatter = createNumberChartFormatter('indian', undefined);
+    it('should format indian number format', () => {
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, { numberFormat: 'indian' });
+      const formatter = (config.series[0] as any).detail.formatter;
       expect(formatter(1000000)).toBe('10,00,000');
+    });
+
+    it('should do nothing when series is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyNumberChartFormatting(config, { numberFormat: 'comma' });
+      expect(config.series).toBeUndefined();
+    });
+
+    it('should handle single series object (not array)', () => {
+      const config = { series: { type: 'gauge', detail: {} } };
+      applyNumberChartFormatting(config, { numberFormat: 'comma' });
+      const seriesArray = config.series as any[];
+      expect(Array.isArray(seriesArray)).toBe(true);
+      expect(seriesArray[0].detail.formatter(1000)).toBe('1,000');
     });
   });
 

@@ -45,7 +45,7 @@ import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import {
   createTooltipFormatter,
   createPieDimensionFormatter,
-  createNumberChartFormatter,
+  applyNumberChartFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
@@ -999,20 +999,8 @@ export function ChartElementV2({
       };
 
       // Apply number formatting for number charts (same as ChartPreview.tsx)
-      if (isNumberChart && modifiedConfig.series) {
-        const formatter = createNumberChartFormatter(
-          customizations.numberFormat as NumberFormat,
-          customizations.decimalPlaces,
-          customizations.numberPrefix || '',
-          customizations.numberSuffix || ''
-        );
-        const seriesArray = Array.isArray(modifiedConfig.series)
-          ? modifiedConfig.series
-          : [modifiedConfig.series];
-        modifiedConfig.series = seriesArray.map((series: any) => ({
-          ...series,
-          detail: { ...series.detail, formatter },
-        }));
+      if (isNumberChart) {
+        applyNumberChartFormatting(modifiedConfig, customizations);
       }
 
       // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
