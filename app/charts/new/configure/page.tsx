@@ -43,7 +43,7 @@ import { getApiCustomizations } from '@/lib/chart-payload-utils';
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
   switch (chartType) {
-    case 'bar':
+    case ChartTypes.BAR:
       return {
         orientation: 'vertical',
         showDataLabels: false,
@@ -56,7 +56,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         xAxisLabelRotation: 'horizontal',
         yAxisLabelRotation: 'horizontal',
       };
-    case 'pie':
+    case ChartTypes.PIE:
       return {
         chartStyle: 'donut',
         labelFormat: 'percentage',
@@ -66,7 +66,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showLegend: true,
         legendPosition: 'right',
       };
-    case 'line':
+    case ChartTypes.LINE:
       return {
         lineStyle: 'smooth',
         showDataPoints: true,
@@ -79,7 +79,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         xAxisLabelRotation: 'horizontal',
         yAxisLabelRotation: 'horizontal',
       };
-    case 'number':
+    case ChartTypes.NUMBER:
       return {
         numberSize: 'medium',
         subtitle: '',
@@ -88,7 +88,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         numberPrefix: '',
         numberSuffix: '',
       };
-    case 'map':
+    case ChartTypes.MAP:
       return {
         colorScheme: 'Blues',
         showTooltip: true,
