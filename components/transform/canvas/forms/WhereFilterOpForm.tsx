@@ -107,6 +107,8 @@ export function WhereFilterOpForm({
 
   const advanceFilter = watch('advanceFilter');
   const operandType = watch('operandType');
+  const logicalOp = watch('logicalOp');
+  const isNullOperator = logicalOp === 'IS NULL' || logicalOp === 'IS NOT NULL';
 
   // Filter out 'between' - only used in CaseWhen
   const filteredOperators = LogicalOperators.filter((op) => op.id !== 'between');
@@ -142,13 +144,16 @@ export function WhereFilterOpForm({
                 {
                   column: data.filterCol,
                   operator: data.logicalOp,
-                  operand: {
-                    value:
-                      data.operandType === 'col'
-                        ? data.operandColVal
-                        : parseStringForNull(data.operandConstVal),
-                    is_col: data.operandType === 'col',
-                  },
+                  operand:
+                    data.logicalOp === 'IS NULL' || data.logicalOp === 'IS NOT NULL'
+                      ? null
+                      : {
+                          value:
+                            data.operandType === 'col'
+                              ? data.operandColVal
+                              : parseStringForNull(data.operandConstVal),
+                          is_col: data.operandType === 'col',
+                        },
                 },
               ],
           sql_snippet: data.sql_snippet,
@@ -223,50 +228,54 @@ export function WhereFilterOpForm({
         />
       </div>
 
-      {/* Operand Type */}
-      <Controller
-        control={control}
-        name="operandType"
-        render={({ field }) => (
-          <RadioGroup
-            value={field.value}
-            onValueChange={field.onChange}
-            className="flex gap-4"
-            disabled={isSimpleFieldsDisabled}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="col" id="operand-col" />
-              <Label htmlFor="operand-col" className="text-sm">
-                Column
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="val" id="operand-val" />
-              <Label htmlFor="operand-val" className="text-sm">
-                Value
-              </Label>
-            </div>
-          </RadioGroup>
-        )}
-      />
+      {/* Operand Type - hidden for IS NULL / IS NOT NULL */}
+      {!isNullOperator && (
+        <>
+          <Controller
+            control={control}
+            name="operandType"
+            render={({ field }) => (
+              <RadioGroup
+                value={field.value}
+                onValueChange={field.onChange}
+                className="flex gap-4"
+                disabled={isSimpleFieldsDisabled}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="col" id="operand-col" />
+                  <Label htmlFor="operand-col" className="text-sm">
+                    Column
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="val" id="operand-val" />
+                  <Label htmlFor="operand-val" className="text-sm">
+                    Value
+                  </Label>
+                </div>
+              </RadioGroup>
+            )}
+          />
 
-      {/* Operand Value */}
-      {operandType === 'col' ? (
-        <ColumnSelect
-          value={watch('operandColVal')}
-          onChange={(value) => setValue('operandColVal', value)}
-          columns={srcColumns}
-          placeholder="Select comparison column"
-          disabled={isSimpleFieldsDisabled}
-          testId="where-operand-col"
-        />
-      ) : (
-        <Input
-          {...register('operandConstVal')}
-          placeholder="Enter the value"
-          disabled={isSimpleFieldsDisabled}
-          data-testid="where-operand-val"
-        />
+          {/* Operand Value */}
+          {operandType === 'col' ? (
+            <ColumnSelect
+              value={watch('operandColVal')}
+              onChange={(value) => setValue('operandColVal', value)}
+              columns={srcColumns}
+              placeholder="Select comparison column"
+              disabled={isSimpleFieldsDisabled}
+              testId="where-operand-col"
+            />
+          ) : (
+            <Input
+              {...register('operandConstVal')}
+              placeholder="Enter the value"
+              disabled={isSimpleFieldsDisabled}
+              data-testid="where-operand-val"
+            />
+          )}
+        </>
       )}
 
       {/* Advance Filter Toggle */}

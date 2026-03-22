@@ -82,7 +82,14 @@ export function GenericSqlOpForm({
           sql_statement_1: data.sql_statement_1,
           sql_statement_2: data.sql_statement_2,
         },
-        source_columns: [] as string[],
+        source_columns: (() => {
+          const finalAction = node.data?.isDummy ? 'create' : action;
+          if (finalAction === 'edit' && node?.data?.operation_config?.config) {
+            const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+            return config?.source_columns || [];
+          }
+          return node?.data?.output_columns || [];
+        })(),
         other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 

@@ -259,15 +259,20 @@ export function CaseWhenOpForm({
           when_clauses: data.advanceFilter
             ? []
             : data.clauses.map((clause) => {
-                const operands = [
-                  {
-                    value:
-                      clause.operand1.type === 'col'
-                        ? clause.operand1.col_val
-                        : parseStringForNull(clause.operand1.const_val),
-                    is_col: clause.operand1.type === 'col',
-                  },
-                ];
+                const isNullOp =
+                  clause.logicalOp === 'IS NULL' || clause.logicalOp === 'IS NOT NULL';
+
+                const operands = isNullOp
+                  ? []
+                  : [
+                      {
+                        value:
+                          clause.operand1.type === 'col'
+                            ? clause.operand1.col_val
+                            : parseStringForNull(clause.operand1.const_val),
+                        is_col: clause.operand1.type === 'col',
+                      },
+                    ];
 
                 // Add second operand for 'between' operator
                 if (clause.logicalOp === 'between') {
@@ -337,6 +342,8 @@ export function CaseWhenOpForm({
       {clauseFields.map((clauseField, index) => {
         const clause = watchedClauses[index];
         const isBetween = clause?.logicalOp === 'between';
+        const isNullOperator =
+          clause?.logicalOp === 'IS NULL' || clause?.logicalOp === 'IS NOT NULL';
 
         return (
           <div key={clauseField.id} className="p-4 border rounded-md space-y-4">
@@ -405,14 +412,16 @@ export function CaseWhenOpForm({
                 )}
               />
 
-              <CaseOperandInput
-                name={`clauses.${index}.operand1`}
-                operandValue={clause?.operand1}
-                disabled={isSimpleDisabled}
-                testIdPrefix={`case-operand1-${index}`}
-                control={control}
-                columns={srcColumns}
-              />
+              {!isNullOperator && (
+                <CaseOperandInput
+                  name={`clauses.${index}.operand1`}
+                  operandValue={clause?.operand1}
+                  disabled={isSimpleDisabled}
+                  testIdPrefix={`case-operand1-${index}`}
+                  control={control}
+                  columns={srcColumns}
+                />
+              )}
 
               {isBetween && (
                 <>

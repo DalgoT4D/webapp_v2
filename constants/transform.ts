@@ -188,6 +188,8 @@ export const LogicalOperators = [
   { id: '=', label: 'Equal To =' },
   { id: '>=', label: 'Greater Than or Equal To >=' },
   { id: '>', label: 'Greater Than >' },
+  { id: 'IS NOT NULL', label: 'Is Not Null' },
+  { id: 'IS NULL', label: 'Is Null' },
   { id: '<', label: 'Less Than <' },
   { id: '<=', label: 'Less Than or Equal To <=' },
   { id: '!=', label: 'Not Equal To !=' },
