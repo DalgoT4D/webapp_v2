@@ -355,6 +355,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
         panOnDrag
         zoomOnScroll
         zoomOnPinch
+        proOptions={{ hideAttribution: true }}
       >
         <Controls showInteractive={false} className="!bottom-4 !left-4" />
         <Background color="#e0e0e0" gap={20} />

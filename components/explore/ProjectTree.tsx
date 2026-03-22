@@ -174,11 +174,10 @@ export function ProjectTree({
         <div
           style={{
             ...style,
-            width: '100%',
-            paddingRight: 0,
+            width: 'calc(100% - 16px)',
           }}
           className={cn(
-            'flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors',
+            'flex items-center gap-1.5 pl-2 cursor-pointer transition-colors',
             'hover:bg-gray-100',
             isSelected && 'bg-teal-50 border-l-2 border-l-teal-500',
             !isSelected && 'border-l-2 border-l-transparent',
@@ -195,14 +194,14 @@ export function ProjectTree({
         >
           {isFolder ? (
             node.isOpen ? (
-              <FolderOpen className="h-5 w-5 flex-shrink-0 text-gray-500" />
+              <FolderOpen className="h-[18px] w-[18px] flex-shrink-0 text-gray-500" />
             ) : (
-              <Folder className="h-5 w-5 flex-shrink-0 text-gray-500" />
+              <Folder className="h-[18px] w-[18px] flex-shrink-0 text-gray-500" />
             )
           ) : (
             <Table2
               className={cn(
-                'h-5 w-5 flex-shrink-0',
+                'h-[18px] w-[18px] flex-shrink-0',
                 isSelected ? 'text-teal-600' : 'text-gray-400'
               )}
             />
@@ -213,9 +212,9 @@ export function ProjectTree({
               <TooltipTrigger asChild>
                 <span
                   className={cn(
-                    'truncate flex-1',
-                    isSelected ? 'text-teal-700 font-medium text-base' : 'text-gray-700 text-base',
-                    isFolder && 'font-medium text-gray-800'
+                    'truncate flex-1 min-w-0 text-sm',
+                    isSelected ? 'text-teal-700 font-semibold' : 'text-gray-700',
+                    isFolder && 'font-semibold text-gray-800'
                   )}
                 >
                   {displayName}
@@ -232,12 +231,12 @@ export function ProjectTree({
             </Tooltip>
           </TooltipProvider>
 
-          {/* Canvas mode actions for leaf nodes — always visible */}
+          {/* Canvas mode actions for leaf nodes */}
           {mode === 'canvas' && isLeaf && (
-            <>
+            <span className="flex items-center gap-1 flex-shrink-0 ml-1">
               {onDeleteFromCanvas && (
                 <button
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-red-100"
+                  className="p-0.5 rounded hover:opacity-70"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteFromCanvas(node.data.id);
@@ -245,22 +244,22 @@ export function ProjectTree({
                   data-testid={`delete-source-${node.data.id}`}
                   aria-label="Remove from canvas"
                 >
-                  <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                  <Trash2 className="h-[18px] w-[18px] text-gray-500" />
                 </button>
               )}
               {onAddToCanvas && (
                 <button
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-teal-100"
+                  className="p-0.5 rounded hover:opacity-70"
                   onClick={(e) => {
                     e.stopPropagation();
                     onAddToCanvas(node.data.schema!, node.data.name!);
                   }}
                   data-testid={`add-to-canvas-${node.data.name}`}
                 >
-                  <Plus className="h-4 w-4 text-teal-600" />
+                  <Plus className="h-[18px] w-[18px] text-teal-600" />
                 </button>
               )}
-            </>
+            </span>
           )}
         </div>
       );
@@ -269,7 +268,7 @@ export function ProjectTree({
   );
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full px-2 py-4 bg-white">
+    <div ref={containerRef} className="flex flex-col h-full pl-2.5 pr-0 py-2.5 bg-white">
       {/* Search & Sync */}
       <div className="flex gap-2 mb-4 px-2">
         <div className="relative flex-1">
@@ -326,7 +325,7 @@ export function ProjectTree({
 
       {/* Tree */}
       {filteredTreeData.length > 0 ? (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white rounded-lg border border-gray-200">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white rounded-lg border border-gray-200 thin-scrollbar">
           <Tree<TreeNode>
             ref={treeRef}
             data={filteredTreeData}
@@ -334,7 +333,7 @@ export function ProjectTree({
             indent={EXPLORE_DIMENSIONS.TREE_INDENT}
             rowHeight={EXPLORE_DIMENSIONS.TREE_ROW_HEIGHT}
             height={treeHeight}
-            width={width - 10}
+            width={width}
             onSelect={handleNodeClick}
             childrenAccessor="children"
           >

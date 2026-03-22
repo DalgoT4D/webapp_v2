@@ -542,7 +542,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
                 axis="x"
               >
                 <div
-                  className="relative h-full border-r bg-white flex-shrink-0"
+                  className="relative h-full border-r bg-white flex-shrink-0 pr-1"
                   style={{ width: sidebarWidth }}
                 >
                   <ProjectTree
