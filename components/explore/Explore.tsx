@@ -118,7 +118,7 @@ export function Explore() {
               onValueChange={(value) => setActiveTab(value as 'preview' | 'statistics')}
               className="flex flex-col h-full"
             >
-              <div className="flex-shrink-0 border-b px-6">
+              <div className="flex-shrink-0 border-y px-6" style={{ background: '#F5FAFA' }}>
                 <TabsList className="h-12">
                   <TabsTrigger value="preview" data-testid="preview-tab">
                     Preview

@@ -2,7 +2,7 @@
 'use client';
 
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPostBinary } from '@/lib/api';
+import { apiGet, apiPost, apiGetBinary } from '@/lib/api';
 import type {
   WarehouseTable,
   TableColumn,
@@ -81,7 +81,7 @@ export function useTableCount(schema: string | null, table: string | null) {
 
 // Download table as CSV (imperative, not hook)
 export async function downloadTableCSV(schema: string, table: string): Promise<void> {
-  const blob = await apiPostBinary(`/api/warehouse/download/${schema}/${table}`, {});
+  const blob = await apiGetBinary(`/api/warehouse/download/${schema}/${table}`);
 
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');

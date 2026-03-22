@@ -37,6 +37,7 @@ import {
 import { toast } from 'sonner';
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '@/constants/explore';
 import type { SortConfig, PaginationConfig } from '@/types/explore';
+import { cn } from '@/lib/utils';
 
 // Fixed heights for header and pagination bars
 const HEADER_HEIGHT = 40;
@@ -123,7 +124,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
 
   const headerContent = (
     <>
-      <h2 className="font-medium text-sm text-gray-900" data-testid="preview-table-name">
+      <h2 className="font-bold text-base text-gray-900 pl-6" data-testid="preview-table-name">
         {schema}.{table}
       </h2>
       <Button
@@ -132,7 +133,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
         onClick={handleDownload}
         disabled={downloading || isLoading}
         className="text-white hover:opacity-90 shadow-xs"
-        style={{ backgroundColor: '#06887b' }}
+        style={{ backgroundColor: 'var(--primary)' }}
         data-testid="download-csv-btn"
       >
         {downloading ? (
@@ -148,17 +149,27 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
   const tableContent = (
     <Table>
       <TableHeader className="sticky top-0 z-10">
-        <TableRow className="bg-gray-50 hover:bg-gray-50">
+        <TableRow className="hover:bg-[#F5FAFA]" style={{ backgroundColor: '#F5FAFA' }}>
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => (
-                <TableHead key={i} className="text-base font-medium border-r last:border-r-0">
+                <TableHead
+                  key={i}
+                  className={cn(
+                    'text-base font-bold border border-[#dddddd] border-l-0',
+                    i === 0 && 'pl-10'
+                  )}
+                >
                   <Skeleton className="h-4 w-24" />
                 </TableHead>
               ))
-            : columns?.map((col) => (
+            : columns?.map((col, i) => (
                 <TableHead
                   key={col.name}
-                  className="text-base font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors border-r last:border-r-0"
+                  className={cn(
+                    'text-base font-bold cursor-pointer hover:bg-gray-100 transition-colors border border-[#dddddd] border-l-0',
+                    i === 0 && 'pl-10'
+                  )}
+                  style={{ color: 'rgba(15, 36, 64, 0.57)' }}
                   onClick={() => handleSort(col.name)}
                   data-testid={`sort-header-${col.name}`}
                 >
@@ -196,10 +207,13 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
               data-testid={`data-row-${rowIdx}`}
               className="hover:bg-gray-50/50"
             >
-              {columns?.map((col) => (
+              {columns?.map((col, i) => (
                 <TableCell
                   key={col.name}
-                  className="py-3 max-w-xs truncate text-gray-700 border-r last:border-r-0"
+                  className={cn(
+                    'py-2 max-w-xs truncate text-gray-700 text-[0.8rem] border-b border-r border-[#dddddd] last:border-r-0',
+                    i === 0 && 'pl-10'
+                  )}
                 >
                   {row[col.name] != null ? String(row[col.name]) : ''}
                 </TableCell>
@@ -298,7 +312,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
 
         {/* Pagination — pinned to bottom */}
         <div
-          className="absolute left-0 right-0 flex items-center justify-between px-4 border-t border-gray-100 bg-gray-50/30 z-10"
+          className="absolute left-0 right-0 flex items-center justify-between px-4 mr-5 border-t border-gray-100 bg-gray-50/30 z-10"
           style={{ bottom: 4, height: PAGINATION_HEIGHT }}
         >
           {paginationContent}
@@ -309,7 +323,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
 
   // Default layout (Explore page) — flex-based, h-full from parent
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white pb-4">
       {/* Header */}
       <div
         className="flex-shrink-0 flex items-center justify-between px-4 border-b"
@@ -323,7 +337,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
 
       {/* Pagination */}
       <div
-        className="flex-shrink-0 flex items-center justify-between px-4 border-t border-gray-100 bg-gray-50/30"
+        className="flex-shrink-0 flex items-center justify-between px-4 mr-5 border-t border-gray-100 bg-gray-50/30"
         style={{ height: PAGINATION_HEIGHT }}
       >
         {paginationContent}
