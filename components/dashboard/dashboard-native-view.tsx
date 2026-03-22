@@ -230,6 +230,7 @@ interface DashboardNativeViewProps {
   snapshotId?: number; // Report snapshot ID for comments
   commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states keyed by chart_id or "summary"
   onCommentStateChange?: () => void; // Callback to revalidate comment states
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
 }
 
 export function DashboardNativeView({
@@ -249,6 +250,7 @@ export function DashboardNativeView({
   snapshotId,
   commentStates,
   onCommentStateChange,
+  autoOpenCommentChartId,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -552,6 +554,7 @@ export function DashboardNativeView({
               snapshotId={isReportMode ? snapshotId : undefined}
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
             />
           </div>
         );

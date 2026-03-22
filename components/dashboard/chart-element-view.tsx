@@ -120,6 +120,7 @@ interface ChartElementViewProps {
   snapshotId?: number; // Report snapshot ID for comments
   commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
   onCommentStateChange?: () => void; // Callback when comment state changes
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
 }
 
 interface DrillDownLevel {
@@ -147,6 +148,7 @@ export function ChartElementView({
   snapshotId,
   commentStates,
   onCommentStateChange,
+  autoOpenCommentChartId,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -1758,6 +1760,7 @@ export function ChartElementView({
                 state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
                 triggerClassName="h-7 w-7 p-0"
                 onStateChange={onCommentStateChange}
+                autoOpen={autoOpenCommentChartId === String(chartId)}
               />
             )}
           </div>

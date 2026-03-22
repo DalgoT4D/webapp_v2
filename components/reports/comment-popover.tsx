@@ -44,6 +44,7 @@ interface CommentPopoverProps {
   state: CommentIconState;
   triggerClassName?: string;
   onStateChange?: () => void;
+  autoOpen?: boolean;
 }
 
 // ---- Mention Dropdown ----
@@ -354,8 +355,16 @@ function CommentPopoverInner({
   state,
   triggerClassName,
   onStateChange,
+  autoOpen = false,
 }: CommentPopoverProps) {
   const [open, setOpen] = useState(false);
+
+  // Auto-open popover when linked from email notification
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+    }
+  }, [autoOpen]);
   const [draft, setDraft] = useState('');
   const [mentionQuery, setMentionQuery] = useState('');
   const [showMentions, setShowMentions] = useState(false);

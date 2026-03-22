@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +29,12 @@ import { formatDateShort } from '@/components/reports/utils';
 export default function SnapshotViewerPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const snapshotId = Number(params.snapshotId);
+
+  // Read comment deep-link params from email notifications
+  const commentTarget = searchParams.get('commentTarget');
+  const commentChartId = searchParams.get('chartId');
 
   const { viewData, isLoading, isError, mutate } = useSnapshotView(snapshotId);
 
@@ -188,6 +193,9 @@ export default function SnapshotViewerPage() {
           snapshotId={snapshotId}
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
+          autoOpenCommentChartId={
+            commentTarget === 'chart' && commentChartId ? commentChartId : undefined
+          }
           beforeContent={
             <div className="border rounded-lg p-5 mb-2 bg-background relative">
               {/* Comment + Edit icons in top-right corner */}
@@ -198,6 +206,7 @@ export default function SnapshotViewerPage() {
                   state={commentStates?.['summary']?.state ?? 'none'}
                   triggerClassName="h-8 w-8"
                   onStateChange={handleCommentStateChange}
+                  autoOpen={commentTarget === 'summary'}
                 />
                 <Button
                   variant="ghost"
