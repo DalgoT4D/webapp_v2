@@ -192,39 +192,67 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
         .map((n: Node<CanvasNodeRenderData>) => [n.id, n.position])
     );
 
-    // Calculate offset between dagre's coordinate space and actual canvas positions.
-    // Dagre computes from scratch starting near (0,0), but existing nodes are elsewhere.
-    // Sample one existing node to find the translation so new nodes (e.g. second table
-    // in a union/join) land near the rest of the graph, not at the canvas origin.
-    let shiftX = 0;
-    let shiftY = 0;
-    let hasShift = false;
-
-    for (const layoutedNode of layoutedNodes) {
-      const existingPos = currentPosMap.get(layoutedNode.id);
-      if (existingPos) {
-        shiftX = existingPos.x - layoutedNode.position.x;
-        shiftY = existingPos.y - layoutedNode.position.y;
-        hasShift = true;
-        break;
+    // Build edge maps so new nodes can be positioned relative to their neighbours.
+    // parentMap: target → source (for output tables: position to the RIGHT of parent)
+    // childMap: source → target (for union/join input tables: position to the LEFT of child)
+    const parentMap = new Map<string, string>();
+    const childMap = new Map<string, string>();
+    for (const edge of flowEdges) {
+      parentMap.set(edge.target, edge.source);
+      // Only set childMap if not already set (first child wins)
+      if (!childMap.has(edge.source)) {
+        childMap.set(edge.source, edge.target);
       }
     }
 
     const finalNodes = layoutedNodes.map((n) => {
       const existingPos = currentPosMap.get(n.id);
       if (existingPos) {
-        // Keep the existing position — don't let dagre move it
         return { ...n, position: existingPos };
       }
-      // New node — shift dagre's position into the canvas coordinate space
-      if (hasShift) {
-        return { ...n, position: { x: n.position.x + shiftX, y: n.position.y + shiftY } };
+
+      // New node with incoming edge — position to the RIGHT of its parent
+      const parentId = parentMap.get(n.id);
+      const parentPos = parentId ? currentPosMap.get(parentId) : undefined;
+      if (parentPos) {
+        return {
+          ...n,
+          position: {
+            x: parentPos.x + DAGRE_RANKSEP,
+            y: parentPos.y,
+          },
+        };
       }
-      return n;
+
+      // New source node (no incoming edge, e.g. second table in union/join)
+      // — position to the LEFT of the operation it feeds into
+      const childId = childMap.get(n.id);
+      const childPos = childId ? currentPosMap.get(childId) : undefined;
+      if (childPos) {
+        return {
+          ...n,
+          position: {
+            x: childPos.x - DAGRE_RANKSEP,
+            y: childPos.y,
+          },
+        };
+      }
+
+      // No neighbour on canvas — fall back to single-sample shift
+      let shiftX = 0;
+      let shiftY = 0;
+      for (const ln of layoutedNodes) {
+        const ep = currentPosMap.get(ln.id);
+        if (ep) {
+          shiftX = ep.x - ln.position.x;
+          shiftY = ep.y - ln.position.y;
+          break;
+        }
+      }
+      return { ...n, position: { x: n.position.x + shiftX, y: n.position.y + shiftY } };
     });
 
     // Push new nodes away from existing nodes if they overlap.
-    // dagre uses zero-size nodes so its spacing can be tighter than the visual node size.
     spreadNewNodesAfterLayout(finalNodes, new Set(currentPosMap.keys()));
 
     setNodes([...finalNodes]);

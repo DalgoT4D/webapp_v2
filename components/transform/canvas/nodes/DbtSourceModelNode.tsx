@@ -46,26 +46,46 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     }
   }, [refreshTrigger]);
 
-  // Fetch columns once
+  // Fetch columns once — try warehouse API first, fallback to output_columns from node data.
+  // Newly created intermediate tables (from operations like union) may not exist in the
+  // warehouse yet (dbt hasn't run), so the warehouse API returns an error. In that case,
+  // use the output_columns that the backend computes from the operation chain.
   useEffect(() => {
-    if (!schema || !tableName || data?.isDummy || fetchedRef.current) return;
+    if (data?.isDummy || fetchedRef.current) return;
+    if (!schema && !tableName && !data?.output_columns?.length) return;
     fetchedRef.current = true;
 
     const fetchColumns = async () => {
       setIsLoadingColumns(true);
       try {
-        const response = (await apiGet(
-          `/api/warehouse/table_columns/${schema}/${tableName}`
-        )) as ColumnData[];
-        setColumns(response || []);
+        if (schema && tableName) {
+          const response = (await apiGet(
+            `/api/warehouse/table_columns/${schema}/${tableName}`
+          )) as ColumnData[];
+          if (response && response.length > 0) {
+            setColumns(response);
+            return;
+          }
+        }
+        // Fallback: use output_columns from the node data (no type info available)
+        if (data?.output_columns?.length) {
+          setColumns(data.output_columns.map((col: string) => ({ name: col, data_type: '' })));
+        } else {
+          setColumns([]);
+        }
       } catch {
-        setColumns([]);
+        // Warehouse fetch failed — use output_columns as fallback
+        if (data?.output_columns?.length) {
+          setColumns(data.output_columns.map((col: string) => ({ name: col, data_type: '' })));
+        } else {
+          setColumns([]);
+        }
       } finally {
         setIsLoadingColumns(false);
       }
     };
     fetchColumns();
-  }, [schema, tableName, data?.isDummy]);
+  }, [schema, tableName, data?.isDummy, data?.output_columns]);
 
   const handleNodeClick = useCallback(() => {
     // Always set preview data
