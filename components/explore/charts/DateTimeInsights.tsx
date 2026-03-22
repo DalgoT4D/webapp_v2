@@ -2,10 +2,9 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BaseChart } from './BaseChart';
-import { ChevronLeft, ChevronRight, Calendar, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, List, BarChart3 } from 'lucide-react';
 import { requestTableMetrics, useTaskStatus } from '@/hooks/api/useWarehouse';
 import {
   EXPLORE_COLORS,
@@ -30,6 +29,49 @@ interface DateFilter {
   range: RangeFilter;
   limit: number;
   offset: number;
+}
+
+// Arrow button styles matching v1
+const arrowStyles: React.CSSProperties = {
+  width: 16,
+  marginTop: 24,
+  height: 80,
+  background: '#F5FAFA',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+};
+
+// Format date matching v1: moment(date).format('ddd, Do MMMM, YYYY')
+function formatDisplayDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  const day = d.getDate();
+  const ordinal =
+    day === 1 || day === 21 || day === 31
+      ? 'st'
+      : day === 2 || day === 22
+        ? 'nd'
+        : day === 3 || day === 23
+          ? 'rd'
+          : 'th';
+
+  return `${days[d.getDay()]}, ${day}${ordinal} ${months[d.getMonth()]}, ${d.getFullYear()}`;
 }
 
 export function DateTimeInsights({
@@ -59,7 +101,8 @@ export function DateTimeInsights({
       const latest = taskData.progress[taskData.progress.length - 1];
       if (latest.status === 'completed' && latest.results) {
         const results = latest.results as DatetimeStats;
-        setChartData(results.charts?.[0]?.data ?? []);
+        const newData = results.charts?.[0]?.data ?? [];
+        setChartData(newData);
         setLoading(false);
         setTaskId(null);
       } else if (latest.status === 'failed' || latest.status === 'error') {
@@ -69,7 +112,7 @@ export function DateTimeInsights({
     }
   }, [taskData]);
 
-  // Fetch data when filter changes
+  // Fetch data when filter changes — sends refresh: true to match v1
   const fetchFilteredData = useCallback(
     async (newFilter: DateFilter) => {
       setLoading(true);
@@ -79,6 +122,7 @@ export function DateTimeInsights({
           db_table: table,
           column_name: columnName,
           filter: newFilter,
+          refresh: true,
         });
 
         await new Promise((resolve) => setTimeout(resolve, POLLING_INITIAL_DELAY));
@@ -104,9 +148,12 @@ export function DateTimeInsights({
   }, [filter, fetchFilteredData]);
 
   const cycleRange = useCallback(() => {
-    const ranges: RangeFilter[] = ['year', 'month', 'day'];
-    const currentIdx = ranges.indexOf(filter.range);
-    const nextRange = ranges[(currentIdx + 1) % ranges.length];
+    const rangeMap: Record<RangeFilter, RangeFilter> = {
+      year: 'month',
+      month: 'day',
+      day: 'year',
+    };
+    const nextRange = rangeMap[filter.range];
     const newFilter = { range: nextRange, limit: 10, offset: 0 };
     setFilter(newFilter);
     fetchFilteredData(newFilter);
@@ -145,136 +192,177 @@ export function DateTimeInsights({
         data: chartData.map(formatDateLabel),
         axisLabel: {
           interval: 0,
-          rotate: filter.range !== 'year' ? 45 : 0,
           fontSize: 10,
         },
+        axisLine: { show: false },
+        axisTick: { show: false },
       },
       yAxis: {
         type: 'value',
-        name: 'Frequency',
-        nameTextStyle: { fontSize: 10 },
+        show: false,
       },
       series: [
         {
           type: 'bar',
           data: chartData.map((d) => d.frequency),
           itemStyle: { color: EXPLORE_COLORS.PRIMARY_TEAL },
+          label: {
+            show: true,
+            position: 'top',
+            formatter: (p: { value: number }) => String(p.value),
+            fontSize: 10,
+          },
         },
       ],
-      grid: { top: 40, bottom: 80, left: 60, right: 20, containLabel: true },
+      grid: { top: 20, bottom: 20, left: 0, right: 0 },
     };
-  }, [chartData, formatDateLabel, filter.range]);
+  }, [chartData, formatDateLabel]);
 
-  // Calculate total days
+  // Calculate total days — use floor to match v1 moment.diff behavior
   const totalDays = useMemo(() => {
     if (!minVal || !maxVal) return 0;
     const min = new Date(minVal);
     const max = new Date(maxVal);
-    return Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.floor((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24));
   }, [minVal, maxVal]);
+
+  const toggleView = useCallback(() => {
+    setViewMode((prev) => (prev === 'chart' ? 'numbers' : 'chart'));
+  }, []);
 
   if (!chartData || chartData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-        No data available
+      <div style={{ display: 'flex', alignItems: 'center', minHeight: 110 }}>
+        -- -- -- No data available -- -- --
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div style={{ display: 'flex', alignItems: 'center', minHeight: 110 }}>
       {viewMode === 'chart' ? (
-        <>
-          {/* Left Arrow */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrevPage}
-            disabled={filter.offset === 0 || loading}
-            className="h-20 w-4 rounded-sm"
-            style={{ backgroundColor: EXPLORE_COLORS.STAT_BOX_BG }}
-            data-testid="datetime-prev-btn"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-
-          {/* Chart */}
-          {loading ? (
-            <Skeleton className="w-[600px] h-[100px]" />
-          ) : (
-            <BaseChart option={chartOption} width={600} height={EXPLORE_DIMENSIONS.CHART_HEIGHT} />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {/* Left Arrow — hidden when offset === 0 (v1 behavior) */}
+          {filter.offset > 0 && (
+            <div
+              style={arrowStyles}
+              onClick={handlePrevPage}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#c8d3d3')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#F5FAFA')}
+              data-testid="datetime-prev-btn"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </div>
           )}
 
-          {/* Right Arrow */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNextPage}
-            disabled={chartData.length < 10 || loading}
-            className="h-20 w-4 rounded-sm"
-            style={{ backgroundColor: EXPLORE_COLORS.STAT_BOX_BG }}
-            data-testid="datetime-next-btn"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          {/* Chart */}
+          <div style={{ position: 'relative', marginTop: 40 }}>
+            {loading ? (
+              <Skeleton style={{ height: 100, width: 700 }} />
+            ) : chartData.length === 0 ? (
+              <div style={{ width: 700, textAlign: 'center' }}>No Data available</div>
+            ) : (
+              <BaseChart
+                option={chartOption}
+                width={EXPLORE_DIMENSIONS.CHART_WIDTH}
+                height={EXPLORE_DIMENSIONS.CHART_HEIGHT}
+              />
+            )}
 
-          {/* Range Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={cycleRange}
-            className="text-xs"
-            data-testid="datetime-range-toggle"
-          >
-            {filter.range}
-          </Button>
-        </>
+            {/* Range label + filter toggle — positioned absolute like v1 */}
+            <div
+              style={{
+                position: 'absolute',
+                right: 20,
+                top: -50,
+                textAlign: 'right',
+              }}
+            >
+              <span>{filter.range}</span>
+              <div
+                onClick={cycleRange}
+                style={{ cursor: 'pointer', marginLeft: 'auto', display: 'block', marginTop: 4 }}
+                data-testid="datetime-range-toggle"
+              >
+                <Calendar className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Arrow — hidden when less than 10 items (v1 behavior) */}
+          {chartData.length === 10 && (
+            <div
+              style={arrowStyles}
+              onClick={handleNextPage}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#c8d3d3')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#F5FAFA')}
+              data-testid="datetime-next-btn"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </div>
+          )}
+        </div>
       ) : (
-        <div className="flex items-center gap-8 min-h-[100px] min-w-[600px]">
-          <div className="flex flex-col items-center">
-            <span className="text-xs" style={{ color: EXPLORE_COLORS.LABEL_COLOR }}>
-              Min Date
-            </span>
+        <div style={{ minWidth: 700, display: 'flex', alignItems: 'center' }}>
+          <div style={{ marginRight: 30 }}>
+            <div style={{ color: EXPLORE_COLORS.LABEL_COLOR }}>Minimum date</div>
             <div
-              className="h-6 px-3 flex items-center justify-center text-sm"
-              style={{ backgroundColor: EXPLORE_COLORS.STAT_BOX_BG }}
+              style={{
+                marginTop: 8,
+                paddingRight: 16,
+                background: EXPLORE_COLORS.STAT_BOX_BG,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              {minVal ? new Date(minVal).toLocaleDateString() : 'NA'}
+              <div style={{ marginLeft: 8 }}>{minVal ? formatDisplayDate(minVal) : 'NA'}</div>
             </div>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs" style={{ color: EXPLORE_COLORS.LABEL_COLOR }}>
-              Max Date
-            </span>
+
+          <div style={{ paddingTop: 24 }}>TO</div>
+
+          <div style={{ margin: '0 30px' }}>
+            <div style={{ color: EXPLORE_COLORS.LABEL_COLOR }}>Maximum date</div>
             <div
-              className="h-6 px-3 flex items-center justify-center text-sm"
-              style={{ backgroundColor: EXPLORE_COLORS.STAT_BOX_BG }}
+              style={{
+                marginTop: 8,
+                paddingRight: 16,
+                background: EXPLORE_COLORS.STAT_BOX_BG,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              {maxVal ? new Date(maxVal).toLocaleDateString() : 'NA'}
+              <div style={{ marginLeft: 8 }}>{maxVal ? formatDisplayDate(maxVal) : 'NA'}</div>
             </div>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs" style={{ color: EXPLORE_COLORS.LABEL_COLOR }}>
-              Total Days
-            </span>
+
+          <div>
+            <div style={{ color: EXPLORE_COLORS.LABEL_COLOR }}>Total days data</div>
             <div
-              className="h-6 px-3 flex items-center justify-center text-sm"
-              style={{ backgroundColor: EXPLORE_COLORS.STAT_BOX_BG }}
+              style={{
+                marginTop: 8,
+                paddingRight: 16,
+                background: EXPLORE_COLORS.STAT_BOX_BG,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              {totalDays.toLocaleString()}
+              <div style={{ marginLeft: 8 }}>{totalDays}</div>
             </div>
           </div>
         </div>
       )}
 
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setViewMode((prev) => (prev === 'chart' ? 'numbers' : 'chart'))}
+      <div
+        style={{ marginLeft: 20, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+        onClick={toggleView}
         data-testid="toggle-datetime-view"
       >
-        {viewMode === 'chart' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-      </Button>
+        {viewMode === 'chart' ? <List className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
+      </div>
     </div>
   );
 }

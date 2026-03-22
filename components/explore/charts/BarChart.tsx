@@ -7,7 +7,7 @@ import { EXPLORE_COLORS, EXPLORE_DIMENSIONS } from '@/constants/explore';
 import type { EChartsOption } from 'echarts';
 
 interface BarChartData {
-  label: string;
+  label?: string;
   value: number;
   barTopLabel?: string;
   name?: string;
@@ -18,6 +18,11 @@ interface BarChartData {
 interface BarChartProps {
   data: BarChartData[];
 }
+
+// Trim labels to 10 chars matching v1
+const trimLabel = (label: string) => {
+  return label.length > 10 ? label.substring(0, 10) + '...' : label;
+};
 
 export function BarChart({ data }: BarChartProps) {
   const chartOption = useMemo<EChartsOption>(() => {
@@ -31,28 +36,29 @@ export function BarChart({ data }: BarChartProps) {
         borderColor: '#000',
         borderWidth: 1,
         borderRadius: 8,
+        textStyle: { fontSize: 12 },
         formatter: (params: Array<{ dataIndex: number }>) => {
           const p = params[0];
           const item = data[p.dataIndex];
-          // Show full label if truncated
+          // v1: tooltip only shows for truncated labels (length > 10)
           const label = item.label || item.name || '';
-          return `${label}<br/>Value: ${item.value.toLocaleString()}`;
+          if (label.length <= 10) return null;
+          return label;
         },
       },
       xAxis: {
         type: 'category',
-        data: data.map((d) => {
-          const label = d.label || d.name || '';
-          return label.length > 10 ? label.substring(0, 10) + '...' : label;
-        }),
+        data: data.map((d) => trimLabel(d.label || d.name || '')),
         axisLabel: {
           interval: 0,
-          rotate: data.length > 6 ? 45 : 0,
           fontSize: 10,
         },
+        axisLine: { show: false },
+        axisTick: { show: false },
       },
       yAxis: {
         type: 'value',
+        show: false,
       },
       series: [
         {
@@ -64,20 +70,21 @@ export function BarChart({ data }: BarChartProps) {
             position: 'top',
             formatter: (p: { dataIndex: number }) => {
               const item = data[p.dataIndex];
-              return item.barTopLabel ?? item.value.toLocaleString();
+              return item.barTopLabel ?? String(item.value);
             },
             fontSize: 10,
+            color: '#000',
           },
         },
       ],
-      grid: { top: 40, bottom: 60, left: 40, right: 20, containLabel: true },
+      grid: { top: 20, bottom: 20, left: 0, right: 0 },
     };
   }, [data]);
 
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-        No data available
+      <div style={{ display: 'flex', alignItems: 'center', minHeight: 110 }}>
+        -- -- -- No data available -- -- --
       </div>
     );
   }

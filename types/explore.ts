@@ -34,6 +34,8 @@ export interface NumericStats {
   median: number;
   mode: number;
   other_modes?: number[];
+  countNull: number;
+  countDistinct: number;
 }
 
 export interface StringStats {
@@ -41,15 +43,20 @@ export interface StringStats {
   count: number;
   countNull: number;
   countDistinct: number;
-  minVal?: string;
-  maxVal?: string;
-  mode?: string;
+  minVal: number;
+  maxVal: number;
+  mean: number;
+  median: number;
+  mode: number;
+  other_modes?: number[];
 }
 
 export interface BooleanStats {
   count: number;
   countTrue: number;
   countFalse: number;
+  countNull: number;
+  countDistinct: number;
 }
 
 export interface DatetimeStats {
@@ -58,6 +65,8 @@ export interface DatetimeStats {
   }>;
   minVal: string;
   maxVal: string;
+  countNull: number;
+  countDistinct: number;
 }
 
 export interface MetricsRequest {
@@ -69,6 +78,7 @@ export interface MetricsRequest {
     limit: number;
     offset: number;
   };
+  refresh?: boolean;
 }
 
 export interface DbtModelResponse {

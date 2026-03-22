@@ -125,7 +125,7 @@ export function Explore() {
                   </TabsTrigger>
                   {showStatisticsTab && (
                     <TabsTrigger value="statistics" data-testid="statistics-tab">
-                      Data Statistics
+                      Data statistics
                     </TabsTrigger>
                   )}
                 </TabsList>

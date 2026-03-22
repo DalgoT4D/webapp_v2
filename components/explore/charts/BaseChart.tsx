@@ -35,43 +35,32 @@ export function BaseChart({ option, width = 700, height = 100, className }: Base
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
+  // Initialize chart instance (once)
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // Initialize chart
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
-    }
+    chartInstance.current = echarts.init(chartRef.current);
 
-    // Set option
-    if (Object.keys(option).length > 0) {
-      chartInstance.current.setOption(option, { notMerge: true });
-    }
+    const resizeObserver = new ResizeObserver(() => {
+      chartInstance.current?.resize();
+    });
+    resizeObserver.observe(chartRef.current);
 
-    // Cleanup
     return () => {
+      resizeObserver.disconnect();
       if (chartInstance.current) {
         chartInstance.current.dispose();
         chartInstance.current = null;
       }
     };
-  }, [option]);
-
-  // Handle resize
-  useEffect(() => {
-    const handleResize = () => {
-      chartInstance.current?.resize();
-    };
-
-    const resizeObserver = new ResizeObserver(handleResize);
-    if (chartRef.current) {
-      resizeObserver.observe(chartRef.current);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
   }, []);
+
+  // Update options when they change (without disposing)
+  useEffect(() => {
+    if (chartInstance.current && Object.keys(option).length > 0) {
+      chartInstance.current.setOption(option, { notMerge: true });
+    }
+  }, [option]);
 
   return (
     <div

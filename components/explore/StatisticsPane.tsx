@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { RefreshCw, Eye, ArrowUp, ArrowDown, ArrowUpDown, Loader2 } from 'lucide-react';
 import {
   useTableColumnTypes,
   useTableCount,
@@ -23,7 +23,7 @@ import { NumberInsights } from './charts/NumberInsights';
 import { StringInsights } from './charts/StringInsights';
 import { RangeChart } from './charts/RangeChart';
 import { DateTimeInsights } from './charts/DateTimeInsights';
-import { toast } from 'sonner';
+import { toastSuccess } from '@/lib/toast';
 import { EXPLORE_DIMENSIONS, POLLING_INITIAL_DELAY } from '@/constants/explore';
 import type {
   TableColumnWithType,
@@ -32,6 +32,31 @@ import type {
   BooleanStats,
   DatetimeStats,
 } from '@/types/explore';
+
+// Column widths matching v1: 160, 150, 100, 100, 800
+const COL_WIDTHS = {
+  NAME: 160,
+  TYPE: 150,
+  DISTINCT: 100,
+  NULL: 100,
+  DISTRIBUTION: 800,
+} as const;
+
+// Header cell style matching v1
+const headerCellStyle = {
+  backgroundColor: '#F5FAFA',
+  border: '1px solid #dddddd',
+  fontWeight: 700,
+  color: 'rgba(15, 36, 64, 0.57)',
+  textAlign: 'left' as const,
+};
+
+// Body cell style matching v1
+const bodyCellStyle = {
+  fontWeight: 600,
+  borderBottom: '1px solid #ddd',
+  fontSize: '0.8rem',
+};
 
 interface StatisticsPaneProps {
   schema: string;
@@ -45,8 +70,14 @@ interface ColumnStatistics {
   taskId: string | null;
 }
 
-type SortField = 'name' | 'type';
+type SortField = 'name' | 'type' | 'distinct' | 'null';
 type SortOrder = 'asc' | 'desc';
+
+// Union type for accessing countNull/countDistinct from any stats type
+interface StatsWithCounts {
+  countNull?: number;
+  countDistinct?: number;
+}
 
 export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
   const [columnStats, setColumnStats] = useState<Map<string, ColumnStatistics>>(new Map());
@@ -59,17 +90,39 @@ export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
 
   const totalRows = countData?.total_rows ?? 0;
 
-  // Sort columns
+  // Sort columns — support all 4 sortable fields
   const sortedColumns = useMemo(() => {
     if (!columns) return [];
 
     return [...columns].sort((a, b) => {
-      const aVal = sortField === 'name' ? a.name : a.translated_type;
-      const bVal = sortField === 'name' ? b.name : b.translated_type;
-      const comparison = aVal.localeCompare(bVal);
+      let aVal: string | number;
+      let bVal: string | number;
+
+      if (sortField === 'name') {
+        aVal = a.name;
+        bVal = b.name;
+      } else if (sortField === 'type') {
+        aVal = a.translated_type;
+        bVal = b.translated_type;
+      } else {
+        // For distinct/null, sort by the numeric value from stats
+        const aStats = columnStats.get(a.name)?.data as StatsWithCounts | null;
+        const bStats = columnStats.get(b.name)?.data as StatsWithCounts | null;
+        if (sortField === 'distinct') {
+          aVal = aStats?.countDistinct ?? -1;
+          bVal = bStats?.countDistinct ?? -1;
+        } else {
+          aVal = aStats?.countNull ?? -1;
+          bVal = bStats?.countNull ?? -1;
+        }
+        const comparison = (aVal as number) - (bVal as number);
+        return sortOrder === 'asc' ? comparison : -comparison;
+      }
+
+      const comparison = String(aVal).localeCompare(String(bVal));
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [columns, sortField, sortOrder]);
+  }, [columns, sortField, sortOrder, columnStats]);
 
   // Fetch statistics for each column
   const fetchColumnStats = useCallback(
@@ -123,23 +176,21 @@ export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
   );
 
   // Fetch all column stats on mount or refresh
+  // No cleanup on unmount — preserves stats across tab switches (matching v1)
   useEffect(() => {
     if (!columns || columns.length === 0 || totalRows === 0) return;
+
+    // Clear stats before re-fetching
+    setColumnStats(new Map());
 
     columns.forEach((col) => {
       fetchColumnStats(col);
     });
-
-    // Cleanup on unmount
-    return () => {
-      // Clear all states
-      setColumnStats(new Map());
-    };
   }, [columns, totalRows, refreshKey, fetchColumnStats]);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
-    toast.success('Refreshing statistics...');
+    toastSuccess.generic('Refreshing statistics...');
   }, []);
 
   const handleSort = useCallback(
@@ -156,120 +207,156 @@ export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
 
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+      return <ArrowUpDown className="h-4 w-4 ml-1" style={{ color: 'rgba(15, 36, 64, 0.57)' }} />;
     }
     return sortOrder === 'asc' ? (
-      <ArrowUp className="h-4 w-4 text-gray-600" />
+      <ArrowUp className="h-4 w-4 ml-1" style={{ color: 'rgba(15, 36, 64, 0.57)' }} />
     ) : (
-      <ArrowDown className="h-4 w-4 text-gray-600" />
+      <ArrowDown className="h-4 w-4 ml-1" style={{ color: 'rgba(15, 36, 64, 0.57)' }} />
     );
   };
 
   const isLoading = columnsLoading || countLoading;
 
+  // No table data
   if (totalRows === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground bg-white">
-        No data (0 rows) available
+      <div
+        className="flex-1 flex items-center justify-center"
+        style={{ color: 'rgba(15, 36, 64, 0.57)' }}
+      >
+        No data (0 rows) available to generate insights
+      </div>
+    );
+  }
+
+  // Still loading columns or all column stats not started yet
+  const allStatsEmpty = !columns || columns.length === 0 || columnStats.size === 0;
+  if (isLoading || allStatsEmpty) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        Generating insights
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b">
-        <div className="flex items-center gap-4">
-          <h2 className="font-medium text-lg text-gray-900" data-testid="statistics-table-name">
-            {schema}.{table}
-          </h2>
-          <span className="text-sm text-gray-500">
-            {columns?.length ?? 0} columns · {totalRows.toLocaleString()} rows
-          </span>
+      {/* Header info bar — matching v1 layout */}
+      <div className="flex-shrink-0 flex items-center" style={{ padding: '6px 8px 6px 44px' }}>
+        <span style={{ fontWeight: 'bold' }} data-testid="statistics-table-name">
+          {table}
+        </span>
+
+        <div className="flex items-center" style={{ marginLeft: '56px', fontWeight: 600 }}>
+          <div className="flex items-center mr-4">
+            <Eye className="h-5 w-5 mr-1" style={{ color: '#00897b' }} />
+            {columns?.length ?? 0} Columns
+          </div>
+          {totalRows > 0 ? totalRows : 0} Rows
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="text-white hover:opacity-90 shadow-xs"
-          style={{ backgroundColor: '#06887b' }}
-          data-testid="refresh-stats-btn"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          REFRESH
-        </Button>
+
+        <div className="flex items-center" style={{ marginLeft: 'auto', marginRight: '16px' }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="text-white hover:opacity-90 shadow-xs"
+            style={{ backgroundColor: 'var(--primary)' }}
+            data-testid="refresh-stats-btn"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Table */}
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="bg-white rounded-lg border shadow-sm">
-          <Table>
-            <TableHeader className="sticky top-0 z-10">
-              <TableRow className="bg-gray-50 hover:bg-gray-50">
-                <TableHead
-                  className="w-[200px] text-base font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors border-r"
-                  onClick={() => handleSort('name')}
-                  data-testid="sort-column-name"
-                >
-                  <div className="flex items-center gap-2 py-1">
-                    Column
-                    {renderSortIcon('name')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="w-[120px] text-base font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors border-r"
-                  onClick={() => handleSort('type')}
-                  data-testid="sort-column-type"
-                >
-                  <div className="flex items-center gap-2 py-1">
-                    Type
-                    {renderSortIcon('type')}
-                  </div>
-                </TableHead>
-                <TableHead className="w-[100px] text-base font-medium text-gray-700 border-r">
+      <div className="flex-1 overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 z-10">
+            <TableRow style={{ backgroundColor: '#F5FAFA' }} className="hover:bg-transparent">
+              <TableHead
+                style={{
+                  ...headerCellStyle,
+                  width: COL_WIDTHS.NAME,
+                  padding: '8px 8px 8px 40px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => handleSort('name')}
+                data-testid="sort-column-name"
+              >
+                <div className="flex items-center">
+                  Column name
+                  {renderSortIcon('name')}
+                </div>
+              </TableHead>
+              <TableHead
+                style={{
+                  ...headerCellStyle,
+                  width: COL_WIDTHS.TYPE,
+                  padding: '8px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => handleSort('type')}
+                data-testid="sort-column-type"
+              >
+                <div className="flex items-center">
+                  Column type
+                  {renderSortIcon('type')}
+                </div>
+              </TableHead>
+              <TableHead
+                style={{
+                  ...headerCellStyle,
+                  width: COL_WIDTHS.DISTINCT,
+                  padding: '8px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => handleSort('distinct')}
+                data-testid="sort-column-distinct"
+              >
+                <div className="flex items-center">
                   Distinct
-                </TableHead>
-                <TableHead className="w-[100px] text-base font-medium text-gray-700 border-r">
-                  Nulls
-                </TableHead>
-                <TableHead className="text-base font-medium text-gray-700">Distribution</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading
-                ? Array.from({ length: 5 }).map((_, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="border-r">
-                        <Skeleton className="h-4 w-32" />
-                      </TableCell>
-                      <TableCell className="border-r">
-                        <Skeleton className="h-4 w-20" />
-                      </TableCell>
-                      <TableCell className="border-r">
-                        <Skeleton className="h-4 w-16" />
-                      </TableCell>
-                      <TableCell className="border-r">
-                        <Skeleton className="h-4 w-16" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-24 w-full" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : sortedColumns.map((col) => (
-                    <StatisticsRow
-                      key={col.name}
-                      column={col}
-                      stats={columnStats.get(col.name)}
-                      schema={schema}
-                      table={table}
-                      totalRows={totalRows}
-                    />
-                  ))}
-            </TableBody>
-          </Table>
-        </div>
+                  {renderSortIcon('distinct')}
+                </div>
+              </TableHead>
+              <TableHead
+                style={{
+                  ...headerCellStyle,
+                  width: COL_WIDTHS.NULL,
+                  padding: '8px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => handleSort('null')}
+                data-testid="sort-column-null"
+              >
+                <div className="flex items-center">
+                  Null
+                  {renderSortIcon('null')}
+                </div>
+              </TableHead>
+              <TableHead
+                style={{ ...headerCellStyle, width: COL_WIDTHS.DISTRIBUTION, padding: '8px' }}
+              >
+                Data distribution
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody style={{ borderColor: '#dddddd' }}>
+            {sortedColumns.map((col) => (
+              <StatisticsRow
+                key={col.name}
+                column={col}
+                stats={columnStats.get(col.name)}
+                schema={schema}
+                table={table}
+              />
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -281,116 +368,185 @@ interface StatisticsRowProps {
   stats?: ColumnStatistics;
   schema: string;
   table: string;
-  totalRows: number;
 }
 
-function StatisticsRow({ column, stats, schema, table, totalRows }: StatisticsRowProps) {
-  const [localStats, setLocalStats] = useState<ColumnStatistics | undefined>(stats);
+function StatisticsRow({ column, stats, schema, table }: StatisticsRowProps) {
+  const [completedData, setCompletedData] = useState<
+    NumericStats | StringStats | BooleanStats | DatetimeStats | null
+  >(null);
+  const [hasError, setHasError] = useState(false);
 
-  // Poll for task status
-  const { data: taskData } = useTaskStatus(stats?.taskId ?? null);
+  // Poll for task status using the taskId from parent
+  const taskId = stats?.taskId ?? null;
+  const { data: taskData } = useTaskStatus(taskId);
 
-  // Update local stats when polling completes
+  // Update completed data when polling finishes
   useEffect(() => {
     if (taskData?.progress) {
       const latest = taskData.progress[taskData.progress.length - 1];
       if (latest.status === 'completed' && latest.results) {
-        setLocalStats({
-          loading: false,
-          error: false,
-          data: latest.results as NumericStats | StringStats | BooleanStats | DatetimeStats,
-          taskId: null,
-        });
+        setCompletedData(
+          latest.results as NumericStats | StringStats | BooleanStats | DatetimeStats
+        );
+        setHasError(false);
       } else if (latest.status === 'failed' || latest.status === 'error') {
-        setLocalStats({
-          loading: false,
-          error: true,
-          data: null,
-          taskId: null,
-        });
+        setCompletedData(null);
+        setHasError(true);
       }
     }
   }, [taskData]);
 
-  // Update when stats prop changes
+  // Reset when stats prop changes (e.g., on refresh)
   useEffect(() => {
-    if (stats) {
-      setLocalStats(stats);
+    if (stats?.loading && stats?.taskId === null) {
+      // Parent just started a new fetch — clear old data
+      setCompletedData(null);
+      setHasError(false);
     }
-  }, [stats]);
+  }, [stats?.loading, stats?.taskId]);
+
+  const isLoading = stats?.loading && !completedData && !hasError;
+
+  const getDistinctCount = () => {
+    if (!completedData) return undefined;
+    return (completedData as StatsWithCounts).countDistinct;
+  };
+
+  const getNullCount = () => {
+    if (!completedData) return undefined;
+    return (completedData as StatsWithCounts).countNull;
+  };
 
   const renderChart = () => {
-    if (!localStats || localStats.loading) {
-      return <Skeleton className="h-24 w-full" />;
+    if (isLoading) {
+      return <Skeleton style={{ height: 118, width: '100%' }} />;
     }
 
-    if (localStats.error || !localStats.data) {
-      return <span className="text-muted-foreground text-sm">No data available</span>;
+    if (hasError || stats?.error) {
+      return (
+        <div className="flex items-center" style={{ minHeight: 100 }}>
+          -- -- -- No data available -- -- --
+        </div>
+      );
+    }
+
+    if (!completedData) {
+      return <Skeleton style={{ height: 118, width: '100%' }} />;
     }
 
     switch (column.translated_type) {
       case 'Numeric':
-        return <NumberInsights data={localStats.data as NumericStats} />;
-      case 'String':
-        return <StringInsights data={localStats.data as StringStats} />;
-      case 'Boolean':
-        return <RangeChart data={formatBooleanData(localStats.data as BooleanStats, totalRows)} />;
+        return <NumberInsights data={completedData as NumericStats} />;
+
+      case 'String': {
+        const stringData = completedData as StringStats;
+        if (stringData.count === stringData.countNull) {
+          return <div>All values are null</div>;
+        }
+        if (stringData.count === stringData.countDistinct) {
+          return <div>All values are distinct</div>;
+        }
+        return <StringInsights data={stringData} />;
+      }
+
+      case 'Boolean': {
+        const boolData = completedData as BooleanStats;
+        const denominator = boolData.count;
+        return (
+          <RangeChart
+            data={[
+              {
+                name: 'True',
+                percentage:
+                  denominator > 0 ? ((boolData.countTrue * 100) / denominator).toFixed(1) : '0',
+                count: boolData.countTrue,
+              },
+              {
+                name: 'False',
+                percentage:
+                  denominator > 0 ? ((boolData.countFalse * 100) / denominator).toFixed(1) : '0',
+                count: boolData.countFalse,
+              },
+            ]}
+            colors={['#00897b', '#c7d8d7']}
+            barHeight={12}
+          />
+        );
+      }
+
       case 'Datetime':
         return (
           <DateTimeInsights
-            data={localStats.data as DatetimeStats}
+            data={completedData as DatetimeStats}
             schema={schema}
             table={table}
             columnName={column.name}
           />
         );
+
       default:
-        return <span className="text-muted-foreground text-sm">Unsupported type</span>;
+        return (
+          <div className="flex items-center" style={{ minHeight: 100 }}>
+            -- -- -- No data available -- -- --
+          </div>
+        );
     }
   };
 
-  const getDistinctCount = () => {
-    if (!localStats?.data) return '-';
-    const data = localStats.data as StringStats;
-    return data.countDistinct?.toLocaleString() ?? '-';
-  };
-
-  const getNullCount = () => {
-    if (!localStats?.data) return '-';
-    const data = localStats.data as StringStats;
-    return data.countNull?.toLocaleString() ?? '-';
-  };
+  const distinctCount = getDistinctCount();
+  const nullCount = getNullCount();
 
   return (
     <TableRow
-      style={{ height: EXPLORE_DIMENSIONS.STATISTICS_ROW_HEIGHT }}
+      style={{ boxShadow: 'unset', height: EXPLORE_DIMENSIONS.STATISTICS_ROW_HEIGHT }}
       data-testid={`stats-row-${column.name}`}
       className="hover:bg-gray-50/50"
     >
-      <TableCell className="font-medium text-gray-900 border-r">{column.name}</TableCell>
-      <TableCell className="text-gray-500 border-r">{column.translated_type}</TableCell>
-      <TableCell className="text-gray-700 border-r">{getDistinctCount()}</TableCell>
-      <TableCell className="text-gray-700 border-r">{getNullCount()}</TableCell>
-      <TableCell className="p-2">{renderChart()}</TableCell>
+      <TableCell
+        style={{
+          ...bodyCellStyle,
+          width: COL_WIDTHS.NAME,
+          padding: '8px 8px 8px 46px',
+        }}
+      >
+        {column.name}
+      </TableCell>
+      <TableCell
+        style={{
+          ...bodyCellStyle,
+          width: COL_WIDTHS.TYPE,
+          padding: '8px',
+        }}
+      >
+        {column.translated_type}
+      </TableCell>
+      <TableCell
+        style={{
+          ...bodyCellStyle,
+          width: COL_WIDTHS.DISTINCT,
+          padding: '8px',
+        }}
+      >
+        {distinctCount !== undefined ? distinctCount.toLocaleString() : isLoading ? '' : ''}
+      </TableCell>
+      <TableCell
+        style={{
+          ...bodyCellStyle,
+          width: COL_WIDTHS.NULL,
+          padding: '8px',
+        }}
+      >
+        {nullCount !== undefined ? nullCount.toLocaleString() : isLoading ? '' : ''}
+      </TableCell>
+      <TableCell
+        style={{
+          ...bodyCellStyle,
+          width: COL_WIDTHS.DISTRIBUTION,
+          padding: '8px',
+        }}
+      >
+        {renderChart()}
+      </TableCell>
     </TableRow>
   );
-}
-
-// Helper to format boolean stats for RangeChart
-function formatBooleanData(stats: BooleanStats, totalRows: number) {
-  const truePercentage = totalRows > 0 ? ((stats.countTrue / totalRows) * 100).toFixed(1) : '0';
-  const falsePercentage = totalRows > 0 ? ((stats.countFalse / totalRows) * 100).toFixed(1) : '0';
-  const nullCount = totalRows - stats.countTrue - stats.countFalse;
-  const nullPercentage = totalRows > 0 ? ((nullCount / totalRows) * 100).toFixed(1) : '0';
-
-  const result = [
-    { name: 'True', percentage: truePercentage, count: stats.countTrue },
-    { name: 'False', percentage: falsePercentage, count: stats.countFalse },
-  ];
-
-  if (nullCount > 0) {
-    result.push({ name: 'Null', percentage: nullPercentage, count: nullCount });
-  }
-
-  return result;
 }
