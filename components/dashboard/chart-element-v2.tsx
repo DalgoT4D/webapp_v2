@@ -41,6 +41,7 @@ import {
   shouldShowLegend,
   getLegendMode,
 } from '@/lib/responsive-legend';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1016,6 +1017,11 @@ export function ChartElementV2({
           },
         },
       };
+
+      // Handle stacked bar chart data labels
+      if (chart?.chart_type === 'bar') {
+        Object.assign(modifiedConfig, applyStackedBarLabels(modifiedConfig, customizations));
+      }
 
       // Set chart option with animation disabled for better performance
       chartInstance.current.setOption(modifiedConfig, {
