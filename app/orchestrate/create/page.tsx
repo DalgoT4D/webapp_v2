@@ -1,6 +1,6 @@
 'use client';
 
-import { PipelineForm } from '@/components/pipeline/pipeline-form';
+import { PipelineForm } from '@/components/pipeline/orchestrate/pipeline-form';
 
 export default function CreatePipelinePage() {
   return (
