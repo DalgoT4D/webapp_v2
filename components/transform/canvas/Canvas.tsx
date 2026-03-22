@@ -140,7 +140,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     nodes: apiNodes,
     edges: apiEdges,
     isLoading,
-  } = useCanvasGraph({ skipInitialFetch: isPreviewMode, autoSync: !isPreviewMode });
+  } = useCanvasGraph({ skipInitialFetch: false, autoSync: !isPreviewMode });
 
   const { setCenter, getNodes: getFlowNodes } = useReactFlow();
 

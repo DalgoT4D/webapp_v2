@@ -2,7 +2,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Play, Upload, GitBranch } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, Play, Upload, GitBranch, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ export default function CanvasHeader({
   gitRepoUrl,
   isPreviewMode = false,
 }: CanvasHeaderProps) {
+  const router = useRouter();
   const [runMenuOpen, setRunMenuOpen] = useState(false);
 
   const selectedNode = useTransformStore((s) => s.selectedNode);
@@ -83,19 +85,31 @@ export default function CanvasHeader({
 
   return (
     <div className="flex items-center justify-between h-full px-5 bg-white border-b">
-      {/* Left side - Git link */}
+      {/* Left side - Back button + Git link */}
       <div className="flex items-center gap-3">
+        <button
+          onClick={() => router.push('/transform')}
+          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          data-testid="back-to-transform-btn"
+          aria-label="Back to Transform"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
         {gitRepoUrl && (
-          <a
-            href={gitRepoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-teal-600 transition-colors"
-            data-testid="git-repo-link"
-          >
-            <GitBranch className="w-4 h-4" />
-            <span className="hidden sm:inline">Repository</span>
-          </a>
+          <>
+            <span className="text-gray-300">|</span>
+            <a
+              href={gitRepoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-teal-600 transition-colors"
+              data-testid="git-repo-link"
+            >
+              <GitBranch className="w-4 h-4" />
+              <span className="hidden sm:inline">Repository</span>
+            </a>
+          </>
         )}
       </div>
 
