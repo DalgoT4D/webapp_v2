@@ -6,7 +6,9 @@ import type { CanvasNodeRenderData } from '@/types/transform';
 
 // Default node dimensions used for position calculations
 const NODE_WIDTH = 250;
-const NODE_HEIGHT = 120;
+// Source/model nodes with column tables are taller than operation nodes.
+// Use a reasonable estimate that prevents overlap without excessive gaps.
+const NODE_HEIGHT = 200;
 
 // Minimum gap between nodes (pixels)
 const NODE_GAP = 30;

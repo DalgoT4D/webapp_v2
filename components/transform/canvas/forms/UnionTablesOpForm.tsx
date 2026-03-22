@@ -190,6 +190,7 @@ export function UnionTablesOpForm({
           x: refPos.x - 350,
           y: refPos.y + 200 * index,
         },
+        outputColumns: model.output_cols || [],
       });
 
       // Edge goes from dummy source node → dummy operation node (matching v1)

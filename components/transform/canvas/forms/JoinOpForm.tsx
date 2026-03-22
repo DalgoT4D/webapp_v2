@@ -181,6 +181,7 @@ export function JoinOpForm({
         schema: model.schema,
         name: model.display_name || model.name,
         type: model.type as 'source' | 'model',
+        outputColumns: model.output_cols || [],
         position: {
           x: refPos.x - 350,
           y: refPos.y + 200,

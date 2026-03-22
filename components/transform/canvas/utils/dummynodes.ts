@@ -8,6 +8,7 @@ interface GenerateDummySrcModelNodeParams {
   name: string;
   type: 'source' | 'model';
   position?: { x: number; y: number };
+  outputColumns?: string[];
 }
 
 /**
@@ -20,6 +21,7 @@ export function generateDummySrcModelNode({
   name,
   type,
   position = { x: 0, y: 0 },
+  outputColumns = [],
 }: GenerateDummySrcModelNodeParams): Node<CanvasNodeRenderData> {
   const id = `dummy-${crypto.randomUUID()}`;
 
@@ -29,10 +31,10 @@ export function generateDummySrcModelNode({
     position,
     data: {
       uuid: id,
-      name,
-      output_columns: [],
+      name: `${schema}.${name}`,
+      output_columns: outputColumns,
       node_type: type as CanvasNodeTypeEnum,
-      dbtmodel: null,
+      dbtmodel: { schema, name } as CanvasNodeRenderData['dbtmodel'],
       operation_config: { type: '', config: {} },
       is_last_in_chain: false,
       isPublished: null,

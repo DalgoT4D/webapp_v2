@@ -51,7 +51,17 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
   // warehouse yet (dbt hasn't run), so the warehouse API returns an error. In that case,
   // use the output_columns that the backend computes from the operation chain.
   useEffect(() => {
-    if (data?.isDummy || fetchedRef.current) return;
+    if (fetchedRef.current) return;
+
+    // Dummy nodes (e.g. secondary tables during union/join creation):
+    // use output_columns directly without API fetch
+    if (data?.isDummy) {
+      if (data.output_columns?.length) {
+        setColumns(data.output_columns.map((col: string) => ({ name: col, data_type: '' })));
+      }
+      return;
+    }
+
     if (!schema && !tableName && !data?.output_columns?.length) return;
     fetchedRef.current = true;
 

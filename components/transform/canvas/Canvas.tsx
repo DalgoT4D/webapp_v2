@@ -205,6 +205,18 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
       }
     }
 
+    // Track positions assigned to new nodes so multiple nodes targeting the
+    // same neighbour get stacked vertically instead of overlapping.
+    // Key: "x,y" → count of nodes already placed there.
+    const assignedPositions = new Map<string, number>();
+
+    const getOffsetPosition = (x: number, y: number) => {
+      const key = `${Math.round(x)},${Math.round(y)}`;
+      const count = assignedPositions.get(key) || 0;
+      assignedPositions.set(key, count + 1);
+      return { x, y: y + count * (NODE_HEIGHT + DAGRE_NODESEP) };
+    };
+
     const finalNodes = layoutedNodes.map((n) => {
       const existingPos = currentPosMap.get(n.id);
       if (existingPos) {
@@ -217,10 +229,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
       if (parentPos) {
         return {
           ...n,
-          position: {
-            x: parentPos.x + DAGRE_RANKSEP,
-            y: parentPos.y,
-          },
+          position: getOffsetPosition(parentPos.x + DAGRE_RANKSEP, parentPos.y),
         };
       }
 
@@ -231,10 +240,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
       if (childPos) {
         return {
           ...n,
-          position: {
-            x: childPos.x - DAGRE_RANKSEP,
-            y: childPos.y,
-          },
+          position: getOffsetPosition(childPos.x - DAGRE_RANKSEP, childPos.y),
         };
       }
 
