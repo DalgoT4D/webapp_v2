@@ -44,44 +44,34 @@ export function AggregationOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as AggregateDataConfig;
+      if (config?.source_columns) return config.source_columns;
+    }
+    return node?.data?.output_columns || [];
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { register, handleSubmit, setValue, watch, reset } = useForm<FormValues>({
-    defaultValues: {
-      column: '',
-      operation: '',
-      outputColumnName: '',
-    },
+  const { register, handleSubmit, setValue, watch } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as AggregateDataConfig;
+        if (config?.aggregate_on && config.aggregate_on.length > 0) {
+          const agg = config.aggregate_on[0];
+          return {
+            column: agg.column,
+            operation: agg.operation,
+            outputColumnName: agg.output_column_name,
+          };
+        }
+      }
+      return { column: '', operation: '', outputColumnName: '' };
+    })(),
   });
 
   const selectedColumn = watch('column');
   const selectedOperation = watch('operation');
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns);
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as AggregateDataConfig;
-      if (config?.aggregate_on && config.aggregate_on.length > 0) {
-        const agg = config.aggregate_on[0];
-        reset({
-          column: agg.column,
-          operation: agg.operation,
-          outputColumnName: agg.output_column_name,
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns);
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   // Auto-generate output column name
   useEffect(() => {

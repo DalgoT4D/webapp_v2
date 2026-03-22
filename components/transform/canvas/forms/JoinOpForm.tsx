@@ -54,7 +54,12 @@ export function JoinOpForm({
   }
   const stableNode = stableNodeRef.current;
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if (!isEditMode && !isViewMode && node?.data?.output_columns) {
+      return node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b));
+    }
+    return [];
+  });
   const [table2Columns, setTable2Columns] = useState<string[]>([]);
   const [selectedTable2, setSelectedTable2] = useState<{ uuid: string } | null>(null);
 
@@ -142,24 +147,13 @@ export function JoinOpForm({
     }
   }, [stableNode?.id, reset, setLoading]);
 
-  // Fetch source columns from node (Table 1) — for create mode
-  const fetchAndSetSourceColumns = useCallback(() => {
-    if (stableNode?.data?.output_columns) {
-      setSrcColumns(
-        stableNode.data.output_columns.sort((a: string, b: string) => a.localeCompare(b))
-      );
-    }
-  }, [stableNode]);
-
   // Load form data — matches v1 pattern
   useEffect(() => {
     if (stableNode?.data?.isDummy) return;
-
     if (isEditMode || isViewMode) {
       fetchAndSetConfigForEdit();
-    } else {
-      fetchAndSetSourceColumns();
     }
+    // Create mode initialization is handled by useState initializer
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stableNode]);
 

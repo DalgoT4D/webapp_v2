@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/ArithmeticOpForm.tsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -53,19 +53,40 @@ export function ArithmeticOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
-  const skipResetRef = useRef(false);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as ArithmeticDataConfig;
+      if (config?.source_columns) return config.source_columns;
+    }
+    return node?.data?.output_columns || [];
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, setValue, register } = useForm<FormValues>({
-    defaultValues: {
-      operator: '',
-      operands: [
-        { type: 'col', col_val: '', const_val: '' },
-        { type: 'col', col_val: '', const_val: '' },
-      ],
-      output_column_name: '',
-    },
+  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as ArithmeticDataConfig;
+        if (config) {
+          return {
+            operator: config.operator || '',
+            output_column_name: config.output_column_name || '',
+            operands: (config.operands ?? []).map((op) => ({
+              type: (op.is_col ? 'col' : 'val') as 'col' | 'val',
+              col_val: op.is_col ? String(op.value) : '',
+              const_val: op.is_col ? '' : String(op.value),
+            })),
+          };
+        }
+      }
+      return {
+        operator: '',
+        operands: [
+          { type: 'col' as const, col_val: '', const_val: '' },
+          { type: 'col' as const, col_val: '', const_val: '' },
+        ],
+        output_column_name: '',
+      };
+    })(),
   });
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -76,48 +97,16 @@ export function ArithmeticOpForm({
   const selectedOperator = watch('operator');
   const watchedOperands = watch('operands');
 
-  // Fetch source columns from node
+  // Reset operands when operation changes (only in create mode)
   useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns);
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as ArithmeticDataConfig;
-      if (config) {
-        skipResetRef.current = true;
-        reset({
-          operator: config.operator,
-          output_column_name: config.output_column_name,
-          operands: (config.operands ?? []).map((op) => ({
-            type: op.is_col ? 'col' : 'val',
-            col_val: op.is_col ? String(op.value) : '',
-            const_val: op.is_col ? '' : String(op.value),
-          })),
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns);
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
-
-  // Reset operands when operation changes (except during edit load)
-  useEffect(() => {
-    if (skipResetRef.current) {
-      skipResetRef.current = false;
-      return;
-    }
+    if (isEditMode || isViewMode) return;
     if (selectedOperator) {
       replace([
         { type: 'col', col_val: '', const_val: '' },
         { type: 'col', col_val: '', const_val: '' },
       ]);
     }
-  }, [selectedOperator, replace]);
+  }, [selectedOperator, replace, isEditMode, isViewMode]);
 
   // Sub/div only allow 2 operands
   const canAddOperand =

@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/CaseWhenOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray, Controller, type Control, type FieldPath } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -78,7 +78,7 @@ function CaseOperandInput({
         name={`${name}.type` as FieldPath<FormValues>}
         render={({ field }) => (
           <RadioGroup
-            value={field.value}
+            value={field.value as string}
             onValueChange={field.onChange}
             className="flex gap-4"
             disabled={disabled}
@@ -104,7 +104,7 @@ function CaseOperandInput({
           name={`${name}.col_val` as FieldPath<FormValues>}
           render={({ field }) => (
             <ColumnSelect
-              value={field.value}
+              value={field.value as string}
               onChange={field.onChange}
               columns={columns}
               placeholder="Select column"
@@ -120,6 +120,7 @@ function CaseOperandInput({
           render={({ field }) => (
             <Input
               {...field}
+              value={field.value as string}
               placeholder="Enter value"
               disabled={disabled}
               data-testid={`${testIdPrefix}-val-input`}
@@ -154,17 +155,69 @@ export function CaseWhenOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as CasewhenDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, setValue, register } = useForm<FormValues>({
-    defaultValues: {
-      clauses: [{ ...defaultClause }],
-      elseValue: { ...defaultOperand },
-      output_column_name: '',
-      advanceFilter: false,
-      sql_snippet: '',
-    },
+  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as CasewhenDataConfig;
+        if (config) {
+          const isAdvance = config.case_type === 'advance';
+
+          const clauses: CaseClause[] = config.when_clauses?.map((clause: WhenClause) => ({
+            filterCol: clause.column,
+            logicalOp: clause.operator,
+            operand1: clause.operands[0]
+              ? {
+                  type: clause.operands[0].is_col ? 'col' : 'val',
+                  col_val: clause.operands[0].is_col ? clause.operands[0].value : '',
+                  const_val: clause.operands[0].is_col ? '' : clause.operands[0].value,
+                }
+              : { ...defaultOperand },
+            operand2: clause.operands[1]
+              ? {
+                  type: clause.operands[1].is_col ? 'col' : 'val',
+                  col_val: clause.operands[1].is_col ? clause.operands[1].value : '',
+                  const_val: clause.operands[1].is_col ? '' : clause.operands[1].value,
+                }
+              : { ...defaultOperand },
+            then: {
+              type: clause.then.is_col ? 'col' : 'val',
+              col_val: clause.then.is_col ? clause.then.value : '',
+              const_val: clause.then.is_col ? '' : clause.then.value,
+            },
+          })) || [{ ...defaultClause }];
+
+          return {
+            clauses,
+            elseValue: config.else_clause
+              ? {
+                  type: config.else_clause.is_col ? 'col' : 'val',
+                  col_val: config.else_clause.is_col ? config.else_clause.value : '',
+                  const_val: config.else_clause.is_col ? '' : config.else_clause.value,
+                }
+              : { ...defaultOperand },
+            output_column_name: config.output_column_name || '',
+            advanceFilter: isAdvance,
+            sql_snippet: config.sql_snippet || '',
+          };
+        }
+      }
+      return {
+        clauses: [{ ...defaultClause }],
+        elseValue: { ...defaultOperand },
+        output_column_name: '',
+        advanceFilter: false,
+        sql_snippet: '',
+      };
+    })(),
   });
 
   const {
@@ -179,64 +232,6 @@ export function CaseWhenOpForm({
   const advanceFilter = watch('advanceFilter');
   const watchedClauses = watch('clauses');
   const watchedElseValue = watch('elseValue');
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as CasewhenDataConfig;
-      if (config) {
-        const isAdvance = config.case_type === 'advance';
-
-        const clauses: CaseClause[] = config.when_clauses?.map((clause: WhenClause) => ({
-          filterCol: clause.column,
-          logicalOp: clause.operator,
-          operand1: clause.operands[0]
-            ? {
-                type: clause.operands[0].is_col ? 'col' : 'val',
-                col_val: clause.operands[0].is_col ? clause.operands[0].value : '',
-                const_val: clause.operands[0].is_col ? '' : clause.operands[0].value,
-              }
-            : { ...defaultOperand },
-          operand2: clause.operands[1]
-            ? {
-                type: clause.operands[1].is_col ? 'col' : 'val',
-                col_val: clause.operands[1].is_col ? clause.operands[1].value : '',
-                const_val: clause.operands[1].is_col ? '' : clause.operands[1].value,
-              }
-            : { ...defaultOperand },
-          then: {
-            type: clause.then.is_col ? 'col' : 'val',
-            col_val: clause.then.is_col ? clause.then.value : '',
-            const_val: clause.then.is_col ? '' : clause.then.value,
-          },
-        })) || [{ ...defaultClause }];
-
-        reset({
-          clauses,
-          elseValue: config.else_clause
-            ? {
-                type: config.else_clause.is_col ? 'col' : 'val',
-                col_val: config.else_clause.is_col ? config.else_clause.value : '',
-                const_val: config.else_clause.is_col ? '' : config.else_clause.value,
-              }
-            : { ...defaultOperand },
-          output_column_name: config.output_column_name || '',
-          advanceFilter: isAdvance,
-          sql_snippet: config.sql_snippet || '',
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns.sort((a, b) => a.localeCompare(b)));
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {

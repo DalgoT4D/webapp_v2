@@ -41,9 +41,32 @@ export function CastColumnOpForm({
   const isEditMode = action === 'edit';
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [srcColumns, setSrcColumns] = useState<ColumnConfig[]>([]);
+  const [srcColumns, setSrcColumns] = useState<ColumnConfig[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as CastDataConfig;
+      if (config?.source_columns) {
+        return config.source_columns.map((col: string) => ({ name: col, data_type: '' }));
+      }
+    }
+    if (node?.data?.output_columns) {
+      return node.data.output_columns.map((col: string) => ({ name: col, data_type: '' }));
+    }
+    return [];
+  });
   const [dataTypes, setDataTypes] = useState<string[]>([]);
-  const [columnTypes, setColumnTypes] = useState<Record<string, string>>({});
+  const [columnTypes, setColumnTypes] = useState<Record<string, string>>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as CastDataConfig;
+      if (config?.columns) {
+        const typeMap: Record<string, string> = {};
+        config.columns.forEach((col) => {
+          typeMap[col.columnname] = col.columntype;
+        });
+        return typeMap;
+      }
+    }
+    return {};
+  });
 
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
@@ -71,8 +94,10 @@ export function CastColumnOpForm({
     fetchDataTypes();
   }, []);
 
-  // Fetch source columns from node
+  // Fetch source columns from node (create mode only - edit/view initialized from config)
   useEffect(() => {
+    if (isEditMode || isViewMode) return;
+
     const fetchColumns = async () => {
       if (!node) return;
 
@@ -111,28 +136,7 @@ export function CastColumnOpForm({
     };
 
     fetchColumns();
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as CastDataConfig;
-      if (config?.columns) {
-        const typeMap: Record<string, string> = {};
-        config.columns.forEach((col) => {
-          typeMap[col.columnname] = col.columntype;
-        });
-        setColumnTypes(typeMap);
-      }
-      if (config?.source_columns) {
-        const columns = config.source_columns.map((col: string) => ({
-          name: col,
-          data_type: '',
-        }));
-        setSrcColumns(columns);
-      }
-    }
-  }, [isEditMode, isViewMode, node]);
+  }, [node, isEditMode, isViewMode]);
 
   // Filter columns based on search
   const filteredColumns = useMemo(() => {

@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/WhereFilterOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -55,19 +55,54 @@ export function WhereFilterOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, setValue, register } = useForm<FormValues>({
-    defaultValues: {
-      filterCol: '',
-      logicalOp: '',
-      operandType: 'val',
-      operandColVal: '',
-      operandConstVal: '',
-      advanceFilter: false,
-      sql_snippet: '',
-    },
+  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
+        if (config) {
+          const isAdvance = config.where_type === 'sql';
+          let clauseValues: Partial<FormValues> = {};
+          if (config.clauses && config.clauses.length > 0) {
+            const clause = config.clauses[0];
+            clauseValues = {
+              filterCol: clause.column,
+              logicalOp: clause.operator,
+              operandType: clause.operand?.is_col ? 'col' : 'val',
+              operandColVal: clause.operand?.is_col ? clause.operand.value : '',
+              operandConstVal: clause.operand?.is_col ? '' : clause.operand?.value || '',
+            };
+          }
+          return {
+            filterCol: '',
+            logicalOp: '',
+            operandType: 'val' as const,
+            operandColVal: '',
+            operandConstVal: '',
+            ...clauseValues,
+            advanceFilter: isAdvance,
+            sql_snippet: config.sql_snippet || '',
+          };
+        }
+      }
+      return {
+        filterCol: '',
+        logicalOp: '',
+        operandType: 'val' as const,
+        operandColVal: '',
+        operandConstVal: '',
+        advanceFilter: false,
+        sql_snippet: '',
+      };
+    })(),
   });
 
   const advanceFilter = watch('advanceFilter');
@@ -75,44 +110,6 @@ export function WhereFilterOpForm({
 
   // Filter out 'between' - only used in CaseWhen
   const filteredOperators = LogicalOperators.filter((op) => op.id !== 'between');
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
-      if (config) {
-        const isAdvance = config.where_type === 'sql';
-        let clauseValues = {};
-
-        if (config.clauses && config.clauses.length > 0) {
-          const clause = config.clauses[0];
-          clauseValues = {
-            filterCol: clause.column,
-            logicalOp: clause.operator,
-            operandType: clause.operand?.is_col ? 'col' : 'val',
-            operandColVal: clause.operand?.is_col ? clause.operand.value : '',
-            operandConstVal: clause.operand?.is_col ? '' : clause.operand?.value || '',
-          };
-        }
-
-        reset({
-          ...clauseValues,
-          advanceFilter: isAdvance,
-          sql_snippet: config.sql_snippet || '',
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns.sort((a, b) => a.localeCompare(b)));
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {

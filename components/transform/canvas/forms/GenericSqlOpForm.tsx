@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/GenericSqlOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,44 +36,31 @@ export function GenericSqlOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [inputTableName, setInputTableName] = useState('input_table');
+  const [inputTableName, setInputTableName] = useState<string>(() => {
+    if (node?.data?.dbtmodel?.name) return node.data.dbtmodel.name;
+    if (node?.data?.name) return node.data.name;
+    return 'chained_input';
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const {
     handleSubmit,
-    reset,
     register,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: {
-      sql_statement_1: '',
-      sql_statement_2: '',
-    },
-  });
-
-  // Determine input table name from node
-  useEffect(() => {
-    if (node?.data?.dbtmodel?.name) {
-      setInputTableName(node.data.dbtmodel.name);
-    } else if (node?.data?.name) {
-      setInputTableName(node.data.name);
-    } else {
-      setInputTableName('chained_input');
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
-      if (config) {
-        reset({
-          sql_statement_1: config.sql_statement_1 || '',
-          sql_statement_2: config.sql_statement_2 || '',
-        });
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+        if (config) {
+          return {
+            sql_statement_1: config.sql_statement_1 || '',
+            sql_statement_2: config.sql_statement_2 || '',
+          };
+        }
       }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
+      return { sql_statement_1: '', sql_statement_2: '' };
+    })(),
+  });
 
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {

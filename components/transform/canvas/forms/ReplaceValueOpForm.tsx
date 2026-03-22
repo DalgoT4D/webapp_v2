@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/ReplaceValueOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -43,14 +43,31 @@ export function ReplaceValueOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
+      if (config?.source_columns) return config.source_columns;
+    }
+    return node?.data?.output_columns || [];
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, setValue, register } = useForm<FormValues>({
-    defaultValues: {
-      column: '',
-      replacements: [{ find: '', replace: '' }],
-    },
+  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
+        if (config?.columns && config.columns.length > 0) {
+          const col = config.columns[0];
+          const replacements = col.replace_ops.map((op) => ({
+            find: op.find || '',
+            replace: op.replace || '',
+          }));
+          replacements.push({ find: '', replace: '' });
+          return { column: col.col_name, replacements };
+        }
+      }
+      return { column: '', replacements: [{ find: '', replace: '' }] };
+    })(),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -61,35 +78,9 @@ export function ReplaceValueOpForm({
   const selectedColumn = watch('column');
   const watchedReplacements = watch('replacements');
 
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
-      if (config?.columns && config.columns.length > 0) {
-        const col = config.columns[0];
-        const replacements = col.replace_ops.map((op) => ({
-          find: op.find || '',
-          replace: op.replace || '',
-        }));
-        // Add an empty row at the end for convenience
-        replacements.push({ find: '', replace: '' });
-        reset({
-          column: col.col_name,
-          replacements,
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns);
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
+  // srcColumns and form defaultValues are initialized from props via useState/useForm
+  // initializers above. No effects needed — the parent remounts this component via
+  // key={selectedNode?.id} when the node changes.
 
   const handleAddRow = () => {
     append({ find: '', replace: '' });

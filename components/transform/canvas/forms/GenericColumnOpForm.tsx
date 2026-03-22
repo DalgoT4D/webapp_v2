@@ -47,15 +47,38 @@ export function GenericColumnOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as GenericColDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, register, setValue } = useForm<FormValues>({
-    defaultValues: {
-      function_name: '',
-      operands: [{ type: 'col', col_val: '', const_val: '' }],
-      output_column_name: '',
-    },
+  const { control, handleSubmit, watch, register, setValue } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as GenericColDataConfig;
+        if (config?.computed_columns && config.computed_columns.length > 0) {
+          const computed = config.computed_columns[0];
+          return {
+            function_name: computed.function_name,
+            operands: computed.operands.map((op) => ({
+              type: (op.is_col ? 'col' : 'val') as 'col' | 'val',
+              col_val: op.is_col ? String(op.value) : '',
+              const_val: op.is_col ? '' : String(op.value),
+            })),
+            output_column_name: computed.output_column_name,
+          };
+        }
+      }
+      return {
+        function_name: '',
+        operands: [{ type: 'col' as const, col_val: '', const_val: '' }],
+        output_column_name: '',
+      };
+    })(),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -64,35 +87,6 @@ export function GenericColumnOpForm({
   });
 
   const watchedOperands = watch('operands');
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as GenericColDataConfig;
-      if (config?.computed_columns && config.computed_columns.length > 0) {
-        const computed = config.computed_columns[0];
-        reset({
-          function_name: computed.function_name,
-          operands: computed.operands.map((op) => ({
-            type: op.is_col ? 'col' : 'val',
-            col_val: op.is_col ? String(op.value) : '',
-            const_val: op.is_col ? '' : String(op.value),
-          })),
-          output_column_name: computed.output_column_name,
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns.sort((a, b) => a.localeCompare(b)));
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   const onSubmit = async (data: FormValues) => {
     if (!node?.id) {

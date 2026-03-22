@@ -54,7 +54,12 @@ export function UnionTablesOpForm({
   }
   const stableNode = stableNodeRef.current;
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if (!isEditMode && !isViewMode && stableNode?.data?.output_columns) {
+      return stableNode.data.output_columns;
+    }
+    return [];
+  });
 
   const { addNodes, addEdges, deleteElements, getNodes } = useReactFlow();
   // Map index -> dummy node id for cleanup
@@ -85,12 +90,26 @@ export function UnionTablesOpForm({
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: {
-      tables: [
-        { id: '', label: '' }, // Table 1 (current node - readonly)
-        { id: '', label: '' }, // Table 2 (user selects)
-      ],
-    },
+    defaultValues: (() => {
+      if (!isEditMode && !isViewMode && stableNode) {
+        const label = stableNode.data?.dbtmodel
+          ? `${stableNode.data.dbtmodel.schema}.${stableNode.data.dbtmodel.name}`
+          : stableNode.data?.name || '';
+        const id = stableNode.data?.dbtmodel?.uuid || stableNode.id;
+        return {
+          tables: [
+            { id, label },
+            { id: '', label: '' },
+          ],
+        };
+      }
+      return {
+        tables: [
+          { id: '', label: '' },
+          { id: '', label: '' },
+        ],
+      };
+    })(),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -138,27 +157,10 @@ export function UnionTablesOpForm({
   // Load form data — matches v1 pattern
   useEffect(() => {
     if (stableNode?.data?.isDummy) return;
-
     if (isEditMode || isViewMode) {
       fetchAndSetConfigForEdit();
-    } else {
-      // Create mode: set source columns and Table 1 from current node
-      if (stableNode?.data?.output_columns) {
-        setSrcColumns(stableNode.data.output_columns);
-      }
-
-      if (stableNode?.data?.dbtmodel) {
-        setValue('tables.0', {
-          id: stableNode.data.dbtmodel.uuid || stableNode.id,
-          label: `${stableNode.data.dbtmodel.schema}.${stableNode.data.dbtmodel.name}`,
-        });
-      } else if (stableNode?.data?.name) {
-        setValue('tables.0', {
-          id: stableNode.id,
-          label: stableNode.data.name,
-        });
-      }
     }
+    // Create mode initialization is handled by useState/useForm defaults
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stableNode]);
 

@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/GroupByOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -55,14 +55,35 @@ export function GroupByOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, setValue, register } = useForm<FormValues>({
-    defaultValues: {
-      dimensions: [{ col: '' }],
-      aggregations: [{ metric: '', aggregate_func: '', output_column_name: '' }],
-    },
+  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
+        if (config) {
+          const dimensions = config.dimension_columns?.map((col) => ({ col })) || [];
+          dimensions.push({ col: '' });
+          const aggregations = config.aggregate_on?.map((agg) => ({
+            metric: agg.column,
+            aggregate_func: agg.operation,
+            output_column_name: agg.output_column_name,
+          })) || [{ metric: '', aggregate_func: '', output_column_name: '' }];
+          return { dimensions, aggregations };
+        }
+      }
+      return {
+        dimensions: [{ col: '' }],
+        aggregations: [{ metric: '', aggregate_func: '', output_column_name: '' }],
+      };
+    })(),
   });
 
   const {
@@ -88,38 +109,6 @@ export function GroupByOpForm({
 
   // Get selected dimension columns to filter from options
   const selectedDimCols = watchedDimensions.map((d) => d.col).filter(Boolean);
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
-      if (config) {
-        const dimensions = config.dimension_columns?.map((col) => ({ col })) || [];
-        dimensions.push({ col: '' }); // Empty row for adding more
-
-        const aggregations = config.aggregate_on?.map((agg) => ({
-          metric: agg.column,
-          aggregate_func: agg.operation,
-          output_column_name: agg.output_column_name,
-        })) || [{ metric: '', aggregate_func: '', output_column_name: '' }];
-
-        reset({
-          dimensions,
-          aggregations,
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns.sort((a, b) => a.localeCompare(b)));
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   const handleDimensionSelect = (index: number, value: string) => {
     if (value && index === dimFields.length - 1) {

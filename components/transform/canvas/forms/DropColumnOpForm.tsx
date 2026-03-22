@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/DropColumnOpForm.tsx
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,30 +32,22 @@ export function DropColumnOpForm({
   const isEditMode = action === 'edit';
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as DropDataConfig;
+      if (config?.source_columns) return config.source_columns;
+    }
+    return node?.data?.output_columns || [];
+  });
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as DropDataConfig;
+      if (config?.columns) return config.columns;
+    }
+    return [];
+  });
 
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns);
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as DropDataConfig;
-      if (config?.columns) {
-        setSelectedColumns(config.columns);
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns);
-      }
-    }
-  }, [isEditMode, isViewMode, node]);
 
   // Filter columns based on search
   const filteredColumns = useMemo(() => {

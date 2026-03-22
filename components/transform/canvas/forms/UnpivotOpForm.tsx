@@ -43,7 +43,13 @@ export function UnpivotOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as UnpivotDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const [searchUnpivot, setSearchUnpivot] = useState('');
   const [searchExclude, setSearchExclude] = useState('');
   const [selectAllCheckbox, setSelectAllCheckbox] = useState({
@@ -55,18 +61,41 @@ export function UnpivotOpForm({
   const {
     control,
     handleSubmit,
-    reset,
     watch,
     setValue,
     register,
     setError,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: {
-      unpivot_field_name: 'col_name',
-      unpivot_value_name: 'value',
-      unpivot_columns: [],
-    },
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as UnpivotDataConfig;
+        if (config) {
+          const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
+          return {
+            unpivot_field_name: config.unpivot_field_name || 'col_name',
+            unpivot_value_name: config.unpivot_value_name || 'value',
+            unpivot_columns: sorted.map((col) => ({
+              col,
+              is_unpivot_checked: config.unpivot_columns?.includes(col) || false,
+              is_exclude_checked: config.exclude_columns?.includes(col) || false,
+            })),
+          };
+        }
+      }
+      const sorted = (node?.data?.output_columns || []).sort((a: string, b: string) =>
+        a.localeCompare(b)
+      );
+      return {
+        unpivot_field_name: 'col_name',
+        unpivot_value_name: 'value',
+        unpivot_columns: sorted.map((col: string) => ({
+          col,
+          is_unpivot_checked: false,
+          is_exclude_checked: false,
+        })),
+      };
+    })(),
   });
 
   const { fields: unpivotColFields, replace: unpivotColReplace } = useFieldArray({
@@ -75,43 +104,6 @@ export function UnpivotOpForm({
   });
 
   const watchedUnpivotColumns = watch('unpivot_columns');
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      const sorted = node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b));
-      setSrcColumns(sorted);
-      const colFields = sorted.map((col: string) => ({
-        col,
-        is_unpivot_checked: false,
-        is_exclude_checked: false,
-      }));
-      setValue('unpivot_columns', colFields);
-    }
-  }, [node, setValue]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as UnpivotDataConfig;
-      if (config) {
-        const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
-        setSrcColumns(sorted);
-
-        const colFields = sorted.map((col) => ({
-          col,
-          is_unpivot_checked: config.unpivot_columns?.includes(col) || false,
-          is_exclude_checked: config.exclude_columns?.includes(col) || false,
-        }));
-
-        reset({
-          unpivot_field_name: config.unpivot_field_name || 'col_name',
-          unpivot_value_name: config.unpivot_value_name || 'value',
-          unpivot_columns: colFields,
-        });
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   // Update select all checkbox state
   useEffect(() => {

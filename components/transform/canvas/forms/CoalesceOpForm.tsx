@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/CoalesceOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,15 +39,35 @@ export function CoalesceOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as CoalesceDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, register } = useForm<FormValues>({
-    defaultValues: {
-      columns: [{ col: '' }],
-      default_value: '',
-      output_column_name: '',
-    },
+  const { control, handleSubmit, watch, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as CoalesceDataConfig;
+        if (config) {
+          const columns = config.columns.map((col) => ({ col }));
+          columns.push({ col: '' });
+          return {
+            columns,
+            default_value: config.default_value || '',
+            output_column_name: config.output_column_name || '',
+          };
+        }
+      }
+      return {
+        columns: [{ col: '' }],
+        default_value: '',
+        output_column_name: '',
+      };
+    })(),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -59,33 +79,6 @@ export function CoalesceOpForm({
 
   // Get selected columns to filter from options
   const selectedCols = watchedColumns.map((c) => c.col).filter(Boolean);
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b)));
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as CoalesceDataConfig;
-      if (config) {
-        const columns = config.columns.map((col) => ({ col }));
-        // Add an empty row at the end for convenience
-        columns.push({ col: '' });
-        reset({
-          columns,
-          default_value: config.default_value || '',
-          output_column_name: config.output_column_name || '',
-        });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns.sort((a, b) => a.localeCompare(b)));
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   const handleColumnSelect = (index: number, value: string) => {
     // Auto-append empty row when selecting in last row

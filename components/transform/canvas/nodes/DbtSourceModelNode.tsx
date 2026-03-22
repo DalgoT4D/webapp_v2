@@ -20,7 +20,8 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
   const fetchedRef = useRef(false);
 
   const edges = useEdges();
-  const { setSelectedNode, dispatchCanvasAction, setPreviewData } = useTransformStore();
+  const { setSelectedNode, dispatchCanvasAction, setPreviewData, openOperationPanel } =
+    useTransformStore();
   const { hasPermission } = useUserPermissions();
 
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
@@ -76,6 +77,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
 
     // Only open operation panel if user has create permission
     if (hasPermission('can_create_dbt_model')) {
+      openOperationPanel();
       dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'create' } });
     }
   }, [
@@ -89,6 +91,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     tableName,
     setSelectedNode,
     setPreviewData,
+    openOperationPanel,
     dispatchCanvasAction,
     hasPermission,
   ]);

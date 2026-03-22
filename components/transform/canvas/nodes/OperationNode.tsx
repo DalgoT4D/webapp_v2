@@ -15,7 +15,7 @@ type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
 function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodeProps) {
   const edges = useEdges();
   const selectedNode = useSelectedNode();
-  const { setSelectedNode, dispatchCanvasAction } = useTransformStore();
+  const { setSelectedNode, dispatchCanvasAction, openOperationPanel } = useTransformStore();
   const { hasPermission } = useUserPermissions();
 
   const operationType = data?.operation_config?.type || 'unknown';
@@ -33,12 +33,26 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     setSelectedNode(nodeProps);
 
     if (hasPermission('can_edit_dbt_operation')) {
+      // Open panel directly in the same synchronous handler as setSelectedNode
+      // so React batches both Zustand updates into a single render where
+      // operationPanelOpen=true AND selectedNode are both available.
+      openOperationPanel();
       dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'edit' } });
     } else if (hasPermission('can_view_dbt_operation')) {
+      openOperationPanel();
       dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'view' } });
     }
     // If neither permission, just select the node but don't open panel
-  }, [id, type, data, selected, setSelectedNode, dispatchCanvasAction, hasPermission]);
+  }, [
+    id,
+    type,
+    data,
+    selected,
+    setSelectedNode,
+    dispatchCanvasAction,
+    openOperationPanel,
+    hasPermission,
+  ]);
 
   // Handle delete click
   const handleDeleteClick = useCallback(

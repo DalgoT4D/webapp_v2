@@ -61,40 +61,54 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // Determine if selected node can chain operations in middle
   const canChainInMiddle = selectedNode?.data?.node_type !== CanvasNodeTypeEnum.Operation;
 
-  // Handle canvas action changes
-  useEffect(() => {
-    if (canvasAction.type !== 'open-opconfig-panel' || !canvasAction.data) {
-      return;
-    }
+  // Process canvas action during render so form state is ready in the SAME render
+  // cycle where open=true. This matches v1 which sets selectedOp immediately when
+  // the panel opens, so the user sees the form directly (never the operation list).
+  //
+  // The key includes the node ID so clicking a different operation node (same action
+  // type) is still treated as a new action.
+  const lastProcessedActionRef = useRef<string | null>(null);
 
-    // Handle both string data ('create') and object data ({ mode: 'create' })
-    const actionData = canvasAction.data;
-    const mode: FormMode =
-      typeof actionData === 'string'
-        ? (actionData as FormMode)
-        : (actionData as { mode: FormMode }).mode || 'create';
+  if (canvasAction.type === 'open-opconfig-panel' && canvasAction.data) {
+    const currentNode = useTransformStore.getState().selectedNode;
+    const actionKey = `${canvasAction.type}-${currentNode?.id ?? 'none'}`;
 
-    setFormMode(mode);
+    if (actionKey !== lastProcessedActionRef.current) {
+      lastProcessedActionRef.current = actionKey;
 
-    if (mode === 'view' || mode === 'edit') {
-      // For view/edit, go directly to form with existing operation
-      if (selectedNode?.data?.operation_config?.type) {
-        const existingOp = {
-          slug: selectedNode.data.operation_config.type,
-          label: getOperationLabel(selectedNode.data.operation_config.type),
-        };
-        setSelectedOp(existingOp);
-        setPanelState('op-form');
+      const actionData = canvasAction.data;
+      const mode: FormMode =
+        typeof actionData === 'string'
+          ? (actionData as FormMode)
+          : (actionData as { mode: FormMode }).mode || 'create';
+
+      setFormMode(mode);
+
+      if (mode === 'view' || mode === 'edit') {
+        if (currentNode?.data?.operation_config?.type) {
+          const existingOp = {
+            slug: currentNode.data.operation_config.type,
+            label: getOperationLabel(currentNode.data.operation_config.type),
+          };
+          setSelectedOp(existingOp);
+          setPanelState('op-form');
+        }
+      } else {
+        setPanelState('op-list');
+        setSelectedOp(null);
       }
-    } else {
-      // For create, show operation list
-      setPanelState('op-list');
-      setSelectedOp(null);
     }
+  } else {
+    // Action was cleared — reset the ref so the next action is processed
+    lastProcessedActionRef.current = null;
+  }
 
-    clearCanvasAction();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasAction.type]);
+  // Clear the canvas action in an effect (Zustand mutations can't run during render)
+  useEffect(() => {
+    if (canvasAction.type === 'open-opconfig-panel' && canvasAction.data) {
+      clearCanvasAction();
+    }
+  }, [canvasAction.type, clearCanvasAction]);
 
   // getOperationLabel imported from @/constants/transform
 
@@ -417,6 +431,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         return (
           <div className="flex-1 overflow-y-auto">
             <FormComponent
+              key={selectedNode?.id}
               node={selectedNode}
               operation={selectedOp}
               continueOperationChain={handleContinueOperationChain}

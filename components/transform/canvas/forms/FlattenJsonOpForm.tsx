@@ -36,22 +36,44 @@ export function FlattenJsonOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
-  const [jsonColumns, setJsonColumns] = useState<string[]>([]);
-  const [inputModels, setInputModels] = useState<DbtModelResponse[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+      if (config?.source_columns) return config.source_columns;
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
+  const [jsonColumns, setJsonColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+      if (config?.json_columns_to_copy) return config.json_columns_to_copy;
+    }
+    return [];
+  });
+  const [inputModels, setInputModels] = useState<DbtModelResponse[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.input_nodes) {
+      return node.data.input_nodes
+        .map((n: { dbtmodel?: DbtModelResponse }) => n.dbtmodel)
+        .filter((m): m is DbtModelResponse => m !== undefined);
+    }
+    return [];
+  });
   const [isFetchingJson, setIsFetchingJson] = useState(false);
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const {
     handleSubmit,
-    reset,
     watch,
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: {
-      json_column: '',
-    },
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+        if (config) return { json_column: config.json_column || '' };
+      }
+      return { json_column: '' };
+    })(),
   });
 
   const selectedJsonColumn = watch('json_column');
@@ -128,26 +150,6 @@ export function FlattenJsonOpForm({
       fetchSourceColumns();
     }
   }, [node, isEditMode, isViewMode]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
-      if (config) {
-        setSrcColumns(config.source_columns || []);
-        setJsonColumns(config.json_columns_to_copy || []);
-        reset({ json_column: config.json_column || '' });
-      }
-
-      // Store input models for schema lookup
-      if (node.data?.input_nodes) {
-        const models = node.data.input_nodes
-          .map((n: { dbtmodel?: DbtModelResponse }) => n.dbtmodel)
-          .filter((m): m is DbtModelResponse => m !== undefined);
-        setInputModels(models);
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   // Handle JSON column selection
   const handleJsonColumnChange = (value: string) => {

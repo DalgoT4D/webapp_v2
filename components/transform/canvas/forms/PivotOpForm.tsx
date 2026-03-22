@@ -48,17 +48,46 @@ export function PivotOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as PivotDataConfig;
+      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
+    }
+    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false);
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const { control, handleSubmit, reset, watch, setValue, register } = useForm<FormValues>({
-    defaultValues: {
-      pivot_column_name: '',
-      pivot_column_values: [{ col: '' }],
-      groupby_columns: [],
-    },
+  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as PivotDataConfig;
+        if (config) {
+          const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
+          const groupbyColumns = sorted.map((col) => ({
+            col,
+            is_checked: config.groupby_columns?.includes(col) || false,
+          }));
+          return {
+            pivot_column_name: config.pivot_column_name || '',
+            pivot_column_values: [
+              ...(config.pivot_column_values?.map((v) => ({ col: v })) || []),
+              { col: '' },
+            ],
+            groupby_columns: groupbyColumns,
+          };
+        }
+      }
+      const sorted = (node?.data?.output_columns || []).sort((a: string, b: string) =>
+        a.localeCompare(b)
+      );
+      return {
+        pivot_column_name: '',
+        pivot_column_values: [{ col: '' }],
+        groupby_columns: sorted.map((col: string) => ({ col, is_checked: false })),
+      };
+    })(),
   });
 
   const pivotColumn = watch('pivot_column_name');
@@ -81,41 +110,6 @@ export function PivotOpForm({
     control,
     name: 'groupby_columns',
   });
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      const sorted = node.data.output_columns.sort((a: string, b: string) => a.localeCompare(b));
-      setSrcColumns(sorted);
-      const colData = sorted.map((col: string) => ({ col, is_checked: false }));
-      setValue('groupby_columns', colData);
-    }
-  }, [node, setValue]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as PivotDataConfig;
-      if (config) {
-        const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
-        setSrcColumns(sorted);
-
-        const groupbyColumns = sorted.map((col) => ({
-          col,
-          is_checked: config.groupby_columns?.includes(col) || false,
-        }));
-
-        reset({
-          pivot_column_name: config.pivot_column_name || '',
-          pivot_column_values: [
-            ...(config.pivot_column_values?.map((v) => ({ col: v })) || []),
-            { col: '' },
-          ],
-          groupby_columns: groupbyColumns,
-        });
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   // Update select all checkbox state
   useEffect(() => {

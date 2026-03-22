@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/RenameColumnOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,20 +41,35 @@ export function RenameColumnOpForm({
   const isViewMode = action === 'view';
   const isEditMode = action === 'edit';
 
-  const [srcColumns, setSrcColumns] = useState<string[]>([]);
+  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
+    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+      const config = node.data.operation_config.config as unknown as RenameDataConfig;
+      if (config?.source_columns) return config.source_columns;
+    }
+    return node?.data?.output_columns || [];
+  });
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const {
     control,
     handleSubmit,
-    reset,
     watch,
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: {
-      renames: [{ oldName: '', newName: '' }],
-    },
+    defaultValues: (() => {
+      if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as RenameDataConfig;
+        if (config?.columns) {
+          const renames = Object.entries(config.columns).map(([oldName, newName]) => ({
+            oldName,
+            newName: newName as string,
+          }));
+          return { renames: renames.length > 0 ? renames : [{ oldName: '', newName: '' }] };
+        }
+      }
+      return { renames: [{ oldName: '', newName: '' }] };
+    })(),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -63,30 +78,6 @@ export function RenameColumnOpForm({
   });
 
   const watchedRenames = watch('renames');
-
-  // Fetch source columns from node
-  useEffect(() => {
-    if (node?.data?.output_columns) {
-      setSrcColumns(node.data.output_columns);
-    }
-  }, [node]);
-
-  // Load existing config in edit mode
-  useEffect(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config) {
-      const config = node.data.operation_config.config as unknown as RenameDataConfig;
-      if (config?.columns) {
-        const renames = Object.entries(config.columns).map(([oldName, newName]) => ({
-          oldName,
-          newName: newName as string,
-        }));
-        reset({ renames: renames.length > 0 ? renames : [{ oldName: '', newName: '' }] });
-      }
-      if (config?.source_columns) {
-        setSrcColumns(config.source_columns);
-      }
-    }
-  }, [isEditMode, isViewMode, node, reset]);
 
   // Get used columns to filter from options
   const usedColumns = watchedRenames.map((r) => r.oldName).filter(Boolean);
