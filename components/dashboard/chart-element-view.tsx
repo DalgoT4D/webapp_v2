@@ -186,8 +186,7 @@ export function ChartElementView({
   const {
     data: chart,
     isLoading: chartLoading,
-    isError: chartError,
-    error: chartFetchError,
+    error: chartError,
   } = useChart(isPublicMode || frozenChartConfig ? null : chartId);
 
   // Resolve dashboard filters to complete column information for maps and tables
