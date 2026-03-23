@@ -481,8 +481,12 @@ function MultiComboboxInner({
   const safeValues = React.useMemo(() => (Array.isArray(values) ? values : []), [values]);
 
   // Get selected items for displaying chips
+  // Preserve the order of safeValues (selection order) rather than safeItems (dropdown order)
   const selectedItems = React.useMemo(
-    () => safeItems.filter((item) => safeValues.includes(item.value)),
+    () =>
+      safeValues
+        .map((val) => safeItems.find((item) => item.value === val))
+        .filter(Boolean) as ComboboxItem[],
     [safeItems, safeValues]
   );
 
