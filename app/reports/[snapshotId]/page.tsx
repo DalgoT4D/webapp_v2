@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +13,7 @@ import {
   Download,
   LayoutGrid,
   Loader2,
+  Pencil,
   Share2,
   User,
 } from 'lucide-react';
@@ -27,7 +29,12 @@ import { formatDateShort } from '@/components/reports/utils';
 export default function SnapshotViewerPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const snapshotId = Number(params.snapshotId);
+
+  // Read comment deep-link params from email notifications
+  const commentTarget = searchParams.get('commentTarget');
+  const commentChartId = searchParams.get('chartId');
 
   const { viewData, isLoading, isError, mutate } = useSnapshotView(snapshotId);
 
@@ -35,6 +42,7 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(snapshotId);
   const handleCommentStateChange = useCallback(() => {
@@ -58,6 +66,7 @@ export default function SnapshotViewerPage() {
     try {
       await updateSnapshot(snapshotId, { summary: summaryDraft });
       mutate();
+      setIsEditingSummary(false);
       toastSuccess.saved('Report');
     } catch (error) {
       toastError.save(error, 'report');
@@ -154,12 +163,22 @@ export default function SnapshotViewerPage() {
               Created by: {report_metadata.created_by}
             </span>
           )}
-          {report_metadata.dashboard_title && (
-            <span className="flex items-center gap-1.5">
-              <LayoutGrid className="h-3.5 w-3.5" />
-              {report_metadata.dashboard_title}
-            </span>
-          )}
+          {report_metadata.dashboard_title &&
+            (report_metadata.dashboard_id ? (
+              <Link
+                href={`/dashboards/${report_metadata.dashboard_id}`}
+                className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                data-testid="report-dashboard-link"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {report_metadata.dashboard_title}
+              </Link>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {report_metadata.dashboard_title}
+              </span>
+            ))}
         </div>
       </div>
 
@@ -174,20 +193,42 @@ export default function SnapshotViewerPage() {
           snapshotId={snapshotId}
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
+          autoOpenCommentChartId={
+            commentTarget === 'chart' && commentChartId ? commentChartId : undefined
+          }
           beforeContent={
-            <div className="border rounded-lg p-5 mb-2 bg-background">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">Executive Summary</h2>
+            <div className="border rounded-lg p-5 mb-2 bg-background relative">
+              {/* Comment + Edit icons in top-right corner */}
+              <div className="absolute top-3 right-3 flex items-center gap-1">
                 <CommentPopover
                   snapshotId={snapshotId}
                   targetType="summary"
                   state={commentStates?.['summary']?.state ?? 'none'}
-                  count={commentStates?.['summary']?.count ?? 0}
-                  unreadCount={commentStates?.['summary']?.unread_count ?? 0}
                   triggerClassName="h-8 w-8"
                   onStateChange={handleCommentStateChange}
+                  autoOpen={commentTarget === 'summary'}
                 />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  data-testid="summary-edit-btn"
+                  aria-label="Edit summary"
+                  onClick={() => {
+                    setIsEditingSummary(true);
+                    setTimeout(() => {
+                      const textarea = document.querySelector(
+                        '[data-testid="report-summary-textarea"]'
+                      ) as HTMLTextAreaElement;
+                      textarea?.focus();
+                    }, 0);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </div>
+
+              <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
               <Textarea
                 data-testid="report-summary-textarea"
                 value={summaryDraft}
@@ -195,9 +236,10 @@ export default function SnapshotViewerPage() {
                   setSummaryDraft(e.target.value);
                   setSummaryTouched(true);
                 }}
+                readOnly={!isEditingSummary}
                 placeholder="Add your notes here"
                 rows={2}
-                className="resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground"
+                className={`resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground ${!isEditingSummary ? 'cursor-default' : ''}`}
               />
             </div>
           }

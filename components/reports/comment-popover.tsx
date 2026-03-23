@@ -1,12 +1,22 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from 'react';
-import { ArrowUp, Pencil, Trash2, X, MoreHorizontal } from 'lucide-react';
+import { ArrowUp, Clock, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,10 +42,9 @@ interface CommentPopoverProps {
   targetType: 'summary' | 'chart';
   chartId?: number;
   state: CommentIconState;
-  count?: number;
-  unreadCount?: number;
   triggerClassName?: string;
   onStateChange?: () => void;
+  autoOpen?: boolean;
 }
 
 // ---- Mention Dropdown ----
@@ -107,7 +116,7 @@ const CommentContent = memo(function CommentContent({ content }: { content: stri
   const parts = useMemo(() => parseCommentMentions(content), [content]);
 
   return (
-    <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">
+    <p className="text-sm mt-0.5 whitespace-pre-wrap break-all">
       {parts.map((part, i) =>
         part.type === 'mention' ? (
           <span key={i} className="text-primary font-medium">
@@ -125,32 +134,90 @@ const CommentContent = memo(function CommentContent({ content }: { content: stri
 
 interface CommentItemProps {
   comment: Comment;
-  onEdit: (comment: Comment) => void;
   onDelete: (commentId: number) => void;
+  onSaveEdit: (commentId: number, content: string) => Promise<void>;
   currentUserEmail: string;
   isFirstNew: boolean;
   firstNewRef: React.RefObject<HTMLDivElement | null>;
+  isDeleted: boolean;
 }
 
 const CommentItem = memo(function CommentItem({
   comment,
-  onEdit,
   onDelete,
+  onSaveEdit,
   currentUserEmail,
   isFirstNew,
   firstNewRef,
+  isDeleted,
 }: CommentItemProps) {
   const isAuthor = comment.author.email === currentUserEmail;
   const avatarColor = useMemo(() => getAvatarColor(comment.author.email), [comment.author.email]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleStartEdit = useCallback(() => {
+    setIsEditing(true);
+    setEditText(comment.content);
+    setTimeout(() => editRef.current?.focus(), 0);
+  }, [comment.content]);
+
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditText('');
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    const content = editText.trim();
+    if (!content || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSaveEdit(comment.id, content);
+      setIsEditing(false);
+      setEditText('');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editText, isSaving, comment.id, onSaveEdit]);
+
+  // Show "This message was deleted" placeholder
+  if (isDeleted) {
+    return (
+      <div data-testid={`comment-${comment.id}-deleted`} className="group px-3 py-2 rounded-md">
+        <div className="flex items-start gap-2">
+          <Avatar className="h-7 w-7 text-xs flex-shrink-0 mt-0.5">
+            <AvatarFallback
+              style={{ backgroundColor: avatarColor }}
+              className="text-white font-medium"
+            >
+              {getInitials(comment.author)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium truncate">{comment.author.email}</span>
+              <span className="text-xs text-muted-foreground flex-shrink-0">
+                {formatCommentTime(comment.created_at)}
+              </span>
+            </div>
+            <p className="text-sm mt-0.5 text-muted-foreground italic flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              This message was deleted
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={isFirstNew ? firstNewRef : undefined}
       data-testid={`comment-${comment.id}`}
-      className={cn(
-        'group px-3 py-2 rounded-md',
-        comment.is_new && 'bg-yellow-50 dark:bg-yellow-950/30'
-      )}
+      className="group px-3 py-2 rounded-md"
     >
       <div className="flex items-start gap-2">
         <Avatar className="h-7 w-7 text-xs flex-shrink-0 mt-0.5">
@@ -162,47 +229,119 @@ const CommentItem = memo(function CommentItem({
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium truncate">{comment.author.email}</span>
-            <span className="text-xs text-muted-foreground flex-shrink-0">
-              {formatCommentTime(comment.created_at)}
-            </span>
-            {/* Ellipsis menu — only visible on hover for author's own comments */}
-            {isAuthor && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 w-5 p-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                    data-testid={`comment-menu-${comment.id}`}
-                  >
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-32">
-                  <DropdownMenuItem
-                    data-testid={`edit-btn-${comment.id}`}
-                    onClick={() => onEdit(comment)}
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    data-testid={`delete-btn-${comment.id}`}
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => onDelete(comment.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-          <CommentContent content={comment.content} />
+          {!isEditing ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium truncate">{comment.author.email}</span>
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {formatCommentTime(comment.created_at)}
+                </span>
+                {comment.updated_at !== comment.created_at && (
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                    &middot; edited
+                  </span>
+                )}
+                {comment.is_new && (
+                  <span
+                    data-testid={`comment-new-dot-${comment.id}`}
+                    className="h-2 w-2 rounded-full flex-shrink-0 ml-auto"
+                    style={{ backgroundColor: 'rgba(0, 137, 123, 0.4)' }}
+                  />
+                )}
+                {isAuthor && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-testid={`comment-menu-${comment.id}`}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-32">
+                      <DropdownMenuItem
+                        data-testid={`edit-btn-${comment.id}`}
+                        onClick={handleStartEdit}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        data-testid={`delete-btn-${comment.id}`}
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+              <CommentContent content={comment.content} />
+            </>
+          ) : (
+            <>
+              <textarea
+                ref={editRef}
+                data-testid={`comment-edit-textarea-${comment.id}`}
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full text-sm border rounded-md p-2 min-h-[60px] resize-none bg-background outline-none focus:ring-1 focus:ring-primary"
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive hover:bg-destructive/10 uppercase text-xs font-semibold"
+                  data-testid={`cancel-edit-btn-${comment.id}`}
+                  onClick={handleCancelEdit}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-primary text-white hover:opacity-90 uppercase text-xs font-semibold"
+                  data-testid={`save-edit-btn-${comment.id}`}
+                  onClick={handleSave}
+                  disabled={!editText.trim() || isSaving}
+                >
+                  Save
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this comment? This change cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="uppercase text-xs font-semibold"
+              data-testid={`cancel-delete-btn-${comment.id}`}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 uppercase text-xs font-semibold"
+              data-testid={`confirm-delete-btn-${comment.id}`}
+              onClick={() => onDelete(comment.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });
@@ -214,20 +353,26 @@ function CommentPopoverInner({
   targetType,
   chartId,
   state,
-  count,
-  unreadCount,
   triggerClassName,
   onStateChange,
+  autoOpen = false,
 }: CommentPopoverProps) {
   const [open, setOpen] = useState(false);
+
+  // Auto-open popover when linked from email notification
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+    }
+  }, [autoOpen]);
   const [draft, setDraft] = useState('');
-  const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [mentionQuery, setMentionQuery] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const firstNewRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const { comments, mutate: mutateComments } = useComments(
     open ? snapshotId : null,
@@ -247,15 +392,15 @@ function CommentPopoverInner({
     return null;
   }, [comments]);
 
-  // Auto-scroll to first new comment when popover opens
+  // Auto-scroll to latest comment when popover opens
   useEffect(() => {
-    if (!open || !firstNewCommentId || !firstNewRef.current) return undefined;
+    if (!open || !bottomRef.current) return undefined;
 
     const timer = setTimeout(() => {
-      firstNewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
     return () => clearTimeout(timer);
-  }, [open, firstNewCommentId]);
+  }, [open, comments.length]);
 
   // Mark as read on close
   const handleOpenChange = useCallback(
@@ -264,7 +409,6 @@ function CommentPopoverInner({
       if (!isOpen) {
         // Reset state
         setDraft('');
-        setEditingComment(null);
         setShowMentions(false);
 
         // Mark as read
@@ -323,48 +467,32 @@ function CommentPopoverInner({
     [draft]
   );
 
-  // Submit new comment or edit
+  // Submit new comment
   const handleSubmit = useCallback(async () => {
     const content = draft.trim();
     if (!content || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      if (editingComment) {
-        await updateComment(editingComment.id, content);
-        toastSuccess.updated('Comment');
-        setEditingComment(null);
-      } else {
-        await createComment({
-          snapshot_id: snapshotId,
-          target_type: targetType,
-          chart_id: chartId,
-          content,
-        });
-        toastSuccess.created('Comment');
-      }
+      await createComment({
+        snapshot_id: snapshotId,
+        target_type: targetType,
+        chart_id: chartId,
+        content,
+      });
+      toastSuccess.created('Comment');
       setDraft('');
-      mutateComments();
+      await mutateComments();
       onStateChange?.();
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     } catch (error) {
-      if (editingComment) {
-        toastError.update(error, 'comment');
-      } else {
-        toastError.create(error, 'comment');
-      }
+      toastError.create(error, 'comment');
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    draft,
-    isSubmitting,
-    editingComment,
-    snapshotId,
-    targetType,
-    chartId,
-    mutateComments,
-    onStateChange,
-  ]);
+  }, [draft, isSubmitting, snapshotId, targetType, chartId, mutateComments, onStateChange]);
 
   // Keyboard shortcut: Enter to submit, Shift+Enter ignored (single-line input)
   const handleKeyDown = useCallback(
@@ -380,11 +508,20 @@ function CommentPopoverInner({
     [handleSubmit]
   );
 
-  const handleEdit = useCallback((comment: Comment) => {
-    setEditingComment(comment);
-    setDraft(comment.content);
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }, []);
+  const handleSaveEdit = useCallback(
+    async (commentId: number, content: string) => {
+      try {
+        await updateComment(commentId, content);
+        toastSuccess.updated('Comment');
+        mutateComments();
+        onStateChange?.();
+      } catch (error) {
+        toastError.update(error, 'comment');
+        throw error;
+      }
+    },
+    [mutateComments, onStateChange]
+  );
 
   const handleDelete = useCallback(
     async (commentId: number) => {
@@ -412,13 +549,17 @@ function CommentPopoverInner({
           data-testid={`comment-trigger-${targetType}${chartId ? `-${chartId}` : ''}`}
           aria-label={`${targetType === 'summary' ? 'Summary' : 'Chart'} comments`}
         >
-          <CommentIcon state={state} unreadCount={unreadCount} />
+          <CommentIcon state={state} className={open ? 'text-primary' : undefined} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 p-0 flex flex-col max-h-[min(450px,80vh)]"
+        className="w-[383px] p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-white"
+        style={{
+          borderColor: 'var(--primary)',
+          boxShadow: '-4px 4px 11px 0px rgba(0, 0, 0, 0.22)',
+        }}
         onInteractOutside={(e) => {
           // Prevent close when clicking mention dropdown
           const target = e.target as HTMLElement;
@@ -427,54 +568,27 @@ function CommentPopoverInner({
           }
         }}
       >
-        {/* Comment list — no header, comments flow directly */}
+        {/* Comment list */}
         <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
           <div className="py-2 space-y-0.5">
-            {comments.length === 0 ? (
-              <p
-                data-testid="no-comments-message"
-                className="text-sm text-muted-foreground text-center py-8"
-              >
-                No comments yet. Start the conversation!
-              </p>
-            ) : (
-              comments.map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  currentUserEmail={currentUserEmail}
-                  isFirstNew={comment.id === firstNewCommentId}
-                  firstNewRef={firstNewRef}
-                />
-              ))
-            )}
+            {comments.map((comment) => (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                onSaveEdit={handleSaveEdit}
+                onDelete={handleDelete}
+                currentUserEmail={currentUserEmail}
+                isFirstNew={comment.id === firstNewCommentId}
+                firstNewRef={firstNewRef}
+                isDeleted={comment.is_deleted}
+              />
+            ))}
+            <div ref={bottomRef} />
           </div>
         </ScrollArea>
 
-        {/* Input area */}
+        {/* Add comment input */}
         <div className="border-t px-3 py-2.5 flex-shrink-0">
-          {/* Edit indicator */}
-          {editingComment && (
-            <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-              <Pencil className="h-3 w-3" />
-              <span>Editing comment</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 w-5 p-0 ml-auto"
-                data-testid="cancel-edit-btn"
-                onClick={() => {
-                  setEditingComment(null);
-                  setDraft('');
-                }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
-
           <div className="relative">
             <MentionDropdown
               users={mentionableUsers}
@@ -499,7 +613,7 @@ function CommentPopoverInner({
                 onClick={handleSubmit}
                 disabled={!hasDraft || isSubmitting}
                 className={cn(
-                  'h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
+                  'h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
                   hasDraft
                     ? 'bg-primary text-white hover:opacity-90'
                     : 'bg-muted text-muted-foreground'

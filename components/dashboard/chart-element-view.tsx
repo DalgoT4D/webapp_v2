@@ -120,6 +120,7 @@ interface ChartElementViewProps {
   snapshotId?: number; // Report snapshot ID for comments
   commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
   onCommentStateChange?: () => void; // Callback when comment state changes
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
 }
 
 interface DrillDownLevel {
@@ -147,6 +148,7 @@ export function ChartElementView({
   snapshotId,
   commentStates,
   onCommentStateChange,
+  autoOpenCommentChartId,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -1708,38 +1710,46 @@ export function ChartElementView({
     >
       {/* Chart toolbar - only visible on hover in view mode */}
       {viewMode && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            {/* Download dropdown with PNG and CSV options */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
-                  <FileImage className="w-4 h-4 mr-2" />
-                  <span>Download as PNG</span>
-                </DropdownMenuItem>
-                {effectiveChart?.chart_type !== 'number' && (
-                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    <span>Export Data as CSV</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div
+          className={`absolute top-2 right-2 z-10 ${frozenChartConfig ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200`}
+        >
+          <div
+            className={`flex gap-1 ${frozenChartConfig ? '' : 'bg-white/90 backdrop-blur rounded-md shadow-sm p-1'}`}
+          >
+            {/* Download and fullscreen — hidden in report mode */}
+            {!frozenChartConfig && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
+                      <FileImage className="w-4 h-4 mr-2" />
+                      <span>Download as PNG</span>
+                    </DropdownMenuItem>
+                    {effectiveChart?.chart_type !== 'number' && (
+                      <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                        <FileText className="w-4 h-4 mr-2" />
+                        <span>Export Data as CSV</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleFullscreen}
-              className="h-7 w-7 p-0"
-              title="Fullscreen"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleFullscreen}
+                  className="h-7 w-7 p-0"
+                  title="Fullscreen"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
 
             {/* Comment button — only in report mode */}
             {frozenChartConfig && snapshotId && (
@@ -1748,10 +1758,9 @@ export function ChartElementView({
                 targetType="chart"
                 chartId={chartId}
                 state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
-                count={commentStates?.[String(chartId)]?.count ?? 0}
-                unreadCount={commentStates?.[String(chartId)]?.unread_count ?? 0}
                 triggerClassName="h-7 w-7 p-0"
                 onStateChange={onCommentStateChange}
+                autoOpen={autoOpenCommentChartId === String(chartId)}
               />
             )}
           </div>

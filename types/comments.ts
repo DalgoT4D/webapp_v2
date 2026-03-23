@@ -16,6 +16,7 @@ export interface Comment {
   content: string;
   author: CommentAuthor;
   is_new: boolean;
+  is_deleted: boolean;
   created_at: string;
   updated_at: string;
   mentions: CommentMention[];
