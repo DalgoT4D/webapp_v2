@@ -51,7 +51,12 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
+import {
+  useDashboard,
+  deleteDashboard,
+  getDashboardSharingStatus,
+  updateDashboardSharing,
+} from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
@@ -65,7 +70,7 @@ import {
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
-import { ShareModal } from './ShareModal';
+import { ShareModal } from '@/components/ui/share-modal';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -1286,10 +1291,17 @@ export function DashboardNativeView({
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
-          dashboard={dashboard}
+          entityId={dashboardId}
+          entityLabel="Dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          initialShareStatus={{
+            is_public: dashboard.is_public,
+            public_access_count: dashboard.public_access_count,
+          }}
+          getShareStatus={getDashboardSharingStatus}
+          updateSharing={updateDashboardSharing}
         />
       )}
     </div>
