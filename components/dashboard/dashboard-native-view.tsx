@@ -82,6 +82,7 @@ import {
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { DashboardChatTrigger } from './dashboard-chat-trigger';
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width
@@ -244,6 +245,8 @@ export function DashboardNativeView({
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
+  // Selected chart for AI chat context
+  const [selectedChartForChat, setSelectedChartForChat] = useState<string | null>(null);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -503,7 +506,17 @@ export function DashboardNativeView({
     switch (component.type) {
       case 'chart':
         return (
-          <div key={componentId} className="h-full">
+          <div
+            key={componentId}
+            className={cn(
+              'h-full relative cursor-pointer transition-all duration-200 group',
+              selectedChartForChat === componentId &&
+                'ring-2 ring-blue-400 ring-opacity-50 rounded-lg'
+            )}
+            onClick={() =>
+              setSelectedChartForChat(selectedChartForChat === componentId ? null : componentId)
+            }
+          >
             <ChartElementView
               chartId={component.config?.chartId}
               dashboardFilters={selectedFilters}
@@ -514,6 +527,16 @@ export function DashboardNativeView({
               publicToken={publicToken}
               config={component.config}
             />
+            {/* Chat selection indicator */}
+            {selectedChartForChat === componentId ? (
+              <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full shadow-lg z-10">
+                Selected for AI
+              </div>
+            ) : (
+              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-5">
+                Click to select for AI
+              </div>
+            )}
           </div>
         );
 
@@ -1248,6 +1271,13 @@ export function DashboardNativeView({
           onUpdate={handleDashboardUpdate}
         />
       )}
+      {/* AI Chat Assistant */}
+      <DashboardChatTrigger
+        dashboardId={dashboardId}
+        dashboardTitle={dashboard?.title}
+        selectedChartId={selectedChartForChat}
+        isPublicMode={isPublicMode}
+      />
     </div>
   );
 }
