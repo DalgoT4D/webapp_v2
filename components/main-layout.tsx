@@ -220,7 +220,7 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'Organization',
+          title: 'AI Settings',
           href: '/settings/organization',
           icon: Building2,
           isActive: currentPath.startsWith('/settings/organization'),

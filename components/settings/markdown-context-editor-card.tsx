@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Save, type LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +10,6 @@ import { MarkdownPreview } from '@/components/settings/markdown-preview';
 interface MarkdownContextEditorCardProps {
   title: string;
   description: string;
-  icon: LucideIcon;
   markdown: string;
   onMarkdownChange: (value: string) => void;
   onSave: () => void | Promise<void>;
@@ -28,7 +26,6 @@ interface MarkdownContextEditorCardProps {
 export function MarkdownContextEditorCard({
   title,
   description,
-  icon: Icon,
   markdown,
   onMarkdownChange,
   onSave,
@@ -44,10 +41,7 @@ export function MarkdownContextEditorCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon className="h-5 w-5" />
-          {title}
-        </CardTitle>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -79,7 +73,6 @@ export function MarkdownContextEditorCard({
             Last updated by {updatedBy} on {updatedAt}.
           </div>
           <Button onClick={onSave} disabled={isSaving || disabled}>
-            <Save className="mr-2 h-4 w-4" />
             {isSaving ? 'Saving...' : saveLabel}
           </Button>
         </div>

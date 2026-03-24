@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { AlertTriangle, Bot, FileText, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -237,7 +236,6 @@ export default function OrganizationSettings() {
   if (!canManageOrgSettings) {
     return (
       <SettingsStateCard
-        icon={Lock}
         title="Access denied"
         description="You do not have permission to manage organization AI settings."
       />
@@ -248,7 +246,7 @@ export default function OrganizationSettings() {
     return (
       <div className="container mx-auto max-w-4xl p-6">
         <div className="flex min-h-[240px] items-center justify-center text-sm text-muted-foreground">
-          Loading organization settings...
+          Loading AI settings...
         </div>
       </div>
     );
@@ -257,7 +255,6 @@ export default function OrganizationSettings() {
   if (!settings) {
     return (
       <SettingsStateCard
-        icon={AlertTriangle}
         title="Unable to load AI settings"
         description={
           settingsError instanceof Error ? settingsError.message : 'Please refresh and try again.'
@@ -267,17 +264,16 @@ export default function OrganizationSettings() {
   }
 
   return (
-    <>
+    <div className="h-full overflow-y-auto">
       <div className="container mx-auto max-w-4xl space-y-6 p-6">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Organization Settings</h1>
+          <h1 className="text-3xl font-bold">AI Settings</h1>
           <p className="text-muted-foreground">
             Manage Chat with Dashboards consent and the markdown context used to answer questions.
           </p>
         </div>
 
         <DashboardChatConsentCard
-          featureFlagEnabled={settings.feature_flag_enabled}
           aiDataSharingEnabled={settings.ai_data_sharing_enabled}
           aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
           docsGeneratedAt={formatTimestamp(settings.docs_generated_at)}
@@ -291,7 +287,6 @@ export default function OrganizationSettings() {
             <MarkdownContextEditorCard
               title="Organization AI context"
               description="Add stable organization-level context that should be available to every dashboard chat."
-              icon={Bot}
               markdown={orgContextDraft}
               onMarkdownChange={setOrgContextDraft}
               onSave={saveOrgContext}
@@ -305,19 +300,16 @@ export default function OrganizationSettings() {
 
             {nativeDashboards.length === 0 ? (
               <SettingsStateCard
-                icon={FileText}
                 title="Dashboard AI context"
                 description="Create a native dashboard before adding dashboard-specific AI context."
               />
             ) : dashboardContextLoading ? (
               <SettingsStateCard
-                icon={FileText}
                 title="Dashboard AI context"
                 description="Loading dashboard context..."
               />
             ) : dashboardContextError ? (
               <SettingsStateCard
-                icon={AlertTriangle}
                 title="Dashboard AI context"
                 description={
                   dashboardContextError instanceof Error
@@ -329,7 +321,6 @@ export default function OrganizationSettings() {
               <MarkdownContextEditorCard
                 title="Dashboard AI context"
                 description="Add markdown context for a specific native dashboard."
-                icon={FileText}
                 markdown={dashboardContextDraft}
                 onMarkdownChange={setDashboardContextDraft}
                 onSave={saveDashboardContext}
@@ -366,7 +357,6 @@ export default function OrganizationSettings() {
           </>
         ) : (
           <SettingsStateCard
-            icon={Bot}
             title="AI context editors"
             description="Turn on consent first to edit organization and dashboard context."
           />
@@ -379,6 +369,6 @@ export default function OrganizationSettings() {
         onOpenChange={setConsentDialogOpen}
         onConfirm={confirmConsent}
       />
-    </>
+    </div>
   );
 }
