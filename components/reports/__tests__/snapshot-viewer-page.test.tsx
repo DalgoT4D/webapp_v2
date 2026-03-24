@@ -31,6 +31,17 @@ const mockBack = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
   useParams: () => ({ snapshotId: '1' }),
+  useSearchParams: () => ({ get: () => null }),
+}));
+
+// Mock useCommentStates
+jest.mock('@/hooks/api/useComments', () => ({
+  useCommentStates: () => ({ states: {}, mutate: jest.fn() }),
+}));
+
+// Mock CommentPopover
+jest.mock('@/components/reports/comment-popover', () => ({
+  CommentPopover: () => <div data-testid="mock-comment-popover" />,
 }));
 
 // Mock usePdfDownload
@@ -239,6 +250,10 @@ describe('SnapshotViewerPage', () => {
       const user = userEvent.setup();
       renderPage();
 
+      // Click edit button to enable editing (textarea starts as readOnly)
+      const editBtn = screen.getByTestId('summary-edit-btn');
+      await user.click(editBtn);
+
       const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
       await user.clear(textarea);
       await user.type(textarea, 'Updated summary text.');
@@ -253,6 +268,10 @@ describe('SnapshotViewerPage', () => {
       mockUseSnapshotView({ mutate: mockMutate });
 
       renderPage();
+
+      // Click edit button to enable editing (textarea starts as readOnly)
+      const editBtn = screen.getByTestId('summary-edit-btn');
+      await user.click(editBtn);
 
       const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
       await user.clear(textarea);

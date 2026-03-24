@@ -42,6 +42,7 @@ export interface ReportMetadata {
   updated_at: string;
   created_by?: string;
   dashboard_title: string;
+  dashboard_id?: number;
 }
 
 export interface SnapshotViewData {
