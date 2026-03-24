@@ -14,16 +14,9 @@ interface DashboardChatCitation {
   table_name?: string | null;
 }
 
-interface DashboardChatRelatedDashboard {
-  dashboard_id: number;
-  title: string;
-  reason: string;
-}
-
 interface DashboardChatAssistantPayload {
   intent?: string;
   citations?: DashboardChatCitation[];
-  related_dashboards?: DashboardChatRelatedDashboard[];
   warnings?: string[];
   sql?: string | null;
   sql_results?: Array<Record<string, unknown>> | null;
@@ -52,6 +45,11 @@ interface UseDashboardChatOptions {
   enabled: boolean;
 }
 
+interface PendingDashboardChatMessage {
+  content: string;
+  clientMessageId: string;
+}
+
 function getSelectedOrgSlug() {
   if (typeof window === 'undefined') {
     return null;
@@ -71,6 +69,8 @@ function buildDashboardChatSocketUrl(dashboardId: number, orgSlug: string) {
 export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptions) {
   const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug) || getSelectedOrgSlug();
   const socketRef = useRef<WebSocket | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const pendingMessageRef = useRef<PendingDashboardChatMessage | null>(null);
   const [messages, setMessages] = useState<DashboardChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -85,10 +85,37 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
   }, [dashboardId, enabled, selectedOrgSlug]);
 
   useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
     if (!websocketUrl) {
       setIsConnected(false);
       return undefined;
     }
+
+    const sendSocketMessage = (socket: WebSocket, pendingMessage: PendingDashboardChatMessage) => {
+      socket.send(
+        JSON.stringify({
+          action: 'send_message',
+          message: pendingMessage.content,
+          client_message_id: pendingMessage.clientMessageId,
+          ...(sessionIdRef.current ? { session_id: sessionIdRef.current } : {}),
+        })
+      );
+      setIsThinking(true);
+      setError(null);
+    };
+
+    const flushPendingMessage = (socket: WebSocket) => {
+      const pendingMessage = pendingMessageRef.current;
+      if (!pendingMessage) {
+        return;
+      }
+
+      sendSocketMessage(socket, pendingMessage);
+      pendingMessageRef.current = null;
+    };
 
     const socket = new WebSocket(websocketUrl);
     socketRef.current = socket;
@@ -96,6 +123,7 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     socket.onopen = () => {
       setIsConnected(true);
       setError(null);
+      flushPendingMessage(socket);
     };
 
     socket.onmessage = (event) => {
@@ -153,6 +181,10 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     socket.onclose = () => {
       setIsConnected(false);
       socketRef.current = null;
+      if (pendingMessageRef.current) {
+        setIsThinking(false);
+        setError('The chat connection closed before your message could be sent');
+      }
     };
 
     return () => {
@@ -165,9 +197,7 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
   const sendMessage = (content: string) => {
     const trimmedContent = content.trim();
     const socket = socketRef.current;
-
-    if (!trimmedContent || !socket || socket.readyState !== WebSocket.OPEN) {
-      setError('Chat connection is not ready yet');
+    if (!trimmedContent) {
       return false;
     }
 
@@ -183,17 +213,32 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
         createdAt,
       },
     ]);
-    setIsThinking(true);
     setError(null);
+
+    if (!socket || socket.readyState === WebSocket.CONNECTING) {
+      pendingMessageRef.current = {
+        content: trimmedContent,
+        clientMessageId,
+      };
+      return true;
+    }
+
+    if (socket.readyState !== WebSocket.OPEN) {
+      setIsThinking(false);
+      setError('The chat connection encountered an error');
+      return false;
+    }
 
     socket.send(
       JSON.stringify({
         action: 'send_message',
         message: trimmedContent,
         client_message_id: clientMessageId,
-        ...(sessionId ? { session_id: sessionId } : {}),
+        ...(sessionIdRef.current ? { session_id: sessionIdRef.current } : {}),
       })
     );
+    setIsThinking(true);
+    setError(null);
 
     return true;
   };
