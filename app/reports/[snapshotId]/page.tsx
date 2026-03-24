@@ -18,11 +18,16 @@ import {
   User,
 } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
+import {
+  useSnapshotView,
+  updateSnapshot,
+  getReportSharingStatus,
+  updateReportSharing,
+} from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { ReportShareModal } from '@/components/reports/ReportShareModal';
+import { ShareModal } from '@/components/ui/share-modal';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 
@@ -246,10 +251,13 @@ export default function SnapshotViewerPage() {
         />
       </div>
 
-      <ReportShareModal
-        snapshotId={snapshotId}
+      <ShareModal
+        entityId={snapshotId}
+        entityLabel="Report"
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
+        getShareStatus={getReportSharingStatus}
+        updateSharing={updateReportSharing}
       />
     </div>
   );

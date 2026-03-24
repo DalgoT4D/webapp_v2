@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
 import {
   useChart,
   useChartDataPreview,
@@ -42,6 +42,7 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -468,18 +469,8 @@ export function ChartElementView({
     shouldFetchReportChartData ? ['report-chart-data', chartId, filterHash] : null,
     shouldFetchReportChartData
       ? isPublicReport
-        ? async () => {
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/chart-data/`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(chartDataPayload),
-              }
-            );
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            return response.json();
-          }
+        ? () =>
+            apiPublicPost(`/api/v1/public/reports/${publicToken}/chart-data/`, chartDataPayload!)
         : () => apiPost('/api/charts/chart-data/', chartDataPayload!)
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -526,16 +517,7 @@ export function ChartElementView({
             queryParams.append('dashboard_filters', JSON.stringify(filters));
           }
 
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}?${queryParams}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-            }
-          );
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          return response.json();
+          return apiPublicPost(`${url}?${queryParams}`, payload);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -577,17 +559,8 @@ export function ChartElementView({
             queryParams.append('dashboard_filters', JSON.stringify(filters));
           }
 
-          const finalUrl = queryParams.toString()
-            ? `${process.env.NEXT_PUBLIC_BACKEND_URL}${url}?${queryParams}`
-            : `${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`;
-
-          const response = await fetch(finalUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          return response.json();
+          const finalUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
+          return apiPublicPost(finalUrl, payload);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -868,13 +841,7 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(mapDataOverlayPayload),
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          return response.json();
+          return apiPublicPost(url, mapDataOverlayPayload!);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -1398,6 +1365,11 @@ export function ChartElementView({
         },
       },
     };
+
+    // Handle stacked bar chart data labels
+    if (effectiveChart?.chart_type === 'bar') {
+      Object.assign(styledConfig, applyStackedBarLabels(styledConfig, customizations));
+    }
 
     // Check DOM element dimensions before setting options
     const rect = chartRef.current.getBoundingClientRect();
