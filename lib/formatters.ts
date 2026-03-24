@@ -3,6 +3,9 @@
  * Formatting happens on frontend for instant preview (Superset-style)
  */
 
+// UI allows 0-10 decimal places; toFixed() accepts 0-100 but we cap at 10 for UX
+export const MAX_DECIMAL_PLACES = 10;
+
 export const NumberFormats = {
   DEFAULT: 'default',
   COMMA: 'comma',
@@ -45,7 +48,7 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
   // Sanitize decimalPlaces to prevent RangeError in toFixed() (UI allows 0-10)
   const decimalPlaces =
     typeof rawDecimalPlaces === 'number' && Number.isFinite(rawDecimalPlaces)
-      ? Math.min(10, Math.max(0, rawDecimalPlaces))
+      ? Math.min(MAX_DECIMAL_PLACES, Math.max(0, rawDecimalPlaces))
       : undefined;
 
   // Apply decimal places if specified

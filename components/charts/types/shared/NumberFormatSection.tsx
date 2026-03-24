@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { NumberFormats, type NumberFormat } from '@/lib/formatters';
+import { NumberFormats, MAX_DECIMAL_PLACES, type NumberFormat } from '@/lib/formatters';
 
 /**
  * Format options available for number formatting
@@ -33,7 +33,7 @@ export const NUMBER_FORMAT_OPTIONS = [
  * Format options for table charts (excludes percentage and currency)
  */
 export const TABLE_NUMBER_FORMAT_OPTIONS = NUMBER_FORMAT_OPTIONS.filter(
-  (opt) => opt.value !== 'percentage' && opt.value !== 'currency'
+  (opt) => opt.value !== NumberFormats.PERCENTAGE && opt.value !== NumberFormats.CURRENCY
 );
 
 interface NumberFormatSectionProps {
@@ -92,7 +92,7 @@ export function NumberFormatSection({
   excludeFormats = [],
 }: NumberFormatSectionProps) {
   const handleDecimalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Math.min(10, Math.max(0, parseInt(e.target.value) || 0));
+    const value = Math.min(MAX_DECIMAL_PLACES, Math.max(0, parseInt(e.target.value) || 0));
     onDecimalPlacesChange(value);
   };
 
@@ -106,11 +106,11 @@ export function NumberFormatSection({
       <div className="space-y-2">
         <Label htmlFor={`${idPrefix}NumberFormat`}>Number Format</Label>
         <Select
-          value={numberFormat || 'default'}
+          value={numberFormat || NumberFormats.DEFAULT}
           onValueChange={(value) => onNumberFormatChange(value as NumberFormat)}
           disabled={disabled}
         >
-          <SelectTrigger id={`${idPrefix}NumberFormat`}>
+          <SelectTrigger id={`${idPrefix}NumberFormat`} data-testid={`${idPrefix}NumberFormat`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -128,9 +128,10 @@ export function NumberFormatSection({
         <Label htmlFor={`${idPrefix}DecimalPlaces`}>Decimal Places</Label>
         <Input
           id={`${idPrefix}DecimalPlaces`}
+          data-testid={`${idPrefix}DecimalPlaces`}
           type="number"
           min={0}
-          max={10}
+          max={MAX_DECIMAL_PLACES}
           value={decimalPlaces ?? 0}
           onChange={handleDecimalChange}
           disabled={disabled}

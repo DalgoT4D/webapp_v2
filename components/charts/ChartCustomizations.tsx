@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useCallback } from 'react';
 import { ChartTypes, type ChartBuilderFormData } from '@/types/charts';
+import { NumericDataType, type NumericDataTypeValue } from '@/constants/data-types';
 
 // Import chart type-specific customization components from modules
 import { BarChartCustomizations } from './types/bar/BarChartCustomizations';
@@ -10,18 +11,6 @@ import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
 import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
-
-// Numeric data types that can have number formatting applied
-const NUMERIC_DATA_TYPES = [
-  'integer',
-  'smallint',
-  'bigint',
-  'numeric',
-  'double precision',
-  'real',
-  'float',
-  'decimal',
-];
 
 interface ColumnInfo {
   column_name?: string;
@@ -85,7 +74,9 @@ export function ChartCustomizations({
       const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
       const numericDimensionCols = dimensionCols.filter((colName) => {
         const dataType = columnTypeMap[colName];
-        return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        return (
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+        );
       });
 
       return [...numericDimensionCols, ...metricCols];
@@ -93,7 +84,9 @@ export function ChartCustomizations({
       const displayedCols = formData.table_columns || [];
       return displayedCols.filter((colName) => {
         const dataType = columnTypeMap[colName];
-        return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        return (
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+        );
       });
     }
   }, [chartType, formData, columns]);
@@ -133,7 +126,9 @@ export function ChartCustomizations({
       const xAxisDataType = columns
         .find((col) => (col.column_name || col.name) === xAxisColumn)
         ?.data_type?.toLowerCase();
-      const hasNumericXAxis = xAxisDataType ? NUMERIC_DATA_TYPES.includes(xAxisDataType) : false;
+      const hasNumericXAxis = xAxisDataType
+        ? Object.values(NumericDataType).includes(xAxisDataType as NumericDataTypeValue)
+        : false;
 
       if (chartType === ChartTypes.BAR) {
         return (

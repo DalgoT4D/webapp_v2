@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
-import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormats, type NumberFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
 
 interface ColumnFormatConfig {
@@ -140,6 +140,7 @@ export function TableChartCustomizations({
             <div key={column} className="space-y-0">
               {/* Column Row */}
               <div
+                data-testid={`column-row-${column}`}
                 className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors ${
                   isExpanded
                     ? 'shadow-sm'
@@ -170,6 +171,7 @@ export function TableChartCustomizations({
                   <Button
                     variant="ghost"
                     size="icon"
+                    data-testid={`remove-format-${column}`}
                     className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
                     onClick={(e) => handleRemoveFormat(column, e)}
                     disabled={disabled}
@@ -188,7 +190,7 @@ export function TableChartCustomizations({
                     decimalPlaces={config?.decimalPlaces}
                     onNumberFormatChange={(value) => handleFormatChange(column, value)}
                     onDecimalPlacesChange={(value) => handleDecimalChange(column, value)}
-                    excludeFormats={['percentage', 'currency']}
+                    excludeFormats={[NumberFormats.PERCENTAGE, NumberFormats.CURRENCY]}
                     disabled={disabled}
                   />
                 </div>
