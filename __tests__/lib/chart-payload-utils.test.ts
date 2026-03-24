@@ -8,7 +8,7 @@ describe('getApiCustomizations', () => {
   };
 
   it('strips numberFormat and decimalPlaces for number charts', () => {
-    const input = { ...base, numberFormat: 'comma', decimalPlaces: 2 };
+    const input = { ...base, numberFormat: 'indian', decimalPlaces: 2 };
     expect(getApiCustomizations(ChartTypes.NUMBER, input)).toEqual(base);
   });
 
@@ -25,7 +25,7 @@ describe('getApiCustomizations', () => {
   it('strips axis formatting keys for bar charts', () => {
     const input = {
       ...base,
-      yAxisNumberFormat: 'comma',
+      yAxisNumberFormat: 'adaptive_international',
       yAxisDecimalPlaces: 2,
       xAxisNumberFormat: 'default',
       xAxisDecimalPlaces: 0,

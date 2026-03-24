@@ -8,7 +8,6 @@ export const MAX_DECIMAL_PLACES = 10;
 
 export const NumberFormats = {
   DEFAULT: 'default',
-  COMMA: 'comma',
   INTERNATIONAL: 'international',
   INDIAN: 'indian',
   EUROPEAN: 'european',
@@ -85,13 +84,6 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
       const percentValue =
         decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
       return percentValue + '%';
-
-    case NumberFormats.COMMA:
-      // Same as international (for backward compatibility)
-      return processedValue.toLocaleString('en-US', {
-        minimumFractionDigits: decimalPlaces,
-        maximumFractionDigits: decimalPlaces,
-      });
 
     case NumberFormats.CURRENCY:
       // 1000 → $1,000

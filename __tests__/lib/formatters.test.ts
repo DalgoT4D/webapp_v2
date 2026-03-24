@@ -15,7 +15,6 @@ describe('formatNumber', () => {
     [1000000, 'european', '1.000.000'],
     [85.5, 'percentage', '85.5%'],
     [1000, 'currency', '$1,000'],
-    [1000000, 'comma', '1,000,000'],
     [-1234567, 'international', '-1,234,567'],
     [0, 'international', '0'],
     [0, 'indian', '0'],
