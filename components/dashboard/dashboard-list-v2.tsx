@@ -89,8 +89,14 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
-import { ShareModal } from './ShareModal';
+import {
+  useDashboards,
+  deleteDashboard,
+  duplicateDashboard,
+  getDashboardSharingStatus,
+  updateDashboardSharing,
+} from '@/hooks/api/useDashboards';
+import { ShareModal } from '@/components/ui/share-modal';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -2014,10 +2020,17 @@ export function DashboardListV2() {
       {/* Share Modal */}
       {selectedDashboard && (
         <ShareModal
-          dashboard={selectedDashboard}
+          entityId={selectedDashboard.id}
+          entityLabel="Dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          initialShareStatus={{
+            is_public: selectedDashboard.is_public,
+            public_access_count: selectedDashboard.public_access_count,
+          }}
+          getShareStatus={getDashboardSharingStatus}
+          updateSharing={updateDashboardSharing}
         />
       )}
     </div>

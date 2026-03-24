@@ -3,6 +3,16 @@
  * for maps and tables that need complete filter specifications
  */
 
+import type {
+  ValueFilterSettings,
+  NumericalFilterSettings,
+  DateTimeFilterSettings,
+} from '@/types/dashboard-filters';
+
+// Appended to date-only strings so a "less_than_equal" comparison includes the full end day
+// e.g. "2025-03-19" + END_OF_DAY_TIME → "2025-03-19T23:59:59"
+const END_OF_DAY_TIME = 'T23:59:59';
+
 // Define the resolved filter format that maps and tables expect
 export interface ResolvedDashboardFilter {
   schema_name: string;
@@ -71,7 +81,7 @@ export function resolveDashboardFilters(
           schema_name: filterConfig.schema_name,
           table_name: filterConfig.table_name,
           column_name: filterConfig.column_name,
-          operator: 'gte',
+          operator: 'greater_than_equal',
           value: value.min,
           filter_type: filterConfig.filter_type,
         });
@@ -80,7 +90,7 @@ export function resolveDashboardFilters(
           schema_name: filterConfig.schema_name,
           table_name: filterConfig.table_name,
           column_name: filterConfig.column_name,
-          operator: 'lte',
+          operator: 'less_than_equal',
           value: value.max,
           filter_type: filterConfig.filter_type,
         });
@@ -89,8 +99,35 @@ export function resolveDashboardFilters(
         operator = 'eq'; // Single numerical value
       }
     } else if (filterConfig.filter_type === 'datetime') {
-      // Handle datetime filters similarly to numerical
-      operator = 'eq';
+      // Date range filter — create separate filters matching backend operators
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        ('start_date' in value || 'end_date' in value)
+      ) {
+        if (value.start_date) {
+          resolvedFilters.push({
+            schema_name: filterConfig.schema_name,
+            table_name: filterConfig.table_name,
+            column_name: filterConfig.column_name,
+            operator: 'greater_than_equal',
+            value: value.start_date,
+            filter_type: filterConfig.filter_type,
+          });
+        }
+        if (value.end_date) {
+          resolvedFilters.push({
+            schema_name: filterConfig.schema_name,
+            table_name: filterConfig.table_name,
+            column_name: filterConfig.column_name,
+            operator: 'less_than_equal',
+            value: value.end_date + END_OF_DAY_TIME,
+            filter_type: filterConfig.filter_type,
+          });
+        }
+        return; // Already pushed, skip the generic push below
+      }
+      operator = 'eq'; // Single date value fallback
     }
 
     // Add the resolved filter
@@ -134,4 +171,40 @@ export function formatAsChartFilters(resolvedFilters: ResolvedDashboardFilter[])
     schema_name: filter.schema_name,
     table_name: filter.table_name,
   }));
+}
+
+/**
+ * Extract default filter values from filter configurations.
+ * Used by both DashboardNativeView (for auto-apply in report mode)
+ * and UnifiedFiltersPanel (for initial state).
+ */
+export function getDefaultFilterValues(filters: DashboardFilterConfig[]): Record<string, any> {
+  const defaultValues: Record<string, any> = {};
+
+  filters.forEach((filter) => {
+    if (filter.filter_type === 'value') {
+      const settings = filter.settings as ValueFilterSettings | undefined;
+      if (settings?.has_default_value && settings?.default_value) {
+        defaultValues[String(filter.id)] = settings.default_value;
+      }
+    } else if (filter.filter_type === 'numerical') {
+      const settings = filter.settings as NumericalFilterSettings | undefined;
+      if (settings?.default_min !== undefined || settings?.default_max !== undefined) {
+        defaultValues[String(filter.id)] = {
+          min: settings.default_min,
+          max: settings.default_max,
+        };
+      }
+    } else if (filter.filter_type === 'datetime') {
+      const settings = filter.settings as DateTimeFilterSettings | undefined;
+      if (settings?.default_start_date || settings?.default_end_date) {
+        const dateValue: { start_date?: string; end_date?: string } = {};
+        if (settings.default_start_date) dateValue.start_date = settings.default_start_date;
+        if (settings.default_end_date) dateValue.end_date = settings.default_end_date;
+        defaultValues[String(filter.id)] = dateValue;
+      }
+    }
+  });
+
+  return defaultValues;
 }
