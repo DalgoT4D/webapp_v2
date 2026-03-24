@@ -140,6 +140,7 @@ const getNavItems = (
       href: '/reports',
       icon: FileText,
       isActive: currentPath.startsWith('/reports'),
+      hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
     },
     {
       title: 'Data',

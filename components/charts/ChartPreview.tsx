@@ -11,6 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -279,6 +280,11 @@ export function ChartPreview({
           yAxisValue: modifiedConfig.yAxis,
           gridValue: modifiedConfig.grid,
         });
+      }
+
+      // Handle stacked bar chart data labels
+      if (detectedChartType === 'bar') {
+        Object.assign(modifiedConfig, applyStackedBarLabels(modifiedConfig, customizations));
       }
 
       // Set chart option
