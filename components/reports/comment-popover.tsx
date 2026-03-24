@@ -37,6 +37,9 @@ import {
 } from '@/hooks/api/useComments';
 import type { Comment, CommentIconState, MentionableUser } from '@/types/comments';
 
+// Width of comment popover panel — matches Figma spec for comment thread panels
+const COMMENT_POPOVER_WIDTH = 'w-[383px]';
+
 interface CommentPopoverProps {
   snapshotId: number;
   targetType: 'summary' | 'chart';
@@ -162,7 +165,7 @@ const CommentItem = memo(function CommentItem({
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
     setEditText(comment.content);
-    setTimeout(() => editRef.current?.focus(), 0);
+    requestAnimationFrame(() => editRef.current?.focus());
   }, [comment.content]);
 
   const handleCancelEdit = useCallback(() => {
@@ -462,7 +465,7 @@ function CommentPopoverInner({
       setShowMentions(false);
 
       // Re-focus input
-      setTimeout(() => inputRef.current?.focus(), 0);
+      requestAnimationFrame(() => inputRef.current?.focus());
     },
     [draft]
   );
@@ -555,7 +558,7 @@ function CommentPopoverInner({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[383px] p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-white"
+        className={`${COMMENT_POPOVER_WIDTH} p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-popover`}
         style={{
           borderColor: 'var(--primary)',
           boxShadow: '-4px 4px 11px 0px rgba(0, 0, 0, 0.22)',

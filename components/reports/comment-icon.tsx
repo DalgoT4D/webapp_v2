@@ -5,7 +5,8 @@ import { MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CommentIconState } from '@/types/comments';
 
-const INDICATOR_COLOR = '#D92A2A';
+// Red indicator for unread/mention badges — matches notification badge color across the app
+const INDICATOR_COLOR = 'var(--destructive)';
 
 interface CommentIconProps {
   state: CommentIconState;

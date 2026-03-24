@@ -76,7 +76,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { CommentPopover } from '@/components/reports/comment-popover';
-import type { CommentIconState } from '@/types/comments';
+import type { CommentIconState, CommentStates } from '@/types/comments';
 
 // Register necessary ECharts components
 echarts.use([
@@ -118,7 +118,7 @@ interface ChartElementViewProps {
   config?: ChartTitleConfig; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
   snapshotId?: number; // Report snapshot ID for comments
-  commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states
+  commentStates?: CommentStates; // Comment states keyed by chart_id or "summary"
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
 }
@@ -527,7 +527,7 @@ export function ChartElementView({
           }
 
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'}${url}?${queryParams}`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${queryParams}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

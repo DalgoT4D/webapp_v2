@@ -6,7 +6,6 @@ import type {
   MentionableUser,
   CreateCommentPayload,
   MarkReadPayload,
-  CommentStateEntry,
 } from '@/types/comments';
 
 interface ApiResponse<T> {
@@ -27,7 +26,7 @@ export function useComments(
   params.set('target_type', targetType);
   if (chartId !== undefined) params.set('chart_id', String(chartId));
 
-  const { data, error, mutate } = useSWR<ApiResponse<Comment[]>>(
+  const { data, error, isLoading, mutate } = useSWR<ApiResponse<Comment[]>>(
     snapshotId ? `/api/comments/?${params.toString()}` : null,
     apiGet,
     { revalidateOnFocus: false }
@@ -35,14 +34,14 @@ export function useComments(
 
   return {
     comments: data?.data || [],
-    isLoading: !error && !data,
+    isLoading,
     isError: error,
     mutate,
   };
 }
 
 export function useCommentStates(snapshotId: number | null) {
-  const { data, error, mutate } = useSWR<ApiResponse<{ states: CommentStates }>>(
+  const { data, error, isLoading, mutate } = useSWR<ApiResponse<{ states: CommentStates }>>(
     snapshotId ? `/api/comments/states/?snapshot_id=${snapshotId}` : null,
     apiGet,
     { revalidateOnFocus: false }
@@ -50,14 +49,14 @@ export function useCommentStates(snapshotId: number | null) {
 
   return {
     states: data?.data?.states || {},
-    isLoading: !error && !data,
+    isLoading,
     isError: error,
     mutate,
   };
 }
 
 export function useMentionableUsers() {
-  const { data, error } = useSWR<ApiResponse<MentionableUser[]>>(
+  const { data, error, isLoading } = useSWR<ApiResponse<MentionableUser[]>>(
     '/api/comments/mentionable-users/',
     apiGet,
     { revalidateOnFocus: false }
@@ -65,7 +64,7 @@ export function useMentionableUsers() {
 
   return {
     users: data?.data || [],
-    isLoading: !error && !data,
+    isLoading,
     isError: error,
   };
 }

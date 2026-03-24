@@ -35,13 +35,14 @@ export default function SnapshotViewerPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const snapshotId = Number(params.snapshotId);
+  const parsedId = Number(params.snapshotId);
+  const isValidId = !isNaN(parsedId) && parsedId > 0;
 
   // Read comment deep-link params from email notifications
   const commentTarget = searchParams.get('commentTarget');
   const commentChartId = searchParams.get('chartId');
 
-  const { viewData, isLoading, isError, mutate } = useSnapshotView(snapshotId);
+  const { viewData, isLoading, isError, mutate } = useSnapshotView(isValidId ? parsedId : null);
 
   const [summaryDraft, setSummaryDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -49,13 +50,15 @@ export default function SnapshotViewerPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
 
-  const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(snapshotId);
+  const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
+    isValidId ? parsedId : null
+  );
   const handleCommentStateChange = useCallback(() => {
     mutateCommentStates();
   }, [mutateCommentStates]);
 
   const { isExporting, download: handleDownload } = usePdfDownload({
-    endpoint: `/api/reports/${snapshotId}/export/pdf/`,
+    endpoint: `/api/reports/${parsedId}/export/pdf/`,
     title: viewData?.report_metadata.title || 'report',
   });
 
@@ -69,7 +72,7 @@ export default function SnapshotViewerPage() {
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
-      await updateSnapshot(snapshotId, { summary: summaryDraft });
+      await updateSnapshot(parsedId, { summary: summaryDraft });
       mutate();
       setIsEditingSummary(false);
       toastSuccess.saved('Report');
@@ -78,7 +81,18 @@ export default function SnapshotViewerPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [snapshotId, summaryDraft, mutate]);
+  }, [parsedId, summaryDraft, mutate]);
+
+  if (!isValidId) {
+    return (
+      <div className="p-6">
+        <p className="text-red-500">Invalid report ID.</p>
+        <Button data-testid="report-go-back-btn" variant="outline" onClick={() => router.back()}>
+          Go Back
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -195,7 +209,7 @@ export default function SnapshotViewerPage() {
           isReportMode={true}
           frozenChartConfigs={frozen_chart_configs}
           hideHeader={true}
-          snapshotId={snapshotId}
+          snapshotId={parsedId}
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
           autoOpenCommentChartId={
@@ -206,7 +220,7 @@ export default function SnapshotViewerPage() {
               {/* Comment + Edit icons in top-right corner */}
               <div className="absolute top-3 right-3 flex items-center gap-1">
                 <CommentPopover
-                  snapshotId={snapshotId}
+                  snapshotId={parsedId}
                   targetType="summary"
                   state={commentStates?.['summary']?.state ?? 'none'}
                   triggerClassName="h-8 w-8"
@@ -221,12 +235,12 @@ export default function SnapshotViewerPage() {
                   aria-label="Edit summary"
                   onClick={() => {
                     setIsEditingSummary(true);
-                    setTimeout(() => {
+                    requestAnimationFrame(() => {
                       const textarea = document.querySelector(
                         '[data-testid="report-summary-textarea"]'
                       ) as HTMLTextAreaElement;
                       textarea?.focus();
-                    }, 0);
+                    });
                   }}
                 >
                   <Pencil className="h-4 w-4" />
@@ -252,7 +266,7 @@ export default function SnapshotViewerPage() {
       </div>
 
       <ShareModal
-        entityId={snapshotId}
+        entityId={parsedId}
         entityLabel="Report"
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}

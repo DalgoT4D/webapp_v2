@@ -71,6 +71,7 @@ import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
+import type { CommentStates } from '@/types/comments';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -228,7 +229,7 @@ interface DashboardNativeViewProps {
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
   snapshotId?: number; // Report snapshot ID for comments
-  commentStates?: Record<string, { state: string; count: number; unread_count: number }>; // Comment states keyed by chart_id or "summary"
+  commentStates?: CommentStates; // Comment states keyed by chart_id or "summary"
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
 }
