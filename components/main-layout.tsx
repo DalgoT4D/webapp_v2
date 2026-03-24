@@ -217,7 +217,7 @@ const getNavItems = (
           isActive: currentPath.startsWith('/settings/user-management'),
         },
         {
-          title: 'Organization',
+          title: 'AI Settings',
           href: '/settings/organization',
           icon: Building2,
           isActive: currentPath.startsWith('/settings/organization'),
