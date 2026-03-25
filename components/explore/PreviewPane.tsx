@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Download,
   ArrowUp,
@@ -50,7 +52,11 @@ interface PreviewPaneProps {
   containerHeight?: number;
 }
 
+// Threshold for showing "click to view" dialog instead of tooltip
+const LONG_CELL_THRESHOLD = 200;
+
 export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps) {
+  const [expandedCell, setExpandedCell] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     column: null,
     order: 1,
@@ -207,17 +213,49 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
               data-testid={`data-row-${rowIdx}`}
               className="hover:bg-gray-50/50"
             >
-              {columns?.map((col, i) => (
-                <TableCell
-                  key={col.name}
-                  className={cn(
-                    'py-2 max-w-xs truncate text-gray-700 text-[0.8rem] border-b border-r border-[#dddddd] last:border-r-0',
-                    i === 0 && 'pl-10'
-                  )}
-                >
-                  {row[col.name] != null ? String(row[col.name]) : ''}
-                </TableCell>
-              ))}
+              {columns?.map((col, i) => {
+                const cellValue =
+                  row[col.name] != null
+                    ? typeof row[col.name] === 'object'
+                      ? JSON.stringify(row[col.name])
+                      : String(row[col.name])
+                    : '';
+                const isLong = cellValue.length > LONG_CELL_THRESHOLD;
+                const isMedium = cellValue.length > 30;
+                return (
+                  <TableCell
+                    key={col.name}
+                    className={cn(
+                      'py-2 max-w-xs truncate text-gray-700 text-[0.8rem] border-b border-r border-[#dddddd] last:border-r-0',
+                      i === 0 && 'pl-10'
+                    )}
+                  >
+                    {isLong ? (
+                      <span
+                        className="block truncate cursor-pointer hover:text-primary"
+                        onClick={() => setExpandedCell(cellValue)}
+                        title="Click to view full content"
+                      >
+                        {cellValue}
+                      </span>
+                    ) : isMedium ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block truncate cursor-default">{cellValue}</span>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          className="max-w-sm break-words whitespace-pre-wrap text-xs"
+                        >
+                          {cellValue}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="block truncate">{cellValue}</span>
+                    )}
+                  </TableCell>
+                );
+              })}
             </TableRow>
           ))
         ) : (
@@ -291,57 +329,76 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
 
   // When containerHeight is provided (canvas context), use absolute positioning
   // to guarantee header/pagination are always visible and table scrolls between them.
+  const cellDialog = (
+    <Dialog open={expandedCell !== null} onOpenChange={(open) => !open && setExpandedCell(null)}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Cell Content</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 min-h-0 overflow-auto rounded bg-gray-50 p-4">
+          <pre className="text-sm whitespace-pre-wrap break-words font-mono">{expandedCell}</pre>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (containerHeight) {
     return (
-      <div className="relative bg-white" style={{ height: containerHeight }}>
-        {/* Header — pinned to top */}
-        <div
-          className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 border-b bg-white z-10"
-          style={{ height: HEADER_HEIGHT }}
-        >
-          {headerContent}
-        </div>
+      <>
+        <div className="relative bg-white" style={{ height: containerHeight }}>
+          {/* Header — pinned to top */}
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 border-b bg-white z-10"
+            style={{ height: HEADER_HEIGHT }}
+          >
+            {headerContent}
+          </div>
 
-        {/* Table — scrollable middle */}
-        <div
-          className="absolute left-0 right-0 overflow-auto"
-          style={{ top: HEADER_HEIGHT, bottom: PAGINATION_HEIGHT }}
-        >
-          {tableContent}
-        </div>
+          {/* Table — scrollable middle */}
+          <div
+            className="absolute left-0 right-0 overflow-auto"
+            style={{ top: HEADER_HEIGHT, bottom: PAGINATION_HEIGHT }}
+          >
+            {tableContent}
+          </div>
 
-        {/* Pagination — pinned to bottom */}
-        <div
-          className="absolute left-0 right-0 flex items-center justify-between px-4 mr-5 border-t border-gray-100 bg-gray-50/30 z-10"
-          style={{ bottom: 4, height: PAGINATION_HEIGHT }}
-        >
-          {paginationContent}
+          {/* Pagination — pinned to bottom */}
+          <div
+            className="absolute left-0 right-0 flex items-center justify-between px-4 mr-5 border-t border-gray-100 bg-gray-50/30 z-10"
+            style={{ bottom: 4, height: PAGINATION_HEIGHT }}
+          >
+            {paginationContent}
+          </div>
         </div>
-      </div>
+        {cellDialog}
+      </>
     );
   }
 
   // Default layout (Explore page) — flex-based, h-full from parent
   return (
-    <div className="flex flex-col h-full bg-white pb-4">
-      {/* Header */}
-      <div
-        className="flex-shrink-0 flex items-center justify-between px-4 border-b"
-        style={{ height: HEADER_HEIGHT }}
-      >
-        {headerContent}
-      </div>
+    <>
+      <div className="flex flex-col h-full bg-white pb-4">
+        {/* Header */}
+        <div
+          className="flex-shrink-0 flex items-center justify-between px-4 border-b"
+          style={{ height: HEADER_HEIGHT }}
+        >
+          {headerContent}
+        </div>
 
-      {/* Table */}
-      <div className="flex-1 min-h-0 overflow-auto">{tableContent}</div>
+        {/* Table */}
+        <div className="flex-1 min-h-0 overflow-auto">{tableContent}</div>
 
-      {/* Pagination */}
-      <div
-        className="flex-shrink-0 flex items-center justify-between px-4 mr-5 border-t border-gray-100 bg-gray-50/30"
-        style={{ height: PAGINATION_HEIGHT }}
-      >
-        {paginationContent}
+        {/* Pagination */}
+        <div
+          className="flex-shrink-0 flex items-center justify-between px-4 mr-5 border-t border-gray-100 bg-gray-50/30"
+          style={{ height: PAGINATION_HEIGHT }}
+        >
+          {paginationContent}
+        </div>
       </div>
-    </div>
+      {cellDialog}
+    </>
   );
 }
