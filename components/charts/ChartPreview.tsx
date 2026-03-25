@@ -11,6 +11,7 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 
 import {
   createTooltipFormatter,
