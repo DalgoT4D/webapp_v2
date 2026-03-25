@@ -63,6 +63,7 @@ export interface MetricDataPoint {
   rag_status: RAGStatus;
   achievement_pct: number | null;
   trend: TrendPoint[];
+  error?: string | null;
 }
 
 // ── Annotations ─────────────────────────────────────────────────────────────

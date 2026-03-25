@@ -25,11 +25,30 @@ const STATUS_CONFIG: Record<RAGStatus, { label: string; classes: string }> = {
 interface RAGBadgeProps {
   status: RAGStatus;
   achievementPct?: number | null;
+  hasTarget?: boolean;
+  hasError?: boolean;
   className?: string;
 }
 
-export function RAGBadge({ status, achievementPct, className }: RAGBadgeProps) {
+export function RAGBadge({
+  status,
+  achievementPct,
+  hasTarget = false,
+  hasError = false,
+  className,
+}: RAGBadgeProps) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.grey;
+
+  // Determine the correct label for grey status
+  let label = config.label;
+  if (status === 'grey') {
+    if (hasError) {
+      label = 'Data unavailable';
+    } else if (hasTarget) {
+      label = 'Awaiting data';
+    }
+    // else: "No target" (default)
+  }
 
   return (
     <span
@@ -47,7 +66,7 @@ export function RAGBadge({ status, achievementPct, className }: RAGBadgeProps) {
           'bg-gray-400': status === 'grey',
         })}
       />
-      {config.label}
+      {label}
       {achievementPct != null && (
         <span className="text-[10px] opacity-70">({achievementPct}%)</span>
       )}

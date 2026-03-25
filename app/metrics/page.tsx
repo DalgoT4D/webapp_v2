@@ -18,5 +18,9 @@ export default function MetricsPage() {
   // const canEdit = userRole !== 'guest';
   const canEdit = true;
 
-  return <MetricsList canEdit={canEdit} />;
+  return (
+    <div className="h-full overflow-y-auto">
+      <MetricsList canEdit={canEdit} />
+    </div>
+  );
 }

@@ -11,8 +11,8 @@ interface MetricSparklineProps {
 
 export function MetricSparkline({
   data,
-  width = 80,
-  height = 28,
+  width = 280,
+  height = 40,
   className,
 }: MetricSparklineProps) {
   // Filter out null values for the line
@@ -23,8 +23,8 @@ export function MetricSparkline({
 
   if (points.length < 2) {
     return (
-      <div className={className} style={{ width, height }}>
-        <span className="text-xs text-muted-foreground">—</span>
+      <div className={className} style={{ height }}>
+        <span className="text-xs text-muted-foreground italic">Insufficient data</span>
       </div>
     );
   }
@@ -34,7 +34,7 @@ export function MetricSparkline({
   const maxVal = Math.max(...values);
   const range = maxVal - minVal || 1;
 
-  const padding = 2;
+  const padding = 3;
   const innerWidth = width - padding * 2;
   const innerHeight = height - padding * 2;
 
@@ -60,10 +60,10 @@ export function MetricSparkline({
 
   return (
     <svg
-      width={width}
-      height={height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
       className={className}
+      style={{ width: '100%', height }}
       aria-label={`Trend: ${isUp ? 'up' : 'down'} from ${firstVal} to ${lastVal}`}
     >
       {/* Fill */}
@@ -76,12 +76,13 @@ export function MetricSparkline({
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
       />
       {/* End dot */}
       <circle
         cx={pathPoints[pathPoints.length - 1].x}
         cy={pathPoints[pathPoints.length - 1].y}
-        r={2}
+        r={2.5}
         fill={isUp ? '#10b981' : '#ef4444'}
       />
     </svg>

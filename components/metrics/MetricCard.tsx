@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, MessageSquare, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, MessageSquare, Pencil, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -45,6 +45,8 @@ export function MetricCard({
   const currentValue = data?.current_value;
   const ragStatus = data?.rag_status ?? 'grey';
   const trend = data?.trend ?? [];
+  const hasError = !!data?.error;
+  const hasTarget = metric.target_value != null;
   const hasAnnotation =
     latestAnnotation && (latestAnnotation.rationale || latestAnnotation.quote_text);
 
@@ -108,7 +110,7 @@ export function MetricCard({
             <span className="text-2xl font-bold tabular-nums text-foreground">
               {formatValue(currentValue)}
             </span>
-            {metric.target_value != null && (
+            {hasTarget && (
               <span className="text-sm text-muted-foreground">
                 / {formatValue(metric.target_value)}
               </span>
@@ -117,19 +119,47 @@ export function MetricCard({
         )}
       </div>
 
-      {/* Sparkline */}
-      {isLoading ? (
-        <div className="h-7 w-full animate-pulse rounded bg-muted" />
-      ) : metric.time_column ? (
-        <MetricSparkline data={trend} width={160} height={28} />
-      ) : (
-        <div className="h-7 flex items-center">
-          <span className="text-xs text-muted-foreground">No time series</span>
-        </div>
-      )}
+      {/* Sparkline — full width of the card */}
+      <div className="w-full">
+        {isLoading ? (
+          <div className="h-10 w-full animate-pulse rounded bg-muted" />
+        ) : trend.length >= 2 ? (
+          <MetricSparkline data={trend} width={280} height={40} className="w-full" />
+        ) : metric.time_column ? (
+          <div className="h-10 flex items-center">
+            <span className="text-xs text-muted-foreground italic">
+              {hasError ? 'Could not load trend' : 'Insufficient trend data'}
+            </span>
+          </div>
+        ) : (
+          <div className="h-10 flex items-center">
+            <span className="text-xs text-muted-foreground">No time column configured</span>
+          </div>
+        )}
+      </div>
 
       {/* RAG badge */}
-      <RAGBadge status={ragStatus} achievementPct={data?.achievement_pct} />
+      <RAGBadge
+        status={ragStatus}
+        achievementPct={data?.achievement_pct}
+        hasTarget={hasTarget}
+        hasError={hasError}
+      />
+
+      {/* Error hint */}
+      {hasError && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 text-xs text-red-600 cursor-help">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span className="line-clamp-1">Query error — hover for details</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-sm">
+            <p className="text-xs font-mono break-all">{data?.error}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {/* Annotation preview */}
       {hasAnnotation ? (
