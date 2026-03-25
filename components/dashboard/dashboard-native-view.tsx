@@ -65,7 +65,8 @@ import {
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
-import { ShareModal } from './ShareModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -1299,10 +1300,17 @@ export function DashboardNativeView({
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
-          dashboard={dashboard}
+          entityId={dashboard.id}
+          entityLabel="Dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          initialShareStatus={{
+            is_public: dashboard.is_public,
+            public_access_count: dashboard.public_access_count,
+          }}
+          getShareStatus={getDashboardSharingStatus}
+          updateSharing={updateDashboardSharing}
         />
       )}
     </div>
