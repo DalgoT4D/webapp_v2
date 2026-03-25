@@ -87,7 +87,7 @@ export function MetricCard({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onAnnotate}>
                 <MessageSquare className="mr-2 h-3.5 w-3.5" />
-                Add note
+                {hasAnnotation ? 'Edit note' : 'Add note'}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={onDelete}

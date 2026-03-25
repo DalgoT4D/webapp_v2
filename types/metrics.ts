@@ -84,3 +84,7 @@ export interface AnnotationCreate {
   quote_text?: string;
   quote_attribution?: string;
 }
+
+export interface LatestAnnotationEntry extends MetricAnnotation {
+  metric_id: number;
+}

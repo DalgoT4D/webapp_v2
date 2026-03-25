@@ -27,6 +27,7 @@ interface MetricAnnotationDialogProps {
   onOpenChange: (open: boolean) => void;
   metric: MetricDefinition | null;
   canEdit: boolean;
+  onSaved?: () => void;
 }
 
 function generatePeriodOptions(timeGrain: string): Array<{ value: string; label: string }> {
@@ -65,6 +66,7 @@ export function MetricAnnotationDialog({
   onOpenChange,
   metric,
   canEdit,
+  onSaved,
 }: MetricAnnotationDialogProps) {
   const periodOptions = useMemo(
     () => generatePeriodOptions(metric?.time_grain || 'month'),
@@ -115,6 +117,7 @@ export function MetricAnnotationDialog({
     });
 
     refreshAnnotations();
+    onSaved?.();
     onOpenChange(false);
   };
 

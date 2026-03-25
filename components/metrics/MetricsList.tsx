@@ -18,6 +18,7 @@ import { MetricAnnotationDialog } from './MetricAnnotationDialog';
 import {
   useMetrics,
   useMetricsData,
+  useLatestAnnotations,
   useCreateMetric,
   useUpdateMetric,
   useDeleteMetric,
@@ -44,12 +45,23 @@ export function MetricsList({ canEdit }: MetricsListProps) {
     metricIds.length > 0 ? metricIds : null
   );
 
+  const { data: latestAnnotations, mutate: refreshLatestAnnotations } = useLatestAnnotations(
+    metricIds.length > 0 ? metricIds : null
+  );
+
   // Build a map of metric_id → data point
   const dataMap = useMemo(() => {
     const map = new Map<number, typeof metricsData extends Array<infer U> ? U : never>();
     (metricsData || []).forEach((d) => map.set(d.metric_id, d));
     return map;
   }, [metricsData]);
+
+  // Build a map of metric_id → latest annotation
+  const annotationsMap = useMemo(() => {
+    const map = new Map<number, MetricAnnotation>();
+    (latestAnnotations || []).forEach((a) => map.set(a.metric_id, a));
+    return map;
+  }, [latestAnnotations]);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -312,6 +324,7 @@ export function MetricsList({ canEdit }: MetricsListProps) {
                   key={metric.id}
                   metric={metric}
                   data={dataMap.get(metric.id)}
+                  latestAnnotation={annotationsMap.get(metric.id) ?? null}
                   isLoading={dataLoading}
                   canEdit={canEdit}
                   onEdit={() => handleEditMetric(metric)}
@@ -339,6 +352,7 @@ export function MetricsList({ canEdit }: MetricsListProps) {
           onOpenChange={setAnnotationDialogOpen}
           metric={annotatingMetric}
           canEdit={canEdit}
+          onSaved={refreshLatestAnnotations}
         />
       </div>
     </TooltipProvider>

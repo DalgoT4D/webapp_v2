@@ -8,6 +8,7 @@ import type {
   MetricDataPoint,
   MetricAnnotation,
   AnnotationCreate,
+  LatestAnnotationEntry,
 } from '@/types/metrics';
 
 // ── Fetchers ────────────────────────────────────────────────────────────────
@@ -72,5 +73,18 @@ export function useSaveAnnotation(metricId: number | null) {
   return useSWRMutation(
     metricId ? `/api/metrics/${metricId}/annotations/` : null,
     (url: string, { arg }: { arg: AnnotationCreate }) => apiPost(url, arg)
+  );
+}
+
+export function useLatestAnnotations(metricIds: number[] | null) {
+  const key =
+    metricIds && metricIds.length > 0
+      ? ['/api/metrics/latest-annotations/', metricIds.sort().join(',')]
+      : null;
+
+  return useSWR<LatestAnnotationEntry[]>(
+    key,
+    ([url]: [string, string]) => apiPost(url, { metric_ids: metricIds }),
+    { revalidateOnFocus: false }
   );
 }
