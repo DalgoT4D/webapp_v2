@@ -59,14 +59,17 @@ import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
 import { GridGuides } from './GridGuides';
-import { DashboardFilterType } from '@/types/dashboard-filters';
-import type {
-  CreateFilterPayload,
-  DashboardFilterConfig,
-  ValueFilterSettings,
-  NumericalFilterSettings,
-  DateTimeFilterSettings,
+import { TabBar } from './tabs/TabBar';
+import {
+  DashboardFilterType,
+  type CreateFilterPayload,
+  type DashboardFilterConfig,
+  type ValueFilterSettings,
+  type NumericalFilterSettings,
+  type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
+import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import { getDefaultTabsConfig } from './tabs/tab-utils';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
@@ -489,6 +492,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
+
+    // Tabs state - initialize from initialData or create default
+    const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
+      if (initialData?.tabs) {
+        return initialData.tabs as DashboardTabsData;
+      }
+      // For new dashboards or existing dashboards without tabs, use default
+      return getDefaultTabsConfig();
+    });
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
@@ -905,6 +917,65 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Keep state for UI rendering purposes
     const [isDragging, setIsDragging] = useState(false);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
+
+    // ===== Tab Handlers =====
+
+    // Handle tab change (switching active tab)
+    const handleTabChange = useCallback((tabId: string) => {
+      setTabsData((prev) => ({
+        ...prev,
+        activeTabId: tabId,
+      }));
+    }, []);
+
+    // Handle adding a new tab
+    const handleTabAdd = useCallback((newTab: DashboardTab) => {
+      setTabsData((prev) => ({
+        ...prev,
+        tabs: [...prev.tabs, newTab],
+        activeTabId: newTab.id, // Switch to the new tab
+      }));
+    }, []);
+
+    // Handle removing a tab
+    const handleTabRemove = useCallback((tabId: string) => {
+      setTabsData((prev) => {
+        // Cannot remove the last tab
+        if (prev.tabs.length <= 1) return prev;
+
+        const tabIndex = prev.tabs.findIndex((t) => t.id === tabId);
+        const newTabs = prev.tabs.filter((t) => t.id !== tabId);
+
+        // Update orders for remaining tabs
+        const reorderedTabs = newTabs.map((tab, index) => ({
+          ...tab,
+          order: index,
+        }));
+
+        // If removing active tab, switch to adjacent tab
+        let newActiveTabId = prev.activeTabId;
+        if (prev.activeTabId === tabId) {
+          // Prefer previous tab, or next tab if removing first
+          const newActiveIndex = Math.max(0, tabIndex - 1);
+          newActiveTabId = reorderedTabs[newActiveIndex]?.id || reorderedTabs[0]?.id;
+        }
+
+        return {
+          tabs: reorderedTabs,
+          activeTabId: newActiveTabId,
+        };
+      });
+    }, []);
+
+    // Handle renaming a tab
+    const handleTabRename = useCallback((tabId: string, newTitle: string) => {
+      setTabsData((prev) => ({
+        ...prev,
+        tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
+      }));
+    }, []);
+
+    // ===== End Tab Handlers =====
 
     // IMPORTANT: Use refs for synchronous access in callbacks
     // React state updates are async, but react-grid-layout calls handlers synchronously
@@ -2138,6 +2209,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             </div>
           </div>
         </div>
+        {/* Tab Bar */}
+        <TabBar
+          tabs={tabsData.tabs}
+          activeTabId={tabsData.activeTabId}
+          isEditMode={true}
+          onTabChange={handleTabChange}
+          onTabAdd={handleTabAdd}
+          onTabRemove={handleTabRemove}
+          onTabRename={handleTabRename}
+        />
         {/* Horizontal Filters Bar */}
         {filterLayout === 'horizontal' && !isFiltersCollapsed && (
           <UnifiedFiltersPanel
