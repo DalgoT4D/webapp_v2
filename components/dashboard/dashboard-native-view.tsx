@@ -63,6 +63,8 @@ import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
+import { ImageElement } from './image-element';
+import { DashboardLogo } from './dashboard-logo';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
@@ -564,6 +566,17 @@ export function DashboardNativeView({
           </div>
         );
 
+      case 'image':
+        return (
+          <div key={componentId} className="w-full h-full">
+            <ImageElement
+              config={component.config}
+              onUpdate={() => {}} // No-op in view mode
+              isEditMode={false}
+            />
+          </div>
+        );
+
       case 'heading':
         // Legacy heading component - keep for backward compatibility
         const level = component.config?.level || 2;
@@ -704,6 +717,7 @@ export function DashboardNativeView({
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                 )}
+                <DashboardLogo />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
@@ -894,6 +908,7 @@ export function DashboardNativeView({
                     Back
                   </Button>
                 )}
+                <DashboardLogo />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
@@ -1056,7 +1071,8 @@ export function DashboardNativeView({
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
-          <div>
+          <div className="flex items-center gap-4">
+            <DashboardLogo />
             <h1 className="text-3xl font-bold">{dashboard.title}</h1>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { HexColorPicker } from 'react-colorful';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -13,10 +14,23 @@ import {
   AlignCenter,
   AlignRight,
   Palette,
+  PaintBucket,
   Hash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
+
+// Curated font list: 3 serif, 3 sans-serif (including handwriting style)
+// Uses CSS variables set by next/font/google in layout.tsx
+export const FONT_OPTIONS = [
+  { label: 'System Default', value: '', category: 'default' },
+  { label: 'Anek Latin', value: 'var(--font-anek-latin), sans-serif', category: 'sans-serif' },
+  { label: 'Inter', value: 'var(--font-inter), sans-serif', category: 'sans-serif' },
+  { label: 'Farsan', value: 'var(--font-farsan), cursive', category: 'sans-serif' },
+  { label: 'PT Serif', value: 'var(--font-pt-serif), serif', category: 'serif' },
+  { label: 'Merriweather', value: 'var(--font-merriweather), serif', category: 'serif' },
+  { label: 'Playfair Display', value: 'var(--font-playfair-display), serif', category: 'serif' },
+] as const;
 
 export interface UnifiedTextConfig {
   content: string;
@@ -29,6 +43,7 @@ export interface UnifiedTextConfig {
   textAlign: 'left' | 'center' | 'right';
   color: string;
   backgroundColor?: string;
+  fontFamily?: string;
   contentConstraints?: {
     minWidth: number;
     minHeight: number;
@@ -63,6 +78,36 @@ const colorPresets = [
   { color: '#8B5CF6', name: 'Purple' },
 ];
 
+const bgColorPresets = [
+  { color: '', name: 'None' },
+  { color: '#FFFFFF', name: 'White' },
+  { color: '#F3F4F6', name: 'Light Gray' },
+  { color: '#FEF3C7', name: 'Light Yellow' },
+  { color: '#DBEAFE', name: 'Light Blue' },
+  { color: '#D1FAE5', name: 'Light Green' },
+  { color: '#FCE7F3', name: 'Light Pink' },
+  { color: '#EDE9FE', name: 'Light Purple' },
+];
+
+// Helper to build consistent text styles from config
+function buildTextStyles(config: UnifiedTextConfig): React.CSSProperties {
+  return {
+    fontSize: `${config.fontSize}px`,
+    fontWeight: config.fontWeight,
+    fontStyle: config.fontStyle,
+    textDecoration: config.textDecoration,
+    textAlign: config.textAlign as React.CSSProperties['textAlign'],
+    color: config.color,
+    backgroundColor: config.backgroundColor || 'transparent',
+    fontFamily: config.fontFamily || undefined,
+    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+    margin: 0,
+    padding: config.backgroundColor ? '8px 12px' : 0,
+    wordBreak: 'break-word',
+    borderRadius: config.backgroundColor ? '4px' : undefined,
+  };
+}
+
 export function UnifiedTextElement({
   config,
   onUpdate,
@@ -72,6 +117,7 @@ export function UnifiedTextElement({
   const [isEditing, setIsEditing] = useState(false);
   const [tempContent, setTempContent] = useState(config.content);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showBgColorPicker, setShowBgColorPicker] = useState(false);
 
   // Helper function to calculate and update content constraints
   const updateWithContentConstraints = useCallback(
@@ -177,6 +223,7 @@ export function UnifiedTextElement({
       updateWithContentConstraints({ ...config, content: tempContent });
       setIsEditing(false);
       setShowColorPicker(false);
+      setShowBgColorPicker(false);
       setToolbarPosition(null);
     };
 
@@ -245,7 +292,7 @@ export function UnifiedTextElement({
 
   // Quick formatting function - auto-save and continue editing
   const handleQuickFormat = useCallback(
-    (property: keyof UnifiedTextConfig, value: any) => {
+    (property: keyof UnifiedTextConfig, value: string | number | boolean | undefined) => {
       // Store current state to prevent jumping
       const textarea = textareaRef.current;
       const selectionStart = textarea?.selectionStart || 0;
@@ -286,6 +333,7 @@ export function UnifiedTextElement({
         updateWithContentConstraints({ ...config, content: tempContent });
         setIsEditing(false);
         setShowColorPicker(false);
+        setShowBgColorPicker(false);
         setToolbarPosition(null);
       } else if (e.key === 'Escape') {
         e.preventDefault();
@@ -293,6 +341,7 @@ export function UnifiedTextElement({
         setTempContent(config.content);
         setIsEditing(false);
         setShowColorPicker(false);
+        setShowBgColorPicker(false);
         setToolbarPosition(null);
       } else if (e.ctrlKey) {
         // Format shortcuts with auto-save
@@ -360,34 +409,6 @@ export function UnifiedTextElement({
     [config, tempContent, onUpdate]
   );
 
-  // Get text styles for rendering
-  const getTextStyles = useCallback(
-    () => ({
-      fontSize: `${config.fontSize}px`,
-      fontWeight: config.fontWeight,
-      fontStyle: config.fontStyle,
-      textDecoration: config.textDecoration,
-      textAlign: config.textAlign as any,
-      color: config.color,
-      backgroundColor: config.backgroundColor || 'transparent',
-      lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-      margin: 0,
-      outline: 'none',
-      width: '100%',
-      wordBreak: 'break-word' as any,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent:
-        config.textAlign === 'center'
-          ? 'center'
-          : config.textAlign === 'right'
-            ? 'flex-end'
-            : 'flex-start',
-      minHeight: '100%',
-    }),
-    [config]
-  );
-
   // Floating toolbar component that renders via portal
   const FloatingToolbar = () => {
     if (!toolbarPosition || !isEditing) return null;
@@ -398,8 +419,8 @@ export function UnifiedTextElement({
         style={{
           top: toolbarPosition.top,
           left: toolbarPosition.left,
-          width: Math.min(toolbarPosition.width, 600), // Max width to prevent huge toolbars
-          minWidth: 500, // Increased min width to ensure enough space for all elements
+          width: Math.min(toolbarPosition.width, 700),
+          minWidth: 580,
         }}
         data-toolbar="true"
       >
@@ -431,6 +452,27 @@ export function UnifiedTextElement({
             </div>
 
             <div className="w-px h-4 bg-gray-300 mx-1" />
+
+            {/* Font Family Dropdown */}
+            <div className="flex items-center">
+              <select
+                value={config.fontFamily || ''}
+                onChange={(e) => handleQuickFormat('fontFamily', e.target.value)}
+                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel max-w-[100px]"
+                title="Font Family"
+                style={{ fontFamily: config.fontFamily || undefined }}
+              >
+                {FONT_OPTIONS.map((font) => (
+                  <option
+                    key={font.label}
+                    value={font.value}
+                    style={{ fontFamily: font.value || undefined }}
+                  >
+                    {font.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Font Size Dropdown */}
             <div className="flex items-center">
@@ -506,13 +548,18 @@ export function UnifiedTextElement({
             </Button>
           </div>
 
-          {/* Right: Color picker */}
+          {/* Right: Color pickers */}
           <div className="flex items-center gap-1 flex-shrink-0 relative">
             <div className="w-px h-4 bg-gray-300 mx-1" />
+
+            {/* Text Color */}
             <Button
               size="sm"
               variant={showColorPicker ? 'default' : 'ghost'}
-              onClick={() => setShowColorPicker(!showColorPicker)}
+              onClick={() => {
+                setShowColorPicker(!showColorPicker);
+                setShowBgColorPicker(false);
+              }}
               className="h-6 px-1.5 relative"
               title="Text Color"
             >
@@ -523,12 +570,32 @@ export function UnifiedTextElement({
               />
             </Button>
 
-            {/* Color picker dropdown */}
+            {/* Background Color */}
+            <Button
+              size="sm"
+              variant={showBgColorPicker ? 'default' : 'ghost'}
+              onClick={() => {
+                setShowBgColorPicker(!showBgColorPicker);
+                setShowColorPicker(false);
+              }}
+              className="h-6 px-1.5 relative"
+              title="Background Color"
+            >
+              <PaintBucket className="w-3 h-3" />
+              {config.backgroundColor && (
+                <div
+                  className="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-gray-400"
+                  style={{ backgroundColor: config.backgroundColor }}
+                />
+              )}
+            </Button>
+
+            {/* Text Color picker dropdown */}
             {showColorPicker && (
               <div
                 className="absolute bg-white shadow-lg border rounded p-2 z-[10000] min-w-[120px]"
+                data-toolbar="true"
                 style={{
-                  // Smart positioning: try bottom first, then top, then left if needed
                   top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
                   bottom: toolbarPosition && toolbarPosition.top > 200 ? '100%' : 'auto',
                   right: 0,
@@ -570,6 +637,56 @@ export function UnifiedTextElement({
                 </div>
               </div>
             )}
+
+            {/* Background Color picker dropdown */}
+            {showBgColorPicker && (
+              <div
+                className="absolute bg-white shadow-lg border rounded p-3 z-[10000] min-w-[200px]"
+                data-toolbar="true"
+                style={{
+                  top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
+                  bottom: toolbarPosition && toolbarPosition.top > 200 ? '100%' : 'auto',
+                  right: 0,
+                  marginTop: toolbarPosition && toolbarPosition.top <= 200 ? '8px' : '0',
+                  marginBottom: toolbarPosition && toolbarPosition.top > 200 ? '8px' : '0',
+                }}
+              >
+                <p className="text-xs text-gray-500 mb-2">Fill Color</p>
+                <div className="grid grid-cols-4 gap-1 mb-2">
+                  {bgColorPresets.map((preset) => (
+                    <button
+                      key={preset.color || 'none'}
+                      className={cn(
+                        'w-6 h-6 rounded border transition-all hover:scale-110',
+                        (config.backgroundColor || '') === preset.color
+                          ? 'border-blue-500 scale-110'
+                          : 'border-gray-200'
+                      )}
+                      style={{
+                        backgroundColor: preset.color || '#FFFFFF',
+                        backgroundImage: !preset.color
+                          ? 'linear-gradient(135deg, #FFFFFF 45%, #EF4444 45%, #EF4444 55%, #FFFFFF 55%)'
+                          : undefined,
+                      }}
+                      onClick={() => {
+                        handleQuickFormat('backgroundColor', preset.color);
+                        setShowBgColorPicker(false);
+                      }}
+                      title={preset.name}
+                    />
+                  ))}
+                </div>
+                <div className="pt-2 border-t border-gray-200">
+                  <HexColorPicker
+                    color={config.backgroundColor || '#FFFFFF'}
+                    onChange={(color) => {
+                      handleQuickFormat('backgroundColor', color);
+                    }}
+                    style={{ width: '100%', height: '120px' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>,
@@ -583,54 +700,31 @@ export function UnifiedTextElement({
 
     if (!content) return null; // Don't render empty text in preview
 
+    const textStyles = buildTextStyles(config);
+
     return (
       <div
         ref={containerRef}
         className="h-full w-full flex items-center justify-center p-4"
         onClick={startEditing}
+        style={
+          config.backgroundColor
+            ? { backgroundColor: config.backgroundColor, borderRadius: '4px' }
+            : undefined
+        }
       >
         {config.content ? (
           config.type === 'heading' ? (
             (() => {
-              const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+              const Tag = `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
               return (
-                <Tag
-                  className="whitespace-pre-wrap break-words w-full"
-                  style={{
-                    fontSize: `${config.fontSize}px`,
-                    fontWeight: config.fontWeight,
-                    fontStyle: config.fontStyle,
-                    textDecoration: config.textDecoration,
-                    textAlign: config.textAlign as any,
-                    color: config.color,
-                    backgroundColor: config.backgroundColor || 'transparent',
-                    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                    margin: 0,
-                    padding: 0,
-                    wordBreak: 'break-word' as any,
-                  }}
-                >
+                <Tag className="whitespace-pre-wrap break-words w-full" style={textStyles}>
                   {config.content}
                 </Tag>
               );
             })()
           ) : (
-            <div
-              className="whitespace-pre-wrap break-words w-full"
-              style={{
-                fontSize: `${config.fontSize}px`,
-                fontWeight: config.fontWeight,
-                fontStyle: config.fontStyle,
-                textDecoration: config.textDecoration,
-                textAlign: config.textAlign as any,
-                color: config.color,
-                backgroundColor: config.backgroundColor || 'transparent',
-                lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                margin: 0,
-                padding: 0,
-                wordBreak: 'break-word' as any,
-              }}
-            >
+            <div className="whitespace-pre-wrap break-words w-full" style={textStyles}>
               {config.content}
             </div>
           )
@@ -648,12 +742,15 @@ export function UnifiedTextElement({
       <FloatingToolbar />
 
       <div ref={containerRef} className="h-full w-full">
-        <Card className="h-full w-full flex flex-col">
+        <Card
+          className="h-full w-full flex flex-col"
+          style={config.backgroundColor ? { backgroundColor: config.backgroundColor } : undefined}
+        >
           <CardContent className="p-4 flex-1 flex flex-col min-h-0">
             <div
               className={cn(
                 'flex-1 w-full h-full cursor-text transition-all duration-200 drag-cancel flex items-center justify-center',
-                isEditing ? 'bg-white rounded' : 'bg-transparent',
+                isEditing ? 'rounded' : 'bg-transparent',
                 !config.content && 'justify-center'
               )}
               onClick={startEditing}
@@ -688,6 +785,7 @@ export function UnifiedTextElement({
                         updateWithContentConstraints({ ...config, content: tempContent });
                         setIsEditing(false);
                         setShowColorPicker(false);
+                        setShowBgColorPicker(false);
                         setToolbarPosition(null);
                       }
                     }, 200);
@@ -698,13 +796,13 @@ export function UnifiedTextElement({
                     fontWeight: config.fontWeight,
                     fontStyle: config.fontStyle,
                     textDecoration: config.textDecoration,
-                    textAlign: config.textAlign as any,
+                    textAlign: config.textAlign as React.CSSProperties['textAlign'],
                     color: config.color,
-                    backgroundColor: config.backgroundColor || 'transparent',
+                    fontFamily: config.fontFamily || undefined,
                     lineHeight: config.type === 'heading' ? '1.2' : '1.5',
                     margin: 0,
                     outline: 'none',
-                    wordBreak: 'break-word' as any,
+                    wordBreak: 'break-word',
                     resize: 'none',
                     border: 'none',
                     padding: 0,
@@ -719,23 +817,12 @@ export function UnifiedTextElement({
                   {config.content ? (
                     config.type === 'heading' ? (
                       (() => {
-                        const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
+                        const Tag =
+                          `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
                         return (
                           <Tag
                             className="whitespace-pre-wrap break-words w-full text-center"
-                            style={{
-                              fontSize: `${config.fontSize}px`,
-                              fontWeight: config.fontWeight,
-                              fontStyle: config.fontStyle,
-                              textDecoration: config.textDecoration,
-                              textAlign: config.textAlign as any,
-                              color: config.color,
-                              backgroundColor: config.backgroundColor || 'transparent',
-                              lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                              margin: 0,
-                              padding: 0,
-                              wordBreak: 'break-word' as any,
-                            }}
+                            style={buildTextStyles(config)}
                           >
                             {config.content}
                           </Tag>
@@ -744,19 +831,7 @@ export function UnifiedTextElement({
                     ) : (
                       <div
                         className="whitespace-pre-wrap break-words w-full text-center"
-                        style={{
-                          fontSize: `${config.fontSize}px`,
-                          fontWeight: config.fontWeight,
-                          fontStyle: config.fontStyle,
-                          textDecoration: config.textDecoration,
-                          textAlign: config.textAlign as any,
-                          color: config.color,
-                          backgroundColor: config.backgroundColor || 'transparent',
-                          lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                          margin: 0,
-                          padding: 0,
-                          wordBreak: 'break-word' as any,
-                        }}
+                        style={buildTextStyles(config)}
                       >
                         {config.content}
                       </div>

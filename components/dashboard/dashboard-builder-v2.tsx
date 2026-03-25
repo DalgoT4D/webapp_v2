@@ -49,11 +49,16 @@ import {
   Wand2,
   LayoutGrid,
   AlignLeft,
+  ImageIcon,
+  Palette,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
 import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
+import { ImageElement } from './image-element';
+import type { ImageComponentConfig } from './image-element';
+import { DashboardBrandingSettings } from './dashboard-branding-settings';
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
@@ -141,6 +146,7 @@ export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',
   FILTER = 'filter',
+  IMAGE = 'image',
 }
 
 interface DashboardLayout {
@@ -1337,6 +1343,49 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       scrollToComponentIfNeeded(newComponent.id);
     };
 
+    // Add image component
+    const addImageComponent = () => {
+      const newComponent: DashboardComponent = {
+        id: `image-${Date.now()}`,
+        type: DashboardComponentType.IMAGE,
+        config: {
+          imageUrl: '',
+          alt: '',
+          objectFit: 'contain',
+        } as ImageComponentConfig,
+      };
+
+      const imageDimensions = getDefaultGridDimensions('default');
+      const imageMinDimensions = getMinGridDimensions('default');
+      const position = dashboardAnimation.findBestPosition(imageDimensions, state.layout);
+
+      const newLayoutItem: DashboardLayout = {
+        i: newComponent.id,
+        x: position.x,
+        y: position.y,
+        w: imageDimensions.w,
+        h: imageDimensions.h,
+        minW: imageMinDimensions.w,
+        maxW: 12,
+        minH: imageMinDimensions.h,
+      };
+
+      const newLayout = [...state.layout, newLayoutItem];
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
+      setState({
+        layout: newLayout,
+        layouts: newLayouts,
+        components: {
+          ...state.components,
+          [newComponent.id]: newComponent,
+        },
+      });
+
+      dashboardAnimation.animateComponent(newComponent.id, 500);
+      scrollToComponentIfNeeded(newComponent.id);
+    };
+
     // Remove component
     const removeComponent = (componentId: string) => {
       const newComponents = { ...state.components };
@@ -1622,6 +1671,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           );
 
+        case DashboardComponentType.IMAGE:
+          return (
+            <ImageElement
+              config={component.config}
+              onUpdate={(config: ImageComponentConfig) => updateComponent(componentId, config)}
+              isEditMode={true}
+            />
+          );
+
         // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
 
         default:
@@ -1802,6 +1860,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               >
                 <Type className="w-3 h-3 mr-1" />
                 Text
+              </Button>
+              <Button
+                onClick={addImageComponent}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <ImageIcon className="w-3 h-3 mr-1" />
+                Image
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
@@ -1986,6 +2053,23 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   <Type className="w-4 h-4 mr-2" />
                   Add Text
                 </Button>
+
+                <Button onClick={addImageComponent} size="sm" variant="outline">
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  Add Image
+                </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" title="Dashboard Branding">
+                      <Palette className="w-4 h-4 mr-2" />
+                      Branding
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-96 p-0" align="start">
+                    <DashboardBrandingSettings />
+                  </PopoverContent>
+                </Popover>
 
                 <div className="ml-2 flex gap-1">
                   <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
@@ -2316,6 +2400,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             }}
                             className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
                             title="Remove text"
+                          >
+                            <X className="w-3 h-3 text-gray-500" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Action Buttons for Image Elements */}
+                      {component?.type === DashboardComponentType.IMAGE && (
+                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeComponent(item.i);
+                            }}
+                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
+                            title="Remove image"
                           >
                             <X className="w-3 h-3 text-gray-500" />
                           </button>
