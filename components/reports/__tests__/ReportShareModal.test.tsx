@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { ShareModal } from '@/components/ui/share-modal';
 import { createMockShareStatus } from './report-mock-data';
 import * as toastModule from '@/lib/toast';
+import * as clipboardModule from '@/lib/clipboard';
 
 // ============ Mocks ============
 
@@ -238,7 +239,7 @@ describe('ShareModal', () => {
     it('copies URL to clipboard when copy button is clicked', async () => {
       const user = userEvent.setup();
       const publicUrl = 'http://test.com/report/123';
-      const { copyUrlToClipboard } = require('@/lib/clipboard');
+      const { copyUrlToClipboard } = clipboardModule;
 
       mockGetShareStatus.mockResolvedValue(
         createMockShareStatus({ is_public: true, public_url: publicUrl })
