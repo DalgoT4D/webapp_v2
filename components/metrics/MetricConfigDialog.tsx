@@ -277,12 +277,15 @@ export function MetricConfigDialog({
             <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-1.5">
                 <Label>Time Column</Label>
-                <Select value={timeColumn} onValueChange={setTimeColumn}>
+                <Select
+                  value={timeColumn || '__none__'}
+                  onValueChange={(v) => setTimeColumn(v === '__none__' ? '' : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {dateColumns.map((col: any) => (
                       <SelectItem key={col.name} value={col.name}>
                         {col.name}
