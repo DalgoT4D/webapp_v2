@@ -46,6 +46,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     CANVAS_CONSTANTS.LOWER_SECTION_DEFAULT_HEIGHT
   );
   const [isLowerFullScreen, setIsLowerFullScreen] = useState(false);
+  const [isLowerMinimized, setIsLowerMinimized] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasCheckedRunningTasks = useRef(false);
@@ -473,11 +474,26 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
   // Toggle fullscreen for lower section
   const toggleLowerFullScreen = useCallback(() => {
+    setIsLowerMinimized(false);
     setIsLowerFullScreen((prev) => {
       if (prev) {
         setLowerSectionHeight(CANVAS_CONSTANTS.LOWER_SECTION_DEFAULT_HEIGHT);
       } else if (containerRef.current) {
         setLowerSectionHeight(containerRef.current.clientHeight - CANVAS_CONSTANTS.HEADER_HEIGHT);
+      }
+      return !prev;
+    });
+  }, []);
+
+  // Toggle minimize for lower section (collapse to tab bar only)
+  const TAB_BAR_HEIGHT = 40;
+  const toggleLowerMinimized = useCallback(() => {
+    setIsLowerFullScreen(false);
+    setIsLowerMinimized((prev) => {
+      if (prev) {
+        setLowerSectionHeight(CANVAS_CONSTANTS.LOWER_SECTION_DEFAULT_HEIGHT);
+      } else {
+        setLowerSectionHeight(TAB_BAR_HEIGHT);
       }
       return !prev;
     });
@@ -608,7 +624,9 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
               <LowerSectionTabs
                 height={lowerSectionHeight}
                 isFullScreen={isLowerFullScreen}
+                isMinimized={isLowerMinimized}
                 onToggleFullScreen={toggleLowerFullScreen}
+                onToggleMinimize={toggleLowerMinimized}
                 dbtRunLogs={dbtRunLogs}
                 isLogsLoading={isWorkflowRunning}
                 previewTable={previewTable}
