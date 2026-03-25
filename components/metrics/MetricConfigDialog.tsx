@@ -127,10 +127,16 @@ export function MetricConfigDialog({
     );
   });
 
-  // Filter date/timestamp columns for the time column dropdown
-  const dateColumns = (columns || []).filter((c: any) => {
-    const dt = (c.data_type || '').toLowerCase();
-    return dt.includes('date') || dt.includes('time') || dt.includes('timestamp');
+  // Prefer date/timestamp columns for the time column dropdown, but allow all columns
+  // so that date columns imported from CSV as VARCHAR are still selectable.
+  const dateColumns = (columns || []).slice().sort((a: any, b: any) => {
+    const isDateA = ['date', 'time', 'timestamp'].some((t) =>
+      (a.data_type || '').toLowerCase().includes(t)
+    );
+    const isDateB = ['date', 'time', 'timestamp'].some((t) =>
+      (b.data_type || '').toLowerCase().includes(t)
+    );
+    return isDateA === isDateB ? 0 : isDateA ? -1 : 1;
   });
 
   const allColumns = columns || [];
@@ -286,11 +292,21 @@ export function MetricConfigDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">None</SelectItem>
-                    {dateColumns.map((col: any) => (
-                      <SelectItem key={col.name} value={col.name}>
-                        {col.name}
-                      </SelectItem>
-                    ))}
+                    {dateColumns.map((col: any) => {
+                      const isDate = ['date', 'time', 'timestamp'].some((t) =>
+                        (col.data_type || '').toLowerCase().includes(t)
+                      );
+                      return (
+                        <SelectItem key={col.name} value={col.name}>
+                          {col.name}
+                          {!isDate && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              ({col.data_type})
+                            </span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
