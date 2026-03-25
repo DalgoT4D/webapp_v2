@@ -113,6 +113,9 @@ export function getInitials(author: { email: string; name?: string }): string {
   return author.email[0].toUpperCase();
 }
 
+// Match @email patterns (email-like strings after @)
+const MENTION_REGEX = /@([\w.+-]+@[\w.-]+\.\w+)/g;
+
 /**
  * Render comment content by converting @email mentions to styled spans.
  * Returns an array of React-renderable elements.
@@ -121,8 +124,7 @@ export function parseCommentMentions(
   content: string
 ): Array<{ type: 'text' | 'mention'; value: string }> {
   const parts: Array<{ type: 'text' | 'mention'; value: string }> = [];
-  // Match @email patterns (email-like strings after @)
-  const mentionRegex = /@([\w.+-]+@[\w.-]+\.\w+)/g;
+  const mentionRegex = new RegExp(MENTION_REGEX.source, 'g');
   let lastIndex = 0;
   let match;
 
@@ -139,4 +141,20 @@ export function parseCommentMentions(
   }
 
   return parts;
+}
+
+/**
+ * Extract unique mentioned email addresses from comment content.
+ * Used to build the mentioned_emails array sent to the backend.
+ */
+export function extractMentionedEmails(content: string): string[] {
+  const mentionRegex = new RegExp(MENTION_REGEX.source, 'g');
+  const emails = new Set<string>();
+  let match;
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    emails.add(match[1]);
+  }
+
+  return Array.from(emails);
 }

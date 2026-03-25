@@ -5,6 +5,7 @@ import type {
   CommentStates,
   MentionableUser,
   CreateCommentPayload,
+  UpdateCommentPayload,
   MarkReadPayload,
 } from '@/types/comments';
 
@@ -76,8 +77,11 @@ export async function createComment(payload: CreateCommentPayload): Promise<Comm
   return response.data;
 }
 
-export async function updateComment(commentId: number, content: string): Promise<Comment> {
-  const response: ApiResponse<Comment> = await apiPut(`/api/comments/${commentId}/`, { content });
+export async function updateComment(
+  commentId: number,
+  payload: UpdateCommentPayload
+): Promise<Comment> {
+  const response: ApiResponse<Comment> = await apiPut(`/api/comments/${commentId}/`, payload);
   return response.data;
 }
 

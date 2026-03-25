@@ -44,6 +44,12 @@ export interface CreateCommentPayload {
   target_type: 'summary' | 'chart';
   chart_id?: number;
   content: string;
+  mentioned_emails?: string[];
+}
+
+export interface UpdateCommentPayload {
+  content: string;
+  mentioned_emails?: string[];
 }
 
 export interface MarkReadPayload {

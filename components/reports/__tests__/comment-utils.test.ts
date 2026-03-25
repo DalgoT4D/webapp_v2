@@ -8,7 +8,13 @@
  * - parseCommentMentions: @email mention parsing
  */
 
-import { formatCommentTime, getAvatarColor, getInitials, parseCommentMentions } from '../utils';
+import {
+  formatCommentTime,
+  getAvatarColor,
+  getInitials,
+  parseCommentMentions,
+  extractMentionedEmails,
+} from '../utils';
 
 describe('Comment Utilities', () => {
   describe('formatCommentTime', () => {
@@ -171,6 +177,31 @@ describe('Comment Utilities', () => {
         { type: 'text', value: 'Hey ' },
         { type: 'mention', value: 'first.last+tag@company.co.uk' },
       ]);
+    });
+  });
+
+  describe('extractMentionedEmails', () => {
+    it('returns empty array for content without mentions', () => {
+      expect(extractMentionedEmails('Hello world')).toEqual([]);
+    });
+
+    it('extracts a single mentioned email', () => {
+      expect(extractMentionedEmails('Hello @user@test.com')).toEqual(['user@test.com']);
+    });
+
+    it('extracts multiple mentioned emails', () => {
+      const result = extractMentionedEmails('@alice@test.com and @bob@test.com please review');
+      expect(result).toEqual(['alice@test.com', 'bob@test.com']);
+    });
+
+    it('deduplicates repeated mentions', () => {
+      const result = extractMentionedEmails('@user@test.com said hi @user@test.com');
+      expect(result).toEqual(['user@test.com']);
+    });
+
+    it('handles emails with dots and plus signs', () => {
+      const result = extractMentionedEmails('Hey @first.last+tag@company.co.uk');
+      expect(result).toEqual(['first.last+tag@company.co.uk']);
     });
   });
 });

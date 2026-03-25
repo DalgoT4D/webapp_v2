@@ -24,7 +24,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CommentIcon } from './comment-icon';
-import { formatCommentTime, getAvatarColor, getInitials, parseCommentMentions } from './utils';
+import {
+  formatCommentTime,
+  getAvatarColor,
+  getInitials,
+  parseCommentMentions,
+  extractMentionedEmails,
+} from './utils';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -484,6 +490,7 @@ function CommentPopoverInner({
         target_type: targetType,
         chart_id: chartId,
         content,
+        mentioned_emails: extractMentionedEmails(content),
       });
       toastSuccess.created('Comment');
       setDraft('');
@@ -516,7 +523,10 @@ function CommentPopoverInner({
   const handleSaveEdit = useCallback(
     async (commentId: number, content: string) => {
       try {
-        await updateComment(commentId, content);
+        await updateComment(commentId, {
+          content,
+          mentioned_emails: extractMentionedEmails(content),
+        });
         toastSuccess.updated('Comment');
         mutateComments();
         onStateChange?.();

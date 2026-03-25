@@ -149,7 +149,7 @@ describe('Mutation functions', () => {
       const mockComment = { id: 1, content: 'Updated' };
       mockApiPut.mockResolvedValue({ success: true, data: mockComment });
 
-      const result = await updateComment(1, 'Updated');
+      const result = await updateComment(1, { content: 'Updated' });
 
       expect(result).toEqual(mockComment);
       expect(mockApiPut).toHaveBeenCalledWith('/api/comments/1/', { content: 'Updated' });
