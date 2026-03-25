@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { MarkdownContent } from '@/components/ui/markdown-content';
 import { useDashboardChat, type DashboardChatMessage } from '@/hooks/api/useDashboardChat';
 
 interface DashboardChatProps {
@@ -20,6 +21,154 @@ interface DashboardChatProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   enabled: boolean;
+}
+
+const MAX_VISIBLE_TABLE_ROWS = 10;
+
+function humanizeColumnName(columnName: string) {
+  return columnName
+    .replace(/_/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function parseNumericLike(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  if (!/^-?\d+(?:\.\d+)?(?:E-?\d+)?$/i.test(normalizedValue)) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function looksLikeRateColumn(columnName: string) {
+  const normalizedColumn = columnName.toLowerCase();
+  return ['rate', 'ratio', 'percentage', 'percent', 'share', 'pct'].some((token) =>
+    normalizedColumn.includes(token)
+  );
+}
+
+function formatNumericValue(columnName: string, value: number) {
+  if (looksLikeRateColumn(columnName) && value >= 0 && value <= 1) {
+    const percentageValue = (value * 100).toFixed(1).replace(/\.0$/, '');
+    return `${percentageValue}%`;
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatTableCellValue(columnName: string, value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'True' : 'False';
+  }
+
+  const numericValue = parseNumericLike(value);
+  if (numericValue !== null) {
+    return formatNumericValue(columnName, numericValue);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).join(', ');
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function getResponseFormat(message: DashboardChatMessage) {
+  const responseFormat = message.payload?.metadata?.response_format;
+  return typeof responseFormat === 'string' ? responseFormat : null;
+}
+
+function getTableColumns(message: DashboardChatMessage, rows: Array<Record<string, unknown>>) {
+  const metadataColumns = message.payload?.metadata?.table_columns;
+  if (
+    Array.isArray(metadataColumns) &&
+    metadataColumns.every((value) => typeof value === 'string')
+  ) {
+    return metadataColumns as string[];
+  }
+
+  const firstRow = rows[0];
+  return firstRow ? Object.keys(firstRow) : [];
+}
+
+function AssistantResultsTable({ message }: { message: DashboardChatMessage }) {
+  const rows = Array.isArray(message.payload?.sql_results) ? message.payload.sql_results : [];
+  const responseFormat = getResponseFormat(message);
+  if (
+    rows.length === 0 ||
+    !responseFormat ||
+    !['table', 'text_with_table'].includes(responseFormat)
+  ) {
+    return null;
+  }
+
+  const columns = getTableColumns(message, rows);
+  if (columns.length === 0) {
+    return null;
+  }
+
+  const visibleRows = rows.slice(0, MAX_VISIBLE_TABLE_ROWS);
+
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              {columns.map((column) => (
+                <th key={column} className="px-3 py-2 font-medium text-slate-700" scope="col">
+                  {humanizeColumnName(column)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {visibleRows.map((row) => {
+              const rowKey = `${message.id}-${JSON.stringify(row)}`;
+              return (
+                <tr key={rowKey}>
+                  {columns.map((column) => (
+                    <td key={`${rowKey}-${column}`} className="px-3 py-2 align-top text-slate-700">
+                      {formatTableCellValue(column, row[column])}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > MAX_VISIBLE_TABLE_ROWS ? (
+        <p className="text-xs text-slate-500">
+          Showing the first {MAX_VISIBLE_TABLE_ROWS} of {rows.length} rows.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function AssistantMeta({ message }: { message: DashboardChatMessage }) {
@@ -100,8 +249,8 @@ export function DashboardChat({
 
   const hasMessages = messages.length > 0;
   const canSend = useMemo(
-    () => draftMessage.trim().length > 0 && isConnected && !isThinking,
-    [draftMessage, isConnected, isThinking]
+    () => draftMessage.trim().length > 0 && !isThinking,
+    [draftMessage, isThinking]
   );
 
   const handleSend = () => {
@@ -153,8 +302,18 @@ export function DashboardChat({
                       : 'max-w-[90%] rounded-2xl border bg-white px-4 py-3 text-sm text-slate-900 shadow-sm'
                   }
                 >
-                  <p className="whitespace-pre-wrap leading-6">{message.content}</p>
-                  {message.role === 'assistant' ? <AssistantMeta message={message} /> : null}
+                  {message.role === 'assistant' ? (
+                    <>
+                      <MarkdownContent
+                        markdown={message.content}
+                        className="[&_p]:text-sm [&_p]:leading-6"
+                      />
+                      <AssistantResultsTable message={message} />
+                      <AssistantMeta message={message} />
+                    </>
+                  ) : (
+                    <p className="whitespace-pre-wrap leading-6">{message.content}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -194,7 +353,7 @@ export function DashboardChat({
                 }
               }}
               placeholder="Ask a question about this dashboard..."
-              disabled={!isConnected || isThinking}
+              disabled={isThinking}
             />
             <Button onClick={handleSend} disabled={!canSend}>
               <Send className="h-4 w-4" />

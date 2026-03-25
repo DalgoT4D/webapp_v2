@@ -14,13 +14,21 @@ interface DashboardChatCitation {
   table_name?: string | null;
 }
 
+type DashboardChatResponseFormat = 'text' | 'table' | 'text_with_table';
+
+interface DashboardChatAssistantMetadata {
+  response_format?: DashboardChatResponseFormat;
+  table_columns?: string[];
+  [key: string]: unknown;
+}
+
 interface DashboardChatAssistantPayload {
   intent?: string;
   citations?: DashboardChatCitation[];
   warnings?: string[];
   sql?: string | null;
   sql_results?: Array<Record<string, unknown>> | null;
-  metadata?: Record<string, unknown>;
+  metadata?: DashboardChatAssistantMetadata;
 }
 
 export interface DashboardChatMessage {
