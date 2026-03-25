@@ -168,16 +168,14 @@ export function MetricCard({
           className="flex items-start gap-1.5 text-left text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-          <span className="line-clamp-1">
-            {latestAnnotation!.quote_text
-              ? `"${latestAnnotation!.quote_text}"`
-              : latestAnnotation!.rationale}
+          <span className="line-clamp-2 break-words">
+            {latestAnnotation!.rationale || latestAnnotation!.quote_text}
           </span>
         </button>
       ) : canEdit ? (
         <button
           onClick={onAnnotate}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
         >
           <MessageSquare className="h-3.5 w-3.5" />
           Add note
