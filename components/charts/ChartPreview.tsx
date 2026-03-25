@@ -282,6 +282,12 @@ export function ChartPreview({
         applyLineBarChartFormatting(modifiedConfig, customizations);
       }
 
+      // Apply stacked bar data labels (shows total at top of each stacked bar)
+      if (isBarChart) {
+        const stackedConfig = applyStackedBarLabels(modifiedConfig, customizations);
+        Object.assign(modifiedConfig, stackedConfig);
+      }
+
       // Set chart option (notMerge: true ensures clean updates when customizations change)
       chartInstance.current.setOption(modifiedConfig, { notMerge: true });
 
