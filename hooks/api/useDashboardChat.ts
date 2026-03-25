@@ -48,6 +48,12 @@ interface DashboardChatEvent {
   data: Record<string, unknown>;
 }
 
+interface DashboardChatEnvelope {
+  message: string;
+  status: 'success' | 'error';
+  data: Record<string, unknown>;
+}
+
 interface UseDashboardChatOptions {
   dashboardId: number;
   enabled: boolean;
@@ -135,14 +141,38 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     };
 
     socket.onmessage = (event) => {
-      let payload: DashboardChatEvent;
+      let rawPayload: DashboardChatEvent | DashboardChatEnvelope;
       try {
-        payload = JSON.parse(event.data);
+        rawPayload = JSON.parse(event.data);
       } catch {
         setError('Received an invalid chat response');
         setIsThinking(false);
         return;
       }
+
+      if ('status' in rawPayload && !('event_type' in rawPayload)) {
+        if (rawPayload.status === 'error') {
+          setIsThinking(false);
+          setError(rawPayload.message || 'Something went wrong while generating the response');
+          return;
+        }
+
+        const nestedEvent = rawPayload.data;
+        if (
+          !nestedEvent ||
+          typeof nestedEvent !== 'object' ||
+          !('event_type' in nestedEvent) ||
+          typeof nestedEvent.event_type !== 'string'
+        ) {
+          setError('Received an invalid chat response');
+          setIsThinking(false);
+          return;
+        }
+
+        rawPayload = nestedEvent as DashboardChatEvent;
+      }
+
+      const payload = rawPayload as DashboardChatEvent;
 
       if (payload.session_id) {
         setSessionId(payload.session_id);
