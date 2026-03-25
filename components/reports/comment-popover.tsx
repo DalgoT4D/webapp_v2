@@ -592,7 +592,7 @@ function CommentPopoverInner({
         )}
 
         {/* Add comment input */}
-        <div className="p-3 flex-shrink-0">
+        <div className={cn('p-3 flex-shrink-0', comments.length > 0 && 'border-t')}>
           <div className="relative">
             <MentionDropdown
               users={mentionableUsers}
