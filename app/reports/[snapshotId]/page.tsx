@@ -222,7 +222,7 @@ export default function SnapshotViewerPage() {
                 <CommentPopover
                   snapshotId={parsedId}
                   targetType="summary"
-                  state={commentStates?.['summary']?.state ?? 'none'}
+                  state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
                   triggerClassName="h-8 w-8"
                   onStateChange={handleCommentStateChange}
                   autoOpen={commentTarget === 'summary'}

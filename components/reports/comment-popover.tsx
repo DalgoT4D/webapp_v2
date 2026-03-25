@@ -239,7 +239,9 @@ const CommentItem = memo(function CommentItem({
                 <span className="text-xs text-muted-foreground flex-shrink-0">
                   {formatCommentTime(comment.created_at)}
                 </span>
-                {comment.updated_at !== comment.created_at && (
+                {Math.abs(
+                  new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime()
+                ) > 1000 && (
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     &middot; edited
                   </span>

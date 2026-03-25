@@ -76,15 +76,15 @@ describe('useCommentStates', () => {
       wrapper: TestWrapper,
     });
 
-    expect(result.current.states).toEqual({});
+    expect(result.current.states).toEqual([]);
     expect(mockApiGet).not.toHaveBeenCalled();
   });
 
   it('fetches comment states when snapshotId is provided', async () => {
-    const mockStates = {
-      summary: { state: 'unread', count: 3, unread_count: 1 },
-      '5': { state: 'read', count: 2, unread_count: 0 },
-    };
+    const mockStates = [
+      { target_type: 'summary', chart_id: null, state: 'unread', count: 3, unread_count: 1 },
+      { target_type: 'chart', chart_id: 5, state: 'read', count: 2, unread_count: 0 },
+    ];
     mockApiGet.mockResolvedValue({ success: true, data: { states: mockStates } });
 
     const { result } = renderHook(() => useCommentStates(42), {

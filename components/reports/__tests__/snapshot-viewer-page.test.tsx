@@ -61,7 +61,7 @@ jest.mock('@/components/dashboard/dashboard-native-view', () => ({
 
 // Mock useCommentStates
 jest.mock('@/hooks/api/useComments', () => ({
-  useCommentStates: () => ({ states: {}, mutate: jest.fn() }),
+  useCommentStates: () => ({ states: [], mutate: jest.fn() }),
 }));
 
 // Mock CommentPopover

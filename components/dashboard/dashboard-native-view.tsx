@@ -230,7 +230,7 @@ interface DashboardNativeViewProps {
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
   snapshotId?: number; // Report snapshot ID for comments
-  commentStates?: CommentStates; // Comment states keyed by chart_id or "summary"
+  commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
 }

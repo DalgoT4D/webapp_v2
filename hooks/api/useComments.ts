@@ -48,7 +48,7 @@ export function useCommentStates(snapshotId: number | null) {
   );
 
   return {
-    states: data?.data?.states || {},
+    states: Array.isArray(data?.data?.states) ? data.data.states : [],
     isLoading,
     isError: error,
     mutate,

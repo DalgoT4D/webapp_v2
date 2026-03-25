@@ -25,14 +25,14 @@ export interface Comment {
 export type CommentIconState = 'none' | 'unread' | 'read' | 'mentioned';
 
 export interface CommentStateEntry {
+  target_type: 'summary' | 'chart';
+  chart_id: number | null;
   state: CommentIconState;
   count: number; // total comments
   unread_count: number; // unread comments
 }
 
-export interface CommentStates {
-  [key: string]: CommentStateEntry; // chart_id or "summary" -> { state, count }
-}
+export type CommentStates = CommentStateEntry[];
 
 export interface MentionableUser {
   email: string;

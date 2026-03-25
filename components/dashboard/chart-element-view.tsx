@@ -118,7 +118,7 @@ interface ChartElementViewProps {
   config?: ChartTitleConfig; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
   snapshotId?: number; // Report snapshot ID for comments
-  commentStates?: CommentStates; // Comment states keyed by chart_id or "summary"
+  commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
 }
@@ -1757,7 +1757,10 @@ export function ChartElementView({
                 snapshotId={snapshotId}
                 targetType="chart"
                 chartId={chartId}
-                state={(commentStates?.[String(chartId)]?.state as CommentIconState) ?? 'none'}
+                state={
+                  (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
+                  'none'
+                }
                 triggerClassName="h-7 w-7 p-0"
                 onStateChange={onCommentStateChange}
                 autoOpen={autoOpenCommentChartId === String(chartId)}
