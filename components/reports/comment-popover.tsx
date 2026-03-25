@@ -558,10 +558,9 @@ function CommentPopoverInner({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className={`${COMMENT_POPOVER_WIDTH} p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-popover`}
+        className={`${COMMENT_POPOVER_WIDTH} p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-popover shadow-none`}
         style={{
           borderColor: 'var(--primary)',
-          boxShadow: '-4px 4px 11px 0px rgba(0, 0, 0, 0.22)',
         }}
         onInteractOutside={(e) => {
           // Prevent close when clicking mention dropdown
@@ -571,27 +570,29 @@ function CommentPopoverInner({
           }
         }}
       >
-        {/* Comment list */}
-        <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
-          <div className="py-2 space-y-0.5">
-            {comments.map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={comment}
-                onSaveEdit={handleSaveEdit}
-                onDelete={handleDelete}
-                currentUserEmail={currentUserEmail}
-                isFirstNew={comment.id === firstNewCommentId}
-                firstNewRef={firstNewRef}
-                isDeleted={comment.is_deleted}
-              />
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        </ScrollArea>
+        {/* Comment list — only rendered when there are comments */}
+        {comments.length > 0 && (
+          <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
+            <div className="py-2 space-y-0.5">
+              {comments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  onSaveEdit={handleSaveEdit}
+                  onDelete={handleDelete}
+                  currentUserEmail={currentUserEmail}
+                  isFirstNew={comment.id === firstNewCommentId}
+                  firstNewRef={firstNewRef}
+                  isDeleted={comment.is_deleted}
+                />
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          </ScrollArea>
+        )}
 
         {/* Add comment input */}
-        <div className="border-t px-3 py-2.5 flex-shrink-0">
+        <div className="p-3 flex-shrink-0">
           <div className="relative">
             <MentionDropdown
               users={mentionableUsers}
