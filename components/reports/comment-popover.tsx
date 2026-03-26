@@ -140,6 +140,7 @@ interface CommentItemProps {
   isFirstNew: boolean;
   firstNewRef: React.RefObject<HTMLDivElement | null>;
   isDeleted: boolean;
+  mentionableUsers: MentionableUser[];
 }
 
 const CommentItem = memo(function CommentItem({
@@ -150,6 +151,7 @@ const CommentItem = memo(function CommentItem({
   isFirstNew,
   firstNewRef,
   isDeleted,
+  mentionableUsers,
 }: CommentItemProps) {
   const isAuthor = comment.author_email === currentUserEmail;
   const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
@@ -157,6 +159,8 @@ const CommentItem = memo(function CommentItem({
   const [editText, setEditText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   const handleStartEdit = useCallback(() => {
@@ -168,6 +172,7 @@ const CommentItem = memo(function CommentItem({
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
     setEditText('');
+    setShowMentions(false);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -182,6 +187,40 @@ const CommentItem = memo(function CommentItem({
       setIsSaving(false);
     }
   }, [editText, isSaving, comment.id, onSaveEdit]);
+
+  const handleEditTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setEditText(value);
+
+    const cursorPos = e.target.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\S*)$/);
+
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+      setShowMentions(true);
+    } else {
+      setShowMentions(false);
+    }
+  }, []);
+
+  const handleEditMentionSelect = useCallback(
+    (user: MentionableUser) => {
+      const cursorPos = editRef.current?.selectionStart ?? editText.length;
+      const textBeforeCursor = editText.slice(0, cursorPos);
+      const atIndex = textBeforeCursor.lastIndexOf('@');
+
+      if (atIndex !== -1) {
+        const before = editText.slice(0, atIndex);
+        const after = editText.slice(cursorPos);
+        setEditText(`${before}@${user.email} ${after}`);
+      }
+
+      setShowMentions(false);
+      requestAnimationFrame(() => editRef.current?.focus());
+    },
+    [editText]
+  );
 
   // Show "This message was deleted" placeholder
   if (isDeleted) {
@@ -286,13 +325,21 @@ const CommentItem = memo(function CommentItem({
             </>
           ) : (
             <>
-              <textarea
-                ref={editRef}
-                data-testid={`comment-edit-textarea-${comment.id}`}
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full text-sm border rounded-md p-2 min-h-[60px] resize-none bg-background outline-none focus:ring-1 focus:ring-primary"
-              />
+              <div className="relative">
+                <MentionDropdown
+                  users={mentionableUsers}
+                  filter={mentionQuery}
+                  onSelect={handleEditMentionSelect}
+                  visible={showMentions}
+                />
+                <textarea
+                  ref={editRef}
+                  data-testid={`comment-edit-textarea-${comment.id}`}
+                  value={editText}
+                  onChange={handleEditTextChange}
+                  className="w-full text-sm border rounded-md p-2 min-h-[60px] resize-none bg-background outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
               <div className="flex justify-end gap-2 mt-2">
                 <Button
                   variant="outline"
@@ -584,6 +631,7 @@ function CommentPopoverInner({
                   isFirstNew={comment.id === firstNewCommentId}
                   firstNewRef={firstNewRef}
                   isDeleted={comment.is_deleted}
+                  mentionableUsers={mentionableUsers}
                 />
               ))}
               <div ref={bottomRef} />
