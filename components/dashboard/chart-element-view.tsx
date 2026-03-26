@@ -1424,6 +1424,7 @@ export function ChartElementView({
     handleRegionClick,
     isFullscreen, // Add fullscreen state to trigger chart resize
     containerSize, // Update when container size changes for responsive legends
+    branding, // Update when org palette changes
   ]);
 
   // Re-fetch data when filters change

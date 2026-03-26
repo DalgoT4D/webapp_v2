@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -230,9 +230,11 @@ export default function BrandingSettings() {
   const [editingColorIndex, setEditingColorIndex] = useState<number | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Sync state when branding loads
+  // Sync state only on initial load from server
+  const hasSynced = useRef(false);
   useEffect(() => {
-    if (branding) {
+    if (branding && !hasSynced.current) {
+      hasSynced.current = true;
       setLogoUrl(branding.dashboard_logo_url || '');
       setLogoWidth(branding.dashboard_logo_width || 80);
       setPaletteName(branding.chart_palette_name);

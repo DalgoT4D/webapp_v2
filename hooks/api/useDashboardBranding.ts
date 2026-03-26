@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import useSWR from 'swr';
 import { apiGet, apiPut } from '@/lib/api';
 
@@ -23,15 +24,18 @@ export function useDashboardBranding() {
     { revalidateOnFocus: false }
   );
 
+  const branding = useMemo<OrgBranding | null>(() => {
+    if (!data?.res) return null;
+    return {
+      dashboard_logo_url: data.res.dashboard_logo_url,
+      dashboard_logo_width: data.res.dashboard_logo_width ?? 80,
+      chart_palette_name: data.res.chart_palette_name,
+      chart_palette_colors: data.res.chart_palette_colors,
+    };
+  }, [data]);
+
   return {
-    branding: data?.res
-      ? {
-          dashboard_logo_url: data.res.dashboard_logo_url,
-          dashboard_logo_width: data.res.dashboard_logo_width ?? 80,
-          chart_palette_name: data.res.chart_palette_name,
-          chart_palette_colors: data.res.chart_palette_colors,
-        }
-      : null,
+    branding,
     isLoading,
     error,
     mutate,

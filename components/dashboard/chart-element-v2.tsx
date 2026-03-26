@@ -1056,7 +1056,8 @@ export function ChartElementV2({
     drillDownPath,
     handleRegionClick,
     containerSize, // Update when container size changes for responsive legends
-  ]); // Update when data, filters, or container size change
+    branding, // Update when org palette changes
+  ]); // Update when data, filters, container size, or branding change
 
   // Handle window resize and container resize - separate from chart data changes
   useEffect(() => {
