@@ -13,6 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SnapshotViewerPage from '@/app/reports/[snapshotId]/page';
 import * as useReportsHook from '@/hooks/api/useReports';
+import * as toastModule from '@/lib/toast';
 import { createMockSnapshotViewData } from './report-mock-data';
 import { TestWrapper } from '@/test-utils/render';
 
@@ -289,7 +290,6 @@ describe('SnapshotViewerPage', () => {
 
     it('shows success toast after successful save', async () => {
       const user = userEvent.setup();
-      const toastModule = require('@/lib/toast');
       (useReportsHook.updateSnapshot as jest.Mock).mockResolvedValue({ summary: 'test' });
 
       renderPage();
@@ -304,7 +304,6 @@ describe('SnapshotViewerPage', () => {
 
     it('shows error toast when save fails', async () => {
       const user = userEvent.setup();
-      const toastModule = require('@/lib/toast');
       (useReportsHook.updateSnapshot as jest.Mock).mockRejectedValue(new Error('Save failed'));
 
       renderPage();

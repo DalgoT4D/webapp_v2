@@ -13,6 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ReportsPage from '@/app/reports/page';
 import * as useReportsHook from '@/hooks/api/useReports';
+import * as toastModule from '@/lib/toast';
 import { mockSnapshots } from './report-mock-data';
 import { TestWrapper } from '@/test-utils/render';
 
@@ -225,7 +226,6 @@ describe('ReportsPage', () => {
 
     it('shows error toast when delete fails', async () => {
       const user = userEvent.setup();
-      const toastModule = require('@/lib/toast');
       mockConfirm.mockResolvedValue(true);
       (useReportsHook.deleteSnapshot as jest.Mock).mockRejectedValue(new Error('Delete failed'));
 
