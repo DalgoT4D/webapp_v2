@@ -31,7 +31,7 @@ import {
   parseCommentMentions,
   extractMentionedEmails,
 } from './utils';
-import { toastSuccess, toastError } from '@/lib/toast';
+import { toastError } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useComments,
@@ -492,7 +492,6 @@ function CommentPopoverInner({
         content,
         mentioned_emails: extractMentionedEmails(content),
       });
-      toastSuccess.created('Comment');
       setDraft('');
       await mutateComments();
       onStateChange?.();
@@ -527,7 +526,6 @@ function CommentPopoverInner({
           content,
           mentioned_emails: extractMentionedEmails(content),
         });
-        toastSuccess.updated('Comment');
         mutateComments();
         onStateChange?.();
       } catch (error) {
@@ -542,7 +540,6 @@ function CommentPopoverInner({
     async (commentId: number) => {
       try {
         await deleteComment(commentId);
-        toastSuccess.deleted('Comment');
         mutateComments();
         onStateChange?.();
       } catch (error) {
