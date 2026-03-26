@@ -103,24 +103,12 @@ describe('Comment Utilities', () => {
   });
 
   describe('getInitials', () => {
-    it('returns first letter of email when no name', () => {
-      expect(getInitials({ email: 'john@test.com' })).toBe('J');
+    it('returns first letter of email uppercased', () => {
+      expect(getInitials('john@test.com')).toBe('J');
     });
 
-    it('returns initials from single-word name', () => {
-      expect(getInitials({ email: 'john@test.com', name: 'John' })).toBe('J');
-    });
-
-    it('returns two initials from two-word name', () => {
-      expect(getInitials({ email: 'john@test.com', name: 'John Doe' })).toBe('JD');
-    });
-
-    it('returns max 2 initials from longer names', () => {
-      expect(getInitials({ email: 'j@test.com', name: 'John Michael Doe' })).toBe('JM');
-    });
-
-    it('returns uppercase initials', () => {
-      expect(getInitials({ email: 'j@test.com', name: 'john doe' })).toBe('JD');
+    it('returns uppercase even for lowercase email', () => {
+      expect(getInitials('alice@test.com')).toBe('A');
     });
   });
 

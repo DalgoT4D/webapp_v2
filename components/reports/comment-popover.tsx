@@ -74,13 +74,7 @@ const MentionDropdown = memo(function MentionDropdown({
   const filtered = useMemo(() => {
     if (!filter) return users.slice(0, 5);
     const lowerFilter = filter.toLowerCase();
-    return users
-      .filter(
-        (u) =>
-          u.email.toLowerCase().includes(lowerFilter) ||
-          (u.name && u.name.toLowerCase().includes(lowerFilter))
-      )
-      .slice(0, 5);
+    return users.filter((u) => u.email.toLowerCase().includes(lowerFilter)).slice(0, 5);
   }, [users, filter]);
 
   if (!visible || filtered.length === 0) return null;
@@ -106,13 +100,10 @@ const MentionDropdown = memo(function MentionDropdown({
               style={{ backgroundColor: getAvatarColor(user.email) }}
               className="text-white"
             >
-              {getInitials(user)}
+              {getInitials(user.email)}
             </AvatarFallback>
           </Avatar>
-          <span className="truncate">{user.name || user.email}</span>
-          {user.name && (
-            <span className="text-xs text-muted-foreground truncate">{user.email}</span>
-          )}
+          <span className="truncate">{user.email}</span>
         </button>
       ))}
     </div>
@@ -160,8 +151,8 @@ const CommentItem = memo(function CommentItem({
   firstNewRef,
   isDeleted,
 }: CommentItemProps) {
-  const isAuthor = comment.author.email === currentUserEmail;
-  const avatarColor = useMemo(() => getAvatarColor(comment.author.email), [comment.author.email]);
+  const isAuthor = comment.author_email === currentUserEmail;
+  const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -202,12 +193,12 @@ const CommentItem = memo(function CommentItem({
               style={{ backgroundColor: avatarColor }}
               className="text-white font-medium"
             >
-              {getInitials(comment.author)}
+              {getInitials(comment.author_email)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium truncate">{comment.author.email}</span>
+              <span className="text-sm font-medium truncate">{comment.author_email}</span>
               <span className="text-xs text-muted-foreground flex-shrink-0">
                 {formatCommentTime(comment.created_at)}
               </span>
@@ -234,14 +225,14 @@ const CommentItem = memo(function CommentItem({
             style={{ backgroundColor: avatarColor }}
             className="text-white font-medium"
           >
-            {getInitials(comment.author)}
+            {getInitials(comment.author_email)}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
           {!isEditing ? (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium truncate">{comment.author.email}</span>
+                <span className="text-sm font-medium truncate">{comment.author_email}</span>
                 <span className="text-xs text-muted-foreground flex-shrink-0">
                   {formatCommentTime(comment.created_at)}
                 </span>

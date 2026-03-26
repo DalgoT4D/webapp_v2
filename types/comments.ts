@@ -1,15 +1,10 @@
-export interface CommentAuthor {
-  email: string;
-  name?: string;
-}
-
 export interface Comment {
   id: number;
   target_type: 'summary' | 'chart';
   snapshot_id: number;
   chart_id?: number;
   content: string;
-  author: CommentAuthor;
+  author_email: string;
   is_new: boolean;
   is_deleted: boolean;
   created_at: string;
@@ -31,7 +26,6 @@ export type CommentStates = CommentStateEntry[];
 
 export interface MentionableUser {
   email: string;
-  name?: string;
 }
 
 export interface CreateCommentPayload {

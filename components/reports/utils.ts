@@ -101,16 +101,8 @@ export function getAvatarColor(email: string): string {
 /**
  * Get initials from an author object (max 2 chars).
  */
-export function getInitials(author: { email: string; name?: string }): string {
-  if (author.name) {
-    return author.name
-      .split(' ')
-      .map((w) => w[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-  }
-  return author.email[0].toUpperCase();
+export function getInitials(email: string): string {
+  return email[0].toUpperCase();
 }
 
 // Match @email patterns (email-like strings after @)
