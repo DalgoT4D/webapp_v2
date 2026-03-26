@@ -95,7 +95,7 @@ const MentionDropdown = memo(function MentionDropdown({
   return (
     <div
       data-testid="mention-dropdown"
-      className="absolute bottom-full left-0 right-0 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto mb-1 z-10"
+      className="absolute top-full left-0 right-0 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto mt-1 z-10"
     >
       {filtered.map((user) => (
         <button
@@ -433,6 +433,16 @@ function CommentPopoverInner({
     return null;
   }, [comments]);
 
+  // Filter: hide deleted comment placeholders when there are no non-deleted comments in the thread
+  // Per Figma spec: "Instant comment deletion when it is the only comment" — no placeholder shown
+  const visibleComments = useMemo(() => {
+    const hasNonDeletedComments = comments.some((c) => !c.is_deleted);
+    if (!hasNonDeletedComments) {
+      return comments.filter((c) => !c.is_deleted);
+    }
+    return comments;
+  }, [comments]);
+
   // Auto-scroll to latest comment when popover opens
   useEffect(() => {
     if (!open || !bottomRef.current) return undefined;
@@ -576,11 +586,11 @@ function CommentPopoverInner({
           }
         }}
       >
-        {/* Comment list — only rendered when there are comments */}
-        {comments.length > 0 && (
+        {/* Comment list — only rendered when there are visible comments */}
+        {visibleComments.length > 0 && (
           <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
             <div className="py-2 space-y-0.5">
-              {comments.map((comment) => (
+              {visibleComments.map((comment) => (
                 <CommentItem
                   key={comment.id}
                   comment={comment}
@@ -599,7 +609,7 @@ function CommentPopoverInner({
         )}
 
         {/* Add comment input */}
-        <div className={cn('p-3 flex-shrink-0', comments.length > 0 && 'border-t')}>
+        <div className={cn('p-3 flex-shrink-0', visibleComments.length > 0 && 'border-t')}>
           <div className="relative">
             <MentionDropdown
               users={mentionableUsers}
