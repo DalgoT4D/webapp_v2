@@ -1099,7 +1099,7 @@ export function DashboardNativeView({
             onCollapseChange={setIsFiltersCollapsed}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
-            initiallyCollapsed={showMinimalHeader || isPublicMode}
+            initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
             isReportMode={isReportMode}
           />
         )}
