@@ -24,6 +24,7 @@ import {
   Info,
   CreditCard,
   Users,
+  Paintbrush,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -212,6 +213,12 @@ const getNavItems = (
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
+        },
+        {
+          title: 'Branding',
+          href: '/settings/branding',
+          icon: Paintbrush,
+          isActive: currentPath.startsWith('/settings/branding'),
         },
         {
           title: 'About',

@@ -29,6 +29,7 @@ import { apiPost } from '@/lib/api';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
+import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -56,6 +57,7 @@ export function Header({
     getCurrentOrgUser,
     isAuthenticated,
   } = useAuthStore();
+  const { branding } = useDashboardBranding();
 
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
 
@@ -153,6 +155,17 @@ export function Header({
             height={68}
             className="text-primary"
           />
+          {branding?.dashboard_logo_url && (
+            <>
+              <div className="h-8 w-px bg-border" />
+              <img
+                src={branding.dashboard_logo_url}
+                alt="Organization logo"
+                style={{ width: branding.dashboard_logo_width, height: 'auto' }}
+                className="max-h-10 object-contain"
+              />
+            </>
+          )}
         </div>
 
         {/* Organization switching status */}

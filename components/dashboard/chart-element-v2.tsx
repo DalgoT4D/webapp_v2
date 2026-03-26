@@ -24,6 +24,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
+import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -107,6 +108,7 @@ export function ChartElementV2({
   appliedFilters = {},
   dashboardFilterConfigs = [],
 }: ChartElementV2Props) {
+  const { branding } = useDashboardBranding();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -859,11 +861,11 @@ export function ChartElementV2({
                 },
               }
             : undefined,
-        // Only set default colors if chart doesn't have custom colors
+        // Use chart-specific colors, then org palette, then defaults
         ...(chartConfig.color
           ? {}
           : {
-              color: [
+              color: branding?.chart_palette_colors ?? [
                 '#3b82f6',
                 '#10b981',
                 '#f59e0b',

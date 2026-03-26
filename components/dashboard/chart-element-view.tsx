@@ -25,6 +25,7 @@ import {
   useRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
+import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
@@ -141,6 +142,7 @@ export function ChartElementView({
   config = {},
   frozenChartConfig,
 }: ChartElementViewProps) {
+  const { branding } = useDashboardBranding();
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
   const wrapperRef = useRef<HTMLDivElement>(null); // Wrapper ref for fullscreen (stable element)
@@ -1197,19 +1199,19 @@ export function ChartElementView({
               },
             }
           : undefined,
-      // Only set default colors if chart doesn't have custom colors
+      // Use chart-specific colors, then org palette, then defaults
       ...(baseConfig.color
         ? {}
         : {
-            color: [
-              '#3b82f6', // blue-500
-              '#10b981', // emerald-500
-              '#f59e0b', // amber-500
-              '#ef4444', // red-500
-              '#8b5cf6', // violet-500
-              '#ec4899', // pink-500
-              '#14b8a6', // teal-500
-              '#f97316', // orange-500
+            color: branding?.chart_palette_colors ?? [
+              '#3b82f6',
+              '#10b981',
+              '#f59e0b',
+              '#ef4444',
+              '#8b5cf6',
+              '#ec4899',
+              '#14b8a6',
+              '#f97316',
             ],
           }),
       // For pie and number charts, completely remove grid and axis configurations

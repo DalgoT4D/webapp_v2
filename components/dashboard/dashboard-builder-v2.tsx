@@ -50,7 +50,6 @@ import {
   LayoutGrid,
   AlignLeft,
   ImageIcon,
-  Palette,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -58,7 +57,6 @@ import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { ImageElement } from './image-element';
 import type { ImageComponentConfig } from './image-element';
-import { DashboardBrandingSettings } from './dashboard-branding-settings';
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
@@ -2058,18 +2056,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   <ImageIcon className="w-4 h-4 mr-2" />
                   Add Image
                 </Button>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline" title="Dashboard Branding">
-                      <Palette className="w-4 h-4 mr-2" />
-                      Branding
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-96 p-0" align="start">
-                    <DashboardBrandingSettings />
-                  </PopoverContent>
-                </Popover>
 
                 <div className="ml-2 flex gap-1">
                   <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
