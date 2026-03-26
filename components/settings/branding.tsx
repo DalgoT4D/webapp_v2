@@ -9,7 +9,9 @@ import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Save, X, ImageIcon, Plus, Trash2, Check, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSWRConfig } from 'swr';
 import { useDashboardBranding, updateDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 // Logo width constraints
 const MIN_LOGO_WIDTH = 40;
@@ -218,7 +220,8 @@ function PalettePreview({
 }
 
 export default function BrandingSettings() {
-  const { branding, isLoading, mutate } = useDashboardBranding();
+  const { branding, isLoading } = useDashboardBranding();
+  const { mutate: globalMutate } = useSWRConfig();
 
   const [logoUrl, setLogoUrl] = useState('');
   const [logoWidth, setLogoWidth] = useState(80);
@@ -253,14 +256,17 @@ export default function BrandingSettings() {
         chart_palette_name: paletteName,
         chart_palette_colors: paletteColors,
       });
-      await mutate();
+      // Revalidate the global SWR cache so all consumers (header, charts) get updated data
+      await globalMutate('/api/orgpreferences/');
       setHasChanges(false);
+      toastSuccess.saved('Branding settings');
     } catch (error) {
       console.error('Failed to save branding:', error);
+      toastError.api(error, 'Failed to save branding settings');
     } finally {
       setIsSaving(false);
     }
-  }, [logoUrl, logoWidth, paletteName, paletteColors, mutate]);
+  }, [logoUrl, logoWidth, paletteName, paletteColors, globalMutate]);
 
   const handleSelectPreset = useCallback(
     (preset: { name: string; colors: string[] }) => {
