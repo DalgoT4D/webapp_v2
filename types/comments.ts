@@ -3,11 +3,6 @@ export interface CommentAuthor {
   name?: string;
 }
 
-export interface CommentMention {
-  email: string;
-  name?: string;
-}
-
 export interface Comment {
   id: number;
   target_type: 'summary' | 'chart';
@@ -19,7 +14,7 @@ export interface Comment {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
-  mentions: CommentMention[];
+  mentioned_emails: string[];
 }
 
 export type CommentIconState = 'none' | 'unread' | 'read' | 'mentioned';
