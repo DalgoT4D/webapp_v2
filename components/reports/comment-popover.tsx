@@ -120,7 +120,7 @@ const CommentContent = memo(function CommentContent({ content }: { content: stri
       {parts.map((part, i) =>
         part.type === 'mention' ? (
           <span key={i} className="text-primary font-medium">
-            @{part.value}
+            {part.value}
           </span>
         ) : (
           <span key={i}>{part.value}</span>
