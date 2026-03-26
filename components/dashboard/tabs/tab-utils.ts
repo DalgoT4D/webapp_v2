@@ -21,7 +21,6 @@ export function createNewTab(tabNumber: number): DashboardTab {
   return {
     id: generateTabId(),
     title: `${TAB_DEFAULT_TITLE_PREFIX} ${tabNumber}`,
-    order: tabNumber - 1,
     layout_config: [],
     components: {},
   };

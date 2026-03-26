@@ -495,8 +495,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Tabs state - initialize from initialData or create default
     const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
-      if (initialData?.tabs) {
-        return initialData.tabs as DashboardTabsData;
+      // Backend returns tabs as an array, convert to DashboardTabsData structure
+      if (initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0) {
+        return {
+          tabs: initialData.tabs as DashboardTab[],
+          activeTabId: initialData.tabs[0].id,
+        };
       }
       // For new dashboards or existing dashboards without tabs, use default
       return getDefaultTabsConfig();
@@ -946,22 +950,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const tabIndex = prev.tabs.findIndex((t) => t.id === tabId);
         const newTabs = prev.tabs.filter((t) => t.id !== tabId);
 
-        // Update orders for remaining tabs
-        const reorderedTabs = newTabs.map((tab, index) => ({
-          ...tab,
-          order: index,
-        }));
-
         // If removing active tab, switch to adjacent tab
         let newActiveTabId = prev.activeTabId;
         if (prev.activeTabId === tabId) {
           // Prefer previous tab, or next tab if removing first
           const newActiveIndex = Math.max(0, tabIndex - 1);
-          newActiveTabId = reorderedTabs[newActiveIndex]?.id || reorderedTabs[0]?.id;
+          newActiveTabId = newTabs[newActiveIndex]?.id || newTabs[0]?.id;
         }
 
         return {
-          tabs: reorderedTabs,
+          tabs: newTabs,
           activeTabId: newActiveTabId,
         };
       });

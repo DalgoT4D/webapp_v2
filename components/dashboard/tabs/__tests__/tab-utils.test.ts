@@ -1,10 +1,9 @@
 import { createNewTab, getDefaultTabsConfig, getNextTabNumber } from '../tab-utils';
 
 describe('createNewTab', () => {
-  it('creates a tab with correct title and order', () => {
+  it('creates a tab with correct title and structure', () => {
     const tab = createNewTab(2);
     expect(tab.title).toBe('Untitled Tab 2');
-    expect(tab.order).toBe(1); // order = tabNumber - 1
     expect(tab.layout_config).toEqual([]);
     expect(tab.components).toEqual({});
     expect(tab.id).toMatch(/^tab-/);

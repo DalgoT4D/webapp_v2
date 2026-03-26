@@ -64,7 +64,7 @@ import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { TabBar } from './tabs/TabBar';
-import { DashboardTabsData } from '@/types/dashboard';
+import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
 import { getDefaultTabsConfig } from './tabs/tab-utils';
 import {
   DashboardFilterType,
@@ -378,8 +378,12 @@ export function DashboardNativeView({
   // Derive tabs data from dashboard
   const tabsData: DashboardTabsData | null = useMemo(() => {
     if (!dashboard) return null;
-    if (dashboard.tabs) {
-      return dashboard.tabs as DashboardTabsData;
+    // Backend returns tabs as an array, convert to DashboardTabsData structure
+    if (dashboard.tabs && Array.isArray(dashboard.tabs) && dashboard.tabs.length > 0) {
+      return {
+        tabs: dashboard.tabs as DashboardTab[],
+        activeTabId: dashboard.tabs[0].id,
+      };
     }
     // For dashboards without tabs, create a default single tab
     return getDefaultTabsConfig();
@@ -387,7 +391,7 @@ export function DashboardNativeView({
 
   // Get effective active tab ID
   const effectiveActiveTabId =
-    activeTabId || tabsData?.activeTabId || tabsData?.tabs[0]?.id || null;
+    activeTabId || tabsData?.activeTabId || tabsData?.tabs?.[0]?.id || null;
 
   // Handle tab change in view mode
   const handleTabChange = useCallback((tabId: string) => {
@@ -395,7 +399,7 @@ export function DashboardNativeView({
   }, []);
 
   // Check if we should show tabs (2 or more tabs)
-  const shouldShowTabs = tabsData && tabsData.tabs.length >= 2;
+  const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
 

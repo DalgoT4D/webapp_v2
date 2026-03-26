@@ -4,16 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { TabBar } from '../TabBar';
 import { DashboardTab } from '@/types/dashboard';
 
-const makeTab = (id: string, title: string, order: number): DashboardTab => ({
+const makeTab = (id: string, title: string): DashboardTab => ({
   id,
   title,
-  order,
   layout_config: [],
   components: {},
 });
 
 const defaultProps = {
-  tabs: [makeTab('tab-1', 'Tab 1', 0), makeTab('tab-2', 'Tab 2', 1)],
+  tabs: [makeTab('tab-1', 'Tab 1'), makeTab('tab-2', 'Tab 2')],
   activeTabId: 'tab-1',
   isEditMode: false,
   onTabChange: jest.fn(),
@@ -51,7 +50,7 @@ describe('TabBar', () => {
   });
 
   it('does not show remove button when only 1 tab', () => {
-    render(<TabBar {...defaultProps} tabs={[makeTab('tab-1', 'Tab 1', 0)]} isEditMode={true} />);
+    render(<TabBar {...defaultProps} tabs={[makeTab('tab-1', 'Tab 1')]} isEditMode={true} />);
     expect(screen.queryByTestId('tab-remove-btn-tab-1')).not.toBeInTheDocument();
   });
 

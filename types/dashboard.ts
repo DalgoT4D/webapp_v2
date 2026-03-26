@@ -26,12 +26,11 @@ export interface DashboardComponentConfig {
 export interface DashboardTab {
   id: string;
   title: string;
-  order: number;
   layout_config: DashboardLayoutItem[];
   components: Record<string, DashboardComponentConfig>;
 }
 
-// Dashboard Tabs Data - the complete tabs structure stored in the backend
+// Dashboard Tabs Data - frontend state structure for managing tabs
 export interface DashboardTabsData {
   tabs: DashboardTab[];
   activeTabId: string;

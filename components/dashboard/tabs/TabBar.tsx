@@ -182,18 +182,17 @@ export const TabBar = memo(function TabBar({
   onTabRename,
   className,
 }: TabBarProps) {
-  // Sort tabs by order
-  const sortedTabs = [...tabs].sort((a, b) => a.order - b.order);
+  const safeTabs = tabs || [];
 
   // Handle adding a new tab
   const handleAddTab = useCallback(() => {
-    const nextNumber = getNextTabNumber(tabs);
+    const nextNumber = getNextTabNumber(safeTabs);
     const newTab = createNewTab(nextNumber);
     onTabAdd(newTab);
-  }, [tabs, onTabAdd]);
+  }, [safeTabs, onTabAdd]);
 
   // Check if there's only one tab (cannot remove last tab)
-  const isOnlyTab = tabs.length === 1;
+  const isOnlyTab = safeTabs.length === 1;
 
   return (
     <div
@@ -208,7 +207,7 @@ export const TabBar = memo(function TabBar({
       aria-label="Dashboard tabs"
     >
       {/* Tab Items */}
-      {sortedTabs.map((tab) => (
+      {safeTabs.map((tab) => (
         <TabItem
           key={tab.id}
           tab={tab}
