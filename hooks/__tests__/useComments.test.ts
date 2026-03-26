@@ -50,7 +50,7 @@ describe('useComments', () => {
       expect(result.current.comments).toEqual(mockComments);
     });
 
-    expect(mockApiGet).toHaveBeenCalledWith(expect.stringContaining('/api/comments/?'));
+    expect(mockApiGet).toHaveBeenCalledWith(expect.stringContaining('/api/reports/42/comments/?'));
   });
 
   it('includes chartId in query params when provided', async () => {
@@ -129,15 +129,13 @@ describe('Mutation functions', () => {
       const mockComment = { id: 1, content: 'Test comment' };
       mockApiPost.mockResolvedValue({ success: true, data: mockComment });
 
-      const result = await createComment({
-        snapshot_id: 42,
+      const result = await createComment(42, {
         target_type: 'summary',
         content: 'Test comment',
       });
 
       expect(result).toEqual(mockComment);
-      expect(mockApiPost).toHaveBeenCalledWith('/api/comments/', {
-        snapshot_id: 42,
+      expect(mockApiPost).toHaveBeenCalledWith('/api/reports/42/comments/', {
         target_type: 'summary',
         content: 'Test comment',
       });
@@ -149,10 +147,12 @@ describe('Mutation functions', () => {
       const mockComment = { id: 1, content: 'Updated' };
       mockApiPut.mockResolvedValue({ success: true, data: mockComment });
 
-      const result = await updateComment(1, { content: 'Updated' });
+      const result = await updateComment(42, 1, { content: 'Updated' });
 
       expect(result).toEqual(mockComment);
-      expect(mockApiPut).toHaveBeenCalledWith('/api/comments/1/', { content: 'Updated' });
+      expect(mockApiPut).toHaveBeenCalledWith('/api/reports/42/comments/1/', {
+        content: 'Updated',
+      });
     });
   });
 
@@ -160,9 +160,9 @@ describe('Mutation functions', () => {
     it('deletes a comment', async () => {
       mockApiDelete.mockResolvedValue(undefined);
 
-      await deleteComment(1);
+      await deleteComment(42, 1);
 
-      expect(mockApiDelete).toHaveBeenCalledWith('/api/comments/1/');
+      expect(mockApiDelete).toHaveBeenCalledWith('/api/reports/42/comments/1/');
     });
   });
 
@@ -170,13 +170,11 @@ describe('Mutation functions', () => {
     it('marks comments as read', async () => {
       mockApiPost.mockResolvedValue(undefined);
 
-      await markAsRead({
-        snapshot_id: 42,
+      await markAsRead(42, {
         target_type: 'summary',
       });
 
-      expect(mockApiPost).toHaveBeenCalledWith('/api/comments/mark-read/', {
-        snapshot_id: 42,
+      expect(mockApiPost).toHaveBeenCalledWith('/api/reports/42/comments/mark-read/', {
         target_type: 'summary',
       });
     });
@@ -184,14 +182,12 @@ describe('Mutation functions', () => {
     it('includes chart_id when provided', async () => {
       mockApiPost.mockResolvedValue(undefined);
 
-      await markAsRead({
-        snapshot_id: 42,
+      await markAsRead(42, {
         target_type: 'chart',
         chart_id: 5,
       });
 
-      expect(mockApiPost).toHaveBeenCalledWith('/api/comments/mark-read/', {
-        snapshot_id: 42,
+      expect(mockApiPost).toHaveBeenCalledWith('/api/reports/42/comments/mark-read/', {
         target_type: 'chart',
         chart_id: 5,
       });

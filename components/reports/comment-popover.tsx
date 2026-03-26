@@ -172,32 +172,41 @@ const CommentItem = memo(function CommentItem({
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const editMention = useMentionInput();
+  const {
+    text: editText,
+    setText: setEditText,
+    showMentions: editShowMentions,
+    mentionQuery: editMentionQuery,
+    handleChange: handleEditChange,
+    handleMentionSelect: handleEditMentionSelect,
+    closeMentions: closeEditMentions,
+    inputRef: editInputRef,
+  } = useMentionInput();
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
-    editMention.setText(comment.content);
-    requestAnimationFrame(() => editMention.inputRef.current?.focus());
-  }, [comment.content, editMention]);
+    setEditText(comment.content);
+    requestAnimationFrame(() => editInputRef.current?.focus());
+  }, [comment.content, setEditText, editInputRef]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    editMention.setText('');
-    editMention.closeMentions();
-  }, [editMention]);
+    setEditText('');
+    closeEditMentions();
+  }, [setEditText, closeEditMentions]);
 
   const handleSave = useCallback(async () => {
-    const content = editMention.text.trim();
+    const content = editText.trim();
     if (!content || isSaving) return;
     setIsSaving(true);
     try {
       await onSaveEdit(comment.id, content);
       setIsEditing(false);
-      editMention.setText('');
+      setEditText('');
     } finally {
       setIsSaving(false);
     }
-  }, [editMention.text, isSaving, comment.id, onSaveEdit, editMention]);
+  }, [editText, isSaving, comment.id, onSaveEdit, setEditText]);
 
   // Show "This message was deleted" placeholder
   if (isDeleted) {
@@ -305,15 +314,15 @@ const CommentItem = memo(function CommentItem({
               <div className="relative">
                 <MentionDropdown
                   users={mentionableUsers}
-                  filter={editMention.mentionQuery}
-                  onSelect={editMention.handleMentionSelect}
-                  visible={editMention.showMentions}
+                  filter={editMentionQuery}
+                  onSelect={handleEditMentionSelect}
+                  visible={editShowMentions}
                 />
                 <textarea
-                  ref={editMention.inputRef as React.RefObject<HTMLTextAreaElement>}
+                  ref={editInputRef as React.RefObject<HTMLTextAreaElement>}
                   data-testid={`comment-edit-textarea-${comment.id}`}
-                  value={editMention.text}
-                  onChange={editMention.handleChange}
+                  value={editText}
+                  onChange={handleEditChange}
                   className="w-full text-sm border rounded-md p-2 min-h-[60px] resize-none bg-background outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -332,7 +341,7 @@ const CommentItem = memo(function CommentItem({
                   className="bg-primary text-white hover:opacity-90 uppercase text-xs font-semibold"
                   data-testid={`save-edit-btn-${comment.id}`}
                   onClick={handleSave}
-                  disabled={!editMention.text.trim() || isSaving}
+                  disabled={!editText.trim() || isSaving}
                 >
                   Save
                 </Button>
@@ -393,7 +402,16 @@ function CommentPopoverInner({
   }, [autoOpen]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const draftMention = useMentionInput();
+  const {
+    text: draft,
+    setText: setDraft,
+    showMentions,
+    mentionQuery,
+    handleChange: handleTextChange,
+    handleMentionSelect,
+    closeMentions,
+    inputRef,
+  } = useMentionInput();
   const firstNewRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -431,13 +449,12 @@ function CommentPopoverInner({
       setOpen(isOpen);
       if (!isOpen) {
         // Reset state
-        draftMention.setText('');
-        draftMention.closeMentions();
+        setDraft('');
+        closeMentions();
 
         // Mark as read
         try {
-          await markAsRead({
-            snapshot_id: snapshotId,
+          await markAsRead(snapshotId, {
             target_type: targetType,
             chart_id: chartId,
           });
@@ -447,24 +464,23 @@ function CommentPopoverInner({
         }
       }
     },
-    [snapshotId, targetType, chartId, onStateChange, draftMention]
+    [snapshotId, targetType, chartId, onStateChange, setDraft, closeMentions]
   );
 
   // Submit new comment
   const handleSubmit = useCallback(async () => {
-    const content = draftMention.text.trim();
+    const content = draft.trim();
     if (!content || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      await createComment({
-        snapshot_id: snapshotId,
+      await createComment(snapshotId, {
         target_type: targetType,
         chart_id: chartId,
         content,
         mentioned_emails: extractMentionedEmails(content),
       });
-      draftMention.setText('');
+      setDraft('');
       await mutateComments();
       onStateChange?.();
       setTimeout(() => {
@@ -475,7 +491,16 @@ function CommentPopoverInner({
     } finally {
       setIsSubmitting(false);
     }
-  }, [draftMention, isSubmitting, snapshotId, targetType, chartId, mutateComments, onStateChange]);
+  }, [
+    draft,
+    isSubmitting,
+    snapshotId,
+    targetType,
+    chartId,
+    mutateComments,
+    onStateChange,
+    setDraft,
+  ]);
 
   // Keyboard shortcut: Enter to submit, Shift+Enter ignored (single-line input)
   const handleKeyDown = useCallback(
@@ -485,16 +510,16 @@ function CommentPopoverInner({
         handleSubmit();
       }
       if (e.key === 'Escape') {
-        draftMention.closeMentions();
+        closeMentions();
       }
     },
-    [handleSubmit, draftMention]
+    [handleSubmit, closeMentions]
   );
 
   const handleSaveEdit = useCallback(
     async (commentId: number, content: string) => {
       try {
-        await updateComment(commentId, {
+        await updateComment(snapshotId, commentId, {
           content,
           mentioned_emails: extractMentionedEmails(content),
         });
@@ -505,23 +530,23 @@ function CommentPopoverInner({
         throw error;
       }
     },
-    [mutateComments, onStateChange]
+    [snapshotId, mutateComments, onStateChange]
   );
 
   const handleDelete = useCallback(
     async (commentId: number) => {
       try {
-        await deleteComment(commentId);
+        await deleteComment(snapshotId, commentId);
         mutateComments();
         onStateChange?.();
       } catch (error) {
         toastError.delete(error, 'comment');
       }
     },
-    [mutateComments, onStateChange]
+    [snapshotId, mutateComments, onStateChange]
   );
 
-  const hasDraft = draftMention.text.trim().length > 0;
+  const hasDraft = draft.trim().length > 0;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -578,17 +603,17 @@ function CommentPopoverInner({
           <div className="relative">
             <MentionDropdown
               users={mentionableUsers}
-              filter={draftMention.mentionQuery}
-              onSelect={draftMention.handleMentionSelect}
-              visible={draftMention.showMentions}
+              filter={mentionQuery}
+              onSelect={handleMentionSelect}
+              visible={showMentions}
             />
             <div className="flex items-center gap-2">
               <input
-                ref={draftMention.inputRef as React.RefObject<HTMLInputElement>}
+                ref={inputRef as React.RefObject<HTMLInputElement>}
                 type="text"
                 data-testid="comment-input"
-                value={draftMention.text}
-                onChange={draftMention.handleChange}
+                value={draft}
+                onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Add a comment"
                 className="flex-1 h-8 text-sm bg-transparent border-none outline-none placeholder:text-muted-foreground"

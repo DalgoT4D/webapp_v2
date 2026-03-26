@@ -19,9 +19,9 @@ function lookupChartState(states: CommentStates | undefined, chartId: number): C
 
 describe('Comment states array lookups', () => {
   const sampleStates: CommentStates = [
-    { target_type: 'summary', chart_id: null, state: 'unread', count: 3, unread_count: 1 },
-    { target_type: 'chart', chart_id: 19, state: 'read', count: 2, unread_count: 0 },
-    { target_type: 'chart', chart_id: 34, state: 'mentioned', count: 1, unread_count: 1 },
+    { target_type: 'summary', chart_id: null, state: 'unread' },
+    { target_type: 'chart', chart_id: 19, state: 'read' },
+    { target_type: 'chart', chart_id: 34, state: 'mentioned' },
   ];
 
   describe('lookupSummaryState', () => {
@@ -38,9 +38,7 @@ describe('Comment states array lookups', () => {
     });
 
     it('returns "none" when no summary entry exists', () => {
-      const chartsOnly: CommentStates = [
-        { target_type: 'chart', chart_id: 10, state: 'read', count: 1, unread_count: 0 },
-      ];
+      const chartsOnly: CommentStates = [{ target_type: 'chart', chart_id: 10, state: 'read' }];
       expect(lookupSummaryState(chartsOnly)).toBe('none');
     });
   });
@@ -75,8 +73,6 @@ describe('Comment states array lookups', () => {
         expect(entry).toHaveProperty('target_type');
         expect(entry).toHaveProperty('chart_id');
         expect(entry).toHaveProperty('state');
-        expect(entry).toHaveProperty('count');
-        expect(entry).toHaveProperty('unread_count');
         expect(['summary', 'chart']).toContain(entry.target_type);
       }
     });

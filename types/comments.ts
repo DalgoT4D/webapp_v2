@@ -18,8 +18,6 @@ export interface CommentStateEntry {
   target_type: 'summary' | 'chart';
   chart_id: number | null;
   state: CommentIconState;
-  count: number; // total comments
-  unread_count: number; // unread comments
 }
 
 export type CommentStates = CommentStateEntry[];
@@ -29,7 +27,6 @@ export interface MentionableUser {
 }
 
 export interface CreateCommentPayload {
-  snapshot_id: number;
   target_type: 'summary' | 'chart';
   chart_id?: number;
   content: string;
@@ -42,7 +39,6 @@ export interface UpdateCommentPayload {
 }
 
 export interface MarkReadPayload {
-  snapshot_id: number;
   target_type: 'summary' | 'chart';
   chart_id?: number;
 }

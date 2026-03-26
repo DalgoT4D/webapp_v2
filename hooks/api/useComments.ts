@@ -23,12 +23,11 @@ export function useComments(
   chartId?: number
 ) {
   const params = new URLSearchParams();
-  if (snapshotId) params.set('snapshot_id', String(snapshotId));
   params.set('target_type', targetType);
   if (chartId !== undefined) params.set('chart_id', String(chartId));
 
   const { data, error, isLoading, mutate } = useSWR<ApiResponse<Comment[]>>(
-    snapshotId ? `/api/comments/?${params.toString()}` : null,
+    snapshotId ? `/api/reports/${snapshotId}/comments/?${params.toString()}` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -43,7 +42,7 @@ export function useComments(
 
 export function useCommentStates(snapshotId: number | null) {
   const { data, error, isLoading, mutate } = useSWR<ApiResponse<{ states: CommentStates }>>(
-    snapshotId ? `/api/comments/states/?snapshot_id=${snapshotId}` : null,
+    snapshotId ? `/api/reports/${snapshotId}/comments/states/` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -58,7 +57,7 @@ export function useCommentStates(snapshotId: number | null) {
 
 export function useMentionableUsers() {
   const { data, error, isLoading } = useSWR<ApiResponse<MentionableUser[]>>(
-    '/api/comments/mentionable-users/',
+    '/api/reports/mentionable-users/',
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -72,23 +71,33 @@ export function useMentionableUsers() {
 
 // ---- Mutation functions ----
 
-export async function createComment(payload: CreateCommentPayload): Promise<Comment> {
-  const response: ApiResponse<Comment> = await apiPost('/api/comments/', payload);
+export async function createComment(
+  snapshotId: number,
+  payload: CreateCommentPayload
+): Promise<Comment> {
+  const response: ApiResponse<Comment> = await apiPost(
+    `/api/reports/${snapshotId}/comments/`,
+    payload
+  );
   return response.data;
 }
 
 export async function updateComment(
+  snapshotId: number,
   commentId: number,
   payload: UpdateCommentPayload
 ): Promise<Comment> {
-  const response: ApiResponse<Comment> = await apiPut(`/api/comments/${commentId}/`, payload);
+  const response: ApiResponse<Comment> = await apiPut(
+    `/api/reports/${snapshotId}/comments/${commentId}/`,
+    payload
+  );
   return response.data;
 }
 
-export async function deleteComment(commentId: number): Promise<void> {
-  await apiDelete(`/api/comments/${commentId}/`);
+export async function deleteComment(snapshotId: number, commentId: number): Promise<void> {
+  await apiDelete(`/api/reports/${snapshotId}/comments/${commentId}/`);
 }
 
-export async function markAsRead(payload: MarkReadPayload): Promise<void> {
-  await apiPost('/api/comments/mark-read/', payload);
+export async function markAsRead(snapshotId: number, payload: MarkReadPayload): Promise<void> {
+  await apiPost(`/api/reports/${snapshotId}/comments/mark-read/`, payload);
 }
