@@ -42,9 +42,20 @@ import {
   markAsRead,
 } from '@/hooks/api/useComments';
 import type { Comment, CommentIconState, MentionableUser } from '@/types/comments';
+import { useMentionInput } from '@/hooks/useMentionInput';
 
 // Width of comment popover panel — matches Figma spec for comment thread panels
 const COMMENT_POPOVER_WIDTH = 'w-[383px]';
+
+// Max users shown in the mention dropdown before scrolling
+const MENTION_DROPDOWN_LIMIT = 5;
+
+// Delay (ms) before scrolling to latest comment — allows DOM to settle after render
+const SCROLL_DELAY_MS = 100;
+
+// Threshold (ms) between created_at and updated_at to consider a comment "edited"
+// Small buffer accounts for backend processing time on initial create
+const EDITED_THRESHOLD_MS = 1000;
 
 interface CommentPopoverProps {
   snapshotId: number;
@@ -72,9 +83,11 @@ const MentionDropdown = memo(function MentionDropdown({
   visible,
 }: MentionDropdownProps) {
   const filtered = useMemo(() => {
-    if (!filter) return users.slice(0, 5);
+    if (!filter) return users.slice(0, MENTION_DROPDOWN_LIMIT);
     const lowerFilter = filter.toLowerCase();
-    return users.filter((u) => u.email.toLowerCase().includes(lowerFilter)).slice(0, 5);
+    return users
+      .filter((u) => u.email.toLowerCase().includes(lowerFilter))
+      .slice(0, MENTION_DROPDOWN_LIMIT);
   }, [users, filter]);
 
   if (!visible || filtered.length === 0) return null;
@@ -117,13 +130,13 @@ const CommentContent = memo(function CommentContent({ content }: { content: stri
 
   return (
     <p className="text-sm mt-0.5 whitespace-pre-wrap break-all">
-      {parts.map((part, i) =>
+      {parts.map((part) =>
         part.type === 'mention' ? (
-          <span key={i} className="text-primary font-medium">
+          <span key={`mention-${part.value}`} className="text-primary font-medium">
             {part.value}
           </span>
         ) : (
-          <span key={i}>{part.value}</span>
+          <span key={`text-${part.value}`}>{part.value}</span>
         )
       )}
     </p>
@@ -156,71 +169,35 @@ const CommentItem = memo(function CommentItem({
   const isAuthor = comment.author_email === currentUserEmail;
   const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showMentions, setShowMentions] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState('');
-  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  const editMention = useMentionInput();
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
-    setEditText(comment.content);
-    requestAnimationFrame(() => editRef.current?.focus());
-  }, [comment.content]);
+    editMention.setText(comment.content);
+    requestAnimationFrame(() => editMention.inputRef.current?.focus());
+  }, [comment.content, editMention]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    setEditText('');
-    setShowMentions(false);
-  }, []);
+    editMention.setText('');
+    editMention.closeMentions();
+  }, [editMention]);
 
   const handleSave = useCallback(async () => {
-    const content = editText.trim();
+    const content = editMention.text.trim();
     if (!content || isSaving) return;
     setIsSaving(true);
     try {
       await onSaveEdit(comment.id, content);
       setIsEditing(false);
-      setEditText('');
+      editMention.setText('');
     } finally {
       setIsSaving(false);
     }
-  }, [editText, isSaving, comment.id, onSaveEdit]);
-
-  const handleEditTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setEditText(value);
-
-    const cursorPos = e.target.selectionStart ?? value.length;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const atMatch = textBeforeCursor.match(/@(\S*)$/);
-
-    if (atMatch) {
-      setMentionQuery(atMatch[1]);
-      setShowMentions(true);
-    } else {
-      setShowMentions(false);
-    }
-  }, []);
-
-  const handleEditMentionSelect = useCallback(
-    (user: MentionableUser) => {
-      const cursorPos = editRef.current?.selectionStart ?? editText.length;
-      const textBeforeCursor = editText.slice(0, cursorPos);
-      const atIndex = textBeforeCursor.lastIndexOf('@');
-
-      if (atIndex !== -1) {
-        const before = editText.slice(0, atIndex);
-        const after = editText.slice(cursorPos);
-        setEditText(`${before}@${user.email} ${after}`);
-      }
-
-      setShowMentions(false);
-      requestAnimationFrame(() => editRef.current?.focus());
-    },
-    [editText]
-  );
+  }, [editMention.text, isSaving, comment.id, onSaveEdit, editMention]);
 
   // Show "This message was deleted" placeholder
   if (isDeleted) {
@@ -277,7 +254,7 @@ const CommentItem = memo(function CommentItem({
                 </span>
                 {Math.abs(
                   new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime()
-                ) > 1000 && (
+                ) > EDITED_THRESHOLD_MS && (
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     &middot; edited
                   </span>
@@ -328,15 +305,15 @@ const CommentItem = memo(function CommentItem({
               <div className="relative">
                 <MentionDropdown
                   users={mentionableUsers}
-                  filter={mentionQuery}
-                  onSelect={handleEditMentionSelect}
-                  visible={showMentions}
+                  filter={editMention.mentionQuery}
+                  onSelect={editMention.handleMentionSelect}
+                  visible={editMention.showMentions}
                 />
                 <textarea
-                  ref={editRef}
+                  ref={editMention.inputRef as React.RefObject<HTMLTextAreaElement>}
                   data-testid={`comment-edit-textarea-${comment.id}`}
-                  value={editText}
-                  onChange={handleEditTextChange}
+                  value={editMention.text}
+                  onChange={editMention.handleChange}
                   className="w-full text-sm border rounded-md p-2 min-h-[60px] resize-none bg-background outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -355,7 +332,7 @@ const CommentItem = memo(function CommentItem({
                   className="bg-primary text-white hover:opacity-90 uppercase text-xs font-semibold"
                   data-testid={`save-edit-btn-${comment.id}`}
                   onClick={handleSave}
-                  disabled={!editText.trim() || isSaving}
+                  disabled={!editMention.text.trim() || isSaving}
                 >
                   Save
                 </Button>
@@ -414,12 +391,9 @@ function CommentPopoverInner({
       setOpen(true);
     }
   }, [autoOpen]);
-  const [draft, setDraft] = useState('');
-  const [mentionQuery, setMentionQuery] = useState('');
-  const [showMentions, setShowMentions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const draftMention = useMentionInput();
   const firstNewRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -447,7 +421,7 @@ function CommentPopoverInner({
 
     const timer = setTimeout(() => {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    }, SCROLL_DELAY_MS);
     return () => clearTimeout(timer);
   }, [open, comments.length]);
 
@@ -457,8 +431,8 @@ function CommentPopoverInner({
       setOpen(isOpen);
       if (!isOpen) {
         // Reset state
-        setDraft('');
-        setShowMentions(false);
+        draftMention.setText('');
+        draftMention.closeMentions();
 
         // Mark as read
         try {
@@ -473,52 +447,12 @@ function CommentPopoverInner({
         }
       }
     },
-    [snapshotId, targetType, chartId, onStateChange]
-  );
-
-  // Handle @ mention detection in input
-  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setDraft(value);
-
-    // Detect @ mention
-    const cursorPos = e.target.selectionStart ?? value.length;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const atMatch = textBeforeCursor.match(/@(\S*)$/);
-
-    if (atMatch) {
-      setMentionQuery(atMatch[1]);
-      setShowMentions(true);
-    } else {
-      setShowMentions(false);
-    }
-  }, []);
-
-  // Insert selected mention into input
-  const handleMentionSelect = useCallback(
-    (user: MentionableUser) => {
-      const cursorPos = inputRef.current?.selectionStart ?? draft.length;
-      const textBeforeCursor = draft.slice(0, cursorPos);
-      const atIndex = textBeforeCursor.lastIndexOf('@');
-
-      if (atIndex !== -1) {
-        const before = draft.slice(0, atIndex);
-        const after = draft.slice(cursorPos);
-        const newDraft = `${before}@${user.email} ${after}`;
-        setDraft(newDraft);
-      }
-
-      setShowMentions(false);
-
-      // Re-focus input
-      requestAnimationFrame(() => inputRef.current?.focus());
-    },
-    [draft]
+    [snapshotId, targetType, chartId, onStateChange, draftMention]
   );
 
   // Submit new comment
   const handleSubmit = useCallback(async () => {
-    const content = draft.trim();
+    const content = draftMention.text.trim();
     if (!content || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -530,18 +464,18 @@ function CommentPopoverInner({
         content,
         mentioned_emails: extractMentionedEmails(content),
       });
-      setDraft('');
+      draftMention.setText('');
       await mutateComments();
       onStateChange?.();
       setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      }, SCROLL_DELAY_MS);
     } catch (error) {
       toastError.create(error, 'comment');
     } finally {
       setIsSubmitting(false);
     }
-  }, [draft, isSubmitting, snapshotId, targetType, chartId, mutateComments, onStateChange]);
+  }, [draftMention, isSubmitting, snapshotId, targetType, chartId, mutateComments, onStateChange]);
 
   // Keyboard shortcut: Enter to submit, Shift+Enter ignored (single-line input)
   const handleKeyDown = useCallback(
@@ -551,10 +485,10 @@ function CommentPopoverInner({
         handleSubmit();
       }
       if (e.key === 'Escape') {
-        setShowMentions(false);
+        draftMention.closeMentions();
       }
     },
-    [handleSubmit]
+    [handleSubmit, draftMention]
   );
 
   const handleSaveEdit = useCallback(
@@ -587,7 +521,7 @@ function CommentPopoverInner({
     [mutateComments, onStateChange]
   );
 
-  const hasDraft = draft.trim().length > 0;
+  const hasDraft = draftMention.text.trim().length > 0;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -644,17 +578,17 @@ function CommentPopoverInner({
           <div className="relative">
             <MentionDropdown
               users={mentionableUsers}
-              filter={mentionQuery}
-              onSelect={handleMentionSelect}
-              visible={showMentions}
+              filter={draftMention.mentionQuery}
+              onSelect={draftMention.handleMentionSelect}
+              visible={draftMention.showMentions}
             />
             <div className="flex items-center gap-2">
               <input
-                ref={inputRef}
+                ref={draftMention.inputRef as React.RefObject<HTMLInputElement>}
                 type="text"
                 data-testid="comment-input"
-                value={draft}
-                onChange={handleTextChange}
+                value={draftMention.text}
+                onChange={draftMention.handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Add a comment"
                 className="flex-1 h-8 text-sm bg-transparent border-none outline-none placeholder:text-muted-foreground"
