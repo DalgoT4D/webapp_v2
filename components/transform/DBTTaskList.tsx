@@ -331,28 +331,19 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
                               )}
                             </Button>
 
-                            {/* Show menu on ALL tasks, but only show delete for client tasks */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={!!runningTask || isAnyTaskLocked}
-                                  data-testid={`task-menu-${task.uuid}`}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  disabled={true}
-                                  data-testid={`edit-task-${task.uuid}`}
-                                >
-                                  <Settings className="h-4 w-4 mr-2" />
-                                  Configure
-                                </DropdownMenuItem>
-                                {/* Only show delete for client-generated tasks */}
-                                {task.generated_by === 'client' && (
+                            {task.generated_by === 'client' ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    data-testid={`task-menu-${task.uuid}`}
+                                    className={runningTask || isAnyTaskLocked ? 'invisible' : ''}
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
                                   <DropdownMenuItem
                                     disabled={!canDeleteTask}
                                     onClick={() => setDeleteTaskId(task.uuid)}
@@ -362,9 +353,18 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete
                                   </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="pointer-events-none"
+                                tabIndex={-1}
+                              >
+                                <Settings className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
