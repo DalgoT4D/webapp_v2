@@ -31,7 +31,7 @@ interface ExploreState {
 }
 
 const initialState = {
-  selectedTable: null,
+  selectedTable: null as SelectedTable | null,
   activeTab: 'preview' as const,
   sidebarWidth: 280,
   searchTerm: '',

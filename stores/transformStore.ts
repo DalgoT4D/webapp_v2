@@ -2,7 +2,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist, devtools } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 import type {
   SelectedNodeData,
   DbtModelResponse,
@@ -159,97 +159,89 @@ const initialState = {
 
 export const useTransformStore = create<TransformState>()(
   devtools(
-    persist(
-      (set, get) => ({
-        ...initialState,
+    (set, get) => ({
+      ...initialState,
 
-        setActiveTab: (tab) => set({ activeTab: tab }),
-        setWorkspaceSetup: (setup) => set({ workspaceSetup: setup }),
-        setGitConnected: (connected) => set({ gitConnected: connected }),
+      setActiveTab: (tab) => set({ activeTab: tab }),
+      setWorkspaceSetup: (setup) => set({ workspaceSetup: setup }),
+      setGitConnected: (connected) => set({ gitConnected: connected }),
 
-        // Node Selection
-        setSelectedNode: (node) => set({ selectedNode: node }),
-        clearSelectedNode: () => set({ selectedNode: null }),
+      // Node Selection
+      setSelectedNode: (node) => set({ selectedNode: node }),
+      clearSelectedNode: () => set({ selectedNode: null }),
 
-        // Canvas Actions
-        dispatchCanvasAction: (action) => set({ canvasAction: action }),
-        clearCanvasAction: () => set({ canvasAction: { type: null, data: null } }),
+      // Canvas Actions
+      dispatchCanvasAction: (action) => set({ canvasAction: action }),
+      clearCanvasAction: () => set({ canvasAction: { type: null, data: null } }),
 
-        // Data Sources
-        setSourcesModels: (models) => set({ sourcesModels: models }),
+      // Data Sources
+      setSourcesModels: (models) => set({ sourcesModels: models }),
 
-        // Canvas State
-        triggerRefresh: () => set((state) => ({ refreshTrigger: state.refreshTrigger + 1 })),
-        setCanvasLoading: (loading) => set({ isCanvasLoading: loading }),
+      // Canvas State
+      triggerRefresh: () => set((state) => ({ refreshTrigger: state.refreshTrigger + 1 })),
+      setCanvasLoading: (loading) => set({ isCanvasLoading: loading }),
 
-        // Locking
-        setLockUpperSection: (lock) => set({ lockUpperSection: lock }),
-        setTempLockCanvas: (lock) => set({ tempLockCanvas: lock }),
-        setCanvasLockStatus: (status) => set({ canvasLockStatus: status }),
-        setViewOnlyMode: (viewOnly) => set({ isViewOnlyMode: viewOnly }),
+      // Locking
+      setLockUpperSection: (lock) => set({ lockUpperSection: lock }),
+      setTempLockCanvas: (lock) => set({ tempLockCanvas: lock }),
+      setCanvasLockStatus: (status) => set({ canvasLockStatus: status }),
+      setViewOnlyMode: (viewOnly) => set({ isViewOnlyMode: viewOnly }),
 
-        // UI Panels
-        openOperationPanel: () => set({ operationPanelOpen: true }),
-        closeOperationPanel: () => set({ operationPanelOpen: false, selectedNode: null }),
-        setSelectedLowerTab: (tab) => set({ selectedLowerTab: tab }),
-        setLowerSectionHeight: (height) => set({ lowerSectionHeight: height }),
+      // UI Panels
+      openOperationPanel: () => set({ operationPanelOpen: true }),
+      closeOperationPanel: () => set({ operationPanelOpen: false, selectedNode: null }),
+      setSelectedLowerTab: (tab) => set({ selectedLowerTab: tab }),
+      setLowerSectionHeight: (height) => set({ lowerSectionHeight: height }),
 
-        // Modals
-        openPublishModal: () => set({ publishModalOpen: true }),
-        closePublishModal: () => set({ publishModalOpen: false }),
-        openPatModal: () => set({ patModalOpen: true }),
-        closePatModal: () => set({ patModalOpen: false }),
-        openRunWorkflowModal: () => set({ runWorkflowModalOpen: true }),
-        closeRunWorkflowModal: () => set({ runWorkflowModalOpen: false }),
+      // Modals
+      openPublishModal: () => set({ publishModalOpen: true }),
+      closePublishModal: () => set({ publishModalOpen: false }),
+      openPatModal: () => set({ patModalOpen: true }),
+      closePatModal: () => set({ patModalOpen: false }),
+      openRunWorkflowModal: () => set({ runWorkflowModalOpen: true }),
+      closeRunWorkflowModal: () => set({ runWorkflowModalOpen: false }),
 
-        // Git Integration
-        setGitRepoUrl: (url) => set({ gitRepoUrl: url }),
-        setPatRequired: (required) => set({ patRequired: required }),
+      // Git Integration
+      setGitRepoUrl: (url) => set({ gitRepoUrl: url }),
+      setPatRequired: (required) => set({ patRequired: required }),
 
-        // Sync
-        setSyncingSources: (syncing) => set({ isSyncingSources: syncing }),
+      // Sync
+      setSyncingSources: (syncing) => set({ isSyncingSources: syncing }),
 
-        // Preview
-        setPreviewData: (data) => set({ previewData: data }),
+      // Preview
+      setPreviewData: (data) => set({ previewData: data }),
 
-        // Workflow
-        setWorkflowRunning: (running) => set({ isWorkflowRunning: running }),
-        setCurrentTaskId: (taskId) => set({ currentTaskId: taskId }),
+      // Workflow
+      setWorkflowRunning: (running) => set({ isWorkflowRunning: running }),
+      setCurrentTaskId: (taskId) => set({ currentTaskId: taskId }),
 
-        // DBT Run Logs
-        setDbtRunLogs: (logs) => set({ dbtRunLogs: logs }),
-        appendDbtRunLog: (log) => set((state) => ({ dbtRunLogs: [...state.dbtRunLogs, log] })),
-        clearDbtRunLogs: () => set({ dbtRunLogs: [] }),
+      // DBT Run Logs
+      setDbtRunLogs: (logs) => set({ dbtRunLogs: logs }),
+      appendDbtRunLog: (log) => set((state) => ({ dbtRunLogs: [...state.dbtRunLogs, log] })),
+      clearDbtRunLogs: () => set({ dbtRunLogs: [] }),
 
-        // Preview Action
-        setPreviewAction: (action) => set({ previewAction: action }),
-        clearPreviewAction: () => set({ previewAction: { type: null, data: null } }),
+      // Preview Action
+      setPreviewAction: (action) => set({ previewAction: action }),
+      clearPreviewAction: () => set({ previewAction: { type: null, data: null } }),
 
-        // Computed
-        getFinalLockCanvas: () => {
-          const state = get();
-          return state.tempLockCanvas || state.lockUpperSection;
-        },
-        canInteractWithCanvas: () => {
-          const state = get();
-          const finalLock = state.tempLockCanvas || state.lockUpperSection;
-          const isLockedByOther =
-            state.canvasLockStatus?.is_locked === true &&
-            !state.canvasLockStatus?.locked_by_current_user;
-          const patBlocking = state.patRequired && state.isViewOnlyMode;
-          return !finalLock && !state.isViewOnlyMode && !isLockedByOther && !patBlocking;
-        },
+      // Computed
+      getFinalLockCanvas: () => {
+        const state = get();
+        return state.tempLockCanvas || state.lockUpperSection;
+      },
+      canInteractWithCanvas: () => {
+        const state = get();
+        const finalLock = state.tempLockCanvas || state.lockUpperSection;
+        const isLockedByOther =
+          state.canvasLockStatus?.is_locked === true &&
+          !state.canvasLockStatus?.locked_by_current_user;
+        const patBlocking = state.patRequired && state.isViewOnlyMode;
+        return !finalLock && !state.isViewOnlyMode && !isLockedByOther && !patBlocking;
+      },
 
-        // Reset
-        reset: () => set(initialState),
-      }),
-      {
-        name: 'transform-storage',
-        partialize: (state) => ({
-          activeTab: state.activeTab,
-        }),
-      }
-    ),
+      // Reset
+      reset: () => set(initialState),
+    }),
     { name: 'transform-store' }
   )
 );
