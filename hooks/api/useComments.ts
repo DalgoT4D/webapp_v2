@@ -55,9 +55,9 @@ export function useCommentStates(snapshotId: number | null) {
   };
 }
 
-export function useMentionableUsers() {
+export function useMentionableUsers(enabled: boolean = true) {
   const { data, error, isLoading } = useSWR<ApiResponse<MentionableUser[]>>(
-    '/api/reports/mentionable-users/',
+    enabled ? '/api/reports/mentionable-users/' : null,
     apiGet,
     { revalidateOnFocus: false }
   );

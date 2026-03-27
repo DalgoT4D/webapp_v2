@@ -420,7 +420,7 @@ function CommentPopoverInner({
     targetType,
     chartId
   );
-  const { users: mentionableUsers } = useMentionableUsers();
+  const { users: mentionableUsers } = useMentionableUsers(open);
 
   // Get current user email from auth store
   const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');
