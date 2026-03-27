@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import GridLayoutLib, {
   Responsive as ResponsiveGridLayout,
@@ -58,11 +58,16 @@ import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
+import { TabBar } from './tabs/TabBar';
+import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import { getDefaultTabsConfig } from './tabs/tab-utils';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
   type NumericalFilterSettings,
   type DateTimeFilterSettings,
+  type AppliedFilters,
+  type DashboardFilterConfig,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from '@/components/ui/share-modal';
@@ -70,7 +75,6 @@ import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/u
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
 import type { CommentStates } from '@/types/comments';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
@@ -267,6 +271,9 @@ export function DashboardNativeView({
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
 
+  // Tabs state for view mode - only need to track active tab for switching
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -372,6 +379,32 @@ export function DashboardNativeView({
       }
     }
   }, [isReportMode, dashboardFilters]);
+
+  // Derive tabs data from dashboard
+  const tabsData: DashboardTabsData | null = useMemo(() => {
+    if (!dashboard) return null;
+    // Backend returns tabs as an array, convert to DashboardTabsData structure
+    if (dashboard.tabs && Array.isArray(dashboard.tabs) && dashboard.tabs.length > 0) {
+      return {
+        tabs: dashboard.tabs as DashboardTab[],
+        activeTabId: dashboard.tabs[0].id,
+      };
+    }
+    // For dashboards without tabs, create a default single tab
+    return getDefaultTabsConfig();
+  }, [dashboard]);
+
+  // Get effective active tab ID
+  const effectiveActiveTabId =
+    activeTabId || tabsData?.activeTabId || tabsData?.tabs?.[0]?.id || null;
+
+  // Handle tab change in view mode
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTabId(tabId);
+  }, []);
+
+  // Check if we should show tabs (2 or more tabs)
+  const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
 
@@ -1069,6 +1102,18 @@ export function DashboardNativeView({
             <h1 className="text-3xl font-bold">{dashboard.title}</h1>
           </div>
         </div>
+      )}
+      {/* Tab Bar - Only show when 2 or more tabs exist */}
+      {shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
+        <TabBar
+          tabs={tabsData.tabs}
+          activeTabId={effectiveActiveTabId}
+          isEditMode={false}
+          onTabChange={handleTabChange}
+          onTabAdd={() => {}} // No-op in view mode
+          onTabRemove={() => {}} // No-op in view mode
+          onTabRename={() => {}} // No-op in view mode
+        />
       )}
       {/* Mobile/Tablet Filters Section - Only show on non-desktop */}
       {!isEmbedMode && (
