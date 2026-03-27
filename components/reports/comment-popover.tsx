@@ -70,43 +70,59 @@ interface CommentPopoverProps {
 // ---- Mention Dropdown ----
 
 interface MentionDropdownProps {
-  users: MentionableUser[];
-  filter: string;
+  filteredUsers: MentionableUser[];
   onSelect: (user: MentionableUser) => void;
   visible: boolean;
+  highlightedIndex: number;
+  onHighlightChange: (index: number) => void;
+  listboxId: string;
 }
 
 const MentionDropdown = memo(function MentionDropdown({
-  users,
-  filter,
+  filteredUsers,
   onSelect,
   visible,
+  highlightedIndex,
+  onHighlightChange,
+  listboxId,
 }: MentionDropdownProps) {
-  const filtered = useMemo(() => {
-    if (!filter) return users.slice(0, MENTION_DROPDOWN_LIMIT);
-    const lowerFilter = filter.toLowerCase();
-    return users
-      .filter((u) => u.email.toLowerCase().includes(lowerFilter))
-      .slice(0, MENTION_DROPDOWN_LIMIT);
-  }, [users, filter]);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  if (!visible || filtered.length === 0) return null;
+  // Auto-scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll('[role="option"]');
+      items[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex]);
+
+  if (!visible || filteredUsers.length === 0) return null;
 
   return (
     <div
+      ref={listRef}
+      id={listboxId}
+      role="listbox"
       data-testid="mention-dropdown"
       className="absolute top-full left-0 right-0 bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto mt-1 z-10"
     >
-      {filtered.map((user) => (
+      {filteredUsers.map((user, idx) => (
         <button
           key={user.email}
+          id={`${listboxId}-option-${user.email}`}
+          role="option"
+          aria-selected={idx === highlightedIndex}
           type="button"
           data-testid={`mention-user-${user.email}`}
-          className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+          className={cn(
+            'w-full text-left px-3 py-2 text-sm flex items-center gap-2',
+            idx === highlightedIndex ? 'bg-accent' : 'hover:bg-accent'
+          )}
           onMouseDown={(e) => {
             e.preventDefault();
             onSelect(user);
           }}
+          onMouseEnter={() => onHighlightChange(idx)}
         >
           <Avatar className="h-5 w-5 text-[10px] flex-shrink-0">
             <AvatarFallback
@@ -178,11 +194,65 @@ const CommentItem = memo(function CommentItem({
     setText: setEditText,
     showMentions: editShowMentions,
     mentionQuery: editMentionQuery,
+    highlightedIndex: editHighlightedIndex,
+    setHighlightedIndex: setEditHighlightedIndex,
     handleChange: handleEditChange,
     handleMentionSelect: handleEditMentionSelect,
     closeMentions: closeEditMentions,
     inputRef: editInputRef,
   } = useMentionInput();
+
+  const editListboxId = `edit-mention-listbox-${comment.id}`;
+
+  // Compute filtered users for edit mention dropdown
+  const editFilteredUsers = useMemo(() => {
+    if (!editMentionQuery) return mentionableUsers.slice(0, MENTION_DROPDOWN_LIMIT);
+    const lowerFilter = editMentionQuery.toLowerCase();
+    return mentionableUsers
+      .filter((u) => u.email.toLowerCase().includes(lowerFilter))
+      .slice(0, MENTION_DROPDOWN_LIMIT);
+  }, [mentionableUsers, editMentionQuery]);
+
+  // Keyboard handler for edit textarea mention navigation
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (editShowMentions && editFilteredUsers.length > 0) {
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            setEditHighlightedIndex((prev) =>
+              prev >= editFilteredUsers.length - 1 ? 0 : prev + 1
+            );
+            return;
+          case 'ArrowUp':
+            e.preventDefault();
+            setEditHighlightedIndex((prev) =>
+              prev <= 0 ? editFilteredUsers.length - 1 : prev - 1
+            );
+            return;
+          case 'Enter':
+            if (editHighlightedIndex >= 0 && editFilteredUsers[editHighlightedIndex]) {
+              e.preventDefault();
+              handleEditMentionSelect(editFilteredUsers[editHighlightedIndex]);
+              return;
+            }
+            break;
+          case 'Escape':
+            e.preventDefault();
+            closeEditMentions();
+            return;
+        }
+      }
+    },
+    [
+      editShowMentions,
+      editFilteredUsers,
+      editHighlightedIndex,
+      handleEditMentionSelect,
+      closeEditMentions,
+      setEditHighlightedIndex,
+    ]
+  );
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -314,16 +384,27 @@ const CommentItem = memo(function CommentItem({
             <>
               <div className="relative">
                 <MentionDropdown
-                  users={mentionableUsers}
-                  filter={editMentionQuery}
+                  filteredUsers={editFilteredUsers}
                   onSelect={handleEditMentionSelect}
                   visible={editShowMentions}
+                  highlightedIndex={editHighlightedIndex}
+                  onHighlightChange={setEditHighlightedIndex}
+                  listboxId={editListboxId}
                 />
                 <textarea
                   ref={editInputRef as React.RefObject<HTMLTextAreaElement>}
                   data-testid={`comment-edit-textarea-${comment.id}`}
                   value={editText}
                   onChange={handleEditChange}
+                  onKeyDown={handleEditKeyDown}
+                  role="combobox"
+                  aria-expanded={editShowMentions}
+                  aria-controls={editListboxId}
+                  aria-activedescendant={
+                    editHighlightedIndex >= 0 && editFilteredUsers[editHighlightedIndex]
+                      ? `${editListboxId}-option-${editFilteredUsers[editHighlightedIndex].email}`
+                      : undefined
+                  }
                   className="w-full text-sm border rounded-md p-2 min-h-[60px] resize-none bg-background outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -408,6 +489,8 @@ function CommentPopoverInner({
     setText: setDraft,
     showMentions,
     mentionQuery,
+    highlightedIndex,
+    setHighlightedIndex,
     handleChange: handleTextChange,
     handleMentionSelect,
     closeMentions,
@@ -421,7 +504,16 @@ function CommentPopoverInner({
     targetType,
     chartId
   );
-  const { users: mentionableUsers } = useMentionableUsers();
+  const { users: mentionableUsers } = useMentionableUsers(open);
+
+  // Compute filtered users for mention dropdown (lifted from MentionDropdown for keyboard nav access)
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionQuery) return mentionableUsers.slice(0, MENTION_DROPDOWN_LIMIT);
+    const lowerFilter = mentionQuery.toLowerCase();
+    return mentionableUsers
+      .filter((u) => u.email.toLowerCase().includes(lowerFilter))
+      .slice(0, MENTION_DROPDOWN_LIMIT);
+  }, [mentionableUsers, mentionQuery]);
 
   // Get current user email from auth store
   const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');
@@ -513,9 +605,32 @@ function CommentPopoverInner({
     setDraft,
   ]);
 
-  // Keyboard shortcut: Enter to submit, Shift+Enter ignored (single-line input)
+  // Keyboard: Arrow keys for mention navigation, Enter to select/submit, Escape to close
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (showMentions && filteredMentionUsers.length > 0) {
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            setHighlightedIndex((prev) => (prev >= filteredMentionUsers.length - 1 ? 0 : prev + 1));
+            return;
+          case 'ArrowUp':
+            e.preventDefault();
+            setHighlightedIndex((prev) => (prev <= 0 ? filteredMentionUsers.length - 1 : prev - 1));
+            return;
+          case 'Enter':
+            if (highlightedIndex >= 0 && filteredMentionUsers[highlightedIndex]) {
+              e.preventDefault();
+              handleMentionSelect(filteredMentionUsers[highlightedIndex]);
+              return;
+            }
+            break; // fall through to normal Enter handling
+          case 'Escape':
+            e.preventDefault();
+            closeMentions();
+            return;
+        }
+      }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
@@ -524,7 +639,15 @@ function CommentPopoverInner({
         closeMentions();
       }
     },
-    [handleSubmit, closeMentions]
+    [
+      showMentions,
+      filteredMentionUsers,
+      highlightedIndex,
+      handleMentionSelect,
+      handleSubmit,
+      closeMentions,
+      setHighlightedIndex,
+    ]
   );
 
   const handleSaveEdit = useCallback(
@@ -613,10 +736,12 @@ function CommentPopoverInner({
         <div className={cn('p-3 flex-shrink-0', visibleComments.length > 0 && 'border-t')}>
           <div className="relative">
             <MentionDropdown
-              users={mentionableUsers}
-              filter={mentionQuery}
+              filteredUsers={filteredMentionUsers}
               onSelect={handleMentionSelect}
               visible={showMentions}
+              highlightedIndex={highlightedIndex}
+              onHighlightChange={setHighlightedIndex}
+              listboxId="mention-listbox"
             />
             <div className="flex items-center gap-2">
               <input
@@ -627,6 +752,14 @@ function CommentPopoverInner({
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Add a comment"
+                role="combobox"
+                aria-expanded={showMentions}
+                aria-controls="mention-listbox"
+                aria-activedescendant={
+                  highlightedIndex >= 0 && filteredMentionUsers[highlightedIndex]
+                    ? `mention-listbox-option-${filteredMentionUsers[highlightedIndex].email}`
+                    : undefined
+                }
                 className="flex-1 h-8 text-sm bg-transparent border-none outline-none placeholder:text-muted-foreground"
               />
               <button

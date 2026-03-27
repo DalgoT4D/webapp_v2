@@ -110,6 +110,10 @@ describe('Comment Utilities', () => {
     it('returns uppercase even for lowercase email', () => {
       expect(getInitials('alice@test.com')).toBe('A');
     });
+
+    it('returns fallback for empty string', () => {
+      expect(getInitials('')).toBe('?');
+    });
   });
 
   describe('parseCommentMentions', () => {
