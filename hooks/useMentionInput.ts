@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { MentionableUser } from '@/types/comments';
 
 // Regex to detect @mention-in-progress at the cursor position
@@ -9,6 +9,10 @@ interface UseMentionInputReturn {
   setText: (value: string) => void;
   showMentions: boolean;
   mentionQuery: string;
+  /** Index of the currently highlighted item in the mention dropdown (-1 = none) */
+  highlightedIndex: number;
+  /** Update the highlighted index (e.g. on arrow keys or mouse hover) */
+  setHighlightedIndex: React.Dispatch<React.SetStateAction<number>>;
   /** Bind to onChange of an <input> or <textarea> */
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   /** Call when a user is selected from the mention dropdown */
@@ -27,10 +31,16 @@ export function useMentionInput(): UseMentionInputReturn {
   const [text, setText] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   // Keep a ref to the latest text so callbacks always see the current value
   const textRef = useRef(text);
   textRef.current = text;
+
+  // Reset highlight when mention dropdown visibility or query changes
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [showMentions, mentionQuery]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -76,6 +86,8 @@ export function useMentionInput(): UseMentionInputReturn {
     setText,
     showMentions,
     mentionQuery,
+    highlightedIndex,
+    setHighlightedIndex,
     handleChange,
     handleMentionSelect,
     closeMentions,
