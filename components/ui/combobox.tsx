@@ -13,6 +13,7 @@ export interface ComboboxItem {
   value: string;
   label: string;
   disabled?: boolean;
+  group?: string;
   [key: string]: any;
 }
 
@@ -265,7 +266,9 @@ function SingleComboboxInner({
         i &&
         i.label &&
         i.value &&
-        (i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q))
+        (i.label.toLowerCase().includes(q) ||
+          i.value.toLowerCase().includes(q) ||
+          i.group?.toLowerCase().includes(q))
     );
   }, [safeItems, search]);
 
@@ -412,37 +415,51 @@ function SingleComboboxInner({
               const isSelected = item.value === value;
               const isHl = idx === highlightedIndex;
               const isItemDisabled = item.disabled === true;
+              const showGroupHeader =
+                item.group && (idx === 0 || filtered[idx - 1]?.group !== item.group);
               return (
-                <div
-                  key={item.value}
-                  id={`${baseId}-item-${item.value}`}
-                  data-testid={`${baseId}-item-${item.value}`}
-                  data-combobox-item=""
-                  data-value={item.value}
-                  data-selected={isSelected || undefined}
-                  data-highlighted={isHl || undefined}
-                  data-disabled={isItemDisabled || undefined}
-                  role="option"
-                  aria-selected={isSelected}
-                  aria-disabled={isItemDisabled}
-                  className={cn(
-                    'px-3 py-2 text-sm border-b border-gray-100 last:border-b-0 select-none',
-                    isItemDisabled
-                      ? 'cursor-not-allowed opacity-50 text-gray-400'
-                      : 'cursor-pointer',
-                    !isItemDisabled && isSelected && 'bg-blue-50 text-blue-900',
-                    !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
-                    !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
+                <React.Fragment key={item.value}>
+                  {showGroupHeader && (
+                    <div
+                      className="px-3 py-1.5 text-sm font-bold text-foreground bg-muted/50 select-none"
+                      role="presentation"
+                    >
+                      {item.group}
+                    </div>
                   )}
-                  onClick={() => !isItemDisabled && handleSelect(item.value)}
-                  onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
-                >
-                  {renderItem ? (
-                    renderItem(item, isSelected, search)
-                  ) : (
-                    <div className="font-mono font-medium">{highlightText(item.label, search)}</div>
-                  )}
-                </div>
+                  <div
+                    id={`${baseId}-item-${item.value}`}
+                    data-testid={`${baseId}-item-${item.value}`}
+                    data-combobox-item=""
+                    data-value={item.value}
+                    data-selected={isSelected || undefined}
+                    data-highlighted={isHl || undefined}
+                    data-disabled={isItemDisabled || undefined}
+                    role="option"
+                    aria-selected={isSelected}
+                    aria-disabled={isItemDisabled}
+                    className={cn(
+                      'py-2 text-sm border-b border-gray-100 last:border-b-0 select-none',
+                      item.group ? 'px-5' : 'px-3',
+                      isItemDisabled
+                        ? 'cursor-not-allowed opacity-50 text-gray-400'
+                        : 'cursor-pointer',
+                      !isItemDisabled && isSelected && 'bg-blue-50 text-blue-900',
+                      !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
+                      !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
+                    )}
+                    onClick={() => !isItemDisabled && handleSelect(item.value)}
+                    onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
+                  >
+                    {renderItem ? (
+                      renderItem(item, isSelected, search)
+                    ) : (
+                      <div className="font-mono font-medium">
+                        {highlightText(item.label, search)}
+                      </div>
+                    )}
+                  </div>
+                </React.Fragment>
               );
             })
           )}
