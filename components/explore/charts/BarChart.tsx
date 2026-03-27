@@ -37,12 +37,12 @@ export function BarChart({ data }: BarChartProps) {
         borderWidth: 1,
         borderRadius: 8,
         textStyle: { fontSize: 12 },
-        formatter: (params: Array<{ dataIndex: number }>) => {
-          const p = params[0];
+        formatter: (params: unknown) => {
+          const p = (params as Array<{ dataIndex: number }>)[0];
           const item = data[p.dataIndex];
           // v1: tooltip only shows for truncated labels (length > 10)
           const label = item.label || item.name || '';
-          if (label.length <= 10) return null;
+          if (label.length <= 10) return '';
           return label;
         },
       },
@@ -68,8 +68,8 @@ export function BarChart({ data }: BarChartProps) {
           label: {
             show: true,
             position: 'top',
-            formatter: (p: { dataIndex: number }) => {
-              const item = data[p.dataIndex];
+            formatter: (p: unknown) => {
+              const item = data[(p as { dataIndex: number }).dataIndex];
               return item.barTopLabel ?? String(item.value);
             },
             fontSize: 10,

@@ -213,7 +213,7 @@ export function DateTimeInsights({
           label: {
             show: true,
             position: 'top',
-            formatter: (p: { value: number }) => String(p.value),
+            formatter: (p: unknown) => String((p as { value: number }).value),
             fontSize: 10,
           },
         },
