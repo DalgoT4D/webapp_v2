@@ -128,7 +128,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
 
   const processedDataRef = useRef<string>('');
   const {
-    setSelectedNode,
+    closeOperationPanel,
     tempLockCanvas,
     lockUpperSection,
     isWorkflowRunning,
@@ -325,10 +325,10 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
   );
 
   const handlePaneClick = useCallback(() => {
-    setSelectedNode(null);
+    closeOperationPanel();
     clearPreviewAction();
     setPreviewData(null);
-  }, [setSelectedNode, clearPreviewAction, setPreviewData]);
+  }, [closeOperationPanel, clearPreviewAction, setPreviewData]);
 
   return (
     <div className="h-full w-full relative" style={{ backgroundColor: '#fff' }}>

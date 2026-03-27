@@ -199,6 +199,18 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
     dummyNodeIdRef.current = null;
   }, [getNodes, getEdges, deleteElements]);
 
+  // Clean up dummy nodes when panel is closed externally (e.g. canvas pane click)
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    if (prevOpenRef.current && !open) {
+      cleanupDummyNodes();
+      setPanelState('op-list');
+      setSelectedOp(null);
+      setFormMode('create');
+    }
+    prevOpenRef.current = open;
+  }, [open, cleanupDummyNodes]);
+
   // Handle operation selection
   const handleSelectOperation = useCallback(
     (operation: UIOperationType) => {
@@ -429,7 +441,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         }
 
         return (
-          <div className="flex-1 overflow-y-auto">
+          <div>
             <FormComponent
               key={selectedNode?.id}
               node={selectedNode}
