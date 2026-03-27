@@ -89,7 +89,7 @@ export default function CanvasHeader({
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push('/transform')}
-          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
           data-testid="back-to-transform-btn"
           aria-label="Back to Transform"
         >

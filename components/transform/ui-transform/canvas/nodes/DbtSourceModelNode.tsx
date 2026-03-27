@@ -8,7 +8,7 @@ import { apiGet } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData, ColumnData } from '@/types/transform';
-import { NODE_COLORS } from '@/constants/transform';
+import { NODE_COLORS, OperationFormAction, CanvasActionEnum } from '@/constants/transform';
 import { truncateName } from '@/components/transform/utils';
 import { NodeColumnTable } from './NodeColumnTable';
 
@@ -108,7 +108,10 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     // Only open operation panel if user has create permission
     if (hasPermission('can_create_dbt_model')) {
       openOperationPanel();
-      dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'create' } });
+      dispatchCanvasAction({
+        type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
+        data: { mode: OperationFormAction.CREATE },
+      });
     }
   }, [
     id,
@@ -130,7 +133,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     (e: React.MouseEvent) => {
       e.stopPropagation();
       dispatchCanvasAction({
-        type: 'delete-node',
+        type: CanvasActionEnum.DELETE_NODE,
         data: { nodeId: id, nodeType: type, isDummy: data?.isDummy, canvasNodeUuid: data?.uuid },
       });
     },

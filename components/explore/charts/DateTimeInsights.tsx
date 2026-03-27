@@ -12,6 +12,7 @@ import {
   MONTH_NAMES,
   POLLING_INITIAL_DELAY,
 } from '@/constants/explore';
+import { TaskProgressStatus } from '@/constants/pipeline';
 import type { EChartsOption } from 'echarts';
 import type { DatetimeStats } from '@/types/explore';
 
@@ -99,13 +100,16 @@ export function DateTimeInsights({
   useEffect(() => {
     if (taskData?.progress) {
       const latest = taskData.progress[taskData.progress.length - 1];
-      if (latest.status === 'completed' && latest.results) {
+      if (latest.status === TaskProgressStatus.COMPLETED && latest.results) {
         const results = latest.results as DatetimeStats;
         const newData = results.charts?.[0]?.data ?? [];
         setChartData(newData);
         setLoading(false);
         setTaskId(null);
-      } else if (latest.status === 'failed' || latest.status === 'error') {
+      } else if (
+        latest.status === TaskProgressStatus.FAILED ||
+        latest.status === TaskProgressStatus.ERROR
+      ) {
         setLoading(false);
         setTaskId(null);
       }

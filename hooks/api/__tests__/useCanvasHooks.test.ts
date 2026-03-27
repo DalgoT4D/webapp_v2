@@ -7,6 +7,7 @@
  */
 
 import { renderHook, waitFor } from '@testing-library/react';
+import { TableType } from '@/constants/explore';
 import { CANVAS_GRAPH_KEY } from '../useCanvasGraph';
 
 // Mock SWR with proper structure
@@ -166,7 +167,7 @@ describe('buildTreeFromSources utility', () => {
         uuid: '1',
         name: 'model_a',
         schema: 'public',
-        type: 'model' as const,
+        type: TableType.MODEL,
         display_name: 'Model A',
         source_name: 'src',
         sql_path: '',
@@ -177,7 +178,7 @@ describe('buildTreeFromSources utility', () => {
         uuid: '2',
         name: 'model_b',
         schema: 'public',
-        type: 'model' as const,
+        type: TableType.MODEL,
         display_name: 'Model B',
         source_name: 'src',
         sql_path: '',
@@ -188,7 +189,7 @@ describe('buildTreeFromSources utility', () => {
         uuid: '3',
         name: 'model_c',
         schema: 'staging',
-        type: 'model' as const,
+        type: TableType.MODEL,
         display_name: 'Model C',
         source_name: 'src',
         sql_path: '',

@@ -23,7 +23,7 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import { parseStringForNull } from './shared/OperandInput';
-import { LogicalOperators } from '@/constants/transform';
+import { LogicalOperators, OperationFormAction, WhereFilterType } from '@/constants/transform';
 import type {
   OperationFormProps,
   WherefilterDataConfig,
@@ -52,8 +52,8 @@ export function WhereFilterOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  const isViewMode = action === OperationFormAction.VIEW;
+  const isEditMode = action === OperationFormAction.EDIT;
 
   const [srcColumns, setSrcColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
@@ -69,7 +69,7 @@ export function WhereFilterOpForm({
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
         if (config) {
-          const isAdvance = config.where_type === 'sql';
+          const isAdvance = config.where_type === WhereFilterType.SQL;
           let clauseValues: Partial<FormValues> = {};
           if (config.clauses && config.clauses.length > 0) {
             const clause = config.clauses[0];
@@ -137,7 +137,7 @@ export function WhereFilterOpForm({
       const payload = {
         op_type: operation.slug,
         config: {
-          where_type: data.advanceFilter ? 'sql' : 'and',
+          where_type: data.advanceFilter ? WhereFilterType.SQL : WhereFilterType.AND,
           clauses: data.advanceFilter
             ? []
             : [
@@ -162,9 +162,9 @@ export function WhereFilterOpForm({
         other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
-      const finalAction = node.data?.isDummy ? 'create' : action;
+      const finalAction = node.data?.isDummy ? OperationFormAction.CREATE : action;
       let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
+      if (finalAction === OperationFormAction.EDIT) {
         await editOperation(node.id, payload);
       } else {
         const response = await createOperation(node.id, {

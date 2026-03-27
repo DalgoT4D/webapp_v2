@@ -4,6 +4,65 @@
 import type { UIOperationType } from '@/types/transform';
 
 // ============================================
+// ENUMS
+// ============================================
+
+// Operation form mode (create, view, or edit)
+export enum OperationFormAction {
+  CREATE = 'create',
+  VIEW = 'view',
+  EDIT = 'edit',
+}
+
+// Where filter type (simple AND/OR vs raw SQL)
+export enum WhereFilterType {
+  AND = 'and',
+  OR = 'or',
+  SQL = 'sql',
+}
+
+// Case when type (simple UI vs raw SQL)
+export enum CaseWhenType {
+  SIMPLE = 'simple',
+  ADVANCE = 'advance',
+}
+
+// SQL join type
+export enum JoinType {
+  LEFT = 'left',
+  RIGHT = 'right',
+  INNER = 'inner',
+  FULL_OUTER = 'full outer',
+}
+
+// Operation config panel state
+export enum OperationPanelState {
+  OP_LIST = 'op-list',
+  OP_FORM = 'op-form',
+  CREATE_TABLE_OR_ADD_FUNCTION = 'create-table-or-add-function',
+}
+
+// Canvas action types dispatched via the transform store
+export enum CanvasActionEnum {
+  ADD_SRC_MODEL_NODE = 'add-srcmodel-node',
+  DELETE_NODE = 'delete-node',
+  DELETE_SOURCE_TREE_NODE = 'delete-source-tree-node',
+  REFRESH_CANVAS = 'refresh-canvas',
+  OPEN_OPCONFIG_PANEL = 'open-opconfig-panel',
+  CLOSE_RESET_OPCONFIG_PANEL = 'close-reset-opconfig-panel',
+  SYNC_SOURCES = 'sync-sources',
+  RUN_WORKFLOW = 'run-workflow',
+  UPDATE_CANVAS_NODE = 'update-canvas-node',
+  FOCUS_NODE = 'focus-node',
+}
+
+// Transform page tab (UI vs GitHub/DBT)
+export enum TransformTab {
+  UI = 'ui',
+  GITHUB = 'github',
+}
+
+// ============================================
 // OPERATION SLUGS
 // ============================================
 

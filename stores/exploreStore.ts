@@ -3,6 +3,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { ExploreTab } from '@/constants/explore';
 
 interface SelectedTable {
   schema: string;
@@ -15,8 +16,8 @@ interface ExploreState {
   setSelectedTable: (table: SelectedTable | null) => void;
 
   // Active tab
-  activeTab: 'preview' | 'statistics';
-  setActiveTab: (tab: 'preview' | 'statistics') => void;
+  activeTab: ExploreTab;
+  setActiveTab: (tab: ExploreTab) => void;
 
   // Sidebar width (for persistence)
   sidebarWidth: number;
@@ -32,7 +33,7 @@ interface ExploreState {
 
 const initialState = {
   selectedTable: null as SelectedTable | null,
-  activeTab: 'preview' as const,
+  activeTab: ExploreTab.PREVIEW as ExploreTab,
   sidebarWidth: 280,
   searchTerm: '',
 };

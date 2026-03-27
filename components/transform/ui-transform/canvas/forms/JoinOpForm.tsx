@@ -21,7 +21,7 @@ import { generateDummySrcModelNode } from '../utils/dummynodes';
 import { ColumnSelect } from './shared/ColumnSelect';
 import { FormActions } from './shared/FormActions';
 import type { OperationFormProps, JoinDataConfig, CanvasNodeDataResponse } from '@/types/transform';
-import { JoinTypes } from '@/constants/transform';
+import { JoinTypes, OperationFormAction, JoinType } from '@/constants/transform';
 
 interface FormValues {
   join_type: string;
@@ -43,8 +43,8 @@ export function JoinOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  const isViewMode = action === OperationFormAction.VIEW;
+  const isEditMode = action === OperationFormAction.EDIT;
 
   // Capture node on mount so it's stable even if selectedNode changes in the store
   // (e.g. user clicks canvas pane which sets selectedNode to null)
@@ -120,8 +120,8 @@ export function JoinOpForm({
 
         // Right-join detection: v1 stores right join as left join with seq=0
         if (lengthInputModels === 1) {
-          if (input_nodes[0].seq === 0 && jointype === 'left') {
-            jointype = 'right';
+          if (input_nodes[0].seq === 0 && jointype === JoinType.LEFT) {
+            jointype = JoinType.RIGHT;
           }
           setTable2Columns(input_nodes[0].dbtmodel?.output_cols || []);
         }
@@ -271,7 +271,7 @@ export function JoinOpForm({
       const payload = {
         op_type: operation.slug,
         config: {
-          join_type: data.join_type === 'right' ? 'left' : data.join_type,
+          join_type: data.join_type === JoinType.RIGHT ? JoinType.LEFT : data.join_type,
           join_on: {
             key1: data.table1_key,
             key2: data.table2_key,
@@ -283,14 +283,14 @@ export function JoinOpForm({
           {
             input_model_uuid: selectedTable2.uuid,
             columns: table2Columns,
-            seq: data.join_type === 'right' ? 0 : 2,
+            seq: data.join_type === JoinType.RIGHT ? 0 : 2,
           },
         ],
       };
 
-      const finalAction = stableNode.data?.isDummy ? 'create' : action;
+      const finalAction = stableNode.data?.isDummy ? OperationFormAction.CREATE : action;
       let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
+      if (finalAction === OperationFormAction.EDIT) {
         await editOperation(stableNode.id, payload);
       } else {
         const response = await createOperation(stableNode.id, {

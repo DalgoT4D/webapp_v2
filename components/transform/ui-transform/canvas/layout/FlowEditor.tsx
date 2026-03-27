@@ -8,6 +8,7 @@ import Canvas from '../Canvas';
 import CanvasHeader from '../CanvasHeader';
 import CanvasMessages from '../CanvasMessages';
 import { ProjectTree } from '@/components/explore/ProjectTree';
+import { ProjectTreeMode } from '@/constants/explore';
 import { OperationConfigLayout } from '../panels/OperationConfigLayout';
 import { LowerSectionTabs } from './LowerSectionTabs';
 import PublishModal from '../modals/PublishModal';
@@ -209,7 +210,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
                     onSync={handleSyncSources}
                     onTableSelect={handleTableSelect}
                     selectedTable={null}
-                    mode="canvas"
+                    mode={ProjectTreeMode.CANVAS}
                     onAddToCanvas={handleAddToCanvas}
                     onDeleteFromCanvas={handleDeleteFromCanvas}
                   />

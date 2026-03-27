@@ -23,11 +23,17 @@ import { OperationList } from './OperationList';
 import { CreateTableOrAddFunction } from './CreateTableOrAddFunction';
 import { getFormForOperation } from '../forms/formRegistry';
 import { CanvasNodeTypeEnum, type UIOperationType, type SelectedNodeData } from '@/types/transform';
-import { CANVAS_CONSTANTS, getOperationLabel } from '@/constants/transform';
+import {
+  CANVAS_CONSTANTS,
+  getOperationLabel,
+  OperationFormAction,
+  OperationPanelState,
+  CanvasActionEnum,
+} from '@/constants/transform';
 import { cn } from '@/lib/utils';
+import { useDummyNodeManager } from '../layout/hooks/useDummyNodeManager';
 
-type PanelState = 'op-list' | 'op-form' | 'create-table-or-add-function';
-type FormMode = 'create' | 'view' | 'edit';
+// PanelState → OperationPanelState, FormMode → OperationFormAction (imported from constants/transform)
 
 interface OperationConfigLayoutProps {
   /** Whether the panel is open */
@@ -39,24 +45,25 @@ interface OperationConfigLayoutProps {
 /**
  * Main orchestrator for operation configuration.
  * Manages panel states, renders operation list or forms,
- * handles dummy node creation/cleanup.
+ * delegates dummy node creation/cleanup to useDummyNodeManager.
  */
 export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutProps) {
-  const { deleteElements, getNodes, setNodes, setEdges, getEdges } = useReactFlow();
+  const { getNodes } = useReactFlow();
   const { mutate } = useSWRConfig();
   const selectedNode = useSelectedNode();
   const canvasAction = useCanvasAction();
   const { closeOperationPanel, setSelectedNode, clearCanvasAction } = useTransformStore();
 
+  // Dummy node management (create, cleanup, swap)
+  const { dummyNodeIdRef, createDummyNode, cleanupDummyNodes, swapDummyForRealNode } =
+    useDummyNodeManager();
+
   // Panel state
-  const [panelState, setPanelState] = useState<PanelState>('op-list');
+  const [panelState, setPanelState] = useState<OperationPanelState>(OperationPanelState.OP_LIST);
   const [selectedOp, setSelectedOp] = useState<UIOperationType | null>(null);
-  const [formMode, setFormMode] = useState<FormMode>('create');
+  const [formMode, setFormMode] = useState<OperationFormAction>(OperationFormAction.CREATE);
   const [isPanelLoading, setIsPanelLoading] = useState(false);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
-
-  // Track dummy node for cleanup
-  const dummyNodeIdRef = useRef<string | null>(null);
 
   // Determine if selected node can chain operations in middle
   const canChainInMiddle = selectedNode?.data?.node_type !== CanvasNodeTypeEnum.Operation;
@@ -69,7 +76,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // type) is still treated as a new action.
   const lastProcessedActionRef = useRef<string | null>(null);
 
-  if (canvasAction.type === 'open-opconfig-panel' && canvasAction.data) {
+  if (canvasAction.type === CanvasActionEnum.OPEN_OPCONFIG_PANEL && canvasAction.data) {
     const currentNode = useTransformStore.getState().selectedNode;
     const actionKey = `${canvasAction.type}-${currentNode?.id ?? 'none'}`;
 
@@ -77,24 +84,24 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       lastProcessedActionRef.current = actionKey;
 
       const actionData = canvasAction.data;
-      const mode: FormMode =
+      const mode: OperationFormAction =
         typeof actionData === 'string'
-          ? (actionData as FormMode)
-          : (actionData as { mode: FormMode }).mode || 'create';
+          ? (actionData as OperationFormAction)
+          : (actionData as { mode: OperationFormAction }).mode || OperationFormAction.CREATE;
 
       setFormMode(mode);
 
-      if (mode === 'view' || mode === 'edit') {
+      if (mode === OperationFormAction.VIEW || mode === OperationFormAction.EDIT) {
         if (currentNode?.data?.operation_config?.type) {
           const existingOp = {
             slug: currentNode.data.operation_config.type,
             label: getOperationLabel(currentNode.data.operation_config.type),
           };
           setSelectedOp(existingOp);
-          setPanelState('op-form');
+          setPanelState(OperationPanelState.OP_FORM);
         }
       } else {
-        setPanelState('op-list');
+        setPanelState(OperationPanelState.OP_LIST);
         setSelectedOp(null);
       }
     }
@@ -105,108 +112,19 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
 
   // Clear the canvas action in an effect (Zustand mutations can't run during render)
   useEffect(() => {
-    if (canvasAction.type === 'open-opconfig-panel' && canvasAction.data) {
+    if (canvasAction.type === CanvasActionEnum.OPEN_OPCONFIG_PANEL && canvasAction.data) {
       clearCanvasAction();
     }
   }, [canvasAction.type, clearCanvasAction]);
-
-  // getOperationLabel imported from @/constants/transform
-
-  // Create dummy node when operation selected
-  const createDummyNode = useCallback(
-    (operation: UIOperationType) => {
-      // Read selectedNode directly from the store at call time to avoid stale closures.
-      // This matches v1 which reads canvasNode from context at call time.
-      const currentNode = useTransformStore.getState().selectedNode;
-      if (!currentNode) return;
-
-      const dummyId = `dummy-${Date.now()}`;
-      dummyNodeIdRef.current = dummyId;
-
-      // Use position stored on selectedNode (set during click, like v1's xPos/yPos).
-      // Fallback: look up position from React Flow state.
-      let sourcePosition = currentNode.position;
-      if (!sourcePosition) {
-        const flowNode = getNodes().find((n) => n.id === currentNode.id);
-        sourcePosition = flowNode?.position || { x: 0, y: 0 };
-      }
-
-      // Position to the right of the source node, matching the LR dagre layout
-      const dummyNode = {
-        id: dummyId,
-        type: CanvasNodeTypeEnum.Operation,
-        position: {
-          x: sourcePosition.x + CANVAS_CONSTANTS.DAGRE_RANK_SEP,
-          y: sourcePosition.y,
-        },
-        data: {
-          uuid: dummyId,
-          name: operation.label,
-          output_columns: [] as string[],
-          node_type: CanvasNodeTypeEnum.Operation,
-          dbtmodel: null as null,
-          operation_config: {
-            type: operation.slug,
-            config: {} as Record<string, unknown>,
-          },
-          input_nodes: [] as unknown[],
-          is_last_in_chain: true,
-          isPublished: null as boolean | null,
-          isDummy: true,
-        },
-      };
-
-      const dummyEdge = {
-        id: `edge-dummy-${dummyId}`,
-        source: currentNode.id,
-        target: dummyId,
-        type: 'default',
-        animated: true,
-        style: { strokeDasharray: '5,5' },
-      };
-
-      setNodes((prevNodes) => [...prevNodes, dummyNode]);
-      setEdges((prevEdges) => [...prevEdges, dummyEdge]);
-    },
-    [setNodes, setEdges, getNodes]
-  );
-
-  // Clean up dummy nodes and any orphan dummy edges
-  const cleanupDummyNodes = useCallback(() => {
-    const nodes = getNodes();
-    const edges = getEdges();
-
-    const dummyNodeIds = nodes.filter((n) => n.data?.isDummy).map((n) => n.id);
-
-    // Also find orphan dummy edges (source: edge-dummy-*) whose source/target nodes
-    // may have already been removed by Canvas's setNodes after graph refresh
-    const dummyEdgeIds = edges
-      .filter(
-        (e) =>
-          dummyNodeIds.includes(e.source) ||
-          dummyNodeIds.includes(e.target) ||
-          e.id.startsWith('edge-dummy-')
-      )
-      .map((e) => e.id);
-
-    if (dummyNodeIds.length > 0 || dummyEdgeIds.length > 0) {
-      deleteElements({
-        nodes: dummyNodeIds.map((id) => ({ id })),
-        edges: dummyEdgeIds.map((id) => ({ id })),
-      });
-    }
-
-    dummyNodeIdRef.current = null;
-  }, [getNodes, getEdges, deleteElements]);
 
   // Clean up dummy nodes when panel is closed externally (e.g. canvas pane click)
   const prevOpenRef = useRef(open);
   useEffect(() => {
     if (prevOpenRef.current && !open) {
       cleanupDummyNodes();
-      setPanelState('op-list');
+      setPanelState(OperationPanelState.OP_LIST);
       setSelectedOp(null);
-      setFormMode('create');
+      setFormMode(OperationFormAction.CREATE);
     }
     prevOpenRef.current = open;
   }, [open, cleanupDummyNodes]);
@@ -221,21 +139,21 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       createDummyNode(operation);
 
       setSelectedOp(operation);
-      setFormMode('create');
-      setPanelState('op-form');
+      setFormMode(OperationFormAction.CREATE);
+      setPanelState(OperationPanelState.OP_FORM);
     },
     [cleanupDummyNodes, createDummyNode]
   );
 
   // Handle close with confirmation if needed
   const handleClose = useCallback(() => {
-    if (panelState === 'op-form' && formMode === 'create') {
+    if (panelState === OperationPanelState.OP_FORM && formMode === OperationFormAction.CREATE) {
       setShowDiscardDialog(true);
     } else {
       cleanupDummyNodes();
-      setPanelState('op-list');
+      setPanelState(OperationPanelState.OP_LIST);
       setSelectedOp(null);
-      setFormMode('create');
+      setFormMode(OperationFormAction.CREATE);
       onClose();
     }
   }, [panelState, formMode, cleanupDummyNodes, onClose]);
@@ -243,30 +161,30 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // Handle discard confirmation
   const handleConfirmDiscard = useCallback(() => {
     cleanupDummyNodes();
-    setPanelState('op-list');
+    setPanelState(OperationPanelState.OP_LIST);
     setSelectedOp(null);
-    setFormMode('create');
+    setFormMode(OperationFormAction.CREATE);
     setShowDiscardDialog(false);
     onClose();
   }, [cleanupDummyNodes, onClose]);
 
   // Handle back button
   const handleBack = useCallback(() => {
-    if (panelState === 'op-form' && formMode === 'create') {
+    if (panelState === OperationPanelState.OP_FORM && formMode === OperationFormAction.CREATE) {
       cleanupDummyNodes();
-      setPanelState('op-list');
+      setPanelState(OperationPanelState.OP_LIST);
       setSelectedOp(null);
-    } else if (panelState === 'create-table-or-add-function') {
+    } else if (panelState === OperationPanelState.CREATE_TABLE_OR_ADD_FUNCTION) {
       // Go back to the edit form for the current operation, not the op list
       if (selectedNode?.data?.operation_config?.type) {
         const opSlug = selectedNode.data.operation_config.type;
         const op = { slug: opSlug, label: getOperationLabel(opSlug) };
         setSelectedOp(op);
-        setFormMode('edit');
-        setPanelState('op-form');
+        setFormMode(OperationFormAction.EDIT);
+        setPanelState(OperationPanelState.OP_FORM);
       } else {
         // Fallback to op-list if no operation is found
-        setPanelState('op-list');
+        setPanelState(OperationPanelState.OP_LIST);
         setSelectedOp(null);
       }
     }
@@ -275,64 +193,19 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // Track whether to show "Add Function" in the create-table-or-add-function panel
   const [showAddFunction, setShowAddFunction] = useState(true);
 
-  // After operation saved — swap dummy for real node at dummy's position FIRST,
-  // then refresh graph so Canvas.tsx sees the real node already positioned and
-  // preserves it via currentPosMap. New nodes (e.g. second table in union/join)
-  // get positioned via the shift calculation in Canvas.tsx.
+  // After operation saved — swap dummy for real node, refresh graph,
+  // then transition to create-table-or-add-function panel.
   const handleContinueOperationChain = useCallback(
     async (...args: unknown[]) => {
       // First arg is the new operation node UUID (from createOperation response)
       // For edits, it will be undefined — use selectedNode.id as fallback
       const newNodeUuid = (args[0] as string | undefined) || selectedNode?.id;
-      const dummyId = dummyNodeIdRef.current;
 
-      if (newNodeUuid && dummyId && newNodeUuid !== dummyId) {
-        // --- Swap dummy operation node for real node at the same position ---
-        const currentNodes = getNodes();
-        const currentEdges = getEdges();
-        const dummyNode = currentNodes.find((n) => n.id === dummyId);
-        const dummyEdges = currentEdges.filter((e) => e.source === dummyId || e.target === dummyId);
-
-        if (dummyNode) {
-          const realNode = {
-            id: newNodeUuid,
-            type: CanvasNodeTypeEnum.Operation as string,
-            position: { ...dummyNode.position },
-            data: {
-              ...dummyNode.data,
-              uuid: newNodeUuid,
-              isDummy: false,
-            },
-          };
-
-          // Remap edges from dummy → real node
-          const realEdges = dummyEdges.map((edge) => {
-            const source = edge.source === dummyId ? newNodeUuid : edge.source;
-            const target = edge.target === dummyId ? newNodeUuid : edge.target;
-            return {
-              id: `${source}_${target}`,
-              source,
-              target,
-              sourceHandle: edge.sourceHandle,
-              targetHandle: edge.targetHandle,
-            };
-          });
-
-          // Swap: remove dummy, add real node + remapped edges
-          setNodes((prev) => [...prev.filter((n) => n.id !== dummyId), realNode]);
-          setEdges((prev) => [
-            ...prev.filter((e) => !dummyEdges.some((de) => de.id === e.id)),
-            ...realEdges,
-          ]);
-        } else {
-          cleanupDummyNodes();
-        }
+      if (newNodeUuid) {
+        swapDummyForRealNode(newNodeUuid);
       } else {
-        // Edit mode or no dummy — just clean up
         cleanupDummyNodes();
       }
-
-      dummyNodeIdRef.current = null;
 
       // Now refresh graph to get full node data from API.
       // The real operation node is already on the canvas with the correct position,
@@ -362,14 +235,12 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         }
       }
 
-      setPanelState('create-table-or-add-function');
+      setPanelState(OperationPanelState.CREATE_TABLE_OR_ADD_FUNCTION);
     },
     [
+      swapDummyForRealNode,
       cleanupDummyNodes,
       getNodes,
-      getEdges,
-      setNodes,
-      setEdges,
       setSelectedNode,
       selectedNode?.id,
       selectedOp,
@@ -380,47 +251,47 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   // User chose to create a table
   const handleCreateTable = useCallback(() => {
     setSelectedOp({ slug: 'create-table', label: 'Create Table' });
-    setFormMode('create');
-    setPanelState('op-form');
+    setFormMode(OperationFormAction.CREATE);
+    setPanelState(OperationPanelState.OP_FORM);
   }, []);
 
   // User chose to add another function
   const handleAddFunction = useCallback(() => {
-    setPanelState('op-list');
+    setPanelState(OperationPanelState.OP_LIST);
     setSelectedOp(null);
   }, []);
 
   // Clear and close panel
   const handleClearAndClosePanel = useCallback(() => {
     cleanupDummyNodes();
-    setPanelState('op-list');
+    setPanelState(OperationPanelState.OP_LIST);
     setSelectedOp(null);
-    setFormMode('create');
+    setFormMode(OperationFormAction.CREATE);
     closeOperationPanel();
     onClose();
   }, [cleanupDummyNodes, closeOperationPanel, onClose]);
 
   // Render header title
   const getHeaderTitle = () => {
-    if (panelState === 'op-list') return 'Functions';
+    if (panelState === OperationPanelState.OP_LIST) return 'Functions';
     if (selectedOp) return selectedOp.label;
     return 'Operation';
   };
 
   // Show back button?
   const showBackButton =
-    (panelState === 'op-form' && formMode === 'create') ||
-    panelState === 'create-table-or-add-function';
+    (panelState === OperationPanelState.OP_FORM && formMode === OperationFormAction.CREATE) ||
+    panelState === OperationPanelState.CREATE_TABLE_OR_ADD_FUNCTION;
 
   // Render panel content
   const renderContent = () => {
     switch (panelState) {
-      case 'op-list':
+      case OperationPanelState.OP_LIST:
         return (
           <OperationList onSelect={handleSelectOperation} canChainInMiddle={canChainInMiddle} />
         );
 
-      case 'op-form':
+      case OperationPanelState.OP_FORM:
         if (!selectedOp) {
           return (
             <div className="p-6 text-center text-muted-foreground">
@@ -455,7 +326,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
           </div>
         );
 
-      case 'create-table-or-add-function':
+      case OperationPanelState.CREATE_TABLE_OR_ADD_FUNCTION:
         return (
           <CreateTableOrAddFunction
             onCreateTable={handleCreateTable}
@@ -497,7 +368,7 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
               </Button>
             )}
             <h2 className="font-semibold text-lg">{getHeaderTitle()}</h2>
-            {panelState === 'op-form' && selectedOp?.infoToolTip && (
+            {panelState === OperationPanelState.OP_FORM && selectedOp?.infoToolTip && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

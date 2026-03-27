@@ -12,8 +12,10 @@ import type {
   UIOperationType,
   GenericNode,
   GenericEdge,
-  CanvasNodeTypeEnum,
 } from '@/types/transform';
+import { CanvasNodeTypeEnum } from '@/types/transform';
+import { TableType } from '@/constants/explore';
+import { TaskProgressStatus } from '@/constants/pipeline';
 
 // ============================================
 // ID GENERATORS
@@ -46,7 +48,7 @@ export function createMockDbtModel(overrides: Partial<DbtModelResponse> = {}): D
     uuid: id,
     name: `model_${nodeIdCounter}`,
     schema: 'public',
-    type: 'model',
+    type: TableType.MODEL,
     display_name: `Model ${nodeIdCounter}`,
     source_name: 'main_source',
     sql_path: `models/staging/model_${nodeIdCounter}.sql`,
@@ -57,7 +59,7 @@ export function createMockDbtModel(overrides: Partial<DbtModelResponse> = {}): D
 
 export function createMockSource(overrides: Partial<DbtModelResponse> = {}): DbtModelResponse {
   return createMockDbtModel({
-    type: 'source',
+    type: TableType.SOURCE,
     name: `source_${nodeIdCounter}`,
     display_name: `Source ${nodeIdCounter}`,
     ...overrides,
@@ -76,7 +78,7 @@ export function createMockCanvasNode(
     uuid,
     name: `node_${uuid}`,
     output_columns: ['id', 'name', 'value'],
-    node_type: 'model' as unknown as typeof CanvasNodeTypeEnum.Model,
+    node_type: CanvasNodeTypeEnum.Model,
     dbtmodel: createMockDbtModel({ uuid }),
     operation_config: { type: '', config: {} },
     is_last_in_chain: false,
@@ -90,7 +92,7 @@ export function createMockSourceNode(
   overrides: Partial<CanvasNodeDataResponse> = {}
 ): CanvasNodeDataResponse {
   return createMockCanvasNode({
-    node_type: 'source' as unknown as typeof CanvasNodeTypeEnum.Source,
+    node_type: CanvasNodeTypeEnum.Source,
     dbtmodel: createMockSource(),
     ...overrides,
   });
@@ -102,7 +104,7 @@ export function createMockOperationNode(
   overrides: Partial<CanvasNodeDataResponse> = {}
 ): CanvasNodeDataResponse {
   return createMockCanvasNode({
-    node_type: 'operation' as unknown as typeof CanvasNodeTypeEnum.Operation,
+    node_type: CanvasNodeTypeEnum.Operation,
     dbtmodel: null,
     operation_config: { type: opType, config },
     ...overrides,
@@ -236,7 +238,7 @@ export function createLockedByOtherUser(): CanvasLockStatus {
 export function createMockTaskLog(overrides: Partial<TaskProgressLog> = {}): TaskProgressLog {
   return {
     message: 'Processing...',
-    status: 'running',
+    status: TaskProgressStatus.RUNNING,
     timestamp: new Date().toISOString(),
     ...overrides,
   };
@@ -247,17 +249,17 @@ export function createMockLogSequence(): TaskProgressLog[] {
   return [
     {
       message: 'Starting workflow...',
-      status: 'running',
+      status: TaskProgressStatus.RUNNING,
       timestamp: new Date(baseTime).toISOString(),
     },
     {
       message: 'Running dbt models...',
-      status: 'running',
+      status: TaskProgressStatus.RUNNING,
       timestamp: new Date(baseTime + 1000).toISOString(),
     },
     {
       message: 'Completed successfully',
-      status: 'completed',
+      status: TaskProgressStatus.COMPLETED,
       timestamp: new Date(baseTime + 5000).toISOString(),
     },
   ];
@@ -268,12 +270,12 @@ export function createFailedLogSequence(): TaskProgressLog[] {
   return [
     {
       message: 'Starting workflow...',
-      status: 'running',
+      status: TaskProgressStatus.RUNNING,
       timestamp: new Date(baseTime).toISOString(),
     },
     {
       message: 'Error: Model compilation failed',
-      status: 'failed',
+      status: TaskProgressStatus.FAILED,
       timestamp: new Date(baseTime + 2000).toISOString(),
     },
   ];
@@ -377,11 +379,11 @@ export function createMockSourcesModelsList(count = 5): DbtModelResponse[] {
   const schemas = ['raw_data', 'staging', 'marts'];
   return Array.from({ length: count }, (_, i) => {
     const schema = schemas[i % schemas.length];
-    const type = i < 2 ? 'source' : 'model';
+    const type = i < 2 ? TableType.SOURCE : TableType.MODEL;
     return createMockDbtModel({
-      name: `${type === 'source' ? 'src' : 'stg'}_table_${i + 1}`,
+      name: `${type === TableType.SOURCE ? 'src' : 'stg'}_table_${i + 1}`,
       schema,
-      type: type as 'source' | 'model',
+      type,
     });
   });
 }

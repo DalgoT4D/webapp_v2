@@ -1,5 +1,32 @@
 // constants/explore.ts
 
+// Explore page tab options
+export enum ExploreTab {
+  PREVIEW = 'preview',
+  STATISTICS = 'statistics',
+}
+
+// ProjectTree component mode
+export enum ProjectTreeMode {
+  EXPLORE = 'explore',
+  CANVAS = 'canvas',
+}
+
+// Warehouse table type (source vs dbt model)
+export enum TableType {
+  SOURCE = 'source',
+  MODEL = 'model',
+}
+
+// Column data type returned by the backend's type translation
+export enum TranslatedDataType {
+  NUMERIC = 'Numeric',
+  STRING = 'String',
+  BOOLEAN = 'Boolean',
+  DATETIME = 'Datetime',
+  JSON = 'Json',
+}
+
 export const EXPLORE_COLORS = {
   PRIMARY_TEAL: '#00897b',
   TEAL_PALETTE: ['#00897b', '#33a195', '#66b8b0', '#98d0c9', '#cce7e4', '#c7d8d7'],

@@ -13,6 +13,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
 import { EXPLORE_DIMENSIONS } from '@/constants/explore';
 import { cn } from '@/lib/utils';
+import { ProjectTreeMode } from '@/constants/explore';
 
 interface ProjectTreeProps {
   tables: WarehouseTable[];
@@ -22,7 +23,7 @@ interface ProjectTreeProps {
   selectedTable: { schema: string; table: string } | null;
   included_in?: 'explore' | 'visual_designer';
   /** Mode determines behavior: 'explore' for data preview, 'canvas' for adding to canvas */
-  mode?: 'explore' | 'canvas';
+  mode?: ProjectTreeMode;
   /** Callback when user clicks add-to-canvas button on a table node (canvas mode only) */
   onAddToCanvas?: (schema: string, table: string) => void;
   /** Callback when user clicks delete button on a table node (canvas mode only) */
@@ -48,7 +49,7 @@ export function ProjectTree({
   onTableSelect,
   selectedTable,
   included_in = 'explore',
-  mode = 'explore',
+  mode = ProjectTreeMode.EXPLORE,
   onAddToCanvas,
   onDeleteFromCanvas,
 }: ProjectTreeProps) {
@@ -59,8 +60,8 @@ export function ProjectTree({
   const setGlobalSearchTerm = useExploreStore((s) => s.setSearchTerm);
 
   // Use local state in canvas mode to avoid polluting explore page search
-  const searchTerm = mode === 'canvas' ? localSearchTerm : globalSearchTerm;
-  const setSearchTerm = mode === 'canvas' ? setLocalSearchTerm : setGlobalSearchTerm;
+  const searchTerm = mode === ProjectTreeMode.CANVAS ? localSearchTerm : globalSearchTerm;
+  const setSearchTerm = mode === ProjectTreeMode.CANVAS ? setLocalSearchTerm : setGlobalSearchTerm;
   const { hasPermission } = useUserPermissions();
 
   const canCreateModel = hasPermission('can_create_dbt_model');
@@ -125,10 +126,11 @@ export function ProjectTree({
 
           // Include node if it matches or has matching children
           if (nameMatch || schemaMatch || (filteredChildren && filteredChildren.length > 0)) {
-            return {
-              ...node,
-              children: filteredChildren,
-            };
+            const filtered: TreeNode = { ...node };
+            if (filteredChildren !== undefined) {
+              filtered.children = filteredChildren;
+            }
+            return filtered;
           }
 
           return null;
@@ -232,11 +234,11 @@ export function ProjectTree({
           </TooltipProvider>
 
           {/* Canvas mode actions for leaf nodes */}
-          {mode === 'canvas' && isLeaf && (
+          {mode === ProjectTreeMode.CANVAS && isLeaf && (
             <span className="flex items-center gap-1 flex-shrink-0 ml-1">
               {onDeleteFromCanvas && (
                 <button
-                  className="p-0.5 rounded hover:opacity-70"
+                  className="p-0.5 rounded hover:opacity-70 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteFromCanvas(node.data.id);
@@ -249,7 +251,7 @@ export function ProjectTree({
               )}
               {onAddToCanvas && (
                 <button
-                  className="p-0.5 rounded hover:opacity-70"
+                  className="p-0.5 rounded hover:opacity-70 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     onAddToCanvas(node.data.schema!, node.data.name!);

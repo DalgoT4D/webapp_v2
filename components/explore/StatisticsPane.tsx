@@ -24,7 +24,8 @@ import { StringInsights } from './charts/StringInsights';
 import { RangeChart } from './charts/RangeChart';
 import { DateTimeInsights } from './charts/DateTimeInsights';
 import { toastSuccess } from '@/lib/toast';
-import { EXPLORE_DIMENSIONS, POLLING_INITIAL_DELAY } from '@/constants/explore';
+import { EXPLORE_DIMENSIONS, POLLING_INITIAL_DELAY, TranslatedDataType } from '@/constants/explore';
+import { TaskProgressStatus } from '@/constants/pipeline';
 import type {
   TableColumnWithType,
   NumericStats,
@@ -384,12 +385,15 @@ function StatisticsRow({ column, stats, schema, table }: StatisticsRowProps) {
   useEffect(() => {
     if (taskData?.progress) {
       const latest = taskData.progress[taskData.progress.length - 1];
-      if (latest.status === 'completed' && latest.results) {
+      if (latest.status === TaskProgressStatus.COMPLETED && latest.results) {
         setCompletedData(
           latest.results as NumericStats | StringStats | BooleanStats | DatetimeStats
         );
         setHasError(false);
-      } else if (latest.status === 'failed' || latest.status === 'error') {
+      } else if (
+        latest.status === TaskProgressStatus.FAILED ||
+        latest.status === TaskProgressStatus.ERROR
+      ) {
         setCompletedData(null);
         setHasError(true);
       }
@@ -435,10 +439,10 @@ function StatisticsRow({ column, stats, schema, table }: StatisticsRowProps) {
     }
 
     switch (column.translated_type) {
-      case 'Numeric':
+      case TranslatedDataType.NUMERIC:
         return <NumberInsights data={completedData as NumericStats} />;
 
-      case 'String': {
+      case TranslatedDataType.STRING: {
         const stringData = completedData as StringStats;
         if (stringData.count === stringData.countNull) {
           return <div>All values are null</div>;
@@ -449,7 +453,7 @@ function StatisticsRow({ column, stats, schema, table }: StatisticsRowProps) {
         return <StringInsights data={stringData} />;
       }
 
-      case 'Boolean': {
+      case TranslatedDataType.BOOLEAN: {
         const boolData = completedData as BooleanStats;
         const denominator = boolData.count;
         return (
@@ -474,7 +478,7 @@ function StatisticsRow({ column, stats, schema, table }: StatisticsRowProps) {
         );
       }
 
-      case 'Datetime':
+      case TranslatedDataType.DATETIME:
         return (
           <DateTimeInsights
             data={completedData as DatetimeStats}

@@ -16,6 +16,7 @@ import type {
   RenameDataConfig,
   ModelSrcOtherInputPayload,
 } from '@/types/transform';
+import { OperationFormAction } from '@/constants/transform';
 
 interface RenameRow {
   oldName: string;
@@ -38,8 +39,8 @@ export function RenameColumnOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  const isViewMode = action === OperationFormAction.VIEW;
+  const isEditMode = action === OperationFormAction.EDIT;
 
   const [srcColumns, setSrcColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
@@ -120,9 +121,9 @@ export function RenameColumnOpForm({
         other_inputs: [] as ModelSrcOtherInputPayload[],
       };
 
-      const finalAction = node.data?.isDummy ? 'create' : action;
+      const finalAction = node.data?.isDummy ? OperationFormAction.CREATE : action;
       let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
+      if (finalAction === OperationFormAction.EDIT) {
         await editOperation(node.id, payload);
       } else {
         const response = await createOperation(node.id, {

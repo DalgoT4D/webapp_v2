@@ -9,6 +9,8 @@ import type {
   DatetimeStats,
   TreeNode,
 } from '@/types/explore';
+import { TableType, TranslatedDataType } from '@/constants/explore';
+import { TaskProgressStatus } from '@/constants/pipeline';
 
 // Factory functions for mock data
 export function createMockWarehouseTable(overrides: Partial<WarehouseTable> = {}): WarehouseTable {
@@ -16,7 +18,7 @@ export function createMockWarehouseTable(overrides: Partial<WarehouseTable> = {}
     id: 'table-1',
     name: 'users',
     schema: 'public',
-    type: 'source',
+    type: TableType.SOURCE,
     ...overrides,
   };
 }
@@ -35,7 +37,7 @@ export function createMockTableColumnWithType(
   return {
     name: 'id',
     data_type: 'INTEGER',
-    translated_type: 'Numeric',
+    translated_type: TranslatedDataType.NUMERIC,
     ...overrides,
   };
 }
@@ -128,7 +130,7 @@ export const mockWarehouseTables: WarehouseTable[] = [
     id: 'table-3',
     name: 'products',
     schema: 'staging',
-    type: 'model',
+    type: TableType.MODEL,
   }),
 ];
 
@@ -145,22 +147,22 @@ export const mockTableColumnsWithTypes: TableColumnWithType[] = [
   createMockTableColumnWithType({
     name: 'id',
     data_type: 'INTEGER',
-    translated_type: 'Numeric',
+    translated_type: TranslatedDataType.NUMERIC,
   }),
   createMockTableColumnWithType({
     name: 'name',
     data_type: 'VARCHAR',
-    translated_type: 'String',
+    translated_type: TranslatedDataType.STRING,
   }),
   createMockTableColumnWithType({
     name: 'is_active',
     data_type: 'BOOLEAN',
-    translated_type: 'Boolean',
+    translated_type: TranslatedDataType.BOOLEAN,
   }),
   createMockTableColumnWithType({
     name: 'created_at',
     data_type: 'TIMESTAMP',
-    translated_type: 'Datetime',
+    translated_type: TranslatedDataType.DATETIME,
   }),
 ];
 
@@ -175,13 +177,19 @@ export const mockTableData = {
 
 // Mock task status response
 export const mockTaskStatusPending = {
-  progress: [{ status: 'running' }],
+  progress: [{ status: TaskProgressStatus.RUNNING }],
 };
 
 export const mockTaskStatusCompleted = {
-  progress: [{ status: 'running' }, { status: 'completed', results: createMockNumericStats() }],
+  progress: [
+    { status: TaskProgressStatus.RUNNING },
+    { status: TaskProgressStatus.COMPLETED, results: createMockNumericStats() },
+  ],
 };
 
 export const mockTaskStatusFailed = {
-  progress: [{ status: 'running' }, { status: 'failed', error: 'Task failed' }],
+  progress: [
+    { status: TaskProgressStatus.RUNNING },
+    { status: TaskProgressStatus.FAILED, error: 'Task failed' },
+  ],
 };

@@ -38,7 +38,7 @@ import {
   deletePrefectTask,
 } from '@/hooks/api/usePrefectTasks';
 import { LogCard } from '@/components/pipeline/log-card';
-import { PipelineRunDisplayStatus } from '@/constants/pipeline';
+import { PipelineRunDisplayStatus, LockStatus } from '@/constants/pipeline';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError } from '@/lib/toast';
 import {
@@ -290,10 +290,10 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
                             {/* Show "Triggered by" when task is locked */}
                             {task.lock && isAnyTaskLocked && (
                               <div className="flex items-center gap-2">
-                                {task.lock.status === 'running' ? (
+                                {task.lock.status === LockStatus.RUNNING ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : task.lock.status === 'locked' ||
-                                  task.lock.status === 'complete' ? (
+                                ) : task.lock.status === LockStatus.LOCKED ||
+                                  task.lock.status === LockStatus.COMPLETE ? (
                                   <Lock className="h-4 w-4 text-muted-foreground" />
                                 ) : (
                                   <Clock className="h-4 w-4 text-muted-foreground" />

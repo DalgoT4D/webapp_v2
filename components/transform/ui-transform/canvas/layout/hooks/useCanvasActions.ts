@@ -13,6 +13,7 @@ import { CanvasNodeTypeEnum } from '@/types/transform';
 import { apiGet } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { CANVAS_CONSTANTS } from '@/constants/transform';
+import { TaskProgressStatus } from '@/constants/pipeline';
 
 interface UseCanvasActionsParams {
   isPreview: boolean;
@@ -73,7 +74,10 @@ export function useCanvasActions({ isPreview }: UseCanvasActionsParams) {
             const lastLog = response.progress[response.progress.length - 1] as
               | { status?: string }
               | undefined;
-            if (lastLog?.status === 'completed' || lastLog?.status === 'failed') {
+            if (
+              lastLog?.status === TaskProgressStatus.COMPLETED ||
+              lastLog?.status === TaskProgressStatus.FAILED
+            ) {
               isComplete = true;
             }
           }

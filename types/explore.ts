@@ -1,10 +1,13 @@
 // types/explore.ts
 
+import { TableType, TranslatedDataType } from '@/constants/explore';
+import { TaskProgressStatus } from '@/constants/pipeline';
+
 export interface WarehouseTable {
   id: string;
   name: string;
   schema: string;
-  type: 'source' | 'model';
+  type: TableType;
 }
 
 export interface TableColumn {
@@ -14,7 +17,7 @@ export interface TableColumn {
 
 export interface TableColumnWithType {
   name: string;
-  translated_type: 'Numeric' | 'String' | 'Boolean' | 'Datetime' | 'Json';
+  translated_type: TranslatedDataType;
 }
 
 export interface PreviewTableData {
@@ -23,7 +26,7 @@ export interface PreviewTableData {
 }
 
 export interface TaskProgress {
-  status: 'pending' | 'completed' | 'failed' | 'error';
+  status: TaskProgressStatus;
   results?: NumericStats | StringStats | BooleanStats | DatetimeStats;
 }
 
@@ -85,7 +88,7 @@ export interface DbtModelResponse {
   id: string;
   name: string;
   schema: string;
-  type: 'source' | 'model';
+  type: TableType;
   display_name: string;
   source_name: string;
   sql_path: string;
@@ -97,7 +100,7 @@ export interface TreeNode {
   id: string;
   schema: string;
   name?: string;
-  type?: 'source' | 'model';
+  type?: TableType;
   display_name?: string;
   source_name?: string;
   children?: TreeNode[];

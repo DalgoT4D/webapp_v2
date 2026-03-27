@@ -19,6 +19,7 @@ import { useUserPreferences, updateUserPreference } from '@/hooks/api/useNotific
 import { UITransformTab } from './ui-transform/UITransformTab';
 import { DBTTransformTab } from './dbt-transform/DBTTransformTab';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { TransformTab } from '@/constants/transform';
 
 export default function Transform() {
   const [workspaceSetup, setWorkspaceSetup] = useState(false);
@@ -54,8 +55,8 @@ export default function Transform() {
   useEffect(() => {
     if (preferences && !preferencesLoaded) {
       const savedTab = preferences.last_visited_transform_tab;
-      if (savedTab === 'ui' || savedTab === 'github') {
-        setActiveTab(savedTab);
+      if (savedTab === TransformTab.UI || savedTab === TransformTab.GITHUB) {
+        setActiveTab(savedTab as TransformTab);
       }
       setPreferencesLoaded(true);
     }
@@ -100,7 +101,7 @@ export default function Transform() {
   };
 
   const handleTabChange = async (value: string) => {
-    const tabValue = value as 'ui' | 'github';
+    const tabValue = value as TransformTab;
     setActiveTab(tabValue);
 
     // Persist tab preference to backend (matching v1 cross-device sync)

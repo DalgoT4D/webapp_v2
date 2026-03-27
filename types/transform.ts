@@ -1,5 +1,15 @@
 // types/transform.ts
 
+import {
+  OperationFormAction,
+  WhereFilterType,
+  CaseWhenType,
+  JoinType,
+  CanvasActionEnum,
+} from '@/constants/transform';
+import { TableType } from '@/constants/explore';
+import { TaskProgressStatus } from '@/constants/pipeline';
+
 // ============================================
 // WORKSPACE & SETUP
 // ============================================
@@ -52,7 +62,7 @@ export interface TransformTask {
 }
 
 export interface TaskProgress {
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'error';
+  status: TaskProgressStatus;
   message: string;
   timestamp: string;
   results?: unknown;
@@ -81,7 +91,7 @@ export interface DbtModelResponse {
   id: string;
   name: string;
   schema: string;
-  type: 'source' | 'model';
+  type: TableType;
   display_name: string;
   source_name: string;
   sql_path: string;
@@ -99,19 +109,7 @@ export enum CanvasNodeTypeEnum {
   Operation = 'operation',
 }
 
-export type CanvasActionType =
-  | 'add-srcmodel-node'
-  | 'delete-node'
-  | 'delete-source-tree-node'
-  | 'refresh-canvas'
-  | 'open-opconfig-panel'
-  | 'close-reset-opconfig-panel'
-  | 'sync-sources'
-  | 'run-workflow'
-  | 'update-canvas-node'
-  | 'focus-node'
-  | ''
-  | null;
+export type CanvasActionType = CanvasActionEnum | '' | null;
 
 export interface CanvasAction {
   type: CanvasActionType;
@@ -232,7 +230,7 @@ export interface OperationFormProps {
   continueOperationChain: (...args: unknown[]) => void;
   clearAndClosePanel?: (...args: unknown[]) => void;
   dummyNodeId?: string;
-  action: 'create' | 'view' | 'edit';
+  action: OperationFormAction;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -322,7 +320,7 @@ export interface SecondaryInput {
 }
 
 export interface JoinDataConfig {
-  join_type: 'left' | 'right' | 'inner' | 'full outer';
+  join_type: JoinType;
   join_on: {
     key1: string;
     key2: string;
@@ -349,7 +347,7 @@ export interface WhereClause {
 }
 
 export interface WherefilterDataConfig {
-  where_type: 'and' | 'or' | 'sql';
+  where_type: WhereFilterType;
   clauses: WhereClause[];
   sql_snippet: string;
   source_columns: string[];
@@ -364,7 +362,7 @@ export interface WhenClause {
 }
 
 export interface CasewhenDataConfig {
-  case_type: 'simple' | 'advance';
+  case_type: CaseWhenType;
   else_clause: GenericOperand;
   when_clauses: WhenClause[];
   sql_snippet: string;

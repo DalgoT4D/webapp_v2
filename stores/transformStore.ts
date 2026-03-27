@@ -12,13 +12,14 @@ import type {
   TaskProgressLog,
   PreviewAction,
 } from '@/types/transform';
+import { TransformTab } from '@/constants/transform';
 
 type LowerSectionTab = 'preview' | 'logs' | 'data statistics';
 
 interface TransformState {
   // Tab state
-  activeTab: 'ui' | 'github';
-  setActiveTab: (tab: 'ui' | 'github') => void;
+  activeTab: TransformTab;
+  setActiveTab: (tab: TransformTab) => void;
 
   // Workspace state
   workspaceSetup: boolean;
@@ -118,7 +119,7 @@ interface TransformState {
 }
 
 const initialState = {
-  activeTab: 'ui' as const,
+  activeTab: TransformTab.UI as TransformTab,
   workspaceSetup: false,
   gitConnected: false,
 

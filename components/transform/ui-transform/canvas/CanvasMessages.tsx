@@ -62,7 +62,7 @@ export default function CanvasMessages({ hasUnpublishedChanges = false }: Canvas
           Update key to make changes.{' '}
           <button
             onClick={() => openPatModal()}
-            className="underline font-semibold hover:text-teal-800 transition-colors"
+            className="underline font-semibold hover:text-teal-800 transition-colors cursor-pointer"
             data-testid="add-pat-link"
           >
             Add key here

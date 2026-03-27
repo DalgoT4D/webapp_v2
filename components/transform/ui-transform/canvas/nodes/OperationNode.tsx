@@ -8,7 +8,13 @@ import { Trash2 } from 'lucide-react';
 import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData } from '@/types/transform';
-import { NODE_COLORS, operationLabelMap, operationIconMapping } from '@/constants/transform';
+import {
+  NODE_COLORS,
+  operationLabelMap,
+  operationIconMapping,
+  OperationFormAction,
+  CanvasActionEnum,
+} from '@/constants/transform';
 
 type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
 
@@ -37,10 +43,16 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
       // so React batches both Zustand updates into a single render where
       // operationPanelOpen=true AND selectedNode are both available.
       openOperationPanel();
-      dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'edit' } });
+      dispatchCanvasAction({
+        type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
+        data: { mode: OperationFormAction.EDIT },
+      });
     } else if (hasPermission('can_view_dbt_operation')) {
       openOperationPanel();
-      dispatchCanvasAction({ type: 'open-opconfig-panel', data: { mode: 'view' } });
+      dispatchCanvasAction({
+        type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
+        data: { mode: OperationFormAction.VIEW },
+      });
     }
     // If neither permission, just select the node but don't open panel
   }, [
@@ -59,7 +71,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     (e: React.MouseEvent) => {
       e.stopPropagation();
       dispatchCanvasAction({
-        type: 'delete-node',
+        type: CanvasActionEnum.DELETE_NODE,
         data: { nodeId: id, nodeType: type, isDummy: data?.isDummy },
       });
     },

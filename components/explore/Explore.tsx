@@ -11,7 +11,7 @@ import { ProjectTree } from './ProjectTree';
 import { PreviewPane } from './PreviewPane';
 import { StatisticsPane } from './StatisticsPane';
 import { toast } from 'sonner';
-import { EXPLORE_DIMENSIONS } from '@/constants/explore';
+import { EXPLORE_DIMENSIONS, ExploreTab } from '@/constants/explore';
 import { Database } from 'lucide-react';
 
 import 'react-resizable/css/styles.css';
@@ -43,7 +43,7 @@ export function Explore() {
   const handleTableSelect = useCallback(
     (schema: string, table: string) => {
       setSelectedTable({ schema, table });
-      setActiveTab('preview');
+      setActiveTab(ExploreTab.PREVIEW);
     },
     [setSelectedTable, setActiveTab]
   );
@@ -115,28 +115,28 @@ export function Explore() {
           {selectedTable ? (
             <Tabs
               value={activeTab}
-              onValueChange={(value) => setActiveTab(value as 'preview' | 'statistics')}
+              onValueChange={(value) => setActiveTab(value as ExploreTab)}
               className="flex flex-col h-full"
             >
               <div className="flex-shrink-0 border-y px-6" style={{ background: '#F5FAFA' }}>
                 <TabsList className="h-12">
-                  <TabsTrigger value="preview" data-testid="preview-tab">
+                  <TabsTrigger value={ExploreTab.PREVIEW} data-testid="preview-tab">
                     Preview
                   </TabsTrigger>
                   {showStatisticsTab && (
-                    <TabsTrigger value="statistics" data-testid="statistics-tab">
+                    <TabsTrigger value={ExploreTab.STATISTICS} data-testid="statistics-tab">
                       Data statistics
                     </TabsTrigger>
                   )}
                 </TabsList>
               </div>
 
-              <TabsContent value="preview" className="flex-1 overflow-hidden m-0">
+              <TabsContent value={ExploreTab.PREVIEW} className="flex-1 overflow-hidden m-0">
                 <PreviewPane schema={selectedTable.schema} table={selectedTable.table} />
               </TabsContent>
 
               {showStatisticsTab && (
-                <TabsContent value="statistics" className="flex-1 overflow-hidden m-0">
+                <TabsContent value={ExploreTab.STATISTICS} className="flex-1 overflow-hidden m-0">
                   <StatisticsPane schema={selectedTable.schema} table={selectedTable.table} />
                 </TabsContent>
               )}
