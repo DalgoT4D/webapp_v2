@@ -93,7 +93,7 @@ export function DatePicker({
             value ? 'text-foreground' : 'text-muted-foreground'
           )}
         >
-          <span>{value ? format(value, 'PPP') : placeholder}</span>
+          <span className="truncate">{value ? format(value, 'MMM do, yyyy') : placeholder}</span>
           <CalendarIcon className="h-4 w-4 text-muted-foreground" />
         </button>
       </PopoverTrigger>
