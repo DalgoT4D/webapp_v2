@@ -1,4 +1,4 @@
-// components/transform/DBTTaskList.tsx
+// components/transform/dbt-transform/DBTTaskList.tsx
 'use client';
 
 import { Fragment, useState, useCallback, useRef, useEffect } from 'react';
@@ -48,7 +48,7 @@ import {
   FLOW_RUN_LOGS_OFFSET_LIMIT,
 } from '@/constants/dbt-tasks';
 import type { TransformTask } from '@/types/transform';
-import { timeAgo } from './utils';
+import { timeAgo } from '../utils';
 
 interface DBTTaskListProps {
   isAnyTaskLocked: boolean;

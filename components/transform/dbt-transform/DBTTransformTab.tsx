@@ -1,8 +1,8 @@
-// components/transform/DBTTransformTab.tsx
+// components/transform/dbt-transform/DBTTransformTab.tsx
 'use client';
 
 import { useState } from 'react';
-import { DBTRepositoryCard } from './DBTRepositoryCard';
+import { DBTRepositoryCard } from '../DBTRepositoryCard';
 import { DBTTaskList } from './DBTTaskList';
 import { CreateTaskDialog } from './CreateTaskDialog';
 import { Button } from '@/components/ui/button';

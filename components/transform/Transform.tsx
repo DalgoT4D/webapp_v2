@@ -16,8 +16,8 @@ import {
   deleteDbtRepo,
 } from '@/hooks/api/useTransform';
 import { useUserPreferences, updateUserPreference } from '@/hooks/api/useNotifications';
-import { UITransformTab } from './UITransformTab';
-import { DBTTransformTab } from './DBTTransformTab';
+import { UITransformTab } from './ui-transform/UITransformTab';
+import { DBTTransformTab } from './dbt-transform/DBTTransformTab';
 import { toastSuccess, toastError } from '@/lib/toast';
 
 export default function Transform() {

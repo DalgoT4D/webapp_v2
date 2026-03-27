@@ -1,6 +1,6 @@
 'use client';
 
-import { FlowEditor } from '@/components/transform/canvas/layout/FlowEditor';
+import { FlowEditor } from '@/components/transform/ui-transform/canvas/layout/FlowEditor';
 
 /**
  * Transform Canvas Page

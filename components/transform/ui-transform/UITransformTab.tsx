@@ -1,8 +1,8 @@
-// components/transform/UITransformTab.tsx
+// components/transform/ui-transform/UITransformTab.tsx
 'use client';
 
 import Link from 'next/link';
-import { DBTRepositoryCard } from './DBTRepositoryCard';
+import { DBTRepositoryCard } from '../DBTRepositoryCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import CanvasPreview from './canvas/CanvasPreview';
