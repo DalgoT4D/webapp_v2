@@ -1,7 +1,6 @@
 // components/transform/canvas/forms/GroupByOpForm.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,16 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
 import { AggregateOperations } from '@/constants/transform';
-import type {
-  OperationFormProps,
-  GroupbyDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import type { OperationFormProps, GroupbyDataConfig } from '@/types/transform';
 
 interface DimensionCol {
   col: string;
@@ -52,17 +47,14 @@ export function GroupByOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
-      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
-    }
-    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+    sortColumns: true,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
@@ -124,11 +116,6 @@ export function GroupByOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     const validDimensions = data.dimensions.map((d) => d.col).filter(Boolean);
     const validAggregations = data.aggregations.filter(
       (a) => a.metric && a.aggregate_func && a.output_column_name
@@ -144,10 +131,8 @@ export function GroupByOpForm({
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           dimension_columns: validDimensions,
@@ -158,29 +143,9 @@ export function GroupByOpForm({
           })),
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Group by operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save group by operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Group by operation saved successfully'
+    );
   };
 
   return (
@@ -324,7 +289,7 @@ export function GroupByOpForm({
       <div className="px-6">
         <FormActions
           isViewMode={isViewMode}
-          isSubmitting={isCreating || isEditing}
+          isSubmitting={isSubmitting}
           onCancel={clearAndClosePanel}
         />
       </div>

@@ -7,14 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { FormActions } from './shared/FormActions';
-import type {
-  OperationFormProps,
-  UnpivotDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import { toastError } from '@/lib/toast';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import type { OperationFormProps, UnpivotDataConfig } from '@/types/transform';
 
 interface UnpivotColumn {
   col: string;
@@ -40,29 +36,26 @@ export function UnpivotOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as UnpivotDataConfig;
-      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
-    }
-    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+    sortColumns: true,
   });
+
   const [searchUnpivot, setSearchUnpivot] = useState('');
   const [searchExclude, setSearchExclude] = useState('');
   const [selectAllCheckbox, setSelectAllCheckbox] = useState({
     is_unpivot: false,
     is_exclude: false,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const {
     control,
     handleSubmit,
     watch,
-    setValue,
     register,
     setError,
     formState: { errors },
@@ -152,11 +145,6 @@ export function UnpivotOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     const unpivotCols = data.unpivot_columns.filter((c) => c.is_unpivot_checked).map((c) => c.col);
 
     if (unpivotCols.length === 0) {
@@ -170,10 +158,8 @@ export function UnpivotOpForm({
 
     const excludeCols = data.unpivot_columns.filter((c) => c.is_exclude_checked).map((c) => c.col);
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           unpivot_columns: unpivotCols,
@@ -182,29 +168,9 @@ export function UnpivotOpForm({
           exclude_columns: excludeCols,
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Unpivot operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save unpivot operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Unpivot operation saved successfully'
+    );
   };
 
   return (
@@ -306,7 +272,7 @@ export function UnpivotOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

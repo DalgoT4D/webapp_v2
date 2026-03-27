@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/AggregationOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,16 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
 import { AggregateOperations } from '@/constants/transform';
-import type {
-  OperationFormProps,
-  AggregateDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import type { OperationFormProps, AggregateDataConfig } from '@/types/transform';
 
 interface FormValues {
   column: string;
@@ -41,17 +37,13 @@ export function AggregationOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as AggregateDataConfig;
-      if (config?.source_columns) return config.source_columns;
-    }
-    return node?.data?.output_columns || [];
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { register, handleSubmit, setValue, watch } = useForm<FormValues>({
     defaultValues: (() => {
@@ -86,20 +78,13 @@ export function AggregationOpForm({
   }, [selectedColumn, selectedOperation, setValue, isEditMode, isViewMode]);
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.column || !data.operation || !data.outputColumnName) {
       toastError.api('All fields are required');
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           aggregate_on: [
@@ -111,29 +96,9 @@ export function AggregationOpForm({
           ],
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Aggregation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save aggregation operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Aggregation saved successfully'
+    );
   };
 
   return (
@@ -191,7 +156,7 @@ export function AggregationOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

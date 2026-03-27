@@ -8,15 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, Search } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
-import type {
-  OperationFormProps,
-  PivotDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import type { OperationFormProps, PivotDataConfig } from '@/types/transform';
 
 interface PivotValueItem {
   col: string;
@@ -45,19 +41,17 @@ export function PivotOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as PivotDataConfig;
-      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
-    }
-    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+    sortColumns: true,
   });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false);
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
@@ -165,11 +159,6 @@ export function PivotOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.pivot_column_name) {
       toastError.api('Pivot column is required');
       return;
@@ -184,10 +173,8 @@ export function PivotOpForm({
 
     const groupbyColumns = data.groupby_columns.filter((c) => c.is_checked).map((c) => c.col);
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           pivot_column_name: data.pivot_column_name,
@@ -195,29 +182,9 @@ export function PivotOpForm({
           groupby_columns: groupbyColumns,
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Pivot operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save pivot operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Pivot operation saved successfully'
+    );
   };
 
   return (
@@ -341,7 +308,7 @@ export function PivotOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

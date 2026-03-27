@@ -1,10 +1,8 @@
 // components/transform/canvas/forms/WhereFilterOpForm.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -18,17 +16,13 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
-import { parseStringForNull } from './shared/OperandInput';
-import { LogicalOperators, OperationFormAction, WhereFilterType } from '@/constants/transform';
-import type {
-  OperationFormProps,
-  WherefilterDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import { parseStringForNull } from '../shared/OperandInput';
+import { LogicalOperators, WhereFilterType } from '@/constants/transform';
+import type { OperationFormProps, WherefilterDataConfig } from '@/types/transform';
 
 interface FormValues {
   filterCol: string;
@@ -52,17 +46,14 @@ export function WhereFilterOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === OperationFormAction.VIEW;
-  const isEditMode = action === OperationFormAction.EDIT;
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
-      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
-    }
-    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+    sortColumns: true,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
@@ -114,11 +105,6 @@ export function WhereFilterOpForm({
   const filteredOperators = LogicalOperators.filter((op) => op.id !== 'between');
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.advanceFilter) {
       if (!data.filterCol || !data.logicalOp) {
         toastError.api('Column and operation are required');
@@ -131,10 +117,8 @@ export function WhereFilterOpForm({
       }
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           where_type: data.advanceFilter ? WhereFilterType.SQL : WhereFilterType.AND,
@@ -159,29 +143,9 @@ export function WhereFilterOpForm({
           sql_snippet: data.sql_snippet,
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? OperationFormAction.CREATE : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === OperationFormAction.EDIT) {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Filter operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save where filter operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Filter operation saved successfully'
+    );
   };
 
   const isSimpleFieldsDisabled = advanceFilter || isViewMode;
@@ -319,7 +283,7 @@ export function WhereFilterOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

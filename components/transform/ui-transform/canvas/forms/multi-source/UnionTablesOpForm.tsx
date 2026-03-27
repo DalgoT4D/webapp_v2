@@ -13,8 +13,8 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { apiGet } from '@/lib/api';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
-import { generateDummySrcModelNode } from '../utils/dummynodes';
-import { FormActions } from './shared/FormActions';
+import { generateDummySrcModelNode } from '../../utils/dummynodes';
+import { FormActions } from '../shared/FormActions';
 import type {
   OperationFormProps,
   UnionDataConfig,

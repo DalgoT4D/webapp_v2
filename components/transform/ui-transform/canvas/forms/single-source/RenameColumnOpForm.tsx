@@ -1,22 +1,16 @@
 // components/transform/canvas/forms/RenameColumnOpForm.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
-import type {
-  OperationFormProps,
-  RenameDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
-import { OperationFormAction } from '@/constants/transform';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import type { OperationFormProps, RenameDataConfig } from '@/types/transform';
 
 interface RenameRow {
   oldName: string;
@@ -39,25 +33,15 @@ export function RenameColumnOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === OperationFormAction.VIEW;
-  const isEditMode = action === OperationFormAction.EDIT;
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as RenameDataConfig;
-      if (config?.source_columns) return config.source_columns;
-    }
-    return node?.data?.output_columns || [];
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<FormValues>({
+  const { control, handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = node.data.operation_config.config as unknown as RenameDataConfig;
@@ -94,11 +78,6 @@ export function RenameColumnOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     // Filter out empty rows and build columns map
     const validRenames = data.renames.filter((r) => r.oldName && r.newName);
     if (validRenames.length === 0) {
@@ -111,36 +90,14 @@ export function RenameColumnOpForm({
       columnsMap[r.oldName] = r.newName;
     });
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: { columns: columnsMap },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? OperationFormAction.CREATE : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === OperationFormAction.EDIT) {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic(`Column${validRenames.length > 1 ? 's' : ''} renamed successfully`);
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save rename operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      `Column${validRenames.length > 1 ? 's' : ''} renamed successfully`
+    );
   };
 
   return (
@@ -215,7 +172,7 @@ export function RenameColumnOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

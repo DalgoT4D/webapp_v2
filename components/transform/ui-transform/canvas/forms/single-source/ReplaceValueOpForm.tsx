@@ -1,22 +1,17 @@
 // components/transform/canvas/forms/ReplaceValueOpForm.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
-import { parseStringForNull } from './shared/OperandInput';
-import type {
-  OperationFormProps,
-  ReplaceDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import { parseStringForNull } from '../shared/OperandInput';
+import type { OperationFormProps, ReplaceDataConfig } from '@/types/transform';
 
 interface ReplaceRow {
   find: string;
@@ -40,17 +35,13 @@ export function ReplaceValueOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
-      if (config?.source_columns) return config.source_columns;
-    }
-    return node?.data?.output_columns || [];
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
@@ -78,10 +69,6 @@ export function ReplaceValueOpForm({
   const selectedColumn = watch('column');
   const watchedReplacements = watch('replacements');
 
-  // srcColumns and form defaultValues are initialized from props via useState/useForm
-  // initializers above. No effects needed — the parent remounts this component via
-  // key={selectedNode?.id} when the node changes.
-
   const handleAddRow = () => {
     append({ find: '', replace: '' });
   };
@@ -93,11 +80,6 @@ export function ReplaceValueOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.column) {
       toastError.api('Please select a column');
       return;
@@ -111,15 +93,13 @@ export function ReplaceValueOpForm({
       return;
     }
 
-    setLoading(true);
+    const replaceOps = validReplacements.map((r) => ({
+      find: parseStringForNull(r.find),
+      replace: parseStringForNull(r.replace),
+    }));
 
-    try {
-      const replaceOps = validReplacements.map((r) => ({
-        find: parseStringForNull(r.find),
-        replace: parseStringForNull(r.replace),
-      }));
-
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           columns: [
@@ -131,29 +111,9 @@ export function ReplaceValueOpForm({
           ],
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Replace operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save replace operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Replace operation saved successfully'
+    );
   };
 
   return (
@@ -253,7 +213,7 @@ export function ReplaceValueOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

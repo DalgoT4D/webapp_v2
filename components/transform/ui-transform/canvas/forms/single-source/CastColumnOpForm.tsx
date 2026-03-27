@@ -5,24 +5,16 @@ import { useEffect, useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
+import { toastError } from '@/lib/toast';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { FormActions } from './shared/FormActions';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
 import { apiGet } from '@/lib/api';
-import type {
-  OperationFormProps,
-  CastDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import type { OperationFormProps, CastDataConfig } from '@/types/transform';
 
 interface ColumnConfig {
   name: string;
   data_type: string;
-}
-
-interface FormValues {
-  columns: ColumnConfig[];
 }
 
 /**
@@ -37,8 +29,14 @@ export function CastColumnOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  // Uses hook for mode flags and submit; manages own srcColumns (ColumnConfig[])
+  const { isViewMode, isEditMode, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [srcColumns, setSrcColumns] = useState<ColumnConfig[]>(() => {
@@ -67,8 +65,6 @@ export function CastColumnOpForm({
     }
     return {};
   });
-
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   // Fetch data types
   useEffect(() => {
@@ -164,11 +160,6 @@ export function CastColumnOpForm({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     // Filter columns with types set
     const columnsTocast = Object.entries(columnTypes)
       .filter(([, type]) => type)
@@ -182,36 +173,14 @@ export function CastColumnOpForm({
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: { columns: columnsTocast },
         source_columns: srcColumns.map((c) => c.name),
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Cast operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save cast operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Cast operation saved successfully'
+    );
   };
 
   return (
@@ -278,7 +247,7 @@ export function CastColumnOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

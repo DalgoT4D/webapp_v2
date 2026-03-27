@@ -1,7 +1,7 @@
 // components/transform/canvas/forms/ArithmeticOpForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,16 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2, Info } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
 import { ArithmeticOperations } from '@/constants/transform';
-import type {
-  OperationFormProps,
-  ArithmeticDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import type { OperationFormProps, ArithmeticDataConfig } from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';
@@ -50,17 +46,13 @@ export function ArithmeticOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as ArithmeticDataConfig;
-      if (config?.source_columns) return config.source_columns;
-    }
-    return node?.data?.output_columns || [];
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
@@ -115,11 +107,6 @@ export function ArithmeticOpForm({
       ['add', 'mul'].includes(selectedOperator));
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.operator) {
       toastError.api('Please select an operation');
       return;
@@ -140,10 +127,8 @@ export function ArithmeticOpForm({
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           operator: data.operator,
@@ -154,29 +139,9 @@ export function ArithmeticOpForm({
           output_column_name: data.output_column_name,
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Arithmetic operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save arithmetic operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Arithmetic operation saved successfully'
+    );
   };
 
   return (
@@ -308,7 +273,7 @@ export function ArithmeticOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

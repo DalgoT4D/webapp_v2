@@ -6,15 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { FormActions } from './shared/FormActions';
+import { toastError } from '@/lib/toast';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
 import { cn } from '@/lib/utils';
-import type {
-  OperationFormProps,
-  DropDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import type { OperationFormProps, DropDataConfig } from '@/types/transform';
 
 /**
  * Form for dropping (removing) columns from a table.
@@ -28,17 +24,15 @@ export function DropColumnOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as DropDataConfig;
-      if (config?.source_columns) return config.source_columns;
-    }
-    return node?.data?.output_columns || [];
-  });
   const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
       const config = node.data.operation_config.config as unknown as DropDataConfig;
@@ -46,8 +40,6 @@ export function DropColumnOpForm({
     }
     return [];
   });
-
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   // Filter columns based on search
   const filteredColumns = useMemo(() => {
@@ -77,48 +69,19 @@ export function DropColumnOpForm({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (selectedColumns.length === 0) {
       toastError.api('Select at least one column to drop');
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: { columns: selectedColumns },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic(
-        `${selectedColumns.length} column${selectedColumns.length > 1 ? 's' : ''} will be dropped`
-      );
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save drop operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      `${selectedColumns.length} column${selectedColumns.length > 1 ? 's' : ''} will be dropped`
+    );
   };
 
   return (
@@ -205,7 +168,7 @@ export function DropColumnOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

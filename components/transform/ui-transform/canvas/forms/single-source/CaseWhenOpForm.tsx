@@ -1,7 +1,6 @@
 // components/transform/canvas/forms/CaseWhenOpForm.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm, useFieldArray, Controller, type Control, type FieldPath } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,18 +17,13 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Info } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
-import { parseStringForNull } from './shared/OperandInput';
-import { LogicalOperators, OperationFormAction, CaseWhenType } from '@/constants/transform';
-import type {
-  OperationFormProps,
-  CasewhenDataConfig,
-  WhenClause,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import { toastError } from '@/lib/toast';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import { parseStringForNull } from '../shared/OperandInput';
+import { LogicalOperators, CaseWhenType } from '@/constants/transform';
+import type { OperationFormProps, CasewhenDataConfig, WhenClause } from '@/types/transform';
 
 interface OperandValue {
   type: 'col' | 'val';
@@ -152,17 +146,14 @@ export function CaseWhenOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === OperationFormAction.VIEW;
-  const isEditMode = action === OperationFormAction.EDIT;
-
-  const [srcColumns, setSrcColumns] = useState<string[]>(() => {
-    if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as CasewhenDataConfig;
-      if (config?.source_columns) return config.source_columns.sort((a, b) => a.localeCompare(b));
-    }
-    return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
+  const { isViewMode, isEditMode, srcColumns, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+    sortColumns: true,
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
@@ -234,11 +225,6 @@ export function CaseWhenOpForm({
   const watchedElseValue = watch('elseValue');
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.output_column_name) {
       toastError.api('Output column name is required');
       return;
@@ -249,10 +235,8 @@ export function CaseWhenOpForm({
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           case_type: data.advanceFilter ? CaseWhenType.ADVANCE : CaseWhenType.SIMPLE,
@@ -309,29 +293,9 @@ export function CaseWhenOpForm({
           output_column_name: data.output_column_name,
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? OperationFormAction.CREATE : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === OperationFormAction.EDIT) {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Case when operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save case when operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Case when operation saved successfully'
+    );
   };
 
   const isSimpleDisabled = advanceFilter || isViewMode;
@@ -558,7 +522,7 @@ export function CaseWhenOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

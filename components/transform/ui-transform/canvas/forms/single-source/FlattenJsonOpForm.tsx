@@ -5,16 +5,15 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
+import { toastError } from '@/lib/toast';
 import { apiGet } from '@/lib/api';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { ColumnSelect } from './shared/ColumnSelect';
-import { FormActions } from './shared/FormActions';
+import { ColumnSelect } from '../shared/ColumnSelect';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
 import type {
   OperationFormProps,
   FlattenJsonDataConfig,
   DbtModelResponse,
-  ModelSrcOtherInputPayload,
 } from '@/types/transform';
 
 interface FormValues {
@@ -33,8 +32,15 @@ export function FlattenJsonOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  // Uses hook for mode flags and submit; manages own srcColumns (updated via API)
+  const { isViewMode, isEditMode, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+    sortColumns: true,
+  });
 
   const [srcColumns, setSrcColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
@@ -59,14 +65,8 @@ export function FlattenJsonOpForm({
     return [];
   });
   const [isFetchingJson, setIsFetchingJson] = useState(false);
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
-  const {
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<FormValues>({
+  const { handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
@@ -162,11 +162,6 @@ export function FlattenJsonOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.json_column) {
       toastError.api('JSON column is required');
       return;
@@ -177,12 +172,10 @@ export function FlattenJsonOpForm({
       return;
     }
 
-    setLoading(true);
+    const { schema } = getSchemaAndTable();
 
-    try {
-      const { schema } = getSchemaAndTable();
-
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           json_column: data.json_column,
@@ -190,29 +183,9 @@ export function FlattenJsonOpForm({
           json_columns_to_copy: jsonColumns,
         },
         source_columns: srcColumns,
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('Flatten JSON operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save flatten JSON operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+      },
+      'Flatten JSON operation saved successfully'
+    );
   };
 
   return (
@@ -276,7 +249,7 @@ export function FlattenJsonOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

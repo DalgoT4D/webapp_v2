@@ -7,14 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { FormActions } from './shared/FormActions';
-import type {
-  OperationFormProps,
-  GenericSqlDataConfig,
-  ModelSrcOtherInputPayload,
-} from '@/types/transform';
+import { toastError } from '@/lib/toast';
+import { FormActions } from '../shared/FormActions';
+import { useOperationForm } from '../shared/useOperationForm';
+import type { OperationFormProps, GenericSqlDataConfig } from '@/types/transform';
 
 interface FormValues {
   sql_statement_1: string;
@@ -33,15 +29,20 @@ export function GenericSqlOpForm({
   action,
   setLoading,
 }: OperationFormProps) {
-  const isViewMode = action === 'view';
-  const isEditMode = action === 'edit';
+  // Uses hook for mode flags and submit; computes source_columns in payload
+  const { isViewMode, isEditMode, isSubmitting, submitOperation } = useOperationForm({
+    node,
+    action,
+    operation,
+    continueOperationChain,
+    setLoading,
+  });
 
-  const [inputTableName, setInputTableName] = useState<string>(() => {
+  const [inputTableName] = useState<string>(() => {
     if (node?.data?.dbtmodel?.name) return node.data.dbtmodel.name;
     if (node?.data?.name) return node.data.name;
     return 'chained_input';
   });
-  const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const {
     handleSubmit,
@@ -63,56 +64,32 @@ export function GenericSqlOpForm({
   });
 
   const onSubmit = async (data: FormValues) => {
-    if (!node?.id) {
-      toastError.api('No node selected');
-      return;
-    }
-
     if (!data.sql_statement_1.trim()) {
       toastError.api('SELECT statement is required');
       return;
     }
 
-    setLoading(true);
+    // Compute source_columns based on mode (respecting isDummy like the original)
+    const sourceColumns = (() => {
+      const isActualEdit = !node?.data?.isDummy && isEditMode;
+      if (isActualEdit && node?.data?.operation_config?.config) {
+        const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+        return config?.source_columns || [];
+      }
+      return node?.data?.output_columns || [];
+    })();
 
-    try {
-      const payload = {
+    await submitOperation(
+      {
         op_type: operation.slug,
         config: {
           sql_statement_1: data.sql_statement_1,
           sql_statement_2: data.sql_statement_2,
         },
-        source_columns: (() => {
-          const finalAction = node.data?.isDummy ? 'create' : action;
-          if (finalAction === 'edit' && node?.data?.operation_config?.config) {
-            const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
-            return config?.source_columns || [];
-          }
-          return node?.data?.output_columns || [];
-        })(),
-        other_inputs: [] as ModelSrcOtherInputPayload[],
-      };
-
-      const finalAction = node.data?.isDummy ? 'create' : action;
-      let createdNodeUuid: string | undefined;
-      if (finalAction === 'edit') {
-        await editOperation(node.id, payload);
-      } else {
-        const response = await createOperation(node.id, {
-          ...payload,
-          input_node_uuid: node.id,
-        });
-        createdNodeUuid = response?.uuid;
-      }
-
-      toastSuccess.generic('SQL operation saved successfully');
-      continueOperationChain(createdNodeUuid);
-    } catch (error) {
-      console.error('Failed to save SQL operation:', error);
-      toastError.save(error, 'operation');
-    } finally {
-      setLoading(false);
-    }
+        source_columns: sourceColumns,
+      },
+      'SQL operation saved successfully'
+    );
   };
 
   return (
@@ -178,7 +155,7 @@ export function GenericSqlOpForm({
       {/* Actions */}
       <FormActions
         isViewMode={isViewMode}
-        isSubmitting={isCreating || isEditing}
+        isSubmitting={isSubmitting}
         onCancel={clearAndClosePanel}
       />
     </form>

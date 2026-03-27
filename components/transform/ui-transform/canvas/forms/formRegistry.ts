@@ -2,25 +2,27 @@
 import type { ComponentType } from 'react';
 import type { OperationFormProps } from '@/types/transform';
 
-// Import all operation forms
-import { RenameColumnOpForm } from './RenameColumnOpForm';
-import { DropColumnOpForm } from './DropColumnOpForm';
-import { CastColumnOpForm } from './CastColumnOpForm';
-import { ReplaceValueOpForm } from './ReplaceValueOpForm';
-import { AggregationOpForm } from './AggregationOpForm';
-import { GroupByOpForm } from './GroupByOpForm';
-import { ArithmeticOpForm } from './ArithmeticOpForm';
-import { JoinOpForm } from './JoinOpForm';
-import { UnionTablesOpForm } from './UnionTablesOpForm';
-import { CoalesceOpForm } from './CoalesceOpForm';
-import { CaseWhenOpForm } from './CaseWhenOpForm';
-import { WhereFilterOpForm } from './WhereFilterOpForm';
-import { PivotOpForm } from './PivotOpForm';
-import { UnpivotOpForm } from './UnpivotOpForm';
-import { FlattenJsonOpForm } from './FlattenJsonOpForm';
-import { CreateTableForm } from './CreateTableForm';
-import { GenericColumnOpForm } from './GenericColumnOpForm';
-import { GenericSqlOpForm } from './GenericSqlOpForm';
+// Single-source operation forms (operate on one input)
+import { RenameColumnOpForm } from './single-source/RenameColumnOpForm';
+import { DropColumnOpForm } from './single-source/DropColumnOpForm';
+import { CastColumnOpForm } from './single-source/CastColumnOpForm';
+import { ReplaceValueOpForm } from './single-source/ReplaceValueOpForm';
+import { AggregationOpForm } from './single-source/AggregationOpForm';
+import { GroupByOpForm } from './single-source/GroupByOpForm';
+import { ArithmeticOpForm } from './single-source/ArithmeticOpForm';
+import { CoalesceOpForm } from './single-source/CoalesceOpForm';
+import { CaseWhenOpForm } from './single-source/CaseWhenOpForm';
+import { WhereFilterOpForm } from './single-source/WhereFilterOpForm';
+import { PivotOpForm } from './single-source/PivotOpForm';
+import { UnpivotOpForm } from './single-source/UnpivotOpForm';
+import { FlattenJsonOpForm } from './single-source/FlattenJsonOpForm';
+import { GenericColumnOpForm } from './single-source/GenericColumnOpForm';
+import { GenericSqlOpForm } from './single-source/GenericSqlOpForm';
+import { CreateTableForm } from './single-source/CreateTableForm';
+
+// Multi-source operation forms (combine multiple inputs)
+import { JoinOpForm } from './multi-source/JoinOpForm';
+import { UnionTablesOpForm } from './multi-source/UnionTablesOpForm';
 
 // Import operation slug constants
 import {
