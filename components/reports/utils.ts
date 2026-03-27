@@ -99,10 +99,11 @@ export function getAvatarColor(email: string): string {
 }
 
 /**
- * Get initials from an author object (max 2 chars).
+ * Get the first character of an email as an uppercase initial.
+ * Returns '?' as fallback for empty or missing values.
  */
 export function getInitials(email: string): string {
-  return email[0].toUpperCase();
+  return email?.[0]?.toUpperCase() ?? '?';
 }
 
 // Match @email patterns (email-like strings after @)
