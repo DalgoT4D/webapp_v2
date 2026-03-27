@@ -51,9 +51,10 @@ function handleAuthFailure() {
     const currentPath = window.location.pathname;
     if (
       currentPath.startsWith('/share/dashboard/') ||
-      currentPath.startsWith('/public/dashboard/')
+      currentPath.startsWith('/public/dashboard/') ||
+      currentPath.startsWith('/share/report/')
     ) {
-      console.log('[handleAuthFailure] Ignoring auth failure on public dashboard');
+      console.log('[handleAuthFailure] Ignoring auth failure on public page');
       return;
     }
 

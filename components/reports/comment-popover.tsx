@@ -130,13 +130,14 @@ const CommentContent = memo(function CommentContent({ content }: { content: stri
 
   return (
     <p className="text-sm mt-0.5 whitespace-pre-wrap break-all">
-      {parts.map((part) =>
+      {/* Index-as-key is safe: parts are derived from a static string, never reordered */}
+      {parts.map((part, index) =>
         part.type === 'mention' ? (
-          <span key={`mention-${part.value}`} className="text-primary font-medium">
+          <span key={`mention-${index}`} className="text-primary font-medium">
             {part.value}
           </span>
         ) : (
-          <span key={`text-${part.value}`}>{part.value}</span>
+          <span key={`text-${index}`}>{part.value}</span>
         )
       )}
     </p>
