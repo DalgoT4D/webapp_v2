@@ -226,6 +226,21 @@ export async function apiPublicGet(path: string) {
   return response.json();
 }
 
+// Helper for public POST requests (no auth, no cookies)
+export async function apiPublicPost(path: string, body: any, queryParams?: URLSearchParams) {
+  const base = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const url = queryParams?.toString() ? `${base}?${queryParams}` : base;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Public API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // Helper for POST requests that return binary data
 export async function apiPostBinary(path: string, body: any, options: RequestInit = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
