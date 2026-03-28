@@ -663,7 +663,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       // Dashboard pages
       pathname === '/dashboards/create' ||
       pathname.match(/^\/dashboards\/[^\/]+\/edit$/) ||
-      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit'));
+      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit')) ||
+      // Report pages
+      pathname.match(/^\/reports\/[^\/]+$/);
 
     // Reset user toggle preference on page navigation
     setHasUserToggledSidebar(false);

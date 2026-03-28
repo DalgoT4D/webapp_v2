@@ -70,6 +70,27 @@ jest.mock('@/components/reports/comment-popover', () => ({
   CommentPopover: () => <div data-testid="mock-comment-popover" />,
 }));
 
+// Mock useUserPermissions — default: all permissions granted
+const mockHasPermission = jest.fn().mockReturnValue(true);
+jest.mock('@/hooks/api/usePermissions', () => ({
+  useUserPermissions: () => ({
+    permissions: [],
+    hasPermission: mockHasPermission,
+    hasAnyPermission: jest.fn().mockReturnValue(true),
+    hasAllPermissions: jest.fn().mockReturnValue(true),
+    isLoading: false,
+  }),
+}));
+
+// Mock useAuthStore — return current user email matching created_by in mock data
+const mockGetCurrentUserEmail = jest.fn().mockReturnValue('user@test.com');
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      getCurrentOrgUser: () => ({ email: mockGetCurrentUserEmail() }),
+    }),
+}));
+
 // Mock ShareModal
 jest.mock('@/components/ui/share-modal', () => ({
   ShareModal: ({
@@ -355,6 +376,64 @@ describe('SnapshotViewerPage', () => {
       await waitFor(() => {
         expect(screen.queryByTestId('report-share-modal')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Permissions', () => {
+    it('hides share button when user lacks can_share_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides share button when user is not the report creator', () => {
+      mockGetCurrentUserEmail.mockReturnValue('other@test.com');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides save button when user lacks can_edit_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('report-save-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides edit and comment buttons when user lacks can_edit_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('summary-edit-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('mock-comment-popover')).not.toBeInTheDocument();
+    });
+
+    it('shows download button regardless of permissions', () => {
+      mockHasPermission.mockReturnValue(false);
+      renderPage();
+
+      expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
+    });
+
+    it('shows share button when user has permission and is the creator', () => {
+      mockHasPermission.mockReturnValue(true);
+      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
+      renderPage();
+
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+    });
+
+    it('shows all action buttons when user has full permissions and is creator', () => {
+      mockHasPermission.mockReturnValue(true);
+      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
+      renderPage();
+
+      expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('summary-edit-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
     });
   });
 
