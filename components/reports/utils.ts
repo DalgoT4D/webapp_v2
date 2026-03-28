@@ -1,15 +1,11 @@
 import { formatDistanceToNow, format, isThisYear } from 'date-fns';
 
 /**
- * Format a date string as MM/DD/YYYY for compact display in report headers.
+ * Format a date string as "Mar 31st, 2026" for display in report headers.
  */
 export function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric',
-  });
+  return format(d, 'MMM do, yyyy');
 }
 
 /**
