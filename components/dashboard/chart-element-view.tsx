@@ -50,6 +50,7 @@ import {
   applyLineBarChartFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
+import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
@@ -81,6 +82,8 @@ import {
   GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { CommentPopover } from '@/components/reports/comment-popover';
+import type { CommentIconState, CommentStates } from '@/types/comments';
 
 // Register necessary ECharts components
 echarts.use([
@@ -121,6 +124,10 @@ interface ChartElementViewProps {
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: CommentStates; // Comment states array with target_type and chart_id
+  onCommentStateChange?: () => void; // Callback when comment state changes
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
 }
 
 interface DrillDownLevel {
@@ -145,6 +152,10 @@ export function ChartElementView({
   publicToken,
   config = {},
   frozenChartConfig,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
+  autoOpenCommentChartId,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -464,8 +475,18 @@ export function ChartElementView({
     shouldFetchReportChartData ? ['report-chart-data', chartId, filterHash] : null,
     shouldFetchReportChartData
       ? isPublicReport
-        ? () =>
-            apiPublicPost(`/api/v1/public/reports/${publicToken}/chart-data/`, chartDataPayload!)
+        ? async () => {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/chart-data/`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chartDataPayload),
+              }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+          }
         : () => apiPost('/api/charts/chart-data/', chartDataPayload!)
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -512,7 +533,16 @@ export function ChartElementView({
             queryParams.append('dashboard_filters', JSON.stringify(filters));
           }
 
-          return apiPublicPost(`${url}?${queryParams}`, payload);
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${queryParams}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -553,9 +583,7 @@ export function ChartElementView({
           if (Object.keys(filters).length > 0) {
             queryParams.append('dashboard_filters', JSON.stringify(filters));
           }
-
-          const finalUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
-          return apiPublicPost(finalUrl, payload);
+          return apiPublicPost(url, payload, queryParams);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -836,7 +864,7 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          return apiPublicPost(url, mapDataOverlayPayload!);
+          return apiPublicPost(url, mapDataOverlayPayload);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -1662,38 +1690,62 @@ export function ChartElementView({
     >
       {/* Chart toolbar - only visible on hover in view mode */}
       {viewMode && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            {/* Download dropdown with PNG and CSV options */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
-                  <FileImage className="w-4 h-4 mr-2" />
-                  <span>Download as PNG</span>
-                </DropdownMenuItem>
-                {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
-                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    <span>Export Data as CSV</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div
+          className={`absolute top-2 right-2 z-10 ${frozenChartConfig ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200`}
+        >
+          <div
+            className={`flex gap-1 ${frozenChartConfig ? '' : 'bg-white/90 backdrop-blur rounded-md shadow-sm p-1'}`}
+          >
+            {/* Download and fullscreen — hidden in report mode */}
+            {!frozenChartConfig && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
+                      <FileImage className="w-4 h-4 mr-2" />
+                      <span>Download as PNG</span>
+                    </DropdownMenuItem>
+                    {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
+                      <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                        <FileText className="w-4 h-4 mr-2" />
+                        <span>Export Data as CSV</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleFullscreen}
-              className="h-7 w-7 p-0"
-              title="Fullscreen"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleFullscreen}
+                  className="h-7 w-7 p-0"
+                  title="Fullscreen"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+
+            {/* Comment button — only in report mode */}
+            {frozenChartConfig && snapshotId && (
+              <CommentPopover
+                snapshotId={snapshotId}
+                targetType="chart"
+                chartId={chartId}
+                state={
+                  (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
+                  'none'
+                }
+                triggerClassName="h-7 w-7 p-0"
+                onStateChange={onCommentStateChange}
+                autoOpen={autoOpenCommentChartId === String(chartId)}
+              />
+            )}
           </div>
         </div>
       )}

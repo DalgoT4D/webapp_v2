@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +13,7 @@ import {
   Download,
   LayoutGrid,
   Loader2,
+  Pencil,
   Share2,
   User,
 } from 'lucide-react';
@@ -22,25 +24,41 @@ import {
   getReportSharingStatus,
   updateReportSharing,
 } from '@/hooks/api/useReports';
+import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ShareModal } from '@/components/ui/share-modal';
+import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
   const router = useRouter();
-  const snapshotId = Number(params.snapshotId);
+  const searchParams = useSearchParams();
+  const parsedId = Number(params.snapshotId);
+  const isValidId = !isNaN(parsedId) && parsedId > 0;
 
-  const { viewData, isLoading, isError, mutate } = useSnapshotView(snapshotId);
+  // Read comment deep-link params from email notifications
+  const commentTarget = searchParams.get('commentTarget');
+  const commentChartId = searchParams.get('chartId');
+
+  const { viewData, isLoading, isError, mutate } = useSnapshotView(isValidId ? parsedId : null);
 
   const [summaryDraft, setSummaryDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+
+  const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
+    isValidId ? parsedId : null
+  );
+  const handleCommentStateChange = useCallback(() => {
+    mutateCommentStates();
+  }, [mutateCommentStates]);
 
   const { isExporting, download: handleDownload } = usePdfDownload({
-    endpoint: `/api/reports/${snapshotId}/export/pdf/`,
+    endpoint: `/api/reports/${parsedId}/export/pdf/`,
     title: viewData?.report_metadata.title || 'report',
   });
 
@@ -54,15 +72,27 @@ export default function SnapshotViewerPage() {
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
-      await updateSnapshot(snapshotId, { summary: summaryDraft });
+      await updateSnapshot(parsedId, { summary: summaryDraft });
       mutate();
+      setIsEditingSummary(false);
       toastSuccess.saved('Report');
     } catch (error) {
       toastError.save(error, 'report');
     } finally {
       setIsSaving(false);
     }
-  }, [snapshotId, summaryDraft, mutate]);
+  }, [parsedId, summaryDraft, mutate]);
+
+  if (!isValidId) {
+    return (
+      <div className="p-6">
+        <p className="text-red-500">Invalid report ID.</p>
+        <Button data-testid="report-go-back-btn" variant="outline" onClick={() => router.back()}>
+          Go Back
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -152,12 +182,22 @@ export default function SnapshotViewerPage() {
               Created by: {report_metadata.created_by}
             </span>
           )}
-          {report_metadata.dashboard_title && (
-            <span className="flex items-center gap-1.5">
-              <LayoutGrid className="h-3.5 w-3.5" />
-              {report_metadata.dashboard_title}
-            </span>
-          )}
+          {report_metadata.dashboard_title &&
+            (report_metadata.dashboard_id ? (
+              <Link
+                href={`/dashboards/${report_metadata.dashboard_id}`}
+                className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                data-testid="report-dashboard-link"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {report_metadata.dashboard_title}
+              </Link>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {report_metadata.dashboard_title}
+              </span>
+            ))}
         </div>
       </div>
 
@@ -169,8 +209,44 @@ export default function SnapshotViewerPage() {
           isReportMode={true}
           frozenChartConfigs={frozen_chart_configs}
           hideHeader={true}
+          snapshotId={parsedId}
+          commentStates={commentStates}
+          onCommentStateChange={handleCommentStateChange}
+          autoOpenCommentChartId={
+            commentTarget === 'chart' && commentChartId ? commentChartId : undefined
+          }
           beforeContent={
-            <div className="border rounded-lg p-5 mb-2 bg-background">
+            <div className="border rounded-lg p-5 mb-2 bg-background relative">
+              {/* Comment + Edit icons in top-right corner */}
+              <div className="absolute top-3 right-3 flex items-center gap-1">
+                <CommentPopover
+                  snapshotId={parsedId}
+                  targetType="summary"
+                  state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
+                  triggerClassName="h-8 w-8"
+                  onStateChange={handleCommentStateChange}
+                  autoOpen={commentTarget === 'summary'}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  data-testid="summary-edit-btn"
+                  aria-label="Edit summary"
+                  onClick={() => {
+                    setIsEditingSummary(true);
+                    requestAnimationFrame(() => {
+                      const textarea = document.querySelector(
+                        '[data-testid="report-summary-textarea"]'
+                      ) as HTMLTextAreaElement;
+                      textarea?.focus();
+                    });
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
+
               <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
               <Textarea
                 data-testid="report-summary-textarea"
@@ -179,9 +255,10 @@ export default function SnapshotViewerPage() {
                   setSummaryDraft(e.target.value);
                   setSummaryTouched(true);
                 }}
+                readOnly={!isEditingSummary}
                 placeholder="Add your notes here"
                 rows={2}
-                className="resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground"
+                className={`resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground ${!isEditingSummary ? 'cursor-default' : ''}`}
               />
             </div>
           }
@@ -189,7 +266,7 @@ export default function SnapshotViewerPage() {
       </div>
 
       <ShareModal
-        entityId={snapshotId}
+        entityId={parsedId}
         entityLabel="Report"
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}

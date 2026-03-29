@@ -51,12 +51,7 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import {
-  useDashboard,
-  deleteDashboard,
-  getDashboardSharingStatus,
-  updateDashboardSharing,
-} from '@/hooks/api/useDashboards';
+import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
@@ -71,11 +66,13 @@ import {
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from '@/components/ui/share-modal';
+import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
+import type { CommentStates } from '@/types/comments';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -232,6 +229,10 @@ interface DashboardNativeViewProps {
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: CommentStates; // Comment states array with target_type and chart_id
+  onCommentStateChange?: () => void; // Callback to revalidate comment states
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
 }
 
 export function DashboardNativeView({
@@ -248,6 +249,10 @@ export function DashboardNativeView({
   beforeContent,
   onContainerRef,
   isPrintMode = false,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
+  autoOpenCommentChartId,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -548,6 +553,10 @@ export function DashboardNativeView({
                   ? frozenChartConfigs[String(component.config?.chartId)]
                   : undefined
               }
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
             />
           </div>
         );
@@ -1090,7 +1099,7 @@ export function DashboardNativeView({
             onCollapseChange={setIsFiltersCollapsed}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
-            initiallyCollapsed={showMinimalHeader || isPublicMode}
+            initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
             isReportMode={isReportMode}
           />
         )}
@@ -1291,7 +1300,7 @@ export function DashboardNativeView({
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
-          entityId={dashboardId}
+          entityId={dashboard.id}
           entityLabel="Dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
