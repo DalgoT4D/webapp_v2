@@ -255,7 +255,17 @@ export function DashboardNativeView({
   autoOpenCommentChartId,
 }: DashboardNativeViewProps) {
   const router = useRouter();
-  const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
+  const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
+    // In report mode, dashboardData is pre-fetched so filters are available immediately.
+    // Compute defaults synchronously to avoid a double-render cycle with empty filters.
+    if (isReportMode && dashboardData?.filters && Array.isArray(dashboardData.filters)) {
+      const filterConfigs = dashboardData.filters.map((filter: any) =>
+        convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
+      );
+      return getDefaultFilterValues(filterConfigs);
+    }
+    return {};
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actualContainerWidth, setActualContainerWidth] = useState(
@@ -361,17 +371,8 @@ export function DashboardNativeView({
     );
   }, [dashboard?.filters]);
 
-  // Auto-apply default filter values in report mode so charts render pre-filtered.
-  // The backend injects period dates into the datetime filter's settings,
-  // so getDefaultFilterValues() extracts them automatically.
-  useEffect(() => {
-    if (isReportMode && dashboardFilters.length > 0) {
-      const defaultValues = getDefaultFilterValues(dashboardFilters);
-      if (Object.keys(defaultValues).length > 0) {
-        setSelectedFilters(defaultValues);
-      }
-    }
-  }, [isReportMode, dashboardFilters]);
+  // Default filter values for report mode are computed synchronously in useState above.
+  // No useEffect needed — this avoids a double-render cycle with empty filters.
 
   // Allow editing in preview mode without any conditions
 
