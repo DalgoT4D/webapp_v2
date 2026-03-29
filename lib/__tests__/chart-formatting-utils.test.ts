@@ -8,7 +8,9 @@ import {
   createPieDimensionFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyPieDateFormatting,
   applyLineBarChartFormatting,
+  applyLineBarDateFormatting,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -299,6 +301,86 @@ describe('chart-formatting-utils', () => {
       const formatter = createPieDimensionFormatter('international', undefined);
       expect(formatter('Category A')).toBe('Category A');
       expect(formatter('Product - Description')).toBe('Product - Description');
+    });
+  });
+
+  describe('applyPieDateFormatting', () => {
+    const makePieConfig = (data = [{ name: '2019-01-14', value: 100 }]) => ({
+      series: [{ type: 'pie', label: {}, data }],
+      legend: { data: ['2019-01-14'] },
+    });
+
+    it('should do nothing when dateFormat is default or missing', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, {});
+      expect((config.series[0] as any).label.formatter).toBeUndefined();
+
+      applyPieDateFormatting(config, { dateFormat: 'default' });
+      expect((config.series[0] as any).label.formatter).toBeUndefined();
+    });
+
+    it('should format series.data names with date format', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.series[0] as any).data[0].name).toBe('14/01/2019');
+    });
+
+    it('should update legend.data to match formatted names', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.legend as any).data[0]).toBe('14/01/2019');
+    });
+
+    it('should add legend formatter for dates', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect(typeof (config.legend as any).formatter).toBe('function');
+      expect((config.legend as any).formatter('2019-01-14')).toBe('14/01/2019');
+    });
+
+    it('should inject label formatter using date format for name', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy', labelFormat: 'name_percentage' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 100, name: '2019-01-14', percent: 40 })).toBe('14/01/2019\n40%');
+    });
+
+    it('should do nothing when series is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect(config.series).toBeUndefined();
+    });
+  });
+
+  describe('applyLineBarDateFormatting', () => {
+    it('should do nothing when xAxisDateFormat is default or missing', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarDateFormatting(config, {});
+      expect((config.xAxis as any).axisLabel.formatter).toBeUndefined();
+
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'default' });
+      expect((config.xAxis as any).axisLabel.formatter).toBeUndefined();
+    });
+
+    it('should apply X-axis date formatter', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'dd_mm_yyyy' });
+      const formatter = (config.xAxis as any).axisLabel.formatter;
+      expect(formatter('2019-01-14')).toBe('14/01/2019');
+    });
+
+    it('should apply formatter to each axis when xAxis is an array', () => {
+      const config = { xAxis: [{ axisLabel: {} }, { axisLabel: {} }] };
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'yyyy_mm_dd' });
+      (config.xAxis as any[]).forEach((axis) => {
+        expect(axis.axisLabel.formatter('2019-01-14')).toBe('2019-01-14');
+      });
+    });
+
+    it('should do nothing when xAxis is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'dd_mm_yyyy' });
+      expect(config.xAxis).toBeUndefined();
     });
   });
 });

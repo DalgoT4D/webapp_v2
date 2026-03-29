@@ -46,7 +46,9 @@ import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyPieDateFormatting,
   applyLineBarChartFormatting,
+  applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
@@ -1010,11 +1012,13 @@ export function ChartElementV2({
       // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
       if (isPieChart) {
         applyPieChartFormatting(modifiedConfig, customizations);
+        applyPieDateFormatting(modifiedConfig, customizations);
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
       if (isLineChart || isBarChart) {
         applyLineBarChartFormatting(modifiedConfig, customizations);
+        applyLineBarDateFormatting(modifiedConfig, customizations);
       }
 
       // Set chart option with animation disabled for better performance

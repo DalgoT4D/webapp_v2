@@ -7,7 +7,13 @@
  * Used by ChartPreview, chart-element-view, and chart-element-v2 components.
  */
 
-import { formatNumber, NumberFormats, type NumberFormat } from './formatters';
+import {
+  formatNumber,
+  formatDate,
+  NumberFormats,
+  type NumberFormat,
+  type DateFormat,
+} from './formatters';
 
 interface ChartCustomizations {
   numberFormat?: NumberFormat;
@@ -18,6 +24,8 @@ interface ChartCustomizations {
   yAxisDecimalPlaces?: number;
   xAxisNumberFormat?: NumberFormat;
   xAxisDecimalPlaces?: number;
+  dateFormat?: DateFormat;
+  xAxisDateFormat?: DateFormat;
   [key: string]: unknown;
 }
 
@@ -392,5 +400,114 @@ export function applyLineBarChartFormatting(
         },
       },
     }));
+  }
+}
+
+/**
+ * Applies pie chart date formatting to the ECharts config in place.
+ * Formats dimension names (series.data names, label names, legend) using dateFormat.
+ * Call this after applyPieChartFormatting so date formatting takes priority for names.
+ *
+ * @param config - The ECharts config object to mutate
+ * @param customizations - Chart customization settings
+ */
+export function applyPieDateFormatting(
+  config: Record<string, unknown>,
+  customizations: ChartCustomizations
+): void {
+  if (!config.series) return;
+  const dateFormat = customizations.dateFormat as DateFormat;
+  if (!dateFormat || dateFormat === 'default') return;
+
+  const labelFormat = customizations.labelFormat || 'percentage';
+  const numberFormat = customizations.numberFormat as NumberFormat;
+  const decimalPlaces = customizations.decimalPlaces;
+  const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+  const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
+
+  // Override label formatter so dimension names use date formatting
+  config.series = seriesArray.map((series: Record<string, unknown>) => ({
+    ...series,
+    label: {
+      ...(series.label as Record<string, unknown>),
+      formatter: (params: Record<string, unknown>) => {
+        const formattedValue = formatIfNumber(params.value);
+        const formattedName = formatDate(String(params.name), { format: dateFormat });
+        switch (labelFormat) {
+          case 'value':
+            return formattedValue;
+          case 'name_percentage':
+            return `${formattedName}\n${params.percent}%`;
+          case 'name_value':
+            return `${formattedName}\n${formattedValue}`;
+          case 'percentage':
+          default:
+            return `${params.percent}%`;
+        }
+      },
+    },
+  }));
+
+  // Format series.data names with date format
+  config.series = (Array.isArray(config.series) ? config.series : [config.series]).map(
+    (series: Record<string, unknown>) => {
+      if (series.type === 'pie' && Array.isArray(series.data)) {
+        return {
+          ...series,
+          data: (series.data as Record<string, unknown>[]).map((item) => ({
+            ...item,
+            name: formatDate(String(item.name), { format: dateFormat }),
+          })),
+        };
+      }
+      return series;
+    }
+  );
+
+  // Update legend.data and add legend formatter for date values
+  if (config.legend) {
+    const legend = config.legend as Record<string, unknown>;
+    config.legend = {
+      ...legend,
+      ...(Array.isArray(legend.data) && {
+        data: (legend.data as unknown[]).map((item) =>
+          formatDate(String(item), { format: dateFormat })
+        ),
+      }),
+      formatter: (name: string) => formatDate(name, { format: dateFormat }),
+    };
+  }
+}
+
+/**
+ * Applies date formatting to the X-axis labels for line/bar charts.
+ * Call this after applyLineBarChartFormatting so date formatting overrides number formatting on X-axis.
+ *
+ * @param config - The ECharts config object to mutate
+ * @param customizations - Chart customization settings
+ */
+export function applyLineBarDateFormatting(
+  config: Record<string, unknown>,
+  customizations: ChartCustomizations
+): void {
+  const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
+  if (!xAxisDateFormat || xAxisDateFormat === 'default') return;
+  if (!config.xAxis) return;
+
+  const formatter = (value: unknown) => formatDate(String(value), { format: xAxisDateFormat });
+
+  if (Array.isArray(config.xAxis)) {
+    config.xAxis = (config.xAxis as Record<string, unknown>[]).map((axis) => ({
+      ...axis,
+      axisLabel: { ...(axis.axisLabel as Record<string, unknown>), formatter },
+    }));
+  } else {
+    config.xAxis = {
+      ...(config.xAxis as Record<string, unknown>),
+      axisLabel: {
+        ...((config.xAxis as Record<string, unknown>).axisLabel as Record<string, unknown>),
+        formatter,
+      },
+    };
   }
 }

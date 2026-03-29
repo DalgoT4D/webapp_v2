@@ -44,6 +44,21 @@ describe('getApiCustomizations', () => {
     expect(getApiCustomizations(ChartTypes.LINE, input)).toEqual(base);
   });
 
+  it('strips dateFormat for pie charts', () => {
+    const input = { ...base, dateFormat: 'dd_mm_yyyy' };
+    expect(getApiCustomizations(ChartTypes.PIE, input)).toEqual(base);
+  });
+
+  it('strips xAxisDateFormat for bar charts', () => {
+    const input = { ...base, xAxisDateFormat: 'dd_mm_yyyy' };
+    expect(getApiCustomizations(ChartTypes.BAR, input)).toEqual(base);
+  });
+
+  it('strips xAxisDateFormat for line charts', () => {
+    const input = { ...base, xAxisDateFormat: 'iso_datetime' };
+    expect(getApiCustomizations(ChartTypes.LINE, input)).toEqual(base);
+  });
+
   it('returns customizations unchanged for table charts', () => {
     const input = { ...base, columnFormatting: {} };
     expect(getApiCustomizations(ChartTypes.TABLE, input)).toEqual(input);
