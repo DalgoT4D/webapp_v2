@@ -114,6 +114,48 @@ describe('chart-formatting-utils', () => {
       expect(result).toContain('1.5M');
       expect(result).toContain('35.5%');
     });
+
+    it('should apply xAxisDateFormat to tooltip X-axis name for bar/line charts', () => {
+      // applyLineBarDateFormatting only sets axisLabel.formatter (display only),
+      // so tooltip receives raw date strings — createTooltipFormatter must format them too
+      const customizations = { xAxisDateFormat: 'dd_mm_yyyy' as const };
+      const formatter = createTooltipFormatter(customizations, 'bar');
+
+      const result = formatter({
+        marker: '●',
+        seriesName: 'Sales',
+        name: '2019-01-14',
+        value: 100,
+      });
+      expect(result).toContain('14/01/2019');
+      expect(result).not.toContain('2019-01-14');
+    });
+
+    it('should apply xAxisDateFormat to multi-series tooltip X-axis name', () => {
+      const customizations = { xAxisDateFormat: 'dd_mm_yyyy' as const };
+      const formatter = createTooltipFormatter(customizations, 'line');
+
+      const result = formatter([
+        { marker: '●', seriesName: 'Revenue', name: '2019-01-14', value: 100 },
+        { marker: '●', seriesName: 'Profit', name: '2019-01-14', value: 50 },
+      ]);
+      expect(result).toContain('14/01/2019');
+      expect(result).not.toContain('2019-01-14');
+    });
+
+    it('should not apply xAxisDateFormat when set to default', () => {
+      const customizations = { xAxisDateFormat: 'default' as const };
+      const formatter = createTooltipFormatter(customizations, 'bar');
+
+      const result = formatter({
+        marker: '●',
+        seriesName: 'Sales',
+        name: '2019-01-14',
+        value: 100,
+      });
+      // 'default' means no date formatting — raw value shown as-is
+      expect(result).toContain('2019-01-14');
+    });
   });
 
   describe('applyNumberChartFormatting', () => {

@@ -1,4 +1,4 @@
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import { ChartTypes } from '@/types/charts';
 
 describe('getApiCustomizations', () => {
@@ -68,5 +68,44 @@ describe('getApiCustomizations', () => {
     expect(getApiCustomizations(ChartTypes.NUMBER, undefined)).toEqual({});
     expect(getApiCustomizations(ChartTypes.BAR, undefined)).toEqual({});
     expect(getApiCustomizations(ChartTypes.TABLE, undefined)).toBeUndefined();
+  });
+});
+
+describe('mergeTableColumnFormatting', () => {
+  it('returns empty object when customizations is undefined', () => {
+    expect(mergeTableColumnFormatting(undefined)).toEqual({});
+  });
+
+  it('returns columnFormatting when no dateColumnFormatting', () => {
+    const input = { columnFormatting: { amount: { numberFormat: 'indian' } } };
+    expect(mergeTableColumnFormatting(input)).toEqual({ amount: { numberFormat: 'indian' } });
+  });
+
+  it('merges dateColumnFormatting into column_formatting', () => {
+    const input = {
+      columnFormatting: { amount: { numberFormat: 'indian' } },
+      dateColumnFormatting: { created_at: { dateFormat: 'dd_mm_yyyy' } },
+    };
+    expect(mergeTableColumnFormatting(input)).toEqual({
+      amount: { numberFormat: 'indian' },
+      created_at: { dateFormat: 'dd_mm_yyyy' },
+    });
+  });
+
+  it('defaults missing dateFormat to "default"', () => {
+    const input = { dateColumnFormatting: { created_at: {} } };
+    expect(mergeTableColumnFormatting(input)).toEqual({
+      created_at: { dateFormat: 'default' },
+    });
+  });
+
+  it('dateColumnFormatting overwrites columnFormatting for the same column', () => {
+    const input = {
+      columnFormatting: { created_at: { numberFormat: 'indian' } },
+      dateColumnFormatting: { created_at: { dateFormat: 'dd_mm_yyyy' } },
+    };
+    expect(mergeTableColumnFormatting(input)).toEqual({
+      created_at: { dateFormat: 'dd_mm_yyyy' },
+    });
   });
 });

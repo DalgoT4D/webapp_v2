@@ -38,7 +38,7 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -1130,21 +1130,7 @@ function ConfigureChartPageContent() {
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
                             table_columns: tableChartData?.columns || formData.table_columns || [],
-                            column_formatting: {
-                              ...(formData.customizations?.columnFormatting || {}),
-                              // Merge date formatting into column_formatting
-                              ...Object.fromEntries(
-                                Object.entries(
-                                  formData.customizations?.dateColumnFormatting || {}
-                                ).map(([col, format]) => [
-                                  col,
-                                  {
-                                    dateFormat:
-                                      (format as { dateFormat?: string })?.dateFormat || 'default',
-                                  },
-                                ])
-                              ),
-                            },
+                            column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                           }}

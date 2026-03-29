@@ -108,7 +108,15 @@ export function createTooltipFormatter(
 ): (params: unknown) => string {
   return function (params: unknown): string {
     const formatYValue = (val: unknown) => formatAxisValue(val, customizations, 'y', chartType);
-    const formatXValue = (val: unknown) => formatAxisValue(val, customizations, 'x', chartType);
+    const formatXValue = (val: unknown) => {
+      // xAxisDateFormat takes priority — applyLineBarDateFormatting only sets axisLabel.formatter
+      // (display only) and does not mutate xAxis.data, so the tooltip receives raw date strings
+      const xAxisDateFormat = customizations.xAxisDateFormat as DateFormat;
+      if (xAxisDateFormat && xAxisDateFormat !== 'default') {
+        return formatDate(String(val), { format: xAxisDateFormat });
+      }
+      return formatAxisValue(val, customizations, 'x', chartType);
+    };
     const formatPieDimension = createPieDimensionFormatter(
       customizations.numberFormat as NumberFormat,
       customizations.decimalPlaces

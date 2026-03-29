@@ -4,8 +4,17 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
 import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
-import { NumberFormatSection } from '../shared/NumberFormatSection';
-import { DateFormatSection } from '../shared/DateFormatSection';
+import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../shared/NumberFormatSection';
+import { DateFormatSection, DATE_FORMAT_OPTIONS } from '../shared/DateFormatSection';
+
+// Compact label lookup derived from shared options (strips the " (example)" suffix)
+const DATE_FORMAT_LABELS: Record<string, string> = Object.fromEntries(
+  DATE_FORMAT_OPTIONS.map((opt) => [opt.value, opt.label.split(' (')[0]])
+);
+
+const NUMBER_FORMAT_LABELS: Record<string, string> = Object.fromEntries(
+  NUMBER_FORMAT_OPTIONS.map((opt) => [opt.value, opt.label.split(' (')[0]])
+);
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
@@ -137,37 +146,17 @@ export function TableChartCustomizations({
   const getDateFormatDisplay = (column: string) => {
     const config = dateColumnFormatting[column];
 
-    const formatLabels: Record<string, string> = {
-      default: 'No Formatting',
-      iso_datetime: '%Y-%m-%d %H:%M:%S',
-      dd_mm_yyyy: '%d/%m/%Y',
-      mm_dd_yyyy: '%m/%d/%Y',
-      yyyy_mm_dd: '%Y-%m-%d',
-      dd_mm_yyyy_time: '%d-%m-%Y %H:%M:%S',
-      time_only: '%H:%M:%S',
-    };
-
     if (!config || !config.dateFormat || config.dateFormat === 'default') {
       return 'No Formatting';
     }
 
-    return formatLabels[config.dateFormat] || config.dateFormat;
+    return DATE_FORMAT_LABELS[config.dateFormat] || config.dateFormat;
   };
 
   // Get format display text
   const getFormatDisplay = (column: string) => {
     const config = columnFormatting[column];
 
-    const formatLabels: Record<string, string> = {
-      default: 'No Formatting',
-      indian: 'Indian',
-      international: 'International',
-      adaptive_indian: 'Adaptive Indian',
-      adaptive_international: 'Adaptive International',
-      european: 'European',
-    };
-
-    // If no config, show No Formatting
     if (!config) return 'No Formatting';
 
     const hasDecimalPlaces = config.decimalPlaces !== undefined && config.decimalPlaces > 0;
@@ -176,7 +165,8 @@ export function TableChartCustomizations({
       return `${config.decimalPlaces} decimal places`;
     }
 
-    const formatLabel = formatLabels[config.numberFormat || 'default'] || config.numberFormat;
+    const formatLabel =
+      NUMBER_FORMAT_LABELS[config.numberFormat || 'default'] || config.numberFormat;
     const decimals = hasDecimalPlaces ? ` • ${config.decimalPlaces} dec` : '';
 
     return `${formatLabel}${decimals}`;
