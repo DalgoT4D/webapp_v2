@@ -404,9 +404,34 @@ export function applyLineBarChartFormatting(
 }
 
 /**
+ * Creates a formatter for pie chart date dimensions that handles:
+ * - Pure date strings (formats using dateFormat)
+ * - Strings with " - " separator (dimension - extra_dimension)
+ * - Non-date strings (returned unchanged, since formatDate returns original for invalid dates)
+ *
+ * Mirrors createPieDimensionFormatter for number formatting.
+ *
+ * @param dateFormat - The date format to apply
+ * @returns A function that formats dimension values
+ */
+export function createPieDateFormatter(dateFormat: DateFormat): (val: unknown) => string {
+  return (val: unknown): string => {
+    const strVal = String(val);
+    // Handle " - " separator (dimension - extra_dimension)
+    if (strVal.includes(' - ')) {
+      const parts = strVal.split(' - ');
+      return parts.map((part) => formatDate(part.trim(), { format: dateFormat })).join(' - ');
+    }
+    return formatDate(strVal, { format: dateFormat });
+  };
+}
+
+/**
  * Applies pie chart date formatting to the ECharts config in place.
  * Formats dimension names (series.data names, label names, legend) using dateFormat.
  * Call this after applyPieChartFormatting so date formatting takes priority for names.
+ * Handles combined dimension names like "2019-01-14 - Electronics" by splitting on " - "
+ * and formatting each part individually (non-date parts pass through unchanged).
  *
  * @param config - The ECharts config object to mutate
  * @param customizations - Chart customization settings
@@ -423,6 +448,7 @@ export function applyPieDateFormatting(
   const numberFormat = customizations.numberFormat as NumberFormat;
   const decimalPlaces = customizations.decimalPlaces;
   const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
+  const formatDate_ = createPieDateFormatter(dateFormat);
   const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
 
   // Override label formatter so dimension names use date formatting
@@ -432,7 +458,7 @@ export function applyPieDateFormatting(
       ...(series.label as Record<string, unknown>),
       formatter: (params: Record<string, unknown>) => {
         const formattedValue = formatIfNumber(params.value);
-        const formattedName = formatDate(String(params.name), { format: dateFormat });
+        const formattedName = formatDate_(params.name);
         switch (labelFormat) {
           case 'value':
             return formattedValue;
@@ -456,7 +482,7 @@ export function applyPieDateFormatting(
           ...series,
           data: (series.data as Record<string, unknown>[]).map((item) => ({
             ...item,
-            name: formatDate(String(item.name), { format: dateFormat }),
+            name: formatDate_(item.name),
           })),
         };
       }
@@ -470,11 +496,9 @@ export function applyPieDateFormatting(
     config.legend = {
       ...legend,
       ...(Array.isArray(legend.data) && {
-        data: (legend.data as unknown[]).map((item) =>
-          formatDate(String(item), { format: dateFormat })
-        ),
+        data: (legend.data as unknown[]).map((item) => formatDate_(item)),
       }),
-      formatter: (name: string) => formatDate(name, { format: dateFormat }),
+      formatter: (name: string) => formatDate_(name),
     };
   }
 }

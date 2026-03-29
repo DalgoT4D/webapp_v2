@@ -212,14 +212,30 @@ export function ChartCustomizations({
     }
 
     case ChartTypes.PIE: {
-      // Check if the dimension column is a date type
       const dimensionColumn = formData.dimension_column || '';
-      const dimensionDataType = columns
-        .find((col) => (col.column_name || col.name) === dimensionColumn)
-        ?.data_type?.toLowerCase();
-      const hasDimensionDate = dimensionDataType
-        ? Object.values(DateDataType).includes(dimensionDataType as DateDataTypeValue)
-        : false;
+      const extraDimensionColumn = formData.extra_dimension_column || '';
+
+      const isDateColumn = (colName: string) => {
+        if (!colName) return false;
+        const dataType = columns
+          .find((col) => (col.column_name || col.name) === colName)
+          ?.data_type?.toLowerCase();
+        return dataType
+          ? Object.values(DateDataType).includes(dataType as DateDataTypeValue)
+          : false;
+      };
+
+      const dimensionIsDate = isDateColumn(dimensionColumn);
+      const extraDimensionIsDate = isDateColumn(extraDimensionColumn);
+      const hasDimensionDate = dimensionIsDate || extraDimensionIsDate;
+
+      // Show both column names if both are dates, otherwise show whichever one is a date
+      const dateColumnLabel =
+        dimensionIsDate && extraDimensionIsDate
+          ? `${dimensionColumn}, ${extraDimensionColumn}`
+          : dimensionIsDate
+            ? dimensionColumn
+            : extraDimensionColumn;
 
       return (
         <PieChartCustomizations
@@ -227,7 +243,7 @@ export function ChartCustomizations({
           updateCustomization={updateCustomization}
           disabled={disabled}
           hasDimensionDate={hasDimensionDate}
-          dimensionColumn={dimensionColumn}
+          dimensionColumn={dateColumnLabel}
         />
       );
     }

@@ -6,6 +6,7 @@ import {
   formatAxisValue,
   createTooltipFormatter,
   createPieDimensionFormatter,
+  createPieDateFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
   applyPieDateFormatting,
@@ -304,6 +305,34 @@ describe('chart-formatting-utils', () => {
     });
   });
 
+  describe('createPieDateFormatter', () => {
+    it('should format a plain date string', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('2019-01-14')).toBe('14/01/2019');
+    });
+
+    it('should format combined "date - category" names (date is first part)', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('2019-01-14 - Electronics')).toBe('14/01/2019 - Electronics');
+    });
+
+    it('should format combined "category - date" names (date is second part)', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('Electronics - 2019-01-14')).toBe('Electronics - 14/01/2019');
+    });
+
+    it('should format combined "date - date" names when both parts are dates', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('2019-01-14 - 2020-06-30')).toBe('14/01/2019 - 30/06/2020');
+    });
+
+    it('should leave non-date strings unchanged', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('Electronics')).toBe('Electronics');
+      expect(formatter('Category - SubCategory')).toBe('Category - SubCategory');
+    });
+  });
+
   describe('applyPieDateFormatting', () => {
     const makePieConfig = (data = [{ name: '2019-01-14', value: 100 }]) => ({
       series: [{ type: 'pie', label: {}, data }],
@@ -325,10 +354,33 @@ describe('chart-formatting-utils', () => {
       expect((config.series[0] as any).data[0].name).toBe('14/01/2019');
     });
 
+    it('should format combined "date - category" names in series.data', () => {
+      const config = makePieConfig([{ name: '2019-01-14 - Electronics', value: 100 }]);
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.series[0] as any).data[0].name).toBe('14/01/2019 - Electronics');
+    });
+
+    it('should format combined "category - date" names in series.data', () => {
+      const config = makePieConfig([{ name: 'Electronics - 2019-01-14', value: 100 }]);
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.series[0] as any).data[0].name).toBe('Electronics - 14/01/2019');
+    });
+
     it('should update legend.data to match formatted names', () => {
       const config = makePieConfig();
       applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
       expect((config.legend as any).data[0]).toBe('14/01/2019');
+    });
+
+    it('should update combined legend.data entries correctly', () => {
+      const config = {
+        series: [
+          { type: 'pie', label: {}, data: [{ name: '2019-01-14 - Electronics', value: 100 }] },
+        ],
+        legend: { data: ['2019-01-14 - Electronics'] },
+      };
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.legend as any).data[0]).toBe('14/01/2019 - Electronics');
     });
 
     it('should add legend formatter for dates', () => {
@@ -336,6 +388,9 @@ describe('chart-formatting-utils', () => {
       applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
       expect(typeof (config.legend as any).formatter).toBe('function');
       expect((config.legend as any).formatter('2019-01-14')).toBe('14/01/2019');
+      expect((config.legend as any).formatter('2019-01-14 - Electronics')).toBe(
+        '14/01/2019 - Electronics'
+      );
     });
 
     it('should inject label formatter using date format for name', () => {
@@ -343,6 +398,15 @@ describe('chart-formatting-utils', () => {
       applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy', labelFormat: 'name_percentage' });
       const formatter = (config.series[0] as any).label.formatter;
       expect(formatter({ value: 100, name: '2019-01-14', percent: 40 })).toBe('14/01/2019\n40%');
+    });
+
+    it('should inject label formatter that handles combined names', () => {
+      const config = makePieConfig([{ name: '2019-01-14 - Electronics', value: 100 }]);
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy', labelFormat: 'name_percentage' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 100, name: '2019-01-14 - Electronics', percent: 40 })).toBe(
+        '14/01/2019 - Electronics\n40%'
+      );
     });
 
     it('should do nothing when series is missing', () => {
