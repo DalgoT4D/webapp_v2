@@ -51,9 +51,10 @@ function handleAuthFailure() {
     const currentPath = window.location.pathname;
     if (
       currentPath.startsWith('/share/dashboard/') ||
-      currentPath.startsWith('/public/dashboard/')
+      currentPath.startsWith('/public/dashboard/') ||
+      currentPath.startsWith('/share/report/')
     ) {
-      console.log('[handleAuthFailure] Ignoring auth failure on public dashboard');
+      console.log('[handleAuthFailure] Ignoring auth failure on public page');
       return;
     }
 
@@ -213,6 +214,31 @@ export function apiPut(path: string, body: any, options: RequestInit = {}) {
 // Helper for DELETE requests
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
+}
+
+// Helper for public GET requests (no auth, no cookies)
+export async function apiPublicGet(path: string) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Public API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
+// Helper for public POST requests (no auth, no cookies)
+export async function apiPublicPost(path: string, body: any, queryParams?: URLSearchParams) {
+  const base = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const url = queryParams?.toString() ? `${base}?${queryParams}` : base;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Public API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
 }
 
 // Helper for POST requests that return binary data

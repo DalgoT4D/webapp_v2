@@ -3,18 +3,22 @@
  * Formatting happens on frontend for instant preview (Superset-style)
  */
 
+// UI allows 0-10 decimal places; toFixed() accepts 0-100 but we cap at 10 for UX
 import { format as dateFnsFormat, isValid, parseISO } from 'date-fns';
+export const MAX_DECIMAL_PLACES = 10;
 
-export type NumberFormat =
-  | 'default'
-  | 'comma'
-  | 'international'
-  | 'indian'
-  | 'european'
-  | 'percentage'
-  | 'currency'
-  | 'adaptive_international'
-  | 'adaptive_indian';
+export const NumberFormats = {
+  DEFAULT: 'default',
+  INTERNATIONAL: 'international',
+  INDIAN: 'indian',
+  EUROPEAN: 'european',
+  PERCENTAGE: 'percentage',
+  CURRENCY: 'currency',
+  ADAPTIVE_INTERNATIONAL: 'adaptive_international',
+  ADAPTIVE_INDIAN: 'adaptive_indian',
+} as const;
+
+export type NumberFormat = (typeof NumberFormats)[keyof typeof NumberFormats];
 
 export interface FormatOptions {
   format: NumberFormat;
@@ -126,52 +130,45 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
   // Sanitize decimalPlaces to prevent RangeError in toFixed() (UI allows 0-10)
   const decimalPlaces =
     typeof rawDecimalPlaces === 'number' && Number.isFinite(rawDecimalPlaces)
-      ? Math.min(10, Math.max(0, rawDecimalPlaces))
+      ? Math.min(MAX_DECIMAL_PLACES, Math.max(0, rawDecimalPlaces))
       : undefined;
 
   // Apply decimal places if specified
   const processedValue = decimalPlaces !== undefined ? Number(value.toFixed(decimalPlaces)) : value;
 
   switch (format) {
-    case 'default':
+    case NumberFormats.DEFAULT:
       // Raw value, with decimal places if specified
       return decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
 
-    case 'international':
+    case NumberFormats.INTERNATIONAL:
       // 1000000 → 1,000,000
       return processedValue.toLocaleString('en-US', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'indian':
+    case NumberFormats.INDIAN:
       // 1000000 → 10,00,000
       return processedValue.toLocaleString('en-IN', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'european':
+    case NumberFormats.EUROPEAN:
       // 1000000 → 1.000.000 (German locale as representative European format)
       return processedValue.toLocaleString('de-DE', {
         minimumFractionDigits: decimalPlaces,
         maximumFractionDigits: decimalPlaces,
       });
 
-    case 'percentage':
+    case NumberFormats.PERCENTAGE:
       // 85 → 85%
       const percentValue =
         decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
       return percentValue + '%';
 
-    case 'comma':
-      // Same as international (for backward compatibility)
-      return processedValue.toLocaleString('en-US', {
-        minimumFractionDigits: decimalPlaces,
-        maximumFractionDigits: decimalPlaces,
-      });
-
-    case 'currency':
+    case NumberFormats.CURRENCY:
       // 1000 → $1,000
       return (
         '$' +
@@ -181,7 +178,7 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
         })
       );
 
-    case 'adaptive_international': {
+    case NumberFormats.ADAPTIVE_INTERNATIONAL: {
       // International SI-like notation: K, M, B
       const absValue = Math.abs(processedValue);
       const sign = processedValue < 0 ? '-' : '';
@@ -197,7 +194,7 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
       return decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
     }
 
-    case 'adaptive_indian': {
+    case NumberFormats.ADAPTIVE_INDIAN: {
       // Indian notation: K, L (Lakh), Cr (Crore)
       const absValue = Math.abs(processedValue);
       const sign = processedValue < 0 ? '-' : '';

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
-import type { NumberFormat, DateFormat } from '@/lib/formatters';
+import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
 import { DateFormatSection } from '../shared/DateFormatSection';
 
@@ -259,7 +259,7 @@ export function TableChartCustomizations({
                         decimalPlaces={config?.decimalPlaces}
                         onNumberFormatChange={(value) => handleFormatChange(column, value)}
                         onDecimalPlacesChange={(value) => handleDecimalChange(column, value)}
-                        excludeFormats={['percentage', 'currency']}
+                        excludeFormats={[NumberFormats.PERCENTAGE, NumberFormats.CURRENCY]}
                         disabled={disabled}
                       />
                     </div>

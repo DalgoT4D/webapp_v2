@@ -1,0 +1,11 @@
+services:
+  webapp_v2:
+    image: ${WEBAPP_IMAGE}
+    container_name: webapp_v2
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    # Uncomment when runtime env vars are needed (non-NEXT_PUBLIC_* vars)
+    # These go in app.env (not .env, which is used for the image tag)
+    # env_file:
+    #   - app.env

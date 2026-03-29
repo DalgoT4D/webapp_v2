@@ -56,6 +56,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
+import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import {
   DashboardFilterType,
@@ -64,11 +65,14 @@ import {
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
-import { ShareModal } from './ShareModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
+import type { FrozenChartConfig } from '@/types/reports';
+import type { CommentStates } from '@/types/comments';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -220,6 +224,15 @@ interface DashboardNativeViewProps {
   showMinimalHeader?: boolean; // Show only title when used as landing page
   isEmbedMode?: boolean; // Hide all non-essential UI for iframe embedding
   embedTheme?: 'light' | 'dark'; // Theme for embed mode
+  isReportMode?: boolean; // Report snapshot mode — frozen config, no editing
+  frozenChartConfigs?: Record<string, FrozenChartConfig>; // Chart configs keyed by chart ID
+  beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
+  onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
+  isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: CommentStates; // Comment states array with target_type and chart_id
+  onCommentStateChange?: () => void; // Callback to revalidate comment states
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
 }
 
 export function DashboardNativeView({
@@ -231,6 +244,15 @@ export function DashboardNativeView({
   showMinimalHeader = false,
   isEmbedMode = false,
   embedTheme = 'light',
+  isReportMode = false,
+  frozenChartConfigs,
+  beforeContent,
+  onContainerRef,
+  isPrintMode = false,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
+  autoOpenCommentChartId,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
@@ -284,14 +306,15 @@ export function DashboardNativeView({
     isLoading: apiIsLoading,
     isError: apiIsError,
     mutate,
-  } = useDashboard(isPublicMode && dashboardData ? null : dashboardId);
+  } = useDashboard((isPublicMode || isReportMode) && dashboardData ? null : dashboardId);
 
-  // Use pre-fetched data for public mode, otherwise use API data
-  const dashboard = isPublicMode && dashboardData ? dashboardData : dashboardFromApi;
+  // Use pre-fetched data for public/report mode, otherwise use API data
+  const dashboard =
+    (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
 
-  // Override loading and error states for public mode when we have pre-fetched data
-  const isLoading = isPublicMode && dashboardData ? false : apiIsLoading;
-  const isError = isPublicMode && dashboardData ? false : apiIsError;
+  // Override loading and error states when we have pre-fetched data
+  const isLoading = (isPublicMode || isReportMode) && dashboardData ? false : apiIsLoading;
+  const isError = (isPublicMode || isReportMode) && dashboardData ? false : apiIsError;
 
   // Use responsive layout hook
   const responsive = useResponsiveLayout();
@@ -337,6 +360,18 @@ export function DashboardNativeView({
       convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
     );
   }, [dashboard?.filters]);
+
+  // Auto-apply default filter values in report mode so charts render pre-filtered.
+  // The backend injects period dates into the datetime filter's settings,
+  // so getDefaultFilterValues() extracts them automatically.
+  useEffect(() => {
+    if (isReportMode && dashboardFilters.length > 0) {
+      const defaultValues = getDefaultFilterValues(dashboardFilters);
+      if (Object.keys(defaultValues).length > 0) {
+        setSelectedFilters(defaultValues);
+      }
+    }
+  }, [isReportMode, dashboardFilters]);
 
   // Allow editing in preview mode without any conditions
 
@@ -513,6 +548,15 @@ export function DashboardNativeView({
               isPublicMode={isPublicMode}
               publicToken={publicToken}
               config={component.config}
+              frozenChartConfig={
+                isReportMode && frozenChartConfigs
+                  ? frozenChartConfigs[String(component.config?.chartId)]
+                  : undefined
+              }
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
             />
           </div>
         );
@@ -645,8 +689,10 @@ export function DashboardNativeView({
       className={cn(
         'h-full flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50',
-        // Public dashboards are rendered outside MainLayout so they need h-screen
-        isPublicMode && 'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
+        isPublicMode &&
+          !isPrintMode &&
+          'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto',
+        isPrintMode && 'h-auto overflow-visible print-mode'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
@@ -1036,10 +1082,11 @@ export function DashboardNativeView({
           publicToken={publicToken}
           appliedFiltersCount={appliedFiltersCount}
           className="px-4 pb-2"
+          isReportMode={isReportMode}
         />
       )}
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className={cn('flex-1 flex overflow-hidden', isPrintMode && 'overflow-visible')}>
         {/* Desktop Vertical Filters Sidebar - Only show on desktop */}
         {responsive.isDesktop && dashboardFilters.length > 0 && !isEmbedMode && (
           <UnifiedFiltersPanel
@@ -1052,7 +1099,8 @@ export function DashboardNativeView({
             onCollapseChange={setIsFiltersCollapsed}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
-            initiallyCollapsed={showMinimalHeader || isPublicMode}
+            initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
+            isReportMode={isReportMode}
           />
         )}
 
@@ -1060,12 +1108,15 @@ export function DashboardNativeView({
         <div
           className={cn(
             'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
-            // Only apply special mobile padding for public dashboards
-            isPublicMode && 'pb-24 sm:pb-16'
+            isPublicMode && 'pb-24 sm:pb-16',
+            isPrintMode && 'overflow-visible pb-4'
           )}
         >
           <div
-            ref={dashboardContainerRef}
+            ref={(el) => {
+              dashboardContainerRef.current = el;
+              onContainerRef?.(el);
+            }}
             className={`dashboard-canvas relative z-10 ${
               isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
             }`}
@@ -1074,6 +1125,9 @@ export function DashboardNativeView({
               minHeight: '100%',
             }}
           >
+            {/* Optional content above the chart grid (e.g. Executive Summary) */}
+            {beforeContent}
+
             {/* Show empty state if no layout config */}
             {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
@@ -1171,6 +1225,10 @@ export function DashboardNativeView({
           overflow: hidden;
         }
 
+        .print-mode .dashboard-canvas {
+          overflow: visible !important;
+        }
+
         .dashboard-canvas .dashboard-grid {
           position: relative;
           width: 100% !important;
@@ -1242,10 +1300,17 @@ export function DashboardNativeView({
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
-          dashboard={dashboard}
+          entityId={dashboard.id}
+          entityLabel="Dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          initialShareStatus={{
+            is_public: dashboard.is_public,
+            public_access_count: dashboard.public_access_count,
+          }}
+          getShareStatus={getDashboardSharingStatus}
+          updateSharing={updateDashboardSharing}
         />
       )}
     </div>

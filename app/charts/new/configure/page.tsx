@@ -30,14 +30,20 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-import type { ChartCreate, ChartDataPayload, ChartBuilderFormData } from '@/types/charts';
+import {
+  ChartTypes,
+  type ChartCreate,
+  type ChartDataPayload,
+  type ChartBuilderFormData,
+} from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { getApiCustomizations } from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
   switch (chartType) {
-    case 'bar':
+    case ChartTypes.BAR:
       return {
         orientation: 'vertical',
         showDataLabels: false,
@@ -50,7 +56,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         xAxisLabelRotation: 'horizontal',
         yAxisLabelRotation: 'horizontal',
       };
-    case 'pie':
+    case ChartTypes.PIE:
       return {
         chartStyle: 'donut',
         labelFormat: 'percentage',
@@ -60,7 +66,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showLegend: true,
         legendPosition: 'right',
       };
-    case 'line':
+    case ChartTypes.LINE:
       return {
         lineStyle: 'smooth',
         showDataPoints: true,
@@ -73,7 +79,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         xAxisLabelRotation: 'horizontal',
         yAxisLabelRotation: 'horizontal',
       };
-    case 'number':
+    case ChartTypes.NUMBER:
       return {
         numberSize: 'medium',
         subtitle: '',
@@ -82,7 +88,7 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         numberPrefix: '',
         numberSuffix: '',
       };
-    case 'map':
+    case ChartTypes.MAP:
       return {
         colorScheme: 'Blues',
         showTooltip: true,
@@ -359,30 +365,9 @@ function ConfigureChartPageContent() {
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
         }),
-        // Number/Date formatting is frontend-only - exclude from API payload
-        ...(formData.chart_type !== 'table' && {
-          customizations:
-            formData.chart_type === 'number' ||
-            formData.chart_type === 'pie' ||
-            formData.chart_type === 'map'
-              ? Object.fromEntries(
-                  Object.entries(formData.customizations || {}).filter(
-                    ([key]) =>
-                      key !== 'numberFormat' && key !== 'decimalPlaces' && key !== 'dateFormat'
-                  )
-                )
-              : formData.chart_type === 'line' || formData.chart_type === 'bar'
-                ? Object.fromEntries(
-                    Object.entries(formData.customizations || {}).filter(
-                      ([key]) =>
-                        key !== 'yAxisNumberFormat' &&
-                        key !== 'yAxisDecimalPlaces' &&
-                        key !== 'xAxisNumberFormat' &&
-                        key !== 'xAxisDecimalPlaces' &&
-                        key !== 'xAxisDateFormat'
-                    )
-                  )
-                : formData.customizations,
+        // Number formatting is frontend-only - exclude from API payload
+        ...(formData.chart_type !== ChartTypes.TABLE && {
+          customizations: getApiCustomizations(formData.chart_type, formData.customizations),
         }),
         extra_config: {
           filters: [
@@ -1004,9 +989,10 @@ function ConfigureChartPageContent() {
           <div className="flex items-center gap-4">
             <Button
               onClick={handleSave}
+              variant="ghost"
               disabled={!isFormValid() || isMutating}
               className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: '#06887b' }}
+              style={{ backgroundColor: 'var(--primary)' }}
             >
               {isMutating ? 'Saving...' : 'Save Chart'}
             </Button>

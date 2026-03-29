@@ -1,3 +1,14 @@
+export const ChartTypes = {
+  BAR: 'bar',
+  LINE: 'line',
+  PIE: 'pie',
+  TABLE: 'table',
+  NUMBER: 'number',
+  MAP: 'map',
+} as const;
+
+export type ChartType = (typeof ChartTypes)[keyof typeof ChartTypes];
+
 // Chart metric configuration for multiple metrics on bar/line charts
 export interface ChartMetric {
   column: string | null; // null for COUNT(*) operations
@@ -74,7 +85,7 @@ export interface RegionHierarchyLevel {
 export interface Chart {
   id: number;
   title: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
+  chart_type: ChartType;
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;
@@ -87,7 +98,7 @@ export interface Chart {
 
 export interface ChartCreate {
   title: string;
-  chart_type: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
+  chart_type: ChartType;
   computation_type: 'raw' | 'aggregated';
   schema_name: string;
   table_name: string;

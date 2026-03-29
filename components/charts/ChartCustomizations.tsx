@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useCallback } from 'react';
-import type { ChartBuilderFormData } from '@/types/charts';
+import { ChartTypes, type ChartBuilderFormData } from '@/types/charts';
+import {
+  NumericDataType,
+  type NumericDataTypeValue,
+  DateDataType,
+  type DateDataTypeValue,
+} from '@/constants/data-types';
 
 // Import chart type-specific customization components from modules
 import { BarChartCustomizations } from './types/bar/BarChartCustomizations';
@@ -10,31 +16,6 @@ import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
 import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
-
-// Numeric data types that can have number formatting applied
-const NUMERIC_DATA_TYPES = [
-  'integer',
-  'smallint',
-  'bigint',
-  'numeric',
-  'double precision',
-  'real',
-  'float',
-  'decimal',
-];
-
-// Date/timestamp data types that can have date formatting applied
-const DATE_DATA_TYPES = [
-  'date',
-  'timestamp',
-  'timestamp without time zone',
-  'timestamp with time zone',
-  'timestamptz',
-  'time',
-  'time without time zone',
-  'time with time zone',
-  'timetz',
-];
 
 interface ColumnInfo {
   column_name?: string;
@@ -75,7 +56,7 @@ export function ChartCustomizations({
 
   // Compute numericColumns for table charts (needed for useEffect cleanup)
   const numericColumns = useMemo(() => {
-    if (chartType !== 'table' || !formData) return [];
+    if (chartType !== ChartTypes.TABLE || !formData) return [];
 
     const hasAggregation =
       (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
@@ -98,7 +79,9 @@ export function ChartCustomizations({
       const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
       const numericDimensionCols = dimensionCols.filter((colName) => {
         const dataType = columnTypeMap[colName];
-        return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        return (
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+        );
       });
 
       return [...numericDimensionCols, ...metricCols];
@@ -106,14 +89,16 @@ export function ChartCustomizations({
       const displayedCols = formData.table_columns || [];
       return displayedCols.filter((colName) => {
         const dataType = columnTypeMap[colName];
-        return dataType && NUMERIC_DATA_TYPES.includes(dataType);
+        return (
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+        );
       });
     }
   }, [chartType, formData, columns]);
 
   // Compute dateColumns for table charts (needed for useEffect cleanup)
   const dateColumns = useMemo(() => {
-    if (chartType !== 'table' || !formData) return [];
+    if (chartType !== ChartTypes.TABLE || !formData) return [];
 
     const hasAggregation =
       (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
@@ -132,20 +117,20 @@ export function ChartCustomizations({
       const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
       return dimensionCols.filter((colName) => {
         const dataType = columnTypeMap[colName];
-        return dataType && DATE_DATA_TYPES.includes(dataType);
+        return dataType && Object.values(DateDataType).includes(dataType as DateDataTypeValue);
       });
     } else {
       const displayedCols = formData.table_columns || [];
       return displayedCols.filter((colName) => {
         const dataType = columnTypeMap[colName];
-        return dataType && DATE_DATA_TYPES.includes(dataType);
+        return dataType && Object.values(DateDataType).includes(dataType as DateDataTypeValue);
       });
     }
   }, [chartType, formData, columns]);
 
   // Clean up stale column formatting using useEffect (side effect, not during render)
   useEffect(() => {
-    if (chartType !== 'table') return;
+    if (chartType !== ChartTypes.TABLE) return;
 
     const existingFormatting = customizations.columnFormatting || {};
     const numericColumnsSet = new Set(numericColumns);
@@ -163,7 +148,7 @@ export function ChartCustomizations({
 
   // Clean up stale date column formatting using useEffect
   useEffect(() => {
-    if (chartType !== 'table') return;
+    if (chartType !== ChartTypes.TABLE) return;
 
     const existingDateFormatting = customizations.dateColumnFormatting || {};
     const dateColumnsSet = new Set(dateColumns);
@@ -189,17 +174,21 @@ export function ChartCustomizations({
   }
 
   switch (chartType) {
-    case 'bar':
-    case 'line': {
-      // Check if the X-axis (dimension) column is numeric or date
+    case ChartTypes.BAR:
+    case ChartTypes.LINE: {
+      // Check if the X-axis (dimension) column is numeric
       const xAxisColumn = formData.dimension_column || '';
       const xAxisDataType = columns
         .find((col) => (col.column_name || col.name) === xAxisColumn)
         ?.data_type?.toLowerCase();
-      const hasNumericXAxis = xAxisDataType ? NUMERIC_DATA_TYPES.includes(xAxisDataType) : false;
-      const hasDateXAxis = xAxisDataType ? DATE_DATA_TYPES.includes(xAxisDataType) : false;
+      const hasNumericXAxis = xAxisDataType
+        ? Object.values(NumericDataType).includes(xAxisDataType as NumericDataTypeValue)
+        : false;
+      const hasDateXAxis = xAxisDataType
+        ? Object.values(DateDataType).includes(xAxisDataType as DateDataTypeValue)
+        : false;
 
-      if (chartType === 'bar') {
+      if (chartType === ChartTypes.BAR) {
         return (
           <BarChartCustomizations
             customizations={customizations}
@@ -222,14 +211,14 @@ export function ChartCustomizations({
       );
     }
 
-    case 'pie': {
+    case ChartTypes.PIE: {
       // Check if the dimension column is a date type
       const dimensionColumn = formData.dimension_column || '';
       const dimensionDataType = columns
         .find((col) => (col.column_name || col.name) === dimensionColumn)
         ?.data_type?.toLowerCase();
       const hasDimensionDate = dimensionDataType
-        ? DATE_DATA_TYPES.includes(dimensionDataType)
+        ? Object.values(DateDataType).includes(dimensionDataType as DateDataTypeValue)
         : false;
 
       return (
@@ -243,7 +232,7 @@ export function ChartCustomizations({
       );
     }
 
-    case 'number':
+    case ChartTypes.NUMBER:
       return (
         <NumberChartCustomizations
           customizations={customizations}
@@ -252,7 +241,7 @@ export function ChartCustomizations({
         />
       );
 
-    case 'map':
+    case ChartTypes.MAP:
       return (
         <MapChartCustomizations
           customizations={customizations}
@@ -261,8 +250,8 @@ export function ChartCustomizations({
         />
       );
 
-    case 'table': {
-      // numericColumns and dateColumns are computed in useMemo above
+    case ChartTypes.TABLE: {
+      // numericColumns is computed in useMemo above
       // Stale formatting cleanup is handled in useEffect above
       return (
         <TableChartCustomizations

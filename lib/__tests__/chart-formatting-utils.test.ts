@@ -5,10 +5,10 @@
 import {
   formatAxisValue,
   createTooltipFormatter,
-  createYAxisLabelFormatter,
-  createXAxisLabelFormatter,
-  createDataLabelFormatter,
   createPieDimensionFormatter,
+  applyNumberChartFormatting,
+  applyPieChartFormatting,
+  applyLineBarChartFormatting,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -113,58 +113,161 @@ describe('chart-formatting-utils', () => {
     });
   });
 
-  describe('createYAxisLabelFormatter', () => {
-    it('should return formatter when yAxisNumberFormat is set, undefined otherwise', () => {
-      expect(createYAxisLabelFormatter({})).toBeUndefined();
-      expect(createYAxisLabelFormatter({ yAxisNumberFormat: 'default' })).toBeUndefined();
+  describe('applyNumberChartFormatting', () => {
+    it('should format value with given number format', () => {
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, { numberFormat: 'international' });
+      const formatter = (config.series[0] as any).detail.formatter;
+      expect(formatter(1234567)).toBe('1,234,567');
+    });
 
-      const formatter = createYAxisLabelFormatter({
-        yAxisNumberFormat: 'adaptive_international' as const,
-        yAxisDecimalPlaces: 1,
+    it('should apply decimal places', () => {
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, { numberFormat: 'international', decimalPlaces: 2 });
+      const formatter = (config.series[0] as any).detail.formatter;
+      expect(formatter(1234567)).toBe('1,234,567.00');
+    });
+
+    it('should apply prefix and suffix', () => {
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, {
+        numberFormat: 'international',
+        decimalPlaces: 0,
+        numberPrefix: '$',
+        numberSuffix: ' USD',
       });
-      expect(formatter!(1500000)).toBe('1.5M');
+      const formatter = (config.series[0] as any).detail.formatter;
+      expect(formatter(1000)).toBe('$1,000 USD');
+    });
+
+    it('should use default format when numberFormat is undefined', () => {
+      const config = { series: [{ type: 'gauge', detail: {} }] };
+      applyNumberChartFormatting(config, {});
+      const formatter = (config.series[0] as any).detail.formatter;
+      expect(formatter(1000)).toBe('1000');
+    });
+
+    it('should do nothing when series is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyNumberChartFormatting(config, { numberFormat: 'international' });
+      expect(config.series).toBeUndefined();
+    });
+
+    it('should handle single series object (not array)', () => {
+      const config = { series: { type: 'gauge', detail: {} } };
+      applyNumberChartFormatting(config, { numberFormat: 'international' });
+      const seriesArray = config.series as any[];
+      expect(Array.isArray(seriesArray)).toBe(true);
+      expect(seriesArray[0].detail.formatter(1000)).toBe('1,000');
     });
   });
 
-  describe('createXAxisLabelFormatter', () => {
-    it('should return formatter when xAxisNumberFormat is set, undefined otherwise', () => {
-      expect(createXAxisLabelFormatter({})).toBeUndefined();
-      expect(createXAxisLabelFormatter({ xAxisNumberFormat: 'default' })).toBeUndefined();
-
-      const formatter = createXAxisLabelFormatter({
-        xAxisNumberFormat: 'adaptive_international' as const,
-        xAxisDecimalPlaces: 1,
-      });
-      expect(formatter!(2500000)).toBe('2.5M');
-      expect(formatter!('January')).toBe('January');
+  describe('applyPieChartFormatting', () => {
+    const makePieConfig = (data = [{ name: 'A', value: 100 }]) => ({
+      series: [{ type: 'pie', label: {}, data }],
+      legend: { data: ['A'] },
     });
 
-    it('should preserve date strings instead of parsing them as numbers', () => {
-      const formatter = createXAxisLabelFormatter({
-        xAxisNumberFormat: 'international' as const,
-      });
-      // Date strings should be returned as-is, not corrupted
-      expect(formatter!('2019-01-14')).toBe('2019-01-14');
-      expect(formatter!('2025-04-15T10:30:00')).toBe('2025-04-15T10:30:00');
+    it('should inject label formatter with percentage as default', () => {
+      const config = makePieConfig();
+      applyPieChartFormatting(config, {});
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 100, name: 'A', percent: 40 })).toBe('40%');
+    });
+
+    it('should return value when labelFormat is value', () => {
+      const config = makePieConfig();
+      applyPieChartFormatting(config, { labelFormat: 'value', numberFormat: 'international' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 1000, name: 'A', percent: 40 })).toBe('1,000');
+    });
+
+    it('should format numeric dimension names in series.data', () => {
+      const config = makePieConfig([{ name: '1000000', value: 100 }]);
+      applyPieChartFormatting(config, { numberFormat: 'international' });
+      const data = (config.series[0] as any).data;
+      expect(data[0].name).toBe('1,000,000');
+    });
+
+    it('should update legend.data to match formatted names', () => {
+      const config = {
+        series: [{ type: 'pie', label: {}, data: [{ name: '1000000', value: 100 }] }],
+        legend: { data: ['1000000'] },
+      };
+      applyPieChartFormatting(config, { numberFormat: 'international' });
+      expect((config.legend as any).data[0]).toBe('1,000,000');
+    });
+
+    it('should show/hide data labels based on showDataLabels', () => {
+      const configHidden = makePieConfig();
+      applyPieChartFormatting(configHidden, { showDataLabels: false });
+      expect((configHidden.series[0] as any).label.show).toBe(false);
+
+      const configVisible = makePieConfig();
+      applyPieChartFormatting(configVisible, { showDataLabels: true });
+      expect((configVisible.series[0] as any).label.show).toBe(true);
+    });
+
+    it('should do nothing when series is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyPieChartFormatting(config, {});
+      expect(config.series).toBeUndefined();
     });
   });
 
-  describe('createDataLabelFormatter', () => {
-    it('should format data labels using appropriate format based on chart type', () => {
-      const barFormatter = createDataLabelFormatter(
-        { yAxisNumberFormat: 'adaptive_international' as const, yAxisDecimalPlaces: 1 },
-        'bar'
-      );
-      expect(barFormatter({ value: 1500000 })).toBe('1.5M');
+  describe('applyLineBarChartFormatting', () => {
+    it('should apply Y-axis label formatter with number format', () => {
+      const config = { yAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { yAxisNumberFormat: 'international' });
+      const formatter = (config.yAxis as any).axisLabel.formatter;
+      expect(formatter(1234567)).toBe('1,234,567');
+    });
 
-      const pieFormatter = createDataLabelFormatter(
-        { numberFormat: 'adaptive_international' as const, decimalPlaces: 1 },
-        'pie'
-      );
-      expect(pieFormatter({ value: 1500000 })).toBe('1.5M');
+    it('should apply Y-axis label formatter with decimal places only', () => {
+      const config = { yAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { yAxisDecimalPlaces: 2 });
+      const formatter = (config.yAxis as any).axisLabel.formatter;
+      expect(formatter(1234567)).toBe('1234567.00');
+    });
 
-      const defaultFormatter = createDataLabelFormatter({ yAxisNumberFormat: 'default' }, 'bar');
-      expect(defaultFormatter({ value: 1500 })).toBe('1,500');
+    it('should apply X-axis label formatter with number format', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { xAxisNumberFormat: 'international' });
+      const formatter = (config.xAxis as any).axisLabel.formatter;
+      expect(formatter(1234567)).toBe('1,234,567');
+    });
+
+    it('should apply X-axis label formatter with decimal places only', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, { xAxisDecimalPlaces: 2 });
+      const formatter = (config.xAxis as any).axisLabel.formatter;
+      expect(formatter(1000)).toBe('1000.00');
+    });
+
+    it('should apply data label formatter when showDataLabels is true and hasYAxisFormatting', () => {
+      const config = { series: [{ type: 'bar', label: {} }] };
+      applyLineBarChartFormatting(config, {
+        showDataLabels: true,
+        yAxisNumberFormat: 'international',
+      });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 1234567 })).toBe('1,234,567');
+    });
+
+    it('should not apply data label formatter when showDataLabels is false', () => {
+      const config = { series: [{ type: 'bar', label: {} }] };
+      applyLineBarChartFormatting(config, {
+        showDataLabels: false,
+        yAxisNumberFormat: 'international',
+      });
+      expect((config.series[0] as any).label.formatter).toBeUndefined();
+    });
+
+    it('should do nothing when no formatting is configured', () => {
+      const config = { yAxis: { axisLabel: {} }, xAxis: { axisLabel: {} } };
+      applyLineBarChartFormatting(config, {});
+      expect((config.yAxis as any).axisLabel.formatter).toBeUndefined();
+      expect((config.xAxis as any).axisLabel.formatter).toBeUndefined();
     });
   });
 

@@ -680,4 +680,27 @@ describe('ChartPreview', () => {
       expect(console.error).toHaveBeenCalledWith('Error initializing chart:', expect.any(Error));
     });
   });
+
+  describe('Stacked Bar Chart Data Labels', () => {
+    const stackedConfig = { series: [{ type: 'bar', data: [1, 2, 3], stack: 'total' }] };
+    const nonStackedConfig = { series: [{ type: 'bar', data: [1, 2, 3] }] };
+
+    it.each([
+      ['stacked with showDataLabels', stackedConfig, { stacked: true, showDataLabels: true }, true],
+      ['detected from series stack', stackedConfig, { showDataLabels: true }, true],
+      ['non-stacked bar', nonStackedConfig, { showDataLabels: true }, false],
+      ['showDataLabels false', stackedConfig, { stacked: true, showDataLabels: false }, false],
+    ])('should handle %s correctly', (_, config, customizations, shouldApply) => {
+      render(<ChartPreview config={config} chartType="bar" customizations={customizations} />);
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+
+      if (shouldApply) {
+        expect(calledConfig.series[0].label.position).toBe('top');
+        expect(calledConfig.series[0].label.show).toBe(true);
+      } else {
+        // Non-stacked or no showDataLabels - label config unchanged
+        expect(calledConfig.series[0].label.show).not.toBe(true);
+      }
+    });
+  });
 });
