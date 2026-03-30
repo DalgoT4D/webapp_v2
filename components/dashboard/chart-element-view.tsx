@@ -180,12 +180,16 @@ export function ChartElementView({
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
 
-  // Fetch regions data - use public API for public mode, private API for private mode
-  const { data: privateRegions } = useRegions(!isPublicMode ? 'IND' : null, 'state');
+  // Check if this chart is a map early so we can skip regions fetch for non-map charts.
+  // In report mode frozenChartConfig is available immediately; otherwise we wait for useChart.
+  const mightBeMap = frozenChartConfig ? frozenChartConfig.chart_type === ChartTypes.MAP : true; // default to true for dashboard mode until chart metadata loads
 
-  // Use public regions API for public mode
+  // Fetch regions data only for map charts
+  const { data: privateRegions } = useRegions(!isPublicMode && mightBeMap ? 'IND' : null, 'state');
+
+  // Use public regions API for public mode (only for map charts)
   const publicRegionsUrl =
-    isPublicMode && publicToken
+    isPublicMode && publicToken && mightBeMap
       ? `/api/v1/public/regions/?country_code=IND&region_type=state`
       : null;
 
@@ -306,9 +310,12 @@ export function ChartElementView({
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
-  const shouldFetchChartData = effectiveChart
-    ? effectiveChart.chart_type !== ChartTypes.MAP && effectiveChart.chart_type !== ChartTypes.TABLE
-    : false;
+  // Skip in report mode — reports use the POST endpoint with frozenChartConfig instead
+  const shouldFetchChartData =
+    effectiveChart && !frozenChartConfig
+      ? effectiveChart.chart_type !== ChartTypes.MAP &&
+        effectiveChart.chart_type !== ChartTypes.TABLE
+      : false;
   const {
     data: chartDataGet,
     isLoading: isLoadingGet,
@@ -548,21 +555,21 @@ export function ChartElementView({
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
-  // Private mode table data
+  // Private mode table data (only fetch for table charts)
   const {
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
   } = useChartDataPreview(
-    !isPublicMode ? chartDataPayload : null,
+    !isPublicMode && isTableChart ? chartDataPayload : null,
     tablePage,
     tablePageSize,
     dashboardFilters
   );
 
-  // Get total rows for table pagination (private mode)
+  // Get total rows for table pagination (private mode, only for table charts)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
-    !isPublicMode ? chartDataPayload : null,
+    !isPublicMode && isTableChart ? chartDataPayload : null,
     dashboardFilters
   );
 
@@ -1443,17 +1450,20 @@ export function ChartElementView({
     containerSize, // Update when container size changes for responsive legends
   ]);
 
-  // Re-fetch data when filters change
+  // Re-fetch data when filters change (dashboard mode only).
+  // In report mode, SWR keys already include filterHash so refetch is automatic.
   useEffect(() => {
-    mutate();
-  }, [dashboardFilters, mutate, chartId]);
+    if (!frozenChartConfig) {
+      mutate();
+    }
+  }, [dashboardFilters, mutate, chartId, frozenChartConfig]);
 
-  // Re-fetch map data when filters change (same behavior as regular charts)
+  // Re-fetch map data when filters change (dashboard mode only, same reason as above)
   useEffect(() => {
-    if (isMapChart && mutateMapData) {
+    if (isMapChart && mutateMapData && !frozenChartConfig) {
       mutateMapData();
     }
-  }, [dashboardFilters, mutateMapData, chartId, isMapChart]);
+  }, [dashboardFilters, mutateMapData, chartId, isMapChart, frozenChartConfig]);
 
   // Cleanup on unmount and when chartId changes
   useEffect(() => {

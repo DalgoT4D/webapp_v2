@@ -20,6 +20,7 @@ import { useSnapshots, deleteSnapshot } from '@/hooks/api/useReports';
 import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 import { formatCreatedOn } from '@/components/reports/utils';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 // Debounce delay in ms before sending filter to API
 const FILTER_DEBOUNCE_MS = 400;
@@ -29,6 +30,9 @@ type FilterColumn = 'title' | 'dashboard' | 'createdBy';
 export default function ReportsPage() {
   const router = useRouter();
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
+  const { hasPermission } = useUserPermissions();
+  const canCreate = hasPermission('can_create_dashboards');
+  const canDelete = hasPermission('can_delete_dashboards');
 
   // Filter input states (what the user types)
   const [titleFilter, setTitleFilter] = useState('');
@@ -132,19 +136,21 @@ export default function ReportsPage() {
             <h1 className="text-3xl font-bold">Reports</h1>
             <p className="text-muted-foreground mt-1">Create And Manage Your Reports</p>
           </div>
-          <CreateSnapshotDialog
-            onCreated={() => mutate()}
-            trigger={
-              <Button
-                data-testid="create-report-btn"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Create Report
-              </Button>
-            }
-          />
+          {canCreate && (
+            <CreateSnapshotDialog
+              onCreated={() => mutate()}
+              trigger={
+                <Button
+                  data-testid="create-report-btn"
+                  variant="ghost"
+                  className="text-white hover:opacity-90 shadow-xs"
+                  style={{ backgroundColor: 'var(--primary)' }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Create Report
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
 
@@ -164,14 +170,16 @@ export default function ReportsPage() {
               <p className="text-sm text-muted-foreground mt-1 mb-4">
                 Create a report from any dashboard
               </p>
-              <CreateSnapshotDialog
-                onCreated={() => mutate()}
-                trigger={
-                  <Button data-testid="create-first-report-btn" variant="outline">
-                    <Plus className="h-4 w-4 mr-1" /> Create Your First Report
-                  </Button>
-                }
-              />
+              {canCreate && (
+                <CreateSnapshotDialog
+                  onCreated={() => mutate()}
+                  trigger={
+                    <Button data-testid="create-first-report-btn" variant="outline">
+                      <Plus className="h-4 w-4 mr-1" /> Create Your First Report
+                    </Button>
+                  }
+                />
+              )}
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
@@ -372,14 +380,16 @@ export default function ReportsPage() {
                                   <FileText className="h-4 w-4 mr-2" />
                                   View Report
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  data-testid={`report-delete-${snapshot.id}`}
-                                  onClick={() => handleDelete(snapshot)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {canDelete && (
+                                  <DropdownMenuItem
+                                    data-testid={`report-delete-${snapshot.id}`}
+                                    onClick={() => handleDelete(snapshot)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
