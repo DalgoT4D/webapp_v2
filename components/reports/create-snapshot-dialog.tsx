@@ -42,7 +42,6 @@ interface SnapshotFormData {
   selectedDateColumn: string;
   periodStart: Date | undefined;
   periodEnd: Date | undefined;
-  frequency: string;
 }
 
 /** Wrapper that pairs the stateless DatePicker with confirm/cancel staging logic. */
@@ -83,7 +82,6 @@ export function CreateSnapshotDialog({
       selectedDateColumn: '',
       periodStart: undefined,
       periodEnd: undefined,
-      frequency: 'onetime',
     },
   });
 
@@ -132,7 +130,6 @@ export function CreateSnapshotDialog({
       selectedDateColumn: '',
       periodStart: undefined,
       periodEnd: undefined,
-      frequency: 'onetime',
     });
   };
 
@@ -329,43 +326,6 @@ export function CreateSnapshotDialog({
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Reporting Frequency */}
-          <div className="space-y-2">
-            <Label className="font-semibold">Reporting Frequency</Label>
-            <Controller
-              name="frequency"
-              control={control}
-              render={({ field }) => (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    data-testid="snapshot-freq-onetime"
-                    onClick={() => field.onChange('onetime')}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                      field.value === 'onetime'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-foreground border border-input hover:bg-muted'
-                    }`}
-                  >
-                    One time
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="snapshot-freq-schedule"
-                    onClick={() => field.onChange('schedule')}
-                    className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                      field.value === 'schedule'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-foreground border border-input hover:bg-muted'
-                    }`}
-                  >
-                    Schedule
-                  </button>
-                </div>
-              )}
-            />
           </div>
         </div>
 
