@@ -20,7 +20,7 @@ interface DeleteTabDialogProps {
 export function DeleteTabDialog({ open, onOpenChange, onConfirm }: DeleteTabDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent data-testid="delete-tab-dialog">
+      <AlertDialogContent data-testid="delete-tab-dialog" onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Tab</AlertDialogTitle>
           <AlertDialogDescription>

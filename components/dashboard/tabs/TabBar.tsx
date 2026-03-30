@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, memo } from 'react';
+import { useState, useCallback, useRef, useEffect, memo, useMemo } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,10 +60,11 @@ const TabItem = memo(function TabItem({
     }
   }, [isEditing, onSelect, tab.id]);
 
-  // Handle single click on title to start editing (when tab is active or is the only tab)
+  // Handle single click on title to start editing
+  // Disabled when there is only one tab
   const handleTitleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isEditMode && (isActive || isOnlyTab)) {
+      if (isEditMode && isActive && !isOnlyTab) {
         e.stopPropagation();
         setEditValue(tab.title);
         setIsEditing(true);
@@ -96,6 +97,17 @@ const TabItem = memo(function TabItem({
     [handleRenameComplete, tab.title]
   );
 
+  // Handle keyboard activation (Enter/Space) for accessibility
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault(); // prevent Space from scrolling the page
+        handleClick();
+      }
+    },
+    [handleClick]
+  );
+
   // Handle remove button click - show confirmation dialog
   const handleRemoveClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,6 +132,7 @@ const TabItem = memo(function TabItem({
           : 'border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground'
       )}
       onClick={handleClick}
+      onKeyDown={handleTabKeyDown}
       role="tab"
       aria-selected={isActive}
       tabIndex={0}
@@ -139,8 +152,11 @@ const TabItem = memo(function TabItem({
         />
       ) : (
         <span
-          className="truncate max-w-32 text-sm"
-          title={isEditMode && (isActive || isOnlyTab) ? 'Click to edit tab title' : tab.title}
+          className={cn(
+            'truncate max-w-32 text-sm',
+            isEditMode && isActive && !isOnlyTab && 'cursor-pointer hover:underline'
+          )}
+          title={tab.title}
           data-testid={`tab-title-${tab.id}`}
           onClick={handleTitleClick}
         >
@@ -182,7 +198,7 @@ export const TabBar = memo(function TabBar({
   onTabRename,
   className,
 }: TabBarProps) {
-  const safeTabs = tabs || [];
+  const safeTabs = useMemo(() => tabs || [], [tabs]);
 
   // Handle adding a new tab
   const handleAddTab = useCallback(() => {
