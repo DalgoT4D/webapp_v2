@@ -173,10 +173,10 @@ describe('SnapshotViewerPage', () => {
     it('renders date range in metadata', () => {
       renderPage();
 
-      // formatDateShort('2025-01-01') => '01/01/2025'
-      // formatDateShort('2025-01-31') => '01/31/2025'
-      expect(screen.getByText(/01\/01\/2025/)).toBeInTheDocument();
-      expect(screen.getByText(/01\/31\/2025/)).toBeInTheDocument();
+      // formatDateShort('2025-01-01') => 'Jan 1st, 2025'
+      // formatDateShort('2025-01-31') => 'Jan 31st, 2025'
+      expect(screen.getByText(/Jan 1st, 2025/)).toBeInTheDocument();
+      expect(screen.getByText(/Jan 31st, 2025/)).toBeInTheDocument();
     });
 
     it('renders created by in metadata', () => {
