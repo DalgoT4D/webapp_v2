@@ -505,6 +505,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       // For new dashboards or existing dashboards without tabs, use default
       return getDefaultTabsConfig();
     });
+
+    // Refs to always access the latest state/tabsData in callbacks without stale closures
+    const stateRef = useRef(state);
+    stateRef.current = state;
+    const tabsDataRef = useRef(tabsData);
+    tabsDataRef.current = tabsData;
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
@@ -925,45 +931,86 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // ===== Tab Handlers =====
 
     // Handle tab change (switching active tab)
-    const handleTabChange = useCallback((tabId: string) => {
-      setTabsData((prev) => ({
-        ...prev,
-        activeTabId: tabId,
-      }));
-    }, []);
+    // Saves current tab's canvas into tabsData, then loads the new tab's canvas into state
+    const handleTabChange = useCallback(
+      (tabId: string) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        // Save current tab's layout/components, then switch active tab
+        const updatedTabs = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: currentState.layout, components: currentState.components }
+            : t
+        );
+
+        setTabsData({ tabs: updatedTabs, activeTabId: tabId });
+
+        // Load the new tab's content into the canvas (no undo history — tab switch isn't undoable)
+        const newTab = updatedTabs.find((t) => t.id === tabId);
+        setStateWithoutHistory({
+          ...currentState,
+          layout: newTab?.layout_config || [],
+          components: newTab?.components || {},
+        });
+      },
+      [setStateWithoutHistory]
+    );
 
     // Handle adding a new tab
-    const handleTabAdd = useCallback((newTab: DashboardTab) => {
-      setTabsData((prev) => ({
-        ...prev,
-        tabs: [...prev.tabs, newTab],
-        activeTabId: newTab.id, // Switch to the new tab
-      }));
-    }, []);
+    // Saves current tab's canvas before switching to the new empty tab
+    const handleTabAdd = useCallback(
+      (newTab: DashboardTab) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        // Save current tab's layout/components first
+        const updatedTabs = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: currentState.layout, components: currentState.components }
+            : t
+        );
+
+        setTabsData({ tabs: [...updatedTabs, newTab], activeTabId: newTab.id });
+
+        // New tab starts with an empty canvas
+        setStateWithoutHistory({ ...currentState, layout: [], components: {} });
+      },
+      [setStateWithoutHistory]
+    );
 
     // Handle removing a tab
-    const handleTabRemove = useCallback((tabId: string) => {
-      setTabsData((prev) => {
-        // Cannot remove the last tab
-        if (prev.tabs.length <= 1) return prev;
+    const handleTabRemove = useCallback(
+      (tabId: string) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
 
-        const tabIndex = prev.tabs.findIndex((t) => t.id === tabId);
-        const newTabs = prev.tabs.filter((t) => t.id !== tabId);
+        if (currentTabsData.tabs.length <= 1) return;
 
-        // If removing active tab, switch to adjacent tab
-        let newActiveTabId = prev.activeTabId;
-        if (prev.activeTabId === tabId) {
-          // Prefer previous tab, or next tab if removing first
+        const tabIndex = currentTabsData.tabs.findIndex((t) => t.id === tabId);
+        const newTabs = currentTabsData.tabs.filter((t) => t.id !== tabId);
+
+        let newActiveTabId = currentTabsData.activeTabId;
+        if (currentTabsData.activeTabId === tabId) {
+          // Prefer previous tab, or next if removing first
           const newActiveIndex = Math.max(0, tabIndex - 1);
           newActiveTabId = newTabs[newActiveIndex]?.id || newTabs[0]?.id;
         }
 
-        return {
-          tabs: newTabs,
-          activeTabId: newActiveTabId,
-        };
-      });
-    }, []);
+        setTabsData({ tabs: newTabs, activeTabId: newActiveTabId });
+
+        // If the deleted tab was active, load the new active tab's canvas
+        if (currentTabsData.activeTabId === tabId) {
+          const newActiveTab = newTabs.find((t) => t.id === newActiveTabId);
+          setStateWithoutHistory({
+            ...currentState,
+            layout: newActiveTab?.layout_config || [],
+            components: newActiveTab?.components || {},
+          });
+        }
+      },
+      [setStateWithoutHistory]
+    );
 
     // Handle renaming a tab
     const handleTabRename = useCallback((tabId: string, newTitle: string) => {

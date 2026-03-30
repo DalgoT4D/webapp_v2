@@ -100,12 +100,13 @@ const TabItem = memo(function TabItem({
   // Handle keyboard activation (Enter/Space) for accessibility
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (isEditing) return; // let the rename input handle its own keys
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault(); // prevent Space from scrolling the page
         handleClick();
       }
     },
-    [handleClick]
+    [handleClick, isEditing]
   );
 
   // Handle remove button click - show confirmation dialog
