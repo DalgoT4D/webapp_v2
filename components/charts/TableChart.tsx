@@ -173,7 +173,7 @@ export function TableChart({
     // - decimalPlaces is specified AND no type is specified (for pure decimal formatting)
     // Also handles numeric strings from aggregated metric columns (e.g. backend returns "6500000")
     if (numberFormat || (decimalPlaces !== undefined && !type)) {
-      const numericValue = typeof value === 'number' ? value : Number(value);
+      const numericValue = Number(value);
       if (!isNaN(numericValue)) {
         const formatted = formatNumber(numericValue, {
           format: numberFormat || 'default',
