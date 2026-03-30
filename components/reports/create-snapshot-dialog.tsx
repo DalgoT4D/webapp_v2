@@ -162,6 +162,10 @@ export function CreateSnapshotDialog({
   };
 
   const periodEnd = watch('periodEnd');
+  const today = new Date();
+
+  // Start date cannot exceed the earlier of periodEnd or today
+  const startMaxDate = periodEnd && periodEnd < today ? periodEnd : today;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -299,7 +303,7 @@ export function CreateSnapshotDialog({
                     <ConfirmDatePicker
                       value={field.value}
                       onChange={field.onChange}
-                      maxDate={periodEnd}
+                      maxDate={startMaxDate}
                     />
                   )}
                 />
@@ -313,7 +317,11 @@ export function CreateSnapshotDialog({
                   control={control}
                   rules={{ required: 'Please select an end date' }}
                   render={({ field }) => (
-                    <ConfirmDatePicker value={field.value} onChange={field.onChange} />
+                    <ConfirmDatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      maxDate={today}
+                    />
                   )}
                 />
                 {errors.periodEnd && (
