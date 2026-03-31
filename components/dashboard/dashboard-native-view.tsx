@@ -65,7 +65,7 @@ import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { TabBar } from './tabs/TabBar';
 import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
-import { getDefaultTabsConfig } from './tabs/tab-utils';
+import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
@@ -378,20 +378,20 @@ export function DashboardNativeView({
   // Derive tabs data from dashboard
   const tabsData: DashboardTabsData | null = useMemo(() => {
     if (!dashboard) return null;
-    // Backend returns tabs as an array, convert to DashboardTabsData structure
-    if (dashboard.tabs && Array.isArray(dashboard.tabs) && dashboard.tabs.length > 0) {
-      return {
-        tabs: dashboard.tabs as DashboardTab[],
-        activeTabId: dashboard.tabs[0].id,
-      };
-    }
-    // For dashboards without tabs, create a default single tab
-    return getDefaultTabsConfig();
+    return initializeTabsData(dashboard.tabs);
   }, [dashboard]);
 
   // Get effective active tab ID
   const effectiveActiveTabId =
     activeTabId || tabsData?.activeTabId || tabsData?.tabs?.[0]?.id || null;
+
+  // Derive the current tab's layout/components to render
+  const currentTab = useMemo(() => {
+    if (tabsData && effectiveActiveTabId) {
+      return tabsData.tabs.find((t) => t.id === effectiveActiveTabId) || null;
+    }
+    return null;
+  }, [tabsData, effectiveActiveTabId]);
 
   // Handle tab change in view mode
   const handleTabChange = useCallback((tabId: string) => {
@@ -556,11 +556,12 @@ export function DashboardNativeView({
     await swrMutate('/api/currentuserv2');
   };
 
-  // Render dashboard components
+  // Render dashboard components (from active tab)
   const renderComponent = (componentId: string) => {
-    if (!dashboard?.components) return null;
+    const components = currentTab?.components || dashboard?.components;
+    if (!components) return null;
 
-    const component = dashboard.components[componentId];
+    const component = components[componentId];
     if (!component) return null;
 
     switch (component.type) {
@@ -1165,19 +1166,22 @@ export function DashboardNativeView({
             {beforeContent}
 
             {/* Show empty state if no layout config */}
-            {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p className="text-lg mb-2">No Dashboard Components</p>
-                <p className="text-sm">
-                  This dashboard doesn't have any components configured yet.
-                </p>
-              </div>
-            ) : null}
+            {(() => {
+              const activeLayout = currentTab?.layout_config || dashboard?.layout_config || [];
+              return activeLayout.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p className="text-lg mb-2">No Dashboard Components</p>
+                  <p className="text-sm">
+                    This dashboard doesn't have any components configured yet.
+                  </p>
+                </div>
+              ) : null;
+            })()}
 
             {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
             {(() => {
-              // Use original layout without any modifications since toolbar is now external
-              const modifiedLayout = dashboard.layout_config || [];
+              // Use active tab's layout, falling back to top-level dashboard layout
+              const modifiedLayout = currentTab?.layout_config || dashboard?.layout_config || [];
 
               return effectiveScreenSize !== targetScreenSize ? (
                 // Preview mode with different screen size - use responsive layout

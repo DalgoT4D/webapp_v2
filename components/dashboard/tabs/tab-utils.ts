@@ -1,4 +1,9 @@
-import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import {
+  DashboardTab,
+  DashboardTabsData,
+  DashboardLayoutItem,
+  DashboardComponentConfig,
+} from '@/types/dashboard';
 
 // Tab Constants
 export const TAB_TITLE_MAX_LENGTH = 50;
@@ -52,4 +57,43 @@ export function getNextTabNumber(tabs: DashboardTab[]): number {
   });
 
   return Math.max(...numbers, tabs.length) + 1;
+}
+
+/**
+ * Converts backend tabs array to frontend DashboardTabsData structure
+ * Backend returns tabs as array, frontend needs {tabs, activeTabId}
+ * @param tabs - Array of tabs from backend or undefined
+ * @returns DashboardTabsData with activeTabId set to first tab
+ */
+export function initializeTabsData(tabs: DashboardTab[] | undefined | null): DashboardTabsData {
+  if (tabs && Array.isArray(tabs) && tabs.length > 0) {
+    return {
+      tabs: tabs,
+      activeTabId: tabs[0].id,
+    };
+  }
+  return getDefaultTabsConfig();
+}
+
+/**
+ * Gets the active tab's layout and components data
+ * @param tabsData - The tabs data structure
+ * @param activeTabId - Optional override for active tab ID
+ * @returns Object with layout and components from active tab
+ */
+export function getActiveTabData(
+  tabsData: DashboardTabsData | null,
+  activeTabId?: string | null
+): { layout: DashboardLayoutItem[]; components: Record<string, DashboardComponentConfig> } {
+  if (!tabsData || !tabsData.tabs.length) {
+    return { layout: [], components: {} };
+  }
+
+  const effectiveActiveTabId = activeTabId || tabsData.activeTabId;
+  const activeTab = tabsData.tabs.find((t) => t.id === effectiveActiveTabId) || tabsData.tabs[0];
+
+  return {
+    layout: activeTab?.layout_config || [],
+    components: activeTab?.components || {},
+  };
 }

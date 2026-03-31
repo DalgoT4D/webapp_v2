@@ -68,7 +68,7 @@ import {
   type NumericalFilterSettings,
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
-import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import { DashboardTab, DashboardTabsData, DashboardComponentType } from '@/types/dashboard';
 import { getDefaultTabsConfig } from './tabs/tab-utils';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
@@ -140,11 +140,6 @@ function convertFilterToConfig(
 }
 
 // Types
-export enum DashboardComponentType {
-  CHART = 'chart',
-  TEXT = 'text',
-  FILTER = 'filter',
-}
 
 interface DashboardLayout {
   i: string;
@@ -282,9 +277,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
-    // Ensure layout_config is always an array
-    let initialLayout = Array.isArray(initialData?.layout_config) ? initialData.layout_config : [];
-    const initialComponents = initialData?.components || {};
+    // Canvas is always driven by tab content — layout and components live inside tabs only.
+    // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
+    const firstTab =
+      initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0
+        ? initialData.tabs[0]
+        : null;
+
+    let initialLayout = Array.isArray(firstTab?.layout_config) ? firstTab.layout_config : [];
+    const initialComponents = firstTab?.components ?? {};
 
     // Helper function to ensure text components have content constraints
     const ensureTextContentConstraints = (components: any) => {
@@ -854,6 +855,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         // Ensure title is not empty, use default if needed
         const finalTitle = title.trim() || 'Untitled Dashboard';
 
+        // Flush current tab's live canvas into tabsData before saving
+        // (tabsData only syncs per-tab content on tab switch, not on every canvas change)
+        const currentTabsData = tabsDataRef.current;
+        const tabsWithLatestCanvas = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: state.layout, components: state.components }
+            : t
+        );
+
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
           title: finalTitle,
@@ -863,6 +873,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           filter_layout: filterLayout,
           layout_config: JSON.parse(JSON.stringify(state.layout)), // Safe deep clone
           components: JSON.parse(JSON.stringify(state.components)), // Safe deep clone
+          tabs: JSON.parse(JSON.stringify(tabsWithLatestCanvas)), // Persist all tabs
           // filters removed - managed via separate API endpoints
           ...overrides, // Apply any overrides passed to the function
         };

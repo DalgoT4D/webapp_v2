@@ -15,10 +15,17 @@ export interface DashboardLayoutItem {
   maxH?: number;
 }
 
+// Enum for dashboard component types - matches DashboardComponent in dashboard-builder-v2
+export enum DashboardComponentType {
+  CHART = 'chart',
+  TEXT = 'text',
+  FILTER = 'filter',
+}
+
 // Dashboard Component - represents a chart, text, or filter element
 export interface DashboardComponentConfig {
   id: string;
-  type: 'chart' | 'text' | 'filter';
+  type: DashboardComponentType;
   config: Record<string, unknown>;
 }
 
