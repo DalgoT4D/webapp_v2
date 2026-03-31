@@ -363,11 +363,7 @@ export function useMapDataOverlay(
     aggregate_function: string;
     filters?: Record<string, any>;
     dashboard_filters?: Record<string, any>;
-    extra_config?: {
-      filters?: any[];
-      pagination?: any;
-      sort?: any[];
-    };
+    extra_config?: Record<string, unknown>;
   } | null
 ) {
   // Transform payload to match backend requirements

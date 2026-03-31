@@ -427,10 +427,9 @@ export function ChartElementView({
             selected_geojson_id: effectiveChart.extra_config?.selected_geojson_id,
             customizations: effectiveChart.extra_config?.customizations,
             extra_config: {
+              ...(effectiveChart.extra_config || {}),
               filters: [
-                // Include chart-level filters
                 ...(effectiveChart.extra_config?.filters || []),
-                // Add drill-down filters from tableDrillDownState
                 ...(effectiveChart.chart_type === ChartTypes.TABLE &&
                 tableDrillDownState?.appliedFilters
                   ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
@@ -439,7 +438,6 @@ export function ChartElementView({
                       value,
                     }))
                   : []),
-                // Include resolved dashboard filters for all chart types
                 ...formatAsChartFilters(
                   resolvedDashboardFilters.filter(
                     (filter) =>
@@ -448,8 +446,6 @@ export function ChartElementView({
                   )
                 ),
               ],
-              pagination: effectiveChart.extra_config?.pagination,
-              sort: effectiveChart.extra_config?.sort,
             },
             // Dashboard filters passed separately (skip in report mode — synthetic
             // filter IDs can't be resolved by the backend; extra_config.filters
@@ -790,6 +786,7 @@ export function ChartElementView({
           dashboard_filters: frozenChartConfig ? undefined : dashboardFilters,
           // Chart-level filters + resolved dashboard filters in report mode
           extra_config: {
+            ...(effectiveChart.extra_config || {}),
             filters: [
               ...(effectiveChart.extra_config.filters || []),
               ...(frozenChartConfig
@@ -802,8 +799,6 @@ export function ChartElementView({
                   )
                 : []),
             ],
-            pagination: effectiveChart.extra_config.pagination,
-            sort: effectiveChart.extra_config.sort,
           },
         }
       : null;
