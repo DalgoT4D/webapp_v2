@@ -22,6 +22,7 @@ import {
   updateSnapshot,
   getReportSharingStatus,
   updateReportSharing,
+  shareReportViaEmail,
 } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
@@ -280,6 +281,7 @@ export default function SnapshotViewerPage() {
         onClose={() => setShareModalOpen(false)}
         getShareStatus={getReportSharingStatus}
         updateSharing={updateReportSharing}
+        onShareViaEmail={(data) => shareReportViaEmail(parsedId, data)}
       />
     </div>
   );
