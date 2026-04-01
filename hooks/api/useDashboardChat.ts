@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
-type DashboardChatEventType = 'progress' | 'assistant_message' | 'error';
+type DashboardChatEventType = 'progress' | 'assistant_message';
 
 interface DashboardChatCitation {
   source_type: string;
@@ -40,21 +40,36 @@ export interface DashboardChatMessage {
   payload?: DashboardChatAssistantPayload;
 }
 
-interface DashboardChatEvent {
+// Base fields present on every event from the backend.
+interface DashboardChatBaseEvent {
   event_type: DashboardChatEventType;
   dashboard_id: number;
   occurred_at: string;
   session_id?: string;
   message_id?: string;
-  data: Record<string, unknown>;
 }
 
+// Assistant message events carry message fields directly (no nested data).
+interface DashboardChatProgressEvent extends DashboardChatBaseEvent {
+  event_type: 'progress';
+}
+
+interface DashboardChatAssistantMessageEvent extends DashboardChatBaseEvent {
+  event_type: 'assistant_message';
+  id: string;
+  role: 'assistant';
+  content: string;
+  created_at: string;
+  payload?: DashboardChatAssistantPayload;
+}
+
+type DashboardChatEvent = DashboardChatProgressEvent | DashboardChatAssistantMessageEvent;
+
 // Every WebSocket message from the backend is wrapped in this envelope.
-// On success, `data` contains the DashboardChatEvent.
 interface DashboardChatEnvelope {
   message: string;
   status: 'success' | 'error';
-  data: DashboardChatEvent | null;
+  data: DashboardChatEvent;
 }
 
 interface UseDashboardChatOptions {
@@ -147,11 +162,6 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     }
 
     const event = envelope.data;
-    if (!event) {
-      setChatError('Received an invalid chat response');
-      setIsThinking(false);
-      return;
-    }
 
     if (event.session_id) {
       sessionIdRef.current = event.session_id;
@@ -165,29 +175,18 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     }
 
     if (event.event_type === 'assistant_message') {
-      const messageData = event.data;
       setIsThinking(false);
       setChatError(null);
       setMessages((previousMessages) => [
         ...previousMessages,
         {
-          id: String(messageData.id || event.message_id || `assistant-${Date.now()}`),
+          id: event.id || event.message_id || `assistant-${Date.now()}`,
           role: 'assistant',
-          content: String(messageData.content || ''),
-          createdAt: String(messageData.created_at || event.occurred_at),
-          payload: (messageData.payload as DashboardChatAssistantPayload | undefined) || {},
+          content: event.content,
+          createdAt: event.created_at || event.occurred_at,
+          payload: event.payload || {},
         },
       ]);
-      return;
-    }
-
-    if (event.event_type === 'error') {
-      setIsThinking(false);
-      setChatError(
-        typeof event.data.message === 'string'
-          ? event.data.message
-          : 'Something went wrong while generating the response'
-      );
     }
   }, []);
 
@@ -225,7 +224,7 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
       if (sent) {
         setIsThinking(true);
       } else {
-        // Socket not ready (connecting, or closed before state updated) — queue for reconnect
+        // Socket not ready — queue for when connection opens
         pendingMessageRef.current = { content: trimmedContent, clientMessageId };
       }
       return true;
