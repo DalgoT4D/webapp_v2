@@ -63,6 +63,7 @@ interface SortableFilterItemProps {
   layout: 'vertical' | 'horizontal';
   isPublicMode?: boolean;
   publicToken?: string;
+  isReportMode?: boolean;
 }
 
 function SortableFilterItem({
@@ -75,6 +76,7 @@ function SortableFilterItem({
   layout,
   isPublicMode = false,
   publicToken,
+  isReportMode = false,
 }: SortableFilterItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: filter.id,
@@ -103,6 +105,7 @@ function SortableFilterItem({
           onEdit={isEditMode ? () => onEdit?.(filter) : undefined}
           isPublicMode={isPublicMode}
           publicToken={publicToken}
+          isReportMode={isReportMode}
           isEditMode={isEditMode}
           showTitle={true}
           compact={true}
@@ -136,6 +139,7 @@ function SortableFilterItem({
         dragHandleProps={isEditMode ? listeners : undefined}
         isPublicMode={isPublicMode}
         publicToken={publicToken}
+        isReportMode={isReportMode}
       />
     </div>
   );
@@ -542,6 +546,7 @@ export function UnifiedFiltersPanel({
                           layout={layout}
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
+                          isReportMode={isReportMode}
                         />
                       ))}
                     </div>
@@ -679,6 +684,7 @@ export function UnifiedFiltersPanel({
                           layout={effectiveLayout}
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
+                          isReportMode={isReportMode}
                         />
                       ))}
                     </div>
