@@ -2,23 +2,30 @@
 // the browser tab regains visibility.
 
 import { useEffect, useRef } from 'react';
-import { useWorkflowExecution } from '@/hooks/api/useWorkflowExecution';
+import type { TaskProgressLog } from '@/types/transform';
 import { useTransformStore } from '@/stores/transformStore';
 
 interface UseRunningTasksMonitorParams {
   isPreview: boolean;
+  /** Shared workflow logs from the single useWorkflowExecution instance */
+  workflowLogs: TaskProgressLog[];
+  /** Whether a workflow is currently running */
+  isWorkflowRunning: boolean;
+  /** Check for existing running tasks */
+  checkRunningTasks: () => Promise<string | null>;
+  /** Resume polling for an existing task */
+  resumePolling: (taskId: string) => Promise<void>;
 }
 
-export function useRunningTasksMonitor({ isPreview }: UseRunningTasksMonitorParams) {
+export function useRunningTasksMonitor({
+  isPreview,
+  workflowLogs,
+  isWorkflowRunning,
+  checkRunningTasks,
+  resumePolling,
+}: UseRunningTasksMonitorParams) {
   const hasCheckedRunningTasks = useRef(false);
   const { setSelectedLowerTab } = useTransformStore();
-
-  const {
-    logs: workflowLogs,
-    isRunning: isWorkflowRunning,
-    checkRunningTasks,
-    resumePolling,
-  } = useWorkflowExecution();
 
   // Sync workflow logs to store for LowerSectionTabs
   const { setDbtRunLogs } = useTransformStore();

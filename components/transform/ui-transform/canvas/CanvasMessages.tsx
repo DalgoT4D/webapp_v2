@@ -89,7 +89,7 @@ export default function CanvasMessages({ hasUnpublishedChanges = false }: Canvas
   };
 
   return (
-    <div className="absolute top-16 right-4 z-50 flex flex-col gap-2" data-testid="canvas-messages">
+    <div className="absolute top-16 right-4 z-10 flex flex-col gap-2" data-testid="canvas-messages">
       {messages.map((message) => (
         <div
           key={message.id}

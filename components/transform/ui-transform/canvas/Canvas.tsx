@@ -8,6 +8,7 @@ import ReactFlow, {
   useReactFlow,
   addEdge,
   Controls,
+  ControlButton,
   Background,
   MarkerType,
   type NodeTypes,
@@ -17,6 +18,7 @@ import ReactFlow, {
   type Connection,
 } from 'reactflow';
 import dagre from 'dagre';
+import { RefreshCw } from 'lucide-react';
 import 'reactflow/dist/style.css';
 
 import DbtSourceModelNode from './nodes/DbtSourceModelNode';
@@ -46,15 +48,18 @@ const DAGRE_RANKSEP = 350;
 const DAGRE_MARGIN_X = 100;
 const DAGRE_MARGIN_Y = 100;
 
+// Edge stroke color — light gray for a softer look against the white canvas
+const EDGE_COLOR = '#9E9E9E';
+
 // Default edge styling — smoothstep (right-angle with rounded corners) + arrow marker
 const defaultEdgeOptions: DefaultEdgeOptions = {
   type: 'default',
-  style: { stroke: '#000', strokeWidth: 1 },
+  style: { stroke: EDGE_COLOR, strokeWidth: 1 },
   markerEnd: {
     type: MarkerType.Arrow,
     width: 20,
     height: 20,
-    color: '#000',
+    color: EDGE_COLOR,
   },
 };
 
@@ -120,9 +125,11 @@ function transformToFlowEdges(apiEdges: CanvasEdgeDataResponse[]): Edge[] {
 
 interface CanvasProps {
   isPreviewMode?: boolean;
+  /** Callback to trigger a full refresh (graph + sources + running tasks) from parent */
+  onRefresh?: () => Promise<void>;
 }
 
-export default function Canvas({ isPreviewMode = false }: CanvasProps) {
+export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNodeRenderData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -140,6 +147,7 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     nodes: apiNodes,
     edges: apiEdges,
     isLoading,
+    refresh: refreshGraph,
   } = useCanvasGraph({ skipInitialFetch: false, autoSync: !isPreviewMode });
 
   const { setCenter, getNodes: getFlowNodes } = useReactFlow();
@@ -154,6 +162,8 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     const dataHash = JSON.stringify({
       nodeIds: apiNodes.map((n) => n.uuid).sort(),
       edgeIds: apiEdges.map((e) => e.id).sort(),
+      // Include isPublished so canvas re-renders when publish flips the flag
+      publishState: apiNodes.map((n) => `${n.uuid}:${n.isPublished}`).sort(),
     });
 
     if (dataHash === processedDataRef.current) return;
@@ -330,6 +340,17 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
     setPreviewData(null);
   }, [closeOperationPanel, clearPreviewAction, setPreviewData]);
 
+  // Full graph redraw — re-fetches graph, sources/models, and checks running tasks
+  const handleRefreshCanvas = useCallback(async () => {
+    processedDataRef.current = '';
+    isFirstLoadRef.current = true;
+    if (onRefresh) {
+      await onRefresh();
+    } else {
+      await refreshGraph();
+    }
+  }, [onRefresh, refreshGraph]);
+
   return (
     <div className="h-full w-full relative" style={{ backgroundColor: '#fff' }}>
       <ReactFlow
@@ -357,7 +378,15 @@ export default function Canvas({ isPreviewMode = false }: CanvasProps) {
         zoomOnPinch
         proOptions={{ hideAttribution: true }}
       >
-        <Controls showInteractive={false} className="!bottom-4 !left-4" />
+        <Controls showInteractive={false} className="!bottom-4 !left-4">
+          <ControlButton
+            onClick={handleRefreshCanvas}
+            title="Refresh canvas"
+            data-testid="refresh-canvas-button"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </ControlButton>
+        </Controls>
         <Background color="#e0e0e0" gap={20} />
       </ReactFlow>
 

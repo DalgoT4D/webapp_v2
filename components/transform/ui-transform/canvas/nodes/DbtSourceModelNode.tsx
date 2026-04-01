@@ -4,6 +4,7 @@
 import { memo, useEffect, useState, useRef, useCallback } from 'react';
 import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
 import { Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { apiGet } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -46,10 +47,11 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     }
   }, [refreshTrigger]);
 
-  // Fetch columns once — try warehouse API first, fallback to output_columns from node data.
+  // Fetch columns — try warehouse API first, fallback to output_columns from node data.
   // Newly created intermediate tables (from operations like union) may not exist in the
   // warehouse yet (dbt hasn't run), so the warehouse API returns an error. In that case,
   // use the output_columns that the backend computes from the operation chain.
+  // Re-runs when refreshTrigger changes (after the above effect resets fetchedRef).
   useEffect(() => {
     if (fetchedRef.current) return;
 
@@ -95,7 +97,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
       }
     };
     fetchColumns();
-  }, [schema, tableName, data?.isDummy, data?.output_columns]);
+  }, [schema, tableName, data?.isDummy, data?.output_columns, refreshTrigger]);
 
   const handleNodeClick = useCallback(() => {
     // Always set preview data
@@ -192,9 +194,27 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
             borderRadius: '5px 5px 0 0',
           }}
         >
-          <span style={{ color: '#fff', fontWeight: 700, fontSize: 12 }} title={displayName}>
-            {headerText}
-          </span>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  style={{
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {headerText}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {displayName}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {canDelete && (
             <button
               onClick={handleDeleteClick}

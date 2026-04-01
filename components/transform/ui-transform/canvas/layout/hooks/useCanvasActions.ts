@@ -6,7 +6,7 @@ import { useSWRConfig } from 'swr';
 import { useTransformStore, useCanvasAction } from '@/stores/transformStore';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
-import { useWorkflowExecution, type RunWorkflowParams } from '@/hooks/api/useWorkflowExecution';
+import type { RunWorkflowParams } from '@/hooks/api/useWorkflowExecution';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { CanvasNodeTypeEnum } from '@/types/transform';
@@ -17,9 +17,11 @@ import { TaskProgressStatus } from '@/constants/pipeline';
 
 interface UseCanvasActionsParams {
   isPreview: boolean;
+  /** Shared runWorkflow function from the single useWorkflowExecution instance */
+  runWorkflow: (params: RunWorkflowParams) => Promise<void>;
 }
 
-export function useCanvasActions({ isPreview }: UseCanvasActionsParams) {
+export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsParams) {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const { mutate } = useSWRConfig();
@@ -36,7 +38,6 @@ export function useCanvasActions({ isPreview }: UseCanvasActionsParams) {
 
   const { refresh: refreshSources, syncSources } = useCanvasSources();
   const { deleteOperationNode } = useCanvasOperations();
-  const { runWorkflow } = useWorkflowExecution();
   const { hasPermission } = useUserPermissions();
 
   // Handle sync sources — locks upper section, polls progress into logs pane
@@ -215,7 +216,7 @@ export function useCanvasActions({ isPreview }: UseCanvasActionsParams) {
         }
 
         case 'refresh-canvas': {
-          await mutate(CANVAS_GRAPH_KEY);
+          await Promise.all([mutate(CANVAS_GRAPH_KEY), refreshSources()]);
           clearCanvasAction();
           break;
         }

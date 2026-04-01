@@ -5,6 +5,7 @@ import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
 import Image from 'next/image';
 import { Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { CanvasNodeRenderData } from '@/types/transform';
@@ -175,20 +176,28 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
 
         {/* Label */}
         <div style={{ padding: 8, textAlign: 'center' }}>
-          <p
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#212121',
-              margin: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={operationLabel}
-          >
-            {operationLabel}
-          </p>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#212121',
+                    margin: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {operationLabel}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {operationLabel}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </div>

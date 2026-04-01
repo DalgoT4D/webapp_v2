@@ -15,11 +15,13 @@ import PublishModal from '../modals/PublishModal';
 import PatRequiredModal from '../modals/PatRequiredModal';
 import { useCanvasLock } from '@/hooks/api/useCanvasLock';
 import { useGitIntegration } from '@/hooks/api/useGitIntegration';
+import { useWorkflowExecution } from '@/hooks/api/useWorkflowExecution';
+import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { useTransformStore, useOperationPanelOpen } from '@/stores/transformStore';
 import { CANVAS_CONSTANTS } from '@/constants/transform';
 import { useSWRConfig } from 'swr';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
-import { toastError } from '@/lib/toast';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 import { useCanvasActions } from './hooks/useCanvasActions';
 import { useRunningTasksMonitor } from './hooks/useRunningTasksMonitor';
@@ -57,11 +59,32 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     previewAction,
     previewData,
     gitRepoUrl: storeGitRepoUrl,
+    triggerRefresh,
   } = useTransformStore();
 
+  // Single shared workflow execution instance — logs, run state, and
+  // runWorkflow all come from the same hook so logs always reflect the
+  // current run regardless of whether it was started here or resumed.
+  const {
+    logs: workflowLogs,
+    isRunning: isWorkflowRunning,
+    runWorkflow,
+    checkRunningTasks,
+    resumePolling,
+  } = useWorkflowExecution();
+
+  // Sources refresh (SWR deduplicates with useSourceTreeActions' instance)
+  const { refresh: refreshSources } = useCanvasSources();
+
   // --- Extracted hooks ---
-  const { isSyncing, handleSyncSources } = useCanvasActions({ isPreview });
-  const { isWorkflowRunning } = useRunningTasksMonitor({ isPreview });
+  const { isSyncing, handleSyncSources } = useCanvasActions({ isPreview, runWorkflow });
+  useRunningTasksMonitor({
+    isPreview,
+    workflowLogs,
+    isWorkflowRunning,
+    checkRunningTasks,
+    resumePolling,
+  });
   const {
     sourcesModels,
     isLoadingSources,
@@ -152,6 +175,22 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     await mutate(CANVAS_GRAPH_KEY);
   }, [mutate]);
 
+  // Full canvas refresh — matches old webapp v1 behavior:
+  // 1. Sync remote dbt project to canvas (picks up external changes)
+  // 2. Re-fetch graph (nodes + edges)
+  // 3. Re-fetch sources/models (left sidebar)
+  // 4. Check for any running tasks and resume polling if found
+  const handleRefreshCanvas = useCallback(async () => {
+    await Promise.all([mutate(CANVAS_GRAPH_KEY), refreshSources()]);
+    // Bump refreshTrigger so every node re-fetches its table_columns
+    triggerRefresh();
+    const runningTaskId = await checkRunningTasks();
+    if (runningTaskId) {
+      await resumePolling(runningTaskId);
+    }
+    toastSuccess.generic('Graph has been refreshed');
+  }, [mutate, refreshSources, triggerRefresh, checkRunningTasks, resumePolling]);
+
   // Derive preview data from node click (previewData) or explicit preview action
   const previewTable =
     previewAction?.type === 'preview' ? previewAction.data : (previewData ?? null);
@@ -226,7 +265,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
                 {/* Main Canvas */}
                 <div className="flex-1 relative">
-                  <Canvas isPreviewMode={isPreview} />
+                  <Canvas isPreviewMode={isPreview} onRefresh={handleRefreshCanvas} />
 
                   {/* Operation Configuration Panel */}
                   {!isPreview && (
