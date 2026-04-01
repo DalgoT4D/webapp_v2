@@ -19,6 +19,7 @@ interface FilterElementProps {
   dragHandleProps?: Record<string, unknown>; // DnD Kit listeners for drag handle
   isPublicMode?: boolean;
   publicToken?: string;
+  isReportMode?: boolean;
 }
 
 export function FilterElement({
@@ -34,6 +35,7 @@ export function FilterElement({
   dragHandleProps,
   isPublicMode = false,
   publicToken,
+  isReportMode = false,
 }: FilterElementProps) {
   // Check if filter is locked (e.g., date filter in report mode)
   const isLocked = !!(filter?.settings as any)?.locked;
@@ -146,6 +148,7 @@ export function FilterElement({
         compact={compact}
         isPublicMode={isPublicMode}
         publicToken={publicToken}
+        isReportMode={isReportMode}
         isLocked={isLocked}
       />
     </div>
