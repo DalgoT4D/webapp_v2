@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 type DashboardChatEventType = 'progress' | 'assistant_message' | 'error';
 
@@ -48,10 +49,12 @@ interface DashboardChatEvent {
   data: Record<string, unknown>;
 }
 
+// Every WebSocket message from the backend is wrapped in this envelope.
+// On success, `data` contains the DashboardChatEvent.
 interface DashboardChatEnvelope {
   message: string;
   status: 'success' | 'error';
-  data: Record<string, unknown>;
+  data: DashboardChatEvent | null;
 }
 
 interface UseDashboardChatOptions {
@@ -82,14 +85,15 @@ function buildDashboardChatSocketUrl(dashboardId: number, orgSlug: string) {
 
 export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptions) {
   const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug) || getSelectedOrgSlug();
-  const socketRef = useRef<WebSocket | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
   const pendingMessageRef = useRef<PendingDashboardChatMessage | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  // sendRef lets onOpen call send() before it's returned from useWebSocket
+  const sendRef = useRef<(data: string) => boolean>(() => false);
+
   const [messages, setMessages] = useState<DashboardChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const websocketUrl = useMemo(() => {
     if (!enabled || !selectedOrgSlug) {
@@ -98,202 +102,151 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     return buildDashboardChatSocketUrl(dashboardId, selectedOrgSlug);
   }, [dashboardId, enabled, selectedOrgSlug]);
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (!websocketUrl) {
-      setIsConnected(false);
-      return undefined;
-    }
-
-    const sendSocketMessage = (socket: WebSocket, pendingMessage: PendingDashboardChatMessage) => {
-      socket.send(
-        JSON.stringify({
-          action: 'send_message',
-          message: pendingMessage.content,
-          client_message_id: pendingMessage.clientMessageId,
-          ...(sessionIdRef.current ? { session_id: sessionIdRef.current } : {}),
-        })
-      );
-      setIsThinking(true);
-      setError(null);
-    };
-
-    const flushPendingMessage = (socket: WebSocket) => {
-      const pendingMessage = pendingMessageRef.current;
-      if (!pendingMessage) {
-        return;
-      }
-
-      sendSocketMessage(socket, pendingMessage);
-      pendingMessageRef.current = null;
-    };
-
-    const socket = new WebSocket(websocketUrl);
-    socketRef.current = socket;
-
-    socket.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-      flushPendingMessage(socket);
-    };
-
-    socket.onmessage = (event) => {
-      let rawPayload: DashboardChatEvent | DashboardChatEnvelope;
-      try {
-        rawPayload = JSON.parse(event.data);
-      } catch {
-        setError('Received an invalid chat response');
-        setIsThinking(false);
-        return;
-      }
-
-      if ('status' in rawPayload && !('event_type' in rawPayload)) {
-        if (rawPayload.status === 'error') {
-          setIsThinking(false);
-          setError(rawPayload.message || 'Something went wrong while generating the response');
-          return;
-        }
-
-        const nestedEvent = rawPayload.data;
-        if (
-          !nestedEvent ||
-          typeof nestedEvent !== 'object' ||
-          !('event_type' in nestedEvent) ||
-          typeof nestedEvent.event_type !== 'string'
-        ) {
-          setError('Received an invalid chat response');
-          setIsThinking(false);
-          return;
-        }
-
-        rawPayload = nestedEvent as DashboardChatEvent;
-      }
-
-      const payload = rawPayload as DashboardChatEvent;
-
-      if (payload.session_id) {
-        setSessionId(payload.session_id);
-      }
-
-      if (payload.event_type === 'progress') {
-        setIsThinking(true);
-        setError(null);
-        return;
-      }
-
-      if (payload.event_type === 'assistant_message') {
-        const messageData = payload.data;
-        setIsThinking(false);
-        setError(null);
-        setMessages((previousMessages) => [
-          ...previousMessages,
-          {
-            id: String(messageData.id || payload.message_id || `assistant-${Date.now()}`),
-            role: 'assistant',
-            content: String(messageData.content || ''),
-            createdAt: String(messageData.created_at || payload.occurred_at),
-            payload: (messageData.payload as DashboardChatAssistantPayload | undefined) || {},
-          },
-        ]);
-        return;
-      }
-
-      if (payload.event_type === 'error') {
-        setIsThinking(false);
-        setError(
-          typeof payload.data.message === 'string'
-            ? payload.data.message
-            : 'Something went wrong while generating the response'
-        );
-      }
-    };
-
-    socket.onerror = () => {
-      setIsThinking(false);
-      setError('The chat connection encountered an error');
-    };
-
-    socket.onclose = () => {
-      setIsConnected(false);
-      socketRef.current = null;
-      if (pendingMessageRef.current) {
-        setIsThinking(false);
-        setError('The chat connection closed before your message could be sent');
-      }
-    };
-
-    return () => {
-      socket.close();
-      socketRef.current = null;
-      setIsConnected(false);
-    };
-  }, [websocketUrl]);
-
-  const sendMessage = (content: string) => {
-    const trimmedContent = content.trim();
-    const socket = socketRef.current;
-    if (!trimmedContent) {
-      return false;
-    }
-
-    const clientMessageId = `client-${Date.now()}`;
-    const createdAt = new Date().toISOString();
-
-    setMessages((previousMessages) => [
-      ...previousMessages,
-      {
-        id: clientMessageId,
-        role: 'user',
-        content: trimmedContent,
-        createdAt,
-      },
-    ]);
-    setError(null);
-
-    if (!socket || socket.readyState === WebSocket.CONNECTING) {
-      pendingMessageRef.current = {
-        content: trimmedContent,
-        clientMessageId,
-      };
-      return true;
-    }
-
-    if (socket.readyState !== WebSocket.OPEN) {
-      setIsThinking(false);
-      setError('The chat connection encountered an error');
-      return false;
-    }
-
-    socket.send(
+  const buildPayload = useCallback(
+    (content: string, clientMessageId: string) =>
       JSON.stringify({
         action: 'send_message',
-        message: trimmedContent,
+        message: content,
         client_message_id: clientMessageId,
         ...(sessionIdRef.current ? { session_id: sessionIdRef.current } : {}),
-      })
-    );
-    setIsThinking(true);
-    setError(null);
+      }),
+    []
+  );
 
-    return true;
-  };
+  const handleOpen = useCallback(() => {
+    const pending = pendingMessageRef.current;
+    if (!pending) {
+      return;
+    }
+    const sent = sendRef.current(buildPayload(pending.content, pending.clientMessageId));
+    if (sent) {
+      pendingMessageRef.current = null;
+      setIsThinking(true);
+      setChatError(null);
+    }
+  }, [buildPayload]);
 
-  const resetChat = () => {
+  const handleClose = useCallback(() => {
+    setIsThinking(false);
+  }, []);
+
+  const handleMessage = useCallback((raw: string) => {
+    let envelope: DashboardChatEnvelope;
+    try {
+      envelope = JSON.parse(raw);
+    } catch {
+      setChatError('Received an invalid chat response');
+      setIsThinking(false);
+      return;
+    }
+
+    if (envelope.status === 'error') {
+      setIsThinking(false);
+      setChatError(envelope.message || 'Something went wrong while generating the response');
+      return;
+    }
+
+    const event = envelope.data;
+    if (!event) {
+      setChatError('Received an invalid chat response');
+      setIsThinking(false);
+      return;
+    }
+
+    if (event.session_id) {
+      sessionIdRef.current = event.session_id;
+      setSessionId(event.session_id);
+    }
+
+    if (event.event_type === 'progress') {
+      setIsThinking(true);
+      setChatError(null);
+      return;
+    }
+
+    if (event.event_type === 'assistant_message') {
+      const messageData = event.data;
+      setIsThinking(false);
+      setChatError(null);
+      setMessages((previousMessages) => [
+        ...previousMessages,
+        {
+          id: String(messageData.id || event.message_id || `assistant-${Date.now()}`),
+          role: 'assistant',
+          content: String(messageData.content || ''),
+          createdAt: String(messageData.created_at || event.occurred_at),
+          payload: (messageData.payload as DashboardChatAssistantPayload | undefined) || {},
+        },
+      ]);
+      return;
+    }
+
+    if (event.event_type === 'error') {
+      setIsThinking(false);
+      setChatError(
+        typeof event.data.message === 'string'
+          ? event.data.message
+          : 'Something went wrong while generating the response'
+      );
+    }
+  }, []);
+
+  const {
+    isConnected,
+    send,
+    error: wsError,
+  } = useWebSocket({
+    url: websocketUrl,
+    onMessage: handleMessage,
+    onOpen: handleOpen,
+    onClose: handleClose,
+  });
+
+  // Keep sendRef in sync so handleOpen can always call the latest send
+  sendRef.current = send;
+
+  const sendMessage = useCallback(
+    (content: string): boolean => {
+      const trimmedContent = content.trim();
+      if (!trimmedContent) {
+        return false;
+      }
+
+      const clientMessageId = `client-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+
+      setMessages((previousMessages) => [
+        ...previousMessages,
+        { id: clientMessageId, role: 'user', content: trimmedContent, createdAt },
+      ]);
+      setChatError(null);
+
+      const sent = send(buildPayload(trimmedContent, clientMessageId));
+      if (sent) {
+        setIsThinking(true);
+      } else {
+        // Socket not ready (connecting, or closed before state updated) — queue for reconnect
+        pendingMessageRef.current = { content: trimmedContent, clientMessageId };
+      }
+      return true;
+    },
+    [send, buildPayload]
+  );
+
+  const resetChat = useCallback(() => {
     setMessages([]);
+    sessionIdRef.current = null;
     setSessionId(null);
     setIsThinking(false);
-    setError(null);
-  };
+    setChatError(null);
+  }, []);
 
   return {
     messages,
     sessionId,
     isConnected,
     isThinking,
-    error,
+    error: chatError || wsError,
     sendMessage,
     resetChat,
   };
