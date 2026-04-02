@@ -253,7 +253,7 @@ export function applyPieChartFormatting(
   const formatIfNumber = createPieDimensionFormatter(numberFormat, decimalPlaces);
   const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
 
-  // Inject label formatter
+  // Inject label formatter and format numeric dimension values in a single pass
   config.series = seriesArray.map((series: Record<string, unknown>) => ({
     ...series,
     label: {
@@ -276,23 +276,14 @@ export function applyPieChartFormatting(
         }
       },
     },
+    ...(series.type === 'pie' &&
+      Array.isArray(series.data) && {
+        data: (series.data as Record<string, unknown>[]).map((item) => ({
+          ...item,
+          name: formatIfNumber(item.name),
+        })),
+      }),
   }));
-
-  // Format numeric dimension values in series.data
-  config.series = (Array.isArray(config.series) ? config.series : [config.series]).map(
-    (series: Record<string, unknown>) => {
-      if (series.type === 'pie' && Array.isArray(series.data)) {
-        return {
-          ...series,
-          data: (series.data as Record<string, unknown>[]).map((item) => ({
-            ...item,
-            name: formatIfNumber(item.name),
-          })),
-        };
-      }
-      return series;
-    }
-  );
 
   // Update legend.data to match the formatted names
   if (config.legend && Array.isArray((config.legend as Record<string, unknown>).data)) {
@@ -459,7 +450,7 @@ export function applyPieDateFormatting(
   const formatDate_ = createPieDateFormatter(dateFormat);
   const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
 
-  // Override label formatter so dimension names use date formatting
+  // Override label formatter and format series.data names in a single pass
   config.series = seriesArray.map((series: Record<string, unknown>) => ({
     ...series,
     label: {
@@ -480,23 +471,14 @@ export function applyPieDateFormatting(
         }
       },
     },
+    ...(series.type === 'pie' &&
+      Array.isArray(series.data) && {
+        data: (series.data as Record<string, unknown>[]).map((item) => ({
+          ...item,
+          name: formatDate_(item.name),
+        })),
+      }),
   }));
-
-  // Format series.data names with date format
-  config.series = (Array.isArray(config.series) ? config.series : [config.series]).map(
-    (series: Record<string, unknown>) => {
-      if (series.type === 'pie' && Array.isArray(series.data)) {
-        return {
-          ...series,
-          data: (series.data as Record<string, unknown>[]).map((item) => ({
-            ...item,
-            name: formatDate_(item.name),
-          })),
-        };
-      }
-      return series;
-    }
-  );
 
   // Update legend.data and add legend formatter for date values
   if (config.legend) {
