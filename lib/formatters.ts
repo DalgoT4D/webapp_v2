@@ -99,8 +99,8 @@ export function formatDate(
   const formatType = typeof options === 'string' ? options : options.format;
 
   // Map our format types to date-fns format patterns
-  const formatPatterns: Record<DateFormat, string> = {
-    default: "yyyy-MM-dd'T'HH:mm:ss.SSSxxx", // ISO format
+  // 'default' is intentionally excluded — all callers guard against 'default' before calling formatDate
+  const formatPatterns: Partial<Record<DateFormat, string>> = {
     iso_datetime: 'yyyy-MM-dd HH:mm:ss', // 2019-01-14 01:32:10
     dd_mm_yyyy: 'dd/MM/yyyy', // 14/01/2019
     mm_dd_yyyy: 'MM/dd/yyyy', // 01/14/2019
@@ -109,12 +109,8 @@ export function formatDate(
     time_only: 'HH:mm:ss', // 01:32:10
   };
 
-  const pattern = formatPatterns[formatType] || formatPatterns.default;
-
-  // For 'default' format, return ISO string directly to match original behavior
-  if (formatType === 'default') {
-    return date.toISOString();
-  }
+  const pattern = formatPatterns[formatType];
+  if (!pattern) return String(value);
 
   return dateFnsFormat(date, pattern);
 }

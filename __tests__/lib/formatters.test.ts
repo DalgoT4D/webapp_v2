@@ -134,9 +134,9 @@ describe('formatDate', () => {
     expect(result).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
   });
 
-  it('should return ISO string for default format', () => {
-    const result = formatDate(testDate, 'default');
-    expect(result).toBe(testDate.toISOString());
+  it('should return raw value for default format', () => {
+    const result = formatDate('2025-02-14', 'default');
+    expect(result).toBe('2025-02-14');
   });
 
   // Test specific date values (using local timezone adjusted expectations)
