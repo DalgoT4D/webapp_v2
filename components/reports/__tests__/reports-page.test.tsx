@@ -6,6 +6,7 @@
  * - Navigation: row click
  * - Delete: confirmation + API call
  * - Filters: title, dashboard, creator
+ * - Permissions: create/delete buttons hidden for Guest
  */
 
 import React from 'react';
@@ -43,6 +44,18 @@ jest.mock('@/components/ui/confirmation-dialog', () => ({
   useConfirmationDialog: () => ({
     confirm: mockConfirm,
     DialogComponent: (): null => null,
+  }),
+}));
+
+// Mock useUserPermissions — default: all permissions granted
+const mockHasPermission = jest.fn().mockReturnValue(true);
+jest.mock('@/hooks/api/usePermissions', () => ({
+  useUserPermissions: () => ({
+    permissions: [],
+    hasPermission: mockHasPermission,
+    hasAnyPermission: jest.fn().mockReturnValue(true),
+    hasAllPermissions: jest.fn().mockReturnValue(true),
+    isLoading: false,
   }),
 }));
 
@@ -256,6 +269,58 @@ describe('ReportsPage', () => {
       await user.click(viewBtn);
 
       expect(mockPush).toHaveBeenCalledWith('/reports/1');
+    });
+  });
+
+  describe('Permissions', () => {
+    it('hides create button when user lacks can_create_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_create_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('create-report-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides create button in empty state when user lacks can_create_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_create_dashboards');
+      mockUseSnapshots({ snapshots: [], isLoading: false });
+      renderPage();
+
+      expect(screen.getByText('No reports yet')).toBeInTheDocument();
+      expect(screen.queryByTestId('create-first-report-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides delete option when user lacks can_delete_dashboards', async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_delete_dashboards');
+      renderPage();
+
+      const actionsBtn = screen.getByTestId('report-actions-1');
+      await user.click(actionsBtn);
+
+      expect(screen.queryByTestId('report-delete-1')).not.toBeInTheDocument();
+    });
+
+    it('still shows view option when user lacks delete permission', async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_delete_dashboards');
+      renderPage();
+
+      const actionsBtn = screen.getByTestId('report-actions-1');
+      await user.click(actionsBtn);
+
+      expect(screen.getByTestId('report-view-1')).toBeInTheDocument();
+    });
+
+    it('shows both create and delete when user has all permissions', async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockReturnValue(true);
+      renderPage();
+
+      expect(screen.getByTestId('create-report-btn')).toBeInTheDocument();
+
+      const actionsBtn = screen.getByTestId('report-actions-1');
+      await user.click(actionsBtn);
+      expect(screen.getByTestId('report-delete-1')).toBeInTheDocument();
     });
   });
 

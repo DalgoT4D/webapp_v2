@@ -42,8 +42,14 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
-import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
-import type { ChartDataPayload } from '@/types/charts';
+
+import {
+  createTooltipFormatter,
+  applyNumberChartFormatting,
+  applyPieChartFormatting,
+  applyLineBarChartFormatting,
+} from '@/lib/chart-formatting-utils';
+import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -76,6 +82,8 @@ import {
   GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { CommentPopover } from '@/components/reports/comment-popover';
+import type { CommentIconState, CommentStates } from '@/types/comments';
 
 // Register necessary ECharts components
 echarts.use([
@@ -116,6 +124,10 @@ interface ChartElementViewProps {
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
+  snapshotId?: number; // Report snapshot ID for comments
+  commentStates?: CommentStates; // Comment states array with target_type and chart_id
+  onCommentStateChange?: () => void; // Callback when comment state changes
+  autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
 }
 
 interface DrillDownLevel {
@@ -140,6 +152,10 @@ export function ChartElementView({
   publicToken,
   config = {},
   frozenChartConfig,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
+  autoOpenCommentChartId,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -164,12 +180,16 @@ export function ChartElementView({
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
 
-  // Fetch regions data - use public API for public mode, private API for private mode
-  const { data: privateRegions } = useRegions(!isPublicMode ? 'IND' : null, 'state');
+  // Check if this chart is a map early so we can skip regions fetch for non-map charts.
+  // In report mode frozenChartConfig is available immediately; otherwise we wait for useChart.
+  const mightBeMap = frozenChartConfig ? frozenChartConfig.chart_type === ChartTypes.MAP : true; // default to true for dashboard mode until chart metadata loads
 
-  // Use public regions API for public mode
+  // Fetch regions data only for map charts
+  const { data: privateRegions } = useRegions(!isPublicMode && mightBeMap ? 'IND' : null, 'state');
+
+  // Use public regions API for public mode (only for map charts)
   const publicRegionsUrl =
-    isPublicMode && publicToken
+    isPublicMode && publicToken && mightBeMap
       ? `/api/v1/public/regions/?country_code=IND&region_type=state`
       : null;
 
@@ -281,17 +301,20 @@ export function ChartElementView({
   const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
 
   // Determine chart type using effective chart
-  const isTableChart = effectiveChart?.chart_type === 'table';
-  const isMapChart = effectiveChart?.chart_type === 'map';
-  const isPieChart = effectiveChart?.chart_type === 'pie';
-  const isNumberChart = effectiveChart?.chart_type === 'number';
+  const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
+  const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
+  const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
+  const isLineChart = effectiveChart?.chart_type === ChartTypes.LINE;
+  const isBarChart = effectiveChart?.chart_type === ChartTypes.BAR;
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
-  // Skip in report/frozen mode — those use POST /api/charts/chart-data/ instead
+  // Skip in report mode — reports use the POST endpoint with frozenChartConfig instead
   const shouldFetchChartData =
     effectiveChart && !frozenChartConfig
-      ? effectiveChart.chart_type !== 'map' && effectiveChart.chart_type !== 'table'
+      ? effectiveChart.chart_type !== ChartTypes.MAP &&
+        effectiveChart.chart_type !== ChartTypes.TABLE
       : false;
   const {
     data: chartDataGet,
@@ -325,7 +348,7 @@ export function ChartElementView({
   // Determine current level for drill-down
   const currentLevel = drillDownPath.length;
   const currentLayer =
-    effectiveChart?.chart_type === 'map' && effectiveChart?.extra_config?.layers
+    effectiveChart?.chart_type === ChartTypes.MAP && effectiveChart?.extra_config?.layers
       ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
@@ -342,19 +365,19 @@ export function ChartElementView({
             y_axis: effectiveChart.extra_config?.y_axis_column,
             // For map charts, use geographic_column as dimension_col
             dimension_col:
-              effectiveChart.chart_type === 'map'
+              effectiveChart.chart_type === ChartTypes.MAP
                 ? effectiveChart.extra_config?.geographic_column
                 : effectiveChart.extra_config?.dimension_column,
             // For map charts, use value_column or aggregate_column
             aggregate_col:
-              effectiveChart.chart_type === 'map'
+              effectiveChart.chart_type === ChartTypes.MAP
                 ? effectiveChart.extra_config?.value_column ||
                   effectiveChart.extra_config?.aggregate_column
                 : effectiveChart.extra_config?.aggregate_column,
             aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
             extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
             // ✅ FIX: Include dimensions array for table charts with drill-down support
-            ...(effectiveChart.chart_type === 'table' && {
+            ...(effectiveChart.chart_type === ChartTypes.TABLE && {
               dimensions: (() => {
                 const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
                   (dim: any) => dim.enable_drill_down === true
@@ -408,7 +431,8 @@ export function ChartElementView({
                 // Include chart-level filters
                 ...(effectiveChart.extra_config?.filters || []),
                 // Add drill-down filters from tableDrillDownState
-                ...(effectiveChart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                ...(effectiveChart.chart_type === ChartTypes.TABLE &&
+                tableDrillDownState?.appliedFilters
                   ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
                       column,
                       operator: 'equals',
@@ -458,8 +482,18 @@ export function ChartElementView({
     shouldFetchReportChartData ? ['report-chart-data', chartId, filterHash] : null,
     shouldFetchReportChartData
       ? isPublicReport
-        ? () =>
-            apiPublicPost(`/api/v1/public/reports/${publicToken}/chart-data/`, chartDataPayload!)
+        ? async () => {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/chart-data/`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chartDataPayload),
+              }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+          }
         : () => apiPost('/api/charts/chart-data/', chartDataPayload!)
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -506,27 +540,36 @@ export function ChartElementView({
             queryParams.append('dashboard_filters', JSON.stringify(filters));
           }
 
-          return apiPublicPost(`${url}?${queryParams}`, payload);
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${queryParams}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return response.json();
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
-  // Private mode table data
+  // Private mode table data (only fetch for table charts)
   const {
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
   } = useChartDataPreview(
-    !isPublicMode ? chartDataPayload : null,
+    !isPublicMode && isTableChart ? chartDataPayload : null,
     tablePage,
     tablePageSize,
     dashboardFilters
   );
 
-  // Get total rows for table pagination (private mode)
+  // Get total rows for table pagination (private mode, only for table charts)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
-    !isPublicMode ? chartDataPayload : null,
+    !isPublicMode && isTableChart ? chartDataPayload : null,
     dashboardFilters
   );
 
@@ -547,9 +590,7 @@ export function ChartElementView({
           if (Object.keys(filters).length > 0) {
             queryParams.append('dashboard_filters', JSON.stringify(filters));
           }
-
-          const finalUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
-          return apiPublicPost(finalUrl, payload);
+          return apiPublicPost(url, payload, queryParams);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -566,7 +607,7 @@ export function ChartElementView({
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
     (rowData: Record<string, any>, columnName: string) => {
-      if (effectiveChart?.chart_type !== 'table') return;
+      if (effectiveChart?.chart_type !== ChartTypes.TABLE) return;
 
       // Check if drill-down is enabled
       const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
@@ -692,7 +733,7 @@ export function ChartElementView({
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
 
-  if (effectiveChart?.chart_type === 'map') {
+  if (effectiveChart?.chart_type === ChartTypes.MAP) {
     if (drillDownPath.length > 0) {
       // We're in a drill-down state, use the first available geojson for this region
       const lastDrillDown = drillDownPath[drillDownPath.length - 1];
@@ -732,7 +773,7 @@ export function ChartElementView({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
-    return effectiveChart?.chart_type === 'map' &&
+    return effectiveChart?.chart_type === ChartTypes.MAP &&
       effectiveChart.extra_config &&
       activeGeographicColumn
       ? {
@@ -830,7 +871,7 @@ export function ChartElementView({
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          return apiPublicPost(url, mapDataOverlayPayload!);
+          return apiPublicPost(url, mapDataOverlayPayload);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -876,7 +917,7 @@ export function ChartElementView({
 
   // Handle region click for drill-down
   const handleRegionClick = (regionName: string, regionData: any) => {
-    if (effectiveChart.chart_type !== 'map') return;
+    if (effectiveChart.chart_type !== ChartTypes.MAP) return;
 
     // Check for dynamic drill-down configuration (new system)
     const hasDynamicDrillDown =
@@ -1326,38 +1367,23 @@ export function ChartElementView({
           fontSize: 12,
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-        formatter: function (params: any) {
-          if (Array.isArray(params)) {
-            // For multiple series (line/bar charts with multiple lines/bars)
-            let result = '';
-            params.forEach((param: any, index: number) => {
-              if (index === 0) {
-                result += param.name + '<br/>';
-              }
-              const value =
-                typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
-              result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
-            });
-            return result;
-          } else {
-            // For single series (pie charts, single bar/line)
-            const value =
-              typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
-            if (params.percent !== undefined) {
-              // Pie chart with percentage
-              return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
-            } else {
-              // Regular chart
-              return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
-            }
-          }
-        },
+        formatter: createTooltipFormatter(customizations, effectiveChart?.chart_type || ''),
       },
     };
 
-    // Handle stacked bar chart data labels
-    if (effectiveChart?.chart_type === 'bar') {
-      Object.assign(styledConfig, applyStackedBarLabels(styledConfig, customizations));
+    // Apply number formatting for number charts (same as ChartPreview.tsx)
+    if (isNumberChart) {
+      applyNumberChartFormatting(styledConfig, customizations);
+    }
+
+    // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
+    if (isPieChart) {
+      applyPieChartFormatting(styledConfig, customizations);
+    }
+
+    // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+    if (isLineChart || isBarChart) {
+      applyLineBarChartFormatting(styledConfig, customizations);
     }
 
     // Check DOM element dimensions before setting options
@@ -1424,17 +1450,20 @@ export function ChartElementView({
     containerSize, // Update when container size changes for responsive legends
   ]);
 
-  // Re-fetch data when filters change
+  // Re-fetch data when filters change (dashboard mode only).
+  // In report mode, SWR keys already include filterHash so refetch is automatic.
   useEffect(() => {
-    mutate();
-  }, [dashboardFilters, mutate, chartId]);
+    if (!frozenChartConfig) {
+      mutate();
+    }
+  }, [dashboardFilters, mutate, chartId, frozenChartConfig]);
 
-  // Re-fetch map data when filters change (same behavior as regular charts)
+  // Re-fetch map data when filters change (dashboard mode only, same reason as above)
   useEffect(() => {
-    if (isMapChart && mutateMapData) {
+    if (isMapChart && mutateMapData && !frozenChartConfig) {
       mutateMapData();
     }
-  }, [dashboardFilters, mutateMapData, chartId, isMapChart]);
+  }, [dashboardFilters, mutateMapData, chartId, isMapChart, frozenChartConfig]);
 
   // Cleanup on unmount and when chartId changes
   useEffect(() => {
@@ -1504,13 +1533,13 @@ export function ChartElementView({
       }
 
       // Skip CSV export for number charts (no meaningful data)
-      if (effectiveChart?.chart_type === 'number') {
+      if (effectiveChart?.chart_type === ChartTypes.NUMBER) {
         toast.error('Number charts cannot be exported as CSV');
         return;
       }
 
       // Debug logging for maps
-      if (effectiveChart?.chart_type === 'map') {
+      if (effectiveChart?.chart_type === ChartTypes.MAP) {
         console.log('Map CSV Export - Payload:', {
           chart_type: chartDataPayload.chart_type,
           dimension_col: chartDataPayload.dimension_col,
@@ -1671,38 +1700,62 @@ export function ChartElementView({
     >
       {/* Chart toolbar - only visible on hover in view mode */}
       {viewMode && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            {/* Download dropdown with PNG and CSV options */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
-                  <FileImage className="w-4 h-4 mr-2" />
-                  <span>Download as PNG</span>
-                </DropdownMenuItem>
-                {effectiveChart?.chart_type !== 'number' && (
-                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    <span>Export Data as CSV</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div
+          className={`absolute top-2 right-2 z-10 ${frozenChartConfig ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200`}
+        >
+          <div
+            className={`flex gap-1 ${frozenChartConfig ? '' : 'bg-white/90 backdrop-blur rounded-md shadow-sm p-1'}`}
+          >
+            {/* Download and fullscreen — hidden in report mode */}
+            {!frozenChartConfig && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
+                      <FileImage className="w-4 h-4 mr-2" />
+                      <span>Download as PNG</span>
+                    </DropdownMenuItem>
+                    {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
+                      <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                        <FileText className="w-4 h-4 mr-2" />
+                        <span>Export Data as CSV</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleFullscreen}
-              className="h-7 w-7 p-0"
-              title="Fullscreen"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleFullscreen}
+                  className="h-7 w-7 p-0"
+                  title="Fullscreen"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+
+            {/* Comment button — only in report mode */}
+            {frozenChartConfig && snapshotId && (
+              <CommentPopover
+                snapshotId={snapshotId}
+                targetType="chart"
+                chartId={chartId}
+                state={
+                  (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
+                  'none'
+                }
+                triggerClassName="h-7 w-7 p-0"
+                onStateChange={onCommentStateChange}
+                autoOpen={autoOpenCommentChartId === String(chartId)}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1781,7 +1834,8 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting: {},
+                column_formatting:
+                  effectiveChart?.extra_config?.customizations?.columnFormatting || {},
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,

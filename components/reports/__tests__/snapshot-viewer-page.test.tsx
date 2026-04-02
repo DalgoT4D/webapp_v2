@@ -32,6 +32,7 @@ const mockBack = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
   useParams: () => ({ snapshotId: '1' }),
+  useSearchParams: () => ({ get: () => null }),
 }));
 
 // Mock usePdfDownload
@@ -57,6 +58,37 @@ jest.mock('@/components/dashboard/dashboard-native-view', () => ({
       <div>Mock Dashboard View</div>
     </div>
   ),
+}));
+
+// Mock useCommentStates
+jest.mock('@/hooks/api/useComments', () => ({
+  useCommentStates: () => ({ states: [], mutate: jest.fn() }),
+}));
+
+// Mock CommentPopover
+jest.mock('@/components/reports/comment-popover', () => ({
+  CommentPopover: () => <div data-testid="mock-comment-popover" />,
+}));
+
+// Mock useUserPermissions — default: all permissions granted
+const mockHasPermission = jest.fn().mockReturnValue(true);
+jest.mock('@/hooks/api/usePermissions', () => ({
+  useUserPermissions: () => ({
+    permissions: [],
+    hasPermission: mockHasPermission,
+    hasAnyPermission: jest.fn().mockReturnValue(true),
+    hasAllPermissions: jest.fn().mockReturnValue(true),
+    isLoading: false,
+  }),
+}));
+
+// Mock useAuthStore — return current user email matching created_by in mock data
+const mockGetCurrentUserEmail = jest.fn().mockReturnValue('user@test.com');
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      getCurrentOrgUser: () => ({ email: mockGetCurrentUserEmail() }),
+    }),
 }));
 
 // Mock ShareModal
@@ -141,10 +173,10 @@ describe('SnapshotViewerPage', () => {
     it('renders date range in metadata', () => {
       renderPage();
 
-      // formatDateShort('2025-01-01') => '01/01/2025'
-      // formatDateShort('2025-01-31') => '01/31/2025'
-      expect(screen.getByText(/01\/01\/2025/)).toBeInTheDocument();
-      expect(screen.getByText(/01\/31\/2025/)).toBeInTheDocument();
+      // formatDateShort('2025-01-01') => 'Jan 1st, 2025'
+      // formatDateShort('2025-01-31') => 'Jan 31st, 2025'
+      expect(screen.getByText(/Jan 1st, 2025/)).toBeInTheDocument();
+      expect(screen.getByText(/Jan 31st, 2025/)).toBeInTheDocument();
     });
 
     it('renders created by in metadata', () => {
@@ -240,6 +272,10 @@ describe('SnapshotViewerPage', () => {
       const user = userEvent.setup();
       renderPage();
 
+      // Click edit button to enable editing (textarea starts readOnly)
+      const editBtn = screen.getByTestId('summary-edit-btn');
+      await user.click(editBtn);
+
       const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
       await user.clear(textarea);
       await user.type(textarea, 'Updated summary text.');
@@ -254,6 +290,10 @@ describe('SnapshotViewerPage', () => {
       mockUseSnapshotView({ mutate: mockMutate });
 
       renderPage();
+
+      // Click edit button to enable editing (textarea starts readOnly)
+      const editBtn = screen.getByTestId('summary-edit-btn');
+      await user.click(editBtn);
 
       const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
       await user.clear(textarea);
@@ -336,6 +376,64 @@ describe('SnapshotViewerPage', () => {
       await waitFor(() => {
         expect(screen.queryByTestId('report-share-modal')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Permissions', () => {
+    it('hides share button when user lacks can_share_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides share button when user is not the report creator', () => {
+      mockGetCurrentUserEmail.mockReturnValue('other@test.com');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides save button when user lacks can_edit_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('report-save-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides edit and comment buttons when user lacks can_edit_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('summary-edit-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('mock-comment-popover')).not.toBeInTheDocument();
+    });
+
+    it('shows download button regardless of permissions', () => {
+      mockHasPermission.mockReturnValue(false);
+      renderPage();
+
+      expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
+    });
+
+    it('shows share button when user has permission and is the creator', () => {
+      mockHasPermission.mockReturnValue(true);
+      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
+      renderPage();
+
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+    });
+
+    it('shows all action buttons when user has full permissions and is creator', () => {
+      mockHasPermission.mockReturnValue(true);
+      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
+      renderPage();
+
+      expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('summary-edit-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
     });
   });
 

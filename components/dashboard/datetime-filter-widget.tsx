@@ -109,11 +109,11 @@ export function DateTimeFilterWidget({
       {hasValue && (
         <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
           {startDate && endDate
-            ? `Filtering from ${format(startDate, 'MMM dd, yyyy')} to ${format(endDate, 'MMM dd, yyyy')}`
+            ? `Filtering from ${format(startDate, 'MMM do, yyyy')} to ${format(endDate, 'MMM do, yyyy')}`
             : startDate
-              ? `Filtering from ${format(startDate, 'MMM dd, yyyy')} onwards`
+              ? `Filtering from ${format(startDate, 'MMM do, yyyy')} onwards`
               : endDate
-                ? `Filtering up to ${format(endDate, 'MMM dd, yyyy')}`
+                ? `Filtering up to ${format(endDate, 'MMM do, yyyy')}`
                 : null}
         </div>
       )}

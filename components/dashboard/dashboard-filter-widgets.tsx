@@ -27,6 +27,7 @@ interface FilterWidgetProps {
   compact?: boolean;
   isPublicMode?: boolean;
   publicToken?: string;
+  isReportMode?: boolean;
   isLocked?: boolean;
 }
 
@@ -39,6 +40,7 @@ function ValueFilterWidget({
   isEditMode = false,
   isPublicMode = false,
   publicToken,
+  isReportMode = false,
 }: FilterWidgetProps) {
   const valueFilter = filter as ValueFilterConfig;
   const [selectedValues, setSelectedValues] = useState<string[]>(
@@ -53,11 +55,13 @@ function ValueFilterWidget({
     }
   }, [value, selectedValues, filter.id]);
 
-  // Build API URL based on public mode - now both use the preview endpoint format
+  // Build API URL based on public mode
   const apiUrl =
     filter.schema_name && filter.table_name && filter.column_name
       ? isPublicMode && publicToken
-        ? `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
+        ? isReportMode
+          ? `/api/v1/public/reports/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
+          : `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
         : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
       : null;
 
@@ -226,6 +230,7 @@ function NumericalFilterWidget({
   isEditMode = false,
   isPublicMode = false,
   publicToken,
+  isReportMode = false,
 }: FilterWidgetProps) {
   const numericalFilter = filter as NumericalFilterConfig;
 
@@ -239,11 +244,13 @@ function NumericalFilterWidget({
   // Default ui_mode to SLIDER if not specified
   const uiMode = numericalFilter.settings.ui_mode || NumericalFilterUIMode.SLIDER;
 
-  // Build API URL based on public mode for numerical stats - now both use the preview endpoint format
+  // Build API URL based on public mode for numerical stats
   const numericalApiUrl =
     filter.schema_name && filter.table_name && filter.column_name
       ? isPublicMode && publicToken
-        ? `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
+        ? isReportMode
+          ? `/api/v1/public/reports/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
+          : `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
         : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
       : null;
 
