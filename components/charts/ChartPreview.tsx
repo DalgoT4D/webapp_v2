@@ -22,6 +22,7 @@ import {
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes } from '@/types/charts';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -364,33 +365,13 @@ export function ChartPreview({
   if (chartType === ChartTypes.TABLE) {
     // Merge customizations.columnFormatting into config.column_formatting for table charts
     const customizations = propCustomizations || config?.extra_config?.customizations || {};
-    const hasColumnFormatting =
-      customizations?.columnFormatting || customizations?.dateColumnFormatting;
-
-    let tableConfig = config;
-    if (hasColumnFormatting) {
-      // Merge number formatting from columnFormatting
-      const numberFormatting = customizations.columnFormatting || {};
-
-      // Merge date formatting from dateColumnFormatting into column_formatting
-      const dateFormatting: Record<string, { dateFormat: string }> = {};
-      if (customizations.dateColumnFormatting) {
-        Object.entries(customizations.dateColumnFormatting).forEach(([col, format]) => {
-          dateFormatting[col] = {
-            dateFormat: (format as { dateFormat?: string })?.dateFormat || 'default',
-          };
-        });
-      }
-
-      tableConfig = {
-        ...config,
-        column_formatting: {
-          ...(config?.column_formatting || {}),
-          ...numberFormatting,
-          ...dateFormatting,
-        },
-      };
-    }
+    const tableConfig = {
+      ...config,
+      column_formatting: {
+        ...(config?.column_formatting || {}),
+        ...mergeTableColumnFormatting(customizations),
+      },
+    };
 
     return (
       <TableChart

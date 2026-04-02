@@ -56,6 +56,7 @@ import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1828,20 +1829,9 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting: {
-                  ...(effectiveChart?.extra_config?.customizations?.columnFormatting || {}),
-                  // Merge date formatting into column_formatting
-                  ...Object.fromEntries(
-                    Object.entries(
-                      effectiveChart?.extra_config?.customizations?.dateColumnFormatting || {}
-                    ).map(([col, format]) => [
-                      col,
-                      {
-                        dateFormat: (format as { dateFormat?: string })?.dateFormat || 'default',
-                      },
-                    ])
-                  ),
-                },
+                column_formatting: mergeTableColumnFormatting(
+                  effectiveChart?.extra_config?.customizations
+                ),
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,

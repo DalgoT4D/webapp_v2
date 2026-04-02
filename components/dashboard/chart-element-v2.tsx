@@ -24,6 +24,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -1283,21 +1284,9 @@ export function ChartElementV2({
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
                       table_columns: tableData?.columns || [],
-                      column_formatting: {
-                        ...(chart?.extra_config?.customizations?.columnFormatting || {}),
-                        // Merge date formatting into column_formatting
-                        ...Object.fromEntries(
-                          Object.entries(
-                            chart?.extra_config?.customizations?.dateColumnFormatting || {}
-                          ).map(([col, format]) => [
-                            col,
-                            {
-                              dateFormat:
-                                (format as { dateFormat?: string })?.dateFormat || 'default',
-                            },
-                          ])
-                        ),
-                      },
+                      column_formatting: mergeTableColumnFormatting(
+                        chart?.extra_config?.customizations
+                      ),
                       sort: chart?.extra_config?.sort || [],
                       pagination: chart?.extra_config?.pagination || {
                         enabled: true,
