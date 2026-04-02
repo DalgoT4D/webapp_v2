@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 
 export interface Dashboard {
   id: number;
@@ -240,16 +240,7 @@ export async function getDashboardSharingStatus(dashboardId: number) {
 export function usePublicDashboard(token: string) {
   const { data, error, mutate } = useSWR(
     token ? `/api/v1/public/dashboards/${token}/` : null,
-    async (url: string) => {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
-      const fullUrl = `${backendUrl}${url}`;
-
-      const response = await fetch(fullUrl);
-      if (!response.ok) throw new Error('Dashboard not found');
-      const data = await response.json();
-
-      return data;
-    }
+    apiPublicGet
   );
 
   return {

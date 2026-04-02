@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Allow iframe embedding for share/dashboard routes
-  if (request.nextUrl.pathname.startsWith('/share/dashboard/')) {
+  // Allow iframe embedding for share routes (dashboards and reports)
+  if (
+    request.nextUrl.pathname.startsWith('/share/dashboard/') ||
+    request.nextUrl.pathname.startsWith('/share/report/')
+  ) {
     const response = NextResponse.next();
 
     // Remove ALL headers that could block iframe embedding
@@ -24,5 +27,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/share/dashboard/:path*',
+  matcher: ['/share/dashboard/:path*', '/share/report/:path*'],
 };
