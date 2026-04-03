@@ -1628,6 +1628,8 @@ export function ChartElementView({
   if (
     isLoading ||
     (!isPublicMode && chartLoading) ||
+    // In public mode, wait for chart metadata to load before evaluating chart type or data
+    (isPublicMode && publicChartLoading) ||
     (isTableChart && tableLoading) ||
     (isMapChart && (mapLoading || geojsonLoading))
   ) {
