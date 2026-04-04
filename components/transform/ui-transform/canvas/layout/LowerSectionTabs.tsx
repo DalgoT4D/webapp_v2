@@ -80,15 +80,16 @@ export function LowerSectionTabs({
         className="flex-shrink-0 flex items-center justify-between px-4 border-b bg-gray-50/50"
         style={{ height: TAB_BAR_HEIGHT }}
       >
-        <div className="flex gap-2">
+        <div className="flex gap-4">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setSelectedTab(tab.key)}
               className={cn(
-                'px-3 py-1.5 text-xs font-semibold tracking-wide rounded transition-colors',
+                'relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide cursor-pointer',
+                'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent',
                 selectedTab === tab.key
-                  ? 'text-primary border-b-2 border-primary'
+                  ? 'text-teal-600 after:bg-teal-600'
                   : 'text-gray-500 hover:text-gray-700'
               )}
               data-testid={`${tab.key}-tab`}

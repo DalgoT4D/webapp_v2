@@ -107,7 +107,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
   };
 
   const getButtonText = () => {
-    if (isConnected) return 'Edit';
+    if (isConnected) return 'EDIT';
     return 'Connect to Github';
   };
 
@@ -130,8 +130,8 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
             />
           </div>
           <div className="flex-1 min-w-0">
-            <CardTitle className="mb-1">GitHub Repository</CardTitle>
-            <CardDescription className="break-words">
+            <CardTitle className="mb-1 text-xl font-semibold">DBT Repository</CardTitle>
+            <CardDescription className="break-words text-base">
               {isConnected ? (
                 <>
                   Connected:{' '}
@@ -144,7 +144,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                     {workspace.gitrepo_url}
                   </a>
                   {workspace.default_schema && (
-                    <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">
+                    <span className="ml-2 text-sm bg-muted px-2 py-0.5 rounded">
                       {workspace.default_schema}
                     </span>
                   )}

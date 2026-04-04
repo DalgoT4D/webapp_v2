@@ -21,6 +21,7 @@ import { useTransformStore, useOperationPanelOpen } from '@/stores/transformStor
 import { CANVAS_CONSTANTS } from '@/constants/transform';
 import { useSWRConfig } from 'swr';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
+import { apiPost } from '@/lib/api';
 import { toastError, toastSuccess } from '@/lib/toast';
 
 import { useCanvasActions } from './hooks/useCanvasActions';
@@ -54,6 +55,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     publishModalOpen,
     closePublishModal,
     patModalOpen,
+    openPatModal,
     closePatModal,
     dbtRunLogs,
     previewAction,
@@ -105,12 +107,27 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   // Git integration
   const { gitRepoUrl, checkPatStatus } = useGitIntegration();
 
-  // Check PAT status on mount
+  // Check PAT status on mount — if PAT exists, sync remote dbt project to canvas.
+  // If PAT is missing, auto-open the PAT modal (matches legacy webapp behavior).
   useEffect(() => {
-    if (!isPreview) {
-      checkPatStatus();
-    }
-  }, [checkPatStatus, isPreview]);
+    if (isPreview) return;
+
+    const checkAndSync = async () => {
+      const hasToken = await checkPatStatus();
+      if (hasToken) {
+        try {
+          await apiPost('/api/transform/v2/dbt_project/sync_remote_dbtproject_to_canvas/', {});
+          await mutate(CANVAS_GRAPH_KEY);
+        } catch {
+          // Sync failure is non-blocking — canvas still loads from cached graph
+        }
+      } else {
+        openPatModal();
+      }
+    };
+
+    checkAndSync();
+  }, [checkPatStatus, isPreview, mutate, openPatModal]);
 
   // Read cached graph data to compute hasUnpublishedChanges
   const hasUnpublishedChanges = useMemo(() => {
@@ -209,6 +226,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             isWorkflowRunning={isWorkflowRunning}
             gitRepoUrl={gitRepoUrl || storeGitRepoUrl}
             isPreviewMode={isPreview}
+            hasUnpublishedChanges={hasUnpublishedChanges}
           />
         </div>
 
@@ -261,7 +279,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             {!isLowerFullScreen && (
               <div className="flex-1 flex flex-col min-w-0 relative">
                 {/* Canvas Messages (lock/unpublished/PAT overlays) */}
-                <CanvasMessages hasUnpublishedChanges={hasUnpublishedChanges} />
+                <CanvasMessages />
 
                 {/* Main Canvas */}
                 <div className="flex-1 relative">

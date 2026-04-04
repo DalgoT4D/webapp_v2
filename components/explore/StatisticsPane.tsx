@@ -47,8 +47,9 @@ const COL_WIDTHS = {
 const headerCellStyle = {
   backgroundColor: '#F5FAFA',
   border: '1px solid #dddddd',
-  fontWeight: 700,
-  color: 'rgba(15, 36, 64, 0.57)',
+  fontWeight: 600,
+  fontSize: '0.875rem',
+  color: '#374151',
   textAlign: 'left' as const,
 };
 

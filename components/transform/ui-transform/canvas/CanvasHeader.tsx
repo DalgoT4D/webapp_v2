@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Play, Upload, GitBranch, ArrowLeft } from 'lucide-react';
+import { ChevronDown, Play, Upload, GitBranch, ArrowLeft, AlertCircle, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -24,6 +24,8 @@ interface CanvasHeaderProps {
   gitRepoUrl?: string;
   /** Is preview mode (hides action buttons) */
   isPreviewMode?: boolean;
+  /** Whether there are unpublished changes */
+  hasUnpublishedChanges?: boolean;
 }
 
 export default function CanvasHeader({
@@ -31,6 +33,7 @@ export default function CanvasHeader({
   isWorkflowRunning = false,
   gitRepoUrl,
   isPreviewMode = false,
+  hasUnpublishedChanges = false,
 }: CanvasHeaderProps) {
   const router = useRouter();
   const [runMenuOpen, setRunMenuOpen] = useState(false);
@@ -40,6 +43,8 @@ export default function CanvasHeader({
   const openPublishModal = useTransformStore((s) => s.openPublishModal);
 
   const patRequired = useTransformStore((s) => s.patRequired);
+  const isViewOnlyMode = useTransformStore((s) => s.isViewOnlyMode);
+  const openPatModal = useTransformStore((s) => s.openPatModal);
   const { hasPermission } = useUserPermissions();
   const canRun = hasPermission('can_run_pipeline');
 
@@ -117,7 +122,36 @@ export default function CanvasHeader({
       <span className="text-lg font-semibold text-gray-700">Workflow</span>
 
       {/* Right side - Actions */}
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
+        {/* PAT required indicator */}
+        {patRequired && isViewOnlyMode && (
+          <span
+            className="flex items-center gap-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-500 rounded-md px-2.5 py-1"
+            data-testid="pat-required-indicator"
+          >
+            <Key className="w-3.5 h-3.5" />
+            Update key to make changes.{' '}
+            <button
+              onClick={() => openPatModal()}
+              className="underline font-semibold hover:text-teal-800 cursor-pointer"
+              data-testid="add-pat-link"
+            >
+              Add key here
+            </button>
+          </span>
+        )}
+
+        {/* Unpublished changes indicator */}
+        {hasUnpublishedChanges && (
+          <span
+            className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-400 rounded-md px-2.5 py-1"
+            data-testid="unpublished-changes-indicator"
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            Unpublished changes
+          </span>
+        )}
+
         {/* Run Button with Dropdown */}
         <DropdownMenu open={runMenuOpen} onOpenChange={setRunMenuOpen}>
           <DropdownMenuTrigger asChild>

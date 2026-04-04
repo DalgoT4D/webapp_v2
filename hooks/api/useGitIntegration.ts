@@ -3,7 +3,7 @@
 
 import useSWR from 'swr';
 import { useState, useCallback } from 'react';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 
 interface DbtWorkspaceResponse {
@@ -11,14 +11,7 @@ interface DbtWorkspaceResponse {
   default_schema: string;
   target_type?: string;
   transform_type?: string;
-  gitrepo_access_token_secret?: string | null;
-}
-
-interface PublishResponse {
-  success: boolean;
-  commit_sha?: string;
-  pr_url?: string;
-  message?: string;
+  gitrepo_access_token?: string | null;
 }
 
 interface UseGitIntegrationReturn {
@@ -28,12 +21,8 @@ interface UseGitIntegrationReturn {
   patRequired: boolean;
   /** Loading state */
   isLoading: boolean;
-  /** Publishing state */
-  isPublishing: boolean;
   /** Check if PAT exists */
   checkPatStatus: () => Promise<boolean>;
-  /** Publish changes to GitHub */
-  publishToGithub: (message: string) => Promise<PublishResponse>;
   /** Refresh workspace info */
   refreshWorkspace: () => Promise<void>;
 }
@@ -42,7 +31,6 @@ export function useGitIntegration(): UseGitIntegrationReturn {
   const setGitRepoUrl = useTransformStore((s) => s.setGitRepoUrl);
   const setPatRequired = useTransformStore((s) => s.setPatRequired);
 
-  const [isPublishing, setIsPublishing] = useState(false);
   const [patRequired, setPatRequiredLocal] = useState(false);
 
   const {
@@ -55,13 +43,13 @@ export function useGitIntegration(): UseGitIntegrationReturn {
       if (data?.gitrepo_url) {
         setGitRepoUrl(data.gitrepo_url);
       }
-      // Only check PAT for GitHub transform type
+      // Only GitHub transform type needs PAT — matches v1 Canvas behavior:
+      // needsPAT = transform_type === 'github' && gitrepo_access_token === null
       if (data?.transform_type === 'github') {
-        if ('gitrepo_access_token_secret' in (data || {})) {
-          const hasToken = !!data?.gitrepo_access_token_secret;
-          setPatRequiredLocal(!hasToken);
-          setPatRequired(!hasToken);
-        }
+        const hasToken =
+          data?.gitrepo_access_token !== null && data?.gitrepo_access_token !== undefined;
+        setPatRequiredLocal(!hasToken);
+        setPatRequired(!hasToken);
       } else {
         // Non-GitHub transform types don't need PAT
         setPatRequiredLocal(false);
@@ -76,49 +64,26 @@ export function useGitIntegration(): UseGitIntegrationReturn {
     try {
       // Re-fetch workspace to check PAT status
       const data = await mutate();
-      // Only check PAT for GitHub transform type
+      // Only GitHub transform type needs PAT and remote sync
       if (data?.transform_type === 'github') {
-        if ('gitrepo_access_token_secret' in (data || {})) {
-          const hasToken = !!data?.gitrepo_access_token_secret;
-          setPatRequiredLocal(!hasToken);
-          setPatRequired(!hasToken);
-          return hasToken;
-        }
+        const hasToken =
+          data?.gitrepo_access_token !== null && data?.gitrepo_access_token !== undefined;
+        setPatRequiredLocal(!hasToken);
+        setPatRequired(!hasToken);
+        return hasToken;
       }
-      // Non-GitHub or field not in response — assume PAT is configured
+      // Non-GitHub transform types don't have a git remote — no PAT needed, no sync needed.
+      // Return true so the caller doesn't treat this as "missing token".
       setPatRequiredLocal(false);
       setPatRequired(false);
       return true;
     } catch (error) {
-      // On error, don't block — assume configured
+      // On error, don't block canvas — but don't attempt sync either
       setPatRequiredLocal(false);
       setPatRequired(false);
-      return true;
+      return false;
     }
   }, [setPatRequired, mutate]);
-
-  const publishToGithub = useCallback(
-    async (message: string): Promise<PublishResponse> => {
-      setIsPublishing(true);
-      try {
-        const response = await apiPost<PublishResponse>('/api/dbt/github/', {
-          message,
-        });
-        return response;
-      } catch (error: unknown) {
-        // Check if error is due to missing PAT
-        const err = error as { status?: number; message?: string };
-        if (err.status === 401 || err.message?.includes('PAT')) {
-          setPatRequiredLocal(true);
-          setPatRequired(true);
-        }
-        throw error;
-      } finally {
-        setIsPublishing(false);
-      }
-    },
-    [setPatRequired]
-  );
 
   const refreshWorkspace = useCallback(async () => {
     await mutate();
@@ -128,9 +93,7 @@ export function useGitIntegration(): UseGitIntegrationReturn {
     gitRepoUrl,
     patRequired,
     isLoading,
-    isPublishing,
     checkPatStatus,
-    publishToGithub,
     refreshWorkspace,
   };
 }

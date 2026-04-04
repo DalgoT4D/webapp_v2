@@ -119,12 +119,20 @@ export function Explore() {
               className="flex flex-col h-full"
             >
               <div className="flex-shrink-0 border-y px-6" style={{ background: '#F5FAFA' }}>
-                <TabsList className="h-12">
-                  <TabsTrigger value={ExploreTab.PREVIEW} data-testid="preview-tab">
+                <TabsList className="bg-transparent p-0 h-auto gap-4">
+                  <TabsTrigger
+                    value={ExploreTab.PREVIEW}
+                    data-testid="preview-tab"
+                    className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+                  >
                     Preview
                   </TabsTrigger>
                   {showStatisticsTab && (
-                    <TabsTrigger value={ExploreTab.STATISTICS} data-testid="statistics-tab">
+                    <TabsTrigger
+                      value={ExploreTab.STATISTICS}
+                      data-testid="statistics-tab"
+                      className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+                    >
                       Data statistics
                     </TabsTrigger>
                   )}

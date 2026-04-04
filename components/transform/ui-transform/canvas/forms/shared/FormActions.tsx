@@ -35,7 +35,12 @@ export function FormActions({
   className,
 }: FormActionsProps) {
   return (
-    <div className={cn('flex gap-3 pt-4 border-t', className)}>
+    <div
+      className={cn(
+        'flex gap-3 pt-3 pb-3 border-t sticky bottom-0 -mb-6 -mx-6 px-6 bg-white',
+        className
+      )}
+    >
       {onCancel && (
         <Button
           type="button"

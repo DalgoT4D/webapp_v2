@@ -148,7 +148,7 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
     edges: apiEdges,
     isLoading,
     refresh: refreshGraph,
-  } = useCanvasGraph({ skipInitialFetch: false, autoSync: !isPreviewMode });
+  } = useCanvasGraph({ skipInitialFetch: false, autoSync: false });
 
   const { setCenter, getNodes: getFlowNodes } = useReactFlow();
 
@@ -379,13 +379,15 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
         proOptions={{ hideAttribution: true }}
       >
         <Controls showInteractive={false} className="!bottom-4 !left-4">
-          <ControlButton
-            onClick={handleRefreshCanvas}
-            title="Refresh canvas"
-            data-testid="refresh-canvas-button"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </ControlButton>
+          {!isPreviewMode && (
+            <ControlButton
+              onClick={handleRefreshCanvas}
+              title="Refresh canvas"
+              data-testid="refresh-canvas-button"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </ControlButton>
+          )}
         </Controls>
         <Background color="#e0e0e0" gap={20} />
       </ReactFlow>

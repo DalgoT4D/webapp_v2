@@ -130,7 +130,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
 
   const headerContent = (
     <>
-      <h2 className="font-bold text-base text-gray-900 pl-6" data-testid="preview-table-name">
+      <h2 className="font-semibold text-sm text-gray-900 pl-6" data-testid="preview-table-name">
         {schema}.{table}
       </h2>
       <Button
@@ -161,7 +161,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
                 <TableHead
                   key={i}
                   className={cn(
-                    'text-base font-bold border border-[#dddddd] border-l-0',
+                    'text-sm !font-normal border border-[#dddddd] border-l-0',
                     i === 0 && 'pl-10'
                   )}
                 >
@@ -172,10 +172,9 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
                 <TableHead
                   key={col.name}
                   className={cn(
-                    'text-base font-bold cursor-pointer hover:bg-gray-100 transition-colors border border-[#dddddd] border-l-0',
+                    'text-sm font-semibold cursor-pointer hover:bg-gray-100 transition-colors border border-[#dddddd] border-l-0 text-gray-700',
                     i === 0 && 'pl-10'
                   )}
-                  style={{ color: 'rgba(15, 36, 64, 0.57)' }}
                   onClick={() => handleSort(col.name)}
                   data-testid={`sort-header-${col.name}`}
                 >

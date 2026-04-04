@@ -279,7 +279,7 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
                   {filteredTasks.map((task) => (
                     <Fragment key={task.uuid}>
                       <TableRow data-testid={`task-${task.uuid}`} className="hover:bg-gray-50/50">
-                        <TableCell className="py-4 font-medium text-lg text-gray-900">
+                        <TableCell className="py-4 font-medium text-base text-gray-900">
                           {task.label}
                         </TableCell>
                         <TableCell className="py-4 text-base text-gray-700">

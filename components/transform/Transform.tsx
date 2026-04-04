@@ -128,17 +128,35 @@ export default function Transform() {
   // Error state
   if (setupError) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold">Transform</h1>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Setup Failed</AlertTitle>
-          <AlertDescription>{setupError}</AlertDescription>
-        </Alert>
-        <Button onClick={setupUnifiedWorkspace} disabled={setupLoading}>
-          {setupLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Try Again
-        </Button>
+      <div className="h-full flex flex-col">
+        <div className="flex-shrink-0 border-b bg-background">
+          <div className="p-6 pb-6">
+            <h1 className="text-3xl font-bold">Transform</h1>
+            <p className="text-muted-foreground mt-1">
+              Build and manage data transformation workflows
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full space-y-4 text-center">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Setup Failed</AlertTitle>
+              <AlertDescription>{setupError}</AlertDescription>
+            </Alert>
+            <Button
+              onClick={setupUnifiedWorkspace}
+              disabled={setupLoading}
+              variant="ghost"
+              className="text-white hover:opacity-90 shadow-xs"
+              style={{ backgroundColor: 'var(--primary)' }}
+              data-testid="transform-setup-retry-btn"
+            >
+              {setupLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              TRY AGAIN
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -162,11 +180,19 @@ export default function Transform() {
           </div>
 
           <div className="px-6">
-            <TabsList>
-              <TabsTrigger value="ui" data-testid="ui-transform-tab">
+            <TabsList className="bg-transparent p-0 h-auto gap-4">
+              <TabsTrigger
+                value="ui"
+                data-testid="ui-transform-tab"
+                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+              >
                 UI Transform
               </TabsTrigger>
-              <TabsTrigger value="github" data-testid="github-transform-tab">
+              <TabsTrigger
+                value="github"
+                data-testid="github-transform-tab"
+                className="relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600"
+              >
                 DBT Transform
               </TabsTrigger>
             </TabsList>
