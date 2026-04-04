@@ -21,8 +21,13 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
   const fetchedRef = useRef(false);
 
   const edges = useEdges();
-  const { setSelectedNode, dispatchCanvasAction, setPreviewData, openOperationPanel } =
-    useTransformStore();
+  const {
+    setSelectedNode,
+    dispatchCanvasAction,
+    setPreviewData,
+    clearPreviewAction,
+    openOperationPanel,
+  } = useTransformStore();
   const { hasPermission } = useUserPermissions();
 
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
@@ -100,7 +105,8 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
   }, [schema, tableName, data?.isDummy, data?.output_columns, refreshTrigger]);
 
   const handleNodeClick = useCallback(() => {
-    // Always set preview data
+    // Clear any project-tree preview so node preview takes priority
+    clearPreviewAction();
     if (schema && tableName) {
       setPreviewData({ schema, table: tableName });
     }
@@ -126,6 +132,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     tableName,
     setSelectedNode,
     setPreviewData,
+    clearPreviewAction,
     openOperationPanel,
     dispatchCanvasAction,
     hasPermission,

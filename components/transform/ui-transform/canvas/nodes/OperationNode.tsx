@@ -22,7 +22,8 @@ type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
 function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodeProps) {
   const edges = useEdges();
   const selectedNode = useSelectedNode();
-  const { setSelectedNode, dispatchCanvasAction, openOperationPanel } = useTransformStore();
+  const { setSelectedNode, dispatchCanvasAction, openOperationPanel, clearPreviewAction } =
+    useTransformStore();
   const { hasPermission } = useUserPermissions();
 
   const operationType = data?.operation_config?.type || 'unknown';
@@ -36,6 +37,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
 
   // Handle node click — open panel in edit or view mode based on permissions
   const handleNodeClick = useCallback(() => {
+    clearPreviewAction();
     const nodeProps = { id, type, data, selected, position: { x: xPos, y: yPos } };
     setSelectedNode(nodeProps);
 
@@ -64,6 +66,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     setSelectedNode,
     dispatchCanvasAction,
     openOperationPanel,
+    clearPreviewAction,
     hasPermission,
   ]);
 
