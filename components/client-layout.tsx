@@ -19,10 +19,15 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     publicRoutes.includes(pathname) ||
     pathname.startsWith('/public/dashboard/') ||
     pathname.startsWith('/share/dashboard/') ||
+    pathname.startsWith('/share/report/') ||
     pathname.startsWith('/invitations/');
 
-  // Always bypass auth for public dashboard routes
-  if (pathname.startsWith('/share/dashboard/') || pathname.startsWith('/public/dashboard/')) {
+  // Always bypass auth for public dashboard/report routes
+  if (
+    pathname.startsWith('/share/dashboard/') ||
+    pathname.startsWith('/share/report/') ||
+    pathname.startsWith('/public/dashboard/')
+  ) {
     return (
       <div id="client-layout-public-dashboard">
         {children}

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
+import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +49,7 @@ interface UnifiedFiltersPanelProps {
   isPublicMode?: boolean;
   publicToken?: string;
   initiallyCollapsed?: boolean;
+  isReportMode?: boolean;
 }
 
 // Unified sortable filter item component
@@ -61,6 +63,7 @@ interface SortableFilterItemProps {
   layout: 'vertical' | 'horizontal';
   isPublicMode?: boolean;
   publicToken?: string;
+  isReportMode?: boolean;
 }
 
 function SortableFilterItem({
@@ -73,6 +76,7 @@ function SortableFilterItem({
   layout,
   isPublicMode = false,
   publicToken,
+  isReportMode = false,
 }: SortableFilterItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: filter.id,
@@ -101,6 +105,7 @@ function SortableFilterItem({
           onEdit={isEditMode ? () => onEdit?.(filter) : undefined}
           isPublicMode={isPublicMode}
           publicToken={publicToken}
+          isReportMode={isReportMode}
           isEditMode={isEditMode}
           showTitle={true}
           compact={true}
@@ -134,6 +139,7 @@ function SortableFilterItem({
         dragHandleProps={isEditMode ? listeners : undefined}
         isPublicMode={isPublicMode}
         publicToken={publicToken}
+        isReportMode={isReportMode}
       />
     </div>
   );
@@ -152,42 +158,9 @@ export function UnifiedFiltersPanel({
   isPublicMode = false,
   publicToken,
   initiallyCollapsed = false,
+  isReportMode = false,
 }: UnifiedFiltersPanelProps) {
-  // Helper function to extract default values from filters
-  const getDefaultFilterValues = useCallback((filters: DashboardFilterConfig[]) => {
-    const defaultValues: Record<string, any> = {};
-
-    filters.forEach((filter) => {
-      // Check for default values based on filter type
-      if (filter.filter_type === 'value') {
-        const valueFilter = filter as any;
-        if (valueFilter.settings?.has_default_value && valueFilter.settings?.default_value) {
-          defaultValues[String(filter.id)] = valueFilter.settings.default_value;
-        }
-      } else if (filter.filter_type === 'numerical') {
-        const numFilter = filter as any;
-        if (
-          numFilter.settings?.default_min !== undefined ||
-          numFilter.settings?.default_max !== undefined
-        ) {
-          defaultValues[String(filter.id)] = {
-            min: numFilter.settings.default_min,
-            max: numFilter.settings.default_max,
-          };
-        }
-      } else if (filter.filter_type === 'datetime') {
-        const dateFilter = filter as any;
-        if (dateFilter.settings?.default_start_date || dateFilter.settings?.default_end_date) {
-          defaultValues[String(filter.id)] = {
-            start_date: dateFilter.settings.default_start_date,
-            end_date: dateFilter.settings.default_end_date,
-          };
-        }
-      }
-    });
-
-    return defaultValues;
-  }, []);
+  // getDefaultFilterValues is now imported from @/lib/dashboard-filter-utils
 
   // Internal state - changes here don't affect parent component
   const [filters, setFilters] = useState<DashboardFilterConfig[]>(initialFilters);
@@ -317,10 +290,16 @@ export function UnifiedFiltersPanel({
     }
   };
 
-  // Clear all filters
+  // Clear all filters (in report mode, reset to defaults to preserve frozen date)
   const handleClearAllFilters = () => {
-    setCurrentFilterValues({});
-    onFiltersCleared?.();
+    if (isReportMode) {
+      const defaults = getDefaultFilterValues(filters);
+      setCurrentFilterValues(defaults);
+      onFiltersApplied?.(defaults);
+    } else {
+      setCurrentFilterValues({});
+      onFiltersCleared?.();
+    }
   };
 
   const sensors = useSensors(
@@ -507,7 +486,6 @@ export function UnifiedFiltersPanel({
                   )}
                 </div>
 
-                {/* Action buttons */}
                 <div className="flex items-center gap-2">
                   <Button
                     onClick={handleApplyFilters}
@@ -568,6 +546,7 @@ export function UnifiedFiltersPanel({
                           layout={layout}
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
+                          isReportMode={isReportMode}
                         />
                       ))}
                     </div>
@@ -653,7 +632,6 @@ export function UnifiedFiltersPanel({
               </p>
             </div>
 
-            {/* Action buttons - always show in header */}
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={handleApplyFilters}
@@ -706,6 +684,7 @@ export function UnifiedFiltersPanel({
                           layout={effectiveLayout}
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
+                          isReportMode={isReportMode}
                         />
                       ))}
                     </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { copyUrlToClipboard } from '@/lib/clipboard';
 import { Share2, Copy, Shield, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,97 +10,97 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { updateDashboardSharing, getDashboardSharingStatus } from '@/hooks/api/useDashboards';
-import type { Dashboard } from '@/hooks/api/useDashboards';
+import type { ShareStatus } from '@/types/reports';
 
 interface ShareModalProps {
-  dashboard: Dashboard;
+  entityId: number;
+  entityLabel: string;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: () => void; // Callback to refresh dashboard data
+  onUpdate?: () => void;
+  initialShareStatus?: Partial<ShareStatus>;
+  getShareStatus: (id: number) => Promise<ShareStatus>;
+  updateSharing: (id: number, data: { is_public: boolean }) => Promise<ShareStatus>;
 }
 
-interface ShareStatus {
-  is_public: boolean;
-  public_url?: string;
-  public_access_count: number;
-  last_public_accessed?: string;
-  public_shared_at?: string;
-}
-
-export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalProps) {
+export function ShareModal({
+  entityId,
+  entityLabel,
+  isOpen,
+  onClose,
+  onUpdate,
+  initialShareStatus,
+  getShareStatus,
+  updateSharing,
+}: ShareModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState<ShareStatus>({
-    is_public: dashboard.is_public,
-    public_access_count: dashboard.public_access_count,
+    is_public: initialShareStatus?.is_public ?? false,
+    public_access_count: initialShareStatus?.public_access_count ?? 0,
   });
 
-  // Fetch current share status when modal opens
-  useEffect(() => {
-    if (isOpen && dashboard.id) {
-      fetchShareStatus();
-    }
-  }, [isOpen, dashboard.id]);
+  const entityLabelLower = entityLabel.toLowerCase();
 
-  const fetchShareStatus = async () => {
+  const fetchShareStatus = useCallback(async () => {
     try {
-      const status = await getDashboardSharingStatus(dashboard.id);
+      const status = await getShareStatus(entityId);
       setShareStatus(status);
     } catch (error) {
       console.error('Failed to fetch share status:', error);
       toastError.load(error, 'sharing status');
     }
-  };
+  }, [entityId, getShareStatus]);
 
-  const handleToggleSharing = async (isPublic: boolean) => {
-    setIsLoading(true);
-
-    try {
-      const response = await updateDashboardSharing(dashboard.id, { is_public: isPublic });
-
-      // Update local state
-      setShareStatus((prev) => ({
-        ...prev,
-        is_public: response.is_public,
-        public_url: response.public_url,
-      }));
-
-      if (isPublic && response.public_url) {
-        // Copy URL to clipboard
-        await navigator.clipboard.writeText(response.public_url);
-        toastSuccess.generic('Dashboard made public and URL copied to clipboard!');
-      } else {
-        toastSuccess.generic('Dashboard sharing disabled');
-      }
-
-      // Refresh parent component
-      onUpdate();
-    } catch (error: any) {
-      console.error('Failed to toggle sharing:', error);
-      toastError.share(error);
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (isOpen && entityId) {
+      fetchShareStatus();
     }
-  };
+  }, [isOpen, entityId, fetchShareStatus]);
 
-  const handleCopyUrl = async () => {
-    if (shareStatus.public_url) {
+  const handleToggleSharing = useCallback(
+    async (isPublic: boolean) => {
+      setIsLoading(true);
+
       try {
-        await navigator.clipboard.writeText(shareStatus.public_url);
-        toastSuccess.generic('URL copied to clipboard!');
+        const response = await updateSharing(entityId, { is_public: isPublic });
+
+        setShareStatus((prev) => ({
+          ...prev,
+          is_public: response.is_public,
+          public_url: response.public_url,
+        }));
+
+        if (isPublic && response.public_url) {
+          toastSuccess.generic(`${entityLabel} is now public`);
+          await copyUrlToClipboard(response.public_url);
+        } else {
+          toastSuccess.generic(`${entityLabel} sharing disabled`);
+        }
+
+        onUpdate?.();
       } catch (error) {
-        toastError.api(error, 'Failed to copy URL');
+        console.error('Failed to toggle sharing:', error);
+        toastError.share(error);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [entityId, entityLabel, updateSharing, onUpdate]
+  );
+
+  const handleCopyUrl = useCallback(async () => {
+    if (shareStatus.public_url) {
+      await copyUrlToClipboard(shareStatus.public_url);
     }
-  };
+  }, [shareStatus.public_url]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent data-testid="share-modal" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
-            Share Dashboard
+            Share {entityLabel}
           </DialogTitle>
         </DialogHeader>
 
@@ -113,7 +114,8 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
                   <div>
                     <Label className="text-sm font-medium">Organization Access</Label>
                     <p className="text-xs text-muted-foreground">
-                      Users in your organization with proper permissions can access this dashboard
+                      Users in your organization with proper permissions can access this{' '}
+                      {entityLabelLower}
                     </p>
                   </div>
                 </div>
@@ -132,11 +134,12 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
                     <div className="flex-1">
                       <Label className="text-sm font-medium">Public Access</Label>
                       <p className="text-xs text-muted-foreground">
-                        Anyone with the link can view this dashboard
+                        Anyone with the link can view this {entityLabelLower}
                       </p>
                     </div>
                   </div>
                   <Switch
+                    data-testid="share-toggle"
                     checked={shareStatus.is_public}
                     onCheckedChange={handleToggleSharing}
                     disabled={isLoading}
@@ -149,7 +152,8 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
                     <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                     <div className="text-xs text-orange-800">
                       <strong>Security Notice:</strong> Your data is now exposed to the internet.
-                      Anyone with this link can access your dashboard data without authentication.
+                      Anyone with this link can access your {entityLabelLower} data without
+                      authentication.
                     </div>
                   </div>
                 )}
@@ -157,8 +161,13 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
                 {/* Copy URL Button */}
                 {shareStatus.is_public && shareStatus.public_url && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Share this dashboard:</Label>
-                    <Button variant="outline" onClick={handleCopyUrl} className="w-full">
+                    <Label className="text-xs font-medium">Share this {entityLabelLower}:</Label>
+                    <Button
+                      data-testid="copy-link-btn"
+                      variant="outline"
+                      onClick={handleCopyUrl}
+                      className="w-full"
+                    >
                       <Copy className="h-4 w-4 mr-2" />
                       Copy Public Link
                     </Button>
@@ -182,7 +191,7 @@ export function ShareModal({ dashboard, isOpen, onClose, onUpdate }: ShareModalP
 
           {/* Actions */}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button data-testid="share-close-btn" variant="outline" onClick={onClose}>
               Close
             </Button>
           </div>
