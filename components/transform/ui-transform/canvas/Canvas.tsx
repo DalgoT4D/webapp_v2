@@ -1,7 +1,7 @@
 // components/transform/canvas/Canvas.tsx
 'use client';
 
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -23,6 +23,7 @@ import 'reactflow/dist/style.css';
 
 import DbtSourceModelNode from './nodes/DbtSourceModelNode';
 import OperationNode from './nodes/OperationNode';
+import CanvasMessages from './CanvasMessages';
 import { useCanvasGraph } from '@/hooks/api/useCanvasGraph';
 import { useTransformStore, useCanvasAction } from '@/stores/transformStore';
 import {
@@ -149,6 +150,10 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
     isLoading,
     refresh: refreshGraph,
   } = useCanvasGraph({ skipInitialFetch: false, autoSync: false });
+
+  const hasUnpublishedChanges = useMemo(() => {
+    return apiNodes?.some((node) => node.isPublished === false) ?? false;
+  }, [apiNodes]);
 
   const { setCenter, getNodes: getFlowNodes } = useReactFlow();
 
@@ -413,6 +418,9 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
           </div>
         </div>
       )}
+
+      {/* Canvas Messages (lock/unpublished/PAT overlays) */}
+      <CanvasMessages hasUnpublishedChanges={hasUnpublishedChanges} />
 
       {!isLoading && nodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

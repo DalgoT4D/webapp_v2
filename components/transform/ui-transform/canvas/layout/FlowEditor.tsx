@@ -1,12 +1,11 @@
 // components/transform/canvas/layout/FlowEditor.tsx
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { Resizable } from 'react-resizable';
 import Canvas from '../Canvas';
 import CanvasHeader from '../CanvasHeader';
-import CanvasMessages from '../CanvasMessages';
 import { ProjectTree } from '@/components/explore/ProjectTree';
 import { ProjectTreeMode } from '@/constants/explore';
 import { OperationConfigLayout } from '../panels/OperationConfigLayout';
@@ -128,11 +127,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
     checkAndSync();
   }, [checkPatStatus, isPreview, mutate, openPatModal]);
-
-  // Read cached graph data to compute hasUnpublishedChanges
-  const hasUnpublishedChanges = useMemo(() => {
-    return graphData?.nodes?.some((node) => node.isPublished === false) ?? false;
-  }, [graphData?.nodes]);
 
   // Handle sidebar resize
   const handleSidebarResize = useCallback(
@@ -277,9 +271,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             {/* Canvas Area */}
             {!isLowerFullScreen && (
               <div className="flex-1 flex flex-col min-w-0 relative">
-                {/* Canvas Messages (lock/unpublished/PAT overlays) */}
-                <CanvasMessages hasUnpublishedChanges={hasUnpublishedChanges} />
-
                 {/* Main Canvas */}
                 <div className="flex-1 relative">
                   <Canvas isPreviewMode={isPreview} onRefresh={handleRefreshCanvas} />
