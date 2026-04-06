@@ -19,7 +19,6 @@ import ReactFlow, {
 } from 'reactflow';
 import dagre from 'dagre';
 import { RefreshCw } from 'lucide-react';
-import 'reactflow/dist/style.css';
 
 import DbtSourceModelNode from './nodes/DbtSourceModelNode';
 import OperationNode from './nodes/OperationNode';
@@ -361,7 +360,7 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={canEdit ? onNodesChange : undefined}
         onEdgesChange={canEdit ? onEdgesChange : undefined}
         onConnect={canEdit ? handleConnect : undefined}
         onPaneClick={canEdit ? handlePaneClick : undefined}
@@ -376,7 +375,7 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
         onNodeDragStop={canEdit ? handleNodeDragStop : undefined}
         nodesDraggable={canEdit}
         nodesConnectable={canEdit}
-        elementsSelectable={!isPreviewMode}
+        elementsSelectable={canEdit}
         zoomOnDoubleClick={canEdit}
         panOnDrag
         zoomOnScroll
