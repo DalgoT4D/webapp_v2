@@ -17,8 +17,9 @@ import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { AggregateOperations } from '@/constants/transform';
-import type { OperationFormProps, GroupbyDataConfig } from '@/types/transform';
+import { AggregateOperations, GROUPBY_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface DimensionCol {
   col: string;
@@ -59,7 +60,7 @@ export function GroupByOpForm({
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
+        const config = getTypedConfig(GROUPBY_OP, node.data.operation_config);
         if (config) {
           const dimensions = config.dimension_columns?.map((col) => ({ col })) || [];
           dimensions.push({ col: '' });

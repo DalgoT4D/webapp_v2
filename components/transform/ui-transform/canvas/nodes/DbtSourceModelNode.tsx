@@ -52,10 +52,9 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     }
   }, [refreshTrigger]);
 
-  // Fetch columns — try warehouse API first, fallback to output_columns from node data.
-  // Newly created intermediate tables (from operations like union) may not exist in the
-  // warehouse yet (dbt hasn't run), so the warehouse API returns an error. In that case,
-  // use the output_columns that the backend computes from the operation chain.
+  // Fetch columns from warehouse API — no fallback to output_columns.
+  // If the table doesn't exist in the warehouse (dbt hasn't run or failed),
+  // we show no columns to avoid giving a false impression of success.
   // Re-runs when refreshTrigger changes (after the above effect resets fetchedRef).
   useEffect(() => {
     if (fetchedRef.current) return;
@@ -79,24 +78,14 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
           const response = (await apiGet(
             `/api/warehouse/table_columns/${schema}/${tableName}`
           )) as ColumnData[];
-          if (response && response.length > 0) {
-            setColumns(response);
-            return;
-          }
-        }
-        // Fallback: use output_columns from the node data (no type info available)
-        if (data?.output_columns?.length) {
-          setColumns(data.output_columns.map((col: string) => ({ name: col, data_type: '' })));
+          setColumns(response?.length ? response : []);
         } else {
           setColumns([]);
         }
       } catch {
-        // Warehouse fetch failed — use output_columns as fallback
-        if (data?.output_columns?.length) {
-          setColumns(data.output_columns.map((col: string) => ({ name: col, data_type: '' })));
-        } else {
-          setColumns([]);
-        }
+        // Warehouse fetch failed — don't fallback to output_columns,
+        // showing no columns signals that the table doesn't exist in warehouse
+        setColumns([]);
       } finally {
         setIsLoadingColumns(false);
       }

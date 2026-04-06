@@ -19,8 +19,9 @@ import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { ArithmeticOperations } from '@/constants/transform';
-import type { OperationFormProps, ArithmeticDataConfig } from '@/types/transform';
+import { ArithmeticOperations, ARITHMETIC_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';
@@ -57,7 +58,7 @@ export function ArithmeticOpForm({
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as ArithmeticDataConfig;
+        const config = getTypedConfig(ARITHMETIC_OP, node.data.operation_config);
         if (config) {
           return {
             operator: config.operator || '',

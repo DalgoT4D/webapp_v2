@@ -21,8 +21,9 @@ import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { parseStringForNull } from '../shared/utils';
-import { LogicalOperators, WhereFilterType } from '@/constants/transform';
-import type { OperationFormProps, WherefilterDataConfig } from '@/types/transform';
+import { LogicalOperators, WhereFilterType, WHERE_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface FormValues {
   filterCol: string;
@@ -58,7 +59,7 @@ export function WhereFilterOpForm({
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as WherefilterDataConfig;
+        const config = getTypedConfig(WHERE_OP, node.data.operation_config);
         if (config) {
           const isAdvance = config.where_type === WhereFilterType.SQL;
           let clauseValues: Partial<FormValues> = {};

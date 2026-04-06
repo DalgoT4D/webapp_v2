@@ -12,7 +12,9 @@ import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, PivotDataConfig } from '@/types/transform';
+import { PIVOT_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface PivotValueItem {
   col: string;
@@ -56,7 +58,7 @@ export function PivotOpForm({
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as PivotDataConfig;
+        const config = getTypedConfig(PIVOT_OP, node.data.operation_config);
         if (config) {
           const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
           const groupbyColumns = sorted.map((col) => ({

@@ -22,8 +22,9 @@ import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { parseStringForNull } from '../shared/utils';
-import { LogicalOperators, CaseWhenType } from '@/constants/transform';
-import type { OperationFormProps, CasewhenDataConfig, WhenClause } from '@/types/transform';
+import { LogicalOperators, CaseWhenType, CASEWHEN_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, WhenClause } from '@/types/transform';
 
 interface OperandValue {
   type: 'col' | 'val';
@@ -158,7 +159,7 @@ export function CaseWhenOpForm({
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as CasewhenDataConfig;
+        const config = getTypedConfig(CASEWHEN_OP, node.data.operation_config);
         if (config) {
           const isAdvance = config.case_type === CaseWhenType.ADVANCE;
 

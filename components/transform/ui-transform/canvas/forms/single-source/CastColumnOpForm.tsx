@@ -10,7 +10,9 @@ import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { apiGet } from '@/lib/api';
-import type { OperationFormProps, CastDataConfig } from '@/types/transform';
+import { CAST_DATA_TYPES_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface ColumnConfig {
   name: string;
@@ -41,7 +43,7 @@ export function CastColumnOpForm({
   const [searchTerm, setSearchTerm] = useState('');
   const [srcColumns, setSrcColumns] = useState<ColumnConfig[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as CastDataConfig;
+      const config = getTypedConfig(CAST_DATA_TYPES_OP, node.data.operation_config);
       if (config?.source_columns) {
         return config.source_columns.map((col: string) => ({ name: col, data_type: '' }));
       }
@@ -54,7 +56,7 @@ export function CastColumnOpForm({
   const [dataTypes, setDataTypes] = useState<string[]>([]);
   const [columnTypes, setColumnTypes] = useState<Record<string, string>>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as CastDataConfig;
+      const config = getTypedConfig(CAST_DATA_TYPES_OP, node.data.operation_config);
       if (config?.columns) {
         const typeMap: Record<string, string> = {};
         config.columns.forEach((col) => {

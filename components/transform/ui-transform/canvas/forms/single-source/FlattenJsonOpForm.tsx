@@ -10,11 +10,9 @@ import { apiGet } from '@/lib/api';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type {
-  OperationFormProps,
-  FlattenJsonDataConfig,
-  DbtModelResponse,
-} from '@/types/transform';
+import { FLATTEN_JSON_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, DbtModelResponse } from '@/types/transform';
 
 interface FormValues {
   json_column: string;
@@ -44,14 +42,14 @@ export function FlattenJsonOpForm({
 
   const [srcColumns, setSrcColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+      const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
       if (config?.source_columns) return config.source_columns;
     }
     return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
   });
   const [jsonColumns, setJsonColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+      const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
       if (config?.json_columns_to_copy) return config.json_columns_to_copy;
     }
     return [];
@@ -69,7 +67,7 @@ export function FlattenJsonOpForm({
   const { handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+        const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
         if (config) return { json_column: config.json_column || '' };
       }
       return { json_column: '' };

@@ -10,7 +10,9 @@ import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, RenameDataConfig } from '@/types/transform';
+import { RENAME_COLUMNS_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface RenameRow {
   oldName: string;
@@ -44,7 +46,7 @@ export function RenameColumnOpForm({
   const { control, handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as RenameDataConfig;
+        const config = getTypedConfig(RENAME_COLUMNS_OP, node.data.operation_config);
         if (config?.columns) {
           const renames = Object.entries(config.columns).map(([oldName, newName]) => ({
             oldName,

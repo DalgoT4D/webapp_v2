@@ -11,7 +11,9 @@ import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { parseStringForNull } from '../shared/utils';
-import type { OperationFormProps, ReplaceDataConfig } from '@/types/transform';
+import { REPLACE_COLUMN_VALUE_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface ReplaceRow {
   find: string;
@@ -46,7 +48,7 @@ export function ReplaceValueOpForm({
   const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
+        const config = getTypedConfig(REPLACE_COLUMN_VALUE_OP, node.data.operation_config);
         if (config?.columns && config.columns.length > 0) {
           const col = config.columns[0];
           const replacements = col.replace_ops.map((op) => ({

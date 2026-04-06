@@ -50,7 +50,7 @@ export function useOperationForm({
 
   const [srcColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as Record<string, unknown>;
+      const config = node.data.operation_config.config;
       const configCols = config?.source_columns;
       if (Array.isArray(configCols)) {
         return sortColumns

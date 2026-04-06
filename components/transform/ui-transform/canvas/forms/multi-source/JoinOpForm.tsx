@@ -20,8 +20,9 @@ import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { generateDummySrcModelNode } from '../../utils/dummynodes';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
-import type { OperationFormProps, JoinDataConfig, CanvasNodeDataResponse } from '@/types/transform';
-import { JoinTypes, OperationFormAction, JoinType } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, CanvasNodeDataResponse } from '@/types/transform';
+import { JoinTypes, OperationFormAction, JoinType, JOIN_OP } from '@/constants/transform';
 
 interface FormValues {
   join_type: string;
@@ -110,8 +111,7 @@ export function JoinOpForm({
       )) as CanvasNodeDataResponse;
       const { operation_config, input_nodes } = nodeResponseData;
 
-      const { source_columns, join_on, join_type } =
-        operation_config.config as unknown as JoinDataConfig;
+      const { source_columns, join_on, join_type } = getTypedConfig(JOIN_OP, operation_config)!;
       setSrcColumns(source_columns?.sort((a, b) => a.localeCompare(b)) || []);
 
       if (input_nodes) {

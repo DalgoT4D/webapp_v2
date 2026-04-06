@@ -16,8 +16,9 @@ import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { AggregateOperations } from '@/constants/transform';
-import type { OperationFormProps, AggregateDataConfig } from '@/types/transform';
+import { AggregateOperations, AGGREGATE_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface FormValues {
   column: string;
@@ -48,7 +49,7 @@ export function AggregationOpForm({
   const { register, handleSubmit, setValue, watch } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as AggregateDataConfig;
+        const config = getTypedConfig(AGGREGATE_OP, node.data.operation_config);
         if (config?.aggregate_on && config.aggregate_on.length > 0) {
           const agg = config.aggregate_on[0];
           return {

@@ -10,7 +10,9 @@ import { Search } from 'lucide-react';
 import { toastError } from '@/lib/toast';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, UnpivotDataConfig } from '@/types/transform';
+import { UNPIVOT_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface UnpivotColumn {
   col: string;
@@ -62,7 +64,7 @@ export function UnpivotOpForm({
   } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as UnpivotDataConfig;
+        const config = getTypedConfig(UNPIVOT_OP, node.data.operation_config);
         if (config) {
           const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
           return {

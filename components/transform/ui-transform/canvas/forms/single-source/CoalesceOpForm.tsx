@@ -11,7 +11,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, CoalesceDataConfig } from '@/types/transform';
+import { COALESCE_COLUMNS_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface FormValues {
   columns: { col: string }[];
@@ -43,7 +45,7 @@ export function CoalesceOpForm({
   const { control, handleSubmit, watch, register } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as CoalesceDataConfig;
+        const config = getTypedConfig(COALESCE_COLUMNS_OP, node.data.operation_config);
         if (config) {
           const columns = config.columns.map((col) => ({ col }));
           columns.push({ col: '' });

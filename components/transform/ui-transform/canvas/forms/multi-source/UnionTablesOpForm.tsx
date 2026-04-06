@@ -15,11 +15,9 @@ import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { generateDummySrcModelNode } from '../../utils/dummynodes';
 import { FormActions } from '../shared/FormActions';
-import type {
-  OperationFormProps,
-  UnionDataConfig,
-  CanvasNodeDataResponse,
-} from '@/types/transform';
+import { UNION_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, CanvasNodeDataResponse } from '@/types/transform';
 
 interface TableItem {
   id: string;
@@ -127,7 +125,7 @@ export function UnionTablesOpForm({
       )) as CanvasNodeDataResponse;
       const { operation_config, input_nodes } = nodeResponseData;
 
-      const { source_columns } = operation_config.config as unknown as UnionDataConfig;
+      const { source_columns } = getTypedConfig(UNION_OP, operation_config)!;
       setSrcColumns(source_columns);
 
       // Sort input_nodes by seq to ensure correct order

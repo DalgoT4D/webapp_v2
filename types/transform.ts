@@ -6,6 +6,23 @@ import {
   CaseWhenType,
   JoinType,
   CanvasActionEnum,
+  RENAME_COLUMNS_OP,
+  DROP_COLUMNS_OP,
+  CAST_DATA_TYPES_OP,
+  REPLACE_COLUMN_VALUE_OP,
+  AGGREGATE_OP,
+  GROUPBY_OP,
+  ARITHMETIC_OP,
+  COALESCE_COLUMNS_OP,
+  JOIN_OP,
+  UNION_OP,
+  WHERE_OP,
+  CASEWHEN_OP,
+  PIVOT_OP,
+  UNPIVOT_OP,
+  FLATTEN_JSON_OP,
+  GENERIC_COL_OP,
+  GENERIC_SQL_OP,
 } from '@/constants/transform';
 import { TableType } from '@/constants/explore';
 import { TaskProgressStatus } from '@/constants/pipeline';
@@ -123,7 +140,7 @@ export interface CanvasAction {
 
 export interface OperationConfigResponseJson {
   type: string;
-  config: Record<string, unknown>;
+  config: AnyOperationConfig;
   [key: string]: unknown;
 }
 
@@ -413,6 +430,49 @@ export interface GenericSqlDataConfig {
   sql_statement_1: string;
   other_inputs: unknown[];
   sql_statement_2: string;
+}
+
+// ============================================
+// DISCRIMINATED UNION FOR OPERATION CONFIGS
+// ============================================
+
+/**
+ * Maps each operation slug to its strongly-typed config.
+ * Used to narrow `operation_config.config` without unsafe casts.
+ */
+export interface OperationConfigMap {
+  [RENAME_COLUMNS_OP]: RenameDataConfig;
+  [DROP_COLUMNS_OP]: DropDataConfig;
+  [CAST_DATA_TYPES_OP]: CastDataConfig;
+  [REPLACE_COLUMN_VALUE_OP]: ReplaceDataConfig;
+  [AGGREGATE_OP]: AggregateDataConfig;
+  [GROUPBY_OP]: GroupbyDataConfig;
+  [ARITHMETIC_OP]: ArithmeticDataConfig;
+  [COALESCE_COLUMNS_OP]: CoalesceDataConfig;
+  [JOIN_OP]: JoinDataConfig;
+  [UNION_OP]: UnionDataConfig;
+  [WHERE_OP]: WherefilterDataConfig;
+  [CASEWHEN_OP]: CasewhenDataConfig;
+  [PIVOT_OP]: PivotDataConfig;
+  [UNPIVOT_OP]: UnpivotDataConfig;
+  [FLATTEN_JSON_OP]: FlattenJsonDataConfig;
+  [GENERIC_COL_OP]: GenericColDataConfig;
+  [GENERIC_SQL_OP]: GenericSqlDataConfig;
+}
+
+export type OperationSlug = keyof OperationConfigMap;
+export type AnyOperationConfig = OperationConfigMap[OperationSlug];
+
+/**
+ * Type-safe helper to narrow operation config by slug.
+ * Usage: const config = getTypedConfig<'arithmetic'>(node.data.operation_config);
+ */
+export function getTypedConfig<T extends OperationSlug>(
+  _slug: T,
+  operationConfig: OperationConfigResponseJson | undefined
+): OperationConfigMap[T] | undefined {
+  if (!operationConfig?.config) return undefined;
+  return operationConfig.config as OperationConfigMap[T];
 }
 
 // ============================================

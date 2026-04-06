@@ -10,7 +10,9 @@ import { Info } from 'lucide-react';
 import { toastError } from '@/lib/toast';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, GenericSqlDataConfig } from '@/types/transform';
+import { GENERIC_SQL_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface FormValues {
   sql_statement_1: string;
@@ -51,7 +53,7 @@ export function GenericSqlOpForm({
   } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+        const config = getTypedConfig(GENERIC_SQL_OP, node.data.operation_config);
         if (config) {
           return {
             sql_statement_1: config.sql_statement_1 || '',
@@ -73,7 +75,7 @@ export function GenericSqlOpForm({
     const sourceColumns = (() => {
       const isActualEdit = !node?.data?.isDummy && isEditMode;
       if (isActualEdit && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+        const config = getTypedConfig(GENERIC_SQL_OP, node.data.operation_config);
         return config?.source_columns || [];
       }
       return node?.data?.output_columns || [];

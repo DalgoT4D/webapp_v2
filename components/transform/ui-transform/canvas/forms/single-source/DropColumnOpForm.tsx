@@ -10,7 +10,9 @@ import { toastError } from '@/lib/toast';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { cn } from '@/lib/utils';
-import type { OperationFormProps, DropDataConfig } from '@/types/transform';
+import { DROP_COLUMNS_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 /**
  * Form for dropping (removing) columns from a table.
@@ -35,7 +37,7 @@ export function DropColumnOpForm({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as DropDataConfig;
+      const config = getTypedConfig(DROP_COLUMNS_OP, node.data.operation_config);
       if (config?.columns) return config.columns;
     }
     return [];

@@ -12,7 +12,9 @@ import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { parseStringForNull } from '../shared/utils';
-import type { OperationFormProps, GenericColDataConfig } from '@/types/transform';
+import { GENERIC_COL_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';
@@ -50,7 +52,7 @@ export function GenericColumnOpForm({
   const { control, handleSubmit, watch, register, setValue } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GenericColDataConfig;
+        const config = getTypedConfig(GENERIC_COL_OP, node.data.operation_config);
         if (config?.computed_columns && config.computed_columns.length > 0) {
           const computed = config.computed_columns[0];
           return {
