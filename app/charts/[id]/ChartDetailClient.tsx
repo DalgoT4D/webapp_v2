@@ -817,7 +817,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       config={{
                         table_columns:
                           tableData?.columns || chart.extra_config?.table_columns || [],
-                        column_formatting: {},
+                        column_formatting:
+                          chart.extra_config?.customizations?.columnFormatting || {},
                         sort: chart.extra_config?.sort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,

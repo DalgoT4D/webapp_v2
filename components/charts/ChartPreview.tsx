@@ -11,6 +11,15 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+
+import {
+  createTooltipFormatter,
+  applyNumberChartFormatting,
+  applyPieChartFormatting,
+  applyLineBarChartFormatting,
+} from '@/lib/chart-formatting-utils';
+import { ChartTypes } from '@/types/charts';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -68,8 +77,8 @@ export function ChartPreview({
       }
     }
 
-    const isPieChart = detectedChartType === 'pie';
-    const isNumberChart = detectedChartType === 'number' || detectedChartType === 'gauge';
+    const isPieChart = detectedChartType === ChartTypes.PIE;
+    const isNumberChart = detectedChartType === ChartTypes.NUMBER || detectedChartType === 'gauge';
 
     try {
       // Dispose existing instance if it exists
@@ -131,32 +140,7 @@ export function ChartPreview({
             fontSize: 12,
           },
           extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-          formatter: function (params: any) {
-            if (Array.isArray(params)) {
-              // For multiple series (line/bar charts with multiple lines/bars)
-              let result = '';
-              params.forEach((param: any, index: number) => {
-                if (index === 0) {
-                  result += param.name + '<br/>';
-                }
-                const value =
-                  typeof param.value === 'number' ? param.value.toLocaleString() : param.value;
-                result += `${param.marker}${param.seriesName}: <b>${value}</b><br/>`;
-              });
-              return result;
-            } else {
-              // For single series (pie charts, single bar/line)
-              const value =
-                typeof params.value === 'number' ? params.value.toLocaleString() : params.value;
-              if (params.percent !== undefined) {
-                // Pie chart with percentage
-                return `${params.marker}${params.seriesName}<br/><b>${value}</b>: ${params.name} (${params.percent}%)`;
-              } else {
-                // Regular chart
-                return `${params.marker}${params.seriesName}<br/>${params.name}: <b>${value}</b>`;
-              }
-            }
-          },
+          formatter: createTooltipFormatter(customizations, detectedChartType || ''),
         },
         // For pie and number charts, completely remove grid and axis configurations
         ...(isPieChart || isNumberChart
@@ -281,8 +265,31 @@ export function ChartPreview({
         });
       }
 
-      // Set chart option
-      chartInstance.current.setOption(modifiedConfig);
+      // Apply number formatting for number charts (frontend-only formatting)
+      if (isNumberChart) {
+        applyNumberChartFormatting(modifiedConfig, customizations);
+      }
+
+      // Apply number formatting and visibility settings for pie chart data labels
+      if (isPieChart) {
+        applyPieChartFormatting(modifiedConfig, customizations);
+      }
+
+      // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+      const isLineChart = detectedChartType === ChartTypes.LINE;
+      const isBarChart = detectedChartType === ChartTypes.BAR;
+      if (isLineChart || isBarChart) {
+        applyLineBarChartFormatting(modifiedConfig, customizations);
+      }
+
+      // Apply stacked bar data labels (shows total at top of each stacked bar)
+      if (isBarChart) {
+        const stackedConfig = applyStackedBarLabels(modifiedConfig, customizations);
+        Object.assign(modifiedConfig, stackedConfig);
+      }
+
+      // Set chart option (notMerge: true ensures clean updates when customizations change)
+      chartInstance.current.setOption(modifiedConfig, { notMerge: true });
 
       // Notify parent component that chart is ready
       if (onChartReady) {
@@ -337,7 +344,7 @@ export function ChartPreview({
   }
 
   // Only show configure message for truly empty state (no previous chart)
-  if (!config && chartType !== 'table' && !isLoading && !chartInstance.current) {
+  if (!config && chartType !== ChartTypes.TABLE && !isLoading && !chartInstance.current) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -350,11 +357,23 @@ export function ChartPreview({
   }
 
   // Render table chart
-  if (chartType === 'table') {
+  if (chartType === ChartTypes.TABLE) {
+    // Merge customizations.columnFormatting into config.column_formatting for table charts
+    const customizations = propCustomizations || config?.extra_config?.customizations || {};
+    const tableConfig = customizations?.columnFormatting
+      ? {
+          ...config,
+          column_formatting: {
+            ...(config?.column_formatting || {}),
+            ...customizations.columnFormatting,
+          },
+        }
+      : config;
+
     return (
       <TableChart
         data={tableData}
-        config={config}
+        config={tableConfig}
         onSort={onTableSort}
         pagination={tablePagination}
       />
