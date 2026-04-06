@@ -226,7 +226,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             isWorkflowRunning={isWorkflowRunning}
             gitRepoUrl={gitRepoUrl || storeGitRepoUrl}
             isPreviewMode={isPreview}
-            hasUnpublishedChanges={hasUnpublishedChanges}
           />
         </div>
 
@@ -279,7 +278,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             {!isLowerFullScreen && (
               <div className="flex-1 flex flex-col min-w-0 relative">
                 {/* Canvas Messages (lock/unpublished/PAT overlays) */}
-                <CanvasMessages />
+                <CanvasMessages hasUnpublishedChanges={hasUnpublishedChanges} />
 
                 {/* Main Canvas */}
                 <div className="flex-1 relative">

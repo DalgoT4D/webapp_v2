@@ -128,7 +128,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
                       {gitStatus.added.map((file) => (
                         <p
                           key={file}
-                          className="text-xs font-mono text-green-600 dark:text-green-400 pl-2"
+                          className="text-xs font-mono text-foreground pl-2"
                           data-testid={`added-file-${file}`}
                         >
                           + {file}
@@ -146,7 +146,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
                       {gitStatus.modified.map((file) => (
                         <p
                           key={file}
-                          className="text-xs font-mono text-yellow-600 dark:text-yellow-400 pl-2"
+                          className="text-xs font-mono text-foreground pl-2"
                           data-testid={`modified-file-${file}`}
                         >
                           ~ {file}
@@ -162,7 +162,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
                       {gitStatus.deleted.map((file) => (
                         <p
                           key={file}
-                          className="text-xs font-mono text-red-600 dark:text-red-400 pl-2"
+                          className="text-xs font-mono text-foreground pl-2"
                           data-testid={`deleted-file-${file}`}
                         >
                           - {file}
