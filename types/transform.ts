@@ -264,12 +264,10 @@ export interface RenameDataConfig {
 export interface DropDataConfig {
   columns: string[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface CastDataConfig {
   source_columns: string[];
-  other_inputs: unknown[];
   columns: { columnname: string; columntype: string }[];
 }
 
@@ -280,7 +278,6 @@ export interface ReplaceOp {
 
 export interface ReplaceDataConfig {
   source_columns: string[];
-  other_inputs: unknown[];
   columns: {
     col_name: string;
     output_column_name: string;
@@ -297,14 +294,12 @@ export interface AggregateOn {
 export interface AggregateDataConfig {
   aggregate_on: AggregateOn[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface GroupbyDataConfig {
   aggregate_on: AggregateOn[];
   dimension_columns: string[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface ArithmeticOperand {
@@ -323,7 +318,6 @@ export interface CoalesceDataConfig {
   columns: string[];
   source_columns: string[];
   default_value: string;
-  other_inputs: unknown[];
   output_column_name: string;
 }
 
@@ -344,12 +338,10 @@ export interface JoinDataConfig {
     key2: string;
     compare_with: string;
   };
-  other_inputs: SecondaryInput[];
   source_columns: string[];
 }
 
 export interface UnionDataConfig {
-  other_inputs: SecondaryInput[];
   source_columns: string[];
 }
 
@@ -369,7 +361,6 @@ export interface WherefilterDataConfig {
   clauses: WhereClause[];
   sql_snippet: string;
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface WhenClause {
@@ -386,7 +377,6 @@ export interface CasewhenDataConfig {
   sql_snippet: string;
   output_column_name: string;
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface PivotDataConfig {
@@ -406,7 +396,6 @@ export interface UnpivotDataConfig {
 
 export interface FlattenJsonDataConfig {
   source_columns: string[];
-  other_inputs: unknown[];
   json_column: string;
   json_columns_to_copy: string[];
   source_schema: string;
@@ -421,14 +410,12 @@ export interface GenericCol {
 export interface GenericColDataConfig {
   computed_columns: GenericCol[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface GenericSqlDataConfig {
   columns: string[];
   source_columns: string[];
   sql_statement_1: string;
-  other_inputs: unknown[];
   sql_statement_2: string;
 }
 
