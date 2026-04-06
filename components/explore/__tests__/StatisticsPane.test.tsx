@@ -46,7 +46,7 @@ jest.mock('../charts/DateTimeInsights', () => ({
 // Mock the hooks
 jest.mock('@/hooks/api/useWarehouse', () => ({
   useTableColumnTypes: jest.fn(() => ({
-    data: [],
+    data: [] as unknown[],
     isLoading: false,
   })),
   useTableCount: jest.fn(() => ({
@@ -55,7 +55,7 @@ jest.mock('@/hooks/api/useWarehouse', () => ({
   })),
   requestTableMetrics: jest.fn(() => Promise.resolve({ task_id: 'task-123' })),
   useTaskStatus: jest.fn(() => ({
-    data: null,
+    data: null as unknown,
   })),
 }));
 

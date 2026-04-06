@@ -12,6 +12,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { useTransformStore } from '@/stores/transformStore';
 import { apiGet, apiPost } from '@/lib/api';
 import type { SelectedNodeData } from '@/types/transform';
+import { CanvasActionEnum } from '@/constants/transform';
 
 interface CreateTableFormProps {
   /** Current selected node */
@@ -184,7 +185,7 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       toastSuccess.generic('Table created successfully');
 
       // Trigger workflow execution
-      dispatchCanvasAction({ type: 'run-workflow', data: null });
+      dispatchCanvasAction({ type: CanvasActionEnum.RUN_WORKFLOW, data: null });
 
       // Refresh canvas
       triggerRefresh();

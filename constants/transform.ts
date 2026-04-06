@@ -67,14 +67,13 @@ export enum TransformTab {
 // ============================================
 
 export const RENAME_COLUMNS_OP = 'renamecolumns';
-export const FLATTEN_OP = 'flatten';
+const FLATTEN_OP = 'flatten';
 export const FLATTEN_JSON_OP = 'flattenjson';
 export const CAST_DATA_TYPES_OP = 'castdatatypes';
 export const COALESCE_COLUMNS_OP = 'coalescecolumns';
 export const ARITHMETIC_OP = 'arithmetic';
-export const CONCAT_COLUMNS_OP = 'concat';
+const CONCAT_COLUMNS_OP = 'concat';
 export const DROP_COLUMNS_OP = 'dropcolumns';
-export const REGEX_EXTRACTION_OP = 'regexextraction';
 export const REPLACE_COLUMN_VALUE_OP = 'replace';
 export const JOIN_OP = 'join';
 export const WHERE_OP = 'where';

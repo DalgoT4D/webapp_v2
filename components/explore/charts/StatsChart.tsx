@@ -40,7 +40,7 @@ export function StatsChart({ data }: StatsChartProps) {
   const chartRef = useRef<echarts.ECharts | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return undefined;
 
     chartRef.current = echarts.init(containerRef.current);
 

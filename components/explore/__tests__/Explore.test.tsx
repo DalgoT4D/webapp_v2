@@ -39,9 +39,9 @@ jest.mock('../PreviewPane', () => ({
 const mockMutate = jest.fn();
 jest.mock('@/hooks/api/useWarehouse', () => ({
   useWarehouseTables: jest.fn(() => ({
-    data: [],
+    data: [] as unknown[],
     isLoading: false,
-    error: null,
+    error: null as unknown,
     mutate: mockMutate,
   })),
   syncWarehouseTables: jest.fn(),
@@ -71,7 +71,7 @@ const mockSetSearchTerm = jest.fn();
 
 jest.mock('@/stores/exploreStore', () => ({
   useExploreStore: jest.fn(() => ({
-    selectedTable: null,
+    selectedTable: null as unknown,
     activeTab: 'preview',
     sidebarWidth: 280,
     searchTerm: '',

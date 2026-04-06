@@ -14,8 +14,8 @@ import { CANVAS_GRAPH_KEY } from '../useCanvasGraph';
 jest.mock('swr', () => ({
   __esModule: true,
   default: jest.fn(() => ({
-    data: { nodes: [], edges: [] },
-    error: null,
+    data: { nodes: [] as unknown[], edges: [] as unknown[] },
+    error: null as unknown,
     isLoading: false,
     mutate: jest.fn(),
   })),
@@ -171,7 +171,7 @@ describe('buildTreeFromSources utility', () => {
         display_name: 'Model A',
         source_name: 'src',
         sql_path: '',
-        output_cols: [],
+        output_cols: [] as string[],
       },
       {
         id: '2',
@@ -182,7 +182,7 @@ describe('buildTreeFromSources utility', () => {
         display_name: 'Model B',
         source_name: 'src',
         sql_path: '',
-        output_cols: [],
+        output_cols: [] as string[],
       },
       {
         id: '3',
@@ -193,7 +193,7 @@ describe('buildTreeFromSources utility', () => {
         display_name: 'Model C',
         source_name: 'src',
         sql_path: '',
-        output_cols: [],
+        output_cols: [] as string[],
       },
     ];
 

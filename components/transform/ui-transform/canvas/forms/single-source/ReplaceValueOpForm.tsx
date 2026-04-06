@@ -10,7 +10,7 @@ import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { parseStringForNull } from '../shared/OperandInput';
+import { parseStringForNull } from '../shared/utils';
 import type { OperationFormProps, ReplaceDataConfig } from '@/types/transform';
 
 interface ReplaceRow {

@@ -97,6 +97,7 @@ export interface DbtModelResponse {
   sql_path: string;
   output_cols: string[];
   uuid: string;
+  rel_dir_to_models?: string;
 }
 
 // ============================================

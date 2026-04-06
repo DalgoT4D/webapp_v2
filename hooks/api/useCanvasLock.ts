@@ -68,7 +68,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
 
   const refreshLock = useCallback(async (): Promise<CanvasLockStatus | void> => {
     try {
-      const status = await apiPut<CanvasLockStatus>(LOCK_REFRESH_ENDPOINT, {});
+      const status = (await apiPut(LOCK_REFRESH_ENDPOINT, {})) as CanvasLockStatus;
       setLockStatus(status);
       setCanvasLockStatus(status);
 
@@ -96,7 +96,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
   const acquireLock = useCallback(async (): Promise<CanvasLockStatus> => {
     setIsAcquiring(true);
     try {
-      const status = await apiPost<CanvasLockStatus>(LOCK_ENDPOINT, {});
+      const status = (await apiPost(LOCK_ENDPOINT, {})) as CanvasLockStatus;
       setLockStatus(status);
       setCanvasLockStatus(status);
 

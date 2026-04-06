@@ -83,7 +83,7 @@ export function RangeChart({
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return undefined;
     chartRef.current = echarts.init(containerRef.current);
 
     return () => {

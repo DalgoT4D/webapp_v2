@@ -14,6 +14,7 @@ import {
 import { useTransformStore } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { CanvasNodeTypeEnum } from '@/types/transform';
+import { CanvasActionEnum } from '@/constants/transform';
 
 interface CanvasHeaderProps {
   /** Whether canvas is locked by another user */
@@ -71,7 +72,7 @@ export default function CanvasHeader({
       data = { options: { select: `${nodeName}+` } };
     }
 
-    dispatchCanvasAction({ type: 'run-workflow', data });
+    dispatchCanvasAction({ type: CanvasActionEnum.RUN_WORKFLOW, data });
     setRunMenuOpen(false);
   };
 

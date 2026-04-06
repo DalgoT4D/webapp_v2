@@ -6,11 +6,11 @@ import { mockTableColumns, mockTableData } from './explore-mock-data';
 // Mock the hooks
 jest.mock('@/hooks/api/useWarehouse', () => ({
   useTableColumns: jest.fn(() => ({
-    data: [],
+    data: [] as unknown[],
     isLoading: false,
   })),
   useTableData: jest.fn(() => ({
-    data: null,
+    data: null as unknown,
     isLoading: false,
   })),
   useTableCount: jest.fn(() => ({
