@@ -65,6 +65,11 @@ export function useUserPreferences() {
   };
 }
 
+// Standalone mutation: update a single user preference field
+export async function updateUserPreference(data: Record<string, unknown>) {
+  return apiPut('/api/userpreferences/', data);
+}
+
 /**
  * Hook to fetch organization notification preferences
  */
