@@ -35,7 +35,7 @@ export function DashboardChatTrigger({
         className="fixed right-6 bottom-6 z-40 h-14 rounded-full px-5 shadow-lg"
       >
         <MessageCircle className="mr-2 h-5 w-5" />
-        Chat with Dashboards
+        Dalgo AI
       </Button>
       <DashboardChat
         dashboardId={dashboardId}

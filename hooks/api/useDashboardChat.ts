@@ -1,10 +1,13 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { apiPost } from '@/lib/api';
 
 type DashboardChatEventType = 'progress' | 'assistant_message' | 'cancelled';
+type DashboardChatFeedback = 'thumbs_up' | 'thumbs_down';
 
 interface DashboardChatCitation {
   source_type: string;
@@ -38,6 +41,7 @@ export interface DashboardChatMessage {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  feedback?: DashboardChatFeedback | null;
   payload?: DashboardChatAssistantPayload;
 }
 
@@ -68,6 +72,7 @@ interface DashboardChatAssistantMessageEvent extends DashboardChatBaseEvent {
   role: 'assistant';
   content: string;
   created_at: string;
+  feedback?: DashboardChatFeedback | null;
   payload?: DashboardChatAssistantPayload;
 }
 
@@ -121,6 +126,7 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
   const [isCancelling, setIsCancelling] = useState(false);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [feedbackSubmittingById, setFeedbackSubmittingById] = useState<Record<string, boolean>>({});
 
   const websocketUrl = useMemo(() => {
     if (!enabled || !selectedOrgSlug) {
@@ -226,6 +232,7 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
           role: 'assistant',
           content: event.content,
           createdAt: event.created_at || event.occurred_at,
+          feedback: event.feedback || null,
           payload: event.payload || {},
         },
       ]);
@@ -308,6 +315,46 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     return true;
   }, [send]);
 
+  const submitFeedback = useCallback(
+    async (messageId: string, feedback: DashboardChatFeedback): Promise<boolean> => {
+      if (feedbackSubmittingById[messageId]) {
+        return false;
+      }
+
+      const existingMessage = messages.find((message) => message.id === messageId);
+      if (!existingMessage || existingMessage.role !== 'assistant' || existingMessage.feedback) {
+        return false;
+      }
+
+      setFeedbackSubmittingById((current) => ({ ...current, [messageId]: true }));
+      try {
+        const response = await apiPost(
+          `/api/dashboards/${dashboardId}/chat/messages/${messageId}/feedback/`,
+          { feedback }
+        );
+        const storedFeedback = response.feedback === 'thumbs_down' ? 'thumbs_down' : 'thumbs_up';
+        setMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === messageId ? { ...message, feedback: storedFeedback } : message
+          )
+        );
+        return true;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unable to save feedback for this answer';
+        toast.error(message);
+        return false;
+      } finally {
+        setFeedbackSubmittingById((current) => {
+          const nextState = { ...current };
+          delete nextState[messageId];
+          return nextState;
+        });
+      }
+    },
+    [dashboardId, feedbackSubmittingById, messages]
+  );
+
   return {
     messages,
     sessionId,
@@ -318,6 +365,8 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     error: chatError || wsError,
     sendMessage,
     cancelMessage,
+    submitFeedback,
+    feedbackSubmittingById,
     resetChat,
   };
 }

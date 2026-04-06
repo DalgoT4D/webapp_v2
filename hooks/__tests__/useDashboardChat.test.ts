@@ -38,9 +38,7 @@ describe('useDashboardChat', () => {
       result.current.sendMessage('Top facilitators');
     });
 
-    expect(mockSend).toHaveBeenCalledWith(
-      expect.stringContaining('"action":"send_message"')
-    );
+    expect(mockSend).toHaveBeenCalledWith(expect.stringContaining('"action":"send_message"'));
     expect(result.current.isThinking).toBe(true);
 
     act(() => {

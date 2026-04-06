@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Bot, Loader2, Send, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Bot, Loader2, Send, Sparkles, Square, ThumbsDown, ThumbsUp } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -20,6 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { MarkdownContent } from '@/components/ui/markdown-content';
 import { useDashboardChat, type DashboardChatMessage } from '@/hooks/api/useDashboardChat';
+import { useAuthStore } from '@/stores/authStore';
+import { useDashboardChatBootstrap } from '@/hooks/api/useDashboardAIChat';
 
 interface DashboardChatProps {
   dashboardId: number;
@@ -275,6 +277,79 @@ function AssistantSqlDetails({ message }: { message: DashboardChatMessage }) {
   );
 }
 
+function AssistantFeedback({
+  message,
+  isSubmitting,
+  onSubmitFeedback,
+}: {
+  message: DashboardChatMessage;
+  isSubmitting: boolean;
+  onSubmitFeedback: (messageId: string, feedback: 'thumbs_up' | 'thumbs_down') => void;
+}) {
+  if (message.role !== 'assistant') {
+    return null;
+  }
+
+  const selectedFeedback = message.feedback || null;
+  const isLocked = Boolean(selectedFeedback);
+
+  const getFeedbackButtonClassName = (feedback: 'thumbs_up' | 'thumbs_down', selected: boolean) => {
+    if (selected) {
+      return 'cursor-default border-slate-900 bg-slate-900 text-white hover:bg-slate-900 hover:text-white';
+    }
+    if (isLocked) {
+      return 'cursor-default border-slate-200 bg-white text-slate-300 hover:bg-white hover:text-slate-300';
+    }
+    return 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700';
+  };
+
+  return (
+    <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+      <span>{selectedFeedback ? 'Feedback saved' : 'Was this helpful?'}</span>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Mark answer helpful"
+          aria-pressed={selectedFeedback === 'thumbs_up'}
+          disabled={isSubmitting}
+          onClick={() => {
+            if (!isLocked) {
+              onSubmitFeedback(message.id, 'thumbs_up');
+            }
+          }}
+          className={`h-7 w-7 rounded-full border p-0 ${getFeedbackButtonClassName(
+            'thumbs_up',
+            selectedFeedback === 'thumbs_up'
+          )}`}
+        >
+          <ThumbsUp className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Mark answer not helpful"
+          aria-pressed={selectedFeedback === 'thumbs_down'}
+          disabled={isSubmitting}
+          onClick={() => {
+            if (!isLocked) {
+              onSubmitFeedback(message.id, 'thumbs_down');
+            }
+          }}
+          className={`h-7 w-7 rounded-full border p-0 ${getFeedbackButtonClassName(
+            'thumbs_down',
+            selectedFeedback === 'thumbs_down'
+          )}`}
+        >
+          <ThumbsDown className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardChat({
   dashboardId,
   dashboardTitle,
@@ -291,17 +366,45 @@ export function DashboardChat({
     error,
     sendMessage,
     cancelMessage,
+    submitFeedback,
+    feedbackSubmittingById,
   } = useDashboardChat({
     dashboardId,
     enabled,
   });
   const [draftMessage, setDraftMessage] = useState('');
+  const [sessionSuggestedPrompts, setSessionSuggestedPrompts] = useState<string[]>([]);
+  const currentUserFirstName = useAuthStore((state) => {
+    const currentOrgUser =
+      state.orgUsers.find((orgUser) => orgUser.org.slug === state.selectedOrgSlug) || null;
+    return currentOrgUser?.first_name?.trim() || null;
+  });
 
   const hasMessages = messages.length > 0;
+  const { bootstrap, isLoading: isLoadingBootstrap } = useDashboardChatBootstrap(
+    open && enabled && !hasMessages ? dashboardId : null,
+    open && enabled && !hasMessages
+  );
   const canSend = useMemo(
     () => draftMessage.trim().length > 0 && !isThinking,
     [draftMessage, isThinking]
   );
+  const openingMessage = currentUserFirstName
+    ? `Hi ${currentUserFirstName}, I'm Dalgo AI. I can help you understand the data on this dashboard.`
+    : "Hi, I'm Dalgo AI. I can help you understand the data on this dashboard.";
+
+  useEffect(() => {
+    if (!open || hasMessages) {
+      return;
+    }
+    if (sessionSuggestedPrompts.length > 0) {
+      return;
+    }
+    if (!bootstrap?.suggested_prompts?.length) {
+      return;
+    }
+    setSessionSuggestedPrompts(bootstrap.suggested_prompts);
+  }, [bootstrap, hasMessages, open, sessionSuggestedPrompts.length]);
 
   const handleSend = () => {
     if (!canSend) {
@@ -314,13 +417,20 @@ export function DashboardChat({
     }
   };
 
+  const handleSuggestedPromptClick = (prompt: string) => {
+    const didSend = sendMessage(prompt);
+    if (didSend) {
+      setSessionSuggestedPrompts([]);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex h-full w-full flex-col p-0 sm:max-w-xl">
         <SheetHeader className="border-b px-6 py-4">
           <SheetTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-blue-600" />
-            Chat with Dashboards
+            Dalgo AI
           </SheetTitle>
           <SheetDescription>{dashboardTitle}</SheetDescription>
         </SheetHeader>
@@ -328,15 +438,33 @@ export function DashboardChat({
         <div className="min-h-0 flex-1 overflow-y-auto px-4">
           <div className="space-y-4 py-4">
             {!hasMessages ? (
-              <div className="rounded-xl border border-dashed bg-slate-50 p-4 text-sm text-slate-600">
-                <div className="mb-2 flex items-center gap-2 font-medium text-slate-900">
-                  <Sparkles className="h-4 w-4 text-blue-600" />
-                  Ask about this dashboard
+              <div className="rounded-2xl border border-blue-100 bg-linear-to-br from-blue-50 to-white p-5 text-sm text-slate-600">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-white p-2 text-blue-600 shadow-sm ring-1 ring-blue-100">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm leading-6 text-slate-700">{openingMessage}</p>
+                    {sessionSuggestedPrompts.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {sessionSuggestedPrompts.map((prompt) => (
+                          <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => handleSuggestedPromptClick(prompt)}
+                            disabled={isThinking}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 shadow-xs transition hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {isLoadingBootstrap && sessionSuggestedPrompts.length === 0 ? (
+                      <p className="mt-4 text-xs text-slate-500">Loading suggested questions…</p>
+                    ) : null}
+                  </div>
                 </div>
-                <p>
-                  Ask questions about the dashboard, the charts on it, or the underlying warehouse
-                  data that powers it.
-                </p>
               </div>
             ) : null}
 
@@ -361,6 +489,11 @@ export function DashboardChat({
                       <AssistantResultsTable message={message} />
                       <AssistantSqlDetails message={message} />
                       <AssistantMeta message={message} />
+                      <AssistantFeedback
+                        message={message}
+                        isSubmitting={Boolean(feedbackSubmittingById[message.id])}
+                        onSubmitFeedback={submitFeedback}
+                      />
                     </>
                   ) : (
                     <p className="whitespace-pre-wrap leading-6">{message.content}</p>
@@ -371,17 +504,19 @@ export function DashboardChat({
 
             {isThinking ? (
               <div className="flex justify-start">
-                <div className="inline-flex items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <div className="inline-flex max-w-[90%] items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
                   <span>{progressLabel || 'Thinking'}</span>
                   <Button
                     type="button"
-                    variant="cancel"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
                     onClick={cancelMessage}
                     disabled={isCancelling}
+                    aria-label={isCancelling ? 'Stopping generation' : 'Stop generating'}
+                    className="h-6 w-6 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700"
                   >
-                    Stop
+                    <Square className="h-3 w-3 fill-current" />
                   </Button>
                 </div>
               </div>

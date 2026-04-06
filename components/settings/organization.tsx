@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -102,6 +102,7 @@ function DashboardChatConsentDialog({
 
 export default function OrganizationSettings() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { hasPermission } = useUserPermissions();
   const featureEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT);
@@ -148,10 +149,20 @@ export default function OrganizationSettings() {
   }, [featureEnabled, router]);
 
   useEffect(() => {
+    const requestedDashboardId = Number(searchParams.get('dashboard_id'));
+    if (
+      Number.isFinite(requestedDashboardId) &&
+      requestedDashboardId > 0 &&
+      nativeDashboards.some((dashboard) => dashboard.id === requestedDashboardId)
+    ) {
+      setSelectedDashboardId(requestedDashboardId);
+      return;
+    }
+
     if (!selectedDashboardId && nativeDashboards.length > 0) {
       setSelectedDashboardId(nativeDashboards[0].id);
     }
-  }, [nativeDashboards, selectedDashboardId]);
+  }, [nativeDashboards, searchParams, selectedDashboardId]);
 
   useEffect(() => {
     setOrgContextDraft(settings?.org_context_markdown ?? '');
