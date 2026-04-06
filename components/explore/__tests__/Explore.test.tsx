@@ -62,25 +62,32 @@ jest.mock('@/hooks/api/usePermissions', () => ({
   })),
 }));
 
-// Mock the store with a proper implementation
+// Mock the store with a proper implementation that supports selectors
 const mockReset = jest.fn();
 const mockSetSelectedTable = jest.fn();
 const mockSetActiveTab = jest.fn();
 const mockSetSidebarWidth = jest.fn();
 const mockSetSearchTerm = jest.fn();
 
+const mockStoreState = {
+  selectedTable: null as unknown,
+  activeTab: 'preview',
+  sidebarWidth: 280,
+  searchTerm: '',
+  setSelectedTable: mockSetSelectedTable,
+  setActiveTab: mockSetActiveTab,
+  setSidebarWidth: mockSetSidebarWidth,
+  setSearchTerm: mockSetSearchTerm,
+  reset: mockReset,
+};
+
 jest.mock('@/stores/exploreStore', () => ({
-  useExploreStore: jest.fn(() => ({
-    selectedTable: null as unknown,
-    activeTab: 'preview',
-    sidebarWidth: 280,
-    searchTerm: '',
-    setSelectedTable: mockSetSelectedTable,
-    setActiveTab: mockSetActiveTab,
-    setSidebarWidth: mockSetSidebarWidth,
-    setSearchTerm: mockSetSearchTerm,
-    reset: mockReset,
-  })),
+  useExploreStore: jest.fn((selector?: (state: typeof mockStoreState) => unknown) => {
+    if (typeof selector === 'function') {
+      return selector(mockStoreState);
+    }
+    return mockStoreState;
+  }),
 }));
 
 // Mock ResizeObserver

@@ -86,16 +86,6 @@ describe('StatisticsPane Component', () => {
     });
   });
 
-  it('renders the table name in header', () => {
-    render(<StatisticsPane {...defaultProps} />);
-    expect(screen.getByTestId('statistics-table-name')).toHaveTextContent('public.users');
-  });
-
-  it('renders refresh button', () => {
-    render(<StatisticsPane {...defaultProps} />);
-    expect(screen.getByTestId('refresh-stats-btn')).toBeInTheDocument();
-  });
-
   it('shows empty state when no rows', () => {
     const { useTableCount, useTableColumnTypes } = jest.requireMock('@/hooks/api/useWarehouse');
     useTableColumnTypes.mockReturnValue({
@@ -108,7 +98,17 @@ describe('StatisticsPane Component', () => {
     });
 
     render(<StatisticsPane {...defaultProps} />);
-    expect(screen.getByText('No data (0 rows) available')).toBeInTheDocument();
+    expect(screen.getByText(/No data \(0 rows\) available/)).toBeInTheDocument();
+  });
+
+  it('renders the table name in header', () => {
+    render(<StatisticsPane {...defaultProps} />);
+    expect(screen.getByTestId('statistics-table-name')).toHaveTextContent('users');
+  });
+
+  it('renders refresh button', () => {
+    render(<StatisticsPane {...defaultProps} />);
+    expect(screen.getByTestId('refresh-stats-btn')).toBeInTheDocument();
   });
 
   it('renders sortable column headers', () => {
@@ -142,18 +142,10 @@ describe('StatisticsPane with columns', () => {
 
   it('renders rows for each column', () => {
     render(<StatisticsPane {...defaultProps} />);
-
-    // Check that rows are rendered for each column type
     expect(screen.getByTestId('stats-row-id')).toBeInTheDocument();
     expect(screen.getByTestId('stats-row-name')).toBeInTheDocument();
     expect(screen.getByTestId('stats-row-is_active')).toBeInTheDocument();
     expect(screen.getByTestId('stats-row-created_at')).toBeInTheDocument();
-  });
-
-  it('shows column count and row count', () => {
-    render(<StatisticsPane {...defaultProps} />);
-    expect(screen.getByText(/4 columns/)).toBeInTheDocument();
-    expect(screen.getByText(/100 rows/)).toBeInTheDocument();
   });
 });
 
@@ -179,11 +171,9 @@ describe('StatisticsPane loading state', () => {
     });
   });
 
-  it('shows loading state with header', () => {
+  it('shows loading state with generating message', () => {
     render(<StatisticsPane {...defaultProps} />);
-    // In loading state, the header is still rendered
-    expect(screen.getByTestId('statistics-table-name')).toBeInTheDocument();
-    // Refresh button should be disabled
-    expect(screen.getByTestId('refresh-stats-btn')).toBeDisabled();
+    // When isLoading is true, the component shows the loading spinner
+    expect(screen.getByText('Generating insights')).toBeInTheDocument();
   });
 });

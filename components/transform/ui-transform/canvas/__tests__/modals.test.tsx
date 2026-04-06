@@ -109,7 +109,7 @@ describe('PatRequiredModal', () => {
     await userEvent.click(connectBtn);
 
     await waitFor(() => {
-      expect(mockApiPut).toHaveBeenCalledWith('dbt/connect_git_remote/', {
+      expect(mockApiPut).toHaveBeenCalledWith('/api/dbt/connect_git_remote/', {
         gitrepoUrl: 'https://github.com/org/repo.git',
         gitrepoAccessToken: 'ghp_test_token_12345',
       });
@@ -159,7 +159,7 @@ describe('PublishModal', () => {
     expect(screen.getByRole('heading', { name: 'Publish Changes' })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(mockApiGet).toHaveBeenCalledWith('dbt/git_status/');
+      expect(mockApiGet).toHaveBeenCalledWith('/api/dbt/git_status/');
     });
 
     await waitFor(() => {
@@ -173,13 +173,13 @@ describe('PublishModal', () => {
     render(<PublishModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('added-file-0')).toHaveTextContent(
+      expect(screen.getByTestId('added-file-models/staging/stg_orders.sql')).toHaveTextContent(
         '+ models/staging/stg_orders.sql'
       );
-      expect(screen.getByTestId('modified-file-0')).toHaveTextContent(
+      expect(screen.getByTestId('modified-file-models/marts/dim_products.sql')).toHaveTextContent(
         '~ models/marts/dim_products.sql'
       );
-      expect(screen.getByTestId('deleted-file-0')).toHaveTextContent(
+      expect(screen.getByTestId('deleted-file-models/staging/old_model.sql')).toHaveTextContent(
         '- models/staging/old_model.sql'
       );
     });
@@ -226,7 +226,7 @@ describe('PublishModal', () => {
     await userEvent.click(publishBtn);
 
     await waitFor(() => {
-      expect(mockApiPost).toHaveBeenCalledWith('dbt/publish_changes/', {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/dbt/publish_changes/', {
         commit_message: 'Add new staging models',
       });
     });
