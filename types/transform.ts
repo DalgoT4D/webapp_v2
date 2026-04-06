@@ -451,6 +451,12 @@ export type OperationSlug = keyof OperationConfigMap;
 export type AnyOperationConfig = OperationConfigMap[OperationSlug];
 
 /**
+ * Outgoing config type — what forms submit (without source_columns,
+ * which is sent at the payload level, not inside config).
+ */
+export type OperationSubmitConfig = Omit<AnyOperationConfig, 'source_columns'>;
+
+/**
  * Type-safe helper to narrow operation config by slug.
  * Usage: const config = getTypedConfig<'arithmetic'>(node.data.operation_config);
  */

@@ -11,11 +11,12 @@ import type {
   OperationFormProps,
   EditOperationNodePayload,
   ModelSrcOtherInputPayload,
+  OperationSubmitConfig,
 } from '@/types/transform';
 
 export interface OperationPayload {
   op_type: string;
-  config: Record<string, unknown>;
+  config: OperationSubmitConfig;
   source_columns: string[];
   other_inputs?: ModelSrcOtherInputPayload[];
 }
