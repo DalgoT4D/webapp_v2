@@ -3,14 +3,46 @@ import userEvent from '@testing-library/user-event';
 import { DashboardChat } from '@/components/dashboard/dashboard-chat';
 
 const mockUseDashboardChat = jest.fn();
+const mockUseDashboardChatBootstrap = jest.fn();
 
 jest.mock('@/hooks/api/useDashboardChat', () => ({
   useDashboardChat: (args: unknown) => mockUseDashboardChat(args),
 }));
 
+jest.mock('@/hooks/api/useDashboardAIChat', () => ({
+  useDashboardChatBootstrap: (args: unknown) => mockUseDashboardChatBootstrap(args),
+}));
+
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (
+    selector: (state: {
+      selectedOrgSlug: string;
+      orgUsers: Array<{ org: { slug: string }; first_name?: string | null }>;
+    }) => unknown
+  ) =>
+    selector({
+      selectedOrgSlug: 'acme',
+      orgUsers: [{ org: { slug: 'acme' }, first_name: 'Pratiksha' }],
+    }),
+}));
+
 describe('DashboardChat', () => {
   beforeEach(() => {
     mockUseDashboardChat.mockReset();
+    mockUseDashboardChatBootstrap.mockReset();
+    mockUseDashboardChatBootstrap.mockReturnValue({
+      bootstrap: {
+        dashboard_id: 6,
+        suggested_prompts: [
+          'How have outcomes changed by quarter?',
+          'Which districts have the highest literacy efficiency?',
+          'What does the "Total Facilitators" metric represent?',
+        ],
+      },
+      isLoading: false,
+      error: null,
+      mutate: jest.fn(),
+    });
   });
 
   it('renders streamed progress text and lets the user stop the active turn', async () => {
@@ -27,6 +59,8 @@ describe('DashboardChat', () => {
       error: null,
       sendMessage: jest.fn(),
       cancelMessage,
+      submitFeedback: jest.fn(),
+      feedbackSubmittingById: {},
       resetChat: jest.fn(),
     });
 
@@ -41,8 +75,16 @@ describe('DashboardChat', () => {
     );
 
     expect(screen.getByText('Querying data from analytics.sessions')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Hi Pratiksha, I'm Dalgo AI. I can help you understand the data on this dashboard."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'How have outcomes changed by quarter?' })
+    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
     expect(cancelMessage).toHaveBeenCalledTimes(1);
   });
 
@@ -56,6 +98,7 @@ describe('DashboardChat', () => {
           role: 'assistant',
           content: 'Top facilitators are listed below.',
           createdAt: '2026-04-06T10:00:00.000Z',
+          feedback: null,
           payload: {
             citations: [
               {
@@ -78,6 +121,8 @@ describe('DashboardChat', () => {
       error: null,
       sendMessage: jest.fn(),
       cancelMessage: jest.fn(),
+      submitFeedback: jest.fn(),
+      feedbackSubmittingById: {},
       resetChat: jest.fn(),
     });
 
@@ -94,6 +139,7 @@ describe('DashboardChat', () => {
     const sourceLink = screen.getByRole('link', {
       name: 'Warehouse table: analytics.facilitators',
     });
+    expect(screen.getByText('Dalgo AI')).toBeInTheDocument();
     expect(sourceLink).toHaveAttribute(
       'href',
       '/explore?schema_name=analytics&table_name=facilitators'
@@ -103,5 +149,121 @@ describe('DashboardChat', () => {
     expect(
       screen.getByText('SELECT facilitator_name FROM analytics.facilitators')
     ).toBeInTheDocument();
+  });
+
+  it('sends a suggested prompt when the user clicks one', async () => {
+    const user = userEvent.setup();
+    const sendMessage = jest.fn().mockReturnValue(true);
+
+    mockUseDashboardChat.mockReturnValue({
+      messages: [],
+      sessionId: null,
+      isConnected: true,
+      isThinking: false,
+      isCancelling: false,
+      progressLabel: null,
+      error: null,
+      sendMessage,
+      cancelMessage: jest.fn(),
+      submitFeedback: jest.fn(),
+      feedbackSubmittingById: {},
+      resetChat: jest.fn(),
+    });
+
+    render(
+      <DashboardChat
+        dashboardId={6}
+        dashboardTitle="Impact Overview"
+        open={true}
+        onOpenChange={jest.fn()}
+        enabled={true}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'How have outcomes changed by quarter?' }));
+
+    expect(sendMessage).toHaveBeenCalledWith('How have outcomes changed by quarter?');
+  });
+
+  it('renders locked thumbs feedback on assistant messages', async () => {
+    const user = userEvent.setup();
+    const submitFeedback = jest.fn();
+
+    mockUseDashboardChat.mockReturnValue({
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant',
+          content: 'Top facilitators are listed below.',
+          createdAt: '2026-04-06T10:00:00.000Z',
+          feedback: null,
+          payload: {
+            citations: [],
+          },
+        },
+      ],
+      sessionId: 'session-1',
+      isConnected: true,
+      isThinking: false,
+      isCancelling: false,
+      progressLabel: null,
+      error: null,
+      sendMessage: jest.fn(),
+      cancelMessage: jest.fn(),
+      submitFeedback,
+      feedbackSubmittingById: {},
+      resetChat: jest.fn(),
+    });
+
+    const { rerender } = render(
+      <DashboardChat
+        dashboardId={6}
+        dashboardTitle="Impact Overview"
+        open={true}
+        onOpenChange={jest.fn()}
+        enabled={true}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Mark answer helpful' }));
+    expect(submitFeedback).toHaveBeenCalledWith('assistant-1', 'thumbs_up');
+
+    mockUseDashboardChat.mockReturnValue({
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant',
+          content: 'Top facilitators are listed below.',
+          createdAt: '2026-04-06T10:00:00.000Z',
+          feedback: 'thumbs_up',
+          payload: {
+            citations: [],
+          },
+        },
+      ],
+      sessionId: 'session-1',
+      isConnected: true,
+      isThinking: false,
+      isCancelling: false,
+      progressLabel: null,
+      error: null,
+      sendMessage: jest.fn(),
+      cancelMessage: jest.fn(),
+      submitFeedback,
+      feedbackSubmittingById: {},
+      resetChat: jest.fn(),
+    });
+
+    rerender(
+      <DashboardChat
+        dashboardId={6}
+        dashboardTitle="Impact Overview"
+        open={true}
+        onOpenChange={jest.fn()}
+        enabled={true}
+      />
+    );
+
+    expect(screen.getByText('Feedback saved')).toBeInTheDocument();
   });
 });

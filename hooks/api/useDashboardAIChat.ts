@@ -40,6 +40,11 @@ export interface DashboardAIContext {
   vector_last_ingested_at: string | null;
 }
 
+export interface DashboardChatBootstrap {
+  dashboard_id: number;
+  suggested_prompts: string[];
+}
+
 export interface UpdateOrgDashboardAIChatPayload {
   ai_data_sharing_enabled?: boolean;
   org_context_markdown?: string;
@@ -94,6 +99,23 @@ export function useDashboardAIContext(dashboardId: number | null, enabled = true
 
   return {
     context: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+export function useDashboardChatBootstrap(dashboardId: number | null, enabled = true) {
+  const { data, error, isLoading, mutate } = useSWR<DashboardChatBootstrap>(
+    enabled && dashboardId ? `/api/dashboards/${dashboardId}/chat-bootstrap/` : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    bootstrap: data,
     isLoading,
     error,
     mutate,
