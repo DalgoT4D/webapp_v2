@@ -4,13 +4,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
-type DashboardChatEventType = 'progress' | 'assistant_message';
+type DashboardChatEventType = 'progress' | 'assistant_message' | 'cancelled';
 
 interface DashboardChatCitation {
   source_type: string;
   source_identifier: string;
   title: string;
   snippet: string;
+  url?: string | null;
   dashboard_id?: number | null;
   table_name?: string | null;
 }
@@ -46,12 +47,19 @@ interface DashboardChatBaseEvent {
   dashboard_id: number;
   occurred_at: string;
   session_id?: string;
+  turn_id?: string;
   message_id?: string;
 }
 
-// Assistant message events carry message fields directly (no nested data).
 interface DashboardChatProgressEvent extends DashboardChatBaseEvent {
   event_type: 'progress';
+  label: string;
+  stage?: string | null;
+}
+
+interface DashboardChatCancelledEvent extends DashboardChatBaseEvent {
+  event_type: 'cancelled';
+  label: string;
 }
 
 interface DashboardChatAssistantMessageEvent extends DashboardChatBaseEvent {
@@ -63,13 +71,15 @@ interface DashboardChatAssistantMessageEvent extends DashboardChatBaseEvent {
   payload?: DashboardChatAssistantPayload;
 }
 
-type DashboardChatEvent = DashboardChatProgressEvent | DashboardChatAssistantMessageEvent;
+type DashboardChatEvent =
+  | DashboardChatProgressEvent
+  | DashboardChatCancelledEvent
+  | DashboardChatAssistantMessageEvent;
 
-// Every WebSocket message from the backend is wrapped in this envelope.
 interface DashboardChatEnvelope {
   message: string;
   status: 'success' | 'error';
-  data: DashboardChatEvent;
+  data: DashboardChatEvent | Record<string, never>;
 }
 
 interface UseDashboardChatOptions {
@@ -102,12 +112,14 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
   const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug) || getSelectedOrgSlug();
   const pendingMessageRef = useRef<PendingDashboardChatMessage | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  // sendRef lets onOpen call send() before it's returned from useWebSocket
+  const activeTurnIdRef = useRef<string | null>(null);
   const sendRef = useRef<(data: string) => boolean>(() => false);
 
   const [messages, setMessages] = useState<DashboardChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
 
   const websocketUrl = useMemo(() => {
@@ -137,12 +149,15 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     if (sent) {
       pendingMessageRef.current = null;
       setIsThinking(true);
+      setProgressLabel('Understanding question');
       setChatError(null);
     }
   }, [buildPayload]);
 
   const handleClose = useCallback(() => {
     setIsThinking(false);
+    setIsCancelling(false);
+    setProgressLabel(null);
   }, []);
 
   const handleMessage = useCallback((raw: string) => {
@@ -152,31 +167,58 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
     } catch {
       setChatError('Received an invalid chat response');
       setIsThinking(false);
+      setIsCancelling(false);
+      setProgressLabel(null);
       return;
     }
 
     if (envelope.status === 'error') {
       setIsThinking(false);
+      setIsCancelling(false);
+      setProgressLabel(null);
+      activeTurnIdRef.current = null;
       setChatError(envelope.message || 'Something went wrong while generating the response');
       return;
     }
 
     const event = envelope.data;
+    if (!('event_type' in event)) {
+      setChatError('Received an invalid chat response');
+      setIsThinking(false);
+      setIsCancelling(false);
+      setProgressLabel(null);
+      return;
+    }
 
     if (event.session_id) {
       sessionIdRef.current = event.session_id;
       setSessionId(event.session_id);
     }
+    activeTurnIdRef.current = event.turn_id || null;
 
     if (event.event_type === 'progress') {
       setIsThinking(true);
+      setIsCancelling(event.stage === 'cancelling');
+      setProgressLabel(event.label);
       setChatError(null);
+      return;
+    }
+
+    if (event.event_type === 'cancelled') {
+      setIsThinking(false);
+      setIsCancelling(false);
+      setProgressLabel(null);
+      setChatError(null);
+      activeTurnIdRef.current = null;
       return;
     }
 
     if (event.event_type === 'assistant_message') {
       setIsThinking(false);
+      setIsCancelling(false);
+      setProgressLabel(null);
       setChatError(null);
+      activeTurnIdRef.current = null;
       setMessages((previousMessages) => [
         ...previousMessages,
         {
@@ -223,6 +265,8 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
       const sent = send(buildPayload(trimmedContent, clientMessageId));
       if (sent) {
         setIsThinking(true);
+        setIsCancelling(false);
+        setProgressLabel('Understanding question');
       } else {
         // Socket not ready — queue for when connection opens
         pendingMessageRef.current = { content: trimmedContent, clientMessageId };
@@ -235,18 +279,45 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
   const resetChat = useCallback(() => {
     setMessages([]);
     sessionIdRef.current = null;
+    activeTurnIdRef.current = null;
     setSessionId(null);
     setIsThinking(false);
+    setIsCancelling(false);
+    setProgressLabel(null);
     setChatError(null);
   }, []);
+
+  const cancelMessage = useCallback((): boolean => {
+    if (!sessionIdRef.current) {
+      setChatError('No active chat session to stop');
+      return false;
+    }
+    const sent = send(
+      JSON.stringify({
+        action: 'cancel_message',
+        session_id: sessionIdRef.current,
+        ...(activeTurnIdRef.current ? { turn_id: activeTurnIdRef.current } : {}),
+      })
+    );
+    if (!sent) {
+      setChatError('Unable to stop the message right now');
+      return false;
+    }
+    setIsCancelling(true);
+    setProgressLabel('Stopping...');
+    return true;
+  }, [send]);
 
   return {
     messages,
     sessionId,
     isConnected,
     isThinking,
+    isCancelling,
+    progressLabel,
     error: chatError || wsError,
     sendMessage,
+    cancelMessage,
     resetChat,
   };
 }

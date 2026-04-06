@@ -9,6 +9,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -223,13 +229,48 @@ function AssistantMeta({ message }: { message: DashboardChatMessage }) {
           <div className="space-y-2">
             {citationEntries.map(({ citation, key }) => (
               <div key={key} className="rounded-md border bg-slate-50 px-3 py-2">
-                <p className="text-xs font-medium text-slate-900">{citation.title}</p>
+                {citation.url ? (
+                  <a
+                    href={citation.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-medium text-slate-900 underline-offset-2 hover:underline"
+                  >
+                    {citation.title}
+                  </a>
+                ) : (
+                  <p className="text-xs font-medium text-slate-900">{citation.title}</p>
+                )}
                 <p className="mt-1 text-xs text-slate-600">{citation.snippet}</p>
               </div>
             ))}
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AssistantSqlDetails({ message }: { message: DashboardChatMessage }) {
+  const sql = typeof message.payload?.sql === 'string' ? message.payload.sql.trim() : '';
+  if (!sql) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4">
+      <Accordion type="single" collapsible className="rounded-md border bg-slate-50 px-3">
+        <AccordionItem value={`sql-${message.id}`} className="border-b-0">
+          <AccordionTrigger className="py-3 text-xs uppercase tracking-wide text-slate-600 hover:no-underline">
+            View SQL
+          </AccordionTrigger>
+          <AccordionContent>
+            <pre className="overflow-x-auto rounded-md bg-slate-900 p-3 text-xs leading-5 text-slate-100">
+              <code>{sql}</code>
+            </pre>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }
@@ -241,7 +282,16 @@ export function DashboardChat({
   onOpenChange,
   enabled,
 }: DashboardChatProps) {
-  const { messages, isConnected, isThinking, error, sendMessage } = useDashboardChat({
+  const {
+    messages,
+    isConnected,
+    isThinking,
+    isCancelling,
+    progressLabel,
+    error,
+    sendMessage,
+    cancelMessage,
+  } = useDashboardChat({
     dashboardId,
     enabled,
   });
@@ -309,6 +359,7 @@ export function DashboardChat({
                         className="[&_p]:text-sm [&_p]:leading-6"
                       />
                       <AssistantResultsTable message={message} />
+                      <AssistantSqlDetails message={message} />
                       <AssistantMeta message={message} />
                     </>
                   ) : (
@@ -320,9 +371,18 @@ export function DashboardChat({
 
             {isThinking ? (
               <div className="flex justify-start">
-                <div className="inline-flex items-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                <div className="inline-flex items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
                   <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                  thinking
+                  <span>{progressLabel || 'Thinking'}</span>
+                  <Button
+                    type="button"
+                    variant="cancel"
+                    size="sm"
+                    onClick={cancelMessage}
+                    disabled={isCancelling}
+                  >
+                    Stop
+                  </Button>
                 </div>
               </div>
             ) : null}
