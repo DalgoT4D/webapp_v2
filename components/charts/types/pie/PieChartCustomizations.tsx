@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '../shared/NumberFormatSection';
 
 interface PieChartCustomizationsProps {
   customizations: Record<string, any>;
@@ -201,6 +203,20 @@ export function PieChartCustomizations({
             </div>
           </>
         )}
+      </div>
+
+      {/* Number Formatting */}
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium">Number Formatting</h4>
+
+        <NumberFormatSection
+          idPrefix="pie"
+          numberFormat={customizations.numberFormat as NumberFormat}
+          decimalPlaces={customizations.decimalPlaces}
+          onNumberFormatChange={(value) => updateCustomization('numberFormat', value)}
+          onDecimalPlacesChange={(value) => updateCustomization('decimalPlaces', value)}
+          disabled={disabled}
+        />
       </div>
     </div>
   );

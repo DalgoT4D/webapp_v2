@@ -53,7 +53,6 @@ interface NavItemType {
 const PRODUCTION_HIDDEN_ITEMS = [
   // Add menu item titles to hide in production
   'Metrics',
-  'Reports',
   'Alerts',
 ];
 // Function to filter menu items for production environment
@@ -144,6 +143,7 @@ const getNavItems = (
       href: '/reports',
       icon: FileText,
       isActive: currentPath.startsWith('/reports'),
+      hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
     },
     {
       title: 'Data',
@@ -682,7 +682,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       // Dashboard pages
       pathname === '/dashboards/create' ||
       pathname.match(/^\/dashboards\/[^\/]+\/edit$/) ||
-      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit'));
+      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit')) ||
+      // Report pages
+      pathname.match(/^\/reports\/[^\/]+$/);
 
     // Reset user toggle preference on page navigation
     setHasUserToggledSidebar(false);
