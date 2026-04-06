@@ -260,23 +260,32 @@ export function useDashboardChat({ dashboardId, enabled }: UseDashboardChatOptio
         return false;
       }
 
+      if (pendingMessageRef.current) {
+        setChatError('Wait for the current message to connect before sending another one');
+        return false;
+      }
+
       const clientMessageId = `client-${Date.now()}`;
       const createdAt = new Date().toISOString();
 
-      setMessages((previousMessages) => [
-        ...previousMessages,
-        { id: clientMessageId, role: 'user', content: trimmedContent, createdAt },
-      ]);
-      setChatError(null);
-
       const sent = send(buildPayload(trimmedContent, clientMessageId));
       if (sent) {
+        setMessages((previousMessages) => [
+          ...previousMessages,
+          { id: clientMessageId, role: 'user', content: trimmedContent, createdAt },
+        ]);
+        setChatError(null);
         setIsThinking(true);
         setIsCancelling(false);
         setProgressLabel('Understanding question');
       } else {
         // Socket not ready — queue for when connection opens
         pendingMessageRef.current = { content: trimmedContent, clientMessageId };
+        setMessages((previousMessages) => [
+          ...previousMessages,
+          { id: clientMessageId, role: 'user', content: trimmedContent, createdAt },
+        ]);
+        setChatError(null);
       }
       return true;
     },

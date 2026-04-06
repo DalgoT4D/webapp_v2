@@ -127,4 +127,29 @@ describe('useDashboardChat', () => {
     expect(result.current.isCancelling).toBe(true);
     expect(result.current.progressLabel).toBe('Stopping...');
   });
+
+  it('does not queue a second user message while the first is still pending connection', () => {
+    mockSend.mockReturnValue(false);
+
+    const { result } = renderHook(() => useDashboardChat({ dashboardId: 6, enabled: true }));
+
+    let firstSendAccepted = false;
+    let secondSendAccepted = false;
+
+    act(() => {
+      firstSendAccepted = result.current.sendMessage('First question');
+    });
+
+    act(() => {
+      secondSendAccepted = result.current.sendMessage('Second question');
+    });
+
+    expect(firstSendAccepted).toBe(true);
+    expect(secondSendAccepted).toBe(false);
+    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages[0].content).toBe('First question');
+    expect(result.current.error).toBe(
+      'Wait for the current message to connect before sending another one'
+    );
+  });
 });

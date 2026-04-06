@@ -34,8 +34,8 @@ describe('DashboardChat', () => {
       bootstrap: {
         dashboard_id: 6,
         suggested_prompts: [
-          'How have outcomes changed by quarter?',
-          'Which districts have the highest literacy efficiency?',
+          'How did outcomes change by quarter?',
+          'How does literacy efficiency compare across districts?',
           'What does the "Total Facilitators" metric represent?',
         ],
       },
@@ -81,7 +81,7 @@ describe('DashboardChat', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'How have outcomes changed by quarter?' })
+      screen.getByRole('button', { name: 'How did outcomes change by quarter?' })
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Stop generating' }));
@@ -180,9 +180,9 @@ describe('DashboardChat', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'How have outcomes changed by quarter?' }));
+    await user.click(screen.getByRole('button', { name: 'How did outcomes change by quarter?' }));
 
-    expect(sendMessage).toHaveBeenCalledWith('How have outcomes changed by quarter?');
+    expect(sendMessage).toHaveBeenCalledWith('How did outcomes change by quarter?');
   });
 
   it('renders locked thumbs feedback on assistant messages', async () => {
