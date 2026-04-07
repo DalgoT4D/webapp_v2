@@ -25,11 +25,11 @@ export function UITransformTab({ onGitConnected, gitConnected }: UITransformTabP
           <Link href="/transform/canvas">
             <Button
               variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs"
+              className="text-white hover:text-white hover:opacity-90 shadow-xs"
               style={{ backgroundColor: 'var(--primary)' }}
               data-testid="edit-workflow-btn"
             >
-              Edit Workflow
+              EDIT WORKFLOW
             </Button>
           </Link>
         </CardHeader>

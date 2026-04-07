@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, MoreHorizontal, Play, Settings, Trash2, Lock, Clock } from 'lucide-react';
+import { Loader2, MoreHorizontal, Play, Plus, Settings, Trash2, Lock, Clock } from 'lucide-react';
 import {
   usePrefectTasks,
   runPrefectDeployment,
@@ -52,9 +52,11 @@ import { timeAgo } from '../utils';
 
 interface DBTTaskListProps {
   isAnyTaskLocked: boolean;
+  onNewTask: () => void;
+  canCreateTask: boolean;
 }
 
-export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
+export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTaskListProps) {
   const { data: tasks, mutate } = usePrefectTasks();
   const { hasPermission } = useUserPermissions();
   const [runningTask, setRunningTask] = useState<string | null>(null);
@@ -251,18 +253,32 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
   return (
     <>
       <Card data-testid="dbt-task-list">
-        <CardHeader>
-          <CardTitle>DBT Actions</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Execute and manage your DBT transformation tasks
-          </p>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>DBT Actions</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Execute and manage your DBT transformation tasks
+            </p>
+          </div>
+          <Button
+            onClick={onNewTask}
+            size="sm"
+            variant="ghost"
+            disabled={!canCreateTask}
+            data-testid="new-task-btn"
+            className="text-white hover:text-white hover:opacity-90 shadow-xs"
+            style={{ backgroundColor: 'var(--primary)' }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            NEW TASK
+          </Button>
         </CardHeader>
         <CardContent>
           {filteredTasks.length === 0 ? (
             <div className="text-center py-12 space-y-2">
               <p className="text-muted-foreground">No DBT tasks configured</p>
               <p className="text-sm text-muted-foreground">
-                Click &quot;New Task&quot; to create your first transformation task
+                Click &quot;NEW TASK&quot; to create your first transformation task
               </p>
             </div>
           ) : (
@@ -270,22 +286,22 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="text-base font-medium">Label</TableHead>
-                    <TableHead className="text-base font-medium">Command</TableHead>
-                    <TableHead className="text-base font-medium text-right">Actions</TableHead>
+                    <TableHead className="text-base font-medium pl-4">Label</TableHead>
+                    <TableHead className="text-base font-medium pl-4">Command</TableHead>
+                    <TableHead className="text-base font-medium text-right pr-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTasks.map((task) => (
                     <Fragment key={task.uuid}>
                       <TableRow data-testid={`task-${task.uuid}`} className="hover:bg-gray-50/50">
-                        <TableCell className="py-4 font-medium text-base text-gray-900">
+                        <TableCell className="py-4 pl-4 font-medium text-base text-gray-900">
                           {task.label}
                         </TableCell>
-                        <TableCell className="py-4 text-base text-gray-700">
+                        <TableCell className="py-4 pl-4 text-base text-gray-700">
                           {task.command}
                         </TableCell>
-                        <TableCell className="py-4">
+                        <TableCell className="py-4 pr-4">
                           <div className="flex items-center justify-end gap-3">
                             {/* Show "Triggered by" when task is locked */}
                             {task.lock && isAnyTaskLocked && (
@@ -315,7 +331,7 @@ export function DBTTaskList({ isAnyTaskLocked }: DBTTaskListProps) {
                               size="sm"
                               variant="ghost"
                               data-testid={`run-task-${task.uuid}`}
-                              className="text-white hover:opacity-90 shadow-xs min-w-[110px]"
+                              className="text-white hover:text-white hover:opacity-90 shadow-xs min-w-[110px]"
                               style={{ backgroundColor: 'var(--primary)' }}
                             >
                               {isTaskRunning(task) ? (

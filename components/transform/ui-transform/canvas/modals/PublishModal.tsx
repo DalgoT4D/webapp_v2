@@ -228,10 +228,10 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
             {publishing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Publishing...
+                PUBLISHING...
               </>
             ) : (
-              'Publish Changes'
+              'PUBLISH CHANGES'
             )}
           </Button>
         </DialogFooter>

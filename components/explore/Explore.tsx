@@ -140,7 +140,11 @@ export function Explore() {
               </div>
 
               <TabsContent value={ExploreTab.PREVIEW} className="flex-1 overflow-hidden m-0">
-                <PreviewPane schema={selectedTable.schema} table={selectedTable.table} />
+                <PreviewPane
+                  schema={selectedTable.schema}
+                  table={selectedTable.table}
+                  defaultPageSize={25}
+                />
               </TabsContent>
 
               {showStatisticsTab && (

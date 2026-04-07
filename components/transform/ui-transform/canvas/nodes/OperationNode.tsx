@@ -22,8 +22,13 @@ type OperationNodeProps = NodeProps<CanvasNodeRenderData>;
 function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodeProps) {
   const edges = useEdges();
   const selectedNode = useSelectedNode();
-  const { setSelectedNode, dispatchCanvasAction, openOperationPanel, clearPreviewAction } =
-    useTransformStore();
+  const {
+    setSelectedNode,
+    dispatchCanvasAction,
+    openOperationPanel,
+    clearPreviewAction,
+    canInteractWithCanvas,
+  } = useTransformStore();
   const { hasPermission } = useUserPermissions();
 
   const operationType = data?.operation_config?.type || 'unknown';
@@ -87,7 +92,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
   return (
     <div
       data-testid={`operation-node-${id}`}
-      className="cursor-pointer relative"
+      className={`${canInteractWithCanvas() ? 'cursor-grab' : 'cursor-pointer'} relative`}
       style={{
         border: isSelected ? '2px dotted #000' : 'none',
         borderRadius: 5,

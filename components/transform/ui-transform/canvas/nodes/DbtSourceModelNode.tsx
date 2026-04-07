@@ -27,6 +27,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     setPreviewData,
     clearPreviewAction,
     openOperationPanel,
+    canInteractWithCanvas,
   } = useTransformStore();
   const { hasPermission } = useUserPermissions();
 
@@ -155,7 +156,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
         border: selected || data?.isDummy ? '2px dotted #000' : 'none',
         borderRadius: 5,
         padding: selected || data?.isDummy ? 0 : 2,
-        cursor: 'pointer',
+        cursor: canInteractWithCanvas() ? 'grab' : 'pointer',
       }}
       onClick={handleNodeClick}
     >

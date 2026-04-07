@@ -50,12 +50,19 @@ interface PreviewPaneProps {
   table: string;
   /** When provided, uses explicit pixel heights instead of flex layout */
   containerHeight?: number;
+  /** Override the default page size (defaults to DEFAULT_PAGE_SIZE from constants) */
+  defaultPageSize?: number;
 }
 
 // Threshold for showing "click to view" dialog instead of tooltip
 const LONG_CELL_THRESHOLD = 200;
 
-export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps) {
+export function PreviewPane({
+  schema,
+  table,
+  containerHeight,
+  defaultPageSize = DEFAULT_PAGE_SIZE,
+}: PreviewPaneProps) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     column: null,
@@ -63,13 +70,13 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
   });
   const [pagination, setPagination] = useState<PaginationConfig>({
     page: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
+    pageSize: defaultPageSize,
   });
   const [downloading, setDownloading] = useState(false);
 
   // Reset pagination when table changes
   useEffect(() => {
-    setPagination({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+    setPagination({ page: 1, pageSize: defaultPageSize });
     setSortConfig({ column: null, order: 1 });
   }, [schema, table]);
 
@@ -210,7 +217,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
             <TableRow
               key={rowIdx}
               data-testid={`data-row-${rowIdx}`}
-              className="hover:bg-gray-50/50"
+              className="hover:bg-gray-50/50 border-b-0"
             >
               {columns?.map((col, i) => {
                 const cellValue =
@@ -218,7 +225,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
                     ? typeof row[col.name] === 'object'
                       ? JSON.stringify(row[col.name])
                       : String(row[col.name])
-                    : '';
+                    : 'NULL';
                 const isLong = cellValue.length > LONG_CELL_THRESHOLD;
                 const isMedium = cellValue.length > 30;
                 return (

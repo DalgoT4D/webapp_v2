@@ -33,7 +33,7 @@ export function CreateTableOrAddFunction({
         data-testid="create-table-btn"
       >
         <Table className="w-5 h-5 text-teal-600" />
-        Create a table
+        CREATE A TABLE
       </Button>
 
       {showAddFunction && (
@@ -45,7 +45,7 @@ export function CreateTableOrAddFunction({
           data-testid="add-function-btn"
         >
           <Plus className="w-5 h-5 text-teal-600" />
-          Add function
+          ADD FUNCTION
         </Button>
       )}
     </div>

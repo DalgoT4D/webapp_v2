@@ -97,6 +97,8 @@ export default function CanvasHeader({
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
         </button>
+        <span className="text-gray-300">|</span>
+        <span className="text-lg font-semibold text-gray-700">Workflow</span>
         {gitRepoUrl && (
           <>
             <span className="text-gray-300">|</span>
@@ -114,9 +116,6 @@ export default function CanvasHeader({
         )}
       </div>
 
-      {/* Center - Title */}
-      <span className="text-lg font-semibold text-gray-700">Workflow</span>
-
       {/* Right side - Actions */}
       <div className="flex items-center gap-2">
         {/* Run Button with Dropdown */}
@@ -126,12 +125,12 @@ export default function CanvasHeader({
               variant="default"
               size="sm"
               disabled={runDisabled}
-              className="text-white hover:opacity-90 shadow-xs"
+              className="text-white hover:text-white hover:opacity-90 shadow-xs"
               style={{ backgroundColor: 'var(--primary)' }}
               data-testid="run-button"
             >
               <Play className="w-4 h-4 mr-1" />
-              Run
+              RUN
               <ChevronDown className="w-4 h-4 ml-1" />
             </Button>
           </DropdownMenuTrigger>
@@ -162,12 +161,12 @@ export default function CanvasHeader({
           size="sm"
           disabled={publishDisabled}
           onClick={handlePublish}
-          className="text-white hover:opacity-90 shadow-xs"
+          className="text-white hover:text-white hover:opacity-90 shadow-xs"
           style={{ backgroundColor: 'var(--primary)' }}
           data-testid="publish-button"
         >
           <Upload className="w-4 h-4 mr-1" />
-          Publish
+          PUBLISH
         </Button>
       </div>
     </div>

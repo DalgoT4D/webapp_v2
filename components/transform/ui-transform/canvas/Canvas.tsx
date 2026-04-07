@@ -19,6 +19,7 @@ import ReactFlow, {
 } from 'reactflow';
 import dagre from 'dagre';
 import { RefreshCw } from 'lucide-react';
+import 'reactflow/dist/style.css';
 
 import DbtSourceModelNode from './nodes/DbtSourceModelNode';
 import OperationNode from './nodes/OperationNode';
@@ -360,10 +361,10 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={canEdit ? onNodesChange : undefined}
+        onNodesChange={onNodesChange}
         onEdgesChange={canEdit ? onEdgesChange : undefined}
         onConnect={canEdit ? handleConnect : undefined}
-        onPaneClick={canEdit ? handlePaneClick : undefined}
+        onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         deleteKeyCode={null}
@@ -375,15 +376,15 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
         onNodeDragStop={canEdit ? handleNodeDragStop : undefined}
         nodesDraggable={canEdit}
         nodesConnectable={canEdit}
-        elementsSelectable={canEdit}
+        elementsSelectable
         zoomOnDoubleClick={canEdit}
         panOnDrag
         zoomOnScroll
         zoomOnPinch
         proOptions={{ hideAttribution: true }}
       >
-        <Controls showInteractive={false} className="!bottom-4 !left-4">
-          {!isPreviewMode && (
+        {!isPreviewMode && (
+          <Controls showInteractive={false} className="!bottom-4 !left-4">
             <ControlButton
               onClick={handleRefreshCanvas}
               title="Refresh canvas"
@@ -391,8 +392,8 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </ControlButton>
-          )}
-        </Controls>
+          </Controls>
+        )}
         <Background color="#e0e0e0" gap={20} />
       </ReactFlow>
 
