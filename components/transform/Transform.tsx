@@ -148,7 +148,7 @@ export default function Transform() {
               onClick={setupUnifiedWorkspace}
               disabled={setupLoading}
               variant="ghost"
-              className="text-white hover:text-white hover:opacity-90 shadow-xs"
+              className="text-white hover:opacity-90 shadow-xs"
               style={{ backgroundColor: 'var(--primary)' }}
               data-testid="transform-setup-retry-btn"
             >

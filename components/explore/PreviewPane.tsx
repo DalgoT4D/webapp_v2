@@ -2,14 +2,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -19,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { OverflowTooltip } from './OverflowTooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Download,
@@ -160,7 +153,7 @@ export function PreviewPane({
   );
 
   const tableContent = (
-    <Table>
+    <table className="w-full caption-bottom text-sm">
       <TableHeader className="sticky top-0 z-10">
         <TableRow className="hover:bg-[#F5FAFA]" style={{ backgroundColor: '#F5FAFA' }}>
           {isLoading
@@ -227,7 +220,6 @@ export function PreviewPane({
                       : String(row[col.name])
                     : 'NULL';
                 const isLong = cellValue.length > LONG_CELL_THRESHOLD;
-                const isMedium = cellValue.length > 30;
                 return (
                   <TableCell
                     key={col.name}
@@ -244,20 +236,12 @@ export function PreviewPane({
                       >
                         {cellValue}
                       </span>
-                    ) : isMedium ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="block truncate cursor-default">{cellValue}</span>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="bottom"
-                          className="max-w-sm break-words whitespace-pre-wrap text-xs"
-                        >
-                          {cellValue}
-                        </TooltipContent>
-                      </Tooltip>
                     ) : (
-                      <span className="block truncate">{cellValue}</span>
+                      <OverflowTooltip
+                        text={cellValue}
+                        className="cursor-default"
+                        tooltipSide="bottom"
+                      />
                     )}
                   </TableCell>
                 );
@@ -275,7 +259,7 @@ export function PreviewPane({
           </TableRow>
         )}
       </TableBody>
-    </Table>
+    </table>
   );
 
   const paginationContent = (

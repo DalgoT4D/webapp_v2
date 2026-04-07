@@ -122,10 +122,10 @@ export default function CanvasHeader({
         <DropdownMenu open={runMenuOpen} onOpenChange={setRunMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="default"
+              variant="ghost"
               size="sm"
               disabled={runDisabled}
-              className="text-white hover:text-white hover:opacity-90 shadow-xs"
+              className="text-white hover:opacity-90 shadow-xs"
               style={{ backgroundColor: 'var(--primary)' }}
               data-testid="run-button"
             >
@@ -157,11 +157,11 @@ export default function CanvasHeader({
 
         {/* Publish Button */}
         <Button
-          variant="default"
+          variant="ghost"
           size="sm"
           disabled={publishDisabled}
           onClick={handlePublish}
-          className="text-white hover:text-white hover:opacity-90 shadow-xs"
+          className="text-white hover:opacity-90 shadow-xs"
           style={{ backgroundColor: 'var(--primary)' }}
           data-testid="publish-button"
         >

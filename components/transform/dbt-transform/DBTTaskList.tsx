@@ -266,7 +266,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
             variant="ghost"
             disabled={!canCreateTask}
             data-testid="new-task-btn"
-            className="text-white hover:text-white hover:opacity-90 shadow-xs"
+            className="text-white hover:opacity-90 shadow-xs"
             style={{ backgroundColor: 'var(--primary)' }}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -331,7 +331,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                               size="sm"
                               variant="ghost"
                               data-testid={`run-task-${task.uuid}`}
-                              className="text-white hover:text-white hover:opacity-90 shadow-xs min-w-[110px]"
+                              className="text-white hover:opacity-90 shadow-xs min-w-[110px]"
                               style={{ backgroundColor: 'var(--primary)' }}
                             >
                               {isTaskRunning(task) ? (

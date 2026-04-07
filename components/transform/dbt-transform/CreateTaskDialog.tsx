@@ -309,7 +309,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
                 disabled={loading}
                 data-testid="save-task-btn"
                 variant="ghost"
-                className="text-white hover:text-white hover:opacity-90 shadow-xs"
+                className="text-white hover:opacity-90 shadow-xs"
                 style={{ backgroundColor: 'var(--primary)' }}
               >
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

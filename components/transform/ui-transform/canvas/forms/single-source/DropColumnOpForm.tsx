@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
 import { toastError } from '@/lib/toast';
-import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { cn } from '@/lib/utils';
 import { DROP_COLUMNS_OP } from '@/constants/transform';
@@ -22,7 +21,6 @@ export function DropColumnOpForm({
   node,
   operation,
   continueOperationChain,
-  clearAndClosePanel,
   action,
   setLoading,
 }: OperationFormProps) {
@@ -130,7 +128,7 @@ export function DropColumnOpForm({
       )}
 
       {/* Column List */}
-      <div className="border rounded-md max-h-80 overflow-y-auto" data-testid="drop-column-list">
+      <div className="border rounded-md overflow-y-auto" data-testid="drop-column-list">
         {filteredColumns.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
             {searchTerm ? 'No matching columns' : 'No columns available'}
@@ -163,17 +161,21 @@ export function DropColumnOpForm({
         )}
       </div>
 
-      {/* Warning */}
-      <p className="text-xs text-muted-foreground">
-        Selected columns will be removed from the output table.
-      </p>
-
       {/* Actions */}
-      <FormActions
-        isViewMode={isViewMode}
-        isSubmitting={isSubmitting}
-        onCancel={clearAndClosePanel}
-      />
+      {!isViewMode && (
+        <div className="sticky bottom-0 bg-white pt-2 pb-2">
+          <Button
+            type="submit"
+            variant="ghost"
+            disabled={isSubmitting}
+            className="w-full text-white hover:opacity-90"
+            style={{ backgroundColor: 'var(--primary)' }}
+            data-testid="savebutton"
+          >
+            Save
+          </Button>
+        </div>
+      )}
     </form>
   );
 }
