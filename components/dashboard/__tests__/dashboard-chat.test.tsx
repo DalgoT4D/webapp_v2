@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DashboardChat } from '@/components/dashboard/dashboard-chat';
 
@@ -11,19 +11,6 @@ jest.mock('@/hooks/api/useDashboardChat', () => ({
 
 jest.mock('@/hooks/api/useDashboardAIChat', () => ({
   useDashboardChatBootstrap: (args: unknown) => mockUseDashboardChatBootstrap(args),
-}));
-
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (
-    selector: (state: {
-      selectedOrgSlug: string;
-      orgUsers: Array<{ org: { slug: string }; first_name?: string | null }>;
-    }) => unknown
-  ) =>
-    selector({
-      selectedOrgSlug: 'acme',
-      orgUsers: [{ org: { slug: 'acme' }, first_name: 'Pratiksha' }],
-    }),
 }));
 
 describe('DashboardChat', () => {
@@ -76,10 +63,9 @@ describe('DashboardChat', () => {
 
     expect(screen.getByText('Querying data from analytics.sessions')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Hi Pratiksha, I'm Dalgo AI. I can help you understand the data on this dashboard."
-      )
+      screen.getByText("Hi, I'm Dalgo AI. I can help you understand the data on this dashboard.")
     ).toBeInTheDocument();
+    expect(screen.queryByText('Connected')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'How did outcomes change by quarter?' })
     ).toBeInTheDocument();
@@ -183,6 +169,37 @@ describe('DashboardChat', () => {
     await user.click(screen.getByRole('button', { name: 'How did outcomes change by quarter?' }));
 
     expect(sendMessage).toHaveBeenCalledWith('How did outcomes change by quarter?');
+  });
+
+  it('focuses the input when the sidebar opens in an idle state', async () => {
+    mockUseDashboardChat.mockReturnValue({
+      messages: [],
+      sessionId: null,
+      isConnected: true,
+      isThinking: false,
+      isCancelling: false,
+      progressLabel: null,
+      error: null,
+      sendMessage: jest.fn(),
+      cancelMessage: jest.fn(),
+      submitFeedback: jest.fn(),
+      feedbackSubmittingById: {},
+      resetChat: jest.fn(),
+    });
+
+    render(
+      <DashboardChat
+        dashboardId={6}
+        dashboardTitle="Impact Overview"
+        open={true}
+        onOpenChange={jest.fn()}
+        enabled={true}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Ask a question about this dashboard...')).toHaveFocus()
+    );
   });
 
   it('renders locked thumbs feedback on assistant messages', async () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, Loader2, Send, Sparkles, Square, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Loader2, Send, Square, ThumbsDown, ThumbsUp } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -17,10 +17,8 @@ import {
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { MarkdownContent } from '@/components/ui/markdown-content';
 import { useDashboardChat, type DashboardChatMessage } from '@/hooks/api/useDashboardChat';
-import { useAuthStore } from '@/stores/authStore';
 import { useDashboardChatBootstrap } from '@/hooks/api/useDashboardAIChat';
 
 interface DashboardChatProps {
@@ -295,7 +293,7 @@ function AssistantFeedback({
 
   const getFeedbackButtonClassName = (feedback: 'thumbs_up' | 'thumbs_down', selected: boolean) => {
     if (selected) {
-      return 'cursor-default border-slate-900 bg-slate-900 text-white hover:bg-slate-900 hover:text-white';
+      return 'cursor-default border-teal-600 bg-teal-600 text-white hover:bg-teal-600 hover:text-white';
     }
     if (isLocked) {
       return 'cursor-default border-slate-200 bg-white text-slate-300 hover:bg-white hover:text-slate-300';
@@ -374,11 +372,6 @@ export function DashboardChat({
   });
   const [draftMessage, setDraftMessage] = useState('');
   const [sessionSuggestedPrompts, setSessionSuggestedPrompts] = useState<string[]>([]);
-  const currentUserFirstName = useAuthStore((state) => {
-    const currentOrgUser =
-      state.orgUsers.find((orgUser) => orgUser.org.slug === state.selectedOrgSlug) || null;
-    return currentOrgUser?.first_name?.trim() || null;
-  });
 
   const hasMessages = messages.length > 0;
   const { bootstrap, isLoading: isLoadingBootstrap } = useDashboardChatBootstrap(
@@ -389,9 +382,7 @@ export function DashboardChat({
     () => draftMessage.trim().length > 0 && !isThinking,
     [draftMessage, isThinking]
   );
-  const openingMessage = currentUserFirstName
-    ? `Hi ${currentUserFirstName}, I'm Dalgo AI. I can help you understand the data on this dashboard.`
-    : "Hi, I'm Dalgo AI. I can help you understand the data on this dashboard.";
+  const openingMessage = "Hi, I'm Dalgo AI. I can help you understand the data on this dashboard.";
 
   useEffect(() => {
     if (!open || hasMessages) {
@@ -405,6 +396,24 @@ export function DashboardChat({
     }
     setSessionSuggestedPrompts(bootstrap.suggested_prompts);
   }, [bootstrap, hasMessages, open, sessionSuggestedPrompts.length]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const inputElement = document.getElementById('dashboard-chat-input');
+      if (!(inputElement instanceof HTMLInputElement)) {
+        return;
+      }
+      inputElement.focus();
+      const caretPosition = inputElement.value.length;
+      inputElement.setSelectionRange(caretPosition, caretPosition);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open]);
 
   const handleSend = () => {
     if (!canSend) {
@@ -426,45 +435,39 @@ export function DashboardChat({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex h-full w-full flex-col p-0 sm:max-w-xl">
+      <SheetContent
+        side="right"
+        overlayClassName="bg-transparent shadow-[inset_0_0_120px_rgba(15,23,42,0.08)]"
+        className="flex h-full w-full flex-col p-0 shadow-2xl shadow-slate-900/12 sm:max-w-xl"
+      >
         <SheetHeader className="border-b px-6 py-4">
-          <SheetTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-blue-600" />
-            Dalgo AI
-          </SheetTitle>
+          <SheetTitle>Dalgo AI</SheetTitle>
           <SheetDescription>{dashboardTitle}</SheetDescription>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4">
           <div className="space-y-4 py-4">
             {!hasMessages ? (
-              <div className="rounded-2xl border border-blue-100 bg-linear-to-br from-blue-50 to-white p-5 text-sm text-slate-600">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full bg-white p-2 text-blue-600 shadow-sm ring-1 ring-blue-100">
-                    <Sparkles className="h-4 w-4" />
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                <p className="text-sm leading-6 text-slate-700">{openingMessage}</p>
+                {sessionSuggestedPrompts.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {sessionSuggestedPrompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => handleSuggestedPromptClick(prompt)}
+                        disabled={isThinking}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 shadow-xs transition hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-6 text-slate-700">{openingMessage}</p>
-                    {sessionSuggestedPrompts.length > 0 ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {sessionSuggestedPrompts.map((prompt) => (
-                          <button
-                            key={prompt}
-                            type="button"
-                            onClick={() => handleSuggestedPromptClick(prompt)}
-                            disabled={isThinking}
-                            className="rounded-full border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 shadow-xs transition hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {prompt}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                    {isLoadingBootstrap && sessionSuggestedPrompts.length === 0 ? (
-                      <p className="mt-4 text-xs text-slate-500">Loading suggested questions…</p>
-                    ) : null}
-                  </div>
-                </div>
+                ) : null}
+                {isLoadingBootstrap && sessionSuggestedPrompts.length === 0 ? (
+                  <p className="mt-4 text-xs text-slate-500">Loading suggested questions…</p>
+                ) : null}
               </div>
             ) : null}
 
@@ -476,7 +479,7 @@ export function DashboardChat({
                 <div
                   className={
                     message.role === 'user'
-                      ? 'max-w-[85%] rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white'
+                      ? 'max-w-[85%] rounded-2xl bg-teal-600 px-4 py-3 text-sm text-white'
                       : 'max-w-[90%] rounded-2xl border bg-white px-4 py-3 text-sm text-slate-900 shadow-sm'
                   }
                 >
@@ -507,17 +510,6 @@ export function DashboardChat({
                 <div className="inline-flex max-w-[90%] items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
                   <span>{progressLabel || 'Thinking'}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={cancelMessage}
-                    disabled={isCancelling}
-                    aria-label={isCancelling ? 'Stopping generation' : 'Stop generating'}
-                    className="h-6 w-6 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700"
-                  >
-                    <Square className="h-3 w-3 fill-current" />
-                  </Button>
                 </div>
               </div>
             ) : null}
@@ -531,14 +523,12 @@ export function DashboardChat({
         </div>
 
         <div className="border-t p-4">
-          <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
-            <Badge variant={isConnected ? 'default' : 'secondary'}>
-              {isConnected ? 'Connected' : 'Connecting'}
-            </Badge>
-            <span>Answers are grounded in the latest scheduled dashboard context build.</span>
+          <div className="mb-3 text-xs text-slate-500">
+            Answers use the latest available Dalgo AI context refresh.
           </div>
           <div className="flex items-center gap-2">
             <Input
+              id="dashboard-chat-input"
               value={draftMessage}
               onChange={(event) => setDraftMessage(event.target.value)}
               onKeyDown={(event) => {
@@ -550,9 +540,20 @@ export function DashboardChat({
               placeholder="Ask a question about this dashboard..."
               disabled={isThinking}
             />
-            <Button onClick={handleSend} disabled={!canSend}>
-              <Send className="h-4 w-4" />
-            </Button>
+            {isThinking ? (
+              <Button
+                type="button"
+                onClick={cancelMessage}
+                disabled={isCancelling}
+                aria-label={isCancelling ? 'Stopping generation' : 'Stop generating'}
+              >
+                <Square className="h-4 w-4 fill-current" />
+              </Button>
+            ) : (
+              <Button onClick={handleSend} disabled={!canSend || !isConnected}>
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </SheetContent>

@@ -14,7 +14,6 @@ export interface Permission {
 
 export interface OrgUser {
   email: string;
-  first_name?: string | null;
   org: Org;
   active: boolean;
   new_role_slug: string;

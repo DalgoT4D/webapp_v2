@@ -71,8 +71,8 @@ function DashboardChatConsentDialog({
         <DialogHeader>
           <DialogTitle>Enable Chat with Dashboards</DialogTitle>
           <DialogDescription>
-            Turning this on allows Dalgo to send dashboard context, dbt metadata, and relevant
-            warehouse-derived information to OpenAI in order to generate answers.
+            Turning this on allows Dalgo AI to use dashboard context, saved AI context, and relevant
+            warehouse information to answer questions.
           </DialogDescription>
         </DialogHeader>
 
@@ -81,10 +81,7 @@ function DashboardChatConsentDialog({
             Use this only if your organization approves sharing data with external AI services for
             dashboard question answering.
           </p>
-          <p>
-            Saved context changes will not appear instantly. They are picked up on the next
-            scheduled context build.
-          </p>
+          <p>Saved context changes appear in Dalgo AI after the next context refresh.</p>
         </div>
 
         <DialogFooter>
@@ -287,7 +284,6 @@ export default function OrganizationSettings() {
         <DashboardChatConsentCard
           aiDataSharingEnabled={settings.ai_data_sharing_enabled}
           aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
-          docsGeneratedAt={formatTimestamp(settings.docs_generated_at)}
           vectorLastIngestedAt={formatTimestamp(settings.vector_last_ingested_at)}
           isUpdatingConsent={isUpdatingConsent}
           onConsentChange={handleConsentChange}
