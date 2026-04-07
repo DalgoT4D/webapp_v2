@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { parseStringForNull } from '../shared/OperandInput';
-import type { OperationFormProps, GenericColDataConfig } from '@/types/transform';
+import { parseStringForNull } from '../shared/utils';
+import { GENERIC_COL_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';
@@ -42,15 +43,25 @@ export function GenericColumnOpForm({
     node,
     action,
     operation,
+    opType: GENERIC_COL_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
   });
 
-  const { control, handleSubmit, watch, register, setValue } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    register,
+    setValue,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GenericColDataConfig;
+        const config = getTypedConfig(GENERIC_COL_OP, node.data.operation_config);
         if (config?.computed_columns && config.computed_columns.length > 0) {
           const computed = config.computed_columns[0];
           return {
@@ -80,19 +91,32 @@ export function GenericColumnOpForm({
   const watchedOperands = watch('operands');
 
   const onSubmit = async (data: FormValues) => {
-    if (!data.function_name) {
-      toastError.api('Function name is required');
-      return;
+    let hasErrors = false;
+
+    // Validate individual operand fields (cross-field: depends on type)
+    data.operands.forEach((op, index) => {
+      if (op.type === 'col' && !op.col_val) {
+        setError(`operands.${index}.col_val` as `operands.${number}.col_val`, {
+          message: 'Column is required',
+        });
+        hasErrors = true;
+      }
+    });
+
+    // Validate minimum operand count
+    const validOperands = data.operands.filter((op) =>
+      op.type === 'col' ? op.col_val : op.const_val
+    );
+    if (validOperands.length < 1) {
+      setError('operands', { message: 'At least one operand is required' });
+      hasErrors = true;
     }
 
-    if (!data.output_column_name) {
-      toastError.api('Output column name is required');
-      return;
-    }
+    if (hasErrors) return;
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: GENERIC_COL_OP,
         config: {
           computed_columns: [
             {
@@ -117,11 +141,14 @@ export function GenericColumnOpForm({
       <div className="space-y-2">
         <Label>Function *</Label>
         <Input
-          {...register('function_name', { required: true })}
+          {...register('function_name', { required: 'Function name is required' })}
           placeholder="Enter SQL function name (e.g., CONCAT, UPPER, LOWER)"
           disabled={isViewMode}
           data-testid="generic-function-name"
         />
+        {errors.function_name && (
+          <p className="text-sm text-destructive">{errors.function_name.message}</p>
+        )}
       </div>
 
       {/* Operands */}
@@ -171,14 +198,24 @@ export function GenericColumnOpForm({
             />
 
             {watchedOperands[index]?.type === 'col' ? (
-              <ColumnSelect
-                value={watchedOperands[index]?.col_val || ''}
-                onChange={(value) => setValue(`operands.${index}.col_val`, value)}
-                columns={srcColumns}
-                placeholder="Select column"
-                disabled={isViewMode}
-                testId={`generic-col-${index}`}
-              />
+              <>
+                <ColumnSelect
+                  value={watchedOperands[index]?.col_val || ''}
+                  onChange={(value) => {
+                    setValue(`operands.${index}.col_val`, value);
+                    clearErrors(`operands.${index}.col_val` as `operands.${number}.col_val`);
+                  }}
+                  columns={srcColumns}
+                  placeholder="Select column"
+                  disabled={isViewMode}
+                  testId={`generic-col-${index}`}
+                />
+                {errors.operands?.[index]?.col_val && (
+                  <p className="text-sm text-destructive">
+                    {errors.operands[index].col_val.message}
+                  </p>
+                )}
+              </>
             ) : (
               <Input
                 {...register(`operands.${index}.const_val`)}
@@ -190,6 +227,10 @@ export function GenericColumnOpForm({
           </div>
         ))}
       </div>
+
+      {errors.operands && !Array.isArray(errors.operands) && errors.operands.message && (
+        <p className="text-sm text-destructive">{errors.operands.message}</p>
+      )}
 
       {/* Add Operand Button */}
       {!isViewMode && (
@@ -210,11 +251,14 @@ export function GenericColumnOpForm({
       <div className="space-y-2">
         <Label>Output Column Name *</Label>
         <Input
-          {...register('output_column_name', { required: true })}
+          {...register('output_column_name', { required: 'Output column name is required' })}
           placeholder="Enter output column name"
           disabled={isViewMode}
           data-testid="generic-output-name"
         />
+        {errors.output_column_name && (
+          <p className="text-sm text-destructive">{errors.output_column_name.message}</p>
+        )}
       </div>
 
       {/* Info */}

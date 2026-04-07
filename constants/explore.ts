@@ -46,9 +46,9 @@ export const EXPLORE_DIMENSIONS = {
   BAR_HEIGHT: 16,
 } as const;
 
-export const PAGE_SIZE_OPTIONS = [5, 10, 25, 100] as const;
+export const PAGE_SIZE_OPTIONS = [5, 10, 20, 25, 100] as const;
 
-export const DEFAULT_PAGE_SIZE = 10;
+export const DEFAULT_PAGE_SIZE = 20;
 
 export const POLLING_INTERVAL = 5000; // 5 seconds
 

@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { parseStringForNull } from '../shared/OperandInput';
-import type { OperationFormProps, ReplaceDataConfig } from '@/types/transform';
+import { parseStringForNull } from '../shared/utils';
+import { REPLACE_COLUMN_VALUE_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface ReplaceRow {
   find: string;
@@ -39,14 +40,24 @@ export function ReplaceValueOpForm({
     node,
     action,
     operation,
+    opType: REPLACE_COLUMN_VALUE_OP,
     continueOperationChain,
     setLoading,
   });
 
-  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    register,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as ReplaceDataConfig;
+        const config = getTypedConfig(REPLACE_COLUMN_VALUE_OP, node.data.operation_config);
         if (config?.columns && config.columns.length > 0) {
           const col = config.columns[0];
           const replacements = col.replace_ops.map((op) => ({
@@ -80,18 +91,22 @@ export function ReplaceValueOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
+    let hasErrors = false;
+
     if (!data.column) {
-      toastError.api('Please select a column');
-      return;
+      setError('column', { message: 'Please select a column' });
+      hasErrors = true;
     }
 
     // Filter out empty rows
     const validReplacements = data.replacements.filter((r) => r.find !== '' || r.replace !== '');
 
     if (validReplacements.length === 0) {
-      toastError.api('At least one replacement is required');
-      return;
+      setError('replacements', { message: 'At least one replacement is required' });
+      hasErrors = true;
     }
+
+    if (hasErrors) return;
 
     const replaceOps = validReplacements.map((r) => ({
       find: parseStringForNull(r.find),
@@ -100,7 +115,7 @@ export function ReplaceValueOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: REPLACE_COLUMN_VALUE_OP,
         config: {
           columns: [
             {
@@ -129,12 +144,16 @@ export function ReplaceValueOpForm({
         <Label>Select Column *</Label>
         <ColumnSelect
           value={selectedColumn}
-          onChange={(value) => setValue('column', value)}
+          onChange={(value) => {
+            setValue('column', value);
+            clearErrors('column');
+          }}
           columns={srcColumns}
           placeholder="Select column"
           disabled={isViewMode}
           testId="replace-column-select"
         />
+        {errors.column && <p className="text-sm text-destructive">{errors.column.message}</p>}
       </div>
 
       {/* Header */}
@@ -189,6 +208,10 @@ export function ReplaceValueOpForm({
           </div>
         ))}
       </div>
+
+      {errors.replacements && (
+        <p className="text-sm text-destructive">{errors.replacements.message}</p>
+      )}
 
       {/* Add Row Button */}
       {!isViewMode && (

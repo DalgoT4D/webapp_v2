@@ -6,6 +6,23 @@ import {
   CaseWhenType,
   JoinType,
   CanvasActionEnum,
+  RENAME_COLUMNS_OP,
+  DROP_COLUMNS_OP,
+  CAST_DATA_TYPES_OP,
+  REPLACE_COLUMN_VALUE_OP,
+  AGGREGATE_OP,
+  GROUPBY_OP,
+  ARITHMETIC_OP,
+  COALESCE_COLUMNS_OP,
+  JOIN_OP,
+  UNION_OP,
+  WHERE_OP,
+  CASEWHEN_OP,
+  PIVOT_OP,
+  UNPIVOT_OP,
+  FLATTEN_JSON_OP,
+  GENERIC_COL_OP,
+  GENERIC_SQL_OP,
 } from '@/constants/transform';
 import { TableType } from '@/constants/explore';
 import { TaskProgressStatus } from '@/constants/pipeline';
@@ -97,6 +114,7 @@ export interface DbtModelResponse {
   sql_path: string;
   output_cols: string[];
   uuid: string;
+  rel_dir_to_models?: string;
 }
 
 // ============================================
@@ -122,7 +140,7 @@ export interface CanvasAction {
 
 export interface OperationConfigResponseJson {
   type: string;
-  config: Record<string, unknown>;
+  config: AnyOperationConfig;
   [key: string]: unknown;
 }
 
@@ -246,12 +264,10 @@ export interface RenameDataConfig {
 export interface DropDataConfig {
   columns: string[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface CastDataConfig {
   source_columns: string[];
-  other_inputs: unknown[];
   columns: { columnname: string; columntype: string }[];
 }
 
@@ -262,7 +278,6 @@ export interface ReplaceOp {
 
 export interface ReplaceDataConfig {
   source_columns: string[];
-  other_inputs: unknown[];
   columns: {
     col_name: string;
     output_column_name: string;
@@ -279,14 +294,12 @@ export interface AggregateOn {
 export interface AggregateDataConfig {
   aggregate_on: AggregateOn[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface GroupbyDataConfig {
   aggregate_on: AggregateOn[];
   dimension_columns: string[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface ArithmeticOperand {
@@ -305,7 +318,6 @@ export interface CoalesceDataConfig {
   columns: string[];
   source_columns: string[];
   default_value: string;
-  other_inputs: unknown[];
   output_column_name: string;
 }
 
@@ -326,12 +338,10 @@ export interface JoinDataConfig {
     key2: string;
     compare_with: string;
   };
-  other_inputs: SecondaryInput[];
   source_columns: string[];
 }
 
 export interface UnionDataConfig {
-  other_inputs: SecondaryInput[];
   source_columns: string[];
 }
 
@@ -351,7 +361,6 @@ export interface WherefilterDataConfig {
   clauses: WhereClause[];
   sql_snippet: string;
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface WhenClause {
@@ -368,7 +377,6 @@ export interface CasewhenDataConfig {
   sql_snippet: string;
   output_column_name: string;
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface PivotDataConfig {
@@ -388,7 +396,6 @@ export interface UnpivotDataConfig {
 
 export interface FlattenJsonDataConfig {
   source_columns: string[];
-  other_inputs: unknown[];
   json_column: string;
   json_columns_to_copy: string[];
   source_schema: string;
@@ -403,15 +410,81 @@ export interface GenericCol {
 export interface GenericColDataConfig {
   computed_columns: GenericCol[];
   source_columns: string[];
-  other_inputs: unknown[];
 }
 
 export interface GenericSqlDataConfig {
   columns: string[];
   source_columns: string[];
   sql_statement_1: string;
-  other_inputs: unknown[];
   sql_statement_2: string;
+}
+
+// ============================================
+// DISCRIMINATED UNION FOR OPERATION CONFIGS
+// ============================================
+
+/**
+ * Maps each operation slug to its strongly-typed config.
+ * Used to narrow `operation_config.config` without unsafe casts.
+ */
+export interface OperationConfigMap {
+  [RENAME_COLUMNS_OP]: RenameDataConfig;
+  [DROP_COLUMNS_OP]: DropDataConfig;
+  [CAST_DATA_TYPES_OP]: CastDataConfig;
+  [REPLACE_COLUMN_VALUE_OP]: ReplaceDataConfig;
+  [AGGREGATE_OP]: AggregateDataConfig;
+  [GROUPBY_OP]: GroupbyDataConfig;
+  [ARITHMETIC_OP]: ArithmeticDataConfig;
+  [COALESCE_COLUMNS_OP]: CoalesceDataConfig;
+  [JOIN_OP]: JoinDataConfig;
+  [UNION_OP]: UnionDataConfig;
+  [WHERE_OP]: WherefilterDataConfig;
+  [CASEWHEN_OP]: CasewhenDataConfig;
+  [PIVOT_OP]: PivotDataConfig;
+  [UNPIVOT_OP]: UnpivotDataConfig;
+  [FLATTEN_JSON_OP]: FlattenJsonDataConfig;
+  [GENERIC_COL_OP]: GenericColDataConfig;
+  [GENERIC_SQL_OP]: GenericSqlDataConfig;
+}
+
+export type OperationSlug = keyof OperationConfigMap;
+export type AnyOperationConfig = OperationConfigMap[OperationSlug];
+
+/**
+ * Per-operation submit config map — strips source_columns from each config
+ * since source_columns is sent at the payload level, not inside config.
+ */
+export type OperationSubmitConfigMap = {
+  [K in OperationSlug]: Omit<OperationConfigMap[K], 'source_columns'>;
+};
+
+/**
+ * Outgoing config type — what forms submit (without source_columns,
+ * which is sent at the payload level, not inside config).
+ */
+export type OperationSubmitConfig = OperationSubmitConfigMap[OperationSlug];
+
+/**
+ * Type-safe operation payload — links op_type to its specific config shape.
+ * If you change the op_type, TypeScript will enforce the matching config.
+ */
+export interface TypedOperationPayload<T extends OperationSlug> {
+  op_type: T;
+  config: OperationSubmitConfigMap[T];
+  source_columns: string[];
+  other_inputs?: ModelSrcOtherInputPayload[];
+}
+
+/**
+ * Type-safe helper to narrow operation config by slug.
+ * Usage: const config = getTypedConfig<'arithmetic'>(node.data.operation_config);
+ */
+export function getTypedConfig<T extends OperationSlug>(
+  _slug: T,
+  operationConfig: OperationConfigResponseJson | undefined
+): OperationConfigMap[T] | undefined {
+  if (!operationConfig?.config) return undefined;
+  return operationConfig.config as OperationConfigMap[T];
 }
 
 // ============================================

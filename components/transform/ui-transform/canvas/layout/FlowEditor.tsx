@@ -1,12 +1,11 @@
 // components/transform/canvas/layout/FlowEditor.tsx
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { Resizable } from 'react-resizable';
 import Canvas from '../Canvas';
 import CanvasHeader from '../CanvasHeader';
-import CanvasMessages from '../CanvasMessages';
 import { ProjectTree } from '@/components/explore/ProjectTree';
 import { ProjectTreeMode } from '@/constants/explore';
 import { OperationConfigLayout } from '../panels/OperationConfigLayout';
@@ -62,6 +61,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     previewData,
     gitRepoUrl: storeGitRepoUrl,
     triggerRefresh,
+    setTempLockCanvas,
   } = useTransformStore();
 
   // Single shared workflow execution instance — logs, run state, and
@@ -129,11 +129,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     checkAndSync();
   }, [checkPatStatus, isPreview, mutate, openPatModal]);
 
-  // Read cached graph data to compute hasUnpublishedChanges
-  const hasUnpublishedChanges = useMemo(() => {
-    return graphData?.nodes?.some((node) => node.isPublished === false) ?? false;
-  }, [graphData?.nodes]);
-
   // Handle sidebar resize
   const handleSidebarResize = useCallback(
     (_e: React.SyntheticEvent, { size }: { size: { width: number } }) => {
@@ -198,15 +193,20 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   // 3. Re-fetch sources/models (left sidebar)
   // 4. Check for any running tasks and resume polling if found
   const handleRefreshCanvas = useCallback(async () => {
-    await Promise.all([mutate(CANVAS_GRAPH_KEY), refreshSources()]);
-    // Bump refreshTrigger so every node re-fetches its table_columns
-    triggerRefresh();
-    const runningTaskId = await checkRunningTasks();
-    if (runningTaskId) {
-      await resumePolling(runningTaskId);
+    setTempLockCanvas(true);
+    try {
+      await Promise.all([mutate(CANVAS_GRAPH_KEY), refreshSources()]);
+      // Bump refreshTrigger so every node re-fetches its table_columns
+      triggerRefresh();
+      const runningTaskId = await checkRunningTasks();
+      if (runningTaskId) {
+        await resumePolling(runningTaskId);
+      }
+      toastSuccess.generic('Graph has been refreshed');
+    } finally {
+      setTempLockCanvas(false);
     }
-    toastSuccess.generic('Graph has been refreshed');
-  }, [mutate, refreshSources, triggerRefresh, checkRunningTasks, resumePolling]);
+  }, [mutate, refreshSources, triggerRefresh, checkRunningTasks, resumePolling, setTempLockCanvas]);
 
   // Derive preview data from node click (previewData) or explicit preview action
   const previewTable =
@@ -226,7 +226,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             isWorkflowRunning={isWorkflowRunning}
             gitRepoUrl={gitRepoUrl || storeGitRepoUrl}
             isPreviewMode={isPreview}
-            hasUnpublishedChanges={hasUnpublishedChanges}
           />
         </div>
 
@@ -278,9 +277,6 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
             {/* Canvas Area */}
             {!isLowerFullScreen && (
               <div className="flex-1 flex flex-col min-w-0 relative">
-                {/* Canvas Messages (lock/unpublished/PAT overlays) */}
-                <CanvasMessages />
-
                 {/* Main Canvas */}
                 <div className="flex-1 relative">
                   <Canvas isPreviewMode={isPreview} onRefresh={handleRefreshCanvas} />

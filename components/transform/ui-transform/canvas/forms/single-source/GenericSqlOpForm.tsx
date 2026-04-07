@@ -1,16 +1,18 @@
 // components/transform/canvas/forms/GenericSqlOpForm.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, GenericSqlDataConfig } from '@/types/transform';
+import { GENERIC_SQL_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface FormValues {
   sql_statement_1: string;
@@ -34,14 +36,9 @@ export function GenericSqlOpForm({
     node,
     action,
     operation,
+    opType: GENERIC_SQL_OP,
     continueOperationChain,
     setLoading,
-  });
-
-  const [inputTableName] = useState<string>(() => {
-    if (node?.data?.dbtmodel?.name) return node.data.dbtmodel.name;
-    if (node?.data?.name) return node.data.name;
-    return 'chained_input';
   });
 
   const {
@@ -51,7 +48,7 @@ export function GenericSqlOpForm({
   } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+        const config = getTypedConfig(GENERIC_SQL_OP, node.data.operation_config);
         if (config) {
           return {
             sql_statement_1: config.sql_statement_1 || '',
@@ -73,7 +70,7 @@ export function GenericSqlOpForm({
     const sourceColumns = (() => {
       const isActualEdit = !node?.data?.isDummy && isEditMode;
       if (isActualEdit && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GenericSqlDataConfig;
+        const config = getTypedConfig(GENERIC_SQL_OP, node.data.operation_config);
         return config?.source_columns || [];
       }
       return node?.data?.output_columns || [];
@@ -81,8 +78,9 @@ export function GenericSqlOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: GENERIC_SQL_OP,
         config: {
+          columns: [],
           sql_statement_1: data.sql_statement_1,
           sql_statement_2: data.sql_statement_2,
         },
@@ -104,18 +102,20 @@ export function GenericSqlOpForm({
                 <Info className="h-4 w-4 text-muted-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p>Enter the columns to select. Do not include the SELECT keyword.</p>
+                <p>Output if all values in a row are null</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
         <Textarea
           {...register('sql_statement_1', { required: 'SELECT statement is required' })}
-          placeholder="column_a, column_b, column_a + column_b AS total"
-          rows={4}
+          rows={8}
           disabled={isViewMode}
           data-testid="sql-select-statement"
-          className={errors.sql_statement_1 ? 'border-destructive' : ''}
+          className={cn(
+            'min-h-[200px] field-sizing-normal',
+            errors.sql_statement_1 && 'border-destructive'
+          )}
         />
         {errors.sql_statement_1 && (
           <p className="text-sm text-destructive">{errors.sql_statement_1.message}</p>
@@ -124,32 +124,14 @@ export function GenericSqlOpForm({
 
       {/* FROM + Additional Clauses */}
       <div className="space-y-2">
-        <Label className="font-semibold">
-          FROM <span className="text-muted-foreground font-mono">{inputTableName}</span>
-        </Label>
+        <Label className="font-semibold">FROM chained</Label>
         <Textarea
           {...register('sql_statement_2')}
-          placeholder="WHERE active = true ORDER BY created_at DESC"
-          rows={4}
+          rows={8}
           disabled={isViewMode}
           data-testid="sql-additional-clauses"
+          className="min-h-[200px] field-sizing-normal"
         />
-        <p className="text-xs text-muted-foreground">
-          Additional clauses (WHERE, ORDER BY, LIMIT, etc.)
-        </p>
-      </div>
-
-      {/* Preview */}
-      <div className="p-3 bg-muted rounded-md">
-        <Label className="text-xs font-medium text-muted-foreground uppercase mb-2 block">
-          Query Preview
-        </Label>
-        <code className="text-xs font-mono whitespace-pre-wrap break-all">
-          SELECT ...{'\n'}
-          FROM {inputTableName}
-          {'\n'}
-          ...
-        </code>
       </div>
 
       {/* Actions */}

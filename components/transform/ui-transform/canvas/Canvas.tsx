@@ -1,7 +1,7 @@
 // components/transform/canvas/Canvas.tsx
 'use client';
 
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -23,6 +23,7 @@ import 'reactflow/dist/style.css';
 
 import DbtSourceModelNode from './nodes/DbtSourceModelNode';
 import OperationNode from './nodes/OperationNode';
+import CanvasMessages from './CanvasMessages';
 import { useCanvasGraph } from '@/hooks/api/useCanvasGraph';
 import { useTransformStore, useCanvasAction } from '@/stores/transformStore';
 import {
@@ -150,6 +151,10 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
     refresh: refreshGraph,
   } = useCanvasGraph({ skipInitialFetch: false, autoSync: false });
 
+  const hasUnpublishedChanges = useMemo(() => {
+    return apiNodes?.some((node) => node.isPublished === false) ?? false;
+  }, [apiNodes]);
+
   const { setCenter, getNodes: getFlowNodes } = useReactFlow();
 
   // Process API data when it changes.
@@ -164,6 +169,11 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
       edgeIds: apiEdges.map((e) => e.id).sort(),
       // Include isPublished so canvas re-renders when publish flips the flag
       publishState: apiNodes.map((n) => `${n.uuid}:${n.isPublished}`).sort(),
+      // Include operation config so nodes refresh after editing operations
+      opConfigs: apiNodes
+        .filter((n) => n.operation_config?.config)
+        .map((n) => `${n.uuid}:${JSON.stringify(n.operation_config?.config)}`)
+        .sort(),
     });
 
     if (dataHash === processedDataRef.current) return;
@@ -359,7 +369,7 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
         onNodesChange={onNodesChange}
         onEdgesChange={canEdit ? onEdgesChange : undefined}
         onConnect={canEdit ? handleConnect : undefined}
-        onPaneClick={canEdit ? handlePaneClick : undefined}
+        onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         deleteKeyCode={null}
@@ -371,15 +381,15 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
         onNodeDragStop={canEdit ? handleNodeDragStop : undefined}
         nodesDraggable={canEdit}
         nodesConnectable={canEdit}
-        elementsSelectable={!isPreviewMode}
+        elementsSelectable
         zoomOnDoubleClick={canEdit}
         panOnDrag
         zoomOnScroll
         zoomOnPinch
         proOptions={{ hideAttribution: true }}
       >
-        <Controls showInteractive={false} className="!bottom-4 !left-4">
-          {!isPreviewMode && (
+        {!isPreviewMode && (
+          <Controls showInteractive={false} className="!bottom-4 !left-4">
             <ControlButton
               onClick={handleRefreshCanvas}
               title="Refresh canvas"
@@ -387,8 +397,8 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </ControlButton>
-          )}
-        </Controls>
+          </Controls>
+        )}
         <Background color="#e0e0e0" gap={20} />
       </ReactFlow>
 
@@ -413,6 +423,9 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
           </div>
         </div>
       )}
+
+      {/* Canvas Messages (lock/unpublished/PAT overlays) */}
+      <CanvasMessages hasUnpublishedChanges={hasUnpublishedChanges} />
 
       {!isLoading && nodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

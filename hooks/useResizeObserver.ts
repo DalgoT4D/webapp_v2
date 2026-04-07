@@ -13,7 +13,7 @@ export function useResizeObserver<T extends HTMLElement>(): UseResizeObserverRes
 
   useEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    if (!element) return undefined;
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];

@@ -108,7 +108,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
 
   const getButtonText = () => {
     if (isConnected) return 'EDIT';
-    return 'Connect to Github';
+    return 'CONNECT TO GITHUB';
   };
 
   const isButtonDisabled = () => {
@@ -270,7 +270,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                     style={{ backgroundColor: 'var(--primary)' }}
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isConnected ? 'Save & Update' : 'Save & Connect'}
+                    {isConnected ? 'SAVE & UPDATE' : 'SAVE & CONNECT'}
                   </Button>
                   <Button
                     type="button"

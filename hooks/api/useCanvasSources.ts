@@ -49,7 +49,7 @@ export function useCanvasSources(): UseCanvasSourcesReturn {
   const syncSources = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const response = await apiPost<SyncSourcesResponse>(SYNC_ENDPOINT, {});
+      const response = (await apiPost(SYNC_ENDPOINT, {})) as SyncSourcesResponse;
       return {
         taskId: response.task_id,
         hashKey: response.hashkey,

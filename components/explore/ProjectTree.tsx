@@ -7,6 +7,7 @@ import useResizeObserver from '@/hooks/useResizeObserver';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { OverflowTooltip } from './OverflowTooltip';
 import { Search, RefreshCw, Folder, FolderOpen, Table2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -209,29 +210,17 @@ export function ProjectTree({
             />
           )}
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    'truncate flex-1 min-w-0 text-sm',
-                    isSelected ? 'text-teal-700 font-semibold' : 'text-gray-700',
-                    isFolder && 'font-semibold text-gray-800'
-                  )}
-                >
-                  {displayName}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                align="start"
-                sideOffset={4}
-                className="bg-gray-900 text-white border-gray-700 z-50"
-              >
-                <p>{displayName}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <OverflowTooltip
+            text={displayName}
+            className={cn(
+              'flex-1 min-w-0 text-sm',
+              isSelected ? 'text-teal-700 font-semibold' : 'text-gray-700',
+              isFolder && 'font-semibold text-gray-800'
+            )}
+            tooltipClassName="bg-gray-900 text-white border-gray-700 z-50"
+            tooltipSide="bottom"
+            tooltipAlign="start"
+          />
 
           {/* Canvas mode actions for leaf nodes */}
           {mode === ProjectTreeMode.CANVAS && isLeaf && (

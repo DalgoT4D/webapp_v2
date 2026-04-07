@@ -13,6 +13,7 @@ import {
   type SelectedNodeData,
 } from '@/types/transform';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { CanvasActionEnum } from '@/constants/transform';
 
 interface UseSourceTreeActionsParams {
   isPreview: boolean;
@@ -48,7 +49,7 @@ export function useSourceTreeActions({ isPreview }: UseSourceTreeActionsParams) 
         data: { ...nodeData, isDummy: false },
       } as SelectedNodeData);
       store.dispatchCanvasAction({
-        type: 'focus-node',
+        type: CanvasActionEnum.FOCUS_NODE,
         data: { nodeId: canvasNodeUuid },
       });
     },
@@ -76,7 +77,7 @@ export function useSourceTreeActions({ isPreview }: UseSourceTreeActionsParams) 
   // Handle delete from canvas (via project tree)
   const handleDeleteFromCanvas = useCallback((nodeId: string) => {
     useTransformStore.getState().dispatchCanvasAction({
-      type: 'delete-source-tree-node',
+      type: CanvasActionEnum.DELETE_SOURCE_TREE_NODE,
       data: { nodeId },
     });
   }, []);

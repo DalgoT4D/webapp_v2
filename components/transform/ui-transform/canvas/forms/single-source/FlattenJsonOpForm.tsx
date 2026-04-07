@@ -5,16 +5,13 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { apiGet } from '@/lib/api';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type {
-  OperationFormProps,
-  FlattenJsonDataConfig,
-  DbtModelResponse,
-} from '@/types/transform';
+import { FLATTEN_JSON_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, DbtModelResponse } from '@/types/transform';
 
 interface FormValues {
   json_column: string;
@@ -37,6 +34,7 @@ export function FlattenJsonOpForm({
     node,
     action,
     operation,
+    opType: FLATTEN_JSON_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -44,14 +42,14 @@ export function FlattenJsonOpForm({
 
   const [srcColumns, setSrcColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+      const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
       if (config?.source_columns) return config.source_columns;
     }
     return (node?.data?.output_columns || []).sort((a: string, b: string) => a.localeCompare(b));
   });
   const [jsonColumns, setJsonColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+      const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
       if (config?.json_columns_to_copy) return config.json_columns_to_copy;
     }
     return [];
@@ -66,10 +64,17 @@ export function FlattenJsonOpForm({
   });
   const [isFetchingJson, setIsFetchingJson] = useState(false);
 
-  const { handleSubmit, watch, setValue } = useForm<FormValues>({
+  const {
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as FlattenJsonDataConfig;
+        const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
         if (config) return { json_column: config.json_column || '' };
       }
       return { json_column: '' };
@@ -154,6 +159,7 @@ export function FlattenJsonOpForm({
   // Handle JSON column selection
   const handleJsonColumnChange = (value: string) => {
     setValue('json_column', value);
+    clearErrors('json_column');
     if (value) {
       fetchJsonColumns(value);
     } else {
@@ -162,21 +168,25 @@ export function FlattenJsonOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
+    let hasErrors = false;
+
     if (!data.json_column) {
-      toastError.api('JSON column is required');
-      return;
+      setError('json_column', { message: 'JSON column is required' });
+      hasErrors = true;
     }
 
     if (jsonColumns.length === 0) {
-      toastError.api('No JSON columns found to flatten');
-      return;
+      setError('json_column', { message: 'No JSON columns found to flatten' });
+      hasErrors = true;
     }
+
+    if (hasErrors) return;
 
     const { schema } = getSchemaAndTable();
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: FLATTEN_JSON_OP,
         config: {
           json_column: data.json_column,
           source_schema: schema,
@@ -206,6 +216,9 @@ export function FlattenJsonOpForm({
             disabled={isViewMode}
             testId="flatten-json-column"
           />
+          {errors.json_column && (
+            <p className="text-sm text-destructive mt-2">{errors.json_column.message}</p>
+          )}
         </div>
       </div>
 

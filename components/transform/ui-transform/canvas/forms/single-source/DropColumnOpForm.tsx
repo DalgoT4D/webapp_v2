@@ -6,11 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
-import { toastError } from '@/lib/toast';
-import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { cn } from '@/lib/utils';
-import type { OperationFormProps, DropDataConfig } from '@/types/transform';
+import { DROP_COLUMNS_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 /**
  * Form for dropping (removing) columns from a table.
@@ -20,7 +20,6 @@ export function DropColumnOpForm({
   node,
   operation,
   continueOperationChain,
-  clearAndClosePanel,
   action,
   setLoading,
 }: OperationFormProps) {
@@ -28,14 +27,16 @@ export function DropColumnOpForm({
     node,
     action,
     operation,
+    opType: DROP_COLUMNS_OP,
     continueOperationChain,
     setLoading,
   });
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-      const config = node.data.operation_config.config as unknown as DropDataConfig;
+      const config = getTypedConfig(DROP_COLUMNS_OP, node.data.operation_config);
       if (config?.columns) return config.columns;
     }
     return [];
@@ -70,13 +71,15 @@ export function DropColumnOpForm({
     e.preventDefault();
 
     if (selectedColumns.length === 0) {
-      toastError.api('Select at least one column to drop');
+      setFormError('Select at least one column to drop');
       return;
     }
 
+    setFormError(null);
+
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: DROP_COLUMNS_OP,
         config: { columns: selectedColumns },
         source_columns: srcColumns,
       },
@@ -127,7 +130,7 @@ export function DropColumnOpForm({
       )}
 
       {/* Column List */}
-      <div className="border rounded-md max-h-80 overflow-y-auto" data-testid="drop-column-list">
+      <div className="border rounded-md overflow-y-auto" data-testid="drop-column-list">
         {filteredColumns.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
             {searchTerm ? 'No matching columns' : 'No columns available'}
@@ -160,17 +163,23 @@ export function DropColumnOpForm({
         )}
       </div>
 
-      {/* Warning */}
-      <p className="text-xs text-muted-foreground">
-        Selected columns will be removed from the output table.
-      </p>
+      {formError && <p className="text-sm text-destructive">{formError}</p>}
 
       {/* Actions */}
-      <FormActions
-        isViewMode={isViewMode}
-        isSubmitting={isSubmitting}
-        onCancel={clearAndClosePanel}
-      />
+      {!isViewMode && (
+        <div className="sticky bottom-0 bg-white pt-2 pb-2">
+          <Button
+            type="submit"
+            variant="ghost"
+            disabled={isSubmitting}
+            className="w-full text-white hover:opacity-90"
+            style={{ backgroundColor: 'var(--primary)' }}
+            data-testid="savebutton"
+          >
+            Save
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

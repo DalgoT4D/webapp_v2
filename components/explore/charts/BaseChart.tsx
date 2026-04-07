@@ -37,7 +37,7 @@ export function BaseChart({ option, width = 700, height = 100, className }: Base
 
   // Initialize chart instance (once)
   useEffect(() => {
-    if (!chartRef.current) return;
+    if (!chartRef.current) return undefined;
 
     chartInstance.current = echarts.init(chartRef.current);
 

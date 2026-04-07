@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, Search } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, PivotDataConfig } from '@/types/transform';
+import { PIVOT_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface PivotValueItem {
   col: string;
@@ -45,6 +46,7 @@ export function PivotOpForm({
     node,
     action,
     operation,
+    opType: PIVOT_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -53,10 +55,19 @@ export function PivotOpForm({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false);
 
-  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    register,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as PivotDataConfig;
+        const config = getTypedConfig(PIVOT_OP, node.data.operation_config);
         if (config) {
           const sorted = (config.source_columns || []).sort((a, b) => a.localeCompare(b));
           const groupbyColumns = sorted.map((col) => ({
@@ -140,6 +151,7 @@ export function PivotOpForm({
   // Handle pivot column change - uncheck it from groupby
   const handlePivotColumnChange = (value: string) => {
     setValue('pivot_column_name', value);
+    clearErrors('pivot_column_name');
     if (value) {
       const index = watchedGroupbyColumns.findIndex((f) => f.col === value);
       if (index >= 0) {
@@ -159,23 +171,27 @@ export function PivotOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
+    let hasErrors = false;
+
     if (!data.pivot_column_name) {
-      toastError.api('Pivot column is required');
-      return;
+      setError('pivot_column_name', { message: 'Pivot column is required' });
+      hasErrors = true;
     }
 
     const validPivotValues = data.pivot_column_values.filter((v) => v.col.trim()).map((v) => v.col);
 
     if (validPivotValues.length === 0) {
-      toastError.api('At least one pivot value is required');
-      return;
+      setError('pivot_column_values', { message: 'At least one pivot value is required' });
+      hasErrors = true;
     }
+
+    if (hasErrors) return;
 
     const groupbyColumns = data.groupby_columns.filter((c) => c.is_checked).map((c) => c.col);
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: PIVOT_OP,
         config: {
           pivot_column_name: data.pivot_column_name,
           pivot_column_values: validPivotValues,
@@ -206,6 +222,9 @@ export function PivotOpForm({
           disabled={isViewMode}
           testId="pivot-column-select"
         />
+        {errors.pivot_column_name && (
+          <p className="text-sm text-destructive">{errors.pivot_column_name.message}</p>
+        )}
       </div>
 
       {/* Pivot Values Table */}
@@ -242,6 +261,10 @@ export function PivotOpForm({
           ))}
         </div>
       </div>
+
+      {errors.pivot_column_values && (
+        <p className="text-sm text-destructive">{errors.pivot_column_values.message}</p>
+      )}
 
       {/* Add Pivot Value Button */}
       {!isViewMode && (

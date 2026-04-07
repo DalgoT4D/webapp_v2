@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Play, Upload, GitBranch, ArrowLeft, AlertCircle, Key } from 'lucide-react';
+import { ChevronDown, Play, Upload, GitBranch, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import {
 import { useTransformStore } from '@/stores/transformStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { CanvasNodeTypeEnum } from '@/types/transform';
+import { CanvasActionEnum } from '@/constants/transform';
 
 interface CanvasHeaderProps {
   /** Whether canvas is locked by another user */
@@ -24,8 +25,6 @@ interface CanvasHeaderProps {
   gitRepoUrl?: string;
   /** Is preview mode (hides action buttons) */
   isPreviewMode?: boolean;
-  /** Whether there are unpublished changes */
-  hasUnpublishedChanges?: boolean;
 }
 
 export default function CanvasHeader({
@@ -33,7 +32,6 @@ export default function CanvasHeader({
   isWorkflowRunning = false,
   gitRepoUrl,
   isPreviewMode = false,
-  hasUnpublishedChanges = false,
 }: CanvasHeaderProps) {
   const router = useRouter();
   const [runMenuOpen, setRunMenuOpen] = useState(false);
@@ -43,8 +41,6 @@ export default function CanvasHeader({
   const openPublishModal = useTransformStore((s) => s.openPublishModal);
 
   const patRequired = useTransformStore((s) => s.patRequired);
-  const isViewOnlyMode = useTransformStore((s) => s.isViewOnlyMode);
-  const openPatModal = useTransformStore((s) => s.openPatModal);
   const { hasPermission } = useUserPermissions();
   const canRun = hasPermission('can_run_pipeline');
 
@@ -71,7 +67,7 @@ export default function CanvasHeader({
       data = { options: { select: `${nodeName}+` } };
     }
 
-    dispatchCanvasAction({ type: 'run-workflow', data });
+    dispatchCanvasAction({ type: CanvasActionEnum.RUN_WORKFLOW, data });
     setRunMenuOpen(false);
   };
 
@@ -101,6 +97,8 @@ export default function CanvasHeader({
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
         </button>
+        <span className="text-gray-300">|</span>
+        <span className="text-lg font-semibold text-gray-700">Workflow</span>
         {gitRepoUrl && (
           <>
             <span className="text-gray-300">|</span>
@@ -118,45 +116,13 @@ export default function CanvasHeader({
         )}
       </div>
 
-      {/* Center - Title */}
-      <span className="text-lg font-semibold text-gray-700">Workflow</span>
-
       {/* Right side - Actions */}
       <div className="flex items-center gap-2">
-        {/* PAT required indicator */}
-        {patRequired && isViewOnlyMode && (
-          <span
-            className="flex items-center gap-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-500 rounded-md px-2.5 py-1"
-            data-testid="pat-required-indicator"
-          >
-            <Key className="w-3.5 h-3.5" />
-            Update key to make changes.{' '}
-            <button
-              onClick={() => openPatModal()}
-              className="underline font-semibold hover:text-teal-800 cursor-pointer"
-              data-testid="add-pat-link"
-            >
-              Add key here
-            </button>
-          </span>
-        )}
-
-        {/* Unpublished changes indicator */}
-        {hasUnpublishedChanges && (
-          <span
-            className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-400 rounded-md px-2.5 py-1"
-            data-testid="unpublished-changes-indicator"
-          >
-            <AlertCircle className="w-3.5 h-3.5" />
-            Unpublished changes
-          </span>
-        )}
-
         {/* Run Button with Dropdown */}
         <DropdownMenu open={runMenuOpen} onOpenChange={setRunMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="default"
+              variant="ghost"
               size="sm"
               disabled={runDisabled}
               className="text-white hover:opacity-90 shadow-xs"
@@ -164,7 +130,7 @@ export default function CanvasHeader({
               data-testid="run-button"
             >
               <Play className="w-4 h-4 mr-1" />
-              Run
+              RUN
               <ChevronDown className="w-4 h-4 ml-1" />
             </Button>
           </DropdownMenuTrigger>
@@ -191,7 +157,7 @@ export default function CanvasHeader({
 
         {/* Publish Button */}
         <Button
-          variant="default"
+          variant="ghost"
           size="sm"
           disabled={publishDisabled}
           onClick={handlePublish}
@@ -200,7 +166,7 @@ export default function CanvasHeader({
           data-testid="publish-button"
         >
           <Upload className="w-4 h-4 mr-1" />
-          Publish
+          PUBLISH
         </Button>
       </div>
     </div>

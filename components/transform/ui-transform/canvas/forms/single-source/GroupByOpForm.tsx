@@ -13,12 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { AggregateOperations } from '@/constants/transform';
-import type { OperationFormProps, GroupbyDataConfig } from '@/types/transform';
+import { AggregateOperations, GROUPBY_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, AggregateOn } from '@/types/transform';
 
 interface DimensionCol {
   col: string;
@@ -51,15 +51,25 @@ export function GroupByOpForm({
     node,
     action,
     operation,
+    opType: GROUPBY_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
   });
 
-  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    register,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as GroupbyDataConfig;
+        const config = getTypedConfig(GROUPBY_OP, node.data.operation_config);
         if (config) {
           const dimensions = config.dimension_columns?.map((col) => ({ col })) || [];
           dimensions.push({ col: '' });
@@ -120,25 +130,55 @@ export function GroupByOpForm({
     const validAggregations = data.aggregations.filter(
       (a) => a.metric && a.aggregate_func && a.output_column_name
     );
+    let hasErrors = false;
 
     if (validDimensions.length === 0) {
-      toastError.api('At least one dimension column is required');
-      return;
+      setError('dimensions', { message: 'At least one dimension column is required' });
+      hasErrors = true;
     }
 
     if (validAggregations.length === 0) {
-      toastError.api('At least one aggregation is required');
-      return;
+      setError('aggregations', { message: 'At least one complete aggregation is required' });
+      hasErrors = true;
     }
+
+    // Validate individual aggregation row fields
+    data.aggregations.forEach((agg, index) => {
+      const hasAnyField = agg.metric || agg.aggregate_func || agg.output_column_name;
+      if (hasAnyField) {
+        if (!agg.metric) {
+          setError(`aggregations.${index}.metric` as `aggregations.${number}.metric`, {
+            message: 'Metric is required',
+          });
+          hasErrors = true;
+        }
+        if (!agg.aggregate_func) {
+          setError(
+            `aggregations.${index}.aggregate_func` as `aggregations.${number}.aggregate_func`,
+            { message: 'Aggregate function is required' }
+          );
+          hasErrors = true;
+        }
+        if (!agg.output_column_name) {
+          setError(
+            `aggregations.${index}.output_column_name` as `aggregations.${number}.output_column_name`,
+            { message: 'Output column name is required' }
+          );
+          hasErrors = true;
+        }
+      }
+    });
+
+    if (hasErrors) return;
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: GROUPBY_OP,
         config: {
           dimension_columns: validDimensions,
           aggregate_on: validAggregations.map((a) => ({
             column: a.metric,
-            operation: a.aggregate_func,
+            operation: a.aggregate_func as AggregateOn['operation'],
             output_column_name: a.output_column_name,
           })),
         },
@@ -202,6 +242,10 @@ export function GroupByOpForm({
         </div>
       </div>
 
+      {errors.dimensions && (
+        <p className="text-sm text-destructive px-4">{errors.dimensions.message}</p>
+      )}
+
       {/* Aggregations */}
       <div className="px-6 space-y-6">
         {aggFields.map((field, index) => (
@@ -227,12 +271,20 @@ export function GroupByOpForm({
               <Label>Select Metric *</Label>
               <ColumnSelect
                 value={watchedAggregations[index]?.metric || ''}
-                onChange={(value) => setValue(`aggregations.${index}.metric`, value)}
+                onChange={(value) => {
+                  setValue(`aggregations.${index}.metric`, value);
+                  clearErrors(`aggregations.${index}.metric` as `aggregations.${number}.metric`);
+                }}
                 columns={srcColumns}
                 placeholder="Select metric column"
                 disabled={isViewMode}
                 testId={`groupby-metric-${index}`}
               />
+              {errors.aggregations?.[index]?.metric && (
+                <p className="text-sm text-destructive">
+                  {errors.aggregations[index].metric.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -241,7 +293,16 @@ export function GroupByOpForm({
                 control={control}
                 name={`aggregations.${index}.aggregate_func`}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isViewMode}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      clearErrors(
+                        `aggregations.${index}.aggregate_func` as `aggregations.${number}.aggregate_func`
+                      );
+                    }}
+                    disabled={isViewMode}
+                  >
                     <SelectTrigger data-testid={`groupby-agg-func-${index}`}>
                       <SelectValue placeholder="Select aggregation" />
                     </SelectTrigger>
@@ -255,6 +316,11 @@ export function GroupByOpForm({
                   </Select>
                 )}
               />
+              {errors.aggregations?.[index]?.aggregate_func && (
+                <p className="text-sm text-destructive">
+                  {errors.aggregations[index].aggregate_func.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -265,9 +331,18 @@ export function GroupByOpForm({
                 disabled={isViewMode}
                 data-testid={`groupby-output-${index}`}
               />
+              {errors.aggregations?.[index]?.output_column_name && (
+                <p className="text-sm text-destructive">
+                  {errors.aggregations[index].output_column_name.message}
+                </p>
+              )}
             </div>
           </div>
         ))}
+
+        {errors.aggregations && (
+          <p className="text-sm text-destructive">{errors.aggregations.message}</p>
+        )}
 
         {/* Add Aggregation Button */}
         {!isViewMode && (

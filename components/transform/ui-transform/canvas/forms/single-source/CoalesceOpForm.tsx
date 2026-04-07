@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Info, Trash2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import type { OperationFormProps, CoalesceDataConfig } from '@/types/transform';
+import { COALESCE_COLUMNS_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps } from '@/types/transform';
 
 interface FormValues {
   columns: { col: string }[];
@@ -35,15 +36,23 @@ export function CoalesceOpForm({
     node,
     action,
     operation,
+    opType: COALESCE_COLUMNS_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
   });
 
-  const { control, handleSubmit, watch, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    register,
+    formState: { errors },
+    setError,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as CoalesceDataConfig;
+        const config = getTypedConfig(COALESCE_COLUMNS_OP, node.data.operation_config);
         if (config) {
           const columns = config.columns.map((col) => ({ col }));
           columns.push({ col: '' });
@@ -84,23 +93,13 @@ export function CoalesceOpForm({
     const validColumns = data.columns.map((c) => c.col).filter(Boolean);
 
     if (validColumns.length < 1) {
-      toastError.api('At least one column is required');
-      return;
-    }
-
-    if (!data.default_value) {
-      toastError.api('Default value is required');
-      return;
-    }
-
-    if (!data.output_column_name) {
-      toastError.api('Output column name is required');
+      setError('columns', { message: 'At least one column is required' });
       return;
     }
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: COALESCE_COLUMNS_OP,
         config: {
           columns: validColumns,
           default_value: data.default_value,
@@ -166,6 +165,8 @@ export function CoalesceOpForm({
         </div>
       </div>
 
+      {errors.columns && <p className="text-sm text-destructive px-4">{errors.columns.message}</p>}
+
       {/* Default Value */}
       <div className="px-6 space-y-4">
         <div className="space-y-2">
@@ -183,22 +184,28 @@ export function CoalesceOpForm({
             </TooltipProvider>
           </div>
           <Input
-            {...register('default_value', { required: true })}
+            {...register('default_value', { required: 'Default value is required' })}
             placeholder="Enter default value"
             disabled={isViewMode}
             data-testid="coalesce-default-value"
           />
+          {errors.default_value && (
+            <p className="text-sm text-destructive">{errors.default_value.message}</p>
+          )}
         </div>
 
         {/* Output Column Name */}
         <div className="space-y-2">
           <Label>Output Column Name *</Label>
           <Input
-            {...register('output_column_name', { required: true })}
+            {...register('output_column_name', { required: 'Output column name is required' })}
             placeholder="Enter output column name"
             disabled={isViewMode}
             data-testid="coalesce-output-name"
           />
+          {errors.output_column_name && (
+            <p className="text-sm text-destructive">{errors.output_column_name.message}</p>
+          )}
         </div>
       </div>
 

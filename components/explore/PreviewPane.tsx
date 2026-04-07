@@ -2,14 +2,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -19,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { OverflowTooltip } from './OverflowTooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Download,
@@ -50,12 +43,19 @@ interface PreviewPaneProps {
   table: string;
   /** When provided, uses explicit pixel heights instead of flex layout */
   containerHeight?: number;
+  /** Override the default page size (defaults to DEFAULT_PAGE_SIZE from constants) */
+  defaultPageSize?: number;
 }
 
 // Threshold for showing "click to view" dialog instead of tooltip
 const LONG_CELL_THRESHOLD = 200;
 
-export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps) {
+export function PreviewPane({
+  schema,
+  table,
+  containerHeight,
+  defaultPageSize = DEFAULT_PAGE_SIZE,
+}: PreviewPaneProps) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     column: null,
@@ -63,13 +63,13 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
   });
   const [pagination, setPagination] = useState<PaginationConfig>({
     page: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
+    pageSize: defaultPageSize,
   });
   const [downloading, setDownloading] = useState(false);
 
   // Reset pagination when table changes
   useEffect(() => {
-    setPagination({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+    setPagination({ page: 1, pageSize: defaultPageSize });
     setSortConfig({ column: null, order: 1 });
   }, [schema, table]);
 
@@ -90,9 +90,11 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
   const handleSort = useCallback((columnName: string) => {
     setSortConfig((prev) => {
       if (prev.column === columnName) {
-        return { column: columnName, order: prev.order === 1 ? -1 : 1 };
+        // Toggle: desc ↔ asc
+        return { column: columnName, order: prev.order === -1 ? 1 : -1 };
       }
-      return { column: columnName, order: 1 };
+      // First click on a new column → descending
+      return { column: columnName, order: -1 };
     });
     // Reset to first page when sorting changes
     setPagination((prev) => ({ ...prev, page: 1 }));
@@ -153,7 +155,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
   );
 
   const tableContent = (
-    <Table>
+    <table className="w-full caption-bottom text-sm">
       <TableHeader className="sticky top-0 z-10">
         <TableRow className="hover:bg-[#F5FAFA]" style={{ backgroundColor: '#F5FAFA' }}>
           {isLoading
@@ -181,10 +183,10 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
                   <div className="flex items-center gap-2 py-1">
                     {col.name}
                     {sortConfig.column === col.name ? (
-                      sortConfig.order === 1 ? (
-                        <ArrowUp className="h-4 w-4 text-gray-600" />
-                      ) : (
+                      sortConfig.order === -1 ? (
                         <ArrowDown className="h-4 w-4 text-gray-600" />
+                      ) : (
+                        <ArrowUp className="h-4 w-4 text-gray-600" />
                       )
                     ) : (
                       <ArrowUpDown className="h-4 w-4 text-gray-400" />
@@ -210,7 +212,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
             <TableRow
               key={rowIdx}
               data-testid={`data-row-${rowIdx}`}
-              className="hover:bg-gray-50/50"
+              className="hover:bg-gray-50/50 border-b-0"
             >
               {columns?.map((col, i) => {
                 const cellValue =
@@ -218,9 +220,8 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
                     ? typeof row[col.name] === 'object'
                       ? JSON.stringify(row[col.name])
                       : String(row[col.name])
-                    : '';
+                    : 'NULL';
                 const isLong = cellValue.length > LONG_CELL_THRESHOLD;
-                const isMedium = cellValue.length > 30;
                 return (
                   <TableCell
                     key={col.name}
@@ -237,20 +238,12 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
                       >
                         {cellValue}
                       </span>
-                    ) : isMedium ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="block truncate cursor-default">{cellValue}</span>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="bottom"
-                          className="max-w-sm break-words whitespace-pre-wrap text-xs"
-                        >
-                          {cellValue}
-                        </TooltipContent>
-                      </Tooltip>
                     ) : (
-                      <span className="block truncate">{cellValue}</span>
+                      <OverflowTooltip
+                        text={cellValue}
+                        className="cursor-default"
+                        tooltipSide="bottom"
+                      />
                     )}
                   </TableCell>
                 );
@@ -268,7 +261,7 @@ export function PreviewPane({ schema, table, containerHeight }: PreviewPaneProps
           </TableRow>
         )}
       </TableBody>
-    </Table>
+    </table>
   );
 
   const paginationContent = (

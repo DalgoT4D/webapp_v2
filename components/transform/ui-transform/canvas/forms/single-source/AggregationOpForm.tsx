@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -12,12 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { AggregateOperations } from '@/constants/transform';
-import type { OperationFormProps, AggregateDataConfig } from '@/types/transform';
+import { AggregateOperations, AGGREGATE_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, AggregateOn } from '@/types/transform';
 
 interface FormValues {
   column: string;
@@ -41,14 +41,22 @@ export function AggregationOpForm({
     node,
     action,
     operation,
+    opType: AGGREGATE_OP,
     continueOperationChain,
     setLoading,
   });
 
-  const { register, handleSubmit, setValue, watch } = useForm<FormValues>({
+  const {
+    control,
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as AggregateDataConfig;
+        const config = getTypedConfig(AGGREGATE_OP, node.data.operation_config);
         if (config?.aggregate_on && config.aggregate_on.length > 0) {
           const agg = config.aggregate_on[0];
           return {
@@ -78,19 +86,14 @@ export function AggregationOpForm({
   }, [selectedColumn, selectedOperation, setValue, isEditMode, isViewMode]);
 
   const onSubmit = async (data: FormValues) => {
-    if (!data.column || !data.operation || !data.outputColumnName) {
-      toastError.api('All fields are required');
-      return;
-    }
-
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: AGGREGATE_OP,
         config: {
           aggregate_on: [
             {
               column: data.column,
-              operation: data.operation,
+              operation: data.operation as AggregateOn['operation'],
               output_column_name: data.outputColumnName,
             },
           ],
@@ -106,46 +109,61 @@ export function AggregationOpForm({
       {/* Column */}
       <div className="space-y-2">
         <Label>Column *</Label>
-        <ColumnSelect
-          value={selectedColumn}
-          onChange={(value) => setValue('column', value)}
-          columns={srcColumns}
-          placeholder="Select column"
-          disabled={isViewMode}
-          testId="agg-column-select"
+        <Controller
+          control={control}
+          name="column"
+          rules={{ required: 'Column is required' }}
+          render={({ field }) => (
+            <ColumnSelect
+              value={field.value}
+              onChange={field.onChange}
+              columns={srcColumns}
+              placeholder="Select column"
+              disabled={isViewMode}
+              testId="agg-column-select"
+            />
+          )}
         />
+        {errors.column && <p className="text-sm text-destructive">{errors.column.message}</p>}
       </div>
 
       {/* Operation */}
       <div className="space-y-2">
         <Label>Aggregation Function *</Label>
-        <Select
-          value={selectedOperation}
-          onValueChange={(value) => setValue('operation', value)}
-          disabled={isViewMode}
-        >
-          <SelectTrigger data-testid="agg-operation-select">
-            <SelectValue placeholder="Select function" />
-          </SelectTrigger>
-          <SelectContent>
-            {AggregateOperations.map((op) => (
-              <SelectItem key={op.id} value={op.id}>
-                {op.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          control={control}
+          name="operation"
+          rules={{ required: 'Aggregation function is required' }}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange} disabled={isViewMode}>
+              <SelectTrigger data-testid="agg-operation-select">
+                <SelectValue placeholder="Select function" />
+              </SelectTrigger>
+              <SelectContent>
+                {AggregateOperations.map((op) => (
+                  <SelectItem key={op.id} value={op.id}>
+                    {op.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {errors.operation && <p className="text-sm text-destructive">{errors.operation.message}</p>}
       </div>
 
       {/* Output Column Name */}
       <div className="space-y-2">
         <Label>Output Column Name *</Label>
         <Input
-          {...register('outputColumnName', { required: true })}
+          {...register('outputColumnName', { required: 'Output column name is required' })}
           placeholder="Enter output column name"
           disabled={isViewMode}
           data-testid="agg-output-name"
         />
+        {errors.outputColumnName && (
+          <p className="text-sm text-destructive">{errors.outputColumnName.message}</p>
+        )}
       </div>
 
       {/* Info */}

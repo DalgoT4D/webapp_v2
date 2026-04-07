@@ -87,9 +87,9 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
 
       try {
         while (!abortRef.current) {
-          const response = await apiGet<TaskProgressResponse>(
+          const response = (await apiGet(
             `/api/tasks/${taskIdToPoll}?hashkey=${hashKey}`
-          );
+          )) as TaskProgressResponse;
 
           if (response?.progress) {
             // Add client-side timestamp when backend doesn't provide one
@@ -148,7 +148,10 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
       clearLogs();
 
       try {
-        const response = await apiPost<RunWorkflowResponse>('/api/dbt/run_dbt_via_celery/', params);
+        const response = (await apiPost(
+          '/api/dbt/run_dbt_via_celery/',
+          params
+        )) as RunWorkflowResponse;
 
         if (response?.task_id) {
           setTaskId(response.task_id);
@@ -176,7 +179,7 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
 
   const checkRunningTasks = useCallback(async (): Promise<string | null> => {
     try {
-      const tasks = await apiGet<TransformTask[]>('/api/prefect/tasks/transform/');
+      const tasks = (await apiGet('/api/prefect/tasks/transform/')) as TransformTask[];
 
       for (const task of tasks) {
         if (task.lock?.celeryTaskId) {

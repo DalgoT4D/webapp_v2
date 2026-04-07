@@ -17,13 +17,13 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Info } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
-import { parseStringForNull } from '../shared/OperandInput';
-import { LogicalOperators, CaseWhenType } from '@/constants/transform';
-import type { OperationFormProps, CasewhenDataConfig, WhenClause } from '@/types/transform';
+import { parseStringForNull } from '../shared/utils';
+import { LogicalOperators, CaseWhenType, CASEWHEN_OP } from '@/constants/transform';
+import { getTypedConfig } from '@/types/transform';
+import type { OperationFormProps, WhenClause } from '@/types/transform';
 
 interface OperandValue {
   type: 'col' | 'val';
@@ -57,6 +57,7 @@ function CaseOperandInput({
   testIdPrefix,
   control,
   columns,
+  error,
 }: {
   name: string;
   operandValue: OperandValue;
@@ -64,6 +65,7 @@ function CaseOperandInput({
   testIdPrefix: string;
   control: Control<FormValues>;
   columns: string[];
+  error?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -122,6 +124,7 @@ function CaseOperandInput({
           )}
         />
       )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -150,15 +153,25 @@ export function CaseWhenOpForm({
     node,
     action,
     operation,
+    opType: CASEWHEN_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
   });
 
-  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    register,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
-        const config = node.data.operation_config.config as unknown as CasewhenDataConfig;
+        const config = getTypedConfig(CASEWHEN_OP, node.data.operation_config);
         if (config) {
           const isAdvance = config.case_type === CaseWhenType.ADVANCE;
 
@@ -225,19 +238,60 @@ export function CaseWhenOpForm({
   const watchedElseValue = watch('elseValue');
 
   const onSubmit = async (data: FormValues) => {
-    if (!data.output_column_name) {
-      toastError.api('Output column name is required');
-      return;
-    }
+    let hasErrors = false;
 
     if (data.advanceFilter && !data.sql_snippet) {
-      toastError.api('SQL snippet is required for advance mode');
-      return;
+      setError('sql_snippet', { message: 'SQL snippet is required for advance mode' });
+      hasErrors = true;
     }
+
+    // Validate clause fields in simple mode
+    if (!data.advanceFilter) {
+      data.clauses.forEach((clause, index) => {
+        if (!clause.filterCol) {
+          setError(`clauses.${index}.filterCol` as `clauses.${number}.filterCol`, {
+            message: 'Column is required',
+          });
+          hasErrors = true;
+        }
+        if (!clause.logicalOp) {
+          setError(`clauses.${index}.logicalOp` as `clauses.${number}.logicalOp`, {
+            message: 'Operation is required',
+          });
+          hasErrors = true;
+        }
+        const isNullOp = clause.logicalOp === 'IS NULL' || clause.logicalOp === 'IS NOT NULL';
+        if (!isNullOp && clause.operand1.type === 'col' && !clause.operand1.col_val) {
+          setError(`clauses.${index}.operand1.col_val` as `clauses.${number}.operand1.col_val`, {
+            message: 'Column is required',
+          });
+          hasErrors = true;
+        }
+        // Validate operand2 for 'between' operator
+        if (
+          clause.logicalOp === 'between' &&
+          clause.operand2.type === 'col' &&
+          !clause.operand2.col_val
+        ) {
+          setError(`clauses.${index}.operand2.col_val` as `clauses.${number}.operand2.col_val`, {
+            message: 'Column is required',
+          });
+          hasErrors = true;
+        }
+        if (clause.then.type === 'col' && !clause.then.col_val) {
+          setError(`clauses.${index}.then.col_val` as `clauses.${number}.then.col_val`, {
+            message: 'Column is required',
+          });
+          hasErrors = true;
+        }
+      });
+    }
+
+    if (hasErrors) return;
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: CASEWHEN_OP,
         config: {
           case_type: data.advanceFilter ? CaseWhenType.ADVANCE : CaseWhenType.SIMPLE,
           when_clauses: data.advanceFilter
@@ -346,12 +400,20 @@ export function CaseWhenOpForm({
 
               <ColumnSelect
                 value={clause?.filterCol || ''}
-                onChange={(value) => setValue(`clauses.${index}.filterCol`, value)}
+                onChange={(value) => {
+                  setValue(`clauses.${index}.filterCol`, value);
+                  clearErrors(`clauses.${index}.filterCol` as `clauses.${number}.filterCol`);
+                }}
                 columns={srcColumns}
                 placeholder="Select column to check"
                 disabled={isSimpleDisabled}
                 testId={`case-when-col-${index}`}
               />
+              {errors.clauses?.[index]?.filterCol && (
+                <p className="text-sm text-destructive">
+                  {errors.clauses[index].filterCol.message}
+                </p>
+              )}
 
               <Controller
                 control={control}
@@ -375,6 +437,11 @@ export function CaseWhenOpForm({
                   </Select>
                 )}
               />
+              {errors.clauses?.[index]?.logicalOp && (
+                <p className="text-sm text-destructive">
+                  {errors.clauses[index].logicalOp.message}
+                </p>
+              )}
 
               {!isNullOperator && (
                 <CaseOperandInput
@@ -384,6 +451,11 @@ export function CaseWhenOpForm({
                   testIdPrefix={`case-operand1-${index}`}
                   control={control}
                   columns={srcColumns}
+                  error={
+                    clause?.operand1?.type === 'col'
+                      ? errors.clauses?.[index]?.operand1?.col_val?.message
+                      : undefined
+                  }
                 />
               )}
 
@@ -397,6 +469,11 @@ export function CaseWhenOpForm({
                     testIdPrefix={`case-operand2-${index}`}
                     control={control}
                     columns={srcColumns}
+                    error={
+                      clause?.operand2?.type === 'col'
+                        ? errors.clauses?.[index]?.operand2?.col_val?.message
+                        : undefined
+                    }
                   />
                 </>
               )}
@@ -424,6 +501,11 @@ export function CaseWhenOpForm({
                 testIdPrefix={`case-then-${index}`}
                 control={control}
                 columns={srcColumns}
+                error={
+                  clause?.then?.type === 'col'
+                    ? errors.clauses?.[index]?.then?.col_val?.message
+                    : undefined
+                }
               />
             </div>
           </div>
@@ -474,11 +556,14 @@ export function CaseWhenOpForm({
       <div className="space-y-2">
         <Label>Output Column Name *</Label>
         <Input
-          {...register('output_column_name', { required: true })}
+          {...register('output_column_name', { required: 'Output column name is required' })}
           placeholder="Enter output column name"
           disabled={isViewMode}
           data-testid="case-output-name"
         />
+        {errors.output_column_name && (
+          <p className="text-sm text-destructive">{errors.output_column_name.message}</p>
+        )}
       </div>
 
       {/* Advance Filter Toggle */}
@@ -508,7 +593,7 @@ export function CaseWhenOpForm({
       {/* SQL Snippet */}
       {advanceFilter && (
         <div className="space-y-2">
-          <Label>SQL CASE Statement</Label>
+          <Label>SQL CASE Statement *</Label>
           <Textarea
             {...register('sql_snippet')}
             placeholder="CASE WHEN status = 'A' THEN 'Active' ELSE 'Unknown' END"
@@ -516,6 +601,9 @@ export function CaseWhenOpForm({
             disabled={isViewMode}
             data-testid="case-sql-snippet"
           />
+          {errors.sql_snippet && (
+            <p className="text-sm text-destructive">{errors.sql_snippet.message}</p>
+          )}
         </div>
       )}
 

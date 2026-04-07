@@ -68,7 +68,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
 
   const refreshLock = useCallback(async (): Promise<CanvasLockStatus | void> => {
     try {
-      const status = await apiPut<CanvasLockStatus>(LOCK_REFRESH_ENDPOINT, {});
+      const status = (await apiPut(LOCK_REFRESH_ENDPOINT, {})) as CanvasLockStatus;
       setLockStatus(status);
       setCanvasLockStatus(status);
 
@@ -96,7 +96,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
   const acquireLock = useCallback(async (): Promise<CanvasLockStatus> => {
     setIsAcquiring(true);
     try {
-      const status = await apiPost<CanvasLockStatus>(LOCK_ENDPOINT, {});
+      const status = (await apiPost(LOCK_ENDPOINT, {})) as CanvasLockStatus;
       setLockStatus(status);
       setCanvasLockStatus(status);
 
@@ -113,8 +113,28 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       return status;
     } catch (error) {
       console.error('Failed to acquire lock:', error);
-      // Lock API failed — don't block the user, let them work.
-      // If locking is truly required, the server will reject mutations.
+
+      // Backend returns an error when the lock is held by another user,
+      // e.g. "Canvas is locked by user@example.com". Parse the error
+      // message to extract the lock holder and update state so the UI
+      // shows the lock badge (mirrors legacy webapp behavior).
+      if (error instanceof Error) {
+        const match = error.message.match(/locked by (.+)$/i);
+        if (match) {
+          const lockedStatus: CanvasLockStatus = {
+            locked_by: match[1],
+            locked_at: null,
+            is_locked: true,
+            locked_by_current_user: false,
+            lock_id: null,
+          };
+          setLockStatus(lockedStatus);
+          setCanvasLockStatus(lockedStatus);
+          setViewOnlyMode(true);
+          return lockedStatus;
+        }
+      }
+
       throw error;
     } finally {
       setIsAcquiring(false);
@@ -147,13 +167,17 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       });
     }
 
-    // Cleanup: release lock on unmount
+    // Cleanup: release lock on unmount — only if we actually own it.
+    // This guard is critical in React 18 Strict Mode (dev) where
+    // mount → unmount → mount fires. Without it the unmount DELETE
+    // would release another user's lock.
     return () => {
       stopRefreshTimer();
-      // Fire and forget release on unmount
-      apiDelete(LOCK_ENDPOINT).catch(() => {
-        // Ignore errors on unmount cleanup
-      });
+      if (hasLockRef.current) {
+        apiDelete(LOCK_ENDPOINT).catch(() => {
+          // Ignore errors on unmount cleanup
+        });
+      }
     };
     // Only run on mount/unmount
     // eslint-disable-next-line react-hooks/exhaustive-deps

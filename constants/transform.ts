@@ -66,26 +66,25 @@ export enum TransformTab {
 // OPERATION SLUGS
 // ============================================
 
-export const RENAME_COLUMNS_OP = 'renamecolumns';
-export const FLATTEN_OP = 'flatten';
-export const FLATTEN_JSON_OP = 'flattenjson';
-export const CAST_DATA_TYPES_OP = 'castdatatypes';
-export const COALESCE_COLUMNS_OP = 'coalescecolumns';
-export const ARITHMETIC_OP = 'arithmetic';
-export const CONCAT_COLUMNS_OP = 'concat';
-export const DROP_COLUMNS_OP = 'dropcolumns';
-export const REGEX_EXTRACTION_OP = 'regexextraction';
-export const REPLACE_COLUMN_VALUE_OP = 'replace';
-export const JOIN_OP = 'join';
-export const WHERE_OP = 'where';
-export const GROUPBY_OP = 'groupby';
-export const AGGREGATE_OP = 'aggregate';
-export const CASEWHEN_OP = 'casewhen';
-export const UNION_OP = 'unionall';
-export const PIVOT_OP = 'pivot';
-export const UNPIVOT_OP = 'unpivot';
-export const GENERIC_COL_OP = 'generic';
-export const GENERIC_SQL_OP = 'rawsql';
+export const RENAME_COLUMNS_OP = 'renamecolumns' as const;
+const FLATTEN_OP = 'flatten' as const;
+export const FLATTEN_JSON_OP = 'flattenjson' as const;
+export const CAST_DATA_TYPES_OP = 'castdatatypes' as const;
+export const COALESCE_COLUMNS_OP = 'coalescecolumns' as const;
+export const ARITHMETIC_OP = 'arithmetic' as const;
+const CONCAT_COLUMNS_OP = 'concat' as const;
+export const DROP_COLUMNS_OP = 'dropcolumns' as const;
+export const REPLACE_COLUMN_VALUE_OP = 'replace' as const;
+export const JOIN_OP = 'join' as const;
+export const WHERE_OP = 'where' as const;
+export const GROUPBY_OP = 'groupby' as const;
+export const AGGREGATE_OP = 'aggregate' as const;
+export const CASEWHEN_OP = 'casewhen' as const;
+export const UNION_OP = 'unionall' as const;
+export const PIVOT_OP = 'pivot' as const;
+export const UNPIVOT_OP = 'unpivot' as const;
+export const GENERIC_COL_OP = 'generic' as const;
+export const GENERIC_SQL_OP = 'rawsql' as const;
 
 // ============================================
 // OPERATIONS ARRAY (sorted alphabetically by label)

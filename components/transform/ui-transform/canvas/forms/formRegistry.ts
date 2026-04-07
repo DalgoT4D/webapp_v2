@@ -49,7 +49,7 @@ import {
  * Form registry mapping operation slugs to form components.
  * Used by OperationConfigLayout to render the correct form.
  */
-export const FORM_REGISTRY: Record<string, ComponentType<OperationFormProps>> = {
+const FORM_REGISTRY: Record<string, ComponentType<OperationFormProps>> = {
   [RENAME_COLUMNS_OP]: RenameColumnOpForm,
   [DROP_COLUMNS_OP]: DropColumnOpForm,
   [CAST_DATA_TYPES_OP]: CastColumnOpForm,

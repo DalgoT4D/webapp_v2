@@ -5,8 +5,6 @@ import { useState } from 'react';
 import { DBTRepositoryCard } from '../DBTRepositoryCard';
 import { DBTTaskList } from './DBTTaskList';
 import { CreateTaskDialog } from './CreateTaskDialog';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
 import { usePrefectTasks } from '@/hooks/api/usePrefectTasks';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 
@@ -30,27 +28,12 @@ export function DBTTransformTab({ onConnectGit }: DBTTransformTabProps) {
       {/* GitHub Repository Connection Section */}
       <DBTRepositoryCard onConnectGit={onConnectGit} />
 
-      {/* Task Management Section */}
-      <div className="space-y-4">
-        {/* Create Task Button */}
-        <div className="flex justify-end">
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            size="sm"
-            variant="ghost"
-            disabled={!canCreateTask}
-            data-testid="new-task-btn"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Task
-          </Button>
-        </div>
-
-        {/* DBT Actions */}
-        <DBTTaskList isAnyTaskLocked={isAnyTaskLocked} />
-      </div>
+      {/* DBT Actions */}
+      <DBTTaskList
+        isAnyTaskLocked={isAnyTaskLocked}
+        onNewTask={() => setShowCreateDialog(true)}
+        canCreateTask={canCreateTask}
+      />
 
       {/* Create Task Dialog */}
       <CreateTaskDialog

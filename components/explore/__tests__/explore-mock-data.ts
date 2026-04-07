@@ -36,7 +36,6 @@ export function createMockTableColumnWithType(
 ): TableColumnWithType {
   return {
     name: 'id',
-    data_type: 'INTEGER',
     translated_type: TranslatedDataType.NUMERIC,
     ...overrides,
   };
@@ -49,6 +48,8 @@ export function createMockNumericStats(overrides: Partial<NumericStats> = {}): N
     mean: 50,
     median: 50,
     mode: 45,
+    countNull: 5,
+    countDistinct: 90,
     ...overrides,
   };
 }
@@ -58,9 +59,13 @@ export function createMockStringStats(overrides: Partial<StringStats> = {}): Str
     count: 1000,
     countNull: 10,
     countDistinct: 500,
+    minVal: 1,
+    maxVal: 50,
+    mean: 10,
+    median: 8,
+    mode: 5,
     charts: [
       {
-        type: 'categorical',
         data: [
           { category: 'Value A', count: 300 },
           { category: 'Value B', count: 250 },
@@ -76,8 +81,11 @@ export function createMockStringStats(overrides: Partial<StringStats> = {}): Str
 
 export function createMockBooleanStats(overrides: Partial<BooleanStats> = {}): BooleanStats {
   return {
+    count: 1000,
     countTrue: 600,
     countFalse: 400,
+    countNull: 0,
+    countDistinct: 2,
     ...overrides,
   };
 }
@@ -86,9 +94,10 @@ export function createMockDatetimeStats(overrides: Partial<DatetimeStats> = {}):
   return {
     minVal: '2020-01-01T00:00:00Z',
     maxVal: '2024-12-31T23:59:59Z',
+    countNull: 5,
+    countDistinct: 1500,
     charts: [
       {
-        type: 'datetime',
         data: [
           { year: 2020, frequency: 100 },
           { year: 2021, frequency: 200 },
@@ -105,17 +114,20 @@ export function createMockDatetimeStats(overrides: Partial<DatetimeStats> = {}):
 export function createMockTreeNode(overrides: Partial<TreeNode> = {}): TreeNode {
   return {
     id: 'node-1',
+    schema: 'public',
     name: 'public',
     children: [
       {
         id: 'table-1',
+        schema: 'public',
         name: 'users',
-        data: createMockWarehouseTable(),
+        type: TableType.SOURCE,
       },
       {
         id: 'table-2',
+        schema: 'public',
         name: 'orders',
-        data: createMockWarehouseTable({ id: 'table-2', name: 'orders' }),
+        type: TableType.SOURCE,
       },
     ],
     ...overrides,
@@ -146,22 +158,18 @@ export const mockTableColumns: TableColumn[] = [
 export const mockTableColumnsWithTypes: TableColumnWithType[] = [
   createMockTableColumnWithType({
     name: 'id',
-    data_type: 'INTEGER',
     translated_type: TranslatedDataType.NUMERIC,
   }),
   createMockTableColumnWithType({
     name: 'name',
-    data_type: 'VARCHAR',
     translated_type: TranslatedDataType.STRING,
   }),
   createMockTableColumnWithType({
     name: 'is_active',
-    data_type: 'BOOLEAN',
     translated_type: TranslatedDataType.BOOLEAN,
   }),
   createMockTableColumnWithType({
     name: 'created_at',
-    data_type: 'TIMESTAMP',
     translated_type: TranslatedDataType.DATETIME,
   }),
 ];
