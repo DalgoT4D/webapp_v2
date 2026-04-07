@@ -51,6 +51,7 @@ export function WhereFilterOpForm({
     node,
     action,
     operation,
+    opType: WHERE_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -120,7 +121,7 @@ export function WhereFilterOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: WHERE_OP,
         config: {
           where_type: data.advanceFilter ? WhereFilterType.SQL : WhereFilterType.AND,
           clauses: data.advanceFilter

@@ -37,6 +37,7 @@ export function CoalesceOpForm({
     node,
     action,
     operation,
+    opType: COALESCE_COLUMNS_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -102,7 +103,7 @@ export function CoalesceOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: COALESCE_COLUMNS_OP,
         config: {
           columns: validColumns,
           default_value: data.default_value,

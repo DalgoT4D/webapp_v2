@@ -36,6 +36,7 @@ export function CastColumnOpForm({
     node,
     action,
     operation,
+    opType: CAST_DATA_TYPES_OP,
     continueOperationChain,
     setLoading,
   });
@@ -177,7 +178,7 @@ export function CastColumnOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: CAST_DATA_TYPES_OP,
         config: { columns: columnsTocast },
         source_columns: srcColumns.map((c) => c.name),
       },

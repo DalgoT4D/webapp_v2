@@ -36,6 +36,7 @@ export function GenericSqlOpForm({
     node,
     action,
     operation,
+    opType: GENERIC_SQL_OP,
     continueOperationChain,
     setLoading,
   });
@@ -83,8 +84,9 @@ export function GenericSqlOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: GENERIC_SQL_OP,
         config: {
+          columns: [],
           sql_statement_1: data.sql_statement_1,
           sql_statement_2: data.sql_statement_2,
         },

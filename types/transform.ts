@@ -451,10 +451,29 @@ export type OperationSlug = keyof OperationConfigMap;
 export type AnyOperationConfig = OperationConfigMap[OperationSlug];
 
 /**
+ * Per-operation submit config map — strips source_columns from each config
+ * since source_columns is sent at the payload level, not inside config.
+ */
+export type OperationSubmitConfigMap = {
+  [K in OperationSlug]: Omit<OperationConfigMap[K], 'source_columns'>;
+};
+
+/**
  * Outgoing config type — what forms submit (without source_columns,
  * which is sent at the payload level, not inside config).
  */
-export type OperationSubmitConfig = Omit<AnyOperationConfig, 'source_columns'>;
+export type OperationSubmitConfig = OperationSubmitConfigMap[OperationSlug];
+
+/**
+ * Type-safe operation payload — links op_type to its specific config shape.
+ * If you change the op_type, TypeScript will enforce the matching config.
+ */
+export interface TypedOperationPayload<T extends OperationSlug> {
+  op_type: T;
+  config: OperationSubmitConfigMap[T];
+  source_columns: string[];
+  other_inputs?: ModelSrcOtherInputPayload[];
+}
 
 /**
  * Type-safe helper to narrow operation config by slug.

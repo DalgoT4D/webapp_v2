@@ -19,7 +19,7 @@ import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { AggregateOperations, GROUPBY_OP } from '@/constants/transform';
 import { getTypedConfig } from '@/types/transform';
-import type { OperationFormProps } from '@/types/transform';
+import type { OperationFormProps, AggregateOn } from '@/types/transform';
 
 interface DimensionCol {
   col: string;
@@ -52,6 +52,7 @@ export function GroupByOpForm({
     node,
     action,
     operation,
+    opType: GROUPBY_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -134,12 +135,12 @@ export function GroupByOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: GROUPBY_OP,
         config: {
           dimension_columns: validDimensions,
           aggregate_on: validAggregations.map((a) => ({
             column: a.metric,
-            operation: a.aggregate_func,
+            operation: a.aggregate_func as AggregateOn['operation'],
             output_column_name: a.output_column_name,
           })),
         },

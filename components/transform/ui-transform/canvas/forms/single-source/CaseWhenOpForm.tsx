@@ -151,6 +151,7 @@ export function CaseWhenOpForm({
     node,
     action,
     operation,
+    opType: CASEWHEN_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -238,7 +239,7 @@ export function CaseWhenOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: CASEWHEN_OP,
         config: {
           case_type: data.advanceFilter ? CaseWhenType.ADVANCE : CaseWhenType.SIMPLE,
           when_clauses: data.advanceFilter

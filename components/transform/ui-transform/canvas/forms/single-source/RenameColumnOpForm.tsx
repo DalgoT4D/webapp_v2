@@ -39,6 +39,7 @@ export function RenameColumnOpForm({
     node,
     action,
     operation,
+    opType: RENAME_COLUMNS_OP,
     continueOperationChain,
     setLoading,
   });
@@ -94,7 +95,7 @@ export function RenameColumnOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: RENAME_COLUMNS_OP,
         config: { columns: columnsMap },
         source_columns: srcColumns,
       },

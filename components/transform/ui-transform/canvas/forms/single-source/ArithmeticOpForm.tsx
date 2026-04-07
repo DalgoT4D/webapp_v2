@@ -21,7 +21,7 @@ import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { ArithmeticOperations, ARITHMETIC_OP } from '@/constants/transform';
 import { getTypedConfig } from '@/types/transform';
-import type { OperationFormProps } from '@/types/transform';
+import type { OperationFormProps, ArithmeticDataConfig } from '@/types/transform';
 
 interface Operand {
   type: 'col' | 'val';
@@ -51,6 +51,7 @@ export function ArithmeticOpForm({
     node,
     action,
     operation,
+    opType: ARITHMETIC_OP,
     continueOperationChain,
     setLoading,
   });
@@ -130,9 +131,9 @@ export function ArithmeticOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: ARITHMETIC_OP,
         config: {
-          operator: data.operator,
+          operator: data.operator as ArithmeticDataConfig['operator'],
           operands: data.operands.map((op) => ({
             is_col: op.type === 'col',
             value: op.type === 'col' ? op.col_val : parseFloat(op.const_val) || op.const_val,

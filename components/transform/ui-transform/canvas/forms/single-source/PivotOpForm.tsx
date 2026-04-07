@@ -47,6 +47,7 @@ export function PivotOpForm({
     node,
     action,
     operation,
+    opType: PIVOT_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -177,7 +178,7 @@ export function PivotOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: PIVOT_OP,
         config: {
           pivot_column_name: data.pivot_column_name,
           pivot_column_values: validPivotValues,

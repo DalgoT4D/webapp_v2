@@ -35,6 +35,7 @@ export function FlattenJsonOpForm({
     node,
     action,
     operation,
+    opType: FLATTEN_JSON_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -174,7 +175,7 @@ export function FlattenJsonOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: FLATTEN_JSON_OP,
         config: {
           json_column: data.json_column,
           source_schema: schema,

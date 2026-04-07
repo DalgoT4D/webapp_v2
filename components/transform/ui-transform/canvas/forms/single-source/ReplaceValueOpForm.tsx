@@ -41,6 +41,7 @@ export function ReplaceValueOpForm({
     node,
     action,
     operation,
+    opType: REPLACE_COLUMN_VALUE_OP,
     continueOperationChain,
     setLoading,
   });
@@ -102,7 +103,7 @@ export function ReplaceValueOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: REPLACE_COLUMN_VALUE_OP,
         config: {
           columns: [
             {

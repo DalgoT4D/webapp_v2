@@ -18,7 +18,7 @@ import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
 import { AggregateOperations, AGGREGATE_OP } from '@/constants/transform';
 import { getTypedConfig } from '@/types/transform';
-import type { OperationFormProps } from '@/types/transform';
+import type { OperationFormProps, AggregateOn } from '@/types/transform';
 
 interface FormValues {
   column: string;
@@ -42,6 +42,7 @@ export function AggregationOpForm({
     node,
     action,
     operation,
+    opType: AGGREGATE_OP,
     continueOperationChain,
     setLoading,
   });
@@ -86,12 +87,12 @@ export function AggregationOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: AGGREGATE_OP,
         config: {
           aggregate_on: [
             {
               column: data.column,
-              operation: data.operation,
+              operation: data.operation as AggregateOn['operation'],
               output_column_name: data.outputColumnName,
             },
           ],

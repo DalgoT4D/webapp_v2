@@ -10,42 +10,37 @@ import { OperationFormAction } from '@/constants/transform';
 import type {
   OperationFormProps,
   EditOperationNodePayload,
-  ModelSrcOtherInputPayload,
-  OperationSubmitConfig,
+  OperationSlug,
+  TypedOperationPayload,
 } from '@/types/transform';
 
-export interface OperationPayload {
-  op_type: string;
-  config: OperationSubmitConfig;
-  source_columns: string[];
-  other_inputs?: ModelSrcOtherInputPayload[];
-}
-
-interface UseOperationFormOptions {
+interface UseOperationFormOptions<T extends OperationSlug> {
   node: OperationFormProps['node'];
   action: OperationFormProps['action'];
   operation: OperationFormProps['operation'];
+  opType: T;
   continueOperationChain: OperationFormProps['continueOperationChain'];
   setLoading: OperationFormProps['setLoading'];
   sortColumns?: boolean;
 }
 
-interface UseOperationFormReturn {
+interface UseOperationFormReturn<T extends OperationSlug> {
   isViewMode: boolean;
   isEditMode: boolean;
   srcColumns: string[];
   isSubmitting: boolean;
-  submitOperation: (payload: OperationPayload, successMessage: string) => Promise<void>;
+  submitOperation: (payload: TypedOperationPayload<T>, successMessage: string) => Promise<void>;
 }
 
-export function useOperationForm({
+export function useOperationForm<T extends OperationSlug>({
   node,
   action,
   operation,
+  opType: _opType,
   continueOperationChain,
   setLoading,
   sortColumns = false,
-}: UseOperationFormOptions): UseOperationFormReturn {
+}: UseOperationFormOptions<T>): UseOperationFormReturn<T> {
   const isViewMode = action === OperationFormAction.VIEW;
   const isEditMode = action === OperationFormAction.EDIT;
 
@@ -68,7 +63,7 @@ export function useOperationForm({
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const submitOperation = useCallback(
-    async (payload: OperationPayload, successMessage: string) => {
+    async (payload: TypedOperationPayload<T>, successMessage: string) => {
       if (!node?.id) {
         toastError.api('No node selected');
         return;

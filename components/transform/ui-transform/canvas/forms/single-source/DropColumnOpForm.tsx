@@ -30,6 +30,7 @@ export function DropColumnOpForm({
     node,
     action,
     operation,
+    opType: DROP_COLUMNS_OP,
     continueOperationChain,
     setLoading,
   });
@@ -78,7 +79,7 @@ export function DropColumnOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: DROP_COLUMNS_OP,
         config: { columns: selectedColumns },
         source_columns: srcColumns,
       },

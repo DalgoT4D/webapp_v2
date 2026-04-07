@@ -42,6 +42,7 @@ export function UnpivotOpForm({
     node,
     action,
     operation,
+    opType: UNPIVOT_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -162,7 +163,7 @@ export function UnpivotOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: UNPIVOT_OP,
         config: {
           unpivot_columns: unpivotCols,
           unpivot_field_name: data.unpivot_field_name,

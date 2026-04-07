@@ -44,6 +44,7 @@ export function GenericColumnOpForm({
     node,
     action,
     operation,
+    opType: GENERIC_COL_OP,
     continueOperationChain,
     setLoading,
     sortColumns: true,
@@ -94,7 +95,7 @@ export function GenericColumnOpForm({
 
     await submitOperation(
       {
-        op_type: operation.slug,
+        op_type: GENERIC_COL_OP,
         config: {
           computed_columns: [
             {
