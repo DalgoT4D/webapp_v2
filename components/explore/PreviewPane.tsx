@@ -90,9 +90,11 @@ export function PreviewPane({
   const handleSort = useCallback((columnName: string) => {
     setSortConfig((prev) => {
       if (prev.column === columnName) {
-        return { column: columnName, order: prev.order === 1 ? -1 : 1 };
+        // Toggle: desc ↔ asc
+        return { column: columnName, order: prev.order === -1 ? 1 : -1 };
       }
-      return { column: columnName, order: 1 };
+      // First click on a new column → descending
+      return { column: columnName, order: -1 };
     });
     // Reset to first page when sorting changes
     setPagination((prev) => ({ ...prev, page: 1 }));
@@ -181,10 +183,10 @@ export function PreviewPane({
                   <div className="flex items-center gap-2 py-1">
                     {col.name}
                     {sortConfig.column === col.name ? (
-                      sortConfig.order === 1 ? (
-                        <ArrowUp className="h-4 w-4 text-gray-600" />
-                      ) : (
+                      sortConfig.order === -1 ? (
                         <ArrowDown className="h-4 w-4 text-gray-600" />
+                      ) : (
+                        <ArrowUp className="h-4 w-4 text-gray-600" />
                       )
                     ) : (
                       <ArrowUpDown className="h-4 w-4 text-gray-400" />
