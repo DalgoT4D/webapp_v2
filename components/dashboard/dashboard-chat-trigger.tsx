@@ -32,10 +32,13 @@ export function DashboardChatTrigger({
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="fixed right-6 bottom-6 z-40 h-14 rounded-full px-5 shadow-lg"
+        className="fixed right-6 bottom-6 z-40 h-14 rounded-full px-4 shadow-lg"
       >
-        <MessageCircle className="mr-2 h-5 w-5" />
-        Dalgo AI
+        <span className="grid grid-cols-[20px_auto_20px] items-center gap-2">
+          <MessageCircle className="h-5 w-5" />
+          <span className="text-center">Dalgo AI</span>
+          <span aria-hidden="true" className="h-5 w-5" />
+        </span>
       </Button>
       <DashboardChat
         dashboardId={dashboardId}

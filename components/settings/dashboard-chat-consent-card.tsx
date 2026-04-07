@@ -7,7 +7,6 @@ import { Switch } from '@/components/ui/switch';
 interface DashboardChatConsentCardProps {
   aiDataSharingEnabled: boolean;
   aiDataSharingConsentedAt: string;
-  docsGeneratedAt: string;
   vectorLastIngestedAt: string;
   isUpdatingConsent: boolean;
   onConsentChange: (checked: boolean) => void | Promise<void>;
@@ -29,7 +28,6 @@ function FreshnessItem({ label, value }: FreshnessItemProps) {
 export function DashboardChatConsentCard({
   aiDataSharingEnabled,
   aiDataSharingConsentedAt,
-  docsGeneratedAt,
   vectorLastIngestedAt,
   isUpdatingConsent,
   onConsentChange,
@@ -61,16 +59,15 @@ export function DashboardChatConsentCard({
           />
         </div>
 
-        <div className="grid gap-2 rounded-lg border bg-slate-50 p-4 md:grid-cols-3">
+        <div className="grid gap-2 rounded-lg border bg-slate-50 p-4 md:grid-cols-2">
           <FreshnessItem label="Last consent update" value={aiDataSharingConsentedAt} />
-          <FreshnessItem label="dbt docs refreshed" value={docsGeneratedAt} />
-          <FreshnessItem label="Vector context refreshed" value={vectorLastIngestedAt} />
+          <FreshnessItem label="Dalgo AI context refreshed" value={vectorLastIngestedAt} />
         </div>
 
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           <p>
-            Markdown context updates are picked up by the scheduled context build. Allow up to 3
-            hours for chat responses to reflect the latest saved context.
+            Organization and dashboard context changes appear in Dalgo AI after the next context
+            refresh. Allow up to 3 hours for saved updates to show up in chat.
           </p>
         </div>
       </CardContent>
