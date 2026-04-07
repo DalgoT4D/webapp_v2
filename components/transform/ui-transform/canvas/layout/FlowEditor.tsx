@@ -61,6 +61,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
     previewData,
     gitRepoUrl: storeGitRepoUrl,
     triggerRefresh,
+    setTempLockCanvas,
   } = useTransformStore();
 
   // Single shared workflow execution instance — logs, run state, and
@@ -192,15 +193,20 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   // 3. Re-fetch sources/models (left sidebar)
   // 4. Check for any running tasks and resume polling if found
   const handleRefreshCanvas = useCallback(async () => {
-    await Promise.all([mutate(CANVAS_GRAPH_KEY), refreshSources()]);
-    // Bump refreshTrigger so every node re-fetches its table_columns
-    triggerRefresh();
-    const runningTaskId = await checkRunningTasks();
-    if (runningTaskId) {
-      await resumePolling(runningTaskId);
+    setTempLockCanvas(true);
+    try {
+      await Promise.all([mutate(CANVAS_GRAPH_KEY), refreshSources()]);
+      // Bump refreshTrigger so every node re-fetches its table_columns
+      triggerRefresh();
+      const runningTaskId = await checkRunningTasks();
+      if (runningTaskId) {
+        await resumePolling(runningTaskId);
+      }
+      toastSuccess.generic('Graph has been refreshed');
+    } finally {
+      setTempLockCanvas(false);
     }
-    toastSuccess.generic('Graph has been refreshed');
-  }, [mutate, refreshSources, triggerRefresh, checkRunningTasks, resumePolling]);
+  }, [mutate, refreshSources, triggerRefresh, checkRunningTasks, resumePolling, setTempLockCanvas]);
 
   // Derive preview data from node click (previewData) or explicit preview action
   const previewTable =
