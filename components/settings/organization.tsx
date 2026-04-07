@@ -284,7 +284,7 @@ export default function OrganizationSettings() {
         <DashboardChatConsentCard
           aiDataSharingEnabled={settings.ai_data_sharing_enabled}
           aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
-          vectorLastIngestedAt={formatTimestamp(settings.vector_last_ingested_at)}
+          vectorLastIngestedAt={formatTimestamp(settings.ai_context_refreshed_at)}
           isUpdatingConsent={isUpdatingConsent}
           onConsentChange={handleConsentChange}
         />
