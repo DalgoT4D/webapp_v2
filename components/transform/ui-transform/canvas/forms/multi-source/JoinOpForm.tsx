@@ -89,6 +89,8 @@ export function JoinOpForm({
     reset,
     watch,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -235,25 +237,24 @@ export function JoinOpForm({
       return;
     }
 
-    if (!data.join_type) {
-      toastError.api('Join type is required');
-      return;
-    }
+    let hasErrors = false;
 
     if (!data.table1_key) {
-      toastError.api('Table 1 key is required');
-      return;
+      setError('table1_key', { message: 'Table 1 key is required' });
+      hasErrors = true;
     }
 
-    if (!data.table2_id || !selectedTable2) {
-      toastError.api('Table 2 is required');
-      return;
+    if (!selectedTable2) {
+      setError('table2_id', { message: 'Table 2 is required' });
+      hasErrors = true;
     }
 
     if (!data.table2_key) {
-      toastError.api('Table 2 key is required');
-      return;
+      setError('table2_key', { message: 'Table 2 key is required' });
+      hasErrors = true;
     }
+
+    if (hasErrors) return;
 
     setLoading(true);
 
@@ -352,12 +353,18 @@ export function JoinOpForm({
           <Label>Key *</Label>
           <ColumnSelect
             value={watch('table1_key')}
-            onChange={(value) => setValue('table1_key', value)}
+            onChange={(value) => {
+              setValue('table1_key', value);
+              clearErrors('table1_key');
+            }}
             columns={srcColumns}
             placeholder="Select key column"
             disabled={isViewMode}
             testId="join-table1-key"
           />
+          {errors.table1_key && (
+            <p className="text-sm text-destructive">{errors.table1_key.message}</p>
+          )}
         </div>
       </div>
 
@@ -397,12 +404,18 @@ export function JoinOpForm({
           <Label>Key *</Label>
           <ColumnSelect
             value={watch('table2_key')}
-            onChange={(value) => setValue('table2_key', value)}
+            onChange={(value) => {
+              setValue('table2_key', value);
+              clearErrors('table2_key');
+            }}
             columns={table2Columns}
             placeholder="Select key column"
             disabled={isViewMode || !watchedTable2Id}
             testId="join-table2-key"
           />
+          {errors.table2_key && (
+            <p className="text-sm text-destructive">{errors.table2_key.message}</p>
+          )}
         </div>
       </div>
 

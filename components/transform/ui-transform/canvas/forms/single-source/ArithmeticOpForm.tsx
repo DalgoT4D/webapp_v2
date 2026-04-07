@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2, Info } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
@@ -56,7 +55,16 @@ export function ArithmeticOpForm({
     setLoading,
   });
 
-  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    register,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = getTypedConfig(ARITHMETIC_OP, node.data.operation_config);
@@ -109,25 +117,35 @@ export function ArithmeticOpForm({
       ['add', 'mul'].includes(selectedOperator));
 
   const onSubmit = async (data: FormValues) => {
-    if (!data.operator) {
-      toastError.api('Please select an operation');
-      return;
-    }
+    let hasErrors = false;
 
-    if (!data.output_column_name) {
-      toastError.api('Output column name is required');
-      return;
-    }
+    // Validate individual operand fields (cross-field: depends on type)
+    data.operands.forEach((op, index) => {
+      if (op.type === 'col' && !op.col_val) {
+        setError(`operands.${index}.col_val` as `operands.${number}.col_val`, {
+          message: 'Column is required',
+        });
+        hasErrors = true;
+      }
+      if (op.type === 'val' && !op.const_val) {
+        setError(`operands.${index}.const_val` as `operands.${number}.const_val`, {
+          message: 'Value is required',
+        });
+        hasErrors = true;
+      }
+    });
 
-    // Validate operands
+    // Validate minimum operand count
     const validOperands = data.operands.filter((op) =>
       op.type === 'col' ? op.col_val : op.const_val
     );
 
     if (validOperands.length < 2) {
-      toastError.api('At least two operands are required');
-      return;
+      setError('operands', { message: 'At least two operands are required' });
+      hasErrors = true;
     }
+
+    if (hasErrors) return;
 
     await submitOperation(
       {
@@ -156,7 +174,14 @@ export function ArithmeticOpForm({
           name="operator"
           rules={{ required: 'Operation is required' }}
           render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange} disabled={isViewMode}>
+            <Select
+              value={field.value}
+              onValueChange={(val) => {
+                field.onChange(val);
+                clearErrors('operator');
+              }}
+              disabled={isViewMode}
+            >
               <SelectTrigger data-testid="arithmetic-operation-select">
                 <SelectValue placeholder="Select operation" />
               </SelectTrigger>
@@ -170,6 +195,7 @@ export function ArithmeticOpForm({
             </Select>
           )}
         />
+        {errors.operator && <p className="text-sm text-destructive">{errors.operator.message}</p>}
       </div>
 
       {/* Operands */}
@@ -218,27 +244,46 @@ export function ArithmeticOpForm({
             />
 
             {watchedOperands[index]?.type === 'col' ? (
-              <ColumnSelect
-                value={watchedOperands[index]?.col_val || ''}
-                onChange={(value) => setValue(`operands.${index}.col_val`, value)}
-                columns={srcColumns}
-                placeholder="Select column"
-                disabled={isViewMode}
-                testId={`arithmetic-col-${index}`}
-              />
+              <>
+                <ColumnSelect
+                  value={watchedOperands[index]?.col_val || ''}
+                  onChange={(value) => {
+                    setValue(`operands.${index}.col_val`, value);
+                    clearErrors(`operands.${index}.col_val` as `operands.${number}.col_val`);
+                  }}
+                  columns={srcColumns}
+                  placeholder="Select column"
+                  disabled={isViewMode}
+                  testId={`arithmetic-col-${index}`}
+                />
+                {errors.operands?.[index]?.col_val && (
+                  <p className="text-sm text-destructive">
+                    {errors.operands[index].col_val.message}
+                  </p>
+                )}
+              </>
             ) : (
-              <Input
-                {...register(`operands.${index}.const_val`)}
-                type="number"
-                step="any"
-                placeholder="Enter numeric value"
-                disabled={isViewMode}
-                data-testid={`arithmetic-val-${index}`}
-              />
+              <>
+                <Input
+                  {...register(`operands.${index}.const_val`)}
+                  type="number"
+                  step="any"
+                  placeholder="Enter numeric value"
+                  disabled={isViewMode}
+                  data-testid={`arithmetic-val-${index}`}
+                />
+                {errors.operands?.[index]?.const_val && (
+                  <p className="text-sm text-destructive">
+                    {errors.operands[index].const_val.message}
+                  </p>
+                )}
+              </>
             )}
           </div>
         ))}
       </div>
+
+      {errors.operands && <p className="text-sm text-destructive">{errors.operands.message}</p>}
 
       {/* Add Operand Button */}
       {!isViewMode && canAddOperand && (
@@ -259,11 +304,14 @@ export function ArithmeticOpForm({
       <div className="space-y-2">
         <Label>Output Column Name *</Label>
         <Input
-          {...register('output_column_name', { required: true })}
+          {...register('output_column_name', { required: 'Output column name is required' })}
           placeholder="Enter output column name"
           disabled={isViewMode}
           data-testid="arithmetic-output-name"
         />
+        {errors.output_column_name && (
+          <p className="text-sm text-destructive">{errors.output_column_name.message}</p>
+        )}
       </div>
 
       {/* Info */}

@@ -169,6 +169,11 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
       edgeIds: apiEdges.map((e) => e.id).sort(),
       // Include isPublished so canvas re-renders when publish flips the flag
       publishState: apiNodes.map((n) => `${n.uuid}:${n.isPublished}`).sort(),
+      // Include operation config so nodes refresh after editing operations
+      opConfigs: apiNodes
+        .filter((n) => n.operation_config?.config)
+        .map((n) => `${n.uuid}:${JSON.stringify(n.operation_config?.config)}`)
+        .sort(),
     });
 
     if (dataHash === processedDataRef.current) return;

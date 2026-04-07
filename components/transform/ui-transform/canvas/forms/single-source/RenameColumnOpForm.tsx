@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
@@ -44,7 +43,14 @@ export function RenameColumnOpForm({
     setLoading,
   });
 
-  const { control, handleSubmit, watch, setValue } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+    setError,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = getTypedConfig(RENAME_COLUMNS_OP, node.data.operation_config);
@@ -84,7 +90,7 @@ export function RenameColumnOpForm({
     // Filter out empty rows and build columns map
     const validRenames = data.renames.filter((r) => r.oldName && r.newName);
     if (validRenames.length === 0) {
-      toastError.api('At least one valid rename is required');
+      setError('renames', { message: 'At least one valid rename is required' });
       return;
     }
 
@@ -152,6 +158,8 @@ export function RenameColumnOpForm({
           </div>
         ))}
       </div>
+
+      {errors.renames && <p className="text-sm text-destructive">{errors.renames.message}</p>}
 
       {/* Add Row Button */}
       {!isViewMode && (

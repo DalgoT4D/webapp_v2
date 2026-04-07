@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { apiGet } from '@/lib/api';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
@@ -65,7 +64,14 @@ export function FlattenJsonOpForm({
   });
   const [isFetchingJson, setIsFetchingJson] = useState(false);
 
-  const { handleSubmit, watch, setValue } = useForm<FormValues>({
+  const {
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = getTypedConfig(FLATTEN_JSON_OP, node.data.operation_config);
@@ -153,6 +159,7 @@ export function FlattenJsonOpForm({
   // Handle JSON column selection
   const handleJsonColumnChange = (value: string) => {
     setValue('json_column', value);
+    clearErrors('json_column');
     if (value) {
       fetchJsonColumns(value);
     } else {
@@ -161,15 +168,19 @@ export function FlattenJsonOpForm({
   };
 
   const onSubmit = async (data: FormValues) => {
+    let hasErrors = false;
+
     if (!data.json_column) {
-      toastError.api('JSON column is required');
-      return;
+      setError('json_column', { message: 'JSON column is required' });
+      hasErrors = true;
     }
 
     if (jsonColumns.length === 0) {
-      toastError.api('No JSON columns found to flatten');
-      return;
+      setError('json_column', { message: 'No JSON columns found to flatten' });
+      hasErrors = true;
     }
+
+    if (hasErrors) return;
 
     const { schema } = getSchemaAndTable();
 
@@ -205,6 +216,9 @@ export function FlattenJsonOpForm({
             disabled={isViewMode}
             testId="flatten-json-column"
           />
+          {errors.json_column && (
+            <p className="text-sm text-destructive mt-2">{errors.json_column.message}</p>
+          )}
         </div>
       </div>
 

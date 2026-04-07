@@ -56,6 +56,8 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
     handleSubmit,
     setValue,
     watch,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -134,16 +136,18 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
     (value: string) => {
       setValue('dest_schema', value);
       setCustomSchema('');
+      clearErrors('dest_schema');
     },
-    [setValue]
+    [setValue, clearErrors]
   );
 
   const handleDirectoryChange = useCallback(
     (value: string) => {
       setValue('rel_dir_to_models', value);
       setCustomDirectory('');
+      clearErrors('rel_dir_to_models');
     },
-    [setValue]
+    [setValue, clearErrors]
   );
 
   const onSubmit = async (data: FormValues) => {
@@ -156,15 +160,19 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
     const finalSchema = customSchema || data.dest_schema;
     const finalDirectory = customDirectory || data.rel_dir_to_models;
 
-    if (!data.output_name.trim()) {
-      toastError.api('Output name is required');
-      return;
-    }
+    let hasErrors = false;
 
     if (!finalSchema.trim()) {
-      toastError.api('Schema is required');
-      return;
+      setError('dest_schema', { message: 'Schema is required' });
+      hasErrors = true;
     }
+
+    if (!finalDirectory.trim()) {
+      setError('rel_dir_to_models', { message: 'Model directory is required' });
+      hasErrors = true;
+    }
+
+    if (hasErrors) return;
 
     setIsSubmitting(true);
     setLoading(true);
@@ -209,7 +217,9 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
         <Input
           id="output_name"
           placeholder="e.g., customer_summary"
-          {...register('output_name', { required: 'Output name is required' })}
+          {...register('output_name', {
+            validate: (v) => v.trim() !== '' || 'Output name is required',
+          })}
           data-testid="output-name-input"
         />
         {errors.output_name && (
@@ -239,10 +249,14 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
           onChange={(e) => {
             setCustomSchema(e.target.value);
             setValue('dest_schema', '');
+            clearErrors('dest_schema');
           }}
           className="mt-2"
           data-testid="custom-schema-input"
         />
+        {errors.dest_schema && (
+          <p className="text-sm text-destructive">{errors.dest_schema.message}</p>
+        )}
       </div>
 
       {/* Directory under models */}
@@ -267,10 +281,14 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
           onChange={(e) => {
             setCustomDirectory(e.target.value);
             setValue('rel_dir_to_models', '');
+            clearErrors('rel_dir_to_models');
           }}
           className="mt-2"
           data-testid="custom-directory-input"
         />
+        {errors.rel_dir_to_models && (
+          <p className="text-sm text-destructive">{errors.rel_dir_to_models.message}</p>
+        )}
       </div>
 
       {/* Actions */}

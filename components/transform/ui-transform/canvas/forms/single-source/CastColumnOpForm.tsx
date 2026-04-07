@@ -5,7 +5,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
@@ -42,6 +41,7 @@ export function CastColumnOpForm({
   });
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   const [srcColumns, setSrcColumns] = useState<ColumnConfig[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
       const config = getTypedConfig(CAST_DATA_TYPES_OP, node.data.operation_config);
@@ -172,9 +172,11 @@ export function CastColumnOpForm({
       }));
 
     if (columnsTocast.length === 0) {
-      toastError.api('Select at least one column type to cast');
+      setFormError('Select at least one column type to cast');
       return;
     }
+
+    setFormError(null);
 
     await submitOperation(
       {
@@ -241,6 +243,8 @@ export function CastColumnOpForm({
           </div>
         )}
       </div>
+
+      {formError && <p className="text-sm text-destructive">{formError}</p>}
 
       {/* Info */}
       <p className="text-xs text-muted-foreground">

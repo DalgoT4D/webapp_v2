@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { ColumnSelect } from '../shared/ColumnSelect';
 import { FormActions } from '../shared/FormActions';
 import { useOperationForm } from '../shared/useOperationForm';
@@ -57,7 +56,16 @@ export function WhereFilterOpForm({
     sortColumns: true,
   });
 
-  const { control, handleSubmit, watch, setValue, register } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    register,
+    formState: { errors },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
     defaultValues: (() => {
       if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
         const config = getTypedConfig(WHERE_OP, node.data.operation_config);
@@ -107,17 +115,31 @@ export function WhereFilterOpForm({
   const filteredOperators = LogicalOperators.filter((op) => op.id !== 'between');
 
   const onSubmit = async (data: FormValues) => {
+    let hasErrors = false;
+
     if (!data.advanceFilter) {
-      if (!data.filterCol || !data.logicalOp) {
-        toastError.api('Column and operation are required');
-        return;
+      if (!data.filterCol) {
+        setError('filterCol', { message: 'Column is required' });
+        hasErrors = true;
+      }
+      if (!data.logicalOp) {
+        setError('logicalOp', { message: 'Operation is required' });
+        hasErrors = true;
+      }
+      // Validate operand column when type is 'col' and not a null operator
+      const isNullOp = data.logicalOp === 'IS NULL' || data.logicalOp === 'IS NOT NULL';
+      if (!isNullOp && data.operandType === 'col' && !data.operandColVal) {
+        setError('operandColVal', { message: 'Column is required' });
+        hasErrors = true;
       }
     } else {
       if (!data.sql_snippet) {
-        toastError.api('SQL snippet is required for advance filter');
-        return;
+        setError('sql_snippet', { message: 'SQL snippet is required for advance filter' });
+        hasErrors = true;
       }
     }
+
+    if (hasErrors) return;
 
     await submitOperation(
       {
@@ -159,12 +181,16 @@ export function WhereFilterOpForm({
         <Label>Select Column *</Label>
         <ColumnSelect
           value={watch('filterCol')}
-          onChange={(value) => setValue('filterCol', value)}
+          onChange={(value) => {
+            setValue('filterCol', value);
+            clearErrors('filterCol');
+          }}
           columns={srcColumns}
           placeholder="Select column to filter"
           disabled={isSimpleFieldsDisabled}
           testId="where-filter-col"
         />
+        {errors.filterCol && <p className="text-sm text-destructive">{errors.filterCol.message}</p>}
       </div>
 
       {/* Operation Select */}
@@ -176,7 +202,10 @@ export function WhereFilterOpForm({
           render={({ field }) => (
             <Select
               value={field.value}
-              onValueChange={field.onChange}
+              onValueChange={(val) => {
+                field.onChange(val);
+                clearErrors('logicalOp');
+              }}
               disabled={isSimpleFieldsDisabled}
             >
               <SelectTrigger data-testid="where-operation-select">
@@ -192,6 +221,7 @@ export function WhereFilterOpForm({
             </Select>
           )}
         />
+        {errors.logicalOp && <p className="text-sm text-destructive">{errors.logicalOp.message}</p>}
       </div>
 
       {/* Operand Type - hidden for IS NULL / IS NOT NULL */}
@@ -225,14 +255,22 @@ export function WhereFilterOpForm({
 
           {/* Operand Value */}
           {operandType === 'col' ? (
-            <ColumnSelect
-              value={watch('operandColVal')}
-              onChange={(value) => setValue('operandColVal', value)}
-              columns={srcColumns}
-              placeholder="Select comparison column"
-              disabled={isSimpleFieldsDisabled}
-              testId="where-operand-col"
-            />
+            <div className="space-y-2">
+              <ColumnSelect
+                value={watch('operandColVal')}
+                onChange={(value) => {
+                  setValue('operandColVal', value);
+                  clearErrors('operandColVal');
+                }}
+                columns={srcColumns}
+                placeholder="Select comparison column"
+                disabled={isSimpleFieldsDisabled}
+                testId="where-operand-col"
+              />
+              {errors.operandColVal && (
+                <p className="text-sm text-destructive">{errors.operandColVal.message}</p>
+              )}
+            </div>
           ) : (
             <Input
               {...register('operandConstVal')}
@@ -271,7 +309,7 @@ export function WhereFilterOpForm({
       {/* SQL Snippet */}
       {advanceFilter && (
         <div className="space-y-2">
-          <Label>WHERE Clause</Label>
+          <Label>WHERE Clause *</Label>
           <Textarea
             {...register('sql_snippet')}
             placeholder="Enter the WHERE clause (without WHERE keyword)"
@@ -279,6 +317,9 @@ export function WhereFilterOpForm({
             disabled={isViewMode}
             data-testid="where-sql-snippet"
           />
+          {errors.sql_snippet && (
+            <p className="text-sm text-destructive">{errors.sql_snippet.message}</p>
+          )}
         </div>
       )}
 

@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
-import { toastError } from '@/lib/toast';
 import { useOperationForm } from '../shared/useOperationForm';
 import { cn } from '@/lib/utils';
 import { DROP_COLUMNS_OP } from '@/constants/transform';
@@ -34,6 +33,7 @@ export function DropColumnOpForm({
   });
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
     if ((isEditMode || isViewMode) && node?.data?.operation_config?.config) {
       const config = getTypedConfig(DROP_COLUMNS_OP, node.data.operation_config);
@@ -71,9 +71,11 @@ export function DropColumnOpForm({
     e.preventDefault();
 
     if (selectedColumns.length === 0) {
-      toastError.api('Select at least one column to drop');
+      setFormError('Select at least one column to drop');
       return;
     }
+
+    setFormError(null);
 
     await submitOperation(
       {
@@ -160,6 +162,8 @@ export function DropColumnOpForm({
           </div>
         )}
       </div>
+
+      {formError && <p className="text-sm text-destructive">{formError}</p>}
 
       {/* Actions */}
       {!isViewMode && (
