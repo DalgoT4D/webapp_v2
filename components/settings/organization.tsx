@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -71,8 +71,8 @@ function DashboardChatConsentDialog({
         <DialogHeader>
           <DialogTitle>Enable Chat with Dashboards</DialogTitle>
           <DialogDescription>
-            Turning this on allows Dalgo to send dashboard context, dbt metadata, and relevant
-            warehouse-derived information to OpenAI in order to generate answers.
+            Turning this on allows Dalgo AI to use dashboard context, saved AI context, and relevant
+            warehouse information to answer questions.
           </DialogDescription>
         </DialogHeader>
 
@@ -81,10 +81,7 @@ function DashboardChatConsentDialog({
             Use this only if your organization approves sharing data with external AI services for
             dashboard question answering.
           </p>
-          <p>
-            Saved context changes will not appear instantly. They are picked up on the next
-            scheduled context build.
-          </p>
+          <p>Saved context changes appear in Dalgo AI after the next context refresh.</p>
         </div>
 
         <DialogFooter>
@@ -102,6 +99,7 @@ function DashboardChatConsentDialog({
 
 export default function OrganizationSettings() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { hasPermission } = useUserPermissions();
   const featureEnabled = isFeatureFlagEnabled(FeatureFlagKeys.AI_DASHBOARD_CHAT);
@@ -148,10 +146,20 @@ export default function OrganizationSettings() {
   }, [featureEnabled, router]);
 
   useEffect(() => {
+    const requestedDashboardId = Number(searchParams.get('dashboard_id'));
+    if (
+      Number.isFinite(requestedDashboardId) &&
+      requestedDashboardId > 0 &&
+      nativeDashboards.some((dashboard) => dashboard.id === requestedDashboardId)
+    ) {
+      setSelectedDashboardId(requestedDashboardId);
+      return;
+    }
+
     if (!selectedDashboardId && nativeDashboards.length > 0) {
       setSelectedDashboardId(nativeDashboards[0].id);
     }
-  }, [nativeDashboards, selectedDashboardId]);
+  }, [nativeDashboards, searchParams, selectedDashboardId]);
 
   useEffect(() => {
     setOrgContextDraft(settings?.org_context_markdown ?? '');
@@ -276,8 +284,7 @@ export default function OrganizationSettings() {
         <DashboardChatConsentCard
           aiDataSharingEnabled={settings.ai_data_sharing_enabled}
           aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
-          docsGeneratedAt={formatTimestamp(settings.docs_generated_at)}
-          vectorLastIngestedAt={formatTimestamp(settings.vector_last_ingested_at)}
+          vectorLastIngestedAt={formatTimestamp(settings.ai_context_refreshed_at)}
           isUpdatingConsent={isUpdatingConsent}
           onConsentChange={handleConsentChange}
         />
