@@ -18,8 +18,7 @@ export interface OrgDashboardAIChatSettings {
   org_context_updated_by: string | null;
   org_context_updated_at: string | null;
   dbt_configured: boolean;
-  docs_generated_at: string | null;
-  vector_last_ingested_at: string | null;
+  ai_context_refreshed_at: string | null;
 }
 
 export interface OrgDashboardAIChatStatus {
@@ -27,8 +26,7 @@ export interface OrgDashboardAIChatStatus {
   ai_data_sharing_enabled: boolean;
   chat_available: boolean;
   dbt_configured: boolean;
-  docs_generated_at: string | null;
-  vector_last_ingested_at: string | null;
+  ai_context_refreshed_at: string | null;
 }
 
 export interface DashboardAIContext {
@@ -37,7 +35,7 @@ export interface DashboardAIContext {
   dashboard_context_markdown: string;
   dashboard_context_updated_by: string | null;
   dashboard_context_updated_at: string | null;
-  vector_last_ingested_at: string | null;
+  ai_context_refreshed_at: string | null;
 }
 
 export interface DashboardChatBootstrap {
