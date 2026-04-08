@@ -454,13 +454,6 @@ export function ChartElementView({
             // Dashboard filters passed separately (skip in report mode — synthetic
             // filter IDs can't be resolved by the backend; extra_config.filters
             // already contains the resolved filters via formatAsChartFilters above)
-            dashboard_filters:
-              !frozenChartConfig && Object.keys(dashboardFilters).length > 0
-                ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
-                    filter_id,
-                    value,
-                  }))
-                : undefined,
           }
         : null,
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
