@@ -585,7 +585,6 @@ function CommentPopoverInner({
       });
       setDraft('');
       await mutateComments();
-      onStateChange?.();
       setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, SCROLL_DELAY_MS);
@@ -594,16 +593,7 @@ function CommentPopoverInner({
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    draft,
-    isSubmitting,
-    snapshotId,
-    targetType,
-    chartId,
-    mutateComments,
-    onStateChange,
-    setDraft,
-  ]);
+  }, [draft, isSubmitting, snapshotId, targetType, chartId, mutateComments, setDraft]);
 
   // Keyboard: Arrow keys for mention navigation, Enter to select/submit, Escape to close
   const handleKeyDown = useCallback(
