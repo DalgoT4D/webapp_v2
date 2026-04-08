@@ -263,3 +263,26 @@ export async function apiPostBinary(path: string, body: any, options: RequestIni
 
   return response.blob();
 }
+
+// Helper for GET requests that return binary data (e.g. file downloads)
+export async function apiGetBinary(path: string, options: RequestInit = {}) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const selectedOrgSlug = getSelectOrg();
+  const headers: HeadersInit = {
+    ...(selectedOrgSlug ? { 'x-dalgo-org': selectedOrgSlug } : {}),
+    ...(options.headers || {}),
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    method: 'GET',
+    headers,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+
+  return response.blob();
+}
