@@ -484,12 +484,15 @@ export function ChartElementView({
       ? isPublicReport
         ? async () => {
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/charts/${chartId}/data/`
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return response.json();
           }
-        : () => apiGet(`/api/reports/${snapshotId}/charts/${chartId}/data/`)
+        : () =>
+            apiGet(
+              `/api/reports/${snapshotId}/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+            )
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
