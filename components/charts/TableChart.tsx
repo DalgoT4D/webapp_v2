@@ -79,6 +79,15 @@ interface TableChartProps {
       enabled: boolean;
       page_size: number;
     };
+    conditionalFormatting?: Array<{
+      column: string;
+      operator: string;
+      value: number;
+      color: string;
+    }>;
+    columnAlignment?: Record<string, string>;
+    zebraRows?: boolean;
+    freezeFirstColumn?: boolean;
   };
   onSort?: (column: string, direction: 'asc' | 'desc') => void;
   isLoading?: boolean;
@@ -212,6 +221,68 @@ export function TableChart({
     }
   };
 
+  // Evaluate conditional formatting rules for a cell
+  const getConditionalColor = (value: any, column: string): string | undefined => {
+    const rules = config.conditionalFormatting;
+    if (!rules || rules.length === 0) return undefined;
+
+    const numValue = Number(value);
+    if (isNaN(numValue)) return undefined;
+
+    // Last matching rule wins
+    let matchedColor: string | undefined;
+    for (const rule of rules) {
+      if (rule.column !== column) continue;
+
+      let matches = false;
+      switch (rule.operator) {
+        case '>':
+          matches = numValue > rule.value;
+          break;
+        case '<':
+          matches = numValue < rule.value;
+          break;
+        case '>=':
+          matches = numValue >= rule.value;
+          break;
+        case '<=':
+          matches = numValue <= rule.value;
+          break;
+        case '==':
+          matches = numValue === rule.value;
+          break;
+        case '!=':
+          matches = numValue !== rule.value;
+          break;
+      }
+      if (matches) {
+        matchedColor = rule.color;
+      }
+    }
+    return matchedColor;
+  };
+
+  // Get alignment class for a column
+  const getAlignmentClass = (column: string, sampleValue: any): string => {
+    const explicitAlignment = config.columnAlignment?.[column];
+    if (explicitAlignment) {
+      switch (explicitAlignment) {
+        case 'left':
+          return 'text-left';
+        case 'center':
+          return 'text-center';
+        case 'right':
+          return 'text-right';
+      }
+    }
+    // Auto-detect: check if value is numeric
+    if (sampleValue != null) {
+      const isNumeric = typeof sampleValue === 'number' || !isNaN(Number(sampleValue));
+      return isNumeric ? 'text-right' : 'text-left';
+    }
+    return 'text-left';
+  };
+
   // Get sort direction for a column
   const getSortDirection = (column: string) => {
     const sortConfig = sort.find((s) => s.column === column);
@@ -284,14 +355,21 @@ export function TableChart({
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 overflow-auto">
         <Table className="h-auto">
-          <TableHeader>
+          <TableHeader className="bg-muted">
             <TableRow>
               {columns.map((column) => {
                 const sortDirection = getSortDirection(column);
                 const canSort = !!onSort;
 
                 return (
-                  <TableHead key={column} className="font-semibold py-2 px-2">
+                  <TableHead
+                    key={column}
+                    className={`font-semibold py-2 px-2 ${getAlignmentClass(column, data[0]?.[column])} ${
+                      config.freezeFirstColumn && columns.indexOf(column) === 0
+                        ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                        : ''
+                    }`}
+                  >
                     {canSort ? (
                       <Button
                         variant="ghost"
@@ -320,11 +398,11 @@ export function TableChart({
             {paginatedData.map((row, index) => (
               <TableRow
                 key={index}
-                className={
+                className={`${
                   drillDownEnabled && currentDimensionColumn
                     ? 'hover:bg-gray-50 cursor-pointer'
                     : ''
-                }
+                } ${config.zebraRows && index % 2 === 1 ? 'bg-muted' : ''}`}
               >
                 {columns.map((column) => {
                   const isDrillDownClickable =
@@ -335,8 +413,18 @@ export function TableChart({
                   // Render as clickable link if value is a URL (and not a drill-down cell)
                   if (isLink) {
                     const href = normalizeUrl(rawValue);
+                    const linkAlignClass = getAlignmentClass(column, rawValue);
+                    const isLinkFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
+
                     return (
-                      <TableCell key={column} className="py-1.5 px-2">
+                      <TableCell
+                        key={column}
+                        className={`py-1.5 px-2 ${linkAlignClass} ${
+                          isLinkFrozen
+                            ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                            : ''
+                        }`}
+                      >
                         <a
                           href={href}
                           target="_blank"
@@ -352,15 +440,23 @@ export function TableChart({
 
                   // Existing logic for non-link cells
                   const cellValue = formatCellValue(rawValue, column);
+                  const conditionalColor = getConditionalColor(rawValue, column);
+                  const alignClass = getAlignmentClass(column, rawValue);
+                  const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
 
                   return (
                     <TableCell
                       key={column}
-                      className={`py-1.5 px-2 ${
+                      className={`py-1.5 px-2 ${alignClass} ${
                         isDrillDownClickable
                           ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
                           : ''
+                      } ${
+                        isFrozen
+                          ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                          : ''
                       }`}
+                      style={conditionalColor ? { backgroundColor: conditionalColor } : undefined}
                       onClick={
                         isDrillDownClickable
                           ? () => {

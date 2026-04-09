@@ -815,8 +815,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     <TableChart
                       data={Array.isArray(tableData?.data) ? tableData.data : []}
                       config={{
-                        table_columns:
-                          tableData?.columns || chart.extra_config?.table_columns || [],
+                        table_columns: (() => {
+                          const cols =
+                            tableData?.columns || chart.extra_config?.table_columns || [];
+                          const order = chart.extra_config?.customizations?.columnOrder;
+                          if (
+                            order?.length &&
+                            order.length === cols.length &&
+                            order.every((c: string) => cols.includes(c))
+                          ) {
+                            return order;
+                          }
+                          return cols;
+                        })(),
                         column_formatting:
                           chart.extra_config?.customizations?.columnFormatting || {},
                         sort: chart.extra_config?.sort || [],
@@ -824,6 +835,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                           enabled: true,
                           page_size: 20,
                         },
+                        conditionalFormatting:
+                          chart.extra_config?.customizations?.conditionalFormatting || [],
+                        columnAlignment: chart.extra_config?.customizations?.columnAlignment || {},
+                        zebraRows: chart.extra_config?.customizations?.zebraRows || false,
+                        freezeFirstColumn:
+                          chart.extra_config?.customizations?.freezeFirstColumn || false,
                       }}
                       isLoading={tableLoading}
                       error={tableError}

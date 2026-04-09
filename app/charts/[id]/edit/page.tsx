@@ -1681,10 +1681,26 @@ function EditChartPageContent() {
                         <TableChart
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
-                            table_columns: tableChartData?.columns || formData.table_columns,
+                            table_columns: (() => {
+                              const cols = tableChartData?.columns || formData.table_columns || [];
+                              const order = formData.customizations?.columnOrder;
+                              if (
+                                order?.length &&
+                                order.length === cols.length &&
+                                order.every((c: string) => cols.includes(c))
+                              ) {
+                                return order;
+                              }
+                              return cols;
+                            })(),
                             column_formatting: formData.customizations?.columnFormatting || {},
                             sort: formData.sort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
+                            conditionalFormatting:
+                              formData.customizations?.conditionalFormatting || [],
+                            columnAlignment: formData.customizations?.columnAlignment || {},
+                            zebraRows: formData.customizations?.zebraRows || false,
+                            freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
                           }}
                           isLoading={tableChartLoading}
                           error={tableChartError}

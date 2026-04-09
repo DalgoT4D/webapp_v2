@@ -181,12 +181,40 @@ export function ChartCustomizations({
     case ChartTypes.TABLE: {
       // numericColumns is computed in useMemo above
       // Stale formatting cleanup is handled in useEffect above
+
+      // Get all displayed column names including metric aliases
+      const hasTableAggregation =
+        (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+      // Default column order from dimensions+metrics or table_columns
+      const defaultColumns = hasTableAggregation
+        ? [
+            ...(formData.dimensions?.map((d) => d.column).filter(Boolean) || []),
+            ...(formData.metrics
+              ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+              .filter(Boolean) || []),
+          ]
+        : formData.table_columns || [];
+
+      // Use saved column order if it matches the current columns exactly
+      const savedOrder: string[] | undefined = customizations.columnOrder;
+      const allDisplayedColumns =
+        savedOrder &&
+        savedOrder.length === defaultColumns.length &&
+        savedOrder.every((col: string) => defaultColumns.includes(col))
+          ? savedOrder
+          : defaultColumns;
+
       return (
         <TableChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
           availableColumns={numericColumns}
+          allColumns={allDisplayedColumns}
+          onTableColumnsChange={(newOrder: string[]) => {
+            updateCustomization('columnOrder', newOrder);
+          }}
         />
       );
     }

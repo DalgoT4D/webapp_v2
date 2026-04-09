@@ -1835,7 +1835,18 @@ export function ChartElementView({
             <TableChart
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
-                table_columns: tableData?.columns || [],
+                table_columns: (() => {
+                  const cols = tableData?.columns || [];
+                  const order = effectiveChart?.extra_config?.customizations?.columnOrder;
+                  if (
+                    order?.length &&
+                    order.length === cols.length &&
+                    order.every((c: string) => cols.includes(c))
+                  ) {
+                    return order;
+                  }
+                  return cols;
+                })(),
                 column_formatting:
                   effectiveChart?.extra_config?.customizations?.columnFormatting || {},
                 sort: effectiveChart?.extra_config?.sort || [],
@@ -1843,6 +1854,13 @@ export function ChartElementView({
                   enabled: true,
                   page_size: 20,
                 },
+                conditionalFormatting:
+                  effectiveChart?.extra_config?.customizations?.conditionalFormatting || [],
+                columnAlignment:
+                  effectiveChart?.extra_config?.customizations?.columnAlignment || {},
+                zebraRows: effectiveChart?.extra_config?.customizations?.zebraRows || false,
+                freezeFirstColumn:
+                  effectiveChart?.extra_config?.customizations?.freezeFirstColumn || false,
               }}
               isLoading={tableLoading}
               error={tableError}

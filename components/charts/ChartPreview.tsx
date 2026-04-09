@@ -358,17 +358,34 @@ export function ChartPreview({
 
   // Render table chart
   if (chartType === ChartTypes.TABLE) {
-    // Merge customizations.columnFormatting into config.column_formatting for table charts
+    // Merge customizations into config for table charts
     const customizations = propCustomizations || config?.extra_config?.customizations || {};
-    const tableConfig = customizations?.columnFormatting
-      ? {
-          ...config,
-          column_formatting: {
-            ...(config?.column_formatting || {}),
-            ...customizations.columnFormatting,
-          },
-        }
-      : config;
+    // Apply column order if it matches current columns
+    const currentCols: string[] = config?.table_columns || [];
+    const colOrder: string[] | undefined = customizations?.columnOrder;
+    const orderedColumns =
+      colOrder?.length &&
+      colOrder.length === currentCols.length &&
+      colOrder.every((c: string) => currentCols.includes(c))
+        ? colOrder
+        : currentCols;
+
+    const tableConfig = {
+      ...config,
+      ...(orderedColumns.length ? { table_columns: orderedColumns } : {}),
+      ...(customizations?.columnFormatting
+        ? {
+            column_formatting: {
+              ...(config?.column_formatting || {}),
+              ...customizations.columnFormatting,
+            },
+          }
+        : {}),
+      conditionalFormatting: customizations?.conditionalFormatting || [],
+      columnAlignment: customizations?.columnAlignment || {},
+      zebraRows: customizations?.zebraRows || false,
+      freezeFirstColumn: customizations?.freezeFirstColumn || false,
+    };
 
     return (
       <TableChart
