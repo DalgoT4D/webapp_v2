@@ -57,46 +57,28 @@ export interface DateFormatOptions {
 /**
  * Format a date based on the selected format type
  *
- * @param value - Raw date value (Date object, ISO string, or timestamp)
- * @param options - Format options (format type)
+ * @param value - Raw ISO date string from the warehouse (e.g. "2019-01-14T01:32:10" or "2019-01-14T01:32:10Z")
+ * @param options - Format options object with a format type
  * @returns Formatted string
  *
  * @example
- * formatDate(new Date('2019-01-14T01:32:10'), { format: 'iso_datetime' }) // "2019-01-14 01:32:10"
- * formatDate('2019-01-14', { format: 'dd_mm_yyyy' })                      // "14/01/2019"
- * formatDate(1547429530000, { format: 'time_only' })                      // "01:32:10"
+ * formatDate('2019-01-14T01:32:10', { format: 'iso_datetime' }) // "2019-01-14 01:32:10"
+ * formatDate('2019-01-14', { format: 'dd_mm_yyyy' })            // "14/01/2019"
+ * formatDate('2025-06-13T00:00:00Z', { format: 'dd_mm_yyyy' }) // "13/06/2025" (formatted in UTC, not local TZ)
  */
-export function formatDate(
-  value: Date | string | number,
-  options: DateFormatOptions | DateFormat
-): string {
-  if (value === null || value === undefined) {
+export function formatDate(value: string, option: DateFormatOptions): string {
+  if (!value) {
     return '';
   }
 
-  // Parse the date value
-  let date: Date;
-  if (value instanceof Date) {
-    date = value;
-  } else if (typeof value === 'string') {
-    // Try to parse ISO string first, fallback to Date constructor
-    date = parseISO(value);
-    if (!isValid(date)) {
-      date = new Date(value);
-    }
-  } else if (typeof value === 'number') {
-    date = new Date(value);
-  } else {
-    return String(value);
-  }
+  const date = parseISO(value);
 
-  // Check for invalid date using date-fns isValid
+  // If parseISO fails (e.g. non-standard string), return raw value
   if (!isValid(date)) {
-    return String(value);
+    return value;
   }
 
-  // Support both old (string) and new (object) format
-  const formatType = typeof options === 'string' ? options : options.format;
+  const formatType = option.format;
 
   // Map our format types to date-fns format patterns
   // 'default' is intentionally excluded — all callers guard against 'default' before calling formatDate
@@ -110,7 +92,15 @@ export function formatDate(
   };
 
   const pattern = formatPatterns[formatType];
-  if (!pattern) return String(value);
+  if (!pattern) return value;
+
+  // If the string carries timezone info (Z = UTC, or ±HH:MM offset),
+  // strip the suffix and parse as naive — the time components in the string
+  // are already in the warehouse timezone, so no conversion is needed.
+  if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) {
+    const naive = value.replace(/Z$|[+-]\d{2}:\d{2}$/, '');
+    return dateFnsFormat(parseISO(naive), pattern);
+  }
 
   return dateFnsFormat(date, pattern);
 }
