@@ -80,7 +80,7 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
         const dirs = response.directories || DEFAULT_DIRECTORIES;
         setDirectories(
           dirs.map((dir: string) => ({
-            value: dir,
+            value: dir === '' ? '/' : dir,
             label: dir === '' ? '/' : `${dir}/`,
           }))
         );
@@ -88,7 +88,7 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
         console.error('Failed to fetch directories:', error);
         setDirectories(
           DEFAULT_DIRECTORIES.map((dir: string) => ({
-            value: dir,
+            value: dir === '' ? '/' : dir,
             label: dir === '' ? '/' : `${dir}/`,
           }))
         );
@@ -178,11 +178,14 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
     setLoading(true);
 
     try {
+      // "/" represents the root models directory — send empty string to the API
+      const dirValue = finalDirectory.trim() === '/' ? '' : finalDirectory.trim();
+
       const payload = {
         name: data.output_name.trim(),
         display_name: data.output_name.trim(),
         dest_schema: finalSchema.trim(),
-        rel_dir_to_models: finalDirectory.trim(),
+        rel_dir_to_models: dirValue,
       };
 
       await apiPost(
