@@ -2,14 +2,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, Eye, ArrowUp, ArrowDown, ArrowUpDown, Loader2 } from 'lucide-react';
@@ -275,10 +268,15 @@ export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
         </div>
       </div>
 
-      {/* Statistics Table */}
+      {/* Statistics Table — use raw table elements so sticky header works.
+          The <Table> UI component wraps in a div with overflow-x-auto which
+          creates a second scroll context and breaks sticky positioning. */}
       <div className="flex-1 overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 z-10">
+        <table
+          className="w-full caption-bottom text-sm"
+          style={{ borderCollapse: 'separate', borderSpacing: 0 }}
+        >
+          <TableHeader className="sticky top-0 z-10" style={{ backgroundColor: '#F5FAFA' }}>
             <TableRow style={{ backgroundColor: '#F5FAFA' }} className="hover:bg-transparent">
               <TableHead
                 style={{
@@ -358,7 +356,7 @@ export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
               />
             ))}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );

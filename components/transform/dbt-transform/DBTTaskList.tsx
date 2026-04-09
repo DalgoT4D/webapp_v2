@@ -385,10 +385,10 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                         </TableCell>
                       </TableRow>
 
-                      {/* Inline logs beneath this task */}
+                      {/* Inline logs beneath this task - orchestrate page style */}
                       {logTaskUuid === task.uuid && (logs.length > 0 || logsLoading) && (
-                        <TableRow key={`${task.uuid}-logs`}>
-                          <TableCell colSpan={3} className="p-0 border-t-0">
+                        <TableRow key={`${task.uuid}-logs`} className="hover:bg-transparent">
+                          <TableCell colSpan={3} className="p-0">
                             <LogCard
                               logs={logs}
                               isLoading={logsLoading}
@@ -398,10 +398,10 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                                 setLogTaskUuid(null);
                                 setLogs([]);
                               }}
-                              title={`Logs`}
+                              title="Logs"
                               status={logStatus}
-                              showHeader={true}
-                              className="m-3 mt-0"
+                              showHeader={false}
+                              className="rounded-none border-0 shadow-none"
                             />
                           </TableCell>
                         </TableRow>
