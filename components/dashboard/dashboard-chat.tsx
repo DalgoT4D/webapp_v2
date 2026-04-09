@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Send, Square, ThumbsDown, ThumbsUp } from 'lucide-react';
 import {
   Sheet,
@@ -372,6 +372,7 @@ export function DashboardChat({
   });
   const [draftMessage, setDraftMessage] = useState('');
   const [sessionSuggestedPrompts, setSessionSuggestedPrompts] = useState<string[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const hasMessages = messages.length > 0;
   const { bootstrap, isLoading: isLoadingBootstrap } = useDashboardChatBootstrap(
@@ -415,6 +416,14 @@ export function DashboardChat({
     return () => window.cancelAnimationFrame(frameId);
   }, [open]);
 
+  // Auto-scroll to the bottom when new messages arrive or while the AI is thinking
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, isThinking, progressLabel]);
+
   const handleSend = () => {
     if (!canSend) {
       return;
@@ -445,7 +454,7 @@ export function DashboardChat({
           <SheetDescription>{dashboardTitle}</SheetDescription>
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4">
+        <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto px-4">
           <div className="space-y-4 py-4">
             {!hasMessages ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
