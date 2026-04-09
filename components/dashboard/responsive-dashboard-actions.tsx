@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreVertical, Share2, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { MoreVertical, Share2, Edit, Trash2, RefreshCw, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
@@ -29,6 +29,7 @@ interface ResponsiveDashboardActionsProps {
   onEdit: () => void;
   onDelete: () => void;
   onRefresh?: () => void;
+  onThemeSettings?: () => void;
   canEdit: boolean;
   isDeleting?: boolean;
   isRefreshing?: boolean;
@@ -41,6 +42,7 @@ export function ResponsiveDashboardActions({
   onEdit,
   onDelete,
   onRefresh,
+  onThemeSettings,
   canEdit,
   isDeleting = false,
   isRefreshing = false,
@@ -60,6 +62,11 @@ export function ResponsiveDashboardActions({
             <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
           </Button>
         )} */}
+        {onThemeSettings && (
+          <Button variant="outline" size="sm" onClick={onThemeSettings}>
+            <Palette className="w-4 h-4" />
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={onShare}>
           <Share2 className="w-4 h-4" />
         </Button>
@@ -127,6 +134,12 @@ export function ResponsiveDashboardActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {onThemeSettings && (
+            <DropdownMenuItem onClick={onThemeSettings}>
+              <Palette className="w-4 h-4 mr-2" />
+              Theme Settings
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={onShare}>
             <Share2 className="w-4 h-4 mr-2" />
             Share Dashboard

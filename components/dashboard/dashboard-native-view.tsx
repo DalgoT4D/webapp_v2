@@ -73,9 +73,9 @@ import {
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from '@/components/ui/share-modal';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
-import { ResponsiveFiltersSection } from './responsive-filters-section';
-import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { DashboardThemeSettings } from './dashboard-theme-settings';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
@@ -260,6 +260,7 @@ export function DashboardNativeView({
   );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
@@ -358,6 +359,59 @@ export function DashboardNativeView({
     );
   }, [dashboard?.filters]);
 
+  // Generate theme styles for the dashboard canvas
+  const themeStyles = useMemo(() => {
+    if (!dashboard) return {};
+
+    const styles: React.CSSProperties = {};
+
+    // Background color (lowest priority)
+    if (dashboard.theme_background_color) {
+      styles.backgroundColor = dashboard.theme_background_color;
+    }
+
+    // Background gradient (overrides solid color)
+    if (dashboard.theme_background_gradient) {
+      const gradient = dashboard.theme_background_gradient;
+      if (gradient.type === 'linear' && gradient.colors && gradient.direction) {
+        styles.background = `linear-gradient(${gradient.direction}, ${gradient.colors[0]}, ${gradient.colors[1]})`;
+      } else if (gradient.type === 'radial' && gradient.colors) {
+        styles.background = `radial-gradient(circle, ${gradient.colors[0]}, ${gradient.colors[1]})`;
+      }
+    }
+
+    // Background image (highest priority for background)
+    if (dashboard.theme_background_image_url) {
+      const blur = dashboard.theme_background_image_blur || 0;
+      styles.backgroundImage = `url(${dashboard.theme_background_image_url})`;
+      styles.backgroundSize = 'cover';
+      styles.backgroundPosition = 'center';
+      styles.backgroundRepeat = 'no-repeat';
+      if (blur > 0) {
+        styles.filter = `blur(${blur}px)`;
+      }
+    }
+
+    return styles;
+  }, [dashboard]);
+
+  // Generate overlay styles
+  const overlayStyles = useMemo(() => {
+    if (!dashboard?.theme_overlay_color || !dashboard?.theme_overlay_opacity) return {};
+
+    return {
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: dashboard.theme_overlay_color,
+      opacity: dashboard.theme_overlay_opacity,
+      pointerEvents: 'none' as const,
+      zIndex: 5,
+    };
+  }, [dashboard]);
+
   // Auto-apply default filter values in report mode so charts render pre-filtered.
   // The backend injects period dates into the datetime filter's settings,
   // so getDefaultFilterValues() extracts them automatically.
@@ -440,6 +494,21 @@ export function DashboardNativeView({
   // Handle share modal close
   const handleShareModalClose = () => {
     setShareModalOpen(false);
+  };
+
+  // Handle theme settings
+  const handleThemeSettings = () => {
+    setThemeSettingsOpen(true);
+  };
+
+  // Handle theme settings close
+  const handleThemeSettingsClose = () => {
+    setThemeSettingsOpen(false);
+  };
+
+  // Handle theme save
+  const handleThemeSave = () => {
+    mutate(); // Refresh the dashboard data to get updated theme
   };
 
   // Handle dashboard update after sharing changes
@@ -535,7 +604,13 @@ export function DashboardNativeView({
     switch (component.type) {
       case 'chart':
         return (
-          <div key={componentId} className="h-full">
+          <div
+            key={componentId}
+            className="h-full"
+            style={{
+              opacity: dashboard?.theme_chart_opacity ?? 1,
+            }}
+          >
             <ChartElementView
               chartId={component.config?.chartId}
               dashboardFilters={selectedFilters}
@@ -869,6 +944,7 @@ export function DashboardNativeView({
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onRefresh={handleRefresh}
+                  onThemeSettings={handleThemeSettings}
                   canEdit={canEdit && !isLockedByOther}
                   isDeleting={isDeleting}
                   isRefreshing={isRefreshing}
@@ -1057,6 +1133,7 @@ export function DashboardNativeView({
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onRefresh={handleRefresh}
+                    onThemeSettings={handleThemeSettings}
                     canEdit={canEdit && !isLockedByOther}
                     isDeleting={isDeleting}
                     isRefreshing={isRefreshing}
@@ -1130,8 +1207,14 @@ export function DashboardNativeView({
             style={{
               width: '100%',
               minHeight: '100%',
+              ...themeStyles,
             }}
           >
+            {/* Theme overlay */}
+            {dashboard?.theme_overlay_color && dashboard?.theme_overlay_opacity > 0 && (
+              <div style={overlayStyles} />
+            )}
+
             {/* Optional content above the chart grid (e.g. Executive Summary) */}
             {beforeContent}
 
@@ -1320,6 +1403,25 @@ export function DashboardNativeView({
           updateSharing={updateDashboardSharing}
         />
       )}
+      {/* Theme Settings Modal */}
+      <Dialog open={themeSettingsOpen} onOpenChange={setThemeSettingsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DashboardThemeSettings
+            dashboardId={dashboardId}
+            currentTheme={{
+              background_color: dashboard?.theme_background_color,
+              background_gradient: dashboard?.theme_background_gradient,
+              background_image_url: dashboard?.theme_background_image_url,
+              background_image_blur: dashboard?.theme_background_image_blur,
+              chart_opacity: dashboard?.theme_chart_opacity,
+              overlay_color: dashboard?.theme_overlay_color,
+              overlay_opacity: dashboard?.theme_overlay_opacity,
+            }}
+            onSave={handleThemeSave}
+            onClose={handleThemeSettingsClose}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
