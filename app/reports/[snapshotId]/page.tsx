@@ -6,27 +6,13 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  ArrowLeft,
-  Calendar,
-  Download,
-  LayoutGrid,
-  Loader2,
-  Pencil,
-  Share2,
-  User,
-} from 'lucide-react';
+import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import {
-  useSnapshotView,
-  updateSnapshot,
-  getReportSharingStatus,
-  updateReportSharing,
-} from '@/hooks/api/useReports';
+import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -48,7 +34,6 @@ export default function SnapshotViewerPage() {
   const [summaryDraft, setSummaryDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
   const { hasPermission } = useUserPermissions();
   const canEdit = hasPermission('can_edit_dashboards');
@@ -156,15 +141,7 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && currentUserEmail === report_metadata.created_by && (
-              <Button
-                data-testid="report-share-btn"
-                variant="ghost"
-                size="icon"
-                aria-label="Share report"
-                onClick={() => setShareModalOpen(true)}
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
+              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
             {canEdit && (
               <Button data-testid="report-save-btn" onClick={handleSave} disabled={isSaving}>
@@ -272,15 +249,6 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
-
-      <ShareModal
-        entityId={parsedId}
-        entityLabel="Report"
-        isOpen={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-        getShareStatus={getReportSharingStatus}
-        updateSharing={updateReportSharing}
-      />
     </div>
   );
 }

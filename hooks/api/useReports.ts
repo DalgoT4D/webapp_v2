@@ -104,6 +104,19 @@ export async function getReportSharingStatus(snapshotId: number): Promise<ShareS
   return response.data;
 }
 
+// Share via email
+
+export async function shareReportViaEmail(
+  snapshotId: number,
+  data: { recipient_emails: string[]; subject?: string; message?: string }
+): Promise<{ recipients_count: number; message: string }> {
+  const response: ApiResponse<{ recipients_count: number; message: string }> = await apiPost(
+    `/api/reports/${snapshotId}/share/email/`,
+    data
+  );
+  return response.data;
+}
+
 // Public report hook (no auth, direct fetch — same pattern as usePublicDashboard)
 
 export function usePublicReport(token: string) {
