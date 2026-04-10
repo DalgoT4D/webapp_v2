@@ -613,7 +613,10 @@ export default function ReportsPage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               {hasPermission('can_share_dashboards') && (
-                                <ReportShareMenu snapshotId={snapshot.id} />
+                                <ReportShareMenu
+                                  snapshotId={snapshot.id}
+                                  reportTitle={snapshot.title}
+                                />
                               )}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

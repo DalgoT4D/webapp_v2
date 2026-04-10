@@ -1,42 +1,60 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Share2, Loader2 } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Mail, Loader2, Send } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { shareReportViaEmail } from '@/hooks/api/useReports';
 import { EMAIL_REGEX, MAX_RECIPIENTS } from '@/components/reports/utils';
 
 interface ShareViaEmailDialogProps {
   snapshotId: number;
+  reportTitle?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ShareViaEmailDialog({ snapshotId, isOpen, onClose }: ShareViaEmailDialogProps) {
+export function ShareViaEmailDialog({
+  snapshotId,
+  reportTitle,
+  isOpen,
+  onClose,
+}: ShareViaEmailDialogProps) {
   const [emailInput, setEmailInput] = useState('');
+  const defaultSubject = reportTitle ? `Report: ${reportTitle}` : '';
+  const [subject, setSubject] = useState(defaultSubject);
   const [isSending, setIsSending] = useState(false);
 
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setEmailInput('');
+      setSubject(defaultSubject);
+    }
+  }, [isOpen, defaultSubject]);
+
   const handleSend = useCallback(async () => {
-    const raw = emailInput
-      .split(',')
+    const recipients = emailInput
+      .split(/[,;]/)
       .map((e) => e.trim())
       .filter(Boolean);
 
-    if (raw.length === 0) {
+    if (recipients.length === 0) {
       toastError.api('Please enter at least one email address');
       return;
     }
 
-    if (raw.length > MAX_RECIPIENTS) {
+    if (recipients.length > MAX_RECIPIENTS) {
       toastError.api(`Maximum ${MAX_RECIPIENTS} recipients allowed`);
       return;
     }
 
-    const invalid = raw.filter((email) => !EMAIL_REGEX.test(email));
+    const invalid = recipients.filter((email) => !EMAIL_REGEX.test(email));
     if (invalid.length > 0) {
       toastError.api(`Invalid email${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`);
       return;
@@ -44,71 +62,103 @@ export function ShareViaEmailDialog({ snapshotId, isOpen, onClose }: ShareViaEma
 
     setIsSending(true);
     try {
-      await shareReportViaEmail(snapshotId, { recipient_emails: raw });
-      toastSuccess.generic('Your report was shared successfully!');
+      await shareReportViaEmail(snapshotId, {
+        recipient_emails: recipients,
+        subject: subject.trim() || undefined,
+      });
+      toastSuccess.generic(
+        `Report sent to ${recipients.length} recipient${recipients.length !== 1 ? 's' : ''}`
+      );
       setEmailInput('');
+      setSubject('');
       onClose();
     } catch (error) {
       toastError.api(error, 'Failed to send report');
     } finally {
       setIsSending(false);
     }
-  }, [emailInput, snapshotId, onClose]);
+  }, [emailInput, subject, snapshotId, onClose]);
 
-  const handleCancel = useCallback(() => {
+  const handleClose = useCallback(() => {
     setEmailInput('');
+    setSubject('');
     onClose();
   }, [onClose]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        data-testid="share-via-email-dialog"
-        className="sm:max-w-md"
-        showCloseButton={false}
-      >
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent data-testid="share-via-email-dialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5" />
-            Share Report
+            <Mail className="h-5 w-5" />
+            Share Report via Email
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium">
-              Share with <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              data-testid="share-email-input"
-              type="text"
-              placeholder="add the recipients emails (name@orgname.org, abc@orgname.org)"
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              disabled={isSending}
-              className="mt-1.5"
-            />
-          </div>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              {/* Subject */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email-subject" className="text-sm font-medium">
+                  Subject
+                </Label>
+                <Input
+                  id="email-subject"
+                  data-testid="share-email-subject"
+                  placeholder="Email subject line"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  disabled={isSending}
+                />
+              </div>
 
-          <div className="flex gap-3">
+              {/* Email recipients */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email-recipients" className="text-sm font-medium">
+                  Email recipients <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="email-recipients"
+                  data-testid="share-email-input"
+                  placeholder="name@org.com, another@org.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  disabled={isSending}
+                  rows={3}
+                  className="resize-none text-sm break-all [field-sizing:fixed]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Recipients are separated by &quot;,&quot; or &quot;;&quot;
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3">
             <Button
               data-testid="share-email-cancel-btn"
-              variant="cancel"
-              onClick={handleCancel}
+              variant="outline"
+              onClick={handleClose}
               disabled={isSending}
-              className="flex-1"
             >
-              CANCEL
+              Cancel
             </Button>
             <Button
               data-testid="share-email-send-btn"
-              variant="default"
+              variant="ghost"
               onClick={handleSend}
               disabled={isSending || !emailInput.trim()}
-              className="flex-1"
+              className="text-white hover:opacity-90"
+              style={{ backgroundColor: 'var(--primary)' }}
             >
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              SEND REPORT
+              {isSending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              {isSending ? 'Sending...' : 'SEND REPORT'}
             </Button>
           </div>
         </div>

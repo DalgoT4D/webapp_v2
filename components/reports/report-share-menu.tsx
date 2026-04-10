@@ -14,9 +14,10 @@ import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog
 
 interface ReportShareMenuProps {
   snapshotId: number;
+  reportTitle?: string;
 }
 
-export function ReportShareMenu({ snapshotId }: ReportShareMenuProps) {
+export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProps) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
@@ -60,6 +61,7 @@ export function ReportShareMenu({ snapshotId }: ReportShareMenuProps) {
       />
       <ShareViaEmailDialog
         snapshotId={snapshotId}
+        reportTitle={reportTitle}
         isOpen={emailDialogOpen}
         onClose={() => setEmailDialogOpen(false)}
       />

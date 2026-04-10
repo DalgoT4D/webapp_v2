@@ -141,7 +141,7 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && currentUserEmail === report_metadata.created_by && (
-              <ReportShareMenu snapshotId={parsedId} />
+              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
             {canEdit && (
               <Button data-testid="report-save-btn" onClick={handleSave} disabled={isSaving}>

@@ -108,7 +108,7 @@ export async function getReportSharingStatus(snapshotId: number): Promise<ShareS
 
 export async function shareReportViaEmail(
   snapshotId: number,
-  data: { recipient_emails: string[]; message?: string }
+  data: { recipient_emails: string[]; subject?: string; message?: string }
 ): Promise<{ recipients_count: number; message: string }> {
   const response: ApiResponse<{ recipients_count: number; message: string }> = await apiPost(
     `/api/reports/${snapshotId}/share/email/`,
