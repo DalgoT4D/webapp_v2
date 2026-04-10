@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Plus, MessageSquare, Quote } from 'lucide-react';
+import { Plus, MessageSquare, Quote, Trash2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { RAGBadge } from './RAGBadge';
 import { MetricSparkline } from './MetricSparkline';
-import { useMetricEntries, useCreateEntry } from '@/hooks/api/useMetrics';
+import { useMetricEntries, useCreateEntry, useDeleteEntry } from '@/hooks/api/useMetrics';
 import type { MetricDefinition, MetricDataPoint, MetricEntry, RAGStatus } from '@/types/metrics';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -126,6 +126,7 @@ export function MetricDetailDrawer({
   const { trigger: createEntry, isMutating: isCreating } = useCreateEntry(
     metric ? metric.id : null
   );
+  const { trigger: deleteEntry } = useDeleteEntry(metric ? metric.id : null);
 
   // ── Add entry form state ──────────────────────────────────────────────
   const [showAddForm, setShowAddForm] = useState(false);
@@ -238,6 +239,17 @@ export function MetricDetailDrawer({
     } catch (err: any) {
       console.error('Failed to create entry:', err);
       alert(err?.message || 'Failed to save entry.');
+    }
+  };
+
+  const handleDeleteEntry = async (entryId: number) => {
+    if (!confirm('Delete this entry? This cannot be undone.')) return;
+    try {
+      await deleteEntry(entryId);
+      refreshEntries();
+    } catch (err: any) {
+      console.error('Failed to delete entry:', err);
+      alert(err?.message || 'Failed to delete entry.');
     }
   };
 
@@ -462,7 +474,7 @@ export function MetricDetailDrawer({
                         key={entry.id}
                         className="relative rounded-lg border bg-card p-3 space-y-2"
                       >
-                        {/* Entry type badge */}
+                        {/* Entry type badge + delete */}
                         <div className="flex items-center gap-1.5">
                           {isQuote ? (
                             <Quote className="h-3 w-3 text-muted-foreground" />
@@ -472,6 +484,15 @@ export function MetricDetailDrawer({
                           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                             {isQuote ? 'Beneficiary Quote' : 'Comment'}
                           </span>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              className="ml-auto p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              title="Delete entry"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
 
                         {/* Content */}

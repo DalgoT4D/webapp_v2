@@ -116,3 +116,10 @@ export function useCreateEntry(metricId: number | null) {
     (url: string, { arg }: { arg: EntryCreate }) => apiPost(url, arg)
   );
 }
+
+export function useDeleteEntry(metricId: number | null) {
+  return useSWRMutation(
+    metricId ? `/api/metrics/${metricId}/entries/` : null,
+    (url: string, { arg }: { arg: number }) => apiDelete(`/api/metrics/${metricId}/entries/${arg}/`)
+  );
+}
