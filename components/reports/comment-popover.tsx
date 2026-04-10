@@ -546,16 +546,12 @@ function CommentPopoverInner({
     return () => clearTimeout(timer);
   }, [open, comments.length]);
 
-  // Mark as read on close
+  // Mark as read on open (like LinkedIn/Slack — notifications clear when you open the panel)
   const handleOpenChange = useCallback(
     async (isOpen: boolean) => {
       setOpen(isOpen);
-      if (!isOpen) {
-        // Reset state
-        setDraft('');
-        closeMentions();
-
-        // Mark as read
+      if (isOpen) {
+        // Mark as read immediately when popover opens so the dot clears while user is reading
         try {
           await markAsRead(snapshotId, {
             target_type: targetType,
@@ -565,6 +561,10 @@ function CommentPopoverInner({
         } catch {
           // Silent fail for mark-as-read
         }
+      } else {
+        // Reset draft state on close
+        setDraft('');
+        closeMentions();
       }
     },
     [snapshotId, targetType, chartId, onStateChange, setDraft, closeMentions]
@@ -585,6 +585,14 @@ function CommentPopoverInner({
       });
       setDraft('');
       await mutateComments();
+      // New comment is created with is_new: true — mark as read immediately so
+      // the icon shows outline dot (read) instead of filled red dot (unread)
+      try {
+        await markAsRead(snapshotId, { target_type: targetType, chart_id: chartId });
+      } catch {
+        // Silent fail
+      }
+      onStateChange?.();
       setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, SCROLL_DELAY_MS);
@@ -593,7 +601,16 @@ function CommentPopoverInner({
     } finally {
       setIsSubmitting(false);
     }
-  }, [draft, isSubmitting, snapshotId, targetType, chartId, mutateComments, setDraft]);
+  }, [
+    draft,
+    isSubmitting,
+    snapshotId,
+    targetType,
+    chartId,
+    mutateComments,
+    onStateChange,
+    setDraft,
+  ]);
 
   // Keyboard: Arrow keys for mention navigation, Enter to select/submit, Escape to close
   const handleKeyDown = useCallback(
