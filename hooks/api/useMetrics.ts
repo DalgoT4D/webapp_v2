@@ -11,6 +11,13 @@ import type {
   LatestAnnotationEntry,
 } from '@/types/metrics';
 
+// ── Shared SWR config: fetch once on mount, only refetch on explicit mutate() ─
+const FETCH_ONCE = {
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+  revalidateIfStale: false,
+} as const;
+
 // ── Fetchers ────────────────────────────────────────────────────────────────
 
 const metricsFetcher = (url: string) => apiGet(url);
@@ -19,7 +26,7 @@ const annotationsFetcher = (url: string) => apiGet(url);
 // ── Metric Definitions ──────────────────────────────────────────────────────
 
 export function useMetrics() {
-  return useSWR<MetricDefinition[]>('/api/metrics/', metricsFetcher);
+  return useSWR<MetricDefinition[]>('/api/metrics/', metricsFetcher, FETCH_ONCE);
 }
 
 export function useCreateMetric() {
@@ -45,16 +52,17 @@ export function useDeleteMetric() {
 // ── Metric Data (live warehouse values) ─────────────────────────────────────
 
 export function useMetricsData(metricIds: number[] | null) {
-  // Use a stable key based on sorted IDs
+  // Use a stable key based on sorted IDs — spread to avoid mutating the original array
   const key =
-    metricIds && metricIds.length > 0 ? ['/api/metrics/data/', metricIds.sort().join(',')] : null;
+    metricIds && metricIds.length > 0
+      ? ['/api/metrics/data/', [...metricIds].sort().join(',')]
+      : null;
 
   return useSWR<MetricDataPoint[]>(
     key,
     ([url]: [string, string]) => apiPost(url, { metric_ids: metricIds }),
     {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
+      ...FETCH_ONCE,
       dedupingInterval: 30000, // 30s cache — warehouse queries are expensive
     }
   );
@@ -65,7 +73,8 @@ export function useMetricsData(metricIds: number[] | null) {
 export function useAnnotations(metricId: number | null) {
   return useSWR<MetricAnnotation[]>(
     metricId ? `/api/metrics/${metricId}/annotations/` : null,
-    annotationsFetcher
+    annotationsFetcher,
+    FETCH_ONCE
   );
 }
 
@@ -79,12 +88,12 @@ export function useSaveAnnotation(metricId: number | null) {
 export function useLatestAnnotations(metricIds: number[] | null) {
   const key =
     metricIds && metricIds.length > 0
-      ? ['/api/metrics/latest-annotations/', metricIds.sort().join(',')]
+      ? ['/api/metrics/latest-annotations/', [...metricIds].sort().join(',')]
       : null;
 
   return useSWR<LatestAnnotationEntry[]>(
     key,
     ([url]: [string, string]) => apiPost(url, { metric_ids: metricIds }),
-    { revalidateOnFocus: false }
+    FETCH_ONCE
   );
 }

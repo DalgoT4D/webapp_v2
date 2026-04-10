@@ -169,13 +169,18 @@ export function MetricsList({ canEdit }: MetricsListProps) {
   };
 
   const handleSaveMetric = async (data: MetricCreate) => {
-    if (editingMetric) {
-      await updateMetric({ id: editingMetric.id, data });
-    } else {
-      await createMetric(data);
+    try {
+      if (editingMetric) {
+        await updateMetric({ id: editingMetric.id, data });
+      } else {
+        await createMetric(data);
+      }
+      refreshMetrics();
+      setConfigDialogOpen(false);
+    } catch (err: any) {
+      console.error('Failed to save metric:', err);
+      alert(err?.message || 'Failed to save metric. Check console for details.');
     }
-    refreshMetrics();
-    setConfigDialogOpen(false);
   };
 
   // ── Empty / Loading states ────────────────────────────────────────────────
