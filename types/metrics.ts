@@ -1,3 +1,21 @@
+// ── Constants ───────────────────────────────────────────────────────────────
+
+export const METRIC_TYPES = ['Input', 'Output', 'Outcome', 'Impact'] as const;
+
+export const METRIC_TYPE_DESCRIPTIONS: Record<string, string> = {
+  Input: 'Resources put into the program (staff, funding, materials)',
+  Output: 'Direct products of program activities (trainings held, people served)',
+  Outcome: 'Changes in participants or conditions (knowledge gained, behavior change)',
+  Impact: 'Long-term, broad effects on community or society',
+};
+
+export const METRIC_TYPE_ICONS: Record<string, string> = {
+  Input: '\u{1F4E5}',
+  Output: '\u{1F4E4}',
+  Outcome: '\u{1F3AF}',
+  Impact: '\u{1F4A5}',
+};
+
 // ── Metric Definition ───────────────────────────────────────────────────────
 
 export interface MetricDefinition {
@@ -11,6 +29,7 @@ export interface MetricDefinition {
   time_column: string | null;
   time_grain: 'month' | 'quarter' | 'year';
 
+  direction: 'increase' | 'decrease';
   target_value: number | null;
   amber_threshold_pct: number;
   green_threshold_pct: number;
@@ -35,6 +54,7 @@ export interface MetricCreate {
   time_column?: string | null;
   time_grain?: string;
 
+  direction?: 'increase' | 'decrease';
   target_value?: number | null;
   amber_threshold_pct?: number;
   green_threshold_pct?: number;

@@ -21,6 +21,7 @@ import {
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { useColumns } from '@/hooks/api/useChart';
 import type { MetricDefinition, MetricCreate } from '@/types/metrics';
+import { METRIC_TYPES, METRIC_TYPE_DESCRIPTIONS, METRIC_TYPE_ICONS } from '@/types/metrics';
 
 const AGGREGATION_OPTIONS = [
   { value: 'sum', label: 'Sum' },
@@ -37,14 +38,12 @@ const TIME_GRAIN_OPTIONS = [
   { value: 'year', label: 'Year' },
 ];
 
-const METRIC_TYPE_PRESETS = ['Input', 'Output', 'Outcome', 'Impact'];
-
 interface MetricConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   metric?: MetricDefinition | null; // null = create mode
   existingProgramTags: string[];
-  existingMetricTypes: string[];
+  existingMetricTypes?: string[];
   onSave: (data: MetricCreate) => void;
   isSaving?: boolean;
 }
@@ -68,6 +67,7 @@ export function MetricConfigDialog({
   const [timeColumn, setTimeColumn] = useState<string>('');
   const [timeGrain, setTimeGrain] = useState('month');
   const [trendPeriods, setTrendPeriods] = useState(12);
+  const [direction, setDirection] = useState<'increase' | 'decrease'>('increase');
   const [targetValue, setTargetValue] = useState<string>('');
   const [greenPct, setGreenPct] = useState(100);
   const [amberPct, setAmberPct] = useState(80);
@@ -88,6 +88,7 @@ export function MetricConfigDialog({
       setTimeColumn(metric.time_column || '');
       setTimeGrain(metric.time_grain);
       setTrendPeriods(metric.trend_periods);
+      setDirection(metric.direction || 'increase');
       setTargetValue(metric.target_value?.toString() ?? '');
       setGreenPct(metric.green_threshold_pct);
       setAmberPct(metric.amber_threshold_pct);
@@ -103,6 +104,7 @@ export function MetricConfigDialog({
       setTimeColumn('');
       setTimeGrain('month');
       setTrendPeriods(12);
+      setDirection('increase');
       setTargetValue('');
       setGreenPct(100);
       setAmberPct(80);
@@ -153,6 +155,7 @@ export function MetricConfigDialog({
       time_column: timeColumn || null,
       time_grain: timeGrain,
       trend_periods: trendPeriods,
+      direction,
       target_value: targetValue ? parseFloat(targetValue) : null,
       green_threshold_pct: greenPct,
       amber_threshold_pct: amberPct,
@@ -161,12 +164,7 @@ export function MetricConfigDialog({
     });
   };
 
-  const canSave = name && schemaName && tableName && valueColumn && aggregation;
-
-  // Merge presets with existing values for suggestions
-  const metricTypeSuggestions = [
-    ...new Set([...METRIC_TYPE_PRESETS, ...existingMetricTypes].filter(Boolean)),
-  ];
+  const canSave = name && schemaName && tableName && valueColumn && aggregation && metricType;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -239,7 +237,39 @@ export function MetricConfigDialog({
           {/* Target & RAG section */}
           <div className="border-t pt-3 mt-1">
             <p className="text-xs font-medium text-muted-foreground mb-3">Target & RAG Status</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3">
+              {/* Direction dropdown */}
+              <div className="grid gap-1.5">
+                <Label>Direction</Label>
+                <Select
+                  value={direction}
+                  onValueChange={(v) => {
+                    const dir = v as 'increase' | 'decrease';
+                    setDirection(dir);
+                    // Swap threshold defaults when direction changes
+                    if (dir === 'decrease') {
+                      setGreenPct(100);
+                      setAmberPct(130);
+                    } else {
+                      setGreenPct(100);
+                      setAmberPct(80);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="increase">Increase</SelectItem>
+                    <SelectItem value="decrease">Decrease</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {direction === 'increase' ? 'Higher is better' : 'Lower is better'}
+                </p>
+              </div>
+
+              {/* Target value */}
               <div className="grid gap-1.5">
                 <Label htmlFor="target-value">Target Value</Label>
                 <Input
@@ -250,28 +280,52 @@ export function MetricConfigDialog({
                   onChange={(e) => setTargetValue(e.target.value)}
                 />
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="green-pct">Green ≥ %</Label>
-                <Input
-                  id="green-pct"
-                  type="number"
-                  min={0}
-                  max={200}
-                  value={greenPct}
-                  onChange={(e) => setGreenPct(Number(e.target.value))}
-                />
+
+              {/* Threshold lines with dynamic labels */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="green-pct" className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    Green when {direction === 'increase' ? '≥' : '≤'}
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      id="green-pct"
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={greenPct}
+                      onChange={(e) => setGreenPct(Number(e.target.value))}
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">% of target</span>
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="amber-pct" className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    Amber when {direction === 'increase' ? '≥' : '≤'}
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      id="amber-pct"
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={amberPct}
+                      onChange={(e) => setAmberPct(Number(e.target.value))}
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">% of target</span>
+                  </div>
+                </div>
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="amber-pct">Amber ≥ %</Label>
-                <Input
-                  id="amber-pct"
-                  type="number"
-                  min={0}
-                  max={200}
-                  value={amberPct}
-                  onChange={(e) => setAmberPct(Number(e.target.value))}
-                />
-              </div>
+
+              {/* Red line — auto-computed, read-only */}
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+                Red when {direction === 'increase' ? '<' : '>'} {amberPct}% of target
+              </p>
             </div>
           </div>
 
@@ -338,38 +392,56 @@ export function MetricConfigDialog({
             </div>
           </div>
 
-          {/* Tags */}
+          {/* Classification */}
           <div className="border-t pt-3 mt-1">
-            <p className="text-xs font-medium text-muted-foreground mb-3">Tags</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Program</Label>
-                <Input
-                  placeholder="e.g. Health Program"
-                  value={programTag}
-                  onChange={(e) => setProgramTag(e.target.value)}
-                  list="program-tags"
-                />
-                <datalist id="program-tags">
-                  {existingProgramTags.map((t) => (
-                    <option key={t} value={t} />
-                  ))}
-                </datalist>
+            <p className="text-xs font-medium text-muted-foreground mb-3">Classification</p>
+
+            {/* Program tag — free text, unchanged */}
+            <div className="grid gap-1.5 mb-4">
+              <Label>Program</Label>
+              <Input
+                placeholder="e.g. Health Program"
+                value={programTag}
+                onChange={(e) => setProgramTag(e.target.value)}
+                list="program-tags"
+              />
+              <datalist id="program-tags">
+                {existingProgramTags.map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* Metric type — icon button selector */}
+            <div className="grid gap-2">
+              <Label>Metric Type</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {METRIC_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setMetricType(type)}
+                    className={`flex flex-col items-center gap-1 rounded-lg border-2 px-2 py-2.5 text-xs transition-colors ${
+                      metricType === type
+                        ? 'border-primary bg-primary/5 text-foreground font-medium'
+                        : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <span className="text-base">{METRIC_TYPE_ICONS[type]}</span>
+                    {type}
+                  </button>
+                ))}
               </div>
-              <div className="grid gap-1.5">
-                <Label>Metric Type</Label>
-                <Input
-                  placeholder="e.g. Output"
-                  value={metricType}
-                  onChange={(e) => setMetricType(e.target.value)}
-                  list="metric-types"
-                />
-                <datalist id="metric-types">
-                  {metricTypeSuggestions.map((t) => (
-                    <option key={t} value={t} />
-                  ))}
-                </datalist>
-              </div>
+              {metricType && (
+                <p className="text-xs text-muted-foreground">
+                  {METRIC_TYPE_DESCRIPTIONS[metricType]}
+                </p>
+              )}
+              {!metricType && (
+                <p className="text-xs text-muted-foreground">
+                  How does this metric fit in your theory of change?
+                </p>
+              )}
             </div>
           </div>
         </div>

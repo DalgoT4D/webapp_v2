@@ -58,6 +58,9 @@ export function MetricCard({
           <TooltipTrigger asChild>
             <h3 className="text-sm font-semibold leading-tight line-clamp-2 text-foreground">
               {metric.name}
+              <span className="ml-1 text-xs text-muted-foreground font-normal">
+                {metric.direction === 'decrease' ? '↓' : '↑'}
+              </span>
             </h3>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs">
@@ -124,7 +127,13 @@ export function MetricCard({
         {isLoading ? (
           <div className="h-10 w-full animate-pulse rounded bg-muted" />
         ) : trend.length >= 2 ? (
-          <MetricSparkline data={trend} width={280} height={40} className="w-full" />
+          <MetricSparkline
+            data={trend}
+            direction={metric.direction}
+            width={280}
+            height={40}
+            className="w-full"
+          />
         ) : metric.time_column ? (
           <div className="h-10 flex items-center">
             <span className="text-xs text-muted-foreground italic">

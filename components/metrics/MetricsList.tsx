@@ -24,6 +24,7 @@ import {
   useDeleteMetric,
 } from '@/hooks/api/useMetrics';
 import type { MetricDefinition, MetricCreate, MetricAnnotation } from '@/types/metrics';
+import { METRIC_TYPES } from '@/types/metrics';
 
 const GROUP_BY_OPTIONS = [
   { value: 'program', label: 'Program' },
@@ -75,10 +76,7 @@ export function MetricsList({ canEdit }: MetricsListProps) {
     return tags.sort();
   }, [metrics]);
 
-  const metricTypes = useMemo(() => {
-    const types = [...new Set((metrics || []).map((m) => m.metric_type_tag).filter(Boolean))];
-    return types.sort();
-  }, [metrics]);
+  const metricTypes = [...METRIC_TYPES];
 
   // Auto-detect: hide filter if only one value
   const showProgramFilter = programTags.length > 1;

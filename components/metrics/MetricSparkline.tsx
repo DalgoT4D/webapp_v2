@@ -4,6 +4,7 @@ import type { TrendPoint } from '@/types/metrics';
 
 interface MetricSparklineProps {
   data: TrendPoint[];
+  direction?: 'increase' | 'decrease';
   width?: number;
   height?: number;
   className?: string;
@@ -11,6 +12,7 @@ interface MetricSparklineProps {
 
 export function MetricSparkline({
   data,
+  direction = 'increase',
   width = 280,
   height = 40,
   className,
@@ -53,10 +55,11 @@ export function MetricSparkline({
     ` L ${pathPoints[pathPoints.length - 1].x.toFixed(1)},${(height - padding).toFixed(1)}` +
     ` L ${pathPoints[0].x.toFixed(1)},${(height - padding).toFixed(1)} Z`;
 
-  // Determine trend direction for colour
+  // Determine trend direction for colour — flip for decrease metrics
   const firstVal = values[0];
   const lastVal = values[values.length - 1];
-  const isUp = lastVal >= firstVal;
+  const trendUp = lastVal >= firstVal;
+  const isUp = direction === 'decrease' ? !trendUp : trendUp;
 
   return (
     <svg
