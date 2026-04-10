@@ -545,6 +545,28 @@
   }
 }
 
+/* Thin scrollbar for project tree */
+.thin-scrollbar,
+.thin-scrollbar * {
+  scrollbar-width: thin;
+}
+
+.thin-scrollbar ::-webkit-scrollbar,
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thin-scrollbar ::-webkit-scrollbar-track,
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar ::-webkit-scrollbar-thumb,
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 2px;
+}
+
 /* Ensure proper truncation and flexbox behavior */
 .flex-1 {
   flex: 1 1 0%;
