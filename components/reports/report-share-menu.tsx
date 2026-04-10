@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ShareViaLinkDialog } from '@/components/reports/share-via-link-dialog';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
+import { getReportSharingStatus } from '@/hooks/api/useReports';
+import { toastError } from '@/lib/toast';
 
 interface ReportShareMenuProps {
   snapshotId: number;
@@ -21,13 +23,29 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
-  const handleOpenLinkDialog = useCallback(() => {
-    setLinkDialogOpen(true);
-  }, []);
+  const checkShareAccess = useCallback(async (): Promise<boolean> => {
+    try {
+      await getReportSharingStatus(snapshotId);
+      return true;
+    } catch (error) {
+      toastError.load(error, 'sharing status');
+      return false;
+    }
+  }, [snapshotId]);
 
-  const handleOpenEmailDialog = useCallback(() => {
-    setEmailDialogOpen(true);
-  }, []);
+  const handleOpenLinkDialog = useCallback(async () => {
+    const hasAccess = await checkShareAccess();
+    if (hasAccess) {
+      setLinkDialogOpen(true);
+    }
+  }, [checkShareAccess]);
+
+  const handleOpenEmailDialog = useCallback(async () => {
+    const hasAccess = await checkShareAccess();
+    if (hasAccess) {
+      setEmailDialogOpen(true);
+    }
+  }, [checkShareAccess]);
 
   return (
     <>
