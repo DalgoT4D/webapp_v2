@@ -92,69 +92,60 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 // Mock ReportShareMenu — renders a testable version with both share options
-jest.mock('@/components/reports/report-share-menu', () => {
-  const { useState } = require('react');
-  return {
-    ReportShareMenu: ({
-      snapshotId,
-      reportTitle,
-    }: {
-      snapshotId: number;
-      reportTitle?: string;
-    }) => {
-      const [menuOpen, setMenuOpen] = useState(false);
-      const [linkOpen, setLinkOpen] = useState(false);
-      const [emailOpen, setEmailOpen] = useState(false);
-      return (
-        <div data-testid="report-share-menu">
-          <button
-            data-testid="report-share-btn"
-            aria-label="Share report"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            Share
-          </button>
-          {menuOpen && (
-            <div data-testid="share-menu-dropdown">
-              <button
-                data-testid="share-via-link-item"
-                onClick={() => {
-                  setLinkOpen(true);
-                  setMenuOpen(false);
-                }}
-              >
-                Share via link
-              </button>
-              <button
-                data-testid="share-via-email-item"
-                onClick={() => {
-                  setEmailOpen(true);
-                  setMenuOpen(false);
-                }}
-              >
-                Embed in email
-              </button>
-            </div>
-          )}
-          {linkOpen && (
-            <div data-testid="share-via-link-dialog">
-              <button data-testid="close-link-dialog" onClick={() => setLinkOpen(false)}>
-                Close
-              </button>
-            </div>
-          )}
-          {emailOpen && (
-            <div data-testid="share-via-email-dialog">
-              <button data-testid="close-email-dialog" onClick={() => setEmailOpen(false)}>
-                Close
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    },
-  };
-});
+jest.mock('@/components/reports/report-share-menu', () => ({
+  ReportShareMenu: ({ snapshotId }: { snapshotId: number; reportTitle?: string }) => {
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const [linkOpen, setLinkOpen] = React.useState(false);
+    const [emailOpen, setEmailOpen] = React.useState(false);
+    return (
+      <div data-testid="report-share-menu">
+        <button
+          data-testid="report-share-btn"
+          aria-label="Share report"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          Share
+        </button>
+        {menuOpen && (
+          <div data-testid="share-menu-dropdown">
+            <button
+              data-testid="share-via-link-item"
+              onClick={() => {
+                setLinkOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Share via link
+            </button>
+            <button
+              data-testid="share-via-email-item"
+              onClick={() => {
+                setEmailOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Embed in email
+            </button>
+          </div>
+        )}
+        {linkOpen && (
+          <div data-testid="share-via-link-dialog">
+            <button data-testid="close-link-dialog" onClick={() => setLinkOpen(false)}>
+              Close
+            </button>
+          </div>
+        )}
+        {emailOpen && (
+          <div data-testid="share-via-email-dialog">
+            <button data-testid="close-email-dialog" onClick={() => setEmailOpen(false)}>
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  },
+}));
 
 // ============ Helpers ============
 
