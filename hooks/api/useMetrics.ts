@@ -9,6 +9,8 @@ import type {
   MetricAnnotation,
   AnnotationCreate,
   LatestAnnotationEntry,
+  MetricEntry,
+  EntryCreate,
 } from '@/types/metrics';
 
 // ── Shared SWR config: fetch once on mount, only refetch on explicit mutate() ─
@@ -95,5 +97,22 @@ export function useLatestAnnotations(metricIds: number[] | null) {
     key,
     ([url]: [string, string]) => apiPost(url, { metric_ids: metricIds }),
     FETCH_ONCE
+  );
+}
+
+// ── Metric Entries (timeline) ──────────────────────────────────────────────
+
+export function useMetricEntries(metricId: number | null) {
+  return useSWR<MetricEntry[]>(
+    metricId ? `/api/metrics/${metricId}/entries/` : null,
+    metricsFetcher,
+    FETCH_ONCE
+  );
+}
+
+export function useCreateEntry(metricId: number | null) {
+  return useSWRMutation(
+    metricId ? `/api/metrics/${metricId}/entries/` : null,
+    (url: string, { arg }: { arg: EntryCreate }) => apiPost(url, arg)
   );
 }

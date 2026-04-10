@@ -14,16 +14,15 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MetricCard } from './MetricCard';
 import { MetricConfigDialog } from './MetricConfigDialog';
-import { MetricAnnotationDialog } from './MetricAnnotationDialog';
+import { MetricDetailDrawer } from './MetricDetailDrawer';
 import {
   useMetrics,
   useMetricsData,
-  useLatestAnnotations,
   useCreateMetric,
   useUpdateMetric,
   useDeleteMetric,
 } from '@/hooks/api/useMetrics';
-import type { MetricDefinition, MetricCreate, MetricAnnotation } from '@/types/metrics';
+import type { MetricDefinition, MetricCreate } from '@/types/metrics';
 import { METRIC_TYPES } from '@/types/metrics';
 
 const GROUP_BY_OPTIONS = [
@@ -46,23 +45,12 @@ export function MetricsList({ canEdit }: MetricsListProps) {
     metricIds.length > 0 ? metricIds : null
   );
 
-  const { data: latestAnnotations, mutate: refreshLatestAnnotations } = useLatestAnnotations(
-    metricIds.length > 0 ? metricIds : null
-  );
-
   // Build a map of metric_id → data point
   const dataMap = useMemo(() => {
     const map = new Map<number, typeof metricsData extends Array<infer U> ? U : never>();
     (metricsData || []).forEach((d) => map.set(d.metric_id, d));
     return map;
   }, [metricsData]);
-
-  // Build a map of metric_id → latest annotation
-  const annotationsMap = useMemo(() => {
-    const map = new Map<number, MetricAnnotation>();
-    (latestAnnotations || []).forEach((a) => map.set(a.metric_id, a));
-    return map;
-  }, [latestAnnotations]);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -137,15 +125,22 @@ export function MetricsList({ canEdit }: MetricsListProps) {
       }));
   }, [filteredMetrics, effectiveGroupBy]);
 
-  // ── Dialogs ───────────────────────────────────────────────────────────────
+  // ── Config Dialog ─────────────────────────────────────────────────────────
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<MetricDefinition | null>(null);
-  const [annotationDialogOpen, setAnnotationDialogOpen] = useState(false);
-  const [annotatingMetric, setAnnotatingMetric] = useState<MetricDefinition | null>(null);
 
   const { trigger: createMetric, isMutating: isCreating } = useCreateMetric();
   const { trigger: updateMetric, isMutating: isUpdating } = useUpdateMetric();
   const { trigger: deleteMetric } = useDeleteMetric();
+
+  // ── Detail Drawer ─────────────────────────────────────────────────────────
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<MetricDefinition | null>(null);
+
+  const handleCardClick = (metric: MetricDefinition) => {
+    setSelectedMetric(metric);
+    setDrawerOpen(true);
+  };
 
   const handleAddMetric = () => {
     setEditingMetric(null);
@@ -161,11 +156,6 @@ export function MetricsList({ canEdit }: MetricsListProps) {
     if (!confirm(`Delete "${metric.name}"? This cannot be undone.`)) return;
     await deleteMetric(metric.id);
     refreshMetrics();
-  };
-
-  const handleAnnotate = (metric: MetricDefinition) => {
-    setAnnotatingMetric(metric);
-    setAnnotationDialogOpen(true);
   };
 
   const handleSaveMetric = async (data: MetricCreate) => {
@@ -327,35 +317,34 @@ export function MetricsList({ canEdit }: MetricsListProps) {
                   key={metric.id}
                   metric={metric}
                   data={dataMap.get(metric.id)}
-                  latestAnnotation={annotationsMap.get(metric.id) ?? null}
                   isLoading={dataLoading}
                   canEdit={canEdit}
+                  onClick={() => handleCardClick(metric)}
                   onEdit={() => handleEditMetric(metric)}
                   onDelete={() => handleDeleteMetric(metric)}
-                  onAnnotate={() => handleAnnotate(metric)}
                 />
               ))}
             </div>
           </div>
         ))}
 
-        {/* Dialogs */}
+        {/* Config Dialog */}
         <MetricConfigDialog
           open={configDialogOpen}
           onOpenChange={setConfigDialogOpen}
           metric={editingMetric}
           existingProgramTags={programTags}
-          existingMetricTypes={metricTypes}
           onSave={handleSaveMetric}
           isSaving={isCreating || isUpdating}
         />
 
-        <MetricAnnotationDialog
-          open={annotationDialogOpen}
-          onOpenChange={setAnnotationDialogOpen}
-          metric={annotatingMetric}
+        {/* Detail Drawer */}
+        <MetricDetailDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          metric={selectedMetric}
+          data={selectedMetric ? dataMap.get(selectedMetric.id) : undefined}
           canEdit={canEdit}
-          onSaved={refreshLatestAnnotations}
         />
       </div>
     </TooltipProvider>

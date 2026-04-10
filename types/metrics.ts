@@ -108,3 +108,25 @@ export interface AnnotationCreate {
 export interface LatestAnnotationEntry extends MetricAnnotation {
   metric_id: number;
 }
+
+// ── Metric Entries (timeline) ──────────────────────────────────────────────
+
+export interface MetricEntry {
+  id: number;
+  entry_type: 'comment' | 'quote';
+  period_key: string;
+  content: string;
+  attribution: string;
+  snapshot_value: number | null;
+  snapshot_rag: RAGStatus;
+  snapshot_achievement_pct: number | null;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface EntryCreate {
+  entry_type: 'comment' | 'quote';
+  period_key: string;
+  content: string;
+  attribution?: string;
+}
