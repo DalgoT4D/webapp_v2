@@ -303,7 +303,7 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
       {/* Split pane: Form (left) + Preview (right) */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Left: Form */}
-        <div className="w-1/2 overflow-y-auto px-6 pb-6 mt-6 border-r">
+        <div className="w-1/2 overflow-y-auto px-6 pb-20 mt-6 border-r">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" data-testid="alert-form">
             {/* Top: Dataset */}
             <div className="border rounded-lg p-4 bg-white">
@@ -327,52 +327,64 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-x-3 gap-y-3">
-                        <span className="text-sm font-medium text-right">Check if</span>
-                        <Controller
-                          name="aggregation"
-                          control={control}
-                          rules={{ required: 'Required' }}
-                          render={({ field }) => (
-                            <Combobox
-                              items={AGGREGATION_OPTIONS.map((o) => ({
-                                value: o.value,
-                                label: o.label,
-                              }))}
-                              value={field.value}
-                              onValueChange={field.onChange}
-                              placeholder="aggregation"
-                            />
-                          )}
-                        />
-                        <span className="text-sm font-medium text-right">of</span>
-                        <Controller
-                          name="measure_column"
-                          control={control}
-                          render={({ field }) => (
-                            <Combobox
-                              items={columnItems}
-                              value={field.value}
-                              onValueChange={field.onChange}
-                              placeholder={aggregation === 'COUNT' ? 'all rows' : 'column'}
-                            />
-                          )}
-                        />
-                        <span className="text-sm font-medium text-right">per</span>
-                        <Controller
-                          name="group_by_column"
-                          control={control}
-                          render={({ field }) => (
-                            <Combobox
-                              items={[{ value: '', label: '(no grouping)' }, ...columnItems]}
-                              value={field.value}
-                              onValueChange={field.onChange}
-                              placeholder="(no grouping)"
-                            />
-                          )}
-                        />
-                        <span className="text-sm font-medium text-right">is</span>
-                        <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        Check if [aggregation] of [column] per [group] is [operator] [value]
+                      </p>
+                      <div className="space-y-3">
+                        {/* Row 1: Check if [agg] of [column] */}
+                        <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-x-3">
+                          <span className="text-sm font-medium text-right">Check if</span>
+                          <Controller
+                            name="aggregation"
+                            control={control}
+                            rules={{ required: 'Required' }}
+                            render={({ field }) => (
+                              <Combobox
+                                items={AGGREGATION_OPTIONS.map((o) => ({
+                                  value: o.value,
+                                  label: o.label,
+                                }))}
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                placeholder="aggregation"
+                              />
+                            )}
+                          />
+                          <span className="text-sm font-medium text-right">of</span>
+                          <Controller
+                            name="measure_column"
+                            control={control}
+                            render={({ field }) => (
+                              <Combobox
+                                items={columnItems}
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                placeholder={aggregation === 'COUNT' ? 'all rows' : 'column'}
+                              />
+                            )}
+                          />
+                        </div>
+
+                        {/* Row 2: per [group] */}
+                        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3">
+                          <span className="text-sm font-medium text-right min-w-[60px]">per</span>
+                          <Controller
+                            name="group_by_column"
+                            control={control}
+                            render={({ field }) => (
+                              <Combobox
+                                items={[{ value: '', label: '(no grouping)' }, ...columnItems]}
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                placeholder="(no grouping)"
+                              />
+                            )}
+                          />
+                        </div>
+
+                        {/* Row 3: is [operator] [value] */}
+                        <div className="grid grid-cols-[auto_auto_1fr] items-center gap-x-3">
+                          <span className="text-sm font-medium text-right min-w-[60px]">is</span>
                           <Controller
                             name="condition_operator"
                             control={control}
@@ -385,8 +397,8 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                                 }))}
                                 value={field.value}
                                 onValueChange={field.onChange}
-                                placeholder="op"
-                                className="w-24"
+                                placeholder="operator"
+                                className="w-32"
                               />
                             )}
                           />
@@ -397,7 +409,6 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                             {...register('condition_value', {
                               required: 'Required',
                             })}
-                            className="flex-1"
                             data-testid="condition-value-input"
                           />
                         </div>
@@ -639,31 +650,13 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
               </Accordion>
             )}
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pb-8">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                data-testid="alert-cancel-btn"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="text-white"
-                style={{ backgroundColor: 'var(--primary)' }}
-                data-testid="alert-save-btn"
-              >
-                {submitting ? 'Saving...' : alert ? 'Update Alert' : 'Save Alert'}
-              </Button>
-            </div>
+            {/* Hidden submit button for form */}
+            <button type="submit" hidden data-testid="alert-submit-hidden" />
           </form>
         </div>
 
         {/* Right: Preview Panel */}
-        <div className="w-1/2 overflow-y-auto px-6 pb-6 mt-6 bg-gray-50/50">
+        <div className="w-1/2 overflow-y-auto px-6 pt-6 pb-6 bg-gray-50/50">
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Preview</h2>
             {currentQueryConfig ? (
@@ -676,6 +669,25 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Fixed Footer */}
+      <div className="flex-shrink-0 border-t bg-background px-6 py-3">
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="alert-cancel-btn">
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={submitting}
+            className="text-white"
+            style={{ backgroundColor: 'var(--primary)' }}
+            data-testid="alert-save-btn"
+            onClick={() => handleSubmit(onSubmit)()}
+          >
+            {submitting ? 'Saving...' : alert ? 'Update Alert' : 'Save Alert'}
+          </Button>
         </div>
       </div>
     </div>
