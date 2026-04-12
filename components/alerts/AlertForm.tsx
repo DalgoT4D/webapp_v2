@@ -327,8 +327,11 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-x-3 gap-y-3">
-                        <span className="text-sm font-medium text-right">Check if</span>
+                      <p className="text-sm text-muted-foreground">
+                        Check if [aggregation] of [column] per [group] is [operator] [value]
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium whitespace-nowrap">Check if</span>
                         <Controller
                           name="aggregation"
                           control={control}
@@ -342,10 +345,11 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                               value={field.value}
                               onValueChange={field.onChange}
                               placeholder="aggregation"
+                              className="w-32"
                             />
                           )}
                         />
-                        <span className="text-sm font-medium text-right">of</span>
+                        <span className="text-sm font-medium">of</span>
                         <Controller
                           name="measure_column"
                           control={control}
@@ -355,10 +359,13 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                               value={field.value}
                               onValueChange={field.onChange}
                               placeholder={aggregation === 'COUNT' ? 'all rows' : 'column'}
+                              className="w-40"
                             />
                           )}
                         />
-                        <span className="text-sm font-medium text-right">per</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium">per</span>
                         <Controller
                           name="group_by_column"
                           control={control}
@@ -368,39 +375,38 @@ export function AlertForm({ alert, onSave, onCancel }: AlertFormProps) {
                               value={field.value}
                               onValueChange={field.onChange}
                               placeholder="(no grouping)"
+                              className="w-40"
                             />
                           )}
                         />
-                        <span className="text-sm font-medium text-right">is</span>
-                        <div className="flex items-center gap-2">
-                          <Controller
-                            name="condition_operator"
-                            control={control}
-                            rules={{ required: 'Required' }}
-                            render={({ field }) => (
-                              <Combobox
-                                items={CONDITION_OPERATORS.map((o) => ({
-                                  value: o.value,
-                                  label: o.label,
-                                }))}
-                                value={field.value}
-                                onValueChange={field.onChange}
-                                placeholder="op"
-                                className="w-24"
-                              />
-                            )}
-                          />
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder="value"
-                            {...register('condition_value', {
-                              required: 'Required',
-                            })}
-                            className="flex-1"
-                            data-testid="condition-value-input"
-                          />
-                        </div>
+                        <span className="text-sm font-medium">is</span>
+                        <Controller
+                          name="condition_operator"
+                          control={control}
+                          rules={{ required: 'Required' }}
+                          render={({ field }) => (
+                            <Combobox
+                              items={CONDITION_OPERATORS.map((o) => ({
+                                value: o.value,
+                                label: o.label,
+                              }))}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="op"
+                              className="w-20"
+                            />
+                          )}
+                        />
+                        <Input
+                          type="number"
+                          step="any"
+                          placeholder="value"
+                          {...register('condition_value', {
+                            required: 'Required',
+                          })}
+                          className="w-28"
+                          data-testid="condition-value-input"
+                        />
                       </div>
                       {(errors.aggregation ||
                         errors.condition_operator ||
