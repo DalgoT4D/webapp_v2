@@ -106,7 +106,7 @@ export function AlertDetail({ alertId }: AlertDetailProps) {
               Condition
             </h3>
             <p className="text-sm">
-              Check if <span className="font-semibold text-primary">{qc.aggregation}</span>
+              Check if <span className="font-semibold">{qc.aggregation}</span>
               {' of '}
               <span className="font-mono font-medium">{qc.measure_column || '*'}</span>
               {qc.group_by_column && (
@@ -116,7 +116,7 @@ export function AlertDetail({ alertId }: AlertDetailProps) {
                 </>
               )}
               {' is '}
-              <span className="font-semibold text-red-600">
+              <span className="font-semibold">
                 {qc.condition_operator} {qc.condition_value}
               </span>
             </p>
