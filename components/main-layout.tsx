@@ -194,6 +194,7 @@ const getNavItems = (
       href: '/alerts',
       icon: AlertTriangle,
       isActive: currentPath.startsWith('/alerts'),
+      hide: !isFeatureFlagEnabled(FeatureFlagKeys.ALERTS),
     },
     {
       title: 'Settings',
