@@ -321,14 +321,18 @@ export function UnifiedFiltersPanel({
   };
 
   // Check if any filters have values
-  // In report mode, filters are always locked and auto-set from the frozen report config,
-  // so the dot indicator is never meaningful there — suppress it entirely
-  const hasActiveFilters = isReportMode
-    ? false
-    : Object.values(currentFilterValues).some(
-        (value) =>
-          value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true)
-      );
+  // In report mode, locked filters are auto-set from the frozen report config and cannot
+  // be changed by the user — exclude them so they don't trigger the blue dot indicator
+  const hasActiveFilters = Object.entries(currentFilterValues).some(([filterId, value]) => {
+    if (isReportMode) {
+      const filter = filters.find((f) => String(f.id) === String(filterId));
+      const isLocked = !!(filter?.settings as any)?.locked;
+      if (isLocked) return false;
+    }
+    return (
+      value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true)
+    );
+  });
 
   // Toggle panel collapse state (hides entire panel)
   const togglePanelCollapse = () => {
