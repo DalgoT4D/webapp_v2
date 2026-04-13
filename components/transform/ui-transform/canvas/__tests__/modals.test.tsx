@@ -109,7 +109,7 @@ describe('PatRequiredModal', () => {
     await userEvent.click(connectBtn);
 
     await waitFor(() => {
-      expect(mockApiPut).toHaveBeenCalledWith('/api/dbt/connect_git_remote/', {
+      expect(mockApiPut).toHaveBeenCalledWith('/api/dbt/switch_git_repo/', {
         gitrepoUrl: 'https://github.com/org/repo.git',
         gitrepoAccessToken: 'ghp_test_token_12345',
       });
