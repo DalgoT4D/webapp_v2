@@ -44,7 +44,7 @@ const DEFAULT_SCHEMAS = ['intermediate', 'production'];
  * Allows specifying output name, destination schema, and directory.
  */
 export function CreateTableForm({ node, clearAndClosePanel, setLoading }: CreateTableFormProps) {
-  const { dispatchCanvasAction, triggerRefresh } = useTransformStore();
+  const { dispatchCanvasAction, triggerRefresh, requestFullLayout } = useTransformStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [directories, setDirectories] = useState<ComboboxItem[]>([]);
   const [schemas, setSchemas] = useState<ComboboxItem[]>([]);
@@ -198,6 +198,8 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       // Trigger workflow execution
       dispatchCanvasAction({ type: CanvasActionEnum.RUN_WORKFLOW, data: null });
 
+      // Request full dagre layout so the canvas recalculates all positions
+      requestFullLayout();
       // Refresh canvas
       triggerRefresh();
 
