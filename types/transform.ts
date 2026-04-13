@@ -42,6 +42,7 @@ export interface DbtWorkspace {
   default_schema: string;
   target_type?: string;
   transform_type?: TransformType;
+  is_repo_managed_by_system?: boolean;
 }
 
 export interface DbtWorkspaceFormData {

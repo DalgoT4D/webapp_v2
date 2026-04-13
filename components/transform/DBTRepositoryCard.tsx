@@ -14,8 +14,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
-import { useDbtWorkspace, connectGitRemote, updateSchema } from '@/hooks/api/useDbtWorkspace';
+import { Loader2, Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import Image from 'next/image';
@@ -72,8 +73,8 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
           await updateSchema(data.defaultSchema);
           toastSuccess.updated('Schema');
         } else if (gitRepoChanged) {
-          // Git repo changed — use the connect_git_remote endpoint
-          await connectGitRemote(data.gitrepoUrl, data.gitrepoAccessToken);
+          // Git repo changed — use the switch_git_repo endpoint
+          await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
           toastSuccess.updated('Git repository');
           // If schema also changed, update it separately
           if (schemaChanged) {
@@ -87,7 +88,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         }
       } else {
         // First-time connection — same endpoints as v1
-        await connectGitRemote(data.gitrepoUrl, data.gitrepoAccessToken);
+        await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
         // Update schema if not the default
         if (data.defaultSchema) {
           await updateSchema(data.defaultSchema);
@@ -133,7 +134,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
             <CardTitle className="mb-1 text-xl font-semibold">DBT Repository</CardTitle>
             <CardDescription className="break-words text-base">
               {isConnected ? (
-                <>
+                <span className="flex items-center flex-wrap gap-1">
                   Connected:{' '}
                   <a
                     href={workspace.gitrepo_url || '#'}
@@ -144,11 +145,52 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                     {workspace.gitrepo_url}
                   </a>
                   {workspace.default_schema && (
-                    <span className="ml-2 text-sm bg-muted px-2 py-0.5 rounded">
+                    <span className="text-sm bg-muted px-2 py-0.5 rounded">
                       {workspace.default_schema}
                     </span>
                   )}
-                </>
+                  {workspace.is_repo_managed_by_system && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                          aria-label="Repository info"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 text-sm" side="bottom" align="start">
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-base">Managed Repository</h4>
+                          <ul className="space-y-2 list-disc pl-4">
+                            <li>
+                              This Git repository is <strong>created and managed by Dalgo</strong>{' '}
+                              on your behalf.
+                            </li>
+                            <li>
+                              The repository is <strong>private by default</strong> and not
+                              accessible to you directly.
+                            </li>
+                            <li>
+                              If you want direct access to the repository or wish to manage it
+                              yourself, please refer to our{' '}
+                              <a
+                                href="https://docs.dalgo.in/data-transformation/managing-your-dbt-repository"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline font-medium"
+                              >
+                                documentation
+                              </a>{' '}
+                              for steps on how to switch to your own GitHub repository.
+                            </li>
+                          </ul>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </span>
               ) : (
                 'Connect your DBT project Git repository'
               )}
