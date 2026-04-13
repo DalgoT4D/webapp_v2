@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 import {
   useDashboard,
   deleteDashboard,
+  updateDashboard,
   getDashboardSharingStatus,
   updateDashboardSharing,
 } from '@/hooks/api/useDashboards';
@@ -76,6 +77,7 @@ import { ShareModal } from '@/components/ui/share-modal';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { DashboardThemeSettings } from './dashboard-theme-settings';
+import { ResponsiveFiltersSection } from './responsive-filters-section';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
@@ -91,6 +93,14 @@ import {
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import {
+  buildDashboardBackgroundImageStyle,
+  buildDashboardOverlayStyle,
+  buildDashboardSurfaceStyle,
+  serializeDashboardThemeForApi,
+  type DashboardThemeConfig,
+} from '@/lib/dashboard-theme';
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width
@@ -360,57 +370,12 @@ export function DashboardNativeView({
   }, [dashboard?.filters]);
 
   // Generate theme styles for the dashboard canvas
-  const themeStyles = useMemo(() => {
-    if (!dashboard) return {};
-
-    const styles: React.CSSProperties = {};
-
-    // Background color (lowest priority)
-    if (dashboard.theme_background_color) {
-      styles.backgroundColor = dashboard.theme_background_color;
-    }
-
-    // Background gradient (overrides solid color)
-    if (dashboard.theme_background_gradient) {
-      const gradient = dashboard.theme_background_gradient;
-      if (gradient.type === 'linear' && gradient.colors && gradient.direction) {
-        styles.background = `linear-gradient(${gradient.direction}, ${gradient.colors[0]}, ${gradient.colors[1]})`;
-      } else if (gradient.type === 'radial' && gradient.colors) {
-        styles.background = `radial-gradient(circle, ${gradient.colors[0]}, ${gradient.colors[1]})`;
-      }
-    }
-
-    // Background image (highest priority for background)
-    if (dashboard.theme_background_image_url) {
-      const blur = dashboard.theme_background_image_blur || 0;
-      styles.backgroundImage = `url(${dashboard.theme_background_image_url})`;
-      styles.backgroundSize = 'cover';
-      styles.backgroundPosition = 'center';
-      styles.backgroundRepeat = 'no-repeat';
-      if (blur > 0) {
-        styles.filter = `blur(${blur}px)`;
-      }
-    }
-
-    return styles;
-  }, [dashboard]);
-
-  // Generate overlay styles
-  const overlayStyles = useMemo(() => {
-    if (!dashboard?.theme_overlay_color || !dashboard?.theme_overlay_opacity) return {};
-
-    return {
-      position: 'absolute' as const,
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: dashboard.theme_overlay_color,
-      opacity: dashboard.theme_overlay_opacity,
-      pointerEvents: 'none' as const,
-      zIndex: 5,
-    };
-  }, [dashboard]);
+  const themeSurfaceStyle = useMemo(() => buildDashboardSurfaceStyle(dashboard), [dashboard]);
+  const themeBackgroundImageStyle = useMemo(
+    () => buildDashboardBackgroundImageStyle(dashboard),
+    [dashboard]
+  );
+  const themeOverlayStyle = useMemo(() => buildDashboardOverlayStyle(dashboard), [dashboard]);
 
   // Auto-apply default filter values in report mode so charts render pre-filtered.
   // The backend injects period dates into the datetime filter's settings,
@@ -453,7 +418,7 @@ export function DashboardNativeView({
 
   // Observe dashboard container for responsive width
   useEffect(() => {
-    if (!dashboardContainerRef.current) return;
+    if (!dashboardContainerRef.current) return undefined;
 
     // Set initial width
     const initialWidth = dashboardContainerRef.current.offsetWidth || window.innerWidth;
@@ -507,8 +472,24 @@ export function DashboardNativeView({
   };
 
   // Handle theme save
-  const handleThemeSave = () => {
-    mutate(); // Refresh the dashboard data to get updated theme
+  const handleThemeSave = async (nextTheme: DashboardThemeConfig) => {
+    try {
+      await updateDashboard(dashboardId, serializeDashboardThemeForApi(nextTheme));
+      await mutate();
+      toast({
+        title: 'Theme updated',
+        description: 'The dashboard background has been saved.',
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update dashboard theme:', error);
+      toast({
+        title: 'Save failed',
+        description: 'Failed to save the dashboard background. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    }
   };
 
   // Handle dashboard update after sharing changes
@@ -604,13 +585,7 @@ export function DashboardNativeView({
     switch (component.type) {
       case 'chart':
         return (
-          <div
-            key={componentId}
-            className="h-full"
-            style={{
-              opacity: dashboard?.theme_chart_opacity ?? 1,
-            }}
-          >
+          <div key={componentId} className="h-full">
             <ChartElementView
               chartId={component.config?.chartId}
               dashboardFilters={selectedFilters}
@@ -1148,9 +1123,25 @@ export function DashboardNativeView({
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
-          <div className="flex items-center gap-4">
-            <DashboardLogo />
-            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <DashboardLogo />
+              <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
+            </div>
+            {!isPublicMode && (
+              <ResponsiveDashboardActions
+                onShare={handleShare}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onRefresh={handleRefresh}
+                onThemeSettings={handleThemeSettings}
+                canEdit={canEdit && !isLockedByOther}
+                isDeleting={isDeleting}
+                isRefreshing={isRefreshing}
+                dashboardTitle={dashboard?.title}
+                className="shrink-0"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1207,102 +1198,127 @@ export function DashboardNativeView({
             style={{
               width: '100%',
               minHeight: '100%',
-              ...themeStyles,
+              ...themeSurfaceStyle,
             }}
           >
-            {/* Theme overlay */}
-            {dashboard?.theme_overlay_color && dashboard?.theme_overlay_opacity > 0 && (
-              <div style={overlayStyles} />
+            {themeBackgroundImageStyle && (
+              <div aria-hidden="true" style={themeBackgroundImageStyle} />
             )}
+            {/* Theme overlay */}
+            {themeOverlayStyle && <div aria-hidden="true" style={themeOverlayStyle} />}
 
-            {/* Optional content above the chart grid (e.g. Executive Summary) */}
-            {beforeContent}
+            <div className="relative z-10">
+              {/* Optional content above the chart grid (e.g. Executive Summary) */}
+              {beforeContent}
 
-            {/* Show empty state if no layout config */}
-            {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p className="text-lg mb-2">No Dashboard Components</p>
-                <p className="text-sm">
-                  This dashboard doesn't have any components configured yet.
-                </p>
-              </div>
-            ) : null}
+              {/* Show empty state if no layout config */}
+              {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p className="text-lg mb-2">No Dashboard Components</p>
+                  <p className="text-sm">
+                    This dashboard doesn't have any components configured yet.
+                  </p>
+                </div>
+              ) : null}
 
-            {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
-            {(() => {
-              // Use original layout without any modifications since toolbar is now external
-              const modifiedLayout = dashboard.layout_config || [];
+              {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
+              {(() => {
+                // Use original layout without any modifications since toolbar is now external
+                const modifiedLayout = dashboard.layout_config || [];
 
-              return effectiveScreenSize !== targetScreenSize ? (
-                // Preview mode with different screen size - use responsive layout
-                <ResponsiveGrid
-                  className="dashboard-grid"
-                  layouts={
-                    dashboard.responsive_layouts ||
-                    generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
-                  }
-                  breakpoints={BREAKPOINTS}
-                  cols={COLS}
-                  rowHeight={20}
-                  width={actualContainerWidth}
-                  style={{
-                    width: '100% !important',
-                  }}
-                  isDraggable={false}
-                  isResizable={false}
-                  compactType={null}
-                  preventCollision={false}
-                  margin={[8, 8]}
-                  containerPadding={[8, 8]}
-                  autoSize={true}
-                  verticalCompact={false}
-                  onBreakpointChange={(newBreakpoint: string) => {
-                    setCurrentBreakpoint(newBreakpoint);
-                  }}
-                >
-                  {modifiedLayout.map((layoutItem: any) => (
-                    <div key={layoutItem.i} className="dashboard-item">
-                      <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                        <CardContent className="p-2 h-full">
-                          {renderComponent(layoutItem.i)}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ))}
-                </ResponsiveGrid>
-              ) : (
-                // Target screen size or no preview override - use exact layout
-                <GridLayout
-                  className="dashboard-grid"
-                  layout={modifiedLayout}
-                  cols={effectiveScreenConfig.cols}
-                  rowHeight={20}
-                  width={actualContainerWidth}
-                  style={{
-                    width: '100% !important',
-                  }}
-                  isDraggable={false}
-                  isResizable={false}
-                  compactType={null}
-                  preventCollision={true}
-                  allowOverlap={false}
-                  margin={[8, 8]}
-                  containerPadding={[8, 8]}
-                  autoSize={true}
-                  verticalCompact={false}
-                >
-                  {modifiedLayout.map((layoutItem: any) => (
-                    <div key={layoutItem.i} className="dashboard-item">
-                      <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                        <CardContent className="p-2 h-full">
-                          {renderComponent(layoutItem.i)}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ))}
-                </GridLayout>
-              );
-            })()}
+                return effectiveScreenSize !== targetScreenSize ? (
+                  // Preview mode with different screen size - use responsive layout
+                  <ResponsiveGrid
+                    className="dashboard-grid"
+                    layouts={
+                      dashboard.responsive_layouts ||
+                      generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
+                    }
+                    breakpoints={BREAKPOINTS}
+                    cols={COLS}
+                    rowHeight={20}
+                    width={actualContainerWidth}
+                    style={{
+                      width: '100% !important',
+                    }}
+                    isDraggable={false}
+                    isResizable={false}
+                    compactType={null}
+                    preventCollision={false}
+                    margin={[8, 8]}
+                    containerPadding={[8, 8]}
+                    autoSize={true}
+                    verticalCompact={false}
+                    onBreakpointChange={(newBreakpoint: string) => {
+                      setCurrentBreakpoint(newBreakpoint);
+                    }}
+                  >
+                    {modifiedLayout.map((layoutItem: any) => (
+                      <div
+                        key={layoutItem.i}
+                        className="dashboard-item"
+                        style={{
+                          backgroundColor:
+                            dashboard?.components?.[layoutItem.i]?.config?.panelBackgroundColor,
+                          borderRadius: dashboard?.components?.[layoutItem.i]?.config
+                            ?.panelBackgroundColor
+                            ? '4px'
+                            : undefined,
+                        }}
+                      >
+                        <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0 bg-transparent">
+                          <CardContent className="p-2 h-full">
+                            {renderComponent(layoutItem.i)}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    ))}
+                  </ResponsiveGrid>
+                ) : (
+                  // Target screen size or no preview override - use exact layout
+                  <GridLayout
+                    className="dashboard-grid"
+                    layout={modifiedLayout}
+                    cols={effectiveScreenConfig.cols}
+                    rowHeight={20}
+                    width={actualContainerWidth}
+                    style={{
+                      width: '100% !important',
+                    }}
+                    isDraggable={false}
+                    isResizable={false}
+                    compactType={null}
+                    preventCollision={true}
+                    allowOverlap={false}
+                    margin={[8, 8]}
+                    containerPadding={[8, 8]}
+                    autoSize={true}
+                    verticalCompact={false}
+                  >
+                    {modifiedLayout.map((layoutItem: any) => (
+                      <div
+                        key={layoutItem.i}
+                        className="dashboard-item"
+                        style={{
+                          backgroundColor:
+                            dashboard?.components?.[layoutItem.i]?.config?.panelBackgroundColor,
+                          borderRadius: dashboard?.components?.[layoutItem.i]?.config
+                            ?.panelBackgroundColor
+                            ? '4px'
+                            : undefined,
+                        }}
+                      >
+                        <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0 bg-transparent">
+                          <CardContent className="p-2 h-full">
+                            {renderComponent(layoutItem.i)}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    ))}
+                  </GridLayout>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </div>{' '}
@@ -1407,16 +1423,7 @@ export function DashboardNativeView({
       <Dialog open={themeSettingsOpen} onOpenChange={setThemeSettingsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DashboardThemeSettings
-            dashboardId={dashboardId}
-            currentTheme={{
-              background_color: dashboard?.theme_background_color,
-              background_gradient: dashboard?.theme_background_gradient,
-              background_image_url: dashboard?.theme_background_image_url,
-              background_image_blur: dashboard?.theme_background_image_blur,
-              chart_opacity: dashboard?.theme_chart_opacity,
-              overlay_color: dashboard?.theme_overlay_color,
-              overlay_opacity: dashboard?.theme_overlay_opacity,
-            }}
+            currentTheme={dashboard}
             onSave={handleThemeSave}
             onClose={handleThemeSettingsClose}
           />

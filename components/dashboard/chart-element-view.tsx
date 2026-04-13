@@ -115,7 +115,7 @@ interface ChartElementViewProps {
   className?: string;
   isPublicMode?: boolean;
   publicToken?: string; // Required when isPublicMode=true
-  config?: ChartTitleConfig; // For dashboard title configuration
+  config?: ChartTitleConfig & { panelBackgroundColor?: string }; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
 }
 
@@ -1454,8 +1454,8 @@ export function ChartElementView({
   };
 
   // Handle map chart ready callback to capture the ECharts instance
-  const handleMapChartReady = (chart: echarts.ECharts) => {
-    mapChartInstance.current = chart;
+  const handleMapChartReady = (chart: unknown) => {
+    mapChartInstance.current = chart as echarts.ECharts;
   };
 
   // Original working download function for PNG/Image export
@@ -1666,9 +1666,10 @@ export function ChartElementView({
         isFullscreen && '!h-screen !w-screen !bg-white p-4'
       )}
       style={{
+        backgroundColor: config?.panelBackgroundColor || '#ffffff',
         ...(isFullscreen && {
-          backgroundColor: 'white !important',
-          background: 'white !important',
+          backgroundColor: config?.panelBackgroundColor || 'white',
+          background: config?.panelBackgroundColor || 'white',
         }),
       }}
     >

@@ -4,11 +4,9 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { useCharts } from '@/hooks/api/useCharts';
 import { StaticChartPreview } from '@/components/charts/StaticChartPreview';
-import { Loader2, Search, Plus, ExternalLink } from 'lucide-react';
-import Link from 'next/link';
+import { Loader2, Search } from 'lucide-react';
 
 interface ChartSelectorModalProps {
   open: boolean;
@@ -51,26 +49,14 @@ export function ChartSelectorModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Search and Create New Button */}
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search charts..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10"
-              />
-            </div>
-            <Link href="/charts/new?from=dashboard">
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
-              >
-                <Plus className="w-4 h-4" />
-                CREATE NEW CHART
-              </Button>
-            </Link>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search charts..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10"
+            />
           </div>
 
           <ScrollArea className="h-[600px] pr-4">
@@ -113,23 +99,7 @@ export function ChartSelectorModal({
                 <div className="text-gray-500 mb-4">
                   {search ? 'No charts found matching your search.' : 'No charts available yet.'}
                 </div>
-                {!search && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-gray-400">
-                      Get started by creating your first chart
-                    </p>
-                    <Link href="/charts/new?from=dashboard">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        CREATE YOUR FIRST CHART
-                      </Button>
-                    </Link>
-                  </div>
-                )}
+                {!search && <p className="text-sm text-gray-400">Add an existing chart here.</p>}
               </div>
             )}
           </ScrollArea>

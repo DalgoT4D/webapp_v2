@@ -19,18 +19,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
+import {
+  DASHBOARD_TEXT_FONT_OPTIONS,
+  getDashboardTextFontSelectValue,
+  resolveDashboardTextFontFamily,
+} from '@/lib/dashboard-text-fonts';
 
-// Curated font list: 3 serif, 3 sans-serif (including handwriting style)
-// Uses CSS variables set by next/font/google in layout.tsx
-export const FONT_OPTIONS = [
-  { label: 'System Default', value: '', category: 'default' },
-  { label: 'Anek Latin', value: 'var(--font-anek-latin), sans-serif', category: 'sans-serif' },
-  { label: 'Inter', value: 'var(--font-inter), sans-serif', category: 'sans-serif' },
-  { label: 'Farsan', value: 'var(--font-farsan), cursive', category: 'sans-serif' },
-  { label: 'PT Serif', value: 'var(--font-pt-serif), serif', category: 'serif' },
-  { label: 'Merriweather', value: 'var(--font-merriweather), serif', category: 'serif' },
-  { label: 'Playfair Display', value: 'var(--font-playfair-display), serif', category: 'serif' },
-] as const;
+export const FONT_OPTIONS = DASHBOARD_TEXT_FONT_OPTIONS;
 
 export interface UnifiedTextConfig {
   content: string;
@@ -89,6 +84,23 @@ const bgColorPresets = [
   { color: '#EDE9FE', name: 'Light Purple' },
 ];
 
+type TextStyleWithFontVar = React.CSSProperties & {
+  '--dashboard-text-font'?: string;
+};
+
+function buildTextFontStyle(fontFamily?: string): TextStyleWithFontVar {
+  const resolvedFontFamily = resolveDashboardTextFontFamily(fontFamily);
+
+  if (!resolvedFontFamily) {
+    return {};
+  }
+
+  return {
+    '--dashboard-text-font': resolvedFontFamily,
+    fontFamily: resolvedFontFamily,
+  };
+}
+
 // Helper to build consistent text styles from config
 function buildTextStyles(config: UnifiedTextConfig): React.CSSProperties {
   return {
@@ -99,7 +111,7 @@ function buildTextStyles(config: UnifiedTextConfig): React.CSSProperties {
     textAlign: config.textAlign as React.CSSProperties['textAlign'],
     color: config.color,
     backgroundColor: config.backgroundColor || 'transparent',
-    fontFamily: config.fontFamily || undefined,
+    ...buildTextFontStyle(config.fontFamily),
     lineHeight: config.type === 'heading' ? '1.2' : '1.5',
     margin: 0,
     padding: config.backgroundColor ? '8px 12px' : 0,
@@ -205,7 +217,7 @@ export function UnifiedTextElement({
 
   // Auto-hide toolbar when clicking outside
   useEffect(() => {
-    if (!isEditing) return;
+    if (!isEditing) return undefined;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -275,6 +287,8 @@ export function UnifiedTextElement({
         textarea.removeEventListener('input', autoResize);
       };
     }
+
+    return undefined;
   }, [isEditing, config.fontSize]);
 
   // Start editing mode
@@ -456,17 +470,17 @@ export function UnifiedTextElement({
             {/* Font Family Dropdown */}
             <div className="flex items-center">
               <select
-                value={config.fontFamily || ''}
-                onChange={(e) => handleQuickFormat('fontFamily', e.target.value)}
-                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel max-w-[100px]"
+                value={getDashboardTextFontSelectValue(config.fontFamily)}
+                onChange={(e) => handleQuickFormat('fontFamily', e.target.value || undefined)}
+                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel max-w-[100px] dashboard-text-font-override"
                 title="Font Family"
-                style={{ fontFamily: config.fontFamily || undefined }}
+                style={buildTextFontStyle(config.fontFamily)}
               >
                 {FONT_OPTIONS.map((font) => (
                   <option
                     key={font.label}
                     value={font.value}
-                    style={{ fontFamily: font.value || undefined }}
+                    style={buildTextFontStyle(font.value)}
                   >
                     {font.label}
                   </option>
@@ -718,13 +732,19 @@ export function UnifiedTextElement({
             (() => {
               const Tag = `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
               return (
-                <Tag className="whitespace-pre-wrap break-words w-full" style={textStyles}>
+                <Tag
+                  className="whitespace-pre-wrap break-words w-full dashboard-text-font-override"
+                  style={textStyles}
+                >
                   {config.content}
                 </Tag>
               );
             })()
           ) : (
-            <div className="whitespace-pre-wrap break-words w-full" style={textStyles}>
+            <div
+              className="whitespace-pre-wrap break-words w-full dashboard-text-font-override"
+              style={textStyles}
+            >
               {config.content}
             </div>
           )
@@ -790,7 +810,7 @@ export function UnifiedTextElement({
                       }
                     }, 200);
                   }}
-                  className="resize-none border-none outline-none bg-transparent drag-cancel w-full text-center"
+                  className="resize-none border-none outline-none bg-transparent drag-cancel w-full text-center dashboard-text-font-override"
                   style={{
                     fontSize: `${config.fontSize}px`,
                     fontWeight: config.fontWeight,
@@ -798,7 +818,7 @@ export function UnifiedTextElement({
                     textDecoration: config.textDecoration,
                     textAlign: config.textAlign as React.CSSProperties['textAlign'],
                     color: config.color,
-                    fontFamily: config.fontFamily || undefined,
+                    ...buildTextFontStyle(config.fontFamily),
                     lineHeight: config.type === 'heading' ? '1.2' : '1.5',
                     margin: 0,
                     outline: 'none',
@@ -821,7 +841,7 @@ export function UnifiedTextElement({
                           `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
                         return (
                           <Tag
-                            className="whitespace-pre-wrap break-words w-full text-center"
+                            className="whitespace-pre-wrap break-words w-full text-center dashboard-text-font-override"
                             style={buildTextStyles(config)}
                           >
                             {config.content}
@@ -830,7 +850,7 @@ export function UnifiedTextElement({
                       })()
                     ) : (
                       <div
-                        className="whitespace-pre-wrap break-words w-full text-center"
+                        className="whitespace-pre-wrap break-words w-full text-center dashboard-text-font-override"
                         style={buildTextStyles(config)}
                       >
                         {config.content}

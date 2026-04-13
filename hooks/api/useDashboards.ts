@@ -4,6 +4,7 @@ import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 export interface Dashboard {
   id: number;
   title: string;
+  description?: string | null;
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
   target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
@@ -30,6 +31,13 @@ export interface Dashboard {
   last_public_accessed?: string;
   // Thumbnail field for dashboard screenshots
   thumbnail_url?: string;
+  theme_background_color?: string | null;
+  theme_background_gradient?: any;
+  theme_background_image_url?: string | null;
+  theme_background_image_blur?: number;
+  theme_chart_opacity?: number;
+  theme_overlay_color?: string | null;
+  theme_overlay_opacity?: number;
 }
 
 export interface DashboardFilter {

@@ -64,7 +64,8 @@ export function ResponsiveDashboardActions({
         )} */}
         {onThemeSettings && (
           <Button variant="outline" size="sm" onClick={onThemeSettings}>
-            <Palette className="w-4 h-4" />
+            <Palette className="w-4 h-4 mr-2" />
+            Theme
           </Button>
         )}
         <Button variant="outline" size="sm" onClick={onShare}>

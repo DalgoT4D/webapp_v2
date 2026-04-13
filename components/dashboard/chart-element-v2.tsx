@@ -1193,7 +1193,14 @@ export function ChartElementV2({
   return (
     <div className="h-full w-full relative">
       {/* Action buttons moved to dashboard level for proper drag-cancel behavior */}
-      <Card className="h-full w-full flex flex-col">
+      <Card
+        className="h-full w-full flex flex-col"
+        style={
+          config?.panelBackgroundColor
+            ? { backgroundColor: config.panelBackgroundColor }
+            : undefined
+        }
+      >
         <CardContent className="p-2 flex-1 flex flex-col min-h-0">
           {/* Chart Title Editor */}
           <ChartTitleEditor

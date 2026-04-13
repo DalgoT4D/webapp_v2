@@ -1,7 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { useCharts } from '@/hooks/api/useChart';
+import {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+  useMemo,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -11,6 +18,7 @@ import { ChartSelectorModal } from './chart-selector-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
@@ -50,6 +58,7 @@ import {
   LayoutGrid,
   AlignLeft,
   ImageIcon,
+  Palette,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -59,6 +68,7 @@ import { ImageElement } from './image-element';
 import type { ImageComponentConfig } from './image-element';
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
+import { DashboardThemeSettings } from './dashboard-theme-settings';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
 import { GridGuides } from './GridGuides';
@@ -71,6 +81,16 @@ import type {
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
+import {
+  buildDashboardBackgroundImageStyle,
+  buildDashboardOverlayStyle,
+  buildDashboardSurfaceStyle,
+  mergeDashboardTheme,
+  normalizeDashboardTheme,
+  serializeDashboardThemeForApi,
+  splitDashboardThemeFields,
+  type DashboardThemeConfig,
+} from '@/lib/dashboard-theme';
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
 const ROW_HEIGHT = 20;
@@ -381,30 +401,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Load filters from backend with proper error handling
     const initialFilters = Array.isArray(dashboardFilters)
       ? dashboardFilters
-          .map((filter: any) => {
-            // Validate filter data before processing
-            if (
-              !filter ||
-              !filter.id ||
-              !filter.schema_name ||
-              !filter.table_name ||
-              !filter.column_name
-            ) {
-              console.warn('Skipping invalid filter:', filter);
-              return null;
-            }
-
-            return {
-              id: filter.id,
-              name: filter.name || filter.column_name || 'Unnamed Filter',
-              schema_name: filter.schema_name,
-              table_name: filter.table_name,
-              column_name: filter.column_name,
-              filter_type: filter.filter_type || 'value', // Default to 'value' if missing
-              settings: filter.settings || {},
-            };
-          })
-          .filter(Boolean) // Remove null entries
+          .map((filter: DashboardFilter) =>
+            convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
+          )
+          .filter((filter): filter is DashboardFilterConfig => Boolean(filter))
       : [];
 
     // Don't create filter components - they should already be in initialComponents
@@ -465,10 +465,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
-    // Fetch all charts
-    const { data: chartsData, isLoading: chartsLoading } = useCharts
-      ? useCharts()
-      : { data: [], isLoading: false };
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(
       null
@@ -483,6 +479,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Filters panel collapse state
     const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
 
+    // Panel color picker state
+    const [panelColorPickerOpen, setPanelColorPickerOpen] = useState<string | null>(null);
+
     // Refs to store current values for event handlers without causing re-renders
     const lockStateRef = useRef({ dashboardId, lockToken, lockRefreshInterval });
 
@@ -494,6 +493,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
     const [showSettings, setShowSettings] = useState(false);
+    const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
+    const [dashboardTheme, setDashboardTheme] = useState<DashboardThemeConfig>(() =>
+      normalizeDashboardTheme(initialData)
+    );
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
       SCREEN_SIZES[targetScreenSize]?.width || 1200
@@ -507,6 +510,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Get current screen size config
     const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
+
+    const themeSurfaceStyle = useMemo(
+      () => buildDashboardSurfaceStyle(dashboardTheme),
+      [dashboardTheme]
+    );
+    const themeBackgroundImageStyle = useMemo(
+      () => buildDashboardBackgroundImageStyle(dashboardTheme),
+      [dashboardTheme]
+    );
+    const themeOverlayStyle = useMemo(
+      () => buildDashboardOverlayStyle(dashboardTheme),
+      [dashboardTheme]
+    );
 
     // Dashboard animation hook
     // Note: spaceMakingConfig.enabled is set to false to prevent charts from
@@ -605,7 +621,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
-      if (!dashboardContainerRef.current) return;
+      if (!dashboardContainerRef.current) return undefined;
 
       const handleResize = (entries: ResizeObserverEntry[]): void => {
         for (const entry of entries) {
@@ -823,8 +839,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     // Save dashboard
-    const saveDashboard = async (overrides: any = {}) => {
-      if (!dashboardId) return;
+    const saveDashboard = async (
+      overrides: Record<string, unknown> | Partial<DashboardThemeConfig> = {}
+    ): Promise<boolean> => {
+      if (!dashboardId) return false;
 
       setIsSaving(true);
       setSaveStatus('saving');
@@ -835,6 +853,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         // Ensure title is not empty, use default if needed
         const finalTitle = title.trim() || 'Untitled Dashboard';
+        const { themeOverrides, otherFields } = splitDashboardThemeFields(
+          overrides as Record<string, unknown>
+        );
+        const themeForSave = mergeDashboardTheme(dashboardTheme, themeOverrides);
 
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
@@ -845,8 +867,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           filter_layout: filterLayout,
           layout_config: JSON.parse(JSON.stringify(state.layout)), // Safe deep clone
           components: JSON.parse(JSON.stringify(state.components)), // Safe deep clone
+          ...serializeDashboardThemeForApi(themeForSave),
           // filters removed - managed via separate API endpoints
-          ...overrides, // Apply any overrides passed to the function
+          ...otherFields, // Apply any non-theme overrides passed to the function
         };
 
         await apiPut(`/api/dashboards/${dashboardId}/`, payload);
@@ -856,6 +879,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         setTimeout(() => {
           setSaveStatus('idle');
         }, 3000);
+        return true;
       } catch (error: any) {
         console.error('Failed to save dashboard:', error.message || 'Please try again');
         setSaveStatus('error');
@@ -866,9 +890,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           setSaveStatus('idle');
           setSaveError(null);
         }, 5000);
+        return false;
       } finally {
         setIsSaving(false);
       }
+    };
+
+    const handleThemeSave = async (nextTheme: DashboardThemeConfig) => {
+      const didSave = await saveDashboard(nextTheme);
+      if (didSave) {
+        setDashboardTheme(nextTheme);
+      }
+      return didSave;
     };
 
     // Expose cleanup function to parent component
@@ -1650,14 +1683,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       switch (component.type) {
         case DashboardComponentType.CHART:
           return (
-            <ChartElementV2
-              {...commonProps}
-              chartId={component.config.chartId}
-              config={component.config}
-              isResizing={resizingItems.has(componentId)}
-              appliedFilters={appliedFilters}
-              dashboardFilterConfigs={initialFilters}
-            />
+            <div className="h-full">
+              <ChartElementV2
+                {...commonProps}
+                chartId={component.config.chartId}
+                config={component.config}
+                isResizing={resizingItems.has(componentId)}
+                appliedFilters={appliedFilters}
+                dashboardFilterConfigs={initialFilters}
+              />
+            </div>
           );
 
         case DashboardComponentType.TEXT:
@@ -1756,6 +1791,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     )}
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setThemeSettingsOpen(true)}
+                  className="p-1.5"
+                >
+                  <Palette className="w-4 h-4" />
+                </Button>
                 {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
                 {/* <Popover>
                   <PopoverTrigger asChild>
@@ -2027,22 +2070,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 <div className="h-6 w-px bg-gray-300" />
 
-                <Button
-                  onClick={() => {
-                    if (
-                      !chartsLoading &&
-                      chartsData &&
-                      Array.isArray(chartsData) &&
-                      chartsData.length === 0
-                    ) {
-                      router.push('/charts/new?from=dashboard');
-                    } else {
-                      setShowChartSelector(true);
-                    }
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
+                <Button onClick={() => setShowChartSelector(true)} size="sm" variant="outline">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
                 </Button>
@@ -2055,6 +2083,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Button onClick={addImageComponent} size="sm" variant="outline">
                   <ImageIcon className="w-4 h-4 mr-2" />
                   Add Image
+                </Button>
+
+                <Button onClick={() => setThemeSettingsOpen(true)} size="sm" variant="outline">
+                  <Palette className="w-4 h-4 mr-2" />
+                  Background
                 </Button>
 
                 <div className="ml-2 flex gap-1">
@@ -2265,7 +2298,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             {/* Canvas container with full width */}
             <div
               ref={dashboardContainerRef}
-              className="bg-white dashboard-canvas-responsive"
+              className="dashboard-canvas-responsive overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               style={{
                 width: '100%',
                 // Calculate minimum height based on actual content:
@@ -2279,8 +2312,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     : 0
                 ),
                 position: 'relative',
+                ...themeSurfaceStyle,
               }}
             >
+              {themeBackgroundImageStyle && (
+                <div aria-hidden="true" style={themeBackgroundImageStyle} />
+              )}
               {/* Visual grid guides - disabled, using SnapIndicators with neon effect instead */}
               <GridGuides
                 containerWidth={actualContainerWidth}
@@ -2288,6 +2325,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 cols={12}
                 visible={false}
               />
+              {themeOverlayStyle && <div aria-hidden="true" style={themeOverlayStyle} />}
 
               <GridLayout
                 className="layout relative z-10"
@@ -2336,11 +2374,83 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           ? 'space-making-active'
                           : ''
                       } ${component.type === DashboardComponentType.TEXT ? 'text-component' : ''}`}
-                      style={dashboardAnimation.getAnimationStyles(item.i)}
+                      style={{
+                        ...dashboardAnimation.getAnimationStyles(item.i),
+                        backgroundColor: component.config?.panelBackgroundColor,
+                        borderRadius: component.config?.panelBackgroundColor ? '4px' : undefined,
+                      }}
                     >
                       {/* Chart Action Buttons - Single clean row */}
                       {component?.type === DashboardComponentType.CHART && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPanelColorPickerOpen(
+                                  panelColorPickerOpen === item.i ? null : item.i
+                                );
+                              }}
+                              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-purple-600"
+                              title="Panel background color"
+                            >
+                              <Palette className="w-3.5 h-3.5 text-gray-600" />
+                            </button>
+                            {panelColorPickerOpen === item.i && (
+                              <div className="absolute top-8 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
+                                <div className="flex gap-1 mb-2">
+                                  {[
+                                    '#FFFFFF',
+                                    '#F3F4F6',
+                                    '#FEF3C7',
+                                    '#DBEAFE',
+                                    '#D1FAE5',
+                                    '#FCE7F3',
+                                    '#EDE9FE',
+                                  ].map((color) => (
+                                    <button
+                                      key={color}
+                                      className="w-5 h-5 rounded border border-gray-300 hover:border-gray-500 transition-all"
+                                      style={{ backgroundColor: color }}
+                                      onClick={() => {
+                                        updateComponent(item.i, {
+                                          ...component.config,
+                                          panelBackgroundColor: color,
+                                        });
+                                        setPanelColorPickerOpen(null);
+                                      }}
+                                      title={color}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="color"
+                                    value={component.config.panelBackgroundColor || '#FFFFFF'}
+                                    onChange={(e) => {
+                                      updateComponent(item.i, {
+                                        ...component.config,
+                                        panelBackgroundColor: e.target.value,
+                                      });
+                                    }}
+                                    className="w-6 h-6 rounded border border-gray-300 cursor-pointer drag-cancel"
+                                  />
+                                  <button
+                                    className="text-xs px-1.5 py-0.5 hover:bg-gray-100 rounded drag-cancel"
+                                    onClick={() => {
+                                      updateComponent(item.i, {
+                                        ...component.config,
+                                        panelBackgroundColor: undefined,
+                                      });
+                                      setPanelColorPickerOpen(null);
+                                    }}
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2379,6 +2489,74 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       {/* Action Buttons for Text Elements */}
                       {component?.type === DashboardComponentType.TEXT && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPanelColorPickerOpen(
+                                  panelColorPickerOpen === item.i ? null : item.i
+                                );
+                              }}
+                              className="h-6 w-6 flex items-center justify-center bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-purple-600"
+                              title="Panel background color"
+                            >
+                              <Palette className="w-3 h-3 text-gray-600" />
+                            </button>
+                            {panelColorPickerOpen === item.i && (
+                              <div className="absolute top-7 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
+                                <div className="flex gap-1 mb-2">
+                                  {[
+                                    '#FFFFFF',
+                                    '#F3F4F6',
+                                    '#FEF3C7',
+                                    '#DBEAFE',
+                                    '#D1FAE5',
+                                    '#FCE7F3',
+                                    '#EDE9FE',
+                                  ].map((color) => (
+                                    <button
+                                      key={color}
+                                      className="w-4 h-4 rounded border border-gray-300 hover:border-gray-500 transition-all"
+                                      style={{ backgroundColor: color }}
+                                      onClick={() => {
+                                        updateComponent(item.i, {
+                                          ...component.config,
+                                          panelBackgroundColor: color,
+                                        });
+                                        setPanelColorPickerOpen(null);
+                                      }}
+                                      title={color}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="color"
+                                    value={component.config.panelBackgroundColor || '#FFFFFF'}
+                                    onChange={(e) => {
+                                      updateComponent(item.i, {
+                                        ...component.config,
+                                        panelBackgroundColor: e.target.value,
+                                      });
+                                    }}
+                                    className="w-5 h-5 rounded border border-gray-300 cursor-pointer drag-cancel"
+                                  />
+                                  <button
+                                    className="text-xs px-1 py-0.5 hover:bg-gray-100 rounded drag-cancel"
+                                    onClick={() => {
+                                      updateComponent(item.i, {
+                                        ...component.config,
+                                        panelBackgroundColor: undefined,
+                                      });
+                                      setPanelColorPickerOpen(null);
+                                    }}
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2395,6 +2573,74 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       {/* Action Buttons for Image Elements */}
                       {component?.type === DashboardComponentType.IMAGE && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPanelColorPickerOpen(
+                                  panelColorPickerOpen === item.i ? null : item.i
+                                );
+                              }}
+                              className="h-6 w-6 flex items-center justify-center bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-purple-600"
+                              title="Panel background color"
+                            >
+                              <Palette className="w-3 h-3 text-gray-600" />
+                            </button>
+                            {panelColorPickerOpen === item.i && (
+                              <div className="absolute top-7 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
+                                <div className="flex gap-1 mb-2">
+                                  {[
+                                    '#FFFFFF',
+                                    '#F3F4F6',
+                                    '#FEF3C7',
+                                    '#DBEAFE',
+                                    '#D1FAE5',
+                                    '#FCE7F3',
+                                    '#EDE9FE',
+                                  ].map((color) => (
+                                    <button
+                                      key={color}
+                                      className="w-4 h-4 rounded border border-gray-300 hover:border-gray-500 transition-all"
+                                      style={{ backgroundColor: color }}
+                                      onClick={() => {
+                                        updateComponent(item.i, {
+                                          ...component.config,
+                                          panelBackgroundColor: color,
+                                        });
+                                        setPanelColorPickerOpen(null);
+                                      }}
+                                      title={color}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="color"
+                                    value={component.config.panelBackgroundColor || '#FFFFFF'}
+                                    onChange={(e) => {
+                                      updateComponent(item.i, {
+                                        ...component.config,
+                                        panelBackgroundColor: e.target.value,
+                                      });
+                                    }}
+                                    className="w-5 h-5 rounded border border-gray-300 cursor-pointer drag-cancel"
+                                  />
+                                  <button
+                                    className="text-xs px-1 py-0.5 hover:bg-gray-100 rounded drag-cancel"
+                                    onClick={() => {
+                                      updateComponent(item.i, {
+                                        ...component.config,
+                                        panelBackgroundColor: undefined,
+                                      });
+                                      setPanelColorPickerOpen(null);
+                                    }}
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2475,6 +2721,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               : undefined
           }
         />
+        <Dialog open={themeSettingsOpen} onOpenChange={setThemeSettingsOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DashboardThemeSettings
+              currentTheme={dashboardTheme}
+              onSave={handleThemeSave}
+              onClose={() => setThemeSettingsOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
