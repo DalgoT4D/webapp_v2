@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Loader2, Info } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
@@ -150,8 +150,8 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                     </span>
                   )}
                   {workspace.is_repo_managed_by_system && (
-                    <Popover>
-                      <PopoverTrigger asChild>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                         <button
                           type="button"
                           className="inline-flex items-center text-muted-foreground hover:text-foreground"
@@ -159,8 +159,13 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                         >
                           <Info className="w-4 h-4" />
                         </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80 text-sm" side="bottom" align="start">
+                      </TooltipTrigger>
+                      <TooltipContent
+                        className="w-80 text-sm bg-popover text-popover-foreground border shadow-md rounded-md p-4 [&_svg]:!hidden"
+                        side="bottom"
+                        align="start"
+                        sideOffset={4}
+                      >
                         <div className="space-y-3">
                           <h4 className="font-semibold text-base">Managed Repository</h4>
                           <ul className="space-y-2 list-disc pl-4">
@@ -170,11 +175,11 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                             </li>
                             <li>
                               The repository is <strong>private by default</strong> and not
-                              accessible to you directly.
+                              accessible directly over the internet.
                             </li>
                             <li>
-                              If you want direct access to the repository or wish to manage it
-                              yourself, please refer to our{' '}
+                              If you want access to the repository or wish to manage it yourself,
+                              please refer to our{' '}
                               <a
                                 href="https://docs.dalgo.in/data-transformation/managing-your-dbt-repository"
                                 target="_blank"
@@ -187,8 +192,8 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                             </li>
                           </ul>
                         </div>
-                      </PopoverContent>
-                    </Popover>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </span>
               ) : (
