@@ -181,7 +181,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                               If you want access to the repository or wish to manage it yourself,
                               please refer to our{' '}
                               <a
-                                href="https://docs.dalgo.in/data-transformation/managing-your-dbt-repository"
+                                href={process.env.NEXT_PUBLIC_TRANSFORM_DOCS_URL || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline font-medium"
