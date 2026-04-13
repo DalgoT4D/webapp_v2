@@ -31,6 +31,7 @@ interface TableDimensionsSelectorProps {
   availableColumns: Array<{ column_name: string; data_type: string; name: string }>;
   onChange: (dimensions: ChartDimension[]) => void;
   disabled?: boolean;
+  showDrillDown?: boolean;
 }
 
 // Sortable dimension item component
@@ -170,6 +171,7 @@ export function TableDimensionsSelector({
   availableColumns,
   onChange,
   disabled,
+  showDrillDown = true,
 }: TableDimensionsSelectorProps) {
   // Get available columns that aren't already selected
   const getAvailableColumns = () => {
@@ -249,17 +251,19 @@ export function TableDimensionsSelector({
       {/* Header: Dimension title on left, Drill Down toggle on right */}
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium text-gray-900">Dimension</Label>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="drill-down-toggle" className="text-sm font-medium cursor-pointer">
-            Drill Down
-          </Label>
-          <Switch
-            id="drill-down-toggle"
-            checked={isDrillDownEnabled}
-            onCheckedChange={(checked) => handleDrillDownToggle(checked)}
-            disabled={disabled || effectiveDimensions.length === 0}
-          />
-        </div>
+        {showDrillDown && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="drill-down-toggle" className="text-sm font-medium cursor-pointer">
+              Drill Down
+            </Label>
+            <Switch
+              id="drill-down-toggle"
+              checked={isDrillDownEnabled}
+              onCheckedChange={(checked) => handleDrillDownToggle(checked)}
+              disabled={disabled || effectiveDimensions.length === 0}
+            />
+          </div>
+        )}
       </div>
 
       {/* Dimensions List with Drag and Drop */}
@@ -303,7 +307,7 @@ export function TableDimensionsSelector({
       </Button>
 
       {/* Drill-down order indicator */}
-      {isDrillDownEnabled && effectiveDimensions.length > 0 && (
+      {showDrillDown && isDrillDownEnabled && effectiveDimensions.length > 0 && (
         <div className="text-xs text-muted-foreground pt-2 border-t">
           Drill-down will follow the order:{' '}
           {effectiveDimensions

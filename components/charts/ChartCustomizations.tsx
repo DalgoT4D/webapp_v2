@@ -11,6 +11,7 @@ import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
 import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
+import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
 
 interface ColumnInfo {
   column_name?: string;
@@ -215,6 +216,23 @@ export function ChartCustomizations({
           onTableColumnsChange={(newOrder: string[]) => {
             updateCustomization('columnOrder', newOrder);
           }}
+        />
+      );
+    }
+
+    case ChartTypes.PIVOT_TABLE: {
+      // Derive metric column names from formData.metrics
+      const pivotMetricColumns =
+        formData.metrics
+          ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+          .filter(Boolean) || [];
+
+      return (
+        <PivotTableCustomizations
+          customizations={customizations}
+          updateCustomization={updateCustomization}
+          disabled={disabled}
+          metricColumns={pivotMetricColumns}
         />
       );
     }
