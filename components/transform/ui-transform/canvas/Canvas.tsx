@@ -141,6 +141,8 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
     lockUpperSection,
     isWorkflowRunning,
     canInteractWithCanvas,
+    fullLayoutRequested,
+    clearFullLayoutRequest,
   } = useTransformStore();
   const finalLockCanvas = tempLockCanvas || lockUpperSection;
 
@@ -162,6 +164,16 @@ export default function Canvas({ isPreviewMode = false, onRefresh }: CanvasProps
   // On incremental updates: run dagre on the full graph to get ideal positions for NEW nodes,
   // but preserve existing node positions so the canvas doesn't jump.
   const isFirstLoadRef = useRef(true);
+
+  useEffect(() => {
+    // When a full layout is requested (e.g. after saving an operation or creating a table),
+    // reset refs so the next data change triggers a full dagre layout instead of incremental.
+    if (fullLayoutRequested) {
+      isFirstLoadRef.current = true;
+      processedDataRef.current = '';
+      clearFullLayoutRequest();
+    }
+  }, [fullLayoutRequested, clearFullLayoutRequest]);
 
   useEffect(() => {
     const dataHash = JSON.stringify({
