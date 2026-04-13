@@ -104,6 +104,7 @@ jobs:
             NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}
             NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}
             NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}
+            NEXT_PUBLIC_TRANSFORM_DOCS_URL=${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}
 
       - name: Deploy to staging
         uses: ./.github/actions/deploy
@@ -209,6 +210,7 @@ jobs:
             NEXT_PUBLIC_WEBAPP_ENVIRONMENT=production
             NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}
             NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}
+            NEXT_PUBLIC_TRANSFORM_DOCS_URL=${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}
 
       - name: Deploy to production
         uses: ./.github/actions/deploy
