@@ -52,7 +52,8 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
   const { mutate } = useSWRConfig();
   const selectedNode = useSelectedNode();
   const canvasAction = useCanvasAction();
-  const { closeOperationPanel, setSelectedNode, clearCanvasAction } = useTransformStore();
+  const { closeOperationPanel, setSelectedNode, clearCanvasAction, requestFullLayout } =
+    useTransformStore();
 
   // Dummy node management (create, cleanup, swap)
   const { dummyNodeIdRef, createDummyNode, cleanupDummyNodes, swapDummyForRealNode } =
@@ -207,10 +208,9 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
         cleanupDummyNodes();
       }
 
-      // Now refresh graph to get full node data from API.
-      // The real operation node is already on the canvas with the correct position,
-      // so Canvas.tsx's incremental update will preserve it via currentPosMap.
-      // Any new nodes (e.g. second table in union) get positioned via shift calculation.
+      // Request full dagre layout so the canvas recalculates all positions
+      // (prevents overlapping nodes that only resolve on browser refresh).
+      requestFullLayout();
       await mutate(CANVAS_GRAPH_KEY);
 
       // Small delay to allow React Flow to process the refreshed nodes

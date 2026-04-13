@@ -43,9 +43,9 @@ export async function updateSchema(schema: string) {
   });
 }
 
-// Connect/update git remote (v1 endpoint used for smart update)
-export async function connectGitRemote(gitrepoUrl: string, gitrepoAccessToken: string) {
-  return apiPut('/api/dbt/connect_git_remote/', {
+// Switch git repository
+export async function switchGitRepo(gitrepoUrl: string, gitrepoAccessToken: string) {
+  return apiPut('/api/dbt/switch_git_repo/', {
     gitrepoUrl,
     gitrepoAccessToken,
   });

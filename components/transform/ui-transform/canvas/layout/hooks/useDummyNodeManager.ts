@@ -25,12 +25,31 @@ export function useDummyNodeManager() {
       const dummyId = `dummy-${Date.now()}`;
       dummyNodeIdRef.current = dummyId;
 
-      // Use position stored on selectedNode (set during click, like v1's xPos/yPos).
-      // Fallback: look up position from React Flow state.
-      let sourcePosition = currentNode.position;
-      if (!sourcePosition) {
-        const flowNode = getNodes().find((n) => n.id === currentNode.id);
-        sourcePosition = flowNode?.position || { x: 0, y: 0 };
+      // Always read position from React Flow's live state to avoid stale values.
+      const allNodes = getNodes();
+      const flowNode = allNodes.find((n) => n.id === currentNode.id);
+      const sourcePosition = flowNode?.position || currentNode.position || { x: 0, y: 0 };
+
+      // Calculate target position to the right of the source node
+      let targetX = sourcePosition.x + CANVAS_CONSTANTS.DAGRE_RANK_SEP;
+      let targetY = sourcePosition.y;
+
+      // Check for collisions with existing nodes at the target position.
+      // When the user creates multiple operations from the same source node,
+      // each new dummy must be offset vertically to avoid overlapping with
+      // previously saved operation nodes.
+      const COLLISION_THRESHOLD_X = 150;
+      const COLLISION_THRESHOLD_Y = 150;
+      const VERTICAL_OFFSET = COLLISION_THRESHOLD_Y + 30;
+
+      for (const existingNode of allNodes) {
+        if (existingNode.id === currentNode.id) continue;
+        const dx = Math.abs(existingNode.position.x - targetX);
+        const dy = Math.abs(existingNode.position.y - targetY);
+        if (dx < COLLISION_THRESHOLD_X && dy < COLLISION_THRESHOLD_Y) {
+          // Collision detected — push dummy below the conflicting node
+          targetY = existingNode.position.y + VERTICAL_OFFSET;
+        }
       }
 
       // Position to the right of the source node, matching the LR dagre layout
@@ -38,8 +57,8 @@ export function useDummyNodeManager() {
         id: dummyId,
         type: CanvasNodeTypeEnum.Operation,
         position: {
-          x: sourcePosition.x + CANVAS_CONSTANTS.DAGRE_RANK_SEP,
-          y: sourcePosition.y,
+          x: targetX,
+          y: targetY,
         },
         data: {
           uuid: dummyId,

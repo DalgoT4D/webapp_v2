@@ -41,7 +41,7 @@ export default function PatRequiredModal({
   const onSubmit = async (data: PatFormData) => {
     setLoading(true);
     try {
-      await apiPut('/api/dbt/connect_git_remote/', {
+      await apiPut('/api/dbt/switch_git_repo/', {
         gitrepoUrl: gitRepoUrl,
         gitrepoAccessToken: data.gitrepoAccessToken,
       });
