@@ -1,13 +1,35 @@
 /** Operators available for conditional formatting rules */
 export type ConditionalOperator = '>' | '<' | '>=' | '<=' | '==' | '!=';
 
-/** A single conditional formatting rule */
-export interface ConditionalFormattingRule {
+/** Operators available for text/dimension column conditional formatting rules */
+export type TextConditionalOperator = '==' | '!=';
+
+interface BaseConditionalFormattingRule {
   column: string;
-  operator: ConditionalOperator;
-  value: number;
   color: string; // hex color e.g. "#C8E6C9"
 }
+
+/** Conditional formatting rule for numeric columns */
+export interface NumericConditionalFormattingRule extends BaseConditionalFormattingRule {
+  type: 'numeric';
+  operator: ConditionalOperator;
+  value: number;
+}
+
+/** Conditional formatting rule for text/dimension columns */
+export interface TextConditionalFormattingRule extends BaseConditionalFormattingRule {
+  type: 'text';
+  operator: TextConditionalOperator;
+  value: string;
+}
+
+/**
+ * A single conditional formatting rule.
+ * Legacy rules (saved without a `type` field) are treated as numeric at runtime.
+ */
+export type ConditionalFormattingRule =
+  | NumericConditionalFormattingRule
+  | TextConditionalFormattingRule;
 
 /** Column alignment options */
 export type ColumnAlignment = 'left' | 'center' | 'right';

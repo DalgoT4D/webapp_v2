@@ -23,6 +23,8 @@ interface TableChartCustomizationsProps {
   availableColumns?: string[];
   /** All displayed columns — for column order, alignment, conditional formatting */
   allColumns?: string[];
+  /** Maps each displayed column to its type — used by conditional formatting */
+  columnTypeMap?: Record<string, 'numeric' | 'text'>;
   /** Callback to update table_columns order in formData */
   onTableColumnsChange?: (columns: string[]) => void;
 }
@@ -33,6 +35,7 @@ export function TableChartCustomizations({
   disabled,
   availableColumns = [],
   allColumns = [],
+  columnTypeMap,
   onTableColumnsChange,
 }: TableChartCustomizationsProps) {
   // Currently expanded column for number formatting configuration
@@ -198,6 +201,7 @@ export function TableChartCustomizations({
         rules={conditionalFormatting}
         onChange={(rules) => updateCustomization('conditionalFormatting', rules)}
         availableColumns={allColumns.length > 0 ? allColumns : availableColumns}
+        columnTypeMap={columnTypeMap}
         disabled={disabled}
       />
 

@@ -49,21 +49,24 @@ export function ChartCustomizations({
     [onChange, customizations]
   );
 
+  // Build a map of raw column names to their data types (used by both memos below)
+  const rawColumnTypeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    columns.forEach((col) => {
+      const colName = col.column_name || col.name || '';
+      if (colName) {
+        map[colName] = col.data_type?.toLowerCase() || '';
+      }
+    });
+    return map;
+  }, [columns]);
+
   // Compute numericColumns for table charts (needed for useEffect cleanup)
   const numericColumns = useMemo(() => {
     if (chartType !== ChartTypes.TABLE || !formData) return [];
 
     const hasAggregation =
       (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
-
-    // Build a map of column names to their data types
-    const columnTypeMap: Record<string, string> = {};
-    columns.forEach((col) => {
-      const colName = col.column_name || col.name || '';
-      if (colName) {
-        columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
-      }
-    });
 
     if (hasAggregation) {
       const metricCols =
@@ -73,7 +76,7 @@ export function ChartCustomizations({
 
       const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
       const numericDimensionCols = dimensionCols.filter((colName) => {
-        const dataType = columnTypeMap[colName];
+        const dataType = rawColumnTypeMap[colName];
         return (
           dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
         );
@@ -83,13 +86,51 @@ export function ChartCustomizations({
     } else {
       const displayedCols = formData.table_columns || [];
       return displayedCols.filter((colName) => {
-        const dataType = columnTypeMap[colName];
+        const dataType = rawColumnTypeMap[colName];
         return (
           dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
         );
       });
     }
-  }, [chartType, formData, columns]);
+  }, [chartType, formData, rawColumnTypeMap]);
+
+  // Compute columnTypeMap for conditional formatting — maps each displayed column to 'numeric' | 'text'
+  const columnTypeMap = useMemo((): Record<string, 'numeric' | 'text'> => {
+    if (chartType !== ChartTypes.TABLE || !formData) return {};
+
+    const hasAggregation =
+      (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+    const result: Record<string, 'numeric' | 'text'> = {};
+
+    if (hasAggregation) {
+      // Dimension columns: check raw data type
+      (formData.dimensions || []).forEach((d) => {
+        const colName = d.column;
+        if (!colName) return;
+        const dataType = rawColumnTypeMap[colName];
+        result[colName] =
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+            ? 'numeric'
+            : 'text';
+      });
+      // Metric alias columns: always numeric (they are aggregations)
+      (formData.metrics || []).forEach((m) => {
+        const alias = m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation);
+        if (alias) result[alias] = 'numeric';
+      });
+    } else {
+      (formData.table_columns || []).forEach((colName) => {
+        const dataType = rawColumnTypeMap[colName];
+        result[colName] =
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+            ? 'numeric'
+            : 'text';
+      });
+    }
+
+    return result;
+  }, [chartType, formData, rawColumnTypeMap]);
 
   // Clean up stale column formatting using useEffect (side effect, not during render)
   useEffect(() => {
@@ -212,6 +253,7 @@ export function ChartCustomizations({
           disabled={disabled}
           availableColumns={numericColumns}
           allColumns={allDisplayedColumns}
+          columnTypeMap={columnTypeMap}
           onTableColumnsChange={(newOrder: string[]) => {
             updateCustomization('columnOrder', newOrder);
           }}

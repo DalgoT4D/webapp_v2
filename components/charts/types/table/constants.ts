@@ -1,4 +1,4 @@
-import type { ConditionalOperator } from './types';
+import type { ConditionalOperator, TextConditionalOperator } from './types';
 
 /** Light pastel preset colors for conditional formatting */
 export const PRESET_COLORS = [
@@ -21,6 +21,15 @@ export const CONDITIONAL_OPERATORS: Array<{
   { value: '<', label: 'Less than (<)' },
   { value: '>=', label: 'Greater than or equal (>=)' },
   { value: '<=', label: 'Less than or equal (<=)' },
+  { value: '==', label: 'Equal to (==)' },
+  { value: '!=', label: 'Not equal to (!=)' },
+] as const;
+
+/** Operators for text/dimension column conditional formatting */
+export const TEXT_CONDITIONAL_OPERATORS: Array<{
+  value: TextConditionalOperator;
+  label: string;
+}> = [
   { value: '==', label: 'Equal to (==)' },
   { value: '!=', label: 'Not equal to (!=)' },
 ] as const;

@@ -226,35 +226,48 @@ export function TableChart({
     const rules = config.conditionalFormatting;
     if (!rules || rules.length === 0) return undefined;
 
-    const numValue = Number(value);
-    if (isNaN(numValue)) return undefined;
-
     // Last matching rule wins
     let matchedColor: string | undefined;
     for (const rule of rules) {
       if (rule.column !== column) continue;
 
+      // Treat legacy rules saved without a `type` field as numeric
+      const ruleType = (rule as any).type ?? 'numeric';
       let matches = false;
-      switch (rule.operator) {
-        case '>':
-          matches = numValue > rule.value;
-          break;
-        case '<':
-          matches = numValue < rule.value;
-          break;
-        case '>=':
-          matches = numValue >= rule.value;
-          break;
-        case '<=':
-          matches = numValue <= rule.value;
-          break;
-        case '==':
-          matches = numValue === rule.value;
-          break;
-        case '!=':
-          matches = numValue !== rule.value;
-          break;
+
+      if (ruleType === 'text') {
+        // String comparison (case-sensitive exact match)
+        const cellStr = String(value ?? '');
+        const ruleStr = String(rule.value);
+        matches = rule.operator === '==' ? cellStr === ruleStr : cellStr !== ruleStr;
+      } else {
+        // Numeric comparison — skip this rule if cell value is not numeric
+        const numValue = Number(value);
+        if (isNaN(numValue)) continue;
+
+        switch (rule.operator) {
+          case '>':
+            matches = numValue > (rule.value as number);
+            break;
+          case '<':
+            matches = numValue < (rule.value as number);
+            break;
+          case '>=':
+            matches = numValue >= (rule.value as number);
+            break;
+          case '<=':
+            matches = numValue <= (rule.value as number);
+            break;
+          case '==':
+            // rule.value is a number — use numeric comparison to preserve float equality
+            matches = numValue === (rule.value as number);
+            break;
+          case '!=':
+            matches = numValue !== (rule.value as number);
+            break;
+        }
       }
+
       if (matches) {
         matchedColor = rule.color;
       }
