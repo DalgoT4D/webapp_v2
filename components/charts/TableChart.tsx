@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
   ChevronUp,
   ChevronDown,
@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { useTableSearch } from './hooks/useTableSearch';
+import { TableSearchBar } from './TableSearchBar';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
 const URL_PATTERN = /^(https?:\/\/|www\.)/i;
@@ -296,6 +298,31 @@ export function TableChart({
     return 'text-left';
   };
 
+  // --- Search integration ---
+
+  // Build flat cell list from visible (paginated) data for search
+  const searchCells = useMemo(() => {
+    const cells: { rowIndex: number; colIndex: number; displayValue: string }[] = [];
+    paginatedData.forEach((row, rowIdx) => {
+      columns.forEach((column, colIdx) => {
+        const rawValue = row[column];
+        const displayValue = formatCellValue(rawValue, column);
+        cells.push({ rowIndex: rowIdx, colIndex: colIdx, displayValue: String(displayValue) });
+      });
+    });
+    return cells;
+  }, [paginatedData, columns, column_formatting]);
+
+  const search = useTableSearch(searchCells);
+
+  // Helper: is this cell a search match?
+  const isSearchMatch = useCallback(
+    (rowIdx: number, colIdx: number): boolean => {
+      return search.matches.some((m) => m.rowIndex === rowIdx && m.colIndex === colIdx);
+    },
+    [search.matches]
+  );
+
   // Get sort direction for a column
   const getSortDirection = (column: string) => {
     const sortConfig = sort.find((s) => s.column === column);
@@ -366,6 +393,16 @@ export function TableChart({
 
   return (
     <div className="w-full h-full flex flex-col">
+      {/* Search bar */}
+      <div className="flex justify-end flex-shrink-0 px-2 py-1">
+        <TableSearchBar
+          query={search.query}
+          onQueryChange={search.setQuery}
+          totalMatches={search.totalMatches}
+          onClear={search.clear}
+        />
+      </div>
+
       <div className="flex-1 overflow-auto">
         <Table className="h-auto">
           <TableHeader className="bg-muted">
@@ -428,10 +465,12 @@ export function TableChart({
                     const href = normalizeUrl(rawValue);
                     const linkAlignClass = getAlignmentClass(column, rawValue);
                     const isLinkFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
+                    const linkColIdx = columns.indexOf(column);
 
                     return (
                       <TableCell
                         key={column}
+                        data-search-cell={`${index}-${linkColIdx}`}
                         className={`py-1.5 px-2 ${linkAlignClass} ${
                           isLinkFrozen
                             ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
@@ -456,10 +495,20 @@ export function TableChart({
                   const conditionalColor = getConditionalColor(rawValue, column);
                   const alignClass = getAlignmentClass(column, rawValue);
                   const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
+                  const colIdx = columns.indexOf(column);
+                  const matchHighlight = isSearchMatch(index, colIdx);
+
+                  const cellStyle: React.CSSProperties = {};
+                  if (matchHighlight) {
+                    cellStyle.backgroundColor = '#fde68a'; // amber-200 for search matches
+                  } else if (conditionalColor) {
+                    cellStyle.backgroundColor = conditionalColor;
+                  }
 
                   return (
                     <TableCell
                       key={column}
+                      data-search-cell={`${index}-${colIdx}`}
                       className={`py-1.5 px-2 ${alignClass} ${
                         isDrillDownClickable
                           ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
@@ -469,7 +518,7 @@ export function TableChart({
                           ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                           : ''
                       }`}
-                      style={conditionalColor ? { backgroundColor: conditionalColor } : undefined}
+                      style={cellStyle}
                       onClick={
                         isDrillDownClickable
                           ? () => {

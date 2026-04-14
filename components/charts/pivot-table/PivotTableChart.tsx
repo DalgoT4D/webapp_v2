@@ -7,6 +7,8 @@ import { PivotTableResponse, PivotSort } from '@/types/pivot-table';
 import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '../types/table/types';
 import { calculateRowSpans, exportPivotAsCsv } from './utils';
+import { useTableSearch } from '../hooks/useTableSearch';
+import { TableSearchBar } from '../TableSearchBar';
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
@@ -167,6 +169,89 @@ export default function PivotTableChart({
     [conditionalFormatting]
   );
 
+  // --- Search integration ---
+
+  // Build flat cell list for search: row dimension labels + value cells + row totals
+  const searchCells = useMemo(() => {
+    const cells: { rowIndex: number; colIndex: number; displayValue: string }[] = [];
+    const rows = data.rows ?? [];
+
+    rows.forEach((row, rowIdx) => {
+      let colCounter = 0;
+
+      // Row dimension labels
+      for (let d = 0; d < dimCount; d++) {
+        if (row.is_subtotal && d === 0) {
+          const groupLabel = row.row_labels.join(' > ');
+          const suffix = subtotalLabel || 'Subtotal';
+          cells.push({
+            rowIndex: rowIdx,
+            colIndex: colCounter,
+            displayValue: `${groupLabel} ${suffix}`,
+          });
+        } else if (!row.is_subtotal) {
+          cells.push({
+            rowIndex: rowIdx,
+            colIndex: colCounter,
+            displayValue: String(row.row_labels[d] || ''),
+          });
+        }
+        colCounter++;
+      }
+
+      // Value cells per column key
+      if (hasColumnKeys) {
+        row.values.forEach((colValues) => {
+          colValues.forEach((val, mIdx) => {
+            const metricName = metricHeaders[mIdx] || '';
+            cells.push({
+              rowIndex: rowIdx,
+              colIndex: colCounter,
+              displayValue: formatCell(val, metricName),
+            });
+            colCounter++;
+          });
+        });
+      }
+
+      // Row total cells
+      row.row_total.forEach((val, mIdx) => {
+        const metricName = metricHeaders[mIdx] || '';
+        cells.push({
+          rowIndex: rowIdx,
+          colIndex: colCounter,
+          displayValue: formatCell(val, metricName),
+        });
+        colCounter++;
+      });
+    });
+
+    return cells;
+  }, [data.rows, dimCount, hasColumnKeys, metricHeaders, formatCell, subtotalLabel]);
+
+  const search = useTableSearch(searchCells);
+
+  const isSearchMatch = useCallback(
+    (rowIdx: number, colIdx: number): boolean => {
+      return search.matches.some((m) => m.rowIndex === rowIdx && m.colIndex === colIdx);
+    },
+    [search.matches]
+  );
+
+  /** Get inline style for a cell, layering search highlight on top of conditional formatting */
+  const getSearchStyle = useCallback(
+    (rowIdx: number, colIdx: number, baseBgColor?: string): React.CSSProperties => {
+      const style: React.CSSProperties = {};
+      if (isSearchMatch(rowIdx, colIdx)) {
+        style.backgroundColor = '#fde68a'; // amber-200 for search matches
+      } else if (baseBgColor) {
+        style.backgroundColor = baseBgColor;
+      }
+      return style;
+    },
+    [isSearchMatch]
+  );
+
   // Pre-compute header spans for each column dimension level
   const headerLevels = useMemo(() => {
     if (!hasColumnKeys || numColDims === 0) return [];
@@ -179,10 +264,10 @@ export default function PivotTableChart({
 
   // Frozen column styles
   const frozenCellClass = freezeFirstColumn
-    ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+    ? 'sticky left-0 z-10 bg-background border-r border-r-gray-300 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
     : '';
   const frozenHeaderClass = freezeFirstColumn
-    ? 'sticky left-0 z-20 bg-muted/50 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+    ? 'sticky left-0 z-30 bg-gray-100 border-r border-r-gray-300 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
     : '';
 
   if (!data.rows || data.rows.length === 0) {
@@ -198,8 +283,14 @@ export default function PivotTableChart({
 
   return (
     <div className="flex flex-col h-full" data-testid="pivot-table-chart">
-      {/* Export button */}
-      <div className="flex justify-end mb-2 flex-shrink-0">
+      {/* Toolbar: search + export */}
+      <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
+        <TableSearchBar
+          query={search.query}
+          onQueryChange={search.setQuery}
+          totalMatches={search.totalMatches}
+          onClear={search.clear}
+        />
         <Button variant="ghost" size="sm" onClick={handleExport} data-testid="pivot-export-csv-btn">
           <Download className="h-4 w-4 mr-1" />
           CSV
@@ -208,24 +299,27 @@ export default function PivotTableChart({
 
       {/* Scrollable table */}
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="w-full border-collapse text-sm" data-testid="pivot-table">
-          <thead className="sticky top-0 bg-background z-10">
+        <table
+          className="w-full border-separate border-spacing-0 text-sm"
+          data-testid="pivot-table"
+        >
+          <thead className="sticky top-0 bg-gray-100 z-20">
             {/* Nested column dimension header rows */}
             {headerLevels.map((spans, level) => (
-              <tr key={`col-header-${level}`} className="border-b">
+              <tr key={`col-header-${level}`}>
                 {/* Empty corner cell — only on the first header row */}
                 {level === 0 && (
                   <th
                     colSpan={dimCount}
                     rowSpan={numColDims}
-                    className={`border-r bg-muted/50 ${frozenHeaderClass}`}
+                    className={`border-b border-b-gray-300 border-r border-r-gray-300 bg-gray-100 ${frozenHeaderClass}`}
                   />
                 )}
                 {spans.map((span, spanIdx) => (
                   <th
                     key={`ch-${level}-${spanIdx}`}
                     colSpan={span.span * metricCount}
-                    className="px-3 py-2 text-center font-semibold border-r bg-muted/50"
+                    className="px-3 py-2 text-center font-semibold border-b border-b-gray-300 border-r border-r-gray-300 bg-gray-100"
                   >
                     {span.value}
                   </th>
@@ -235,7 +329,7 @@ export default function PivotTableChart({
                   <th
                     colSpan={metricCount}
                     rowSpan={numColDims}
-                    className="px-3 py-2 text-center font-semibold bg-muted/50"
+                    className="px-3 py-2 text-center font-semibold border-b border-b-gray-300 bg-gray-100"
                   >
                     Total
                   </th>
@@ -244,11 +338,11 @@ export default function PivotTableChart({
             ))}
 
             {/* Metric names row */}
-            <tr className="border-b">
+            <tr>
               {rowDimLabels.map((label, idx) => (
                 <th
                   key={`dim-header-${idx}`}
-                  className={`px-3 py-2 text-left font-semibold border-r bg-muted/50 ${
+                  className={`px-3 py-2 text-left font-semibold border-b border-b-gray-300 border-r border-r-gray-300 bg-gray-100 ${
                     idx === 0 ? frozenHeaderClass : ''
                   }`}
                 >
@@ -261,7 +355,7 @@ export default function PivotTableChart({
                     return metricHeaders.map((metric, mIdx) => (
                       <th
                         key={`metric-${colIdx}-${mIdx}`}
-                        className="px-3 py-2 text-right font-medium border-r last:border-r-0 bg-muted/50 cursor-pointer hover:bg-muted"
+                        className="px-3 py-2 text-right font-medium border-b border-b-gray-300 border-r border-r-gray-300 last:border-r-0 bg-gray-100 cursor-pointer hover:bg-muted"
                         onClick={() =>
                           onSort?.({
                             column: metric,
@@ -277,7 +371,7 @@ export default function PivotTableChart({
                 : metricHeaders.map((metric, mIdx) => (
                     <th
                       key={`metric-${mIdx}`}
-                      className="px-3 py-2 text-right font-medium bg-muted/50 cursor-pointer hover:bg-muted"
+                      className="px-3 py-2 text-right font-medium border-b border-b-gray-300 bg-gray-100 cursor-pointer hover:bg-muted"
                       onClick={() => onSort?.({ column: metric, direction: 'desc' })}
                     >
                       {metric}
@@ -288,6 +382,8 @@ export default function PivotTableChart({
           <tbody>
             {data.rows.map((row, rowIdx) => {
               const isZebraRow = zebraRows && !row.is_subtotal && rowIdx % 2 === 1;
+              // Track column index to stay in sync with searchCells
+              let colCounter = 0;
 
               return (
                 <tr
@@ -295,12 +391,15 @@ export default function PivotTableChart({
                   data-testid={`pivot-row-${rowIdx}`}
                   className={
                     row.is_subtotal
-                      ? 'font-semibold bg-gray-200 border-t border-b border-gray-300'
-                      : `border-b hover:bg-muted/10 ${isZebraRow ? 'bg-muted' : ''}`
+                      ? 'font-semibold bg-gray-200'
+                      : `${isZebraRow ? 'bg-muted' : ''}`
                   }
                 >
                   {/* Row dimension cells */}
                   {Array.from({ length: dimCount }).map((_, dimIdx) => {
+                    const cellCol = colCounter;
+                    colCounter++;
+
                     if (row.is_subtotal) {
                       if (dimIdx === 0) {
                         const groupLabel = row.row_labels.join(' > ');
@@ -309,7 +408,9 @@ export default function PivotTableChart({
                           <td
                             key={`dim-${dimIdx}`}
                             colSpan={dimCount}
-                            className={`px-3 py-2 border-r italic ${dimIdx === 0 ? frozenCellClass : ''}`}
+                            data-search-cell={`${rowIdx}-${cellCol}`}
+                            className={`px-3 py-2 border-b border-b-gray-300 border-r border-r-gray-300 italic ${dimIdx === 0 ? frozenCellClass : ''}`}
+                            style={getSearchStyle(rowIdx, cellCol)}
                           >
                             {groupLabel} {suffix}
                           </td>
@@ -325,7 +426,9 @@ export default function PivotTableChart({
                       <td
                         key={`dim-${dimIdx}`}
                         rowSpan={span > 1 ? span : undefined}
-                        className={`px-3 py-2 border-r align-top ${dimIdx === 0 ? frozenCellClass : ''}`}
+                        data-search-cell={`${rowIdx}-${cellCol}`}
+                        className={`px-3 py-2 border-b border-b-gray-300 border-r border-r-gray-300 align-top ${dimIdx === 0 ? frozenCellClass : ''}`}
+                        style={getSearchStyle(rowIdx, cellCol)}
                       >
                         {row.row_labels[dimIdx] || ''}
                       </td>
@@ -336,13 +439,16 @@ export default function PivotTableChart({
                   {hasColumnKeys
                     ? row.values.map((colValues, colIdx) =>
                         colValues.map((val, mIdx) => {
+                          const cellCol = colCounter;
+                          colCounter++;
                           const metricName = metricHeaders[mIdx] || '';
                           const bgColor = getConditionalColor(val, metricName);
                           return (
                             <td
                               key={`val-${colIdx}-${mIdx}`}
-                              className="px-3 py-2 text-right border-r tabular-nums"
-                              style={bgColor ? { backgroundColor: bgColor } : undefined}
+                              data-search-cell={`${rowIdx}-${cellCol}`}
+                              className="px-3 py-2 text-right border-b border-b-gray-300 border-r border-r-gray-300 tabular-nums"
+                              style={getSearchStyle(rowIdx, cellCol, bgColor)}
                             >
                               {formatCell(val, metricName)}
                             </td>
@@ -353,13 +459,16 @@ export default function PivotTableChart({
 
                   {/* Row total cells */}
                   {row.row_total.map((val, mIdx) => {
+                    const cellCol = colCounter;
+                    colCounter++;
                     const metricName = metricHeaders[mIdx] || '';
                     const bgColor = getConditionalColor(val, metricName);
                     return (
                       <td
                         key={`total-${mIdx}`}
-                        className="px-3 py-2 text-right font-medium tabular-nums"
-                        style={bgColor ? { backgroundColor: bgColor } : undefined}
+                        data-search-cell={`${rowIdx}-${cellCol}`}
+                        className="px-3 py-2 text-right font-medium border-b border-b-gray-300 tabular-nums"
+                        style={getSearchStyle(rowIdx, cellCol, bgColor)}
                       >
                         {formatCell(val, metricName)}
                       </td>
@@ -373,13 +482,10 @@ export default function PivotTableChart({
           {/* Grand total row — sticky at bottom like header is sticky at top */}
           {data.grand_total && (
             <tfoot className="sticky bottom-0 z-10">
-              <tr
-                className="font-bold border-t-2 border-b border-gray-400 bg-gray-300"
-                data-testid="pivot-grand-total-row"
-              >
+              <tr className="font-bold bg-gray-300" data-testid="pivot-grand-total-row">
                 <td
                   colSpan={dimCount}
-                  className={`px-3 py-2 border-r ${frozenCellClass ? frozenCellClass + ' !bg-gray-300' : ''}`}
+                  className={`px-3 py-2 border-t-2 border-t-gray-400 border-b border-b-gray-300 border-r border-r-gray-300 ${frozenCellClass ? frozenCellClass + ' !bg-gray-300' : ''}`}
                 >
                   {grandTotalLabel || 'Grand Total'}
                 </td>
@@ -390,7 +496,7 @@ export default function PivotTableChart({
                         return (
                           <td
                             key={`gt-val-${colIdx}-${mIdx}`}
-                            className="px-3 py-2 text-right border-r tabular-nums"
+                            className="px-3 py-2 text-right border-t-2 border-t-gray-400 border-b border-b-gray-300 border-r border-r-gray-300 tabular-nums"
                           >
                             {formatCell(val, metricName)}
                           </td>
@@ -401,7 +507,10 @@ export default function PivotTableChart({
                 {data.grand_total.row_total.map((val, mIdx) => {
                   const metricName = metricHeaders[mIdx] || '';
                   return (
-                    <td key={`gt-total-${mIdx}`} className="px-3 py-2 text-right tabular-nums">
+                    <td
+                      key={`gt-total-${mIdx}`}
+                      className="px-3 py-2 text-right border-t-2 border-t-gray-400 border-b border-b-gray-300 tabular-nums"
+                    >
                       {formatCell(val, metricName)}
                     </td>
                   );
@@ -415,7 +524,7 @@ export default function PivotTableChart({
       {/* Pagination */}
       {pagination && totalPages > 1 && (
         <div
-          className="flex items-center justify-between pt-3 border-t flex-shrink-0"
+          className="flex items-center justify-between pt-3 border-t border-t-gray-300 flex-shrink-0"
           data-testid="pivot-pagination"
         >
           <span className="text-sm text-muted-foreground">
