@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useCallback } from 'react';
 import { ChartTypes, type ChartBuilderFormData } from '@/types/charts';
-import { NumericDataType, type NumericDataTypeValue } from '@/constants/data-types';
+import {
+  NumericDataType,
+  type NumericDataTypeValue,
+  DateDataType,
+  type DateDataTypeValue,
+} from '@/constants/data-types';
 
 // Import chart type-specific customization components from modules
 import { BarChartCustomizations } from './types/bar/BarChartCustomizations';
@@ -91,6 +96,38 @@ export function ChartCustomizations({
     }
   }, [chartType, formData, columns]);
 
+  // Compute dateColumns for table charts (needed for useEffect cleanup)
+  const dateColumns = useMemo(() => {
+    if (chartType !== ChartTypes.TABLE || !formData) return [];
+
+    const hasAggregation =
+      (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+    // Build a map of column names to their data types
+    const columnTypeMap: Record<string, string> = {};
+    columns.forEach((col) => {
+      const colName = col.column_name || col.name || '';
+      if (colName) {
+        columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
+      }
+    });
+
+    if (hasAggregation) {
+      // Only dimension columns can be date types (metrics are always numeric)
+      const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
+      return dimensionCols.filter((colName) => {
+        const dataType = columnTypeMap[colName];
+        return dataType && Object.values(DateDataType).includes(dataType as DateDataTypeValue);
+      });
+    } else {
+      const displayedCols = formData.table_columns || [];
+      return displayedCols.filter((colName) => {
+        const dataType = columnTypeMap[colName];
+        return dataType && Object.values(DateDataType).includes(dataType as DateDataTypeValue);
+      });
+    }
+  }, [chartType, formData, columns]);
+
   // Clean up stale column formatting using useEffect (side effect, not during render)
   useEffect(() => {
     if (chartType !== ChartTypes.TABLE) return;
@@ -108,6 +145,24 @@ export function ChartCustomizations({
       updateCustomization('columnFormatting', cleanedFormatting);
     }
   }, [chartType, customizations.columnFormatting, numericColumns, updateCustomization]);
+
+  // Clean up stale date column formatting using useEffect
+  useEffect(() => {
+    if (chartType !== ChartTypes.TABLE) return;
+
+    const existingDateFormatting = customizations.dateColumnFormatting || {};
+    const dateColumnsSet = new Set(dateColumns);
+    const hasStaleDateFormatting = Object.keys(existingDateFormatting).some(
+      (col) => !dateColumnsSet.has(col)
+    );
+
+    if (hasStaleDateFormatting) {
+      const cleanedDateFormatting = Object.fromEntries(
+        Object.entries(existingDateFormatting).filter(([col]) => dateColumnsSet.has(col))
+      );
+      updateCustomization('dateColumnFormatting', cleanedDateFormatting);
+    }
+  }, [chartType, customizations.dateColumnFormatting, dateColumns, updateCustomization]);
 
   // Safety check for undefined formData (after hooks)
   if (!formData) {
@@ -129,6 +184,9 @@ export function ChartCustomizations({
       const hasNumericXAxis = xAxisDataType
         ? Object.values(NumericDataType).includes(xAxisDataType as NumericDataTypeValue)
         : false;
+      const hasDateXAxis = xAxisDataType
+        ? Object.values(DateDataType).includes(xAxisDataType as DateDataTypeValue)
+        : false;
 
       if (chartType === ChartTypes.BAR) {
         return (
@@ -138,6 +196,7 @@ export function ChartCustomizations({
             disabled={disabled}
             hasExtraDimension={!!formData.extra_dimension_column}
             hasNumericXAxis={hasNumericXAxis}
+            hasDateXAxis={hasDateXAxis}
           />
         );
       }
@@ -147,18 +206,47 @@ export function ChartCustomizations({
           updateCustomization={updateCustomization}
           disabled={disabled}
           hasNumericXAxis={hasNumericXAxis}
+          hasDateXAxis={hasDateXAxis}
         />
       );
     }
 
-    case ChartTypes.PIE:
+    case ChartTypes.PIE: {
+      const dimensionColumn = formData.dimension_column || '';
+      const extraDimensionColumn = formData.extra_dimension_column || '';
+
+      const isDateColumn = (colName: string) => {
+        if (!colName) return false;
+        const dataType = columns
+          .find((col) => (col.column_name || col.name) === colName)
+          ?.data_type?.toLowerCase();
+        return dataType
+          ? Object.values(DateDataType).includes(dataType as DateDataTypeValue)
+          : false;
+      };
+
+      const dimensionIsDate = isDateColumn(dimensionColumn);
+      const extraDimensionIsDate = isDateColumn(extraDimensionColumn);
+      const hasDimensionDate = dimensionIsDate || extraDimensionIsDate;
+
+      // Show both column names if both are dates, otherwise show whichever one is a date
+      const dateColumnLabel =
+        dimensionIsDate && extraDimensionIsDate
+          ? `${dimensionColumn}, ${extraDimensionColumn}`
+          : dimensionIsDate
+            ? dimensionColumn
+            : extraDimensionColumn;
+
       return (
         <PieChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          hasDimensionDate={hasDimensionDate}
+          dimensionColumn={dateColumnLabel}
         />
       );
+    }
 
     case ChartTypes.NUMBER:
       return (
@@ -187,6 +275,7 @@ export function ChartCustomizations({
           updateCustomization={updateCustomization}
           disabled={disabled}
           availableColumns={numericColumns}
+          availableDateColumns={dateColumns}
         />
       );
     }

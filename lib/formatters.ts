@@ -4,6 +4,7 @@
  */
 
 // UI allows 0-10 decimal places; toFixed() accepts 0-100 but we cap at 10 for UX
+import { format as dateFnsFormat, isValid, parseISO } from 'date-fns';
 export const MAX_DECIMAL_PLACES = 10;
 
 export const NumberFormats = {
@@ -36,6 +37,74 @@ export interface FormatOptions {
  * formatNumber(1000000, { format: 'indian' })                          // "10,00,000"
  * formatNumber(85.5, { format: 'percentage' })                         // "85.5%"
  */
+/**
+ * Date format types supported by the application
+ * Based on common strftime-like patterns
+ */
+export type DateFormat =
+  | 'default'
+  | 'iso_datetime' // %Y-%m-%d %H:%M:%S | 2019-01-14 01:32:10
+  | 'dd_mm_yyyy' // %d/%m/%Y | 14/01/2019
+  | 'mm_dd_yyyy' // %m/%d/%Y | 01/14/2019
+  | 'yyyy_mm_dd' // %Y-%m-%d | 2019-01-14
+  | 'dd_mm_yyyy_time' // %d-%m-%Y %H:%M:%S | 14-01-2019 01:32:10
+  | 'time_only'; // %H:%M:%S | 01:32:10
+
+export interface DateFormatOptions {
+  format: DateFormat;
+}
+
+/**
+ * Format a date based on the selected format type
+ *
+ * @param value - Raw ISO date string from the warehouse (e.g. "2019-01-14T01:32:10" or "2019-01-14T01:32:10Z")
+ * @param options - Format options object with a format type
+ * @returns Formatted string
+ *
+ * @example
+ * formatDate('2019-01-14T01:32:10', { format: 'iso_datetime' }) // "2019-01-14 01:32:10"
+ * formatDate('2019-01-14', { format: 'dd_mm_yyyy' })            // "14/01/2019"
+ * formatDate('2025-06-13T00:00:00Z', { format: 'dd_mm_yyyy' }) // "13/06/2025" (formatted in UTC, not local TZ)
+ */
+export function formatDate(value: string, option: DateFormatOptions): string {
+  if (!value) {
+    return '';
+  }
+
+  const date = parseISO(value);
+
+  // If parseISO fails (e.g. non-standard string), return raw value
+  if (!isValid(date)) {
+    return value;
+  }
+
+  const formatType = option.format;
+
+  // Map our format types to date-fns format patterns
+  // 'default' is intentionally excluded — all callers guard against 'default' before calling formatDate
+  const formatPatterns: Partial<Record<DateFormat, string>> = {
+    iso_datetime: 'yyyy-MM-dd HH:mm:ss', // 2019-01-14 01:32:10
+    dd_mm_yyyy: 'dd/MM/yyyy', // 14/01/2019
+    mm_dd_yyyy: 'MM/dd/yyyy', // 01/14/2019
+    yyyy_mm_dd: 'yyyy-MM-dd', // 2019-01-14
+    dd_mm_yyyy_time: 'dd-MM-yyyy HH:mm:ss', // 14-01-2019 01:32:10
+    time_only: 'HH:mm:ss', // 01:32:10
+  };
+
+  const pattern = formatPatterns[formatType];
+  if (!pattern) return value;
+
+  // If the string carries timezone info (Z = UTC, or ±HH:MM offset),
+  // strip the suffix and parse as naive — the time components in the string
+  // are already in the warehouse timezone, so no conversion is needed.
+  if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) {
+    const naive = value.replace(/Z$|[+-]\d{2}:\d{2}$/, '');
+    return dateFnsFormat(parseISO(naive), pattern);
+  }
+
+  return dateFnsFormat(date, pattern);
+}
+
 export function formatNumber(value: number, options: FormatOptions | NumberFormat): string {
   if (value === null || value === undefined || isNaN(value)) {
     return '';
