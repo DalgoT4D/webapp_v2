@@ -80,18 +80,17 @@ export function WarehouseDisplay() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <p className="text-muted-foreground">No warehouse configured yet.</p>
-        {canCreate && (
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs uppercase"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={handleCreate}
-            data-testid="create-warehouse-btn"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Set Up Warehouse
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          className="text-white hover:opacity-90 shadow-xs uppercase"
+          style={{ backgroundColor: 'var(--primary)' }}
+          onClick={handleCreate}
+          disabled={!canCreate}
+          data-testid="create-warehouse-btn"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Set Up Warehouse
+        </Button>
 
         {formOpen && (
           <WarehouseForm open={formOpen} onOpenChange={setFormOpen} onSuccess={handleFormSuccess} />
@@ -141,31 +140,27 @@ export function WarehouseDisplay() {
       </div>
 
       {/* Action buttons at bottom */}
-      {(canEdit || canDelete) && (
-        <div className="flex gap-3 mt-6">
-          {canEdit && (
-            <Button
-              variant="outline"
-              onClick={handleEdit}
-              className="border-primary text-primary hover:bg-primary/5"
-              data-testid="edit-warehouse-btn"
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              EDIT
-            </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteDialogOpen(true)}
-              data-testid="delete-warehouse-btn"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              DELETE WAREHOUSE
-            </Button>
-          )}
-        </div>
-      )}
+      <div className="flex gap-3 mt-6">
+        <Button
+          variant="outline"
+          onClick={handleEdit}
+          disabled={!canEdit}
+          className="border-primary text-primary hover:bg-primary/5"
+          data-testid="edit-warehouse-btn"
+        >
+          <Pencil className="h-4 w-4 mr-2" />
+          EDIT
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={() => setDeleteDialogOpen(true)}
+          disabled={!canDelete}
+          data-testid="delete-warehouse-btn"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          DELETE WAREHOUSE
+        </Button>
+      </div>
 
       {/* Edit form dialog */}
       {formOpen && (
