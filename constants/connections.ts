@@ -85,6 +85,19 @@ export const LOG_SUMMARY_POLL_INTERVAL_MS = 3000;
 export const ICON_COLOR_DEFAULT = '#369B44'; // matches source list connection icon
 export const ICON_COLOR_FAILED = '#b91c1c'; // Tailwind red-700
 
+// Centralized status → display config for sync jobs and lock states
+export const SYNC_STATUS_CONFIG: Record<string, { label: string; colorClass: string }> = {
+  [SyncStatus.SUCCESS]: { label: 'Success', colorClass: 'text-green-700' },
+  [SyncStatus.FAILED]: { label: 'Failed', colorClass: 'text-red-700' },
+  [SyncStatus.CANCELLED]: { label: 'Cancelled', colorClass: 'text-amber-600' },
+  [SyncStatus.RUNNING]: { label: 'Running', colorClass: 'text-green-600' },
+  [SyncStatus.QUEUED]: { label: 'Queued', colorClass: 'text-gray-600' },
+  [SyncStatus.LOCKED]: { label: 'Locked', colorClass: 'text-gray-600' },
+};
+
+// Fallback for unrecognized statuses
+export const SYNC_STATUS_DEFAULT = { label: 'Unknown', colorClass: 'text-gray-500' };
+
 export const CONNECTION_API = {
   CONNECTIONS: '/api/airbyte/v1/connections',
   SCHEMA_CHANGES: '/api/airbyte/v1/connection/schema_change',

@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import useWebSocket from 'react-use-websocket';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -26,7 +25,7 @@ import {
   createWarehouse,
   updateWarehouse,
 } from '@/hooks/api/useWarehouse';
-import { generateWebSocketUrl, isAuthCloseCode } from '@/lib/websocket';
+import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { DESTINATION_CHECK_WS_PATH } from '@/constants/warehouse';
 import { toastSuccess, toastError } from '@/lib/toast';
 import type { Warehouse } from '@/types/warehouse';
@@ -99,35 +98,11 @@ export function WarehouseForm({
     }
   }, [parsedSpec, isEditing, reset]);
 
-  // WebSocket for connection check — always connected when dialog is open
-  const wsUrl = useMemo(() => generateWebSocketUrl(DESTINATION_CHECK_WS_PATH), []);
-
-  const pendingPayload = useRef<Record<string, unknown> | null>(null);
-
-  const { sendJsonMessage, lastMessage, readyState } = useWebSocket(loading ? wsUrl : null, {
-    share: false,
-    shouldReconnect: (closeEvent) => !isAuthCloseCode(closeEvent.code),
-    reconnectAttempts: 3,
-    reconnectInterval: 2000,
-    onClose: (event) => {
-      if (isAuthCloseCode(event.code)) {
-        toastError.api('Session expired, please refresh the page');
-        setLoading(false);
-      }
-    },
-    onError: () => {
-      toastError.api('WebSocket connection error');
-      setLoading(false);
-    },
+  // WebSocket for connection check — connects when loading (submit triggered)
+  const { sendOrQueue, lastMessage } = useBackendWebSocket(DESTINATION_CHECK_WS_PATH, {
+    enabled: loading,
+    onLoadingChange: setLoading,
   });
-
-  // Send pending payload once WebSocket connects
-  useEffect(() => {
-    if (readyState === 1 && pendingPayload.current) {
-      sendJsonMessage(pendingPayload.current);
-      pendingPayload.current = null;
-    }
-  }, [readyState, sendJsonMessage]);
 
   // Save to backend after successful connection test
   const handleSaveWarehouse = useCallback(async () => {
@@ -208,15 +183,14 @@ export function WarehouseForm({
     const formValues = getValues();
     const config = parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
 
-    pendingPayload.current = {
+    setSetupLogs([]);
+    setLoading(true);
+    sendOrQueue({
       name: warehouseName || 'test',
       config,
       destinationDefId: isEditing ? undefined : selectedDefId,
       destinationId: isEditing ? warehouse?.destinationId : undefined,
-    };
-
-    setSetupLogs([]);
-    setLoading(true);
+    });
   }, [warehouseName, getValues, parsedSpec, isEditing, selectedDefId, warehouse]);
 
   // Gate on actual data presence, not loading flag (avoids SWR false→true→false blip)

@@ -1,5 +1,11 @@
-import { SyncStatus } from '@/constants/connections';
-import type { StreamColumn } from '@/types/connections';
+import {
+  SyncStatus,
+  SyncMode,
+  DestinationSyncMode,
+  SYNC_STATUS_CONFIG,
+  SYNC_STATUS_DEFAULT,
+} from '@/constants/connections';
+import type { StreamColumn, SyncCatalogStream, SourceStream } from '@/types/connections';
 
 export function extractColumnsFromSchema(
   jsonSchema: Record<string, unknown>,
@@ -59,26 +65,14 @@ export function formatBytes(bytesStr: string): string {
 }
 
 /**
- * Get status display info (label, color class).
+ * Get status display info (label, color class) from the centralized config.
  */
 export function getStatusInfo(status: string): {
   label: string;
   className: string;
 } {
-  switch (status) {
-    case SyncStatus.SUCCESS:
-      return { label: 'Success', className: 'text-green-600' };
-    case SyncStatus.FAILED:
-      return { label: 'Failed', className: 'text-red-600' };
-    case SyncStatus.CANCELLED:
-      return { label: 'Cancelled', className: 'text-yellow-600' };
-    case SyncStatus.RUNNING:
-      return { label: 'Running', className: 'text-blue-600' };
-    case SyncStatus.QUEUED:
-      return { label: 'Queued', className: 'text-gray-500' };
-    default:
-      return { label: status, className: 'text-muted-foreground' };
-  }
+  const config = SYNC_STATUS_CONFIG[status] ?? SYNC_STATUS_DEFAULT;
+  return { label: config.label, className: config.colorClass };
 }
 
 /**
@@ -90,4 +84,60 @@ export function formatSyncDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
+}
+
+/**
+ * Parse a single catalog stream entry into a SourceStream.
+ * Used by both existing-connection loading and schema discovery.
+ */
+export function parseCatalogStream(
+  entry: SyncCatalogStream,
+  defaults?: { selected: boolean; syncMode: string; destinationSyncMode: string }
+): SourceStream {
+  const { stream, config } = entry;
+  const columnNames = Object.keys(
+    (stream.jsonSchema as { properties?: Record<string, unknown> })?.properties || {}
+  );
+  const isSourceDefinedCursor = stream.sourceDefinedCursor === true;
+  const hasSourceDefinedPK =
+    Array.isArray(stream.sourceDefinedPrimaryKey) && stream.sourceDefinedPrimaryKey.length > 0;
+
+  // Cursor: source-defined uses config value, otherwise all columns
+  const cursorFieldOptions = isSourceDefinedCursor ? config.cursorField || [] : columnNames;
+  const cursorField = isSourceDefinedCursor
+    ? config.cursorField?.[0] || ''
+    : config.cursorField?.[0] || stream.defaultCursorField?.[0] || '';
+
+  // Primary key: source-defined uses config value, otherwise all columns
+  const primaryKeyOptions = hasSourceDefinedPK
+    ? (config.primaryKey || []).flat().map((col: string) => [col])
+    : columnNames.map((col) => [col]);
+  const primaryKey = hasSourceDefinedPK ? config.primaryKey?.flat() || [] : [];
+
+  return {
+    name: stream.name,
+    supportsIncremental: stream.supportedSyncModes.includes(SyncMode.INCREMENTAL),
+    selected: defaults?.selected ?? config.selected,
+    syncMode: defaults?.syncMode ?? config.syncMode,
+    destinationSyncMode: defaults?.destinationSyncMode ?? config.destinationSyncMode,
+    cursorField,
+    cursorFieldConfig: {
+      sourceDefinedCursor: isSourceDefinedCursor,
+      selected: isSourceDefinedCursor
+        ? config.cursorField || []
+        : config.cursorField || stream.defaultCursorField || [],
+      all: cursorFieldOptions,
+    },
+    primaryKey,
+    primaryKeyConfig: {
+      sourceDefinedPrimaryKey: hasSourceDefinedPK,
+      selected: hasSourceDefinedPK ? config.primaryKey || [] : [],
+      all: primaryKeyOptions,
+    },
+    columns: extractColumnsFromSchema(
+      stream.jsonSchema,
+      defaults ? false : config.fieldSelectionEnabled,
+      defaults ? [] : config.selectedFields
+    ),
+  };
 }

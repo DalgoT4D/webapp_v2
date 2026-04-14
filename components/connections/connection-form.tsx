@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import React, { useState, useCallback, useEffect } from 'react';
+import { ReadyState } from 'react-use-websocket';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -23,11 +23,11 @@ import {
 } from '@/components/ui/select';
 import { useSources } from '@/hooks/api/useSources';
 import { useConnection, createConnection, updateConnection } from '@/hooks/api/useConnections';
-import { generateWebSocketUrl, isAuthCloseCode } from '@/lib/websocket';
+import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { SyncMode, DestinationSyncMode, FormMode } from '@/constants/connections';
 import { toastSuccess, toastError } from '@/lib/toast';
-import type { SourceStream, SyncCatalog, SchemaDiscoveryResponse } from '@/types/connections';
-import { extractColumnsFromSchema } from './utils';
+import type { SyncCatalog, SchemaDiscoveryResponse } from '@/types/connections';
+import { parseCatalogStream } from './utils';
 import { useStreamConfig } from './hooks/useStreamConfig';
 import { StreamConfigTable } from './stream-config-table';
 
@@ -88,141 +88,43 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
         setDestinationSchema(connection.destinationSchema);
       }
       // Parse existing streams from sync catalog
-      const existingStreams: SourceStream[] = connection.syncCatalog.streams.map((s) => {
-        const columnNames = Object.keys(
-          (s.stream.jsonSchema as { properties?: Record<string, unknown> })?.properties || {}
-        );
-        const isSourceDefinedCursor = s.stream.sourceDefinedCursor === true;
-        const hasSourceDefinedPK =
-          Array.isArray(s.stream.sourceDefinedPrimaryKey) &&
-          s.stream.sourceDefinedPrimaryKey.length > 0;
-
-        // Cursor: source-defined uses config value, otherwise all columns
-        const cursorFieldOptions = isSourceDefinedCursor ? s.config.cursorField || [] : columnNames;
-        const cursorField = isSourceDefinedCursor
-          ? s.config.cursorField?.[0] || ''
-          : s.config.cursorField?.[0] || s.stream.defaultCursorField?.[0] || '';
-
-        // Primary key: source-defined uses config value (flattened to string[], then re-wrapped), otherwise all columns
-        const primaryKeyOptions = hasSourceDefinedPK
-          ? (s.config.primaryKey || []).flat().map((col: string) => [col])
-          : columnNames.map((col) => [col]);
-        const primaryKey = s.config.primaryKey?.flat() || [];
-
-        return {
-          name: s.stream.name,
-          supportsIncremental: s.stream.supportedSyncModes.includes(SyncMode.INCREMENTAL),
-          selected: s.config.selected,
-          syncMode: s.config.syncMode,
-          destinationSyncMode: s.config.destinationSyncMode,
-          cursorField,
-          cursorFieldConfig: {
-            sourceDefinedCursor: isSourceDefinedCursor,
-            selected: s.config.cursorField || [],
-            all: cursorFieldOptions,
-          },
-          primaryKey,
-          primaryKeyConfig: {
-            sourceDefinedPrimaryKey: hasSourceDefinedPK,
-            selected: hasSourceDefinedPK ? s.config.primaryKey || [] : [],
-            all: primaryKeyOptions,
-          },
-          columns: extractColumnsFromSchema(
-            s.stream.jsonSchema,
-            s.config.fieldSelectionEnabled,
-            s.config.selectedFields
-          ),
-        };
-      });
-      setStreams(existingStreams);
+      setStreams(connection.syncCatalog.streams.map((s) => parseCatalogStream(s)));
     }
   }, [connection, isCreate]);
 
-  // WebSocket for schema discovery — stays open in create mode,
-  // messages are sent when source selection changes.
-  const wsUrl = useMemo(() => generateWebSocketUrl(SCHEMA_DISCOVERY_WS_PATH), []);
-
-  const { sendJsonMessage, readyState } = useWebSocket(isCreate ? wsUrl : null, {
-    share: false,
-    shouldReconnect: (closeEvent) => !isAuthCloseCode(closeEvent.code),
-    reconnectAttempts: 3,
-    reconnectInterval: 2000,
-    onMessage: (event) => {
+  // Handle schema discovery WebSocket response
+  const handleDiscoveryMessage = useCallback(
+    (data: unknown) => {
       try {
-        const response: SchemaDiscoveryResponse = JSON.parse(event.data);
+        const response = data as SchemaDiscoveryResponse;
         if (response.status === 'success' && response.data?.result?.catalog) {
           const catalog = response.data.result.catalog;
-          const discovered: SourceStream[] = catalog.streams.map((s) => {
-            const columnNames = Object.keys(
-              (s.stream.jsonSchema as { properties?: Record<string, unknown> })?.properties || {}
-            );
-            const isSourceDefinedCursor = s.stream.sourceDefinedCursor === true;
-            const hasSourceDefinedPK =
-              Array.isArray(s.stream.sourceDefinedPrimaryKey) &&
-              s.stream.sourceDefinedPrimaryKey.length > 0;
-
-            // Cursor field: source-defined uses config value, otherwise use all columns
-            const cursorFieldOptions = isSourceDefinedCursor
-              ? s.config.cursorField || []
-              : columnNames;
-            const cursorField = isSourceDefinedCursor
-              ? s.config.cursorField?.[0] || ''
-              : s.config.cursorField?.[0] || s.stream.defaultCursorField?.[0] || '';
-
-            // Primary key: source-defined uses config value, otherwise use all columns
-            const primaryKeyOptions = hasSourceDefinedPK
-              ? s.config.primaryKey || []
-              : columnNames.map((col) => [col]);
-            const primaryKey = hasSourceDefinedPK ? s.config.primaryKey?.flat() || [] : [];
-
-            return {
-              name: s.stream.name,
-              supportsIncremental: s.stream.supportedSyncModes.includes(SyncMode.INCREMENTAL),
-              selected: false,
-              syncMode: SyncMode.FULL_REFRESH,
-              destinationSyncMode: DestinationSyncMode.OVERWRITE,
-              cursorField,
-              cursorFieldConfig: {
-                sourceDefinedCursor: isSourceDefinedCursor,
-                selected: isSourceDefinedCursor
-                  ? s.config.cursorField || []
-                  : s.stream.defaultCursorField || [],
-                all: cursorFieldOptions,
-              },
-              primaryKey,
-              primaryKeyConfig: {
-                sourceDefinedPrimaryKey: hasSourceDefinedPK,
-                selected: hasSourceDefinedPK ? s.config.primaryKey || [] : [],
-                all: primaryKeyOptions,
-              },
-              columns: extractColumnsFromSchema(s.stream.jsonSchema, false, []),
-            };
-          });
-          setStreams(discovered);
+          // Discovery defaults: nothing selected, full refresh + overwrite
+          const discoveryDefaults = {
+            selected: false,
+            syncMode: SyncMode.FULL_REFRESH,
+            destinationSyncMode: DestinationSyncMode.OVERWRITE,
+          };
+          setStreams(catalog.streams.map((s) => parseCatalogStream(s, discoveryDefaults)));
           setDiscoveredCatalog(catalog);
-          // Store catalogId for the create payload
           if (response.data.result.catalogId) {
             setCatalogId(response.data.result.catalogId);
           }
         } else {
           toastError.api(response.message || 'Schema discovery failed');
         }
-      } catch {
-        toastError.api('Failed to parse schema response');
       } finally {
         setIsDiscovering(false);
       }
     },
-    onClose: (event) => {
-      if (isAuthCloseCode(event.code)) {
-        toastError.api('Session expired, please refresh the page');
-        setIsDiscovering(false);
-      }
-    },
-    onError: () => {
-      setIsDiscovering(false);
-      toastError.api('Schema discovery connection error');
-    },
+    [setStreams]
+  );
+
+  // WebSocket for schema discovery — stays open in create mode
+  const { sendJsonMessage, readyState } = useBackendWebSocket(SCHEMA_DISCOVERY_WS_PATH, {
+    enabled: isCreate,
+    onLoadingChange: setIsDiscovering,
+    onMessage: handleDiscoveryMessage,
   });
 
   // Send discovery request when source changes or socket opens

@@ -5,12 +5,14 @@ import { SyncMode, DestinationSyncMode } from '@/constants/connections';
 import { toastError } from '@/lib/toast';
 import type { SourceStream } from '@/types/connections';
 
+// Manages stream selection, sync modes, columns, and filtering for connection setup
 export function useStreamConfig() {
   const [streams, setStreams] = useState<SourceStream[]>([]);
   const [streamSearch, setStreamSearch] = useState('');
   const [incrementalAllStreams, setIncrementalAllStreams] = useState(false);
   const [expandedStreams, setExpandedStreams] = useState<Set<string>>(new Set());
 
+  // Toggle a single stream's selection; resets sync/dest modes on deselect
   const toggleStream = useCallback(
     (streamName: string) => {
       setStreams((prev) =>
@@ -49,6 +51,7 @@ export function useStreamConfig() {
     [incrementalAllStreams, streams]
   );
 
+  // Select or deselect all streams at once; resets modes on deselect
   const toggleAllStreams = useCallback((selected: boolean) => {
     if (!selected) {
       setIncrementalAllStreams(false);
@@ -69,6 +72,7 @@ export function useStreamConfig() {
     );
   }, []);
 
+  // Set sync mode for a stream; enforces dest mode constraints (no overwrite with incremental)
   const updateStreamSyncMode = useCallback((streamName: string, syncMode: string) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -92,6 +96,7 @@ export function useStreamConfig() {
     );
   }, []);
 
+  // Set destination sync mode; clears primary key if not append_dedup
   const updateStreamDestMode = useCallback((streamName: string, destinationSyncMode: string) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -104,6 +109,7 @@ export function useStreamConfig() {
     );
   }, []);
 
+  // Set cursor field for incremental sync; auto-selects the cursor column
   const updateStreamCursorField = useCallback((streamName: string, cursorField: string) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -116,6 +122,7 @@ export function useStreamConfig() {
     );
   }, []);
 
+  // Set primary key columns for dedup; auto-selects those columns
   const updateStreamPrimaryKey = useCallback((streamName: string, primaryKey: string[]) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -127,6 +134,7 @@ export function useStreamConfig() {
     );
   }, []);
 
+  // Toggle a column's selection; prevents deselecting cursor or primary key columns
   const toggleColumn = useCallback((streamName: string, columnName: string) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -145,6 +153,7 @@ export function useStreamConfig() {
     );
   }, []);
 
+  // Expand or collapse a stream's detail view
   const toggleStreamExpand = useCallback((streamName: string) => {
     setExpandedStreams((prev) => {
       const next = new Set(prev);
@@ -157,6 +166,7 @@ export function useStreamConfig() {
     });
   }, []);
 
+  // Bulk-toggle incremental sync for all streams; swaps dest modes accordingly
   const handleIncrementalAllToggle = useCallback((checked: boolean) => {
     setIncrementalAllStreams(checked);
     if (checked) {
@@ -193,6 +203,7 @@ export function useStreamConfig() {
     }
   }, []);
 
+  // Alphabetically sorted streams filtered by search query
   const filteredStreams = useMemo(() => {
     const sorted = [...streams].sort((a, b) => a.name.localeCompare(b.name));
     if (!streamSearch.trim()) return sorted;
@@ -203,6 +214,7 @@ export function useStreamConfig() {
   const allSelected = streams.length > 0 && streams.every((s) => s.selected);
   const hasSelectedStreams = streams.some((s) => s.selected);
 
+  // True if any selected incremental stream is missing a cursor field
   const isAnyCursorAbsent = useMemo(
     () =>
       filteredStreams

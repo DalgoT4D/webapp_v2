@@ -1,8 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import useWebSocket from 'react-use-websocket';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -27,7 +26,7 @@ import {
   createSource,
   updateSource,
 } from '@/hooks/api/useSources';
-import { generateWebSocketUrl, isAuthCloseCode } from '@/lib/websocket';
+import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { toastSuccess, toastError } from '@/lib/toast';
 
 // WebSocket endpoint for source connection check
@@ -173,35 +172,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     }
   }, [parsedSpec, isEdit, reset]);
 
-  // WebSocket for connection check — connects only when loading (submit triggered)
-  const wsUrl = useMemo(() => generateWebSocketUrl(SOURCE_CHECK_WS_PATH), []);
-
-  const pendingPayload = useRef<Record<string, unknown> | null>(null);
-
-  const { sendJsonMessage, lastMessage, readyState } = useWebSocket(loading ? wsUrl : null, {
-    share: false,
-    shouldReconnect: (closeEvent) => !isAuthCloseCode(closeEvent.code),
-    reconnectAttempts: 3,
-    reconnectInterval: 2000,
-    onClose: (event) => {
-      if (isAuthCloseCode(event.code)) {
-        toastError.api('Session expired, please refresh the page');
-        setLoading(false);
-      }
-    },
-    onError: () => {
-      toastError.api('WebSocket connection error');
-      setLoading(false);
-    },
+  // WebSocket for connection check — connects when loading (submit triggered)
+  const { sendOrQueue, lastMessage } = useBackendWebSocket(SOURCE_CHECK_WS_PATH, {
+    enabled: loading,
+    onLoadingChange: setLoading,
   });
-
-  // Send pending payload once WebSocket connects
-  useEffect(() => {
-    if (readyState === 1 && pendingPayload.current) {
-      sendJsonMessage(pendingPayload.current);
-      pendingPayload.current = null;
-    }
-  }, [readyState, sendJsonMessage]);
 
   // Handle WebSocket response — v1 pattern: test succeeded → auto-save
   const handleSaveSource = useCallback(async () => {
@@ -278,15 +253,14 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     const formValues = getValues();
     const config = parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
 
-    pendingPayload.current = {
+    setSetupLogs([]);
+    setLoading(true);
+    sendOrQueue({
       name: sourceName,
       sourceDefId: selectedDefId,
       config,
       ...(sourceId ? { sourceId } : {}),
-    };
-
-    setSetupLogs([]);
-    setLoading(true);
+    });
   }, [sourceName, selectedDefId, getValues, parsedSpec, sourceId]);
 
   return (

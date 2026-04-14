@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Clock, XCircle, Lock } from 'lucide-react';
 import { TaskAltIcon, WarningAmberIcon, LoopIcon } from '@/assets/icons/status-icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { SyncStatus } from '@/constants/connections';
+import { SyncStatus, SYNC_STATUS_CONFIG, SYNC_STATUS_DEFAULT } from '@/constants/connections';
 import { LockStatus } from '@/constants/pipeline';
 import { lastRunTime, trimEmail } from '@/components/pipeline/utils';
 import { formatDuration } from './utils';
@@ -18,51 +18,47 @@ export const SyncStatusCell = memo(function SyncStatusCell({
   conn: Connection;
   syncingIds: string[];
 }) {
-  // Determine the job status and color
-  let jobStatus: string | null = null;
-  let jobStatusColor = 'text-gray-500';
+  // Determine the job status key by checking lock state first, then last run
+  let statusKey: string | null = null;
 
-  // Check lock state first — a lock means a sync/reset is in progress
   if (conn.lock?.status === LockStatus.RUNNING) {
-    jobStatus = 'running';
-    jobStatusColor = 'text-green-600';
+    statusKey = SyncStatus.RUNNING;
   } else if (conn.lock?.status === LockStatus.CANCELLED) {
-    jobStatus = 'cancelled';
-    jobStatusColor = 'text-amber-600';
+    statusKey = SyncStatus.CANCELLED;
   } else if (conn.lock?.status === LockStatus.LOCKED || conn.lock?.status === LockStatus.COMPLETE) {
-    jobStatus = 'locked';
-    jobStatusColor = 'text-gray-600';
+    statusKey = SyncStatus.LOCKED;
   } else if (syncingIds.includes(conn.connectionId) || conn.lock?.status === LockStatus.QUEUED) {
-    jobStatus = 'queued';
-    jobStatusColor = 'text-gray-600';
+    statusKey = SyncStatus.QUEUED;
   } else if (conn.lock) {
-    // Lock exists but status is unrecognized or undefined — default to locked
-    jobStatus = 'locked';
-    jobStatusColor = 'text-gray-600';
+    statusKey = SyncStatus.LOCKED;
   }
 
   // If no lock, check last run
-  if (jobStatus === null && conn.lastRun) {
-    if (conn.lastRun.status === SyncStatus.SUCCESS) {
-      jobStatus = 'success';
-      jobStatusColor = 'text-green-700';
-    } else if (conn.lastRun.status === SyncStatus.CANCELLED) {
-      jobStatus = 'cancelled';
-      jobStatusColor = 'text-amber-600';
-    } else {
-      jobStatus = 'failed';
-      jobStatusColor = 'text-red-700';
-    }
+  if (statusKey === null && conn.lastRun) {
+    statusKey =
+      conn.lastRun.status === SyncStatus.SUCCESS
+        ? SyncStatus.SUCCESS
+        : conn.lastRun.status === SyncStatus.CANCELLED
+          ? SyncStatus.CANCELLED
+          : SyncStatus.FAILED;
   }
 
-  if (!jobStatus) {
+  const { label: jobStatus, colorClass: jobStatusColor } = statusKey
+    ? (SYNC_STATUS_CONFIG[statusKey] ?? SYNC_STATUS_DEFAULT)
+    : SYNC_STATUS_DEFAULT;
+
+  if (!statusKey) {
     return <span className="text-base text-gray-400">&mdash;</span>;
   }
+
+  const isCompletedState = [SyncStatus.SUCCESS, SyncStatus.FAILED, SyncStatus.CANCELLED].includes(
+    statusKey as SyncStatus
+  );
 
   return (
     <div className="flex flex-col items-start gap-1">
       {/* Time info: relative time for completed states, triggered-by for active states */}
-      {['success', 'failed', 'cancelled'].includes(jobStatus) ? (
+      {isCompletedState ? (
         <span className="text-base text-gray-900">{lastRunTime(conn.lastRun?.startTime)}</span>
       ) : (
         conn.lock && (
@@ -77,7 +73,7 @@ export const SyncStatusCell = memo(function SyncStatusCell({
 
       {/* Status icon + label */}
       <div className="flex items-center gap-1.5">
-        <StatusIcon status={jobStatus} queueInfo={conn.queuedFlowRunWaitTime} />
+        <StatusIcon status={statusKey} queueInfo={conn.queuedFlowRunWaitTime} />
         <span className={cn('text-base font-medium', jobStatusColor)}>{jobStatus}</span>
       </div>
     </div>
@@ -94,20 +90,21 @@ function StatusIcon({
   queueInfo: QueuedRuntimeInfo | null;
 }) {
   const iconClass = 'h-4 w-4';
+  const colorClass = SYNC_STATUS_CONFIG[status]?.colorClass ?? SYNC_STATUS_DEFAULT.colorClass;
 
   switch (status) {
-    case 'running':
-      return <LoopIcon className={cn(iconClass, 'text-green-600 animate-spin')} />;
-    case 'queued':
+    case SyncStatus.RUNNING:
+      return <LoopIcon className={cn(iconClass, colorClass, 'animate-spin')} />;
+    case SyncStatus.QUEUED:
       return <QueueTooltipIcon queueInfo={queueInfo} />;
-    case 'locked':
-      return <Lock className={cn(iconClass, 'text-gray-600')} />;
-    case 'success':
-      return <TaskAltIcon className={cn(iconClass, 'text-green-700')} />;
-    case 'failed':
-      return <WarningAmberIcon className={cn(iconClass, 'text-red-700')} />;
-    case 'cancelled':
-      return <XCircle className={cn(iconClass, 'text-amber-600')} />;
+    case SyncStatus.LOCKED:
+      return <Lock className={cn(iconClass, colorClass)} />;
+    case SyncStatus.SUCCESS:
+      return <TaskAltIcon className={cn(iconClass, colorClass)} />;
+    case SyncStatus.FAILED:
+      return <WarningAmberIcon className={cn(iconClass, colorClass)} />;
+    case SyncStatus.CANCELLED:
+      return <XCircle className={cn(iconClass, colorClass)} />;
     default:
       return null;
   }

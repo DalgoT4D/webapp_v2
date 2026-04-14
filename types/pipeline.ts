@@ -1,7 +1,8 @@
 // Pipeline/Orchestrate types
 
 // Shared types — canonical definitions in types/common.ts
-export type { TaskLock, QueuedRuntimeInfo } from '@/types/common';
+import type { TaskLock, QueuedRuntimeInfo } from '@/types/common';
+export type { TaskLock, QueuedRuntimeInfo };
 
 export interface FlowRun {
   id: string;
