@@ -31,10 +31,13 @@ export enum PipelineRunDisplayStatus {
   WARNING = 'warning', //dbt failure
 }
 
-// Celery task progress status - used for polling async tasks (e.g., AI log summaries)
+// Celery task progress status - used for polling async tasks across explore, transform, and orchestrate
 export enum TaskProgressStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  ERROR = 'error',
 }
 
 export const DEFAULT_LOAD_MORE_LIMIT = 3;

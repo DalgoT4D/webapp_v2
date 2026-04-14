@@ -22,6 +22,7 @@ export interface UnreadCountResponse {
 // User preferences
 export interface UserPreferences {
   enable_email_notifications: boolean;
+  last_visited_transform_tab?: 'ui' | 'github' | null;
 }
 
 // Organization preferences

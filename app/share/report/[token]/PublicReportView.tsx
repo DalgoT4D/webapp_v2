@@ -6,6 +6,7 @@ import { Eye, ExternalLink, AlertCircle, Calendar } from 'lucide-react';
 import { usePublicReport } from '@/hooks/api/useReports';
 import { formatDateShort } from '@/components/reports/utils';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
+import { PrintLayout } from '@/components/reports/print-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,40 +56,49 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
 
   const { dashboard_data, report_metadata, frozen_chart_configs, org_name } = viewData;
 
-  // Print mode: clean layout for Playwright PDF capture
+  // Print mode: document-flow layout for page-break-safe PDF capture
   if (printMode) {
     return (
       <div className="bg-white w-full" data-pdf-ready="true">
         <div className="px-6 py-4 border-b">
           <h1 className="text-xl font-semibold text-gray-900">{report_metadata.title}</h1>
-          <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-            <Calendar className="h-4 w-4" />
-            <span>
-              {report_metadata.period_start ? formatDateShort(report_metadata.period_start) : 'All'}{' '}
+          <div className="flex items-center gap-2 text-sm text-gray-600 mt-1 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              {report_metadata.period_start
+                ? formatDateShort(report_metadata.period_start)
+                : 'All'}{' '}
               - {formatDateShort(report_metadata.period_end)}
             </span>
+            {report_metadata.created_by && (
+              <>
+                <span className="text-gray-300">|</span>
+                <span>Created by: {report_metadata.created_by}</span>
+              </>
+            )}
+            {report_metadata.dashboard_title && (
+              <>
+                <span className="text-gray-300">|</span>
+                <span>{report_metadata.dashboard_title}</span>
+              </>
+            )}
           </div>
         </div>
 
-        <DashboardNativeView
-          dashboardId={0}
+        {report_metadata.summary && (
+          <div className="border rounded-lg p-5 m-6 bg-background overflow-hidden">
+            <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+              {report_metadata.summary}
+            </p>
+          </div>
+        )}
+
+        <PrintLayout
           dashboardData={dashboard_data}
-          isReportMode={true}
-          isPublicMode={true}
-          isPrintMode={true}
-          publicToken={token}
           frozenChartConfigs={frozen_chart_configs}
-          hideHeader={true}
-          beforeContent={
-            report_metadata.summary ? (
-              <div className="border rounded-lg p-5 mb-2 bg-background overflow-hidden">
-                <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                  {report_metadata.summary}
-                </p>
-              </div>
-            ) : undefined
-          }
+          publicToken={token}
+          isPublicMode={true}
         />
       </div>
     );

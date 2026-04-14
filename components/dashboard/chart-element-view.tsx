@@ -484,17 +484,15 @@ export function ChartElementView({
       ? isPublicReport
         ? async () => {
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/chart-data/`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(chartDataPayload),
-              }
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}/api/v1/public/reports/${publicToken}/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return response.json();
           }
-        : () => apiPost('/api/charts/chart-data/', chartDataPayload!)
+        : () =>
+            apiGet(
+              `/api/reports/${snapshotId}/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+            )
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
@@ -507,9 +505,9 @@ export function ChartElementView({
 
   // For table charts - public vs private mode
   const publicTableDataUrl =
-    isPublicMode && publicToken && chartDataPayload && isTableChart
+    isPublicMode && publicToken && isTableChart
       ? isPublicReport
-        ? `/api/v1/public/reports/${publicToken}/chart-data-preview/`
+        ? `/api/v1/public/reports/${publicToken}/charts/${chartId}/data-preview/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/`
       : null;
 
@@ -519,38 +517,50 @@ export function ChartElementView({
     isLoading: publicTableLoading,
   } = useSWR(
     publicTableDataUrl
-      ? [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
+      ? isPublicReport
+        ? [publicTableDataUrl, tablePage, tablePageSize]
+        : [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
       : null,
     isPublicMode && isTableChart
-      ? async ([url, payload, page, size, filters]: [
-          string,
-          ChartDataPayload,
-          number,
-          number,
-          Record<string, any>,
-        ]) => {
-          // Send page and limit as query parameters (0-based page for backend)
-          const queryParams = new URLSearchParams({
-            page: (page - 1).toString(),
-            limit: size.toString(),
-          });
-
-          // Add dashboard filters if present
-          if (Object.keys(filters).length > 0) {
-            queryParams.append('dashboard_filters', JSON.stringify(filters));
+      ? isPublicReport
+        ? async ([url, page, size]: [string, number, number]) => {
+            // Public report: GET — server builds payload from frozen config
+            const qp = new URLSearchParams({
+              page: (page - 1).toString(),
+              limit: size.toString(),
+            });
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${qp}`
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
           }
-
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${queryParams}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
+        : async ([url, payload, page, size, filters]: [
+            string,
+            ChartDataPayload,
+            number,
+            number,
+            Record<string, any>,
+          ]) => {
+            // Public dashboard: POST with payload (unchanged)
+            const qp = new URLSearchParams({
+              page: (page - 1).toString(),
+              limit: size.toString(),
+            });
+            if (Object.keys(filters).length > 0) {
+              qp.append('dashboard_filters', JSON.stringify(filters));
             }
-          );
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          return response.json();
-        }
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${qp}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+          }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
@@ -573,25 +583,38 @@ export function ChartElementView({
     dashboardFilters
   );
 
-  // Get total rows for table pagination (public mode) - POST call like data-preview
+  // Get total rows for table pagination (public mode)
   const publicTableTotalRowsUrl =
-    isPublicMode && publicToken && chartDataPayload && isTableChart
+    isPublicMode && publicToken && isTableChart
       ? isPublicReport
-        ? `/api/v1/public/reports/${publicToken}/chart-data-preview/total-rows/`
+        ? `/api/v1/public/reports/${publicToken}/charts/${chartId}/total-rows/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/data-preview/total-rows/`
       : null;
 
   const { data: publicTableTotalRowsData } = useSWR(
-    publicTableTotalRowsUrl ? [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters] : null,
+    publicTableTotalRowsUrl
+      ? isPublicReport
+        ? [publicTableTotalRowsUrl]
+        : [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters]
+      : null,
     isPublicMode && isTableChart
-      ? async ([url, payload, filters]: [string, ChartDataPayload, Record<string, any>]) => {
-          // Add dashboard filters as query parameters if present
-          const queryParams = new URLSearchParams();
-          if (Object.keys(filters).length > 0) {
-            queryParams.append('dashboard_filters', JSON.stringify(filters));
+      ? isPublicReport
+        ? async ([url]: [string]) => {
+            // Public report: GET — server builds payload from frozen config
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
           }
-          return apiPublicPost(url, payload, queryParams);
-        }
+        : async ([url, payload, filters]: [string, ChartDataPayload, Record<string, any>]) => {
+            // Public dashboard: POST with payload (unchanged)
+            const qp = new URLSearchParams();
+            if (Object.keys(filters).length > 0) {
+              qp.append('dashboard_filters', JSON.stringify(filters));
+            }
+            return apiPublicPost(url, payload, qp);
+          }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
@@ -1628,6 +1651,8 @@ export function ChartElementView({
   if (
     isLoading ||
     (!isPublicMode && chartLoading) ||
+    // In public mode, wait for chart metadata to load before evaluating chart type or data
+    (isPublicMode && publicChartLoading) ||
     (isTableChart && tableLoading) ||
     (isMapChart && (mapLoading || geojsonLoading))
   ) {
