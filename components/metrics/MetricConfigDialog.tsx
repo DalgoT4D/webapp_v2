@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -44,7 +45,7 @@ interface MetricConfigDialogProps {
   metric?: MetricDefinition | null; // null = create mode
   existingProgramTags: string[];
   existingMetricTypes?: string[];
-  onSave: (data: MetricCreate) => void;
+  onSave: (data: MetricCreate) => void | Promise<void>;
   isSaving?: boolean;
 }
 
@@ -171,6 +172,9 @@ export function MetricConfigDialog({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Metric' : 'Add Metric'}</DialogTitle>
+          <DialogDescription>
+            Configure the metric definition, target logic, and reporting context.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">

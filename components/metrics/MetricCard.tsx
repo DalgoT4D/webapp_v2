@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Pencil, Trash2, AlertCircle, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, AlertCircle, ChevronRight, Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,8 +19,12 @@ interface MetricCardProps {
   hasEntries?: boolean;
   isLoading?: boolean;
   canEdit?: boolean;
+  canCreateAlert?: boolean;
+  canViewAlerts?: boolean;
   onClick?: () => void;
   onEdit?: () => void;
+  onCreateAlert?: () => void;
+  onViewAlerts?: () => void;
   onDelete?: () => void;
 }
 
@@ -38,8 +42,12 @@ export function MetricCard({
   hasEntries = false,
   isLoading = false,
   canEdit = false,
+  canCreateAlert = false,
+  canViewAlerts = false,
   onClick,
   onEdit,
+  onCreateAlert,
+  onViewAlerts,
   onDelete,
 }: MetricCardProps) {
   const currentValue = data?.current_value;
@@ -47,6 +55,7 @@ export function MetricCard({
   const trend = data?.trend ?? [];
   const hasError = !!data?.error;
   const hasTarget = metric.target_value != null;
+  const showActions = canEdit || canCreateAlert || canViewAlerts || Boolean(onDelete);
 
   return (
     <div
@@ -73,7 +82,7 @@ export function MetricCard({
           </TooltipContent>
         </Tooltip>
 
-        {canEdit && (
+        {showActions && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -86,25 +95,51 @@ export function MetricCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit?.();
-                }}
-              >
-                <Pencil className="mr-2 h-3.5 w-3.5" />
-                Edit metric
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete?.();
-                }}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                Delete
-              </DropdownMenuItem>
+              {canEdit ? (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit?.();
+                  }}
+                >
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Edit metric
+                </DropdownMenuItem>
+              ) : null}
+              {canCreateAlert ? (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateAlert?.();
+                  }}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Create alert
+                </DropdownMenuItem>
+              ) : null}
+              {canViewAlerts ? (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewAlerts?.();
+                  }}
+                >
+                  <Eye className="mr-2 h-3.5 w-3.5" />
+                  View alerts
+                </DropdownMenuItem>
+              ) : null}
+              {onDelete ? (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete?.();
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

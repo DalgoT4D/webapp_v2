@@ -1,285 +1,263 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import {
-  Pencil,
-  ArrowLeft,
-  Database,
-  Filter,
-  Bell,
-  Clock,
-  Mail,
-  MessageSquare,
-} from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { ArrowLeft, BellRing, Database, Filter, Mail, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlert, useAlertEvaluations } from '@/hooks/api/useAlerts';
-import { cronToString } from '@/components/pipeline/utils';
 
 interface AlertDetailProps {
   alertId: number;
 }
 
-function formatFilterValue(value: string): string {
+function formatFilterValue(value: string) {
   if (value === '__today__') return 'Today';
   if (value === '__yesterday__') return 'Yesterday';
   return value;
+}
+
+function evaluationTone(fired: boolean, errorMessage: string | null) {
+  if (errorMessage) {
+    return 'border-orange-200 bg-orange-50 text-orange-700';
+  }
+  return fired
+    ? 'border-rose-200 bg-rose-50 text-rose-700'
+    : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 }
 
 export function AlertDetail({ alertId }: AlertDetailProps) {
   const router = useRouter();
   const { alert, isLoading } = useAlert(alertId);
   const [evalPage, setEvalPage] = useState(1);
-  const EVAL_PAGE_SIZE = 20;
-  const { evaluations, total: evalTotal } = useAlertEvaluations(alertId, evalPage, EVAL_PAGE_SIZE);
-
-  const evalTotalPages = useMemo(() => Math.ceil(evalTotal / EVAL_PAGE_SIZE), [evalTotal]);
+  const { evaluations, total } = useAlertEvaluations(alertId, evalPage, 10);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / 10)), [total]);
 
   if (isLoading || !alert) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">Loading alert...</p>
       </div>
     );
   }
 
-  const qc = alert.query_config;
-
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b bg-background px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push('/alerts')}
-              data-testid="back-to-alerts"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold">{alert.name}</h1>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    alert.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {alert.is_active ? 'Active' : 'Paused'}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-1">{cronToString(alert.cron)}</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={() => router.push(`/alerts/${alertId}/edit`)}
-            data-testid="edit-alert-btn"
-          >
-            <Pencil className="h-4 w-4 mr-2" />
-            EDIT
+    <div className="h-full min-h-0 overflow-y-auto bg-slate-50/60">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6">
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="ghost" className="gap-2 px-0" onClick={() => router.push('/alerts')}>
+            <ArrowLeft className="h-4 w-4" />
+            Alerts
+          </Button>
+          <Button onClick={() => router.push(`/alerts/${alertId}/edit`)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
           </Button>
         </div>
-      </div>
 
-      {/* Two-column layout */}
-      <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* Left: Config summary */}
-        <div className="w-[35%] overflow-y-auto border-r px-5 py-5 space-y-3">
-          {/* Condition */}
-          <div className="border rounded-lg bg-white p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Bell className="h-3.5 w-3.5" />
-              Condition
-            </h3>
-            <p className="text-sm">
-              Check if <span className="font-semibold">{qc.aggregation}</span>
-              {' of '}
-              <span className="font-mono font-medium">{qc.measure_column || '*'}</span>
-              {qc.group_by_column && (
-                <>
-                  {' per '}
-                  <span className="font-mono font-medium">{qc.group_by_column}</span>
-                </>
-              )}
-              {' is '}
-              <span className="font-semibold">
-                {qc.condition_operator} {qc.condition_value}
-              </span>
-            </p>
+        <section className="rounded-[32px] border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50 p-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-wrap items-center gap-2">
+            {alert.metric_name ? <Badge variant="secondary">{alert.metric_name}</Badge> : null}
+            {alert.query_config.group_by_column ? (
+              <Badge variant="outline">Group by {alert.query_config.group_by_column}</Badge>
+            ) : null}
+            {!alert.is_active ? <Badge variant="outline">Paused</Badge> : null}
           </div>
+          <h1 className="mt-4 text-3xl font-bold tracking-tight">{alert.name}</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Last checked{' '}
+            {alert.last_evaluated_at
+              ? formatDistanceToNow(new Date(alert.last_evaluated_at), { addSuffix: true })
+              : 'never'}
+            . Last fired{' '}
+            {alert.last_fired_at
+              ? formatDistanceToNow(new Date(alert.last_fired_at), { addSuffix: true })
+              : 'never'}
+            .
+          </p>
 
-          {/* Data Source */}
-          <div className="border rounded-lg bg-white p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Database className="h-3.5 w-3.5" />
-              Data Source
-            </h3>
-            <p className="text-sm font-mono">
-              {qc.schema_name}.{qc.table_name}
-            </p>
-          </div>
-
-          {/* Filters */}
-          {qc.filters.length > 0 && (
-            <div className="border rounded-lg bg-white p-4 space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5" />
-                Filters
-                <span className="text-[10px] font-normal bg-gray-100 px-1 py-0.5 rounded">
-                  {qc.filter_connector}
-                </span>
-              </h3>
-              <div className="space-y-1">
-                {qc.filters.map((f, i) => (
-                  <p key={`filter-${i}`} className="text-sm font-mono">
-                    {f.column} <span className="text-muted-foreground">{f.operator}</span>{' '}
-                    <span className="font-semibold">{formatFilterValue(f.value)}</span>
-                  </p>
-                ))}
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border bg-white/85 px-4 py-4">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Dataset
+              </div>
+              <div className="mt-2 font-mono text-sm">
+                {alert.query_config.schema_name}.{alert.query_config.table_name}
               </div>
             </div>
-          )}
-
-          {/* Schedule */}
-          <div className="border rounded-lg bg-white p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              Schedule
-            </h3>
-            <p className="text-sm">{cronToString(alert.cron)}</p>
-          </div>
-
-          {/* Recipients */}
-          <div className="border rounded-lg bg-white p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5" />
-              Recipients ({alert.recipients.length})
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {alert.recipients.map((email) => (
-                <span key={email} className="text-xs bg-gray-50 border rounded px-2 py-1">
-                  {email}
-                </span>
-              ))}
+            <div className="rounded-2xl border bg-white/85 px-4 py-4">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Condition
+              </div>
+              <div className="mt-2 text-sm font-medium">
+                {alert.query_config.aggregation} {alert.query_config.condition_operator}{' '}
+                {alert.query_config.condition_value}
+                {alert.query_config.measure_column
+                  ? ` on ${alert.query_config.measure_column}`
+                  : ' on rows'}
+              </div>
+            </div>
+            <div className="rounded-2xl border bg-white/85 px-4 py-4">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Recipients
+              </div>
+              <div className="mt-2 text-sm font-medium">
+                {alert.recipients.length} recipient{alert.recipients.length === 1 ? '' : 's'}
+              </div>
             </div>
           </div>
+        </section>
 
-          {/* Message */}
-          <div className="border rounded-lg bg-white p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              Message
-            </h3>
-            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{alert.message}</p>
-          </div>
-        </div>
-
-        {/* Right: Evaluation History */}
-        <div className="w-[65%] overflow-y-auto px-5 py-5">
-          <h2 className="text-lg font-semibold mb-4">Evaluation History</h2>
-
-          {evaluations.length === 0 ? (
-            <div className="border rounded-lg bg-white p-8 text-center">
-              <p className="text-muted-foreground">
-                No evaluations yet. The alert will be checked based on its schedule.
-              </p>
-            </div>
-          ) : (
-            <div className="border rounded-lg bg-white">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-medium">Checked At</TableHead>
-                    <TableHead className="font-medium">Status</TableHead>
-                    <TableHead className="font-medium">Rows</TableHead>
-                    <TableHead className="font-medium">Sent To</TableHead>
-                    <TableHead className="font-medium">Query</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {evaluations.map((evaluation) => (
-                    <TableRow key={evaluation.id} data-testid={`evaluation-row-${evaluation.id}`}>
-                      <TableCell className="text-sm">
-                        {format(new Date(evaluation.created_at), 'MMM d, h:mm a')}
-                      </TableCell>
-                      <TableCell>
-                        {evaluation.error_message ? (
-                          <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                            Error
-                          </span>
-                        ) : evaluation.fired ? (
-                          <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                            Fired
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                            OK
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm">{evaluation.rows_returned}</TableCell>
-                      <TableCell className="text-sm">{evaluation.num_recipients}</TableCell>
-                      <TableCell>
-                        <details className="text-xs">
-                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                            View SQL
-                          </summary>
-                          <pre className="mt-2 p-3 bg-gray-50 rounded-md text-xs overflow-x-auto whitespace-pre-wrap border">
-                            {evaluation.query_executed}
-                          </pre>
-                          {evaluation.error_message && (
-                            <p className="mt-2 text-red-600 text-xs bg-red-50 rounded-md p-2">
-                              {evaluation.error_message}
-                            </p>
-                          )}
-                        </details>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {evalTotalPages > 1 && (
-                <div className="flex items-center justify-end gap-2 p-4 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={evalPage <= 1}
-                    onClick={() => setEvalPage((p) => p - 1)}
-                    data-testid="eval-prev-page"
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {evalPage} of {evalTotalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={evalPage >= evalTotalPages}
-                    onClick={() => setEvalPage((p) => p + 1)}
-                    data-testid="eval-next-page"
-                  >
-                    Next
-                  </Button>
+        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <div className="space-y-6">
+            {alert.query_config.filters.length > 0 ? (
+              <section className="rounded-[28px] border bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+                <div className="mb-4 flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-lg font-semibold">Filters</h2>
+                  <Badge variant="outline">{alert.query_config.filter_connector}</Badge>
                 </div>
-              )}
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  {alert.query_config.filters.map((filter, index) => (
+                    <p key={`${filter.column}-${index}`} className="font-mono">
+                      {filter.column} {filter.operator} {formatFilterValue(filter.value)}
+                    </p>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="rounded-[28px] border bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+              <div className="mb-4 flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Recipients</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {alert.recipients.map((email) => (
+                  <Badge key={email} variant="outline">
+                    {email}
+                  </Badge>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[28px] border bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+              <div className="mb-4 flex items-center gap-2">
+                <Database className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Email template</h2>
+              </div>
+              <Tabs defaultValue="intro" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-2 rounded-full bg-muted/40 p-1">
+                  <TabsTrigger value="intro" className="rounded-full">
+                    Body
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="group"
+                    className="rounded-full"
+                    disabled={!alert.query_config.group_by_column}
+                  >
+                    Per group
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="intro" className="mt-0">
+                  <pre className="whitespace-pre-wrap rounded-2xl bg-muted/20 p-4 text-sm text-muted-foreground">
+                    {alert.message}
+                  </pre>
+                </TabsContent>
+                <TabsContent value="group" className="mt-0">
+                  <pre className="whitespace-pre-wrap rounded-2xl bg-muted/20 p-4 text-sm text-muted-foreground">
+                    {alert.group_message || 'No per-group section configured.'}
+                  </pre>
+                </TabsContent>
+              </Tabs>
+            </section>
+          </div>
+
+          <section className="rounded-[28px] border bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+            <div className="mb-4 flex items-center gap-2">
+              <BellRing className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">History</h2>
             </div>
-          )}
+
+            {evaluations.length === 0 ? (
+              <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                No evaluations yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {evaluations.map((evaluation) => (
+                  <div key={evaluation.id} className="rounded-[24px] border bg-muted/5 p-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={evaluationTone(evaluation.fired, evaluation.error_message)}
+                          >
+                            {evaluation.error_message ? 'Error' : evaluation.fired ? 'Fired' : 'OK'}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(evaluation.created_at), 'MMM d, yyyy h:mm a')}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline">
+                            {evaluation.rows_returned} failing result(s)
+                          </Badge>
+                          <Badge variant="outline">
+                            {evaluation.num_recipients} recipient
+                            {evaluation.num_recipients === 1 ? '' : 's'}
+                          </Badge>
+                        </div>
+
+                        {evaluation.rendered_message || evaluation.message ? (
+                          <p className="mt-4 line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                            {evaluation.rendered_message || evaluation.message}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      {evaluation.fired ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push(`/alerts/${alertId}/fired/${evaluation.id}`)}
+                        >
+                          View instance
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+
+                {totalPages > 1 ? (
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={evalPage <= 1}
+                      onClick={() => setEvalPage((page) => page - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {evalPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={evalPage >= totalPages}
+                      onClick={() => setEvalPage((page) => page + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>

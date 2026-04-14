@@ -12,9 +12,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { MetricCard } from './MetricCard';
 import { MetricConfigDialog } from './MetricConfigDialog';
 import { MetricDetailDrawer } from './MetricDetailDrawer';
+import { MetricAlertsDialog } from './MetricAlertsDialog';
+import { MetricAlertDialog } from '@/components/alerts/MetricAlertDialog';
 import {
   useMetrics,
   useMetricsData,
@@ -22,6 +26,7 @@ import {
   useUpdateMetric,
   useDeleteMetric,
 } from '@/hooks/api/useMetrics';
+import { toastSuccess, toastError } from '@/lib/toast';
 import type { MetricDefinition, MetricCreate } from '@/types/metrics';
 import { METRIC_TYPES } from '@/types/metrics';
 
@@ -36,8 +41,12 @@ interface MetricsListProps {
 }
 
 export function MetricsList({ canEdit }: MetricsListProps) {
+  const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
+  const { hasPermission } = useUserPermissions();
   // ── Data fetching ─────────────────────────────────────────────────────────
   const { data: metrics, isLoading: metricsLoading, mutate: refreshMetrics } = useMetrics();
+  const canCreateAlerts = hasPermission('can_create_alerts');
+  const canViewAlerts = hasPermission('can_view_alerts');
 
   const metricIds = useMemo(() => (metrics || []).map((m) => m.id), [metrics]);
 
@@ -132,6 +141,8 @@ export function MetricsList({ canEdit }: MetricsListProps) {
   const { trigger: createMetric, isMutating: isCreating } = useCreateMetric();
   const { trigger: updateMetric, isMutating: isUpdating } = useUpdateMetric();
   const { trigger: deleteMetric } = useDeleteMetric();
+  const [createAlertMetric, setCreateAlertMetric] = useState<MetricDefinition | null>(null);
+  const [viewAlertsMetric, setViewAlertsMetric] = useState<MetricDefinition | null>(null);
 
   // ── Detail Drawer ─────────────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -148,28 +159,52 @@ export function MetricsList({ canEdit }: MetricsListProps) {
   };
 
   const handleEditMetric = (metric: MetricDefinition) => {
+    setDrawerOpen(false);
     setEditingMetric(metric);
     setConfigDialogOpen(true);
   };
 
+  const handleCreateAlert = (metric: MetricDefinition) => {
+    setDrawerOpen(false);
+    setCreateAlertMetric(metric);
+  };
+
+  const handleViewAlerts = (metric: MetricDefinition) => {
+    setDrawerOpen(false);
+    setViewAlertsMetric(metric);
+  };
+
   const handleDeleteMetric = async (metric: MetricDefinition) => {
-    if (!confirm(`Delete "${metric.name}"? This cannot be undone.`)) return;
-    await deleteMetric(metric.id);
-    refreshMetrics();
+    const confirmed = await confirm({
+      title: 'Delete metric?',
+      description: `This will permanently delete "${metric.name}". This action cannot be undone.`,
+      confirmText: 'Delete',
+      type: 'warning',
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteMetric(metric.id);
+      toastSuccess.deleted(metric.name);
+      await refreshMetrics();
+    } catch (error: unknown) {
+      toastError.delete(error, metric.name);
+    }
   };
 
   const handleSaveMetric = async (data: MetricCreate) => {
     try {
       if (editingMetric) {
         await updateMetric({ id: editingMetric.id, data });
+        toastSuccess.updated('Metric');
       } else {
         await createMetric(data);
+        toastSuccess.created('Metric');
       }
-      refreshMetrics();
+      await refreshMetrics();
       setConfigDialogOpen(false);
-    } catch (err: any) {
-      console.error('Failed to save metric:', err);
-      alert(err?.message || 'Failed to save metric. Check console for details.');
+    } catch (error: unknown) {
+      toastError.save(error, 'metric');
     }
   };
 
@@ -319,8 +354,12 @@ export function MetricsList({ canEdit }: MetricsListProps) {
                   data={dataMap.get(metric.id)}
                   isLoading={dataLoading}
                   canEdit={canEdit}
+                  canCreateAlert={canCreateAlerts}
+                  canViewAlerts={canViewAlerts}
                   onClick={() => handleCardClick(metric)}
                   onEdit={() => handleEditMetric(metric)}
+                  onCreateAlert={() => handleCreateAlert(metric)}
+                  onViewAlerts={() => handleViewAlerts(metric)}
                   onDelete={() => handleDeleteMetric(metric)}
                 />
               ))}
@@ -345,6 +384,36 @@ export function MetricsList({ canEdit }: MetricsListProps) {
           metric={selectedMetric}
           data={selectedMetric ? dataMap.get(selectedMetric.id) : undefined}
           canEdit={canEdit}
+          canCreateAlerts={canCreateAlerts}
+          canViewAlerts={canViewAlerts}
+          onEditMetric={handleEditMetric}
+          onCreateAlert={handleCreateAlert}
+          onViewAlerts={handleViewAlerts}
+        />
+        <DeleteDialog />
+        <MetricAlertDialog
+          open={Boolean(createAlertMetric)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCreateAlertMetric(null);
+            }
+          }}
+          metricId={createAlertMetric?.id ?? null}
+          metricName={createAlertMetric?.name ?? null}
+        />
+        <MetricAlertsDialog
+          open={Boolean(viewAlertsMetric)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setViewAlertsMetric(null);
+            }
+          }}
+          metricId={viewAlertsMetric?.id ?? null}
+          metricName={viewAlertsMetric?.name ?? null}
+          onAlertSelected={() => {
+            setSelectedMetric(null);
+            setDrawerOpen(false);
+          }}
         />
       </div>
     </TooltipProvider>

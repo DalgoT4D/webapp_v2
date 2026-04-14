@@ -4,6 +4,12 @@ export interface AlertFilter {
   value: string;
 }
 
+export interface AlertMessagePlaceholder {
+  key: string;
+  aggregation: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
+  column: string | null;
+}
+
 export interface AlertQueryConfig {
   schema_name: string;
   table_name: string;
@@ -19,10 +25,13 @@ export interface AlertQueryConfig {
 export interface Alert {
   id: number;
   name: string;
+  metric_id: number | null;
+  metric_name: string | null;
   query_config: AlertQueryConfig;
-  cron: string;
   recipients: string[];
   message: string;
+  group_message: string;
+  message_placeholders: AlertMessagePlaceholder[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -35,12 +44,14 @@ export interface AlertEvaluation {
   id: number;
   query_config: AlertQueryConfig;
   query_executed: string;
-  cron: string;
   recipients: string[];
   num_recipients: number;
   message: string;
   fired: boolean;
   rows_returned: number;
+  result_preview: Record<string, unknown>[];
+  rendered_message: string;
+  trigger_flow_run_id: string | null;
   error_message: string | null;
   created_at: string;
 }
@@ -52,10 +63,26 @@ export interface AlertTestResult {
   page: number;
   page_size: number;
   query_executed: string;
+  rendered_message: string;
+}
+
+export interface TriggeredAlertEvent {
+  id: number;
+  alert_id: number;
+  alert_name: string;
+  metric_id: number | null;
+  metric_name: string | null;
+  rows_returned: number;
+  num_recipients: number;
+  rendered_message: string;
+  result_preview: Record<string, unknown>[];
+  trigger_flow_run_id: string | null;
+  created_at: string;
 }
 
 export interface AlertFormData {
   name: string;
+  metric_id?: number | null;
   query_config: {
     schema_name: string;
     table_name: string;
@@ -67,12 +94,10 @@ export interface AlertFormData {
     condition_operator: string;
     condition_value: number | '';
   };
-  cron: string;
-  cronScheduleType: string;
-  cronDaysOfWeek: string[];
-  cronTimeOfDay: string;
   recipients: string[];
   message: string;
+  group_message?: string;
+  message_placeholders?: AlertMessagePlaceholder[];
 }
 
 export const AGGREGATION_OPTIONS = [

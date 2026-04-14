@@ -10,6 +10,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,7 @@ import {
 import { RAGBadge } from './RAGBadge';
 import { MetricSparkline } from './MetricSparkline';
 import { useMetricEntries, useCreateEntry, useDeleteEntry } from '@/hooks/api/useMetrics';
+import { toastError, toastSuccess } from '@/lib/toast';
 import type { MetricDefinition, MetricDataPoint, MetricEntry, RAGStatus } from '@/types/metrics';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -109,6 +111,11 @@ interface MetricDetailDrawerProps {
   metric: MetricDefinition | null;
   data?: MetricDataPoint;
   canEdit: boolean;
+  canCreateAlerts: boolean;
+  canViewAlerts: boolean;
+  onEditMetric: (metric: MetricDefinition) => void;
+  onCreateAlert: (metric: MetricDefinition) => void;
+  onViewAlerts: (metric: MetricDefinition) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -119,7 +126,13 @@ export function MetricDetailDrawer({
   metric,
   data,
   canEdit,
+  canCreateAlerts,
+  canViewAlerts,
+  onEditMetric,
+  onCreateAlert,
+  onViewAlerts,
 }: MetricDetailDrawerProps) {
+  const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
   const { data: entries, mutate: refreshEntries } = useMetricEntries(
     open && metric ? metric.id : null
   );
@@ -232,24 +245,32 @@ export function MetricDetailDrawer({
         attribution: entryType === 'quote' ? entryAttribution.trim() : '',
       });
       refreshEntries();
+      toastSuccess.created('Metric entry');
       setShowAddForm(false);
       setEntryContent('');
       setEntryAttribution('');
       setEntryType('comment');
-    } catch (err: any) {
-      console.error('Failed to create entry:', err);
-      alert(err?.message || 'Failed to save entry.');
+    } catch (error: unknown) {
+      console.error('Failed to create entry:', error);
+      toastError.save(error, 'metric entry');
     }
   };
 
   const handleDeleteEntry = async (entryId: number) => {
-    if (!confirm('Delete this entry? This cannot be undone.')) return;
+    const confirmed = await confirm({
+      title: 'Delete metric entry?',
+      description: 'This cannot be undone.',
+      confirmText: 'Delete',
+      type: 'warning',
+    });
+    if (!confirmed) return;
     try {
       await deleteEntry(entryId);
       refreshEntries();
-    } catch (err: any) {
-      console.error('Failed to delete entry:', err);
-      alert(err?.message || 'Failed to delete entry.');
+      toastSuccess.deleted('Metric entry');
+    } catch (error: unknown) {
+      console.error('Failed to delete entry:', error);
+      toastError.delete(error, 'metric entry');
     }
   };
 
@@ -277,16 +298,50 @@ export function MetricDetailDrawer({
                   {metric.direction === 'decrease' ? '↓' : '↑'}
                 </span>
               </SheetTitle>
-              {canEdit && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowAddForm(!showAddForm)}
-                  className="shrink-0"
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add Entry
-                </Button>
+              {(canEdit || canCreateAlerts || canViewAlerts) && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {canEdit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onEditMetric(metric)}
+                      className="shrink-0"
+                    >
+                      Edit metric
+                    </Button>
+                  )}
+                  {canViewAlerts && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onViewAlerts(metric)}
+                      className="shrink-0"
+                    >
+                      View alerts
+                    </Button>
+                  )}
+                  {canCreateAlerts && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onCreateAlert(metric)}
+                      className="shrink-0"
+                    >
+                      Create alert
+                    </Button>
+                  )}
+                  {canEdit ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowAddForm(!showAddForm)}
+                      className="shrink-0"
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add Entry
+                    </Button>
+                  ) : null}
+                </div>
               )}
             </div>
             <SheetDescription className="sr-only">Activity feed for {metric.name}</SheetDescription>
@@ -572,6 +627,7 @@ export function MetricDetailDrawer({
           )}
         </div>
       </SheetContent>
+      <DeleteDialog />
     </Sheet>
   );
 }

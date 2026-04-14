@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AlertForm } from '@/components/alerts/AlertForm';
 import { useAlert, updateAlert } from '@/hooks/api/useAlerts';
 import { toastSuccess, toastError } from '@/lib/toast';
-import type { AlertQueryConfig } from '@/types/alert';
+import type { AlertMessagePlaceholder, AlertQueryConfig } from '@/types/alert';
 
 export default function EditAlertPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -15,10 +15,12 @@ export default function EditAlertPage({ params }: { params: Promise<{ id: string
 
   const handleSave = async (data: {
     name: string;
+    metric_id?: number | null;
     query_config: AlertQueryConfig;
-    cron: string;
     recipients: string[];
     message: string;
+    group_message?: string;
+    message_placeholders: AlertMessagePlaceholder[];
   }) => {
     try {
       await updateAlert(alertId, data);
@@ -38,10 +40,12 @@ export default function EditAlertPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <AlertForm
-      alert={alert}
-      onSave={handleSave}
-      onCancel={() => router.push(`/alerts/${alertId}`)}
-    />
+    <div className="h-full min-h-0 overflow-y-auto">
+      <AlertForm
+        alert={alert}
+        onSave={handleSave}
+        onCancel={() => router.push(`/alerts/${alertId}`)}
+      />
+    </div>
   );
 }

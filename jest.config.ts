@@ -18,6 +18,7 @@ const customJestConfig: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  modulePathIgnorePatterns: ['<rootDir>/.next/standalone/'],
   // Run tests in component-level __tests__ folders and lib tests
   testMatch: [
     '<rootDir>/components/**/__tests__/**/*.test.{ts,tsx}',
