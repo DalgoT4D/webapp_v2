@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { NumberFormat } from '@/lib/formatters';
+import type { NumberFormat, DateFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
+import { DateFormatSection } from '../shared/DateFormatSection';
 
 interface BarChartCustomizationsProps {
   customizations: Record<string, any>;
@@ -20,6 +21,7 @@ interface BarChartCustomizationsProps {
   disabled?: boolean;
   hasExtraDimension?: boolean;
   hasNumericXAxis?: boolean;
+  hasDateXAxis?: boolean;
 }
 
 export function BarChartCustomizations({
@@ -28,6 +30,7 @@ export function BarChartCustomizations({
   disabled,
   hasExtraDimension,
   hasNumericXAxis = false,
+  hasDateXAxis = false,
 }: BarChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -209,6 +212,16 @@ export function BarChartCustomizations({
             decimalPlaces={customizations.xAxisDecimalPlaces}
             onNumberFormatChange={(value) => updateCustomization('xAxisNumberFormat', value)}
             onDecimalPlacesChange={(value) => updateCustomization('xAxisDecimalPlaces', value)}
+            disabled={disabled}
+          />
+        )}
+
+        {/* X-Axis Date Formatting - only shown for date X-axis */}
+        {hasDateXAxis && (
+          <DateFormatSection
+            idPrefix="xAxis"
+            dateFormat={customizations.xAxisDateFormat as DateFormat}
+            onDateFormatChange={(value) => updateCustomization('xAxisDateFormat', value)}
             disabled={disabled}
           />
         )}

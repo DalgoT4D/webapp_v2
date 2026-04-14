@@ -1,5 +1,9 @@
 import { formatDistanceToNow, format, isThisYear } from 'date-fns';
 
+// Shared constants for report sharing dialogs
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const MAX_RECIPIENTS = 20;
+
 /**
  * Format a date string as "Mar 31st, 2026" for display in report headers.
  */

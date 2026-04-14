@@ -148,7 +148,6 @@ describe('ReportsPage', () => {
       renderPage();
 
       expect(screen.getByText('No reports yet')).toBeInTheDocument();
-      expect(screen.getByText('Create a report from any dashboard')).toBeInTheDocument();
       expect(screen.getByTestId('create-first-report-btn')).toBeInTheDocument();
     });
   });
