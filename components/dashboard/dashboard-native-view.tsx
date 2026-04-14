@@ -91,6 +91,8 @@ import {
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { ResponsiveFiltersSection } from './responsive-filters-section';
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width

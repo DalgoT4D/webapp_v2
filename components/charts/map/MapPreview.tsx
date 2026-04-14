@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, Map, ArrowLeft, Home } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { blendWithWhite } from '@/constants/chart-palettes';
 
 interface DrillDownLevel {
   level: number;
@@ -193,33 +194,10 @@ export function MapPreview({
           }
         }
 
-        // Get color scheme from customizations
-        const colorScheme = safeCustomizations.colorScheme || 'Blues';
-        const colorMaps: Record<string, string> = {
-          Blues: '#1f77b4',
-          Reds: '#d62728',
-          Greens: '#2ca02c',
-          Purples: '#9467bd',
-          Oranges: '#ff7f0e',
-          Greys: '#7f7f7f',
-        };
-        const baseColor = colorMaps[colorScheme] || colorMaps.Blues;
-
-        // Create a lighter version of the base color for emphasis/highlight
-        const lightenColor = (hex: string, percent: number): string => {
-          const num = parseInt(hex.replace('#', ''), 16);
-          const r = Math.min(255, Math.floor((num >> 16) + (255 - (num >> 16)) * percent));
-          const g = Math.min(
-            255,
-            Math.floor(((num >> 8) & 0x00ff) + (255 - ((num >> 8) & 0x00ff)) * percent)
-          );
-          const b = Math.min(
-            255,
-            Math.floor((num & 0x0000ff) + (255 - (num & 0x0000ff)) * percent)
-          );
-          return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-        };
-        const emphasisColor = lightenColor(baseColor, 0.4); // 40% lighter
+        // Use per-chart color if set, otherwise fall back to the default blue scheme
+        // Light color is always derived from the solid to prevent hue mismatch from stale state
+        const baseColor: string = safeCustomizations.map_color_solid ?? '#1f77b4';
+        const emphasisColor: string = blendWithWhite(baseColor, 0.2);
 
         // Create color-mapped data points based on scheme
         const enhancedSeriesData = seriesData.map((item) => {
@@ -372,10 +350,8 @@ export function MapPreview({
                   realtime: false,
                   calculable: true,
                   inRange: {
-                    color: [
-                      `${baseColor}4D`, // 30% opacity
-                      baseColor, // 100% opacity
-                    ],
+                    // Gradient from pre-defined light tint → solid color
+                    color: [emphasisColor, baseColor],
                   },
                   ...positionConfig,
                   itemWidth,

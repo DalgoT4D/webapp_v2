@@ -26,6 +26,7 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { DEFAULT_CHART_PALETTE_COLORS } from '@/constants/chart-palettes';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
@@ -1199,21 +1200,14 @@ export function ChartElementView({
               },
             }
           : undefined,
-      // Use chart-specific colors, then org palette, then defaults
-      ...(baseConfig.color
-        ? {}
-        : {
-            color: branding?.chart_palette_colors ?? [
-              '#3b82f6',
-              '#10b981',
-              '#f59e0b',
-              '#ef4444',
-              '#8b5cf6',
-              '#ec4899',
-              '#14b8a6',
-              '#f97316',
-            ],
-          }),
+      // Color priority: per-chart single color → per-chart palette → org branding → default
+      // For multi-series (stacked bar, multi-line), skip single color so each series gets distinct color
+      color: (() => {
+        const isMultiSeries = Array.isArray(baseConfig.series) && baseConfig.series.length > 1;
+        if (customizations.chart_color && !isMultiSeries) return [customizations.chart_color];
+        if (customizations.color_palette_colors) return customizations.color_palette_colors;
+        return branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS;
+      })(),
       // For pie and number charts, completely remove grid and axis configurations
       ...(isPieChart || isNumberChart
         ? {

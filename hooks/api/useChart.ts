@@ -396,7 +396,7 @@ export function useMapDataOverlay(
             },
           ],
           filters: payload.filters || {},
-          dashboard_filters: payload.dashboard_filters || [],
+          dashboard_filters: payload.dashboard_filters || {},
           extra_config: payload.extra_config || {},
         }
       : null;

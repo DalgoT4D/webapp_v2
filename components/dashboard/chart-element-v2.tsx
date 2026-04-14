@@ -25,6 +25,7 @@ import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
 import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { DEFAULT_CHART_PALETTE_COLORS } from '@/constants/chart-palettes';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -839,15 +840,24 @@ export function ChartElementV2({
         // Legend is already properly positioned by applyLegendPosition and applyResponsiveLegend
         // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
         series: Array.isArray(configWithLegend.series)
-          ? configWithLegend.series.map((series: any) => ({
-              ...series,
-              label: {
-                ...series.label,
-                fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontWeight: 'normal',
-              },
-            }))
+          ? configWithLegend.series.map((series: any, idx: number) => {
+              const isMultiSeries = configWithLegend.series.length > 1;
+              const seriesColors: string[] = customizations.series_colors ?? [];
+              const hasSeriesColors = isMultiSeries && seriesColors.some(Boolean);
+              return {
+                ...series,
+                // Per-series color override for grouped bar (multi-metric)
+                ...(hasSeriesColors && seriesColors[idx]
+                  ? { itemStyle: { ...series.itemStyle, color: seriesColors[idx] } }
+                  : {}),
+                label: {
+                  ...series.label,
+                  fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  fontWeight: 'normal',
+                },
+              };
+            })
           : configWithLegend.series
             ? {
                 ...configWithLegend.series,
@@ -861,21 +871,14 @@ export function ChartElementV2({
                 },
               }
             : undefined,
-        // Use chart-specific colors, then org palette, then defaults
-        ...(chartConfig.color
-          ? {}
-          : {
-              color: branding?.chart_palette_colors ?? [
-                '#3b82f6',
-                '#10b981',
-                '#f59e0b',
-                '#ef4444',
-                '#8b5cf6',
-                '#ec4899',
-                '#14b8a6',
-                '#f97316',
-              ],
-            }),
+        // Color priority: per-chart single color → per-chart palette → org branding → default
+        // For multi-series (stacked bar, multi-line), skip single color so each series gets distinct color
+        color: (() => {
+          const isMultiSeries = Array.isArray(chartConfig.series) && chartConfig.series.length > 1;
+          if (customizations.chart_color && !isMultiSeries) return [customizations.chart_color];
+          if (customizations.color_palette_colors) return customizations.color_palette_colors;
+          return branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS;
+        })(),
         // For pie and number charts, completely remove grid and axis configurations
         ...(isPieChart || isNumberChart
           ? {

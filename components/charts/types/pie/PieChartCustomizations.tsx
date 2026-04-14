@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ChartPaletteSelector } from '../../ChartPaletteSelector';
 
 interface PieChartCustomizationsProps {
   customizations: Record<string, any>;
@@ -146,6 +147,16 @@ export function PieChartCustomizations({
             When limited, remaining slices will be grouped under "Other" category.
           </p>
         </div>
+      </div>
+
+      {/* Colors */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Colors</h4>
+        <ChartPaletteSelector
+          selectedColors={customizations.color_palette_colors ?? null}
+          onSelect={(colors) => updateCustomization('color_palette_colors', colors)}
+          disabled={disabled}
+        />
       </div>
 
       {/* Data Labels */}

@@ -51,6 +51,7 @@ export function ChartCustomizations({
           updateCustomization={updateCustomization}
           disabled={disabled}
           hasExtraDimension={!!formData.extra_dimension_column}
+          metrics={formData.metrics}
         />
       );
 
@@ -60,6 +61,7 @@ export function ChartCustomizations({
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          hasExtraDimension={!!formData.extra_dimension_column}
         />
       );
 

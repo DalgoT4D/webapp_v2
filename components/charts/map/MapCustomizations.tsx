@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { PRESET_CHART_PALETTES, blendWithWhite } from '@/constants/chart-palettes';
 
 interface MapCustomizationsProps {
   formData: any;
@@ -40,24 +42,54 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
           <CardTitle className="text-base">Color and Styling</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium">Color Scheme</Label>
-            <Select
-              value={customizations.colorScheme || 'Blues'}
-              onValueChange={(value) => updateCustomization('colorScheme', value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Blues">Blues</SelectItem>
-                <SelectItem value="Reds">Reds</SelectItem>
-                <SelectItem value="Greens">Greens</SelectItem>
-                <SelectItem value="Purples">Purples</SelectItem>
-                <SelectItem value="Oranges">Oranges</SelectItem>
-                <SelectItem value="Greys">Greys</SelectItem>
-              </SelectContent>
-            </Select>
+          <Label className="text-sm font-medium">Map Color</Label>
+
+          {/* Selected color preview — gradient from computed light to solid */}
+          {customizations.map_color_solid && (
+            <div className="flex items-center gap-3 p-2 border rounded-lg bg-gray-50">
+              <div
+                className="w-24 h-6 rounded"
+                style={{
+                  background: `linear-gradient(to right, ${blendWithWhite(customizations.map_color_solid)}, ${customizations.map_color_solid})`,
+                }}
+              />
+              <span className="text-xs text-muted-foreground">Selected range</span>
+              <button
+                type="button"
+                onClick={() => updateCustomization('map_color_solid', null)}
+                className="ml-auto text-xs text-muted-foreground underline hover:text-foreground"
+                data-testid="map-color-reset"
+              >
+                Reset
+              </button>
+            </div>
+          )}
+
+          {/* Palette-grouped solid color swatches */}
+          <div className="space-y-3">
+            {PRESET_CHART_PALETTES.map((palette) => (
+              <div key={palette.name} className="space-y-1.5">
+                <span className="text-xs text-muted-foreground">{palette.name}</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {palette.colors.map((color) => (
+                    <button
+                      key={color.solid}
+                      type="button"
+                      onClick={() => updateCustomization('map_color_solid', color.solid)}
+                      className={cn(
+                        'w-6 h-6 rounded border-2 transition-all hover:scale-110',
+                        customizations.map_color_solid === color.solid
+                          ? 'border-blue-500 ring-2 ring-blue-200 scale-110'
+                          : 'border-transparent hover:border-gray-300'
+                      )}
+                      style={{ backgroundColor: color.solid }}
+                      title={color.solid}
+                      data-testid={`map-color-${color.solid.replace('#', '')}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

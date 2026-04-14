@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -11,12 +12,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ChartColorSwatchGrid } from '../../ChartColorSwatchGrid';
+import { ChartPaletteSelector } from '../../ChartPaletteSelector';
+import type { ChartMetric } from '@/types/charts';
+import { PRESET_CHART_PALETTES } from '@/constants/chart-palettes';
+
+// Fallback default color order (first colors from default palette)
+const DEFAULT_SERIES_COLORS = PRESET_CHART_PALETTES[0].colors.map((c) => c.solid);
+
+function getMetricLabel(metric: ChartMetric): string {
+  if (metric.alias) return metric.alias;
+  const col = metric.column ?? '*';
+  return `${metric.aggregation}(${col})`;
+}
 
 interface BarChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
   hasExtraDimension?: boolean;
+  metrics?: ChartMetric[];
 }
 
 export function BarChartCustomizations({
@@ -24,7 +39,25 @@ export function BarChartCustomizations({
   updateCustomization,
   disabled,
   hasExtraDimension,
+  metrics,
 }: BarChartCustomizationsProps) {
+  const [selectedMetricIndex, setSelectedMetricIndex] = useState<number | null>(null);
+
+  const isMultiMetric = !hasExtraDimension && metrics && metrics.length > 1;
+
+  // series_colors is string[] indexed by series position
+  const seriesColors: string[] = customizations.series_colors ?? [];
+
+  const updateSeriesColor = (index: number, color: string | null) => {
+    const updated = [...seriesColors];
+    if (color) {
+      updated[index] = color;
+    } else {
+      delete updated[index];
+    }
+    updateCustomization('series_colors', updated);
+  };
+
   return (
     <div className="space-y-6">
       {/* Basic Display Options */}
@@ -225,6 +258,77 @@ export function BarChartCustomizations({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Colors */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Colors</h4>
+
+        {isMultiMetric ? (
+          // Per-metric color picker for grouped bar charts
+          <div className="space-y-2">
+            {metrics.map((metric, index) => {
+              const label = getMetricLabel(metric);
+              const currentColor =
+                seriesColors[index] ?? DEFAULT_SERIES_COLORS[index % DEFAULT_SERIES_COLORS.length];
+              const isExpanded = selectedMetricIndex === index;
+
+              return (
+                <div
+                  key={`${metric.aggregation}-${metric.column ?? '*'}`}
+                  className="rounded-lg border overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setSelectedMetricIndex(isExpanded ? null : index)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid={`metric-color-row-${index}`}
+                  >
+                    <div
+                      className="w-4 h-4 rounded-sm flex-shrink-0 border border-black/10"
+                      style={{ backgroundColor: currentColor }}
+                    />
+                    <span className="text-sm flex-1 text-left truncate">{label}</span>
+                    <span className="text-xs text-muted-foreground">{isExpanded ? '▲' : '▼'}</span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t bg-muted/20">
+                      <ChartColorSwatchGrid
+                        selectedSolid={seriesColors[index] ?? undefined}
+                        onSelect={(color) => updateSeriesColor(index, color.solid)}
+                        label={`Color for ${label}`}
+                        disabled={disabled}
+                      />
+                      {seriesColors[index] && (
+                        <button
+                          type="button"
+                          onClick={() => updateSeriesColor(index, null)}
+                          className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+                        >
+                          Reset to default
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : hasExtraDimension ? (
+          <ChartPaletteSelector
+            selectedColors={customizations.color_palette_colors ?? null}
+            onSelect={(colors) => updateCustomization('color_palette_colors', colors)}
+            disabled={disabled}
+          />
+        ) : (
+          <ChartColorSwatchGrid
+            selectedSolid={customizations.chart_color ?? undefined}
+            onSelect={(color) => updateCustomization('chart_color', color.solid || null)}
+            disabled={disabled}
+          />
+        )}
       </div>
     </div>
   );

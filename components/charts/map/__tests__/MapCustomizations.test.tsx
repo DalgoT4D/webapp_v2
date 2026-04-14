@@ -15,6 +15,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MapCustomizations } from '../MapCustomizations';
+import { PRESET_CHART_PALETTES } from '@/constants/chart-palettes';
 
 describe('MapCustomizations', () => {
   const mockOnFormDataChange = jest.fn();
@@ -64,15 +65,15 @@ describe('MapCustomizations', () => {
       expect(screen.getByText('Interactive Features')).toBeInTheDocument();
     });
 
-    it('should render all color scheme options', () => {
+    it('should render map color swatches for all palette colors', () => {
       render(
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const colorSchemeSelect = screen
-        .getByText('Color Scheme')
-        .parentElement?.parentElement?.querySelector('[role="combobox"]');
-      expect(colorSchemeSelect).toBeInTheDocument();
+      const firstColor = PRESET_CHART_PALETTES[0].colors[0];
+      expect(
+        screen.getByTestId(`map-color-${firstColor.solid.replace('#', '')}`)
+      ).toBeInTheDocument();
     });
 
     it('should display current customization values correctly', () => {
@@ -88,46 +89,64 @@ describe('MapCustomizations', () => {
   });
 
   /**
-   * Color Scheme Selection
+   * Map Color Selection
    */
-  describe('Color Scheme', () => {
-    it('should render color scheme selector', () => {
+  describe('Map Color', () => {
+    it('should render the Map Color label', () => {
       render(
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
-
-      expect(screen.getByText('Color Scheme')).toBeInTheDocument();
-
-      // Verify the select is present
-      const colorSchemeLabel = screen.getByText('Color Scheme');
-      const selectTrigger =
-        colorSchemeLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
-      expect(selectTrigger).toBeInTheDocument();
+      expect(screen.getByText('Map Color')).toBeInTheDocument();
     });
 
-    it('should support all available color schemes', () => {
+    it('should call onFormDataChange with map_color_solid when a swatch is clicked', async () => {
+      const user = userEvent.setup();
       render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
+        <MapCustomizations
+          formData={{ customizations: {} }}
+          onFormDataChange={mockOnFormDataChange}
+        />
       );
 
-      // Color schemes are defined in the component: Blues, Reds, Greens, Purples, Oranges, Greys
-      // We verify the structure renders correctly
-      expect(screen.getByText('Color Scheme')).toBeInTheDocument();
+      const color = PRESET_CHART_PALETTES[0].colors[0];
+      await user.click(screen.getByTestId(`map-color-${color.solid.replace('#', '')}`));
+
+      expect(mockOnFormDataChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customizations: expect.objectContaining({
+            map_color_solid: color.solid,
+          }),
+        })
+      );
     });
 
-    it('should display current color scheme value', () => {
-      const formDataWithReds = {
-        customizations: {
-          colorScheme: 'Reds',
-        },
-      };
-
+    it('should show gradient preview and reset button when a color is selected', () => {
       render(
-        <MapCustomizations formData={formDataWithReds} onFormDataChange={mockOnFormDataChange} />
+        <MapCustomizations
+          formData={{ customizations: { map_color_solid: '#3b82f6' } }}
+          onFormDataChange={mockOnFormDataChange}
+        />
+      );
+      expect(screen.getByText('Selected range')).toBeInTheDocument();
+      expect(screen.getByTestId('map-color-reset')).toBeInTheDocument();
+    });
+
+    it('should clear map_color_solid when reset is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <MapCustomizations
+          formData={{ customizations: { map_color_solid: '#3b82f6' } }}
+          onFormDataChange={mockOnFormDataChange}
+        />
       );
 
-      // The select should show the current value
-      expect(screen.getByText('Color Scheme')).toBeInTheDocument();
+      await user.click(screen.getByTestId('map-color-reset'));
+
+      expect(mockOnFormDataChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customizations: expect.objectContaining({ map_color_solid: null }),
+        })
+      );
     });
   });
 

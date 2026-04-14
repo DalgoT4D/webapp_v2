@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Save, X, ImageIcon, Palette, Gradient } from 'lucide-react';
+import { Save, X, ImageIcon, Palette, Blend } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface DashboardThemeSettingsProps {
@@ -177,7 +177,7 @@ export function DashboardThemeSettings({
                 })
               }
             >
-              <Gradient className="w-4 h-4 mr-2" />
+              <Blend className="w-4 h-4 mr-2" />
               Linear
             </Button>
             <Button
@@ -187,7 +187,7 @@ export function DashboardThemeSettings({
                 setBackgroundGradient({ type: 'radial', colors: ['#ffffff', '#000000'] })
               }
             >
-              <Gradient className="w-4 h-4 mr-2" />
+              <Blend className="w-4 h-4 mr-2" />
               Radial
             </Button>
             {backgroundGradient && (
