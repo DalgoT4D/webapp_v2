@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,21 +9,20 @@ import { ImageIcon, Check, X } from 'lucide-react';
 export interface ImageComponentConfig {
   imageUrl: string;
   alt?: string;
-  objectFit?: 'contain' | 'cover' | 'fill';
 }
 
 interface ImageElementProps {
   config: ImageComponentConfig;
   onUpdate: (config: ImageComponentConfig) => void;
-  onRemove?: () => void;
   isEditMode?: boolean;
 }
 
-export function ImageElement({ config, onUpdate, onRemove, isEditMode = true }: ImageElementProps) {
+export function ImageElement({ config, onUpdate, isEditMode = true }: ImageElementProps) {
   const [isEditing, setIsEditing] = useState(!config.imageUrl);
   const [tempUrl, setTempUrl] = useState(config.imageUrl || '');
   const [imageError, setImageError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const objectFit = 'contain';
 
   // Reset error state when URL changes
   useEffect(() => {
@@ -58,19 +56,21 @@ export function ImageElement({ config, onUpdate, onRemove, isEditMode = true }: 
     if (!config.imageUrl) return null;
 
     return (
-      <div ref={containerRef} className="h-full w-full flex items-center justify-center p-2">
-        <img
-          src={config.imageUrl}
-          alt={config.alt || 'Dashboard image'}
-          className="max-w-full max-h-full"
-          style={{ objectFit: config.objectFit || 'contain' }}
-          onError={() => setImageError(true)}
-        />
-        {imageError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-sm">
-            Image failed to load
-          </div>
-        )}
+      <div ref={containerRef} className="h-full w-full p-2">
+        <div className="relative h-full w-full overflow-hidden rounded-md bg-slate-50">
+          <img
+            src={config.imageUrl}
+            alt={config.alt || 'Dashboard image'}
+            className="h-full w-full"
+            style={{ objectFit }}
+            onError={() => setImageError(true)}
+          />
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-sm">
+              Image failed to load
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -115,34 +115,17 @@ export function ImageElement({ config, onUpdate, onRemove, isEditMode = true }: 
                   </Button>
                 )}
               </div>
-              {/* Object fit selector */}
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>Fit:</span>
-                {(['contain', 'cover', 'fill'] as const).map((fit) => (
-                  <button
-                    key={fit}
-                    className={`px-2 py-0.5 rounded border text-xs ${
-                      (config.objectFit || 'contain') === fit
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                    onClick={() => onUpdate({ ...config, objectFit: fit })}
-                  >
-                    {fit}
-                  </button>
-                ))}
-              </div>
             </div>
           ) : (
             <div
-              className="flex-1 flex items-center justify-center relative cursor-pointer group drag-cancel"
+              className="relative flex-1 cursor-pointer overflow-hidden rounded-md bg-slate-50 group drag-cancel"
               onClick={() => setIsEditing(true)}
             >
               <img
                 src={config.imageUrl}
                 alt={config.alt || 'Dashboard image'}
-                className="max-w-full max-h-full"
-                style={{ objectFit: config.objectFit || 'contain' }}
+                className="h-full w-full"
+                style={{ objectFit }}
                 onError={() => setImageError(true)}
               />
               {imageError && (
@@ -151,7 +134,7 @@ export function ImageElement({ config, onUpdate, onRemove, isEditMode = true }: 
                 </div>
               )}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                <span className="text-white opacity-0 group-hover:opacity-100 text-sm bg-black/50 px-2 py-1 rounded">
+                <span className="rounded bg-black/55 px-2 py-1 text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity">
                   Click to edit
                 </span>
               </div>

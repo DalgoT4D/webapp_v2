@@ -13,9 +13,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Palette,
   PaintBucket,
-  Hash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
@@ -48,7 +46,6 @@ export interface UnifiedTextConfig {
 interface UnifiedTextElementProps {
   config: UnifiedTextConfig;
   onUpdate: (config: UnifiedTextConfig) => void;
-  onRemove?: () => void;
   isEditMode?: boolean;
 }
 
@@ -84,6 +81,13 @@ const bgColorPresets = [
   { color: '#EDE9FE', name: 'Light Purple' },
 ];
 
+function toTestIdToken(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 type TextStyleWithFontVar = React.CSSProperties & {
   '--dashboard-text-font'?: string;
 };
@@ -110,20 +114,27 @@ function buildTextStyles(config: UnifiedTextConfig): React.CSSProperties {
     textDecoration: config.textDecoration,
     textAlign: config.textAlign as React.CSSProperties['textAlign'],
     color: config.color,
-    backgroundColor: config.backgroundColor || 'transparent',
     ...buildTextFontStyle(config.fontFamily),
     lineHeight: config.type === 'heading' ? '1.2' : '1.5',
     margin: 0,
-    padding: config.backgroundColor ? '8px 12px' : 0,
     wordBreak: 'break-word',
-    borderRadius: config.backgroundColor ? '4px' : undefined,
   };
+}
+
+function getTextContentJustifyClass(textAlign: UnifiedTextConfig['textAlign']) {
+  switch (textAlign) {
+    case 'left':
+      return 'justify-start';
+    case 'right':
+      return 'justify-end';
+    default:
+      return 'justify-center';
+  }
 }
 
 export function UnifiedTextElement({
   config,
   onUpdate,
-  onRemove,
   isEditMode = true,
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -162,6 +173,7 @@ export function UnifiedTextElement({
     left: number;
     width: number;
   } | null>(null);
+  const displayTextStyles = buildTextStyles(config);
 
   // Sync tempContent when config.content changes from outside (like formatting)
   useEffect(() => {
@@ -183,7 +195,7 @@ export function UnifiedTextElement({
 
     const rect = containerRef.current.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
-    const toolbarHeight = 50; // Approximate toolbar height
+    const toolbarHeight = 96; // Approximate toolbar height for the two-row editor toolbar
 
     // Check if there's space above the component
     const spaceAbove = rect.top;
@@ -427,25 +439,35 @@ export function UnifiedTextElement({
   const FloatingToolbar = () => {
     if (!toolbarPosition || !isEditing) return null;
 
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const toolbarWidth = Math.min(Math.max(toolbarPosition.width, 440), 640, viewportWidth - 20);
+    const toolbarLeft = Math.min(
+      Math.max(toolbarPosition.left, 10),
+      viewportWidth - toolbarWidth - 10
+    );
+    const pickerDirectionStyles =
+      toolbarPosition.top > 200 ? { bottom: 'calc(100% + 8px)' } : { top: 'calc(100% + 8px)' };
+    const toolbarGroupClass =
+      'flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1 py-1';
+    const toolbarIconButtonClass = 'h-7 w-7 p-0';
+
     return createPortal(
       <div
         className="fixed z-[9999] pointer-events-auto drag-cancel"
         style={{
           top: toolbarPosition.top,
-          left: toolbarPosition.left,
-          width: Math.min(toolbarPosition.width, 700),
-          minWidth: 580,
+          left: toolbarLeft,
+          width: toolbarWidth,
         }}
         data-toolbar="true"
+        data-testid="dashboard-text-toolbar"
       >
         <div
-          className="bg-white shadow-2xl rounded-lg border border-gray-200 px-3 py-2 flex items-center backdrop-blur-sm w-full"
+          className="w-full rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xl backdrop-blur-sm"
           data-toolbar="true"
         >
-          {/* Left: Quick format buttons */}
-          <div className="flex items-center gap-1 flex-1">
-            {/* Text Type */}
-            <div className="flex">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className={toolbarGroupClass}>
               {textTypePresets.map((preset) => (
                 <Button
                   key={preset.label}
@@ -465,16 +487,15 @@ export function UnifiedTextElement({
               ))}
             </div>
 
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Font Family Dropdown */}
-            <div className="flex items-center">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
               <select
+                id="dashboard-text-font-select"
                 value={getDashboardTextFontSelectValue(config.fontFamily)}
                 onChange={(e) => handleQuickFormat('fontFamily', e.target.value || undefined)}
-                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel max-w-[100px] dashboard-text-font-override"
+                className="h-7 min-w-[124px] max-w-[160px] flex-1 rounded border border-slate-200 bg-white px-2 text-xs hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel dashboard-text-font-override"
                 title="Font Family"
                 style={buildTextFontStyle(config.fontFamily)}
+                data-testid="dashboard-text-font-select"
               >
                 {FONT_OPTIONS.map((font) => (
                   <option
@@ -486,15 +507,14 @@ export function UnifiedTextElement({
                   </option>
                 ))}
               </select>
-            </div>
 
-            {/* Font Size Dropdown */}
-            <div className="flex items-center">
               <select
+                id="dashboard-text-font-size-select"
                 value={config.fontSize}
                 onChange={(e) => handleQuickFormat('fontSize', parseInt(e.target.value))}
-                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel"
+                className="h-7 w-[76px] rounded border border-slate-200 bg-white px-2 text-xs hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel"
                 title="Font Size"
+                data-testid="dashboard-text-font-size-select"
               >
                 {fontSizeOptions.map((size) => (
                   <option key={size} value={size}>
@@ -503,204 +523,220 @@ export function UnifiedTextElement({
                 ))}
               </select>
             </div>
-
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Formatting */}
-            <Button
-              size="sm"
-              variant={config.fontWeight === 'bold' ? 'default' : 'ghost'}
-              onClick={() =>
-                handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold')
-              }
-              className="h-6 px-1.5"
-              title="Bold"
-            >
-              <Bold className="w-3 h-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant={config.fontStyle === 'italic' ? 'default' : 'ghost'}
-              onClick={() =>
-                handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic')
-              }
-              className="h-6 px-1.5"
-              title="Italic"
-            >
-              <Italic className="w-3 h-3" />
-            </Button>
-
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Alignment */}
-            <Button
-              size="sm"
-              variant={config.textAlign === 'left' ? 'default' : 'ghost'}
-              onClick={() => handleQuickFormat('textAlign', 'left')}
-              className="h-6 px-1.5"
-              title="Align Left"
-            >
-              <AlignLeft className="w-3 h-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant={config.textAlign === 'center' ? 'default' : 'ghost'}
-              onClick={() => handleQuickFormat('textAlign', 'center')}
-              className="h-6 px-1.5"
-              title="Align Center"
-            >
-              <AlignCenter className="w-3 h-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant={config.textAlign === 'right' ? 'default' : 'ghost'}
-              onClick={() => handleQuickFormat('textAlign', 'right')}
-              className="h-6 px-1.5"
-              title="Align Right"
-            >
-              <AlignRight className="w-3 h-3" />
-            </Button>
           </div>
 
-          {/* Right: Color pickers */}
-          <div className="flex items-center gap-1 flex-shrink-0 relative">
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Text Color */}
-            <Button
-              size="sm"
-              variant={showColorPicker ? 'default' : 'ghost'}
-              onClick={() => {
-                setShowColorPicker(!showColorPicker);
-                setShowBgColorPicker(false);
-              }}
-              className="h-6 px-1.5 relative"
-              title="Text Color"
-            >
-              <Palette className="w-3 h-3" />
-              <div
-                className="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white"
-                style={{ backgroundColor: config.color }}
-              />
-            </Button>
-
-            {/* Background Color */}
-            <Button
-              size="sm"
-              variant={showBgColorPicker ? 'default' : 'ghost'}
-              onClick={() => {
-                setShowBgColorPicker(!showBgColorPicker);
-                setShowColorPicker(false);
-              }}
-              className="h-6 px-1.5 relative"
-              title="Background Color"
-            >
-              <PaintBucket className="w-3 h-3" />
-              {config.backgroundColor && (
-                <div
-                  className="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-gray-400"
-                  style={{ backgroundColor: config.backgroundColor }}
-                />
-              )}
-            </Button>
-
-            {/* Text Color picker dropdown */}
-            {showColorPicker && (
-              <div
-                className="absolute bg-white shadow-lg border rounded p-2 z-[10000] min-w-[120px]"
-                data-toolbar="true"
-                style={{
-                  top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
-                  bottom: toolbarPosition && toolbarPosition.top > 200 ? '100%' : 'auto',
-                  right: 0,
-                  marginTop: toolbarPosition && toolbarPosition.top <= 200 ? '8px' : '0',
-                  marginBottom: toolbarPosition && toolbarPosition.top > 200 ? '8px' : '0',
-                }}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className={toolbarGroupClass}>
+              <Button
+                size="sm"
+                variant={config.fontWeight === 'bold' ? 'default' : 'ghost'}
+                onClick={() =>
+                  handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold')
+                }
+                className={toolbarIconButtonClass}
+                title="Bold"
+                data-testid="dashboard-text-bold-btn"
               >
-                <div className="grid grid-cols-4 gap-1">
-                  {colorPresets.map((preset) => (
-                    <button
-                      key={preset.color}
-                      className={cn(
-                        'w-6 h-6 rounded border transition-all hover:scale-110',
-                        config.color === preset.color
-                          ? 'border-blue-500 scale-110'
-                          : 'border-gray-200'
-                      )}
-                      style={{ backgroundColor: preset.color }}
-                      onClick={() => {
-                        handleQuickFormat('color', preset.color);
-                        setShowColorPicker(false);
-                      }}
-                      title={preset.name}
-                    />
-                  ))}
-                </div>
-                {/* Custom color input */}
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <input
-                    type="color"
-                    value={config.color}
-                    onChange={(e) => {
-                      handleQuickFormat('color', e.target.value);
-                      setShowColorPicker(false);
-                    }}
-                    className="w-full h-6 rounded border cursor-pointer"
-                    title="Custom color"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Background Color picker dropdown */}
-            {showBgColorPicker && (
-              <div
-                className="absolute bg-white shadow-lg border rounded p-3 z-[10000] min-w-[200px]"
-                data-toolbar="true"
-                style={{
-                  top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
-                  bottom: toolbarPosition && toolbarPosition.top > 200 ? '100%' : 'auto',
-                  right: 0,
-                  marginTop: toolbarPosition && toolbarPosition.top <= 200 ? '8px' : '0',
-                  marginBottom: toolbarPosition && toolbarPosition.top > 200 ? '8px' : '0',
-                }}
+                <Bold className="w-3 h-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant={config.fontStyle === 'italic' ? 'default' : 'ghost'}
+                onClick={() =>
+                  handleQuickFormat(
+                    'fontStyle',
+                    config.fontStyle === 'italic' ? 'normal' : 'italic'
+                  )
+                }
+                className={toolbarIconButtonClass}
+                title="Italic"
+                data-testid="dashboard-text-italic-btn"
               >
-                <p className="text-xs text-gray-500 mb-2">Fill Color</p>
-                <div className="grid grid-cols-4 gap-1 mb-2">
-                  {bgColorPresets.map((preset) => (
-                    <button
-                      key={preset.color || 'none'}
-                      className={cn(
-                        'w-6 h-6 rounded border transition-all hover:scale-110',
-                        (config.backgroundColor || '') === preset.color
-                          ? 'border-blue-500 scale-110'
-                          : 'border-gray-200'
-                      )}
-                      style={{
-                        backgroundColor: preset.color || '#FFFFFF',
-                        backgroundImage: !preset.color
-                          ? 'linear-gradient(135deg, #FFFFFF 45%, #EF4444 45%, #EF4444 55%, #FFFFFF 55%)'
-                          : undefined,
-                      }}
-                      onClick={() => {
-                        handleQuickFormat('backgroundColor', preset.color);
-                        setShowBgColorPicker(false);
-                      }}
-                      title={preset.name}
-                    />
-                  ))}
-                </div>
-                <div className="pt-2 border-t border-gray-200">
-                  <HexColorPicker
-                    color={config.backgroundColor || '#FFFFFF'}
-                    onChange={(color) => {
-                      handleQuickFormat('backgroundColor', color);
-                    }}
-                    style={{ width: '100%', height: '120px' }}
+                <Italic className="w-3 h-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant={config.textDecoration === 'underline' ? 'default' : 'ghost'}
+                onClick={() =>
+                  handleQuickFormat(
+                    'textDecoration',
+                    config.textDecoration === 'underline' ? 'none' : 'underline'
+                  )
+                }
+                className={toolbarIconButtonClass}
+                title="Underline"
+                data-testid="dashboard-text-underline-btn"
+              >
+                <Underline className="w-3 h-3" />
+              </Button>
+            </div>
+
+            <div className={toolbarGroupClass}>
+              <Button
+                size="sm"
+                variant={config.textAlign === 'left' ? 'default' : 'ghost'}
+                onClick={() => handleQuickFormat('textAlign', 'left')}
+                className={toolbarIconButtonClass}
+                title="Align Left"
+                data-testid="dashboard-text-align-left-btn"
+              >
+                <AlignLeft className="w-3 h-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant={config.textAlign === 'center' ? 'default' : 'ghost'}
+                onClick={() => handleQuickFormat('textAlign', 'center')}
+                className={toolbarIconButtonClass}
+                title="Align Center"
+                data-testid="dashboard-text-align-center-btn"
+              >
+                <AlignCenter className="w-3 h-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant={config.textAlign === 'right' ? 'default' : 'ghost'}
+                onClick={() => handleQuickFormat('textAlign', 'right')}
+                className={toolbarIconButtonClass}
+                title="Align Right"
+                data-testid="dashboard-text-align-right-btn"
+              >
+                <AlignRight className="w-3 h-3" />
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1 py-1">
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant={showColorPicker ? 'default' : 'ghost'}
+                  onClick={() => {
+                    setShowColorPicker(!showColorPicker);
+                    setShowBgColorPicker(false);
+                  }}
+                  className="h-7 gap-1.5 px-2 text-xs font-medium"
+                  title="Text Color"
+                  data-testid="dashboard-text-color-btn"
+                >
+                  <Type className="w-3 h-3" />
+                  <span>Text</span>
+                  <div
+                    className="h-2.5 w-2.5 rounded-full border border-white/70"
+                    style={{ backgroundColor: config.color }}
                   />
-                </div>
+                </Button>
+
+                {showColorPicker && (
+                  <div
+                    className="absolute left-0 z-[10000] min-w-[120px] rounded border bg-white p-2 shadow-lg"
+                    data-toolbar="true"
+                    style={pickerDirectionStyles}
+                  >
+                    <div className="grid grid-cols-4 gap-1">
+                      {colorPresets.map((preset) => (
+                        <button
+                          key={preset.color}
+                          type="button"
+                          className={cn(
+                            'h-6 w-6 rounded border transition-all hover:scale-110',
+                            config.color === preset.color
+                              ? 'scale-110 border-blue-500'
+                              : 'border-gray-200'
+                          )}
+                          style={{ backgroundColor: preset.color }}
+                          onClick={() => {
+                            handleQuickFormat('color', preset.color);
+                            setShowColorPicker(false);
+                          }}
+                          title={preset.name}
+                          data-testid={`dashboard-text-color-preset-${toTestIdToken(preset.name)}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="mt-2 border-t border-gray-200 pt-2">
+                      <input
+                        id="dashboard-text-color-input"
+                        type="color"
+                        value={config.color}
+                        onChange={(e) => {
+                          handleQuickFormat('color', e.target.value);
+                          setShowColorPicker(false);
+                        }}
+                        className="h-6 w-full cursor-pointer rounded border"
+                        title="Custom color"
+                        data-testid="dashboard-text-color-input"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant={showBgColorPicker ? 'default' : 'ghost'}
+                  onClick={() => {
+                    setShowBgColorPicker(!showBgColorPicker);
+                    setShowColorPicker(false);
+                  }}
+                  className="h-7 gap-1.5 px-2 text-xs font-medium"
+                  title="Fill Color"
+                  data-testid="dashboard-text-fill-btn"
+                >
+                  <PaintBucket className="w-3 h-3" />
+                  <span>Fill</span>
+                  <div
+                    className="h-2.5 w-2.5 rounded-full border border-slate-300"
+                    style={{ backgroundColor: config.backgroundColor || '#FFFFFF' }}
+                  />
+                </Button>
+
+                {showBgColorPicker && (
+                  <div
+                    className="absolute right-0 z-[10000] min-w-[200px] rounded border bg-white p-3 shadow-lg"
+                    data-toolbar="true"
+                    style={pickerDirectionStyles}
+                  >
+                    <p className="mb-2 text-xs text-gray-500">Fill Color</p>
+                    <div className="mb-2 grid grid-cols-4 gap-1">
+                      {bgColorPresets.map((preset) => (
+                        <button
+                          key={preset.color || 'none'}
+                          type="button"
+                          className={cn(
+                            'h-6 w-6 rounded border transition-all hover:scale-110',
+                            (config.backgroundColor || '') === preset.color
+                              ? 'scale-110 border-blue-500'
+                              : 'border-gray-200'
+                          )}
+                          style={{
+                            backgroundColor: preset.color || '#FFFFFF',
+                            backgroundImage: !preset.color
+                              ? 'linear-gradient(135deg, #FFFFFF 45%, #EF4444 45%, #EF4444 55%, #FFFFFF 55%)'
+                              : undefined,
+                          }}
+                          onClick={() => {
+                            handleQuickFormat('backgroundColor', preset.color);
+                            setShowBgColorPicker(false);
+                          }}
+                          title={preset.name}
+                          data-testid={`dashboard-text-fill-preset-${toTestIdToken(preset.name)}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="border-t border-gray-200 pt-2">
+                      <HexColorPicker
+                        color={config.backgroundColor || '#FFFFFF'}
+                        onChange={(color) => {
+                          handleQuickFormat('backgroundColor', color);
+                        }}
+                        style={{ width: '100%', height: '120px' }}
+                        data-testid="dashboard-text-fill-custom-picker"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>,
@@ -714,13 +750,12 @@ export function UnifiedTextElement({
 
     if (!content) return null; // Don't render empty text in preview
 
-    const textStyles = buildTextStyles(config);
-
     return (
       <div
         ref={containerRef}
-        className="h-full w-full flex items-center justify-center p-4"
+        className="h-full w-full p-4 flex items-center"
         onClick={startEditing}
+        data-testid="dashboard-text-preview-surface"
         style={
           config.backgroundColor
             ? { backgroundColor: config.backgroundColor, borderRadius: '4px' }
@@ -728,28 +763,32 @@ export function UnifiedTextElement({
         }
       >
         {config.content ? (
-          config.type === 'heading' ? (
-            (() => {
-              const Tag = `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
-              return (
-                <Tag
-                  className="whitespace-pre-wrap break-words w-full dashboard-text-font-override"
-                  style={textStyles}
-                >
-                  {config.content}
-                </Tag>
-              );
-            })()
-          ) : (
-            <div
-              className="whitespace-pre-wrap break-words w-full dashboard-text-font-override"
-              style={textStyles}
-            >
-              {config.content}
-            </div>
-          )
+          <div className={cn('flex w-full', getTextContentJustifyClass(config.textAlign))}>
+            {config.type === 'heading' ? (
+              (() => {
+                const Tag = `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
+                return (
+                  <Tag
+                    className="inline-block max-w-full whitespace-pre-wrap break-words dashboard-text-font-override"
+                    style={displayTextStyles}
+                  >
+                    {config.content}
+                  </Tag>
+                );
+              })()
+            ) : (
+              <div
+                className="inline-block max-w-full whitespace-pre-wrap break-words dashboard-text-font-override"
+                style={displayTextStyles}
+              >
+                {config.content}
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="text-gray-400 italic text-sm">Click to add text...</div>
+          <div className="w-full text-center text-gray-400 italic text-sm">
+            Click to add text...
+          </div>
         )}
       </div>
     );
@@ -764,6 +803,7 @@ export function UnifiedTextElement({
       <div ref={containerRef} className="h-full w-full">
         <Card
           className="h-full w-full flex flex-col"
+          data-testid="dashboard-text-edit-surface"
           style={config.backgroundColor ? { backgroundColor: config.backgroundColor } : undefined}
         >
           <CardContent className="p-4 flex-1 flex flex-col min-h-0">
@@ -774,88 +814,97 @@ export function UnifiedTextElement({
                 !config.content && 'justify-center'
               )}
               onClick={startEditing}
+              data-testid="dashboard-text-content"
             >
               {isEditing ? (
-                <textarea
-                  ref={textareaRef}
-                  value={tempContent}
-                  onChange={(e) => setTempContent(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onBlur={(e) => {
-                    // Don't exit if clicking on toolbar elements
-                    const relatedTarget = e.relatedTarget as HTMLElement;
-                    if (
-                      relatedTarget &&
-                      (relatedTarget.closest('.drag-cancel') ||
-                        relatedTarget.closest('[data-toolbar]'))
-                    ) {
-                      return;
-                    }
-
-                    // Auto-save content and exit editing after a delay
-                    setTimeout(() => {
-                      // Only exit if focus has truly moved away from the component and we're not clicking on the textarea itself
-                      const activeElement = document.activeElement;
-                      const isStillFocusedOnComponent =
-                        containerRef.current?.contains(activeElement);
-                      const isStillFocusedOnTextarea = activeElement === textareaRef.current;
-
-                      if (!isStillFocusedOnComponent && !isStillFocusedOnTextarea) {
-                        // Always save the current content, even if empty
-                        updateWithContentConstraints({ ...config, content: tempContent });
-                        setIsEditing(false);
-                        setShowColorPicker(false);
-                        setShowBgColorPicker(false);
-                        setToolbarPosition(null);
+                <div className={cn('flex w-full', getTextContentJustifyClass(config.textAlign))}>
+                  <textarea
+                    id="dashboard-text-textarea"
+                    ref={textareaRef}
+                    value={tempContent}
+                    onChange={(e) => setTempContent(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={(e) => {
+                      // Don't exit if clicking on toolbar elements
+                      const relatedTarget = e.relatedTarget as HTMLElement;
+                      if (
+                        relatedTarget &&
+                        (relatedTarget.closest('.drag-cancel') ||
+                          relatedTarget.closest('[data-toolbar]'))
+                      ) {
+                        return;
                       }
-                    }, 200);
-                  }}
-                  className="resize-none border-none outline-none bg-transparent drag-cancel w-full text-center dashboard-text-font-override"
-                  style={{
-                    fontSize: `${config.fontSize}px`,
-                    fontWeight: config.fontWeight,
-                    fontStyle: config.fontStyle,
-                    textDecoration: config.textDecoration,
-                    textAlign: config.textAlign as React.CSSProperties['textAlign'],
-                    color: config.color,
-                    ...buildTextFontStyle(config.fontFamily),
-                    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                    margin: 0,
-                    outline: 'none',
-                    wordBreak: 'break-word',
-                    resize: 'none',
-                    border: 'none',
-                    padding: 0,
-                    height: 'auto',
-                    minHeight: 'auto',
-                    overflow: 'visible',
-                  }}
-                  placeholder="Start typing..."
-                />
+
+                      // Auto-save content and exit editing after a delay
+                      setTimeout(() => {
+                        // Only exit if focus has truly moved away from the component and we're not clicking on the textarea itself
+                        const activeElement = document.activeElement;
+                        const isStillFocusedOnComponent =
+                          containerRef.current?.contains(activeElement);
+                        const isStillFocusedOnTextarea = activeElement === textareaRef.current;
+
+                        if (!isStillFocusedOnComponent && !isStillFocusedOnTextarea) {
+                          // Always save the current content, even if empty
+                          updateWithContentConstraints({ ...config, content: tempContent });
+                          setIsEditing(false);
+                          setShowColorPicker(false);
+                          setShowBgColorPicker(false);
+                          setToolbarPosition(null);
+                        }
+                      }, 200);
+                    }}
+                    className="resize-none border-none outline-none bg-transparent drag-cancel w-full dashboard-text-font-override"
+                    style={{
+                      fontSize: `${config.fontSize}px`,
+                      fontWeight: config.fontWeight,
+                      fontStyle: config.fontStyle,
+                      textDecoration: config.textDecoration,
+                      textAlign: config.textAlign as React.CSSProperties['textAlign'],
+                      color: config.color,
+                      ...buildTextFontStyle(config.fontFamily),
+                      lineHeight: config.type === 'heading' ? '1.2' : '1.5',
+                      margin: 0,
+                      outline: 'none',
+                      wordBreak: 'break-word',
+                      resize: 'none',
+                      border: 'none',
+                      padding: 0,
+                      height: 'auto',
+                      minHeight: 'auto',
+                      overflow: 'visible',
+                    }}
+                    placeholder="Start typing..."
+                    data-testid="dashboard-text-textarea"
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   {config.content ? (
-                    config.type === 'heading' ? (
-                      (() => {
-                        const Tag =
-                          `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
-                        return (
-                          <Tag
-                            className="whitespace-pre-wrap break-words w-full text-center dashboard-text-font-override"
-                            style={buildTextStyles(config)}
-                          >
-                            {config.content}
-                          </Tag>
-                        );
-                      })()
-                    ) : (
-                      <div
-                        className="whitespace-pre-wrap break-words w-full text-center dashboard-text-font-override"
-                        style={buildTextStyles(config)}
-                      >
-                        {config.content}
-                      </div>
-                    )
+                    <div
+                      className={cn('flex w-full', getTextContentJustifyClass(config.textAlign))}
+                    >
+                      {config.type === 'heading' ? (
+                        (() => {
+                          const Tag =
+                            `h${config.headingLevel || 2}` as keyof React.JSX.IntrinsicElements;
+                          return (
+                            <Tag
+                              className="inline-block max-w-full whitespace-pre-wrap break-words dashboard-text-font-override"
+                              style={displayTextStyles}
+                            >
+                              {config.content}
+                            </Tag>
+                          );
+                        })()
+                      ) : (
+                        <div
+                          className="inline-block max-w-full whitespace-pre-wrap break-words dashboard-text-font-override"
+                          style={displayTextStyles}
+                        >
+                          {config.content}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="text-gray-400 italic text-sm">Click to add text...</div>
                   )}

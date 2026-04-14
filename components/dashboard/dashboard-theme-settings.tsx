@@ -8,10 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Save, X, ImageIcon, Palette, Blend, SlidersHorizontal } from 'lucide-react';
+import { Save, X, ImageIcon, PaintBucket, Blend } from 'lucide-react';
 import {
   buildDashboardBackgroundImageStyle,
-  buildDashboardOverlayStyle,
   buildDashboardSurfaceStyle,
   DASHBOARD_THEME_LINEAR_DIRECTIONS,
   normalizeDashboardTheme,
@@ -35,8 +34,6 @@ const SOLID_PRESETS = [
   '#111827f2',
   '#0f172ae6',
 ] as const;
-
-const OVERLAY_PRESETS = ['#0f172a', '#111827', '#1e293b', '#134e4a', '#7f1d1d', '#4c1d95'] as const;
 
 const GRADIENT_PRESETS: { label: string; gradient: DashboardThemeGradient }[] = [
   {
@@ -75,6 +72,13 @@ const GRADIENT_PRESETS: { label: string; gradient: DashboardThemeGradient }[] = 
 const HEX_WITH_ALPHA = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const HEX_OPAQUE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+function toTestIdToken(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function toPickerColor(value: string | null | undefined, fallback: string, allowAlpha: boolean) {
   const trimmed = value?.trim();
 
@@ -94,22 +98,26 @@ function toPickerColor(value: string | null | undefined, fallback: string, allow
 }
 
 interface ColorEditorProps {
+  inputId: string;
   label: string;
   description: string;
   value: string;
   onChange: (value: string) => void;
   fallback: string;
   presets: readonly string[];
+  testIdPrefix: string;
   allowAlpha?: boolean;
 }
 
 function ColorEditor({
+  inputId,
   label,
   description,
   value,
   onChange,
   fallback,
   presets,
+  testIdPrefix,
   allowAlpha = true,
 }: ColorEditorProps) {
   const pickerValue = useMemo(
@@ -121,7 +129,7 @@ function ColorEditor({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1">
-          <Label>{label}</Label>
+          <Label htmlFor={inputId}>{label}</Label>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
         <div className="flex min-w-[150px] items-center gap-2 rounded-md border bg-background px-3 py-2">
@@ -130,11 +138,13 @@ function ColorEditor({
             style={{ backgroundColor: pickerValue }}
           />
           <HexColorInput
+            id={inputId}
             alpha={allowAlpha}
             color={pickerValue}
             onChange={onChange}
             prefixed
             className="w-full bg-transparent text-sm outline-none"
+            data-testid={`${testIdPrefix}-input`}
           />
         </div>
       </div>
@@ -152,14 +162,25 @@ function ColorEditor({
             }`}
             style={{ backgroundColor: preset }}
             onClick={() => onChange(preset)}
+            data-testid={`${testIdPrefix}-preset-${toTestIdToken(preset)}`}
           />
         ))}
       </div>
 
       {allowAlpha ? (
-        <HexAlphaColorPicker color={pickerValue} onChange={onChange} style={{ width: '100%' }} />
+        <HexAlphaColorPicker
+          color={pickerValue}
+          onChange={onChange}
+          style={{ width: '100%' }}
+          data-testid={`${testIdPrefix}-alpha-picker`}
+        />
       ) : (
-        <HexColorPicker color={pickerValue} onChange={onChange} style={{ width: '100%' }} />
+        <HexColorPicker
+          color={pickerValue}
+          onChange={onChange}
+          style={{ width: '100%' }}
+          data-testid={`${testIdPrefix}-color-picker`}
+        />
       )}
     </div>
   );
@@ -191,13 +212,6 @@ export function DashboardThemeSettings({
   const [backgroundImageBlur, setBackgroundImageBlur] = useState(
     initialTheme.theme_background_image_blur
   );
-  const [overlayEnabled, setOverlayEnabled] = useState(
-    Boolean(initialTheme.theme_overlay_color && initialTheme.theme_overlay_opacity > 0)
-  );
-  const [overlayColor, setOverlayColor] = useState(
-    toPickerColor(initialTheme.theme_overlay_color, '#0f172a', false)
-  );
-  const [overlayOpacity, setOverlayOpacity] = useState(initialTheme.theme_overlay_opacity || 0.35);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -209,8 +223,8 @@ export function DashboardThemeSettings({
         theme_background_image_url: backgroundImageUrl.trim() || null,
         theme_background_image_blur: backgroundImageBlur,
         theme_chart_opacity: initialTheme.theme_chart_opacity,
-        theme_overlay_color: overlayEnabled ? overlayColor : null,
-        theme_overlay_opacity: overlayEnabled ? overlayOpacity : 0,
+        theme_overlay_color: null,
+        theme_overlay_opacity: 0,
       }),
     [
       backgroundColor,
@@ -219,9 +233,6 @@ export function DashboardThemeSettings({
       backgroundImageUrl,
       fillMode,
       initialTheme.theme_chart_opacity,
-      overlayColor,
-      overlayEnabled,
-      overlayOpacity,
     ]
   );
 
@@ -230,7 +241,6 @@ export function DashboardThemeSettings({
     () => buildDashboardBackgroundImageStyle(draftTheme),
     [draftTheme]
   );
-  const overlayStyle = useMemo(() => buildDashboardOverlayStyle(draftTheme), [draftTheme]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -255,12 +265,11 @@ export function DashboardThemeSettings({
     <div className="space-y-6">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Palette className="w-5 h-5" />
+          <PaintBucket className="w-5 h-5" />
           Dashboard Background
         </DialogTitle>
         <p className="text-sm text-muted-foreground">
-          Set a per-dashboard background with solid colors, transparency, gradients, and optional
-          image styling.
+          Set the dashboard background and preview how chart surfaces sit on top of it.
         </p>
       </DialogHeader>
 
@@ -269,39 +278,32 @@ export function DashboardThemeSettings({
           <div className="space-y-1">
             <Label>Preview</Label>
             <p className="text-xs text-muted-foreground">
-              This reflects how the dashboard canvas will look behind charts and text blocks. Chart
-              cards stay white by default unless you change a panel background explicitly.
+              A compact preview of the canvas background behind a default chart card.
             </p>
           </div>
 
           <div
-            className="relative overflow-hidden rounded-xl border border-slate-200 bg-white"
+            className="relative mx-auto max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white"
             style={surfacePreviewStyle}
+            data-testid="dashboard-background-preview"
           >
             {backgroundImageStyle && <div aria-hidden="true" style={backgroundImageStyle} />}
-            {overlayStyle && <div aria-hidden="true" style={overlayStyle} />}
 
-            <div className="relative z-10 grid gap-3 p-4 md:grid-cols-[1.4fr_1fr]">
-              <div className="rounded-lg border border-white/50 bg-white p-4 shadow-sm backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Primary Card</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">42.7%</p>
-                <p className="mt-2 text-sm text-slate-600">
-                  Example chart and KPI cards keep their content readable over the background.
+            <div className="relative z-10 p-4">
+              <div className="mx-auto max-w-sm rounded-lg border border-white/60 bg-white p-4 shadow-sm backdrop-blur-sm">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Chart Surface</p>
+                <div className="mt-4 flex h-20 items-end gap-2">
+                  {[30, 50, 44, 66, 38, 58].map((height, index) => (
+                    <div
+                      key={height}
+                      className={`flex-1 rounded-t-md ${index % 2 === 0 ? 'bg-slate-800/80' : 'bg-slate-400/70'}`}
+                      style={{ height }}
+                    />
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-slate-600">
+                  The background stays behind the chart while the chart surface remains readable.
                 </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="rounded-lg border border-white/50 bg-white p-4 shadow-sm backdrop-blur-sm">
-                  <p className="text-sm font-medium text-slate-900">Secondary Panel</p>
-                  <div className="mt-3 flex gap-2">
-                    <div className="h-14 flex-1 rounded-md bg-slate-900/10" />
-                    <div className="h-14 w-16 rounded-md bg-slate-900/20" />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-white/50 bg-white/50 p-4 text-sm text-slate-600 backdrop-blur-sm">
-                  Filters, notes, and text elements remain above the themed background.
-                </div>
               </div>
             </div>
           </div>
@@ -322,14 +324,16 @@ export function DashboardThemeSettings({
               type="button"
               variant={fillMode === 'solid' ? 'default' : 'outline'}
               onClick={() => setFillMode('solid')}
+              data-testid="dashboard-background-fill-solid-btn"
             >
-              <Palette className="mr-2 h-4 w-4" />
+              <PaintBucket className="mr-2 h-4 w-4" />
               Solid
             </Button>
             <Button
               type="button"
               variant={fillMode === 'gradient' ? 'default' : 'outline'}
               onClick={() => setFillMode('gradient')}
+              data-testid="dashboard-background-fill-gradient-btn"
             >
               <Blend className="mr-2 h-4 w-4" />
               Gradient
@@ -338,12 +342,14 @@ export function DashboardThemeSettings({
 
           {fillMode === 'solid' ? (
             <ColorEditor
+              inputId="dashboard-background-color-input"
               label="Background Color"
               description="Pick the base color for this dashboard. Alpha lets you create soft translucent backgrounds."
               value={backgroundColor}
               onChange={setBackgroundColor}
               fallback="#ffffffff"
               presets={SOLID_PRESETS}
+              testIdPrefix="dashboard-background-color"
             />
           ) : (
             <div className="space-y-5">
@@ -365,6 +371,7 @@ export function DashboardThemeSettings({
                         setFillMode('gradient');
                         setBackgroundGradient(preset.gradient);
                       }}
+                      data-testid={`dashboard-background-gradient-preset-${toTestIdToken(preset.label)}-btn`}
                     >
                       <div
                         className="h-14"
@@ -394,6 +401,7 @@ export function DashboardThemeSettings({
                       direction: currentGradient.direction || '180deg',
                     }))
                   }
+                  data-testid="dashboard-background-gradient-linear-btn"
                 >
                   <Blend className="mr-2 h-4 w-4" />
                   Linear
@@ -408,6 +416,7 @@ export function DashboardThemeSettings({
                       direction: null,
                     }))
                   }
+                  data-testid="dashboard-background-gradient-radial-btn"
                 >
                   <Blend className="mr-2 h-4 w-4" />
                   Radial
@@ -432,6 +441,7 @@ export function DashboardThemeSettings({
                             direction: direction.value,
                           }))
                         }
+                        data-testid={`dashboard-background-direction-${toTestIdToken(direction.label)}-btn`}
                       >
                         {direction.label}
                       </Button>
@@ -447,6 +457,7 @@ export function DashboardThemeSettings({
                     type="button"
                     variant={activeGradientStop === index ? 'default' : 'outline'}
                     onClick={() => setActiveGradientStop(index as 0 | 1)}
+                    data-testid={`dashboard-background-gradient-stop-${index === 0 ? 'start' : 'end'}-btn`}
                   >
                     {label}
                   </Button>
@@ -454,6 +465,11 @@ export function DashboardThemeSettings({
               </div>
 
               <ColorEditor
+                inputId={
+                  activeGradientStop === 0
+                    ? 'dashboard-background-gradient-start-input'
+                    : 'dashboard-background-gradient-end-input'
+                }
                 label={activeGradientStop === 0 ? 'Start Color' : 'End Color'}
                 description="Both gradient stops support transparency, so you can create soft, layered canvases."
                 value={backgroundGradient.colors[activeGradientStop]}
@@ -468,6 +484,11 @@ export function DashboardThemeSettings({
                 }
                 fallback={activeGradientStop === 0 ? '#ffffffff' : '#dbeafeff'}
                 presets={SOLID_PRESETS}
+                testIdPrefix={
+                  activeGradientStop === 0
+                    ? 'dashboard-background-gradient-start'
+                    : 'dashboard-background-gradient-end'
+                }
               />
             </div>
           )}
@@ -491,6 +512,7 @@ export function DashboardThemeSettings({
               onChange={(event) => setBackgroundImageUrl(event.target.value)}
               placeholder="https://example.com/background.jpg"
               className="flex-1"
+              data-testid="dashboard-background-image-input"
             />
             {backgroundImageUrl && (
               <Button
@@ -499,6 +521,7 @@ export function DashboardThemeSettings({
                 size="sm"
                 onClick={() => setBackgroundImageUrl('')}
                 title="Remove background image"
+                data-testid="dashboard-background-image-remove-btn"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -514,63 +537,10 @@ export function DashboardThemeSettings({
                 min={0}
                 max={24}
                 step={1}
+                data-testid="dashboard-background-image-blur-slider"
               />
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-5 p-5">
-          <div className="flex items-center gap-2 text-slate-900">
-            <SlidersHorizontal className="h-4 w-4" />
-            <Label>Overlay</Label>
-          </div>
-
-          <div className="space-y-4 rounded-xl border border-dashed border-slate-200 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="space-y-1">
-                <Label>Overlay Tint</Label>
-                <p className="text-xs text-muted-foreground">
-                  Add a subtle tint over the background when you need more contrast.
-                </p>
-              </div>
-
-              <Button
-                type="button"
-                variant={overlayEnabled ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setOverlayEnabled((currentValue) => !currentValue)}
-              >
-                {overlayEnabled ? 'Overlay On' : 'Overlay Off'}
-              </Button>
-            </div>
-
-            {overlayEnabled && (
-              <div className="space-y-5">
-                <ColorEditor
-                  label="Overlay Color"
-                  description="A readable tint that sits above the image or fill, but below charts."
-                  value={overlayColor}
-                  onChange={setOverlayColor}
-                  fallback="#0f172a"
-                  presets={OVERLAY_PRESETS}
-                  allowAlpha={false}
-                />
-
-                <div className="space-y-2">
-                  <Label>Overlay Opacity: {(overlayOpacity * 100).toFixed(0)}%</Label>
-                  <Slider
-                    value={[overlayOpacity]}
-                    onValueChange={([value]) => setOverlayOpacity(value)}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 
@@ -578,11 +548,21 @@ export function DashboardThemeSettings({
 
       <div className="flex justify-end gap-2 border-t pt-4">
         {onClose && (
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            data-testid="dashboard-background-cancel-btn"
+          >
             Cancel
           </Button>
         )}
-        <Button type="button" onClick={handleSave} disabled={isSaving}>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving}
+          data-testid="dashboard-background-save-btn"
+        >
           <Save className="mr-2 h-4 w-4" />
           {isSaving ? 'Saving...' : 'Save Background'}
         </Button>

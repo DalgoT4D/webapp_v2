@@ -25,8 +25,8 @@ import {
   refreshDashboardLock,
   updateDashboardFilter,
   createDashboardFilter,
-  deleteDashboardFilter,
   useDashboard,
+  type DashboardFilter,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -58,29 +58,26 @@ import {
   LayoutGrid,
   AlignLeft,
   ImageIcon,
-  Palette,
+  PaintBucket,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
-import { UnifiedTextElement } from './text-element-unified';
-import type { UnifiedTextConfig } from './text-element-unified';
-import { ImageElement } from './image-element';
-import type { ImageComponentConfig } from './image-element';
+import { UnifiedTextElement, type UnifiedTextConfig } from './text-element-unified';
+import { ImageElement, type ImageComponentConfig } from './image-element';
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardThemeSettings } from './dashboard-theme-settings';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
 import { GridGuides } from './GridGuides';
-import { DashboardFilterType } from '@/types/dashboard-filters';
-import type {
-  CreateFilterPayload,
-  DashboardFilterConfig,
-  ValueFilterSettings,
-  NumericalFilterSettings,
-  DateTimeFilterSettings,
+import {
+  DashboardFilterType,
+  type CreateFilterPayload,
+  type DashboardFilterConfig,
+  type ValueFilterSettings,
+  type NumericalFilterSettings,
+  type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
-import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import {
   buildDashboardBackgroundImageStyle,
   buildDashboardOverlayStyle,
@@ -179,16 +176,6 @@ interface DashboardLayout {
   maxH?: number;
 }
 
-// Define responsive breakpoints and column configurations
-// Superset-style: Always 12 columns, they just scale with container width
-const BREAKPOINTS = {
-  lg: 1200,
-  md: 996,
-  sm: 768,
-  xs: 480,
-  xxs: 0,
-};
-
 // Fixed 12 columns at all breakpoints - columns scale with container width
 const COLS = {
   lg: 12,
@@ -264,7 +251,7 @@ interface DashboardBuilderV2Ref {
 
 // Helper function to adjust layout for different column counts
 // With fixed 12 columns (Superset-style), this simply returns the original layout
-function getAdjustedLayout(layout: DashboardLayout[], _targetCols: number): DashboardLayout[] {
+function getAdjustedLayout(layout: DashboardLayout[]): DashboardLayout[] {
   if (!layout || layout.length === 0) return layout;
 
   // Since we always use 12 columns (Superset-style), just return the original layout
@@ -455,13 +442,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Applied filters state - only updates when filters are applied (causes chart re-renders)
     const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
 
-    // Get initial target screen size from initialData, default to desktop
+    // Target screen size currently follows the saved dashboard config.
     const initialTargetScreenSize: ScreenSizeKey =
       (initialData?.target_screen_size as ScreenSizeKey) || 'desktop';
-
-    // Target screen size state (separate from undo/redo state)
-    const [targetScreenSize, setTargetScreenSize] =
-      useState<ScreenSizeKey>(initialTargetScreenSize);
+    const targetScreenSize = initialTargetScreenSize;
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
@@ -469,7 +453,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(
       null
     );
-    const [isSaving, setIsSaving] = useState(false);
+    const [, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isLocked, setIsLocked] = useState(false);
@@ -490,17 +474,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       lockStateRef.current = { dashboardId, lockToken, lockRefreshInterval };
     }, [dashboardId, lockToken, lockRefreshInterval]);
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
-    const [description, setDescription] = useState(initialData?.description || '');
+    const [description] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
-    const [showSettings, setShowSettings] = useState(false);
     const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
     const [dashboardTheme, setDashboardTheme] = useState<DashboardThemeConfig>(() =>
       normalizeDashboardTheme(initialData)
     );
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
-    const [containerWidth, setContainerWidth] = useState(
-      SCREEN_SIZES[targetScreenSize]?.width || 1200
-    );
     const [actualContainerWidth, setActualContainerWidth] = useState(
       SCREEN_SIZES[targetScreenSize]?.width || 1200
     );
@@ -542,11 +522,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       Math.max(currentScreenConfig.height, 400)
     );
 
-    // Filter layout state with responsive behavior
-    const [userFilterLayoutChoice, setUserFilterLayoutChoice] = useState<'vertical' | 'horizontal'>(
-      (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
-    );
-
     // Effective filter layout (combines user choice with responsive logic)
     // For desktop: always use vertical (sidebar), for mobile/tablet: use horizontal (top bar)
     const filterLayout = responsive.isDesktop ? 'vertical' : 'horizontal';
@@ -562,7 +537,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         if (!canvasRef.current || !dashboardContainerRef.current) return;
 
         const canvas = canvasRef.current;
-        const dashboardContainer = dashboardContainerRef.current;
 
         // Find the newly added component element
         const componentElement = canvas.querySelector(`[data-component-id="${componentId}"]`);
@@ -605,19 +579,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Debounced state for auto-save (keep original 5-second delay for responsive auto-save)
     const debouncedState = useDebounce(state, 5000);
 
-    // Update container width when target screen size changes
-    useEffect(() => {
-      const newWidth = SCREEN_SIZES[targetScreenSize].width;
-      setContainerWidth(newWidth);
-      setActualContainerWidth(newWidth);
-    }, [targetScreenSize]);
-
     // Sync dashboardActualHeight when screen config changes (ResizeObserver may not fire on config change)
     useEffect(() => {
       setDashboardActualHeight((prevHeight) =>
         Math.max(prevHeight, currentScreenConfig.height, 400)
       );
-    }, [currentScreenConfig.height, targetScreenSize]);
+    }, [currentScreenConfig.height]);
 
     // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
@@ -642,25 +609,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return () => {
         resizeObserver.disconnect();
       };
-    }, [containerWidth, currentScreenConfig.height]);
-
-    // Save target screen size changes (separate from auto-save to avoid conflicts)
-    useEffect(() => {
-      // Only save if this is not the initial render and we have a dashboard ID
-      if (dashboardId && targetScreenSize !== initialTargetScreenSize) {
-        const timeoutId = setTimeout(async () => {
-          try {
-            await saveDashboard();
-          } catch (error) {
-            console.error('Error saving target screen size:', error);
-          }
-        }, 500); // Longer delay to ensure it doesn't conflict with other saves
-
-        return () => clearTimeout(timeoutId);
-      }
-      // Return undefined when condition is not met
-      return undefined;
-    }, [targetScreenSize, dashboardId]); // Keep the dependency but add initial value check
+    }, [currentScreenConfig.height]);
 
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
@@ -679,7 +628,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Set up cleanup event listeners once (use refs to access latest values)
     useEffect(() => {
       // Handle page unload/navigation
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const handleBeforeUnload = () => {
         // Use current values from ref
         const { dashboardId: currentDashboardId, lockToken: currentLockToken } =
           lockStateRef.current;
@@ -1110,12 +1059,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
-    // Handle breakpoint changes
-    const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-    const handleBreakpointChange = (newBreakpoint: string) => {
-      setCurrentBreakpoint(newBreakpoint);
-    };
-
     // Track if we're currently resizing
     const [isResizing, setIsResizing] = useState(false);
 
@@ -1245,7 +1188,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         let chartDetails;
         try {
           chartDetails = await apiGet(`/api/charts/${chartId}/`);
-        } catch (error) {
+        } catch {
           chartDetails = {
             id: chartId,
             title: `Chart #${chartId}`,
@@ -1302,7 +1245,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         // Smart scroll to show the newly added component if needed
         scrollToComponentIfNeeded(newComponent.id);
-      } catch (error) {
+      } catch {
         console.error('Failed to add chart');
       }
     };
@@ -1382,7 +1325,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         config: {
           imageUrl: '',
           alt: '',
-          objectFit: 'contain',
         } as ImageComponentConfig,
       };
 
@@ -1447,15 +1389,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setAppliedFilters({});
     };
 
-    // Handle filter layout changes
-    const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
-      setUserFilterLayoutChoice(newLayout);
-      // Auto-save the layout preference (only save user's choice, not responsive overrides)
-      saveDashboard({ filter_layout: newLayout }).catch((error) => {
-        console.error('❌ Failed to save filter layout:', error);
-      });
-    };
-
     // Add filter
     const handleFilterSave = async (
       filterPayload: CreateFilterPayload | any,
@@ -1477,11 +1410,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           };
 
           // Use the new typed API function that returns complete filter data
-          const updatedFilterFromAPI = await updateDashboardFilter(
-            dashboardId,
-            filterId,
-            updateData
-          );
+          await updateDashboardFilter(dashboardId, filterId, updateData);
 
           // Note: Filter components will handle their own state updates
 
@@ -1507,21 +1436,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       try {
         // Create filter in database first using typed API
-        const newFilterFromAPI = await createDashboardFilter(dashboardId, {
+        await createDashboardFilter(dashboardId, {
           name: filterPayload.name,
           filter_type: filterPayload.filter_type,
           schema_name: filterPayload.schema_name,
           table_name: filterPayload.table_name,
           column_name: filterPayload.column_name,
           settings: filterPayload.settings,
-        });
-
-        // Convert API response to frontend config format (no position needed)
-        const filterConfig = convertFilterToConfig(newFilterFromAPI, {
-          x: 0,
-          y: 0,
-          w: 4,
-          h: 3,
         });
 
         // Note: Filter components will handle their own state updates
@@ -1535,23 +1456,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         }
       } catch (error: any) {
         console.error('Failed to create filter:', error.message || 'Please try again');
-        // Could add error handling/notification here
-      }
-    };
-
-    // Remove filter - note: filter state is now managed by filter components
-    const removeFilter = async (filterId: string) => {
-      if (!dashboardId) return;
-
-      try {
-        // Call backend API to delete the filter
-        await deleteDashboardFilter(dashboardId, parseInt(filterId));
-
-        // Refresh dashboard data to update filter list
-        const { mutate } = await import('swr');
-        mutate(`/api/dashboards/${dashboardId}/`);
-      } catch (error: any) {
-        console.error('Failed to delete filter:', error.message || 'Please try again');
         // Could add error handling/notification here
       }
     };
@@ -1578,16 +1482,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     // Note: Apply filters functionality is now handled by individual filter components
-
-    // Clear all filters
-    const handleClearAllFilters = () => {
-      setAppliedFilters({});
-    };
-
-    // Reorder filters - note: filter state is now managed by filter components
-    const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
-      // Filter components handle their own reordering
-    };
 
     // Get chart IDs that are already added to the dashboard
     const getExcludedChartIds = (): number[] => {
@@ -1617,57 +1511,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         },
       });
-    };
-
-    // Find next available position for new component
-    const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
-      const layout = state.layout || [];
-      const maxCols = currentScreenConfig.cols;
-
-      // Create a grid to track occupied spaces
-      const occupiedGrid: boolean[][] = [];
-
-      // Initialize grid - find max Y coordinate to determine grid height
-      const maxY = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
-      const gridHeight = Math.max(maxY + height + 5, 20); // Add some buffer
-
-      for (let y = 0; y < gridHeight; y++) {
-        occupiedGrid[y] = new Array(maxCols).fill(false);
-      }
-
-      // Mark occupied positions
-      layout.forEach((item) => {
-        for (let y = item.y; y < item.y + item.h; y++) {
-          for (let x = item.x; x < item.x + item.w; x++) {
-            if (y < gridHeight && x < maxCols) {
-              occupiedGrid[y][x] = true;
-            }
-          }
-        }
-      });
-
-      // Find first available position that fits the component
-      for (let y = 0; y <= gridHeight - height; y++) {
-        for (let x = 0; x <= maxCols - width; x++) {
-          let canPlace = true;
-
-          // Check if this position and size is available
-          for (let dy = 0; dy < height && canPlace; dy++) {
-            for (let dx = 0; dx < width && canPlace; dx++) {
-              if (y + dy < gridHeight && x + dx < maxCols && occupiedGrid[y + dy][x + dx]) {
-                canPlace = false;
-              }
-            }
-          }
-
-          if (canPlace) {
-            return { x, y };
-          }
-        }
-      }
-
-      // If no position found, place at the end
-      return { x: 0, y: maxY + 1 };
     };
 
     // Render components
@@ -1797,89 +1640,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   onClick={() => setThemeSettingsOpen(true)}
                   className="p-1.5"
                 >
-                  <Palette className="w-4 h-4" />
+                  <PaintBucket className="w-4 h-4" />
                 </Button>
-                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
-                {/* <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="ghost" className="p-1.5">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Choose the target screen size for your dashboard design
-                        </p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-medium">
-                          Filter Layout
-                          <span className="ml-2 text-xs text-blue-600 font-normal">
-                            (Auto: {responsive.currentBreakpoint})
-                          </span>
-                        </Label>
-                        <ToggleGroup
-                          type="single"
-                          value={filterLayout}
-                          onValueChange={(value) =>
-                            value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
-                          }
-                          className="grid grid-cols-2 gap-2"
-                          disabled={true}
-                        >
-                          <ToggleGroupItem value="vertical" className="text-xs">
-                            <PanelLeft className="w-3 h-3 mr-1" />
-                            Vertical
-                          </ToggleGroupItem>
-                          <ToggleGroupItem value="horizontal" className="text-xs">
-                            <PanelTop className="w-3 h-3 mr-1" />
-                            Horizontal
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="text-blue-600">
-                            Layout automatically set to '{filterLayout}' for{' '}
-                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
-                            uses sidebar, mobile/tablet use top bar.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <div className="grid grid-cols-3 items-center gap-4">
-                          <Label htmlFor="target-screen-mobile">Screen Size</Label>
-                          <select
-                            id="target-screen-mobile"
-                            value={targetScreenSize}
-                            onChange={(e) => {
-                              const newScreenSize = e.target.value as ScreenSizeKey;
-                              setTargetScreenSize(newScreenSize);
-                            }}
-                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
-                          >
-                            <option value="desktop">
-                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
-                            </option>
-                            <option value="tablet">
-                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
-                            </option>
-                            <option value="mobile">
-                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
-                            </option>
-                          </select>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Canvas: {SCREEN_SIZES[targetScreenSize].width} ×{' '}
-                          {SCREEN_SIZES[targetScreenSize].height}px
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover> */}
               </div>
             </div>
 
@@ -2086,7 +1848,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 </Button>
 
                 <Button onClick={() => setThemeSettingsOpen(true)} size="sm" variant="outline">
-                  <Palette className="w-4 h-4 mr-2" />
+                  <PaintBucket className="w-4 h-4 mr-2" />
                   Background
                 </Button>
 
@@ -2136,88 +1898,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     <span className="hidden xl:inline">{saveError || 'Save failed'}</span>
                   </div>
                 )}
-
-                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
-                {/* <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Choose the target screen size for your dashboard design
-                        </p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-medium">
-                          Filter Layout
-                          <span className="ml-2 text-xs text-blue-600 font-normal">
-                            (Auto: {responsive.currentBreakpoint})
-                          </span>
-                        </Label>
-                        <ToggleGroup
-                          type="single"
-                          value={filterLayout}
-                          onValueChange={(value) =>
-                            value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
-                          }
-                          className="grid grid-cols-2 gap-2"
-                          disabled={true}
-                        >
-                          <ToggleGroupItem value="vertical" className="text-xs">
-                            <PanelLeft className="w-4 h-4 mr-2" />
-                            Vertical
-                          </ToggleGroupItem>
-                          <ToggleGroupItem value="horizontal" className="text-xs">
-                            <PanelTop className="w-4 h-4 mr-2" />
-                            Horizontal
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="text-blue-600">
-                            Layout automatically set to '{filterLayout}' for{' '}
-                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
-                            uses sidebar, mobile/tablet use top bar.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <div className="grid grid-cols-3 items-center gap-4">
-                          <Label htmlFor="target-screen-desktop">Screen Size</Label>
-                          <select
-                            id="target-screen-desktop"
-                            value={targetScreenSize}
-                            onChange={(e) => {
-                              const newScreenSize = e.target.value as ScreenSizeKey;
-                              setTargetScreenSize(newScreenSize);
-                            }}
-                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
-                          >
-                            <option value="desktop">
-                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
-                            </option>
-                            <option value="tablet">
-                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
-                            </option>
-                            <option value="mobile">
-                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
-                            </option>
-                          </select>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Canvas will resize to {SCREEN_SIZES[targetScreenSize].width} ×{' '}
-                          {SCREEN_SIZES[targetScreenSize].height}px
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover> */}
 
                 <Button onClick={() => saveDashboard()} size="sm">
                   <Save className="w-4 h-4 mr-2" />
@@ -2329,7 +2009,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               <GridLayout
                 className="layout relative z-10"
-                layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
+                layout={getAdjustedLayout(state.layout)}
                 cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
                 rowHeight={ROW_HEIGHT}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
@@ -2356,7 +2036,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
                   const component = state.components[item.i];
-                  const isTextComponent = component?.type === DashboardComponentType.TEXT;
                   const isAnimating = dashboardAnimation.animatingComponents.has(item.i);
                   const isBeingPushed = dashboardAnimation.affectedComponents.some(
                     (affected) => affected.componentId === `${item.x}-${item.y}`
@@ -2394,7 +2073,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                               className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-purple-600"
                               title="Panel background color"
                             >
-                              <Palette className="w-3.5 h-3.5 text-gray-600" />
+                              <PaintBucket className="w-3.5 h-3.5 text-gray-600" />
                             </button>
                             {panelColorPickerOpen === item.i && (
                               <div className="absolute top-8 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
@@ -2489,74 +2168,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       {/* Action Buttons for Text Elements */}
                       {component?.type === DashboardComponentType.TEXT && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPanelColorPickerOpen(
-                                  panelColorPickerOpen === item.i ? null : item.i
-                                );
-                              }}
-                              className="h-6 w-6 flex items-center justify-center bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-purple-600"
-                              title="Panel background color"
-                            >
-                              <Palette className="w-3 h-3 text-gray-600" />
-                            </button>
-                            {panelColorPickerOpen === item.i && (
-                              <div className="absolute top-7 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
-                                <div className="flex gap-1 mb-2">
-                                  {[
-                                    '#FFFFFF',
-                                    '#F3F4F6',
-                                    '#FEF3C7',
-                                    '#DBEAFE',
-                                    '#D1FAE5',
-                                    '#FCE7F3',
-                                    '#EDE9FE',
-                                  ].map((color) => (
-                                    <button
-                                      key={color}
-                                      className="w-4 h-4 rounded border border-gray-300 hover:border-gray-500 transition-all"
-                                      style={{ backgroundColor: color }}
-                                      onClick={() => {
-                                        updateComponent(item.i, {
-                                          ...component.config,
-                                          panelBackgroundColor: color,
-                                        });
-                                        setPanelColorPickerOpen(null);
-                                      }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="color"
-                                    value={component.config.panelBackgroundColor || '#FFFFFF'}
-                                    onChange={(e) => {
-                                      updateComponent(item.i, {
-                                        ...component.config,
-                                        panelBackgroundColor: e.target.value,
-                                      });
-                                    }}
-                                    className="w-5 h-5 rounded border border-gray-300 cursor-pointer drag-cancel"
-                                  />
-                                  <button
-                                    className="text-xs px-1 py-0.5 hover:bg-gray-100 rounded drag-cancel"
-                                    onClick={() => {
-                                      updateComponent(item.i, {
-                                        ...component.config,
-                                        panelBackgroundColor: undefined,
-                                      });
-                                      setPanelColorPickerOpen(null);
-                                    }}
-                                  >
-                                    Clear
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2573,74 +2184,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       {/* Action Buttons for Image Elements */}
                       {component?.type === DashboardComponentType.IMAGE && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPanelColorPickerOpen(
-                                  panelColorPickerOpen === item.i ? null : item.i
-                                );
-                              }}
-                              className="h-6 w-6 flex items-center justify-center bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-purple-600"
-                              title="Panel background color"
-                            >
-                              <Palette className="w-3 h-3 text-gray-600" />
-                            </button>
-                            {panelColorPickerOpen === item.i && (
-                              <div className="absolute top-7 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
-                                <div className="flex gap-1 mb-2">
-                                  {[
-                                    '#FFFFFF',
-                                    '#F3F4F6',
-                                    '#FEF3C7',
-                                    '#DBEAFE',
-                                    '#D1FAE5',
-                                    '#FCE7F3',
-                                    '#EDE9FE',
-                                  ].map((color) => (
-                                    <button
-                                      key={color}
-                                      className="w-4 h-4 rounded border border-gray-300 hover:border-gray-500 transition-all"
-                                      style={{ backgroundColor: color }}
-                                      onClick={() => {
-                                        updateComponent(item.i, {
-                                          ...component.config,
-                                          panelBackgroundColor: color,
-                                        });
-                                        setPanelColorPickerOpen(null);
-                                      }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="color"
-                                    value={component.config.panelBackgroundColor || '#FFFFFF'}
-                                    onChange={(e) => {
-                                      updateComponent(item.i, {
-                                        ...component.config,
-                                        panelBackgroundColor: e.target.value,
-                                      });
-                                    }}
-                                    className="w-5 h-5 rounded border border-gray-300 cursor-pointer drag-cancel"
-                                  />
-                                  <button
-                                    className="text-xs px-1 py-0.5 hover:bg-gray-100 rounded drag-cancel"
-                                    onClick={() => {
-                                      updateComponent(item.i, {
-                                        ...component.config,
-                                        panelBackgroundColor: undefined,
-                                      });
-                                      setPanelColorPickerOpen(null);
-                                    }}
-                                  >
-                                    Clear
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

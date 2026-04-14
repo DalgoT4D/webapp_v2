@@ -2,59 +2,18 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import GridLayoutLib, {
-  Responsive as ResponsiveGridLayout,
-  WidthProvider as GridLayoutWidthProvider,
-} from 'react-grid-layout';
-const GridLayout = GridLayoutLib;
-const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
+import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  ArrowLeft,
-  Edit,
-  Share2,
-  Download,
-  Maximize2,
-  Filter,
-  RefreshCw,
-  Lock,
-  Clock,
-  User,
-  Trash2,
-  Monitor,
-  Tablet,
-  Phone,
-  FileText,
-} from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { ArrowLeft, Maximize2, Lock, Clock, User, Star, StarOff, Settings } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   useDashboard,
-  deleteDashboard,
-  updateDashboard,
   getDashboardSharingStatus,
   updateDashboardSharing,
 } from '@/hooks/api/useDashboards';
@@ -68,17 +27,15 @@ import { ImageElement } from './image-element';
 import { DashboardLogo } from './dashboard-logo';
 import {
   DashboardFilterType,
+  type AppliedFilters,
+  type DashboardFilterConfig,
   type ValueFilterSettings,
   type NumericalFilterSettings,
   type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
-import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from '@/components/ui/share-modal';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
-import { DashboardThemeSettings } from './dashboard-theme-settings';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
-import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
@@ -90,7 +47,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -98,94 +54,7 @@ import {
   buildDashboardBackgroundImageStyle,
   buildDashboardOverlayStyle,
   buildDashboardSurfaceStyle,
-  serializeDashboardThemeForApi,
-  type DashboardThemeConfig,
 } from '@/lib/dashboard-theme';
-
-// Define responsive breakpoints and column configurations (same as builder)
-// Superset-style: Always 12 columns, they just scale with container width
-const BREAKPOINTS = {
-  lg: 1200,
-  md: 996,
-  sm: 768,
-  xs: 480,
-  xxs: 0,
-};
-
-// Screen size configurations (same as builder)
-// All use 12 columns - the column width scales based on container size
-const SCREEN_SIZES = {
-  desktop: {
-    name: 'Desktop',
-    width: 1200,
-    height: 800,
-    cols: 12,
-    breakpoint: 'lg',
-  },
-  tablet: {
-    name: 'Tablet',
-    width: 768,
-    height: 1024,
-    cols: 12,
-    breakpoint: 'sm',
-  },
-  mobile: {
-    name: 'Mobile',
-    width: 375,
-    height: 667,
-    cols: 12,
-    breakpoint: 'xxs',
-  },
-};
-
-// Fixed 12 columns at all breakpoints - columns scale with container width
-const COLS = {
-  lg: 12,
-  md: 12,
-  sm: 12,
-  xs: 12,
-  xxs: 12,
-};
-
-type ScreenSizeKey = keyof typeof SCREEN_SIZES;
-
-// Get current viewport screen size category
-function getCurrentScreenSize(): ScreenSizeKey {
-  if (typeof window === 'undefined') return 'desktop';
-
-  const width = window.innerWidth;
-  if (width >= 1200) return 'desktop';
-  if (width >= 768) return 'tablet';
-  if (width >= 480) return 'tablet'; // Large mobile treated as tablet
-  return 'mobile';
-}
-
-// Helper function to generate responsive layouts with preview screen size focus
-// With fixed 12 columns (Superset-style), all breakpoints use the same layout
-function generateResponsiveLayoutsForPreview(
-  layout: any[],
-  _previewScreenSize: ScreenSizeKey
-): any {
-  const layouts: any = {};
-
-  // Since all breakpoints use 12 columns (Superset-style),
-  // the same layout works for all screen sizes - columns just scale in width
-  Object.keys(COLS).forEach((breakpoint) => {
-    // Use the same layout for all breakpoints - the grid columns scale with container width
-    layouts[breakpoint] = layout.map((item) => ({
-      ...item,
-      // Ensure valid constraints
-      w: Math.max(1, Math.min(item.w, 12)),
-      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
-      y: Math.max(0, item.y),
-      minW: Math.max(1, Math.min(item.minW || 1, 12)),
-      minH: item.minH || 1,
-      maxW: 12,
-    }));
-  });
-
-  return layouts;
-}
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -263,17 +132,12 @@ export function DashboardNativeView({
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [actualContainerWidth, setActualContainerWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
-  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
-  const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
-  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
+  const [, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -281,8 +145,6 @@ export function DashboardNativeView({
 
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('dashboard');
-
-  const { toast } = useToast();
 
   // Get current user info for permission checks (skip in public mode)
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
@@ -349,17 +211,6 @@ export function DashboardNativeView({
   const canManageOrgDefault =
     currentUser?.new_role_slug === 'admin' || currentUser?.new_role_slug === 'super-admin';
 
-  // Get target screen size (the size dashboard was designed for)
-  const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
-  const [currentScreenSize, setCurrentScreenSize] = useState<ScreenSizeKey>('desktop');
-
-  // Use preview size if set, otherwise fall back to target size
-  const effectiveScreenSize = previewScreenSize || targetScreenSize;
-  const effectiveScreenConfig = SCREEN_SIZES[effectiveScreenSize];
-
-  // Get filter layout from dashboard data (same as edit mode)
-  const filterLayout = (dashboard?.filter_layout as 'vertical' | 'horizontal') || 'vertical';
-
   // Convert dashboard filters to DashboardFilterConfig format for UnifiedFiltersPanel
   const dashboardFilters: DashboardFilterConfig[] = useMemo(() => {
     if (!dashboard?.filters || !Array.isArray(dashboard.filters)) return [];
@@ -388,33 +239,6 @@ export function DashboardNativeView({
       }
     }
   }, [isReportMode, dashboardFilters]);
-
-  // Allow editing in preview mode without any conditions
-
-  // Update current screen size on resize
-  useEffect(() => {
-    const updateScreenSize = () => {
-      const newScreenSize = getCurrentScreenSize();
-      setCurrentScreenSize(newScreenSize);
-    };
-
-    // Initial measurement
-    updateScreenSize();
-
-    // Update on window resize with debouncing
-    let resizeTimeout: NodeJS.Timeout;
-    const debouncedResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(updateScreenSize, 150);
-    };
-
-    window.addEventListener('resize', debouncedResize);
-
-    return () => {
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', debouncedResize);
-    };
-  }, []);
 
   // Observe dashboard container for responsive width
   useEffect(() => {
@@ -461,47 +285,9 @@ export function DashboardNativeView({
     setShareModalOpen(false);
   };
 
-  // Handle theme settings
-  const handleThemeSettings = () => {
-    setThemeSettingsOpen(true);
-  };
-
-  // Handle theme settings close
-  const handleThemeSettingsClose = () => {
-    setThemeSettingsOpen(false);
-  };
-
-  // Handle theme save
-  const handleThemeSave = async (nextTheme: DashboardThemeConfig) => {
-    try {
-      await updateDashboard(dashboardId, serializeDashboardThemeForApi(nextTheme));
-      await mutate();
-      toast({
-        title: 'Theme updated',
-        description: 'The dashboard background has been saved.',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to update dashboard theme:', error);
-      toast({
-        title: 'Save failed',
-        description: 'Failed to save the dashboard background. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-
   // Handle dashboard update after sharing changes
   const handleDashboardUpdate = () => {
     mutate(); // Refresh the dashboard data
-  };
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await mutate();
-    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   // Handle filter changes (for legacy filter components in canvas)
@@ -524,37 +310,6 @@ export function DashboardNativeView({
 
   // Count applied filters for responsive component
   const appliedFiltersCount = Object.keys(selectedFilters).length;
-
-  const handleClearAllFilters = () => {
-    setSelectedFilters({});
-  };
-
-  // Handle dashboard deletion
-  const handleDelete = async () => {
-    setIsDeleting(true);
-
-    try {
-      await deleteDashboard(dashboardId);
-
-      toast({
-        title: 'Dashboard deleted',
-        description: `"${dashboard?.title}" has been successfully deleted.`,
-        variant: 'default',
-      });
-
-      // Navigate back to dashboard list
-      router.push('/dashboards');
-    } catch (error) {
-      console.error('Error deleting dashboard:', error);
-      toast({
-        title: 'Delete failed',
-        description: 'Failed to delete the dashboard. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   // Landing page handlers
   const handleSetPersonalLanding = async () => {
@@ -858,16 +613,6 @@ export function DashboardNativeView({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {/* COMMENTED OUT: Refresh button - not needed in view mode */}
-                {/* <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-1.5"
-              >
-                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button> */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -879,51 +624,13 @@ export function DashboardNativeView({
               </div>
             </div>
 
-            {/* COMMENTED OUT: Mobile Device Preview Selector - not needed in view mode */}
-            {/* <div className="px-4 pb-2 border-t pt-2">
-            <Select
-              value={effectiveScreenSize}
-              onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desktop">
-                  <div className="flex items-center">
-                    <Monitor className="w-4 h-4 mr-2" />
-                    Desktop (1200px)
-                  </div>
-                </SelectItem>
-                <SelectItem value="tablet">
-                  <div className="flex items-center">
-                    <Tablet className="w-4 h-4 mr-2" />
-                    Tablet (768px)
-                  </div>
-                </SelectItem>
-                <SelectItem value="mobile">
-                  <div className="flex items-center">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Mobile (375px)
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div> */}
-
             {/* Responsive Action Row */}
             {!isPublicMode && (
               <div className="px-4 pb-2">
                 <ResponsiveDashboardActions
                   onShare={handleShare}
                   onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onRefresh={handleRefresh}
-                  onThemeSettings={handleThemeSettings}
                   canEdit={canEdit && !isLockedByOther}
-                  isDeleting={isDeleting}
-                  isRefreshing={isRefreshing}
-                  dashboardTitle={dashboard?.title}
                   className="justify-end"
                 />
               </div>
@@ -1072,47 +779,11 @@ export function DashboardNativeView({
                   <Maximize2 className="w-4 h-4" />
                 </Button>
 
-                {/* COMMENTED OUT: Device Size Preview Selector - not needed in view mode */}
-                {/* <Select
-                value={effectiveScreenSize}
-                onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desktop">
-                    <div className="flex items-center">
-                      <Monitor className="w-4 h-4 mr-2" />
-                      Desktop
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="tablet">
-                    <div className="flex items-center">
-                      <Tablet className="w-4 h-4 mr-2" />
-                      Tablet
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="mobile">
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Mobile
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select> */}
-
                 {!isPublicMode && (
                   <ResponsiveDashboardActions
                     onShare={handleShare}
                     onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onRefresh={handleRefresh}
-                    onThemeSettings={handleThemeSettings}
                     canEdit={canEdit && !isLockedByOther}
-                    isDeleting={isDeleting}
-                    isRefreshing={isRefreshing}
-                    dashboardTitle={dashboard?.title}
                   />
                 )}
               </div>
@@ -1123,25 +794,9 @@ export function DashboardNativeView({
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <DashboardLogo />
-              <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
-            </div>
-            {!isPublicMode && (
-              <ResponsiveDashboardActions
-                onShare={handleShare}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onRefresh={handleRefresh}
-                onThemeSettings={handleThemeSettings}
-                canEdit={canEdit && !isLockedByOther}
-                isDeleting={isDeleting}
-                isRefreshing={isRefreshing}
-                dashboardTitle={dashboard?.title}
-                className="shrink-0"
-              />
-            )}
+          <div className="flex items-center gap-4 min-w-0">
+            <DashboardLogo />
+            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
           </div>
         </div>
       )}
@@ -1221,103 +876,46 @@ export function DashboardNativeView({
                 </div>
               ) : null}
 
-              {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
-              {(() => {
-                // Use original layout without any modifications since toolbar is now external
-                const modifiedLayout = dashboard.layout_config || [];
-
-                return effectiveScreenSize !== targetScreenSize ? (
-                  // Preview mode with different screen size - use responsive layout
-                  <ResponsiveGrid
-                    className="dashboard-grid"
-                    layouts={
-                      dashboard.responsive_layouts ||
-                      generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
-                    }
-                    breakpoints={BREAKPOINTS}
-                    cols={COLS}
-                    rowHeight={20}
-                    width={actualContainerWidth}
+              <GridLayout
+                className="dashboard-grid"
+                layout={dashboard.layout_config || []}
+                cols={12}
+                rowHeight={20}
+                width={actualContainerWidth}
+                style={{
+                  width: '100% !important',
+                }}
+                isDraggable={false}
+                isResizable={false}
+                compactType={null}
+                preventCollision={true}
+                allowOverlap={false}
+                margin={[8, 8]}
+                containerPadding={[8, 8]}
+                autoSize={true}
+                verticalCompact={false}
+              >
+                {(dashboard.layout_config || []).map((layoutItem: any) => (
+                  <div
+                    key={layoutItem.i}
+                    className="dashboard-item"
                     style={{
-                      width: '100% !important',
-                    }}
-                    isDraggable={false}
-                    isResizable={false}
-                    compactType={null}
-                    preventCollision={false}
-                    margin={[8, 8]}
-                    containerPadding={[8, 8]}
-                    autoSize={true}
-                    verticalCompact={false}
-                    onBreakpointChange={(newBreakpoint: string) => {
-                      setCurrentBreakpoint(newBreakpoint);
+                      backgroundColor:
+                        dashboard?.components?.[layoutItem.i]?.config?.panelBackgroundColor,
+                      borderRadius: dashboard?.components?.[layoutItem.i]?.config
+                        ?.panelBackgroundColor
+                        ? '4px'
+                        : undefined,
                     }}
                   >
-                    {modifiedLayout.map((layoutItem: any) => (
-                      <div
-                        key={layoutItem.i}
-                        className="dashboard-item"
-                        style={{
-                          backgroundColor:
-                            dashboard?.components?.[layoutItem.i]?.config?.panelBackgroundColor,
-                          borderRadius: dashboard?.components?.[layoutItem.i]?.config
-                            ?.panelBackgroundColor
-                            ? '4px'
-                            : undefined,
-                        }}
-                      >
-                        <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0 bg-transparent">
-                          <CardContent className="p-2 h-full">
-                            {renderComponent(layoutItem.i)}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    ))}
-                  </ResponsiveGrid>
-                ) : (
-                  // Target screen size or no preview override - use exact layout
-                  <GridLayout
-                    className="dashboard-grid"
-                    layout={modifiedLayout}
-                    cols={effectiveScreenConfig.cols}
-                    rowHeight={20}
-                    width={actualContainerWidth}
-                    style={{
-                      width: '100% !important',
-                    }}
-                    isDraggable={false}
-                    isResizable={false}
-                    compactType={null}
-                    preventCollision={true}
-                    allowOverlap={false}
-                    margin={[8, 8]}
-                    containerPadding={[8, 8]}
-                    autoSize={true}
-                    verticalCompact={false}
-                  >
-                    {modifiedLayout.map((layoutItem: any) => (
-                      <div
-                        key={layoutItem.i}
-                        className="dashboard-item"
-                        style={{
-                          backgroundColor:
-                            dashboard?.components?.[layoutItem.i]?.config?.panelBackgroundColor,
-                          borderRadius: dashboard?.components?.[layoutItem.i]?.config
-                            ?.panelBackgroundColor
-                            ? '4px'
-                            : undefined,
-                        }}
-                      >
-                        <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0 bg-transparent">
-                          <CardContent className="p-2 h-full">
-                            {renderComponent(layoutItem.i)}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    ))}
-                  </GridLayout>
-                );
-              })()}
+                    <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0 bg-transparent">
+                      <CardContent className="p-2 h-full">
+                        {renderComponent(layoutItem.i)}
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </GridLayout>
             </div>
           </div>
         </div>
@@ -1419,16 +1017,6 @@ export function DashboardNativeView({
           updateSharing={updateDashboardSharing}
         />
       )}
-      {/* Theme Settings Modal */}
-      <Dialog open={themeSettingsOpen} onOpenChange={setThemeSettingsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DashboardThemeSettings
-            currentTheme={dashboard}
-            onSave={handleThemeSave}
-            onClose={handleThemeSettingsClose}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
