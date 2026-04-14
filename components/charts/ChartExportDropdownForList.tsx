@@ -45,8 +45,8 @@ export function ChartExportDropdownForList({
         backgroundColor: '#ffffff',
       };
 
-      if (format === 'csv' && chartType === 'table') {
-        // Handle table CSV export
+      if (format === 'csv' && (chartType === 'table' || chartType === 'pivot_table')) {
+        // Handle table/pivot CSV export
         await handleTableCSVExport(chartId, chartTitle, exportOptions);
       } else if (chartType === 'map') {
         // Handle map export with geojson fetching
@@ -189,11 +189,27 @@ export function ChartExportDropdownForList({
         }),
         ...(chart.extra_config?.metrics &&
           chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+        // Pivot table fields
+        ...(chart.chart_type === 'pivot_table' && {
+          row_dimensions: chart.extra_config?.row_dimensions || [],
+          column_dimensions: chart.extra_config?.column_dimensions || [],
+          column_time_grains: chart.extra_config?.column_time_grains || {},
+          show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+          show_grand_total: chart.extra_config?.show_grand_total ?? true,
+        }),
         customizations: chart.extra_config?.customizations || {},
         extra_config: {
           filters: chart.extra_config?.filters || [],
           pagination: { enabled: false, page_size: 10000 }, // Get all data for export
           sort: chart.extra_config?.sort || [],
+          // Pivot table fields in extra_config as well
+          ...(chart.chart_type === 'pivot_table' && {
+            row_dimensions: chart.extra_config?.row_dimensions || [],
+            column_dimensions: chart.extra_config?.column_dimensions || [],
+            column_time_grains: chart.extra_config?.column_time_grains || {},
+            show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+            show_grand_total: chart.extra_config?.show_grand_total ?? true,
+          }),
         },
       };
 
@@ -231,8 +247,8 @@ export function ChartExportDropdownForList({
         {isExporting ? 'Exporting...' : 'Export'}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
-        {chartType === 'table' ? (
-          // Table charts show CSV export only
+        {chartType === 'table' || chartType === 'pivot_table' ? (
+          // Table/pivot charts show CSV export
           <DropdownMenuItem
             onClick={() => handleExport('csv')}
             className="cursor-pointer"

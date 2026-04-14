@@ -105,8 +105,8 @@ export function ChartExportDropdown({
         toast.success('CSV downloaded successfully', {
           description: `File: ${csvFilename}`,
         });
-      } else if (chartType === 'table') {
-        // Handle table image exports (PNG)
+      } else if (chartType === 'table' || chartType === 'pivot_table') {
+        // Handle table/pivot image exports (PNG)
         if (format === 'png') {
           if (!tableElement) {
             throw new Error('Table element is not available for export');
@@ -151,8 +151,8 @@ export function ChartExportDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        {chartType === 'table' ? (
-          // Table charts show PNG and CSV export
+        {chartType === 'table' || chartType === 'pivot_table' ? (
+          // Table/pivot charts show PNG and CSV export
           <>
             <DropdownMenuItem
               onClick={() => handleExport('png')}

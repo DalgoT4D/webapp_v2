@@ -781,7 +781,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     }
                   : undefined
               }
-              tableElement={chart.chart_type === 'table' ? chartContentRef.current : undefined}
+              tableElement={
+                chart.chart_type === 'table' || chart.chart_type === 'pivot_table'
+                  ? chartContentRef.current
+                  : undefined
+              }
             />
           </div>
         </div>

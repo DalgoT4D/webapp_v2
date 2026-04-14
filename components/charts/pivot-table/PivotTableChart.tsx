@@ -2,12 +2,11 @@
 
 import { useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
 import { PivotTableResponse, PivotSort } from '@/types/pivot-table';
 import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '../types/table/types';
 import { getTableTheme } from '../types/table/constants';
-import { calculateRowSpans, exportPivotAsCsv } from './utils';
+import { calculateRowSpans } from './utils';
 import { useTableSearch } from '../hooks/useTableSearch';
 import { TableSearchBar } from '../TableSearchBar';
 
@@ -93,17 +92,6 @@ export default function PivotTableChart({
   );
 
   const totalPages = pagination ? Math.ceil(pagination.totalGroups / pagination.pageSize) : 1;
-
-  const handleExport = useCallback(() => {
-    const csv = exportPivotAsCsv(data, rowDimLabels);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'pivot-table.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [data, rowDimLabels]);
 
   const formatCell = useCallback(
     (value: number | null, metricName: string): string => {
@@ -294,18 +282,14 @@ export default function PivotTableChart({
 
   return (
     <div className="flex flex-col h-full" data-testid="pivot-table-chart">
-      {/* Toolbar: search + export */}
-      <div className="flex items-center justify-end gap-2 mb-2 flex-shrink-0">
+      {/* Search bar */}
+      <div className="flex justify-end flex-shrink-0 px-2 py-1">
         <TableSearchBar
           query={search.query}
           onQueryChange={search.setQuery}
           totalMatches={search.totalMatches}
           onClear={search.clear}
         />
-        <Button variant="ghost" size="sm" onClick={handleExport} data-testid="pivot-export-csv-btn">
-          <Download className="h-4 w-4 mr-1" />
-          CSV
-        </Button>
       </div>
 
       {/* Scrollable table */}

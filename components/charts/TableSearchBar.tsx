@@ -39,7 +39,7 @@ export function TableSearchBar({
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Search..."
-        className="h-7 w-40 border-0 px-1 text-sm shadow-none focus-visible:ring-0"
+        className="h-7 w-56 border-0 px-1 text-sm shadow-none focus-visible:ring-0"
         data-testid="table-search-input"
       />
 

@@ -12,14 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -408,9 +401,9 @@ export function TableChart({
         />
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <Table className="h-auto">
-          <TableHeader style={{ backgroundColor: theme.header }}>
+      <div className="flex-1 min-h-0 overflow-auto">
+        <table className="w-full caption-bottom text-sm">
+          <TableHeader className="sticky top-0 z-20" style={{ backgroundColor: theme.header }}>
             <TableRow>
               {columns.map((column) => {
                 const sortDirection = getSortDirection(column);
@@ -426,10 +419,7 @@ export function TableChart({
                     }`}
                     style={{
                       color: theme.headerText,
-                      backgroundColor:
-                        config.freezeFirstColumn && columns.indexOf(column) === 0
-                          ? theme.header
-                          : undefined,
+                      backgroundColor: theme.header,
                       borderColor: theme.border,
                     }}
                   >
@@ -564,7 +554,7 @@ export function TableChart({
               );
             })}
           </TableBody>
-        </Table>
+        </table>
       </div>
 
       {/* Pagination Controls */}

@@ -424,6 +424,14 @@ export function ChartElementView({
                 return [drillDownDimensions[0]]; // Only first dimension
               })(),
             }),
+            // Pivot table fields
+            ...(effectiveChart.chart_type === ChartTypes.PIVOT_TABLE && {
+              row_dimensions: effectiveChart.extra_config?.row_dimensions || [],
+              column_dimensions: effectiveChart.extra_config?.column_dimensions || [],
+              column_time_grains: effectiveChart.extra_config?.column_time_grains || {},
+              show_row_subtotals: effectiveChart.extra_config?.show_row_subtotals ?? true,
+              show_grand_total: effectiveChart.extra_config?.show_grand_total ?? true,
+            }),
             metrics: effectiveChart.extra_config?.metrics,
             geographic_column: effectiveChart.extra_config?.geographic_column,
             value_column: effectiveChart.extra_config?.value_column,
@@ -453,6 +461,14 @@ export function ChartElementView({
               ],
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
+              // Pivot table fields in extra_config
+              ...(effectiveChart.chart_type === ChartTypes.PIVOT_TABLE && {
+                row_dimensions: effectiveChart.extra_config?.row_dimensions || [],
+                column_dimensions: effectiveChart.extra_config?.column_dimensions || [],
+                column_time_grains: effectiveChart.extra_config?.column_time_grains || {},
+                show_row_subtotals: effectiveChart.extra_config?.show_row_subtotals ?? true,
+                show_grand_total: effectiveChart.extra_config?.show_grand_total ?? true,
+              }),
             },
             // Dashboard filters passed separately (skip in report mode — synthetic
             // filter IDs can't be resolved by the backend; extra_config.filters
@@ -1490,8 +1506,8 @@ export function ChartElementView({
   // Original working download function for PNG/Image export
   const handleDownloadImage = async () => {
     try {
-      // Handle table chart export
-      if (isTableChart && tableRef.current) {
+      // Handle table/pivot chart export
+      if ((isTableChart || isPivotTableChart) && tableRef.current) {
         const filename = generateFilename(
           chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
           'png'
@@ -1602,8 +1618,8 @@ export function ChartElementView({
 
   const handleToggleFullscreen = () => {
     // Use wrapper ref for stable fullscreen (prevents exit on drill down)
-    // For tables, use tableRef; for all charts (including maps), use wrapperRef
-    const targetRef = isTableChart ? tableRef.current : wrapperRef.current;
+    // For tables/pivots, use tableRef; for all charts (including maps), use wrapperRef
+    const targetRef = isTableChart || isPivotTableChart ? tableRef.current : wrapperRef.current;
     if (!targetRef) return;
 
     toggleFullscreen(targetRef);
@@ -1613,8 +1629,8 @@ export function ChartElementView({
   useEffect(() => {
     // Trigger chart resize after fullscreen change
     const resizeTimer = setTimeout(() => {
-      if (!isTableChart) {
-        // Only resize ECharts instances, not tables
+      if (!isTableChart && !isPivotTableChart) {
+        // Only resize ECharts instances, not tables/pivots
         if (chartInstance.current) {
           chartInstance.current.resize();
         }
@@ -1622,11 +1638,11 @@ export function ChartElementView({
           mapChartInstance.current.resize();
         }
       }
-      // Tables don't need explicit resize - they automatically adjust with CSS flexbox
+      // Tables/pivots don't need explicit resize - they automatically adjust with CSS flexbox
     }, 100);
 
     return () => clearTimeout(resizeTimer);
-  }, [isFullscreen, isTableChart]);
+  }, [isFullscreen, isTableChart, isPivotTableChart]);
 
   if (
     isLoading ||
@@ -1808,7 +1824,7 @@ export function ChartElementView({
 
       {/* Chart container */}
       {isPivotTableChart ? (
-        <div className="w-full flex-1 h-full overflow-auto p-2">
+        <div ref={tableRef} className="w-full flex-1 h-full overflow-auto p-2">
           {chartData?.data ? (
             <PivotTableChart
               data={chartData.data as unknown as PivotTableResponse}
@@ -1850,7 +1866,7 @@ export function ChartElementView({
               </span>
             </div>
           )}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-hidden min-h-0 p-4">
             <TableChart
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
