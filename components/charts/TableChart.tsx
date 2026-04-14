@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { getTableTheme } from './types/table/constants';
 import { useTableSearch } from './hooks/useTableSearch';
 import { TableSearchBar } from './TableSearchBar';
 
@@ -90,6 +91,7 @@ interface TableChartProps {
     columnAlignment?: Record<string, string>;
     zebraRows?: boolean;
     freezeFirstColumn?: boolean;
+    theme?: string;
   };
   onSort?: (column: string, direction: 'asc' | 'desc') => void;
   isLoading?: boolean;
@@ -118,6 +120,9 @@ export function TableChart({
   currentDimensionColumn,
 }: TableChartProps) {
   const { table_columns, column_formatting = {}, sort = [], pagination: configPagination } = config;
+
+  // Resolve color theme
+  const theme = useMemo(() => getTableTheme(config.theme), [config.theme]);
 
   // Determine if we're using server-side pagination (pagination prop provided) or fallback to client-side
   const isServerSidePagination = !!pagination;
@@ -405,7 +410,7 @@ export function TableChart({
 
       <div className="flex-1 overflow-auto">
         <Table className="h-auto">
-          <TableHeader className="bg-muted">
+          <TableHeader style={{ backgroundColor: theme.header }}>
             <TableRow>
               {columns.map((column) => {
                 const sortDirection = getSortDirection(column);
@@ -416,9 +421,17 @@ export function TableChart({
                     key={column}
                     className={`font-semibold py-2 px-2 ${getAlignmentClass(column, data[0]?.[column])} ${
                       config.freezeFirstColumn && columns.indexOf(column) === 0
-                        ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                        ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                         : ''
                     }`}
+                    style={{
+                      color: theme.headerText,
+                      backgroundColor:
+                        config.freezeFirstColumn && columns.indexOf(column) === 0
+                          ? theme.header
+                          : undefined,
+                      borderColor: theme.border,
+                    }}
                   >
                     {canSort ? (
                       <Button
@@ -445,94 +458,111 @@ export function TableChart({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.map((row, index) => (
-              <TableRow
-                key={index}
-                className={`${
-                  drillDownEnabled && currentDimensionColumn
-                    ? 'hover:bg-gray-50 cursor-pointer'
-                    : ''
-                } ${config.zebraRows && index % 2 === 1 ? 'bg-muted' : ''}`}
-              >
-                {columns.map((column) => {
-                  const isDrillDownClickable =
-                    drillDownEnabled && currentDimensionColumn === column && onRowClick;
-                  const rawValue = row[column];
-                  const isLink = !isDrillDownClickable && isValidUrl(rawValue);
+            {paginatedData.map((row, index) => {
+              const rowBg = config.zebraRows && index % 2 === 1 ? theme.zebraRow : theme.row;
+              return (
+                <TableRow
+                  key={index}
+                  className={`${
+                    drillDownEnabled && currentDimensionColumn ? 'cursor-pointer' : ''
+                  }`}
+                  style={{ backgroundColor: rowBg }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.hoverRow;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = rowBg;
+                  }}
+                >
+                  {columns.map((column) => {
+                    const isDrillDownClickable =
+                      drillDownEnabled && currentDimensionColumn === column && onRowClick;
+                    const rawValue = row[column];
+                    const isLink = !isDrillDownClickable && isValidUrl(rawValue);
 
-                  // Render as clickable link if value is a URL (and not a drill-down cell)
-                  if (isLink) {
-                    const href = normalizeUrl(rawValue);
-                    const linkAlignClass = getAlignmentClass(column, rawValue);
-                    const isLinkFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
-                    const linkColIdx = columns.indexOf(column);
+                    // Render as clickable link if value is a URL (and not a drill-down cell)
+                    if (isLink) {
+                      const href = normalizeUrl(rawValue);
+                      const linkAlignClass = getAlignmentClass(column, rawValue);
+                      const isLinkFrozen =
+                        config.freezeFirstColumn && columns.indexOf(column) === 0;
+                      const linkColIdx = columns.indexOf(column);
+
+                      return (
+                        <TableCell
+                          key={column}
+                          data-search-cell={`${index}-${linkColIdx}`}
+                          className={`py-1.5 px-2 ${linkAlignClass} ${
+                            isLinkFrozen
+                              ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                              : ''
+                          }`}
+                          style={{
+                            borderColor: theme.border,
+                            ...(isLinkFrozen ? { backgroundColor: rowBg } : {}),
+                          }}
+                        >
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Link
+                          </a>
+                        </TableCell>
+                      );
+                    }
+
+                    // Existing logic for non-link cells
+                    const cellValue = formatCellValue(rawValue, column);
+                    const conditionalColor = getConditionalColor(rawValue, column);
+                    const alignClass = getAlignmentClass(column, rawValue);
+                    const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
+                    const colIdx = columns.indexOf(column);
+                    const matchHighlight = isSearchMatch(index, colIdx);
+
+                    const cellStyle: React.CSSProperties = {
+                      borderColor: theme.border,
+                    };
+                    if (matchHighlight) {
+                      cellStyle.backgroundColor = '#fde68a'; // amber-200 for search matches
+                    } else if (conditionalColor) {
+                      cellStyle.backgroundColor = conditionalColor;
+                    } else if (isFrozen) {
+                      cellStyle.backgroundColor = rowBg;
+                    }
 
                     return (
                       <TableCell
                         key={column}
-                        data-search-cell={`${index}-${linkColIdx}`}
-                        className={`py-1.5 px-2 ${linkAlignClass} ${
-                          isLinkFrozen
-                            ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                        data-search-cell={`${index}-${colIdx}`}
+                        className={`py-1.5 px-2 ${alignClass} ${
+                          isDrillDownClickable
+                            ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
+                            : ''
+                        } ${
+                          isFrozen
+                            ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                             : ''
                         }`}
+                        style={cellStyle}
+                        onClick={
+                          isDrillDownClickable
+                            ? () => {
+                                onRowClick(row, column);
+                              }
+                            : undefined
+                        }
                       >
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Link
-                        </a>
+                        {cellValue}
                       </TableCell>
                     );
-                  }
-
-                  // Existing logic for non-link cells
-                  const cellValue = formatCellValue(rawValue, column);
-                  const conditionalColor = getConditionalColor(rawValue, column);
-                  const alignClass = getAlignmentClass(column, rawValue);
-                  const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
-                  const colIdx = columns.indexOf(column);
-                  const matchHighlight = isSearchMatch(index, colIdx);
-
-                  const cellStyle: React.CSSProperties = {};
-                  if (matchHighlight) {
-                    cellStyle.backgroundColor = '#fde68a'; // amber-200 for search matches
-                  } else if (conditionalColor) {
-                    cellStyle.backgroundColor = conditionalColor;
-                  }
-
-                  return (
-                    <TableCell
-                      key={column}
-                      data-search-cell={`${index}-${colIdx}`}
-                      className={`py-1.5 px-2 ${alignClass} ${
-                        isDrillDownClickable
-                          ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
-                          : ''
-                      } ${
-                        isFrozen
-                          ? 'sticky left-0 z-10 bg-background border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
-                          : ''
-                      }`}
-                      style={cellStyle}
-                      onClick={
-                        isDrillDownClickable
-                          ? () => {
-                              onRowClick(row, column);
-                            }
-                          : undefined
-                      }
-                    >
-                      {cellValue}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
+                  })}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

@@ -34,6 +34,20 @@ export type ConditionalFormattingRule =
 /** Column alignment options */
 export type ColumnAlignment = 'left' | 'center' | 'right';
 
+/** Predefined color theme for table and pivot table charts */
+export interface TableTheme {
+  id: string;
+  label: string;
+  header: string;
+  headerText: string;
+  row: string;
+  zebraRow: string;
+  border: string;
+  subtotalRow: string;
+  grandTotalRow: string;
+  hoverRow: string;
+}
+
 /** All table customization settings stored in extra_config.customizations */
 export interface TableCustomizations {
   /** Existing: per-column number formatting */
@@ -52,4 +66,6 @@ export interface TableCustomizations {
   zebraRows?: boolean;
   /** Pin first column when scrolling horizontally */
   freezeFirstColumn?: boolean;
+  /** Color theme id, defaults to 'gray' */
+  theme?: string;
 }

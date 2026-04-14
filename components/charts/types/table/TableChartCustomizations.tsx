@@ -49,6 +49,7 @@ export function TableChartCustomizations({
   const columnAlignment: Record<string, ColumnAlignment> = customizations.columnAlignment || {};
   const zebraRows: boolean = customizations.zebraRows || false;
   const freezeFirstColumn: boolean = customizations.freezeFirstColumn || false;
+  const theme: string | undefined = customizations.theme as string | undefined;
 
   // --- Number Formatting handlers (existing logic preserved) ---
   const handleToggleColumn = (column: string) => {
@@ -209,8 +210,10 @@ export function TableChartCustomizations({
       <AppearanceSection
         zebraRows={zebraRows}
         freezeFirstColumn={freezeFirstColumn}
+        themeId={theme}
         onZebraRowsChange={(val) => updateCustomization('zebraRows', val)}
         onFreezeFirstColumnChange={(val) => updateCustomization('freezeFirstColumn', val)}
+        onThemeChange={(val) => updateCustomization('theme', val)}
         disabled={disabled}
       />
     </div>

@@ -37,6 +37,7 @@ export default function PivotTableCustomizations({
     (customizations.conditionalFormatting as ConditionalFormattingRule[]) || [];
   const zebraRows: boolean = (customizations.zebraRows as boolean) || false;
   const freezeFirstColumn: boolean = (customizations.freezeFirstColumn as boolean) || false;
+  const theme: string | undefined = customizations.theme as string | undefined;
 
   // --- Number Formatting handlers ---
   const handleToggleColumn = useCallback(
@@ -195,8 +196,10 @@ export default function PivotTableCustomizations({
       <AppearanceSection
         zebraRows={zebraRows}
         freezeFirstColumn={freezeFirstColumn}
+        themeId={theme}
         onZebraRowsChange={(val) => updateCustomization('zebraRows', val)}
         onFreezeFirstColumnChange={(val) => updateCustomization('freezeFirstColumn', val)}
+        onThemeChange={(val) => updateCustomization('theme', val)}
         disabled={disabled}
       />
     </div>
