@@ -1,5 +1,9 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
+import type { DashboardTab } from '@/types/dashboard';
+
+// API response shape for a tab (same as DashboardTab from types)
+export type DashboardTabData = DashboardTab;
 
 export interface Dashboard {
   id: number;
@@ -11,6 +15,7 @@ export interface Dashboard {
   layout_config: any;
   responsive_layouts?: any; // Optional responsive layouts for different breakpoints
   components: any;
+  tabs?: DashboardTabData[];
   is_published: boolean;
   published_at?: string;
   is_locked: boolean;
