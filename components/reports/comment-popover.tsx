@@ -699,9 +699,6 @@ function CommentPopoverInner({
         align="end"
         sideOffset={8}
         className={`${COMMENT_POPOVER_WIDTH} p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-popover shadow-none`}
-        style={{
-          borderColor: 'var(--primary)',
-        }}
         onInteractOutside={(e) => {
           // Prevent close when clicking mention dropdown
           const target = e.target as HTMLElement;
@@ -751,7 +748,7 @@ function CommentPopoverInner({
                 value={draft}
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Add a comment"
+                placeholder="Add a comment or @tag someone."
                 role="combobox"
                 aria-expanded={showMentions}
                 aria-controls="mention-listbox"

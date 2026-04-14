@@ -6,24 +6,29 @@ import { formatDateShort, formatCreatedOn } from '../utils';
 
 describe('Report Utilities', () => {
   describe('formatDateShort', () => {
-    it('formats date as MM/DD/YYYY', () => {
+    it('formats date as "MMM do, yyyy"', () => {
       const result = formatDateShort('2025-01-15T10:30:00Z');
-      expect(result).toBe('01/15/2025');
+      expect(result).toBe('Jan 15th, 2025');
     });
 
     it('handles different months correctly', () => {
-      expect(formatDateShort('2025-03-05T00:00:00Z')).toBe('03/05/2025');
-      expect(formatDateShort('2025-12-25T00:00:00Z')).toBe('12/25/2025');
+      expect(formatDateShort('2025-03-05T00:00:00Z')).toBe('Mar 5th, 2025');
+      expect(formatDateShort('2025-12-25T00:00:00Z')).toBe('Dec 25th, 2025');
     });
 
-    it('pads single-digit days and months with zeros', () => {
-      const result = formatDateShort('2025-01-05T00:00:00Z');
-      expect(result).toBe('01/05/2025');
+    it('uses correct ordinal suffixes', () => {
+      expect(formatDateShort('2025-01-01T00:00:00Z')).toBe('Jan 1st, 2025');
+      expect(formatDateShort('2025-01-02T00:00:00Z')).toBe('Jan 2nd, 2025');
+      expect(formatDateShort('2025-01-03T00:00:00Z')).toBe('Jan 3rd, 2025');
+      expect(formatDateShort('2025-01-04T00:00:00Z')).toBe('Jan 4th, 2025');
+      expect(formatDateShort('2025-01-21T00:00:00Z')).toBe('Jan 21st, 2025');
+      expect(formatDateShort('2025-01-22T00:00:00Z')).toBe('Jan 22nd, 2025');
+      expect(formatDateShort('2025-01-31T00:00:00Z')).toBe('Jan 31st, 2025');
     });
 
     it('handles different years correctly', () => {
-      expect(formatDateShort('2024-06-15T00:00:00Z')).toBe('06/15/2024');
-      expect(formatDateShort('2026-08-20T00:00:00Z')).toBe('08/20/2026');
+      expect(formatDateShort('2024-06-15T00:00:00Z')).toBe('Jun 15th, 2024');
+      expect(formatDateShort('2026-08-20T00:00:00Z')).toBe('Aug 20th, 2026');
     });
   });
 

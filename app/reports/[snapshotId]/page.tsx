@@ -6,30 +6,17 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  ArrowLeft,
-  Calendar,
-  ChevronDown,
-  Download,
-  LayoutGrid,
-  Loader2,
-  Pencil,
-  Share2,
-  User,
-} from 'lucide-react';
+import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import {
-  useSnapshotView,
-  updateSnapshot,
-  getReportSharingStatus,
-  updateReportSharing,
-} from '@/hooks/api/useReports';
+import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -47,8 +34,11 @@ export default function SnapshotViewerPage() {
   const [summaryDraft, setSummaryDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const { hasPermission } = useUserPermissions();
+  const canEdit = hasPermission('can_edit_dashboards');
+  const canShare = hasPermission('can_share_dashboards');
+  const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser())?.email;
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
     isValidId ? parsedId : null
@@ -133,10 +123,7 @@ export default function SnapshotViewerPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </button>
-            <div className="flex items-center gap-1">
-              <h1 className="text-2xl font-bold">{report_metadata.title}</h1>
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            </div>
+            <h1 className="text-2xl font-bold">{report_metadata.title}</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -153,18 +140,14 @@ export default function SnapshotViewerPage() {
                 <Download className="h-4 w-4" />
               )}
             </Button>
-            <Button
-              data-testid="report-share-btn"
-              variant="ghost"
-              size="icon"
-              aria-label="Share report"
-              onClick={() => setShareModalOpen(true)}
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-            <Button data-testid="report-save-btn" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
-            </Button>
+            {canShare && currentUserEmail === report_metadata.created_by && (
+              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
+            )}
+            {canEdit && (
+              <Button data-testid="report-save-btn" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -217,35 +200,37 @@ export default function SnapshotViewerPage() {
           }
           beforeContent={
             <div className="border rounded-lg p-5 mb-2 bg-background relative">
-              {/* Comment + Edit icons in top-right corner */}
-              <div className="absolute top-3 right-3 flex items-center gap-1">
-                <CommentPopover
-                  snapshotId={parsedId}
-                  targetType="summary"
-                  state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
-                  triggerClassName="h-8 w-8"
-                  onStateChange={handleCommentStateChange}
-                  autoOpen={commentTarget === 'summary'}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  data-testid="summary-edit-btn"
-                  aria-label="Edit summary"
-                  onClick={() => {
-                    setIsEditingSummary(true);
-                    requestAnimationFrame(() => {
-                      const textarea = document.querySelector(
-                        '[data-testid="report-summary-textarea"]'
-                      ) as HTMLTextAreaElement;
-                      textarea?.focus();
-                    });
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Comment + Edit icons in top-right corner (edit permission required) */}
+              {canEdit && (
+                <div className="absolute top-3 right-3 flex items-center gap-1">
+                  <CommentPopover
+                    snapshotId={parsedId}
+                    targetType="summary"
+                    state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
+                    triggerClassName="h-8 w-8"
+                    onStateChange={handleCommentStateChange}
+                    autoOpen={commentTarget === 'summary'}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    data-testid="summary-edit-btn"
+                    aria-label="Edit summary"
+                    onClick={() => {
+                      setIsEditingSummary(true);
+                      requestAnimationFrame(() => {
+                        const textarea = document.querySelector(
+                          '[data-testid="report-summary-textarea"]'
+                        ) as HTMLTextAreaElement;
+                        textarea?.focus();
+                      });
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
 
               <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
               <Textarea
@@ -264,15 +249,6 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
-
-      <ShareModal
-        entityId={parsedId}
-        entityLabel="Report"
-        isOpen={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-        getShareStatus={getReportSharingStatus}
-        updateSharing={updateReportSharing}
-      />
     </div>
   );
 }

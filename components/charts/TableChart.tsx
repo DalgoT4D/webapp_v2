@@ -182,10 +182,11 @@ export function TableChart({
     // Use formatNumber path when:
     // - numberFormat is explicitly specified, OR
     // - decimalPlaces is specified AND no type is specified (for pure decimal formatting)
-    // Only format actual numeric values (typeof === 'number'), don't parse strings
+    // Also handles numeric strings from aggregated metric columns (e.g. backend returns "6500000")
     if (numberFormat || (decimalPlaces !== undefined && !type)) {
-      if (typeof value === 'number' && !isNaN(value)) {
-        const formatted = formatNumber(value, {
+      const numericValue = Number(value);
+      if (!isNaN(numericValue)) {
+        const formatted = formatNumber(numericValue, {
           format: numberFormat || 'default',
           decimalPlaces: decimalPlaces,
         });

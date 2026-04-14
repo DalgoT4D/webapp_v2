@@ -70,26 +70,81 @@ jest.mock('@/components/reports/comment-popover', () => ({
   CommentPopover: () => <div data-testid="mock-comment-popover" />,
 }));
 
-// Mock ShareModal
-jest.mock('@/components/ui/share-modal', () => ({
-  ShareModal: ({
-    isOpen,
-    onClose,
-  }: {
-    entityId: number;
-    entityLabel: string;
-    isOpen: boolean;
-    onClose: () => void;
-    getShareStatus: (id: number) => Promise<unknown>;
-    updateSharing: (id: number, data: { is_public: boolean }) => Promise<unknown>;
-  }) =>
-    isOpen ? (
-      <div data-testid="report-share-modal">
-        <button data-testid="mock-close-share-modal" onClick={onClose}>
-          Close
+// Mock useUserPermissions — default: all permissions granted
+const mockHasPermission = jest.fn().mockReturnValue(true);
+jest.mock('@/hooks/api/usePermissions', () => ({
+  useUserPermissions: () => ({
+    permissions: [],
+    hasPermission: mockHasPermission,
+    hasAnyPermission: jest.fn().mockReturnValue(true),
+    hasAllPermissions: jest.fn().mockReturnValue(true),
+    isLoading: false,
+  }),
+}));
+
+// Mock useAuthStore — return current user email matching created_by in mock data
+const mockGetCurrentUserEmail = jest.fn().mockReturnValue('user@test.com');
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      getCurrentOrgUser: () => ({ email: mockGetCurrentUserEmail() }),
+    }),
+}));
+
+// Mock ReportShareMenu — renders a testable version with both share options
+jest.mock('@/components/reports/report-share-menu', () => ({
+  ReportShareMenu: ({ snapshotId }: { snapshotId: number; reportTitle?: string }) => {
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const [linkOpen, setLinkOpen] = React.useState(false);
+    const [emailOpen, setEmailOpen] = React.useState(false);
+    return (
+      <div data-testid="report-share-menu">
+        <button
+          data-testid="report-share-btn"
+          aria-label="Share report"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          Share
         </button>
+        {menuOpen && (
+          <div data-testid="share-menu-dropdown">
+            <button
+              data-testid="share-via-link-item"
+              onClick={() => {
+                setLinkOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Share via link
+            </button>
+            <button
+              data-testid="share-via-email-item"
+              onClick={() => {
+                setEmailOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Embed in email
+            </button>
+          </div>
+        )}
+        {linkOpen && (
+          <div data-testid="share-via-link-dialog">
+            <button data-testid="close-link-dialog" onClick={() => setLinkOpen(false)}>
+              Close
+            </button>
+          </div>
+        )}
+        {emailOpen && (
+          <div data-testid="share-via-email-dialog">
+            <button data-testid="close-email-dialog" onClick={() => setEmailOpen(false)}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
-    ) : null,
+    );
+  },
 }));
 
 // ============ Helpers ============
@@ -152,10 +207,10 @@ describe('SnapshotViewerPage', () => {
     it('renders date range in metadata', () => {
       renderPage();
 
-      // formatDateShort('2025-01-01') => '01/01/2025'
-      // formatDateShort('2025-01-31') => '01/31/2025'
-      expect(screen.getByText(/01\/01\/2025/)).toBeInTheDocument();
-      expect(screen.getByText(/01\/31\/2025/)).toBeInTheDocument();
+      // formatDateShort('2025-01-01') => 'Jan 1st, 2025'
+      // formatDateShort('2025-01-31') => 'Jan 31st, 2025'
+      expect(screen.getByText(/Jan 1st, 2025/)).toBeInTheDocument();
+      expect(screen.getByText(/Jan 31st, 2025/)).toBeInTheDocument();
     });
 
     it('renders created by in metadata', () => {
@@ -328,33 +383,134 @@ describe('SnapshotViewerPage', () => {
     });
   });
 
-  describe('Share Modal', () => {
-    it('opens share modal when share button is clicked', async () => {
-      const user = userEvent.setup();
+  describe('Share Menu', () => {
+    it('renders share button when user has permission and is creator', () => {
       renderPage();
 
-      // Share modal should not be open initially
-      expect(screen.queryByTestId('report-share-modal')).not.toBeInTheDocument();
-
-      await user.click(screen.getByTestId('report-share-btn'));
-
-      expect(screen.getByTestId('report-share-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('closes share modal when close is triggered', async () => {
+    it('shows share via link and embed in email options when share button is clicked', async () => {
       const user = userEvent.setup();
       renderPage();
 
-      // Open share modal
-      await user.click(screen.getByTestId('report-share-btn'));
-      expect(screen.getByTestId('report-share-modal')).toBeInTheDocument();
+      // Dropdown should not be visible initially
+      expect(screen.queryByTestId('share-menu-dropdown')).not.toBeInTheDocument();
 
-      // Close it
-      await user.click(screen.getByTestId('mock-close-share-modal'));
+      await user.click(screen.getByTestId('report-share-btn'));
+
+      expect(screen.getByTestId('share-via-link-item')).toBeInTheDocument();
+      expect(screen.getByTestId('share-via-email-item')).toBeInTheDocument();
+    });
+
+    it('opens share via link dialog when link option is clicked', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-link-item'));
+
+      expect(screen.getByTestId('share-via-link-dialog')).toBeInTheDocument();
+      expect(screen.queryByTestId('share-via-email-dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens embed in email dialog when email option is clicked', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-email-item'));
+
+      expect(screen.getByTestId('share-via-email-dialog')).toBeInTheDocument();
+      expect(screen.queryByTestId('share-via-link-dialog')).not.toBeInTheDocument();
+    });
+
+    it('closes share via link dialog', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-link-item'));
+      expect(screen.getByTestId('share-via-link-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('close-link-dialog'));
 
       await waitFor(() => {
-        expect(screen.queryByTestId('report-share-modal')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('share-via-link-dialog')).not.toBeInTheDocument();
       });
+    });
+
+    it('closes embed in email dialog', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-email-item'));
+      expect(screen.getByTestId('share-via-email-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('close-email-dialog'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('share-via-email-dialog')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Permissions', () => {
+    it('hides share button when user lacks can_share_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides share button when user is not the report creator', () => {
+      mockGetCurrentUserEmail.mockReturnValue('other@test.com');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides save button when user lacks can_edit_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('report-save-btn')).not.toBeInTheDocument();
+    });
+
+    it('hides edit and comment buttons when user lacks can_edit_dashboards', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+      renderPage();
+
+      expect(screen.queryByTestId('summary-edit-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('mock-comment-popover')).not.toBeInTheDocument();
+    });
+
+    it('shows download button regardless of permissions', () => {
+      mockHasPermission.mockReturnValue(false);
+      renderPage();
+
+      expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
+    });
+
+    it('shows share button when user has permission and is the creator', () => {
+      mockHasPermission.mockReturnValue(true);
+      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
+      renderPage();
+
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+    });
+
+    it('shows all action buttons when user has full permissions and is creator', () => {
+      mockHasPermission.mockReturnValue(true);
+      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
+      renderPage();
+
+      expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('summary-edit-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
     });
   });
 

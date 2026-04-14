@@ -34,7 +34,7 @@ import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
-import { TransformType, useTransformType } from '@/hooks/api/useTransformType';
+import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
 
 // Define types for navigation items
@@ -228,10 +228,7 @@ const getNavItems = (
 };
 
 // Flatten menu items for collapsed view based on expanded state
-const getFlattenedNavItems = (
-  items: NavItemType[],
-  expandedStates: Record<string, boolean>
-): NavItemType[] => {
+const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
   const flattened: NavItemType[] = [];
 
   items.forEach((item) => {
@@ -241,9 +238,8 @@ const getFlattenedNavItems = (
     // Always include the parent item
     flattened.push(item);
 
-    // Include visible children if the parent is expanded
-    if (item.children && expandedStates[item.title]) {
-      // Only include non-hidden children
+    // Always include children in collapsed mode so sub-items are accessible
+    if (item.children) {
       const visibleChildren = item.children.filter((child) => !child.hide);
       flattened.push(...visibleChildren);
     }
@@ -646,7 +642,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
   const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
-  const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
+  const flattenedNavItems = getFlattenedNavItems(navItems);
 
   // Toggle menu expansion state
   const toggleMenuExpansion = (title: string) => {
@@ -663,7 +659,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       // Dashboard pages
       pathname === '/dashboards/create' ||
       pathname.match(/^\/dashboards\/[^\/]+\/edit$/) ||
-      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit'));
+      (pathname.match(/^\/dashboards\/[^\/]+$/) && !pathname.includes('/edit')) ||
+      // Report pages
+      pathname.match(/^\/reports\/[^\/]+$/) ||
+      // Transform canvas (edit workflow)
+      pathname === '/transform/canvas';
 
     // Reset user toggle preference on page navigation
     setHasUserToggledSidebar(false);
