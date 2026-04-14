@@ -2,7 +2,9 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
-import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
+import { Loader2, BarChart2 } from 'lucide-react';
+import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { DEFAULT_CHART_PALETTE_COLORS } from '@/constants/chart-palettes';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
 import {
@@ -44,6 +46,7 @@ export function ChartPreview({
 }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const { branding } = useDashboardBranding();
 
   // Initialize or update chart
   const initializeChart = useCallback(() => {
@@ -82,9 +85,23 @@ export function ChartPreview({
       // Create new instance
       chartInstance.current = echarts.init(chartRef.current);
 
-      // Extract legend position from props or config's customizations
+      // Extract customizations — prefer explicit prop, then embedded in config
       const customizations =
         propCustomizations || config.extra_config?.customizations || config.customizations || {};
+
+      // Resolve the color array: per-chart single color → per-chart palette → org branding → default
+      // For multi-series charts (stacked bar, multi-line), skip single color so each series gets distinct color
+      const isMultiSeries = Array.isArray(config.series) && config.series.length > 1;
+      const seriesColors: string[] = customizations.series_colors ?? [];
+      const hasSeriesColors = isMultiSeries && seriesColors.some(Boolean);
+      const resolvedColors: string[] = (() => {
+        // Pie charts always need multi-color palette — never apply single chart_color
+        const isSingleColorEligible = !isMultiSeries && detectedChartType !== 'pie';
+        if (customizations.chart_color && isSingleColorEligible)
+          return [customizations.chart_color];
+        if (customizations.color_palette_colors) return customizations.color_palette_colors;
+        return branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS;
+      })();
       const legendPosition = extractLegendPosition(customizations, config) as LegendPosition;
       const isPaginated = isLegendPaginated(customizations);
 
@@ -97,10 +114,16 @@ export function ChartPreview({
       // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
       const modifiedConfig = {
         ...configWithLegend,
+        // Per-chart color override → org palette → default
+        color: resolvedColors,
         // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
         series: Array.isArray(configWithLegend.series)
-          ? configWithLegend.series.map((series: any) => ({
+          ? configWithLegend.series.map((series: any, idx: number) => ({
               ...series,
+              // Per-series color override for grouped bar (multi-metric)
+              ...(hasSeriesColors && seriesColors[idx]
+                ? { itemStyle: { ...series.itemStyle, color: seriesColors[idx] } }
+                : {}),
               label: {
                 ...series.label,
                 fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
@@ -297,7 +320,7 @@ export function ChartPreview({
     } catch (err) {
       console.error('Error initializing chart:', err);
     }
-  }, [config, onChartReady, chartType, propCustomizations]);
+  }, [config, onChartReady, chartType, propCustomizations, branding]);
 
   useEffect(() => {
     initializeChart();

@@ -11,17 +11,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ChartColorSwatchGrid } from '../../ChartColorSwatchGrid';
+import { ChartPaletteSelector } from '../../ChartPaletteSelector';
 
 interface LineChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
+  hasExtraDimension?: boolean;
 }
 
 export function LineChartCustomizations({
   customizations,
   updateCustomization,
   disabled,
+  hasExtraDimension,
 }: LineChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -222,6 +226,24 @@ export function LineChartCustomizations({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Colors */}
+      <div className="space-y-4 pb-4 border-b">
+        <h4 className="text-sm font-medium">Colors</h4>
+        {hasExtraDimension ? (
+          <ChartPaletteSelector
+            selectedColors={customizations.color_palette_colors ?? null}
+            onSelect={(colors) => updateCustomization('color_palette_colors', colors)}
+            disabled={disabled}
+          />
+        ) : (
+          <ChartColorSwatchGrid
+            selectedSolid={customizations.chart_color ?? undefined}
+            onSelect={(color) => updateCustomization('chart_color', color.solid || null)}
+            disabled={disabled}
+          />
+        )}
       </div>
     </div>
   );

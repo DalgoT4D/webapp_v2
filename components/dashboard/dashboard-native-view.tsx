@@ -56,6 +56,91 @@ import {
   buildDashboardSurfaceStyle,
 } from '@/lib/dashboard-theme';
 
+// Define responsive breakpoints and column configurations (same as builder)
+// Superset-style: Always 12 columns, they just scale with container width
+const BREAKPOINTS = {
+  lg: 1200,
+  md: 996,
+  sm: 768,
+  xs: 480,
+  xxs: 0,
+};
+
+// Screen size configurations (same as builder)
+// All use 12 columns - the column width scales based on container size
+const SCREEN_SIZES = {
+  desktop: {
+    name: 'Desktop',
+    width: 1200,
+    height: 800,
+    cols: 12,
+    breakpoint: 'lg',
+  },
+  tablet: {
+    name: 'Tablet',
+    width: 768,
+    height: 1024,
+    cols: 12,
+    breakpoint: 'sm',
+  },
+  mobile: {
+    name: 'Mobile',
+    width: 375,
+    height: 667,
+    cols: 12,
+    breakpoint: 'xxs',
+  },
+};
+
+// Fixed 12 columns at all breakpoints - columns scale with container width
+const COLS = {
+  lg: 12,
+  md: 12,
+  sm: 12,
+  xs: 12,
+  xxs: 12,
+};
+
+type ScreenSizeKey = keyof typeof SCREEN_SIZES;
+
+// Get current viewport screen size category
+function getCurrentScreenSize(): ScreenSizeKey {
+  if (typeof window === 'undefined') return 'desktop';
+
+  const width = window.innerWidth;
+  if (width >= 1200) return 'desktop';
+  if (width >= 768) return 'tablet';
+  if (width >= 480) return 'tablet'; // Large mobile treated as tablet
+  return 'mobile';
+}
+
+// Helper function to generate responsive layouts with preview screen size focus
+// With fixed 12 columns (Superset-style), all breakpoints use the same layout
+function generateResponsiveLayoutsForPreview(
+  layout: any[],
+  _previewScreenSize: ScreenSizeKey
+): any {
+  const layouts: any = {};
+
+  // Since all breakpoints use 12 columns (Superset-style),
+  // the same layout works for all screen sizes - columns just scale in width
+  Object.keys(COLS).forEach((breakpoint) => {
+    // Use the same layout for all breakpoints - the grid columns scale with container width
+    layouts[breakpoint] = layout.map((item) => ({
+      ...item,
+      // Ensure valid constraints
+      w: Math.max(1, Math.min(item.w, 12)),
+      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
+      y: Math.max(0, item.y),
+      minW: Math.max(1, Math.min(item.minW || 1, 12)),
+      minH: item.minH || 1,
+      maxW: 12,
+    }));
+  });
+
+  return layouts;
+}
+
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
   filter: any,

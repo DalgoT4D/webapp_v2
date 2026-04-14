@@ -155,17 +155,6 @@ export function Header({
             height={68}
             className="text-primary"
           />
-          {branding?.dashboard_logo_url && (
-            <>
-              <div className="h-8 w-px bg-border" />
-              <img
-                src={branding.dashboard_logo_url}
-                alt="Organization logo"
-                style={{ width: branding.dashboard_logo_width, height: 'auto' }}
-                className="max-h-10 object-contain"
-              />
-            </>
-          )}
         </div>
 
         {/* Organization switching status */}
@@ -181,6 +170,16 @@ export function Header({
 
       {/* Right side actions */}
       <div className="flex items-center gap-4">
+        {/* Org Logo */}
+        {branding?.dashboard_logo_url && (
+          <img
+            src={branding.dashboard_logo_url}
+            alt="Organization logo"
+            style={{ width: branding.dashboard_logo_width, height: 'auto' }}
+            className="max-h-8 object-contain"
+          />
+        )}
+
         {/* Notifications Bell */}
         <Button
           variant="ghost"

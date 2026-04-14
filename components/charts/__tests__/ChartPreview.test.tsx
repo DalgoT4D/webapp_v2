@@ -322,6 +322,30 @@ describe('ChartPreview', () => {
       const calledConfig = mockChart.setOption.mock.calls[0][0];
       expect(calledConfig.series[0].label.fontSize).toBe(12.5);
     });
+
+    it('should apply series_colors as itemStyle.color for each series in multi-metric bar', () => {
+      const config = {
+        series: [
+          { type: 'bar', data: [1, 2, 3] },
+          { type: 'bar', data: [4, 5, 6] },
+        ],
+      };
+      render(
+        <ChartPreview config={config} customizations={{ series_colors: ['#ff0000', '#00ff00'] }} />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].itemStyle.color).toBe('#ff0000');
+      expect(calledConfig.series[1].itemStyle.color).toBe('#00ff00');
+    });
+
+    it('should not apply series_colors when only one series exists', () => {
+      const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
+      render(<ChartPreview config={config} customizations={{ series_colors: ['#ff0000'] }} />);
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.series[0].itemStyle?.color).toBeUndefined();
+    });
   });
 
   describe('Tooltip and Resize Handling', () => {

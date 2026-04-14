@@ -165,5 +165,40 @@ describe('ChartCustomizations', () => {
       expect(screen.getByText('Legend Display')).toBeInTheDocument();
       expect(screen.getByText('Legend Position')).toBeInTheDocument();
     });
+
+    it('shows per-metric color rows for multi-metric bar (no extra dimension)', () => {
+      render(
+        <ChartCustomizations
+          chartType="bar"
+          formData={createFormData('bar', {
+            metrics: [
+              { column: 'revenue', aggregation: 'SUM' },
+              { column: 'cost', aggregation: 'SUM' },
+            ],
+          })}
+          onChange={mockOnChange}
+        />
+      );
+      expect(screen.getByTestId('metric-color-row-0')).toBeInTheDocument();
+      expect(screen.getByTestId('metric-color-row-1')).toBeInTheDocument();
+    });
+
+    it('shows palette selector instead of per-metric rows when extra dimension is set', () => {
+      render(
+        <ChartCustomizations
+          chartType="bar"
+          formData={createFormData('bar', {
+            extra_dimension_column: 'region',
+            metrics: [
+              { column: 'revenue', aggregation: 'SUM' },
+              { column: 'cost', aggregation: 'SUM' },
+            ],
+          })}
+          onChange={mockOnChange}
+        />
+      );
+      expect(screen.queryByTestId('metric-color-row-0')).not.toBeInTheDocument();
+      expect(screen.getByText('Color Palette')).toBeInTheDocument();
+    });
   });
 });
