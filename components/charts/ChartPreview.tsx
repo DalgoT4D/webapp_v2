@@ -5,6 +5,8 @@ import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { PivotTableResponse } from '@/types/pivot-table';
 import {
   applyLegendPosition,
   extractLegendPosition,
@@ -344,7 +346,13 @@ export function ChartPreview({
   }
 
   // Only show configure message for truly empty state (no previous chart)
-  if (!config && chartType !== ChartTypes.TABLE && !isLoading && !chartInstance.current) {
+  if (
+    !config &&
+    chartType !== ChartTypes.TABLE &&
+    chartType !== ChartTypes.PIVOT_TABLE &&
+    !isLoading &&
+    !chartInstance.current
+  ) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -393,6 +401,33 @@ export function ChartPreview({
         config={tableConfig}
         onSort={onTableSort}
         pagination={tablePagination}
+      />
+    );
+  }
+
+  // Render pivot table chart
+  if (chartType === ChartTypes.PIVOT_TABLE) {
+    const pivotData = tableData as unknown as PivotTableResponse | undefined;
+    if (!pivotData || !pivotData.rows || !pivotData.metric_headers) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          Configure your pivot table
+        </div>
+      );
+    }
+
+    const customizations = propCustomizations || config?.extra_config?.customizations || {};
+    const rowDimLabels = config?.extra_config?.row_dimensions || [];
+    const subtotalLabel = (config?.extra_config?.subtotal_label as string) || '';
+    const grandTotalLabel = (config?.extra_config?.grand_total_label as string) || '';
+
+    return (
+      <PivotTableChart
+        data={pivotData}
+        rowDimLabels={rowDimLabels}
+        customizations={customizations}
+        subtotalLabel={subtotalLabel}
+        grandTotalLabel={grandTotalLabel}
       />
     );
   }

@@ -27,6 +27,8 @@ import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfigu
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import type { ChartBuilderFormData, ChartMetric, ChartDimension } from '@/types/charts';
+import { ChartTypes } from '@/types/charts';
+import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
@@ -241,7 +243,8 @@ export function ChartDataConfigurationV3({
         formData.x_axis_column ||
         formData.y_axis_column ||
         formData.table_columns?.length ||
-        (formData.metrics && formData.metrics.length > 0)
+        (formData.metrics && formData.metrics.length > 0) ||
+        (formData.extra_config?.row_dimensions && formData.extra_config.row_dimensions.length > 0)
       );
 
       if (!hasExistingConfig) {
@@ -374,6 +377,23 @@ export function ChartDataConfigurationV3({
         };
         break;
 
+      case 'pivot_table': {
+        specificFields = {
+          computation_type: 'aggregated' as const,
+          extra_config: {
+            ...(formData.extra_config || {}),
+            row_dimensions: [],
+            column_dimensions: [],
+            column_time_grains: {},
+            show_row_subtotals: true,
+            show_grand_total: true,
+            subtotal_label: 'Subtotal',
+            grand_total_label: 'Grand Total',
+          },
+        };
+        break;
+      }
+
       case 'table':
         // Tables default to aggregated data like other charts
         specificFields = {
@@ -426,7 +446,8 @@ export function ChartDataConfigurationV3({
       {/* X Axis / Dimension */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
-        formData.chart_type !== 'table' && (
+        formData.chart_type !== 'table' &&
+        formData.chart_type !== 'pivot_table' && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">
               {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
@@ -475,6 +496,16 @@ export function ChartDataConfigurationV3({
         />
       )}
 
+      {/* Pivot Table Data Configuration */}
+      {formData.chart_type === 'pivot_table' && (
+        <PivotDataConfiguration
+          formData={formData}
+          availableColumns={normalizedColumns}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      )}
+
       {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
       {['bar', 'line'].includes(formData.chart_type || '') &&
         formData.dimension_column &&
@@ -492,10 +523,11 @@ export function ChartDataConfigurationV3({
           />
         )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
+      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables or pivot tables) */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' &&
+        formData.chart_type !== 'pivot_table' &&
         !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
@@ -534,8 +566,8 @@ export function ChartDataConfigurationV3({
           </div>
         )}
 
-      {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
+      {/* Multiple Metrics for Bar, Line, Table, and Pivot Table Charts */}
+      {['bar', 'line', 'table', 'pivot_table'].includes(formData.chart_type || '') && (
         <MetricsSelector
           metrics={formData.metrics || []}
           onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
@@ -741,11 +773,18 @@ export function ChartDataConfigurationV3({
               <SelectValue placeholder="Select pagination" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">No pagination</SelectItem>
-              <SelectItem value="20">20 items</SelectItem>
-              <SelectItem value="50">50 items</SelectItem>
-              <SelectItem value="100">100 items</SelectItem>
-              <SelectItem value="200">200 items</SelectItem>
+              {(() => {
+                const unit = formData.chart_type === 'pivot_table' ? 'groups' : 'items';
+                return (
+                  <>
+                    <SelectItem value="__none__">No pagination</SelectItem>
+                    <SelectItem value="20">20 {unit}</SelectItem>
+                    <SelectItem value="50">50 {unit}</SelectItem>
+                    <SelectItem value="100">100 {unit}</SelectItem>
+                    <SelectItem value="200">200 {unit}</SelectItem>
+                  </>
+                );
+              })()}
             </SelectContent>
           </Select>
         </div>

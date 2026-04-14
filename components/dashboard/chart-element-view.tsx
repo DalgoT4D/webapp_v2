@@ -13,6 +13,8 @@ import {
   FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
@@ -302,6 +304,7 @@ export function ChartElementView({
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isPivotTableChart = effectiveChart?.chart_type === ChartTypes.PIVOT_TABLE;
   const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
   const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
   const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
@@ -1804,7 +1807,23 @@ export function ChartElementView({
       )}
 
       {/* Chart container */}
-      {isTableChart ? (
+      {isPivotTableChart ? (
+        <div className="w-full flex-1 h-full overflow-auto p-2">
+          {chartData?.data ? (
+            <PivotTableChart
+              data={chartData.data as unknown as PivotTableResponse}
+              rowDimLabels={effectiveChart?.extra_config?.row_dimensions || []}
+              customizations={effectiveChart?.extra_config?.customizations || {}}
+              subtotalLabel={effectiveChart?.extra_config?.subtotal_label || 'Subtotal'}
+              grandTotalLabel={effectiveChart?.extra_config?.grand_total_label || 'Grand Total'}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              {isLoading ? <Loader2 className="h-8 w-8 animate-spin" /> : 'No data available'}
+            </div>
+          )}
+        </div>
+      ) : isTableChart ? (
         <div
           ref={tableRef}
           className={cn(

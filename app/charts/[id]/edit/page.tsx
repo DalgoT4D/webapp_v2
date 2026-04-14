@@ -111,6 +111,11 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         title: '',
         showLabels: false,
       };
+    case ChartTypes.PIVOT_TABLE:
+      return {
+        numberFormat: 'default',
+        decimalPlaces: 0,
+      };
     default:
       return {};
   }
@@ -320,6 +325,18 @@ function EditChartPageContent() {
                 ? [chart.extra_config.dimension_column]
                 : []),
         }),
+        // Include pivot table fields from extra_config when loading a pivot_table chart
+        ...(chart.chart_type === ChartTypes.PIVOT_TABLE && {
+          extra_config: {
+            row_dimensions: chart.extra_config?.row_dimensions || [],
+            column_dimensions: chart.extra_config?.column_dimensions || [],
+            column_time_grains: chart.extra_config?.column_time_grains || {},
+            show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+            show_grand_total: chart.extra_config?.show_grand_total ?? true,
+            subtotal_label: chart.extra_config?.subtotal_label || 'Subtotal',
+            grand_total_label: chart.extra_config?.grand_total_label || 'Grand Total',
+          },
+        }),
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -444,6 +461,10 @@ function EditChartPageContent() {
       return true; // Table charts just need basic schema/table selection
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      return !!(formData.extra_config?.row_dimensions?.length && formData.metrics?.length);
+    }
+
     {
       // For bar/line/table charts with multiple metrics
       if (
@@ -539,10 +560,19 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE && {
-              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+            // Pivot table top-level fields (backend reads these directly on the payload)
+            ...(formData.chart_type === 'pivot_table' && {
+              row_dimensions: formData.extra_config?.row_dimensions || [],
+              column_dimensions: formData.extra_config?.column_dimensions || [],
+              column_time_grains: formData.extra_config?.column_time_grains || {},
+              show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+              show_grand_total: formData.extra_config?.show_grand_total ?? true,
             }),
+            // Number formatting is frontend-only - exclude from API payload
+            ...(formData.chart_type !== ChartTypes.TABLE &&
+              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
+                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+              }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -559,6 +589,14 @@ function EditChartPageContent() {
               sort: formData.sort,
               time_grain: formData.time_grain,
               table_columns: formData.table_columns,
+              // Pivot table fields in extra_config
+              ...(formData.chart_type === 'pivot_table' && {
+                row_dimensions: formData.extra_config?.row_dimensions || [],
+                column_dimensions: formData.extra_config?.column_dimensions || [],
+                column_time_grains: formData.extra_config?.column_time_grains || {},
+                show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+                show_grand_total: formData.extra_config?.show_grand_total ?? true,
+              }),
             },
           }
         : null,
@@ -585,6 +623,7 @@ function EditChartPageContent() {
       formData.pagination,
       formData.sort,
       formData.time_grain,
+      formData.extra_config,
       tableDrillDownState,
     ]
   );
@@ -756,10 +795,16 @@ function EditChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+  } = useChartDataPreview(
+    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null,
+    dataPreviewPage,
+    dataPreviewPageSize
+  );
 
   // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
+    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null
+  );
 
   // Fetch raw table data
   const {
@@ -1159,6 +1204,10 @@ function EditChartPageContent() {
       return true; // Table charts only need basic fields (title, chart_type, schema, table)
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      return !!(formData.extra_config?.row_dimensions?.length && formData.metrics?.length);
+    }
+
     {
       // For bar/line/table charts with multiple metrics
       if (
@@ -1303,6 +1352,16 @@ function EditChartPageContent() {
             formData.dimensions && formData.dimensions.length > 0
               ? formData.dimensions.map((d) => d.column).filter(Boolean)
               : [],
+        }),
+        // Pivot table extra_config fields
+        ...(formData.chart_type === 'pivot_table' && {
+          row_dimensions: formData.extra_config?.row_dimensions || [],
+          column_dimensions: formData.extra_config?.column_dimensions || [],
+          column_time_grains: formData.extra_config?.column_time_grains || {},
+          show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+          show_grand_total: formData.extra_config?.show_grand_total ?? true,
+          subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
+          grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',
         }),
       },
     };
@@ -1737,7 +1796,14 @@ function EditChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config || lastValidChartConfig}
+                        config={
+                          formData.chart_type === 'pivot_table'
+                            ? { extra_config: formData.extra_config }
+                            : chartData?.echarts_config || lastValidChartConfig
+                        }
+                        tableData={
+                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
+                        }
                         isLoading={chartDataLoading}
                         error={null} // Error handled by toast
                         chartType={formData.chart_type}
@@ -1752,43 +1818,48 @@ function EditChartPageContent() {
                 <div className="p-4">
                   <Tabs
                     defaultValue={
-                      formData.chart_type === ChartTypes.TABLE ? 'raw-data' : 'chart-data'
+                      formData.chart_type === ChartTypes.TABLE ||
+                      formData.chart_type === ChartTypes.PIVOT_TABLE
+                        ? 'raw-data'
+                        : 'chart-data'
                     }
                     className="h-full flex flex-col"
                   >
                     <TabsList
-                      className={`grid w-full ${formData.chart_type === ChartTypes.TABLE ? 'grid-cols-1' : 'grid-cols-2'} flex-shrink-0`}
+                      className={`grid w-full ${formData.chart_type === ChartTypes.TABLE || formData.chart_type === ChartTypes.PIVOT_TABLE ? 'grid-cols-1' : 'grid-cols-2'} flex-shrink-0`}
                     >
-                      {formData.chart_type !== ChartTypes.TABLE && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
+                      {formData.chart_type !== ChartTypes.TABLE &&
+                        formData.chart_type !== ChartTypes.PIVOT_TABLE && (
+                          <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            Chart Data
+                          </TabsTrigger>
+                        )}
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== ChartTypes.TABLE && (
-                      <TabsContent value="chart-data" className="flex-1 overflow-auto">
-                        <DataPreview
-                          data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                          columns={dataPreview?.columns || []}
-                          columnTypes={dataPreview?.column_types || {}}
-                          isLoading={previewLoading}
-                          error={previewError}
-                          pagination={{
-                            page: dataPreviewPage,
-                            pageSize: dataPreviewPageSize,
-                            total: chartDataTotalRows || 0,
-                            onPageChange: setDataPreviewPage,
-                            onPageSizeChange: handleDataPreviewPageSizeChange,
-                          }}
-                        />
-                      </TabsContent>
-                    )}
+                    {formData.chart_type !== ChartTypes.TABLE &&
+                      formData.chart_type !== ChartTypes.PIVOT_TABLE && (
+                        <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                          <DataPreview
+                            data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                            columns={dataPreview?.columns || []}
+                            columnTypes={dataPreview?.column_types || {}}
+                            isLoading={previewLoading}
+                            error={previewError}
+                            pagination={{
+                              page: dataPreviewPage,
+                              pageSize: dataPreviewPageSize,
+                              total: chartDataTotalRows || 0,
+                              onPageChange: setDataPreviewPage,
+                              onPageSizeChange: handleDataPreviewPageSizeChange,
+                            }}
+                          />
+                        </TabsContent>
+                      )}
 
                     <TabsContent value="raw-data" className="flex-1 overflow-auto">
                       <DataPreview
