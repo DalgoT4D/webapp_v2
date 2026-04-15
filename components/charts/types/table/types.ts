@@ -7,6 +7,11 @@ export type TextConditionalOperator = '==' | '!=';
 interface BaseConditionalFormattingRule {
   column: string;
   color: string; // hex color e.g. "#C8E6C9"
+  /**
+   * Optional drill level index (0-based, matches orderedDimensions index).
+   * undefined = rule applies at all drill levels.
+   */
+  level?: number;
 }
 
 /** Conditional formatting rule for numeric columns */

@@ -1790,6 +1790,9 @@ function EditChartPageContent() {
                                   .map((d) => d.column)
                                   .filter(Boolean)[0]
                           }
+                          currentDrillLevel={
+                            tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                          }
                         />
                       </div>
                     </div>

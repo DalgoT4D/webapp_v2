@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,10 @@ interface ConditionalFormattingSectionProps {
   availableColumns: string[];
   /** Maps each column name to its type. Columns not in the map are treated as numeric. */
   columnTypeMap?: Record<string, 'numeric' | 'text'>;
+  /** Whether drill-down is enabled on this chart */
+  drillDownEnabled?: boolean;
+  /** Ordered drill-down dimension column names, e.g. ['state', 'district', 'city'] */
+  orderedDimensions?: string[];
   disabled?: boolean;
 }
 
@@ -32,10 +37,40 @@ export function ConditionalFormattingSection({
   onChange,
   availableColumns,
   columnTypeMap,
+  drillDownEnabled,
+  orderedDimensions,
   disabled,
 }: ConditionalFormattingSectionProps) {
+  // Track the previous drillDownEnabled value to detect transitions
+  const prevDrillDownRef = useRef<boolean | undefined>(undefined);
+  const [showDrillOffPrompt, setShowDrillOffPrompt] = useState(false);
+
+  useEffect(() => {
+    const prev = prevDrillDownRef.current;
+    prevDrillDownRef.current = drillDownEnabled;
+    // Show prompt when drill-down transitions true → false and there are level-scoped rules
+    if (prev === true && drillDownEnabled === false) {
+      const hasLevelScoped = rules.some((r) => r.level !== undefined);
+      if (hasLevelScoped) {
+        setShowDrillOffPrompt(true);
+      }
+    }
+  }, [drillDownEnabled, rules]);
+
+  // --- Drill-down helpers ---
+  const isDimensionCol = (col: string) => !!(drillDownEnabled && orderedDimensions?.includes(col));
+
+  const getDimLevelLabel = (col: string): string | undefined => {
+    if (!drillDownEnabled || !orderedDimensions) return undefined;
+    const idx = orderedDimensions.indexOf(col);
+    if (idx < 0) return undefined;
+    return idx === 0 ? 'top level' : `after drilling into ${orderedDimensions[idx - 1]}`;
+  };
+
+  // --- Column type helpers ---
   const isTextColumn = (col: string) => columnTypeMap?.[col] === 'text';
 
+  // --- Rule handlers ---
   const handleAddRule = () => {
     const firstCol = availableColumns[0];
     const newRule: ConditionalFormattingRule = isTextColumn(firstCol)
@@ -56,20 +91,21 @@ export function ConditionalFormattingSection({
 
   const handleUpdateRule = (
     index: number,
-    field: keyof ConditionalFormattingRule,
-    value: string | number
+    field: keyof ConditionalFormattingRule | 'level',
+    value: string | number | undefined
   ) => {
     const updated = rules.map((rule, i) => {
       if (i !== index) return rule;
 
+      if (field === 'level') {
+        return { ...rule, level: value as number | undefined };
+      }
+
       if (field === 'column') {
-        // When the column changes, check if the type changed and reset operator/value accordingly
         const newCol = value as string;
         const newIsText = isTextColumn(newCol);
         const oldIsText = rule.type === 'text';
-
         if (newIsText !== oldIsText) {
-          // Column type changed — reset to appropriate defaults
           if (newIsText) {
             return {
               type: 'text' as const,
@@ -88,12 +124,10 @@ export function ConditionalFormattingSection({
             };
           }
         }
-        // Same column type — just update the column name
         return { ...rule, column: newCol };
       }
 
       if (field === 'value') {
-        // For text rules keep as string; for numeric rules coerce to number
         const ruleType = (rule as any).type ?? 'numeric';
         return { ...rule, value: ruleType === 'text' ? String(value) : Number(value) };
       }
@@ -101,6 +135,13 @@ export function ConditionalFormattingSection({
       return { ...rule, [field]: value };
     });
     onChange(updated as ConditionalFormattingRule[]);
+  };
+
+  const handleKeepScopedRules = () => setShowDrillOffPrompt(false);
+
+  const handleRemoveScopedRules = () => {
+    onChange(rules.map((r) => ({ ...r, level: undefined })));
+    setShowDrillOffPrompt(false);
   };
 
   if (availableColumns.length === 0) {
@@ -132,6 +173,25 @@ export function ConditionalFormattingSection({
         </Button>
       </div>
 
+      {/* Drill-off prompt: shown when drill-down is turned OFF with level-scoped rules */}
+      {showDrillOffPrompt && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start justify-between gap-2">
+          <span>Drill-down is off. Level-scoped rules are inactive.</span>
+          <div className="flex gap-3 flex-shrink-0">
+            <button type="button" onClick={handleKeepScopedRules} className="underline font-medium">
+              Keep
+            </button>
+            <button
+              type="button"
+              onClick={handleRemoveScopedRules}
+              className="underline font-medium"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      )}
+
       {rules.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-2">
           No rules defined. Add a rule to highlight cells based on conditions.
@@ -142,6 +202,8 @@ export function ConditionalFormattingSection({
         {rules.map((rule, index) => {
           const ruleIsText = (rule as any).type === 'text' || isTextColumn(rule.column);
           const operators = ruleIsText ? TEXT_CONDITIONAL_OPERATORS : CONDITIONAL_OPERATORS;
+          const dimLevelLabel = getDimLevelLabel(rule.column);
+          const isMetricCol = drillDownEnabled && !isDimensionCol(rule.column);
 
           return (
             <div
@@ -149,8 +211,8 @@ export function ConditionalFormattingSection({
               data-testid={`formatting-rule-${index}`}
               className="border rounded-md p-3 space-y-2"
             >
-              {/* Row 1: Column + Operator + Value + Delete */}
-              <div className="flex items-center gap-2">
+              {/* Row 1: Column + Operator + Value + (Level chip for metrics) + Delete */}
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Column selector */}
                 <Select
                   value={rule.column}
@@ -159,16 +221,28 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-column-${index}`}
-                    className="h-8 text-xs flex-1"
+                    className="h-8 text-xs flex-1 min-w-[100px]"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableColumns.map((col) => (
-                      <SelectItem key={col} value={col}>
-                        {col}
-                      </SelectItem>
-                    ))}
+                    {availableColumns.map((col) => {
+                      const dimLabel = getDimLevelLabel(col);
+                      const isDim = isDimensionCol(col);
+                      return (
+                        <SelectItem key={col} value={col}>
+                          <span>{col}</span>
+                          {isDim && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {`(dimension${dimLabel ? ` · ${dimLabel}` : ''})`}
+                            </span>
+                          )}
+                          {!isDim && drillDownEnabled && (
+                            <span className="ml-2 text-xs text-muted-foreground">(metric)</span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
 
@@ -221,6 +295,32 @@ export function ConditionalFormattingSection({
                   />
                 )}
 
+                {/* Level scope chip — only for metric columns when drill-down is on */}
+                {isMetricCol && orderedDimensions && orderedDimensions.length > 0 && (
+                  <Select
+                    value={rule.level !== undefined ? String(rule.level) : '__all__'}
+                    onValueChange={(val) =>
+                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : Number(val))
+                    }
+                    disabled={disabled}
+                  >
+                    <SelectTrigger
+                      data-testid={`rule-level-${index}`}
+                      className="h-8 text-xs w-[120px]"
+                    >
+                      <SelectValue placeholder="All levels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All levels</SelectItem>
+                      {orderedDimensions.map((dimCol, i) => (
+                        <SelectItem key={i} value={String(i)}>
+                          {dimCol} level
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
                 {/* Delete button */}
                 <Button
                   type="button"
@@ -234,6 +334,22 @@ export function ConditionalFormattingSection({
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
+
+              {/* Dimension level annotation (read-only) */}
+              {drillDownEnabled && isDimensionCol(rule.column) && dimLevelLabel && (
+                <p className="text-xs text-muted-foreground">
+                  {dimLevelLabel === 'top level'
+                    ? 'Active at the top level.'
+                    : `Active ${dimLevelLabel}.`}
+                </p>
+              )}
+
+              {/* Helper text for exact-match text rules */}
+              {ruleIsText && (
+                <p className="text-xs text-muted-foreground">
+                  Value must match exact database value (case-sensitive).
+                </p>
+              )}
 
               {/* Row 2: Color picker */}
               <ColorPicker

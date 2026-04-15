@@ -25,6 +25,10 @@ interface TableChartCustomizationsProps {
   allColumns?: string[];
   /** Maps each displayed column to its type — used by conditional formatting */
   columnTypeMap?: Record<string, 'numeric' | 'text'>;
+  /** Whether drill-down is enabled on this chart */
+  drillDownEnabled?: boolean;
+  /** Ordered drill-down dimension column names (filtered by enable_drill_down) */
+  orderedDimensions?: string[];
   /** Callback to update table_columns order in formData */
   onTableColumnsChange?: (columns: string[]) => void;
 }
@@ -36,6 +40,8 @@ export function TableChartCustomizations({
   availableColumns = [],
   allColumns = [],
   columnTypeMap,
+  drillDownEnabled,
+  orderedDimensions,
   onTableColumnsChange,
 }: TableChartCustomizationsProps) {
   // Currently expanded column for number formatting configuration
@@ -203,6 +209,8 @@ export function TableChartCustomizations({
         onChange={(rules) => updateCustomization('conditionalFormatting', rules)}
         availableColumns={allColumns.length > 0 ? allColumns : availableColumns}
         columnTypeMap={columnTypeMap}
+        drillDownEnabled={drillDownEnabled}
+        orderedDimensions={orderedDimensions}
         disabled={disabled}
       />
 

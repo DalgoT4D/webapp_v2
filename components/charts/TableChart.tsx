@@ -25,6 +25,7 @@ import { formatNumber, type NumberFormat } from '@/lib/formatters';
 import { getTableTheme } from './types/table/constants';
 import { useTableSearch } from './hooks/useTableSearch';
 import { TableSearchBar } from './TableSearchBar';
+import type { ConditionalFormattingRule } from './types/table/types';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
 const URL_PATTERN = /^(https?:\/\/|www\.)/i;
@@ -75,12 +76,7 @@ interface TableChartProps {
       enabled: boolean;
       page_size: number;
     };
-    conditionalFormatting?: Array<{
-      column: string;
-      operator: string;
-      value: number;
-      color: string;
-    }>;
+    conditionalFormatting?: ConditionalFormattingRule[];
     columnAlignment?: Record<string, string>;
     zebraRows?: boolean;
     freezeFirstColumn?: boolean;
@@ -99,6 +95,11 @@ interface TableChartProps {
   onRowClick?: (rowData: Record<string, any>, columnName: string) => void;
   drillDownEnabled?: boolean;
   currentDimensionColumn?: string;
+  /**
+   * 0-based index of the currently-displayed dimension in orderedDimensions.
+   * 0 = top level (no drill). Used to enforce level-scoped conditional formatting rules.
+   */
+  currentDrillLevel?: number;
 }
 
 export function TableChart({
@@ -111,6 +112,7 @@ export function TableChart({
   onRowClick,
   drillDownEnabled = false,
   currentDimensionColumn,
+  currentDrillLevel = 0,
 }: TableChartProps) {
   const { table_columns, column_formatting = {}, sort = [], pagination: configPagination } = config;
 
@@ -230,6 +232,8 @@ export function TableChart({
     let matchedColor: string | undefined;
     for (const rule of rules) {
       if (rule.column !== column) continue;
+      // Skip rules scoped to a different drill level
+      if (rule.level !== undefined && rule.level !== currentDrillLevel) continue;
 
       // Treat legacy rules saved without a `type` field as numeric
       const ruleType = (rule as any).type ?? 'numeric';
