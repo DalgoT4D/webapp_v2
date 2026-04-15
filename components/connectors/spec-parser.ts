@@ -199,32 +199,34 @@ function parseOneOfField(
   prop: AirbyteProperty,
   path: string[],
   isRequired: boolean
-): FieldNode {
+): FieldNode | null {
   const options = prop.oneOf!;
   const discriminator = findConstKey(options);
 
+  // Without a discriminator we can't render a valid oneOf selector —
+  // return null so the field is skipped rather than emitting a broken node.
+  if (!discriminator) return null;
+
   const subFields: FieldNode[] = [];
 
-  if (discriminator) {
-    for (const option of options) {
-      if (!option.properties) continue;
-      const constProp = option.properties[discriminator.key];
-      const constValue = constProp ? getDiscriminatorValue(constProp) : undefined;
-      if (constValue === undefined) continue;
+  for (const option of options) {
+    if (!option.properties) continue;
+    const constProp = option.properties[discriminator.key];
+    const constValue = constProp ? getDiscriminatorValue(constProp) : undefined;
+    if (constValue === undefined) continue;
 
-      // If the parent oneOf is not required (e.g. advanced section fields),
-      // don't force sub-fields as required — they should be optional
-      const optionRequired = isRequired ? option.required || [] : [];
+    // If the parent oneOf is not required (e.g. advanced section fields),
+    // don't force sub-fields as required — they should be optional
+    const optionRequired = isRequired ? option.required || [] : [];
 
-      for (const [subKey, subProp] of Object.entries(option.properties)) {
-        // Skip the discriminator field itself
-        if (subKey === discriminator.key) continue;
+    for (const [subKey, subProp] of Object.entries(option.properties)) {
+      // Skip the discriminator field itself
+      if (subKey === discriminator.key) continue;
 
-        const subField = parseField(subKey, subProp, path, optionRequired);
-        if (subField) {
-          subField.parentValue = constValue;
-          subFields.push(subField);
-        }
+      const subField = parseField(subKey, subProp, path, optionRequired);
+      if (subField) {
+        subField.parentValue = constValue;
+        subFields.push(subField);
       }
     }
   }
@@ -240,8 +242,8 @@ function parseOneOfField(
     group: prop.group,
     alwaysShow: prop.always_show,
     default: prop.default,
-    constKey: discriminator?.key,
-    constOptions: discriminator?.constOptions,
+    constKey: discriminator.key,
+    constOptions: discriminator.constOptions,
     oneOfSubFields: sortFields(subFields),
     displayType: prop.display_type,
   };

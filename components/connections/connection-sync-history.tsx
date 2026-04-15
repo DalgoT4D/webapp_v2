@@ -20,6 +20,7 @@ import {
   SyncStatus,
   TaskStatus,
   JobType,
+  CONNECTION_API,
 } from '@/constants/connections';
 import { ENABLE_LOG_SUMMARIES, LockStatus } from '@/constants/pipeline';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
@@ -70,7 +71,11 @@ export function ConnectionSyncHistory({
   onClose,
 }: ConnectionSyncHistoryProps) {
   const [offset, setOffset] = useState(0);
-  const { syncJobs, totalSyncs, isLoading } = useSyncHistory(connectionId, offset);
+  const [allSyncJobs, setAllSyncJobs] = useState<ConnectionSyncJob[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  const { syncJobs, totalSyncs, isLoading } = useSyncHistory(connectionId, 0);
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
   const [jobLogs, setJobLogs] = useState<Record<number, string[]>>({});
   const [loadingLogs, setLoadingLogs] = useState<number | null>(null);
@@ -83,7 +88,39 @@ export function ConnectionSyncHistory({
   // Live log polling for running jobs
   const liveLogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const hasMore = offset + SYNC_HISTORY_PAGE_SIZE < totalSyncs;
+  // Initialize with first page from SWR
+  useEffect(() => {
+    if (syncJobs.length > 0 && allSyncJobs.length === 0) {
+      setAllSyncJobs(syncJobs);
+      setHasMore(syncJobs.length < totalSyncs);
+      setOffset(SYNC_HISTORY_PAGE_SIZE);
+    }
+  }, [syncJobs, totalSyncs, allSyncJobs.length]);
+
+  // Load more handler - appends new items
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const result = await apiGet(
+        `${CONNECTION_API.CONNECTIONS}/${connectionId}/sync/history?limit=${SYNC_HISTORY_PAGE_SIZE}&offset=${offset}`
+      );
+
+      const moreJobs: ConnectionSyncJob[] = result?.history || [];
+      const total: number = result?.totalSyncs || 0;
+
+      if (moreJobs.length > 0) {
+        setAllSyncJobs((prev) => [...prev, ...moreJobs]);
+        setOffset((prev) => prev + SYNC_HISTORY_PAGE_SIZE);
+      }
+      if (offset + SYNC_HISTORY_PAGE_SIZE >= total || moreJobs.length < SYNC_HISTORY_PAGE_SIZE) {
+        setHasMore(false);
+      }
+    } catch (error) {
+      toastError.load(error, 'sync history');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [connectionId, offset]);
 
   // Clean up timers on unmount
   useEffect(() => {
@@ -102,7 +139,7 @@ export function ConnectionSyncHistory({
 
     if (expandedJobId === null) return undefined;
 
-    const expandedJob = syncJobs.find((j) => j.job_id === expandedJobId);
+    const expandedJob = allSyncJobs.find((j) => j.job_id === expandedJobId);
     if (!expandedJob || expandedJob.status !== TaskStatus.RUNNING) return undefined;
 
     const pollRunningJob = async () => {
@@ -133,7 +170,7 @@ export function ConnectionSyncHistory({
         liveLogTimerRef.current = null;
       }
     };
-  }, [expandedJobId, syncJobs]);
+  }, [expandedJobId, allSyncJobs]);
 
   const handleToggleLogs = useCallback(
     async (jobId: number, attemptNumber: number) => {
@@ -146,7 +183,7 @@ export function ConnectionSyncHistory({
 
       if (!jobLogs[jobId]) {
         // First check if the job already has logs from the history API
-        const job = syncJobs.find((j) => j.job_id === jobId);
+        const job = allSyncJobs.find((j) => j.job_id === jobId);
         if (job?.logs && job.logs.length > 0) {
           setJobLogs((prev) => ({ ...prev, [jobId]: job.logs }));
           return;
@@ -170,7 +207,7 @@ export function ConnectionSyncHistory({
         }
       }
     },
-    [expandedJobId, jobLogs, syncJobs]
+    [expandedJobId, jobLogs, allSyncJobs]
   );
 
   const handleTriggerLogSummary = useCallback(
@@ -227,11 +264,11 @@ export function ConnectionSyncHistory({
       title="Connection History"
       subtitle={subtitle}
     >
-      {isLoading && syncJobs.length === 0 ? (
+      {isLoading && allSyncJobs.length === 0 ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : syncJobs.length === 0 && !lock ? (
+      ) : allSyncJobs.length === 0 && !lock ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
             <Clock className="h-6 w-6 text-gray-400" />
@@ -254,7 +291,7 @@ export function ConnectionSyncHistory({
           {/* Job rows - card style with gaps */}
           <div className="space-y-2 mt-2">
             {lock && <RunningJobRow lock={lock} />}
-            {syncJobs.map((job) => (
+            {allSyncJobs.map((job) => (
               <SyncJobRow
                 key={job.job_id}
                 job={job}
@@ -274,11 +311,16 @@ export function ConnectionSyncHistory({
             <div className="flex justify-center py-6">
               <Button
                 variant="outline"
-                onClick={() => setOffset((o) => o + SYNC_HISTORY_PAGE_SIZE)}
+                onClick={loadMore}
+                disabled={loadingMore}
                 className="min-w-[200px]"
                 data-testid="load-more-history"
               >
-                <ChevronDown className="h-4 w-4 mr-2" />
+                {loadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                )}
                 Load More
               </Button>
             </div>

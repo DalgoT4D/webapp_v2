@@ -50,14 +50,13 @@ export function ConnectionsList() {
   const [schemaRefreshConnectionId, setSchemaRefreshConnectionId] = useState<string | null>(null);
   const [schemaRefreshConnectionName, setSchemaRefreshConnectionName] = useState('');
 
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  // Cleanup poll timer on unmount
+  // Cleanup all poll timers on unmount
   useEffect(() => {
     return () => {
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-      }
+      pollTimersRef.current.forEach((timer) => clearTimeout(timer));
+      pollTimersRef.current.clear();
     };
   }, []);
 
@@ -91,6 +90,7 @@ export function ConnectionsList() {
           flowRun.state_type === FlowRunStatus.FAILED ||
           flowRun.state_type === FlowRunStatus.CANCELLED
         ) {
+          pollTimersRef.current.delete(connectionId);
           setSyncingIds((prev) => prev.filter((id) => id !== connectionId));
 
           if (flowRun.state_type === FlowRunStatus.COMPLETED) {
@@ -101,11 +101,13 @@ export function ConnectionsList() {
           return;
         }
 
-        pollTimerRef.current = setTimeout(
+        const timer = setTimeout(
           () => pollSync(connectionId, flowRunId),
           FLOW_RUN_POLL_INTERVAL_MS
         );
+        pollTimersRef.current.set(connectionId, timer);
       } catch {
+        pollTimersRef.current.delete(connectionId);
         setSyncingIds((prev) => prev.filter((id) => id !== connectionId));
         mutate();
       }

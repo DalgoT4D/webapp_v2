@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useConnection } from '@/hooks/api/useConnections';
 import type { ClearStreamData } from '@/types/connections';
@@ -48,11 +49,19 @@ export function StreamSelectionDialog({
     }
   }, [initialStreams, streams.length]);
 
-  const toggleStream = useCallback((streamName: string) => {
-    setStreams((prev) =>
-      prev.map((s) => (s.streamName === streamName ? { ...s, selected: !s.selected } : s))
-    );
-  }, []);
+  const getStreamKey = useCallback(
+    (s: ClearStreamData) => `${s.streamNamespace ?? ''}::${s.streamName}`,
+    []
+  );
+
+  const toggleStream = useCallback(
+    (key: string) => {
+      setStreams((prev) =>
+        prev.map((s) => (getStreamKey(s) === key ? { ...s, selected: !s.selected } : s))
+      );
+    },
+    [getStreamKey]
+  );
 
   const toggleAll = useCallback((selected: boolean) => {
     setStreams((prev) => prev.map((s) => ({ ...s, selected })));
@@ -80,8 +89,11 @@ export function StreamSelectionDialog({
           <>
             {/* Select all toggle */}
             <div className="flex items-center justify-between py-2 border-b">
-              <span className="text-sm font-medium">Select All</span>
+              <Label htmlFor="select-all-streams" className="text-sm font-medium cursor-pointer">
+                Select All
+              </Label>
               <Switch
+                id="select-all-streams"
                 checked={allSelected}
                 onCheckedChange={toggleAll}
                 data-testid="select-all-streams"
@@ -90,19 +102,31 @@ export function StreamSelectionDialog({
 
             {/* Stream list */}
             <div className="space-y-1 max-h-72 overflow-y-auto">
-              {streams.map((stream) => (
-                <div
-                  key={stream.streamName}
-                  className="flex items-center justify-between py-2 px-1 rounded hover:bg-muted/50"
-                  data-testid={`clear-stream-${stream.streamName}`}
-                >
-                  <span className="text-sm font-mono">{stream.streamName}</span>
-                  <Switch
-                    checked={stream.selected}
-                    onCheckedChange={() => toggleStream(stream.streamName)}
-                  />
-                </div>
-              ))}
+              {streams.map((stream) => {
+                const key = getStreamKey(stream);
+                const switchId = `select-stream-${key}`;
+                return (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between py-2 px-1 rounded hover:bg-muted/50"
+                  >
+                    <Label htmlFor={switchId} className="flex flex-col cursor-pointer font-normal">
+                      <span className="text-sm font-mono">{stream.streamName}</span>
+                      {stream.streamNamespace && (
+                        <span className="text-xs text-muted-foreground">
+                          {stream.streamNamespace}
+                        </span>
+                      )}
+                    </Label>
+                    <Switch
+                      id={switchId}
+                      checked={stream.selected}
+                      onCheckedChange={() => toggleStream(key)}
+                      data-testid={`clear-stream-${key}`}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </>
         )}

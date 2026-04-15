@@ -114,7 +114,8 @@ export async function createWarehouse(payload: {
   destinationDefId: string;
   airbyteConfig: Record<string, unknown>;
 }): Promise<Warehouse> {
-  return apiPost(WAREHOUSE_API.CREATE, payload);
+  const raw: WarehouseApiItem = await apiPost(WAREHOUSE_API.CREATE, payload);
+  return mapWarehouseResponse(raw);
 }
 
 export async function updateWarehouse(
@@ -125,7 +126,8 @@ export async function updateWarehouse(
     destinationDefId: string;
   }
 ): Promise<Warehouse> {
-  return apiPut(WAREHOUSE_API.UPDATE(destId), payload);
+  const raw: WarehouseApiItem = await apiPut(WAREHOUSE_API.UPDATE(destId), payload);
+  return mapWarehouseResponse(raw);
 }
 
 export async function deleteWarehouse(): Promise<void> {
