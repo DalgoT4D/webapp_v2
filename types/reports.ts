@@ -41,6 +41,7 @@ export interface ReportMetadata {
   created_at: string;
   updated_at: string;
   created_by?: string;
+  last_modified_by?: string;
   dashboard_title: string;
   dashboard_id?: number;
 }
