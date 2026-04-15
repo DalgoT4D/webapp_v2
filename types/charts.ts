@@ -156,8 +156,10 @@ export interface ChartCreate {
     column_dimensions?: string[];
     column_time_grains?: Record<string, string>; // {column_name: grain}
     show_row_subtotals?: boolean;
+    show_column_subtotals?: boolean;
     show_grand_total?: boolean;
     subtotal_label?: string;
+    column_subtotal_label?: string;
     grand_total_label?: string;
   };
 }
@@ -212,8 +214,10 @@ export interface ChartUpdate {
     column_dimensions?: string[];
     column_time_grains?: Record<string, string>;
     show_row_subtotals?: boolean;
+    show_column_subtotals?: boolean;
     show_grand_total?: boolean;
     subtotal_label?: string;
+    column_subtotal_label?: string;
     grand_total_label?: string;
   };
 }
@@ -250,8 +254,10 @@ export interface ChartDataPayload {
   column_dimensions?: string[];
   column_time_grains?: Record<string, string>;
   show_row_subtotals?: boolean;
+  show_column_subtotals?: boolean;
   show_grand_total?: boolean;
   subtotal_label?: string;
+  column_subtotal_label?: string;
   grand_total_label?: string;
 
   // Customizations

@@ -420,6 +420,7 @@ export function ChartPreview({
     const customizations = propCustomizations || config?.extra_config?.customizations || {};
     const rowDimLabels = config?.extra_config?.row_dimensions || [];
     const subtotalLabel = (config?.extra_config?.subtotal_label as string) || '';
+    const columnSubtotalLabel = (config?.extra_config?.column_subtotal_label as string) || '';
     const grandTotalLabel = (config?.extra_config?.grand_total_label as string) || '';
 
     return (
@@ -428,6 +429,7 @@ export function ChartPreview({
         rowDimLabels={rowDimLabels}
         customizations={customizations}
         subtotalLabel={subtotalLabel}
+        columnSubtotalLabel={columnSubtotalLabel}
         grandTotalLabel={grandTotalLabel}
       />
     );

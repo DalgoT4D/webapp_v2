@@ -39,8 +39,8 @@ interface ChartDataConfigurationV3Props {
   hasLevelScopedRules?: boolean;
   /** Called after dimension reorder when level-scoped rules exist — for T7 */
   onReorderWithScopedRules?: () => void;
-  /** Maps dimension index → count of rules scoped to it — for T9 remove warning */
-  scopedRuleCountByLevel?: Record<number, number>;
+  /** Maps dimension column name → count of rules scoped to it — for T9 remove warning */
+  scopedRuleCountByLevel?: Record<string, number>;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -395,6 +395,7 @@ export function ChartDataConfigurationV3({
             column_dimensions: [],
             column_time_grains: {},
             show_row_subtotals: true,
+            show_column_subtotals: false,
             show_grand_total: true,
             subtotal_label: 'Subtotal',
             grand_total_label: 'Grand Total',

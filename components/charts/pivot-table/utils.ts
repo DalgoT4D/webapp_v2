@@ -1,4 +1,4 @@
-import { PivotTableResponse, PivotRow } from '@/types/pivot-table';
+import { PivotTableResponse, PivotRow, ColumnSubtotals } from '@/types/pivot-table';
 
 /**
  * Calculate rowSpan for hierarchical row dimensions.
@@ -48,20 +48,58 @@ export function calculateRowSpans(rows: PivotRow[], dimCount: number): number[][
 }
 
 /**
+ * Build an interleaved rendering order of leaf and column-subtotal indices.
+ * Returns an array of { type, leafIdx, subIdx } objects.
+ */
+function buildCsvColumnOrder(
+  columnKeys: string[][],
+  subtotals?: ColumnSubtotals
+): { type: 'leaf' | 'subtotal'; leafIdx?: number; subIdx?: number; label: string }[] {
+  if (!subtotals?.keys?.length) {
+    return columnKeys.map((key, idx) => ({
+      type: 'leaf' as const,
+      leafIdx: idx,
+      label: key.join(' | '),
+    }));
+  }
+
+  const insertMap = new Map<number, number>();
+  subtotals.insert_after.forEach((afterIdx, subIdx) => {
+    insertMap.set(afterIdx, subIdx);
+  });
+
+  const order: { type: 'leaf' | 'subtotal'; leafIdx?: number; subIdx?: number; label: string }[] =
+    [];
+  for (let i = 0; i < columnKeys.length; i++) {
+    order.push({ type: 'leaf', leafIdx: i, label: columnKeys[i].join(' | ') });
+    if (insertMap.has(i)) {
+      const subIdx = insertMap.get(i)!;
+      order.push({
+        type: 'subtotal',
+        subIdx,
+        label: `${subtotals.keys[subIdx].join(' | ')} Subtotal`,
+      });
+    }
+  }
+  return order;
+}
+
+/**
  * Export pivoted data as CSV string.
- * Supports multiple column dimensions via column_keys.
+ * Supports multiple column dimensions via column_keys and column subtotals.
  */
 export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[]): string {
   const lines: string[] = [];
   const columnKeys = data.column_keys ?? [];
   const metricHeaders = data.metric_headers ?? [];
   const hasColumns = columnKeys.length > 0;
+  const colOrder = buildCsvColumnOrder(columnKeys, data.column_subtotals);
 
   // Header row: flatten column keys to "val1 | val2" + metric name
   const headerParts = [...rowDimLabels];
-  for (const colKey of columnKeys) {
+  for (const col of colOrder) {
     for (const metricName of metricHeaders) {
-      headerParts.push(`${colKey.join(' | ')} | ${metricName}`);
+      headerParts.push(`${col.label} | ${metricName}`);
     }
   }
   if (hasColumns) {
@@ -87,7 +125,11 @@ export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[
           : row.row_labels[d] || ''
       );
     }
-    for (const colValues of row.values) {
+    for (const col of colOrder) {
+      const colValues =
+        col.type === 'leaf'
+          ? row.values[col.leafIdx!]
+          : (row.column_subtotal_values?.[col.subIdx!] ?? []);
       for (const v of colValues) {
         parts.push(v !== null && v !== undefined ? String(v) : '');
       }
@@ -102,7 +144,11 @@ export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[
   if (data.grand_total) {
     const parts: string[] = ['Grand Total'];
     for (let d = 1; d < rowDimLabels.length; d++) parts.push('');
-    for (const colValues of data.grand_total.values) {
+    for (const col of colOrder) {
+      const colValues =
+        col.type === 'leaf'
+          ? data.grand_total.values[col.leafIdx!]
+          : (data.grand_total.column_subtotal_values?.[col.subIdx!] ?? []);
       for (const v of colValues) {
         parts.push(v !== null && v !== undefined ? String(v) : '');
       }

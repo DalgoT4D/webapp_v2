@@ -324,6 +324,63 @@ export default function PivotDataConfiguration({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
+              <Label htmlFor="show-column-subtotals" className="text-sm">
+                Show Column Subtotals
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[220px]">
+                  Adds subtotal columns after each group of column dimensions, summarizing metric
+                  values for that group. Requires at least two column dimensions.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Switch
+              id="show-column-subtotals"
+              data-testid="pivot-show-column-subtotals"
+              checked={formData.extra_config?.show_column_subtotals ?? false}
+              onCheckedChange={(checked: boolean) =>
+                onChange({
+                  extra_config: {
+                    ...formData.extra_config,
+                    show_column_subtotals: checked,
+                    ...(checked &&
+                      !formData.extra_config?.column_subtotal_label && {
+                        column_subtotal_label: 'Subtotal',
+                      }),
+                  },
+                })
+              }
+              disabled={disabled || columnDimensions.length < 2}
+            />
+          </div>
+          {formData.extra_config?.show_column_subtotals && (
+            <Input
+              id="column-subtotal-display-name"
+              data-testid="pivot-column-subtotal-display-name"
+              placeholder="Subtotal"
+              value={formData.extra_config?.column_subtotal_label ?? 'Subtotal'}
+              onChange={(e) =>
+                onChange({
+                  extra_config: {
+                    ...formData.extra_config,
+                    column_subtotal_label: e.target.value,
+                  },
+                })
+              }
+              disabled={disabled}
+              className="text-sm"
+            />
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
               <Label htmlFor="show-grand-total" className="text-sm">
                 Show Grand Total
               </Label>

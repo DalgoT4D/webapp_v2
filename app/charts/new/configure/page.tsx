@@ -334,6 +334,7 @@ function ConfigureChartPageContent() {
           column_dimensions: formData.extra_config?.column_dimensions || [],
           column_time_grains: formData.extra_config?.column_time_grains || {},
           show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+          show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
           show_grand_total: formData.extra_config?.show_grand_total ?? true,
         }),
         // For table charts, include dimensions array with drill-down support
@@ -408,6 +409,7 @@ function ConfigureChartPageContent() {
             column_dimensions: formData.extra_config?.column_dimensions || [],
             column_time_grains: formData.extra_config?.column_time_grains || {},
             show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+            show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
             show_grand_total: formData.extra_config?.show_grand_total ?? true,
           }),
         },
@@ -930,6 +932,7 @@ function ConfigureChartPageContent() {
           column_dimensions: formData.extra_config?.column_dimensions || [],
           column_time_grains: formData.extra_config?.column_time_grains || {},
           show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+          show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
           show_grand_total: formData.extra_config?.show_grand_total ?? true,
           subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
           grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',

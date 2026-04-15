@@ -123,6 +123,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               column_dimensions: chart.extra_config?.column_dimensions || [],
               column_time_grains: chart.extra_config?.column_time_grains || {},
               show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+              show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
               show_grand_total: chart.extra_config?.show_grand_total ?? true,
             }),
             // For table charts, include dimensions array with drill-down support
@@ -191,6 +192,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 column_dimensions: chart.extra_config?.column_dimensions || [],
                 column_time_grains: chart.extra_config?.column_time_grains || {},
                 show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+                show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
                 show_grand_total: chart.extra_config?.show_grand_total ?? true,
               }),
             },
@@ -834,6 +836,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       rowDimLabels={chart.extra_config?.row_dimensions || []}
                       customizations={chart.extra_config?.customizations || {}}
                       subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
+                      columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
                       grandTotalLabel={chart.extra_config?.grand_total_label || 'Grand Total'}
                     />
                   ) : (

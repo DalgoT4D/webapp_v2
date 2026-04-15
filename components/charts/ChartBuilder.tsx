@@ -146,9 +146,9 @@ export function ChartBuilder({
 
   // T7 + T9: compute CF rule level-scope context for dimension warnings
   const cfLevelScopeContext = useMemo(() => {
-    const cfRules: Array<{ level?: number }> = formData.customizations?.conditionalFormatting || [];
+    const cfRules: Array<{ level?: string }> = formData.customizations?.conditionalFormatting || [];
     const hasLevelScopedRules = cfRules.some((r) => r.level !== undefined);
-    const scopedRuleCountByLevel: Record<number, number> = {};
+    const scopedRuleCountByLevel: Record<string, number> = {};
     cfRules.forEach((r) => {
       if (r.level !== undefined) {
         scopedRuleCountByLevel[r.level] = (scopedRuleCountByLevel[r.level] ?? 0) + 1;

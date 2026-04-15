@@ -2,12 +2,20 @@ export interface PivotRow {
   row_labels: string[];
   is_subtotal: boolean;
   values: (number | null)[][]; // values[column_key_index][metric_index]
+  column_subtotal_values?: (number | null)[][]; // column_subtotal_values[subtotal_key_index][metric_index]
   row_total: (number | null)[]; // "Total" column — one value per metric
 }
 
 export interface PivotGrandTotalRow {
   values: (number | null)[][]; // grand total per column per metric
+  column_subtotal_values?: (number | null)[][]; // grand total for column subtotals
   row_total: (number | null)[]; // overall grand total per metric
+}
+
+// Metadata for column subtotals positioning
+export interface ColumnSubtotals {
+  keys: string[][]; // parent column keys, e.g. [["CA"], ["TX"]]
+  insert_after: number[]; // insert after column_keys[index] for each subtotal key
 }
 
 export interface PivotTableResponse {
@@ -16,6 +24,7 @@ export interface PivotTableResponse {
   metric_headers: string[];
   rows: PivotRow[];
   grand_total: PivotGrandTotalRow | null;
+  column_subtotals?: ColumnSubtotals; // present when show_column_subtotals is enabled
   total_row_groups: number;
   page: number;
   page_size: number;

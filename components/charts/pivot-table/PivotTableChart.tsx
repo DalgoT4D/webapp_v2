@@ -15,11 +15,23 @@ interface ColumnFormatConfig {
   decimalPlaces?: number;
 }
 
+// Represents a column in the rendered table — either a leaf data column or a column subtotal
+interface RenderColumn {
+  type: 'leaf' | 'column_subtotal';
+  leafIdx?: number; // index into column_keys (for leaf)
+  subIdx?: number; // index into column_subtotals.keys (for subtotal)
+  headerKey: string[]; // padded key for header span computation
+}
+
+// Marker used in padded header keys to identify subtotal levels
+const COL_SUBTOTAL_MARKER = '__COL_SUBTOTAL__';
+
 interface PivotTableChartProps {
   data: PivotTableResponse;
   rowDimLabels: string[];
   customizations?: Record<string, unknown>;
   subtotalLabel?: string;
+  columnSubtotalLabel?: string;
   grandTotalLabel?: string;
   onSort?: (sort: PivotSort) => void;
   pagination?: {
@@ -66,6 +78,7 @@ export default function PivotTableChart({
   rowDimLabels,
   customizations,
   subtotalLabel,
+  columnSubtotalLabel,
   grandTotalLabel,
   onSort,
   pagination,
@@ -90,6 +103,38 @@ export default function PivotTableChart({
     () => calculateRowSpans(data.rows ?? [], dimCount),
     [data.rows, dimCount]
   );
+
+  // Build an interleaved column list that includes both leaf and subtotal columns.
+  // When column subtotals are absent, each entry is simply a leaf column.
+  const effectiveColumns: RenderColumn[] = useMemo(() => {
+    const subtotals = data.column_subtotals;
+    if (!hasColumnKeys || !subtotals?.keys?.length) {
+      return columnKeys.map((key, idx) => ({
+        type: 'leaf' as const,
+        leafIdx: idx,
+        headerKey: key,
+      }));
+    }
+
+    // Map: leaf column index → subtotal index to insert after it
+    const insertMap = new Map<number, number>();
+    subtotals.insert_after.forEach((afterIdx, subIdx) => {
+      insertMap.set(afterIdx, subIdx);
+    });
+
+    const cols: RenderColumn[] = [];
+    for (let i = 0; i < columnKeys.length; i++) {
+      cols.push({ type: 'leaf', leafIdx: i, headerKey: columnKeys[i] });
+      if (insertMap.has(i)) {
+        const subIdx = insertMap.get(i)!;
+        // Pad subtotal key to same depth as leaf keys using marker
+        const padded = [...subtotals.keys[subIdx]];
+        while (padded.length < numColDims) padded.push(COL_SUBTOTAL_MARKER);
+        cols.push({ type: 'column_subtotal', subIdx, headerKey: padded });
+      }
+    }
+    return cols;
+  }, [columnKeys, data.column_subtotals, hasColumnKeys, numColDims]);
 
   const totalPages = pagination ? Math.ceil(pagination.totalGroups / pagination.pageSize) : 1;
 
@@ -189,9 +234,13 @@ export default function PivotTableChart({
         colCounter++;
       }
 
-      // Value cells per column key
+      // Value cells per effective column (leaf + subtotal interleaved)
       if (hasColumnKeys) {
-        row.values.forEach((colValues) => {
+        effectiveColumns.forEach((col) => {
+          const colValues =
+            col.type === 'leaf'
+              ? row.values[col.leafIdx!]
+              : (row.column_subtotal_values?.[col.subIdx!] ?? []);
           colValues.forEach((val, mIdx) => {
             const metricName = metricHeaders[mIdx] || '';
             cells.push({
@@ -217,7 +266,15 @@ export default function PivotTableChart({
     });
 
     return cells;
-  }, [data.rows, dimCount, hasColumnKeys, metricHeaders, formatCell, subtotalLabel]);
+  }, [
+    data.rows,
+    dimCount,
+    hasColumnKeys,
+    metricHeaders,
+    formatCell,
+    subtotalLabel,
+    effectiveColumns,
+  ]);
 
   const search = useTableSearch(searchCells);
 
@@ -242,15 +299,16 @@ export default function PivotTableChart({
     [isSearchMatch]
   );
 
-  // Pre-compute header spans for each column dimension level
+  // Pre-compute header spans for each column dimension level using effective columns
   const headerLevels = useMemo(() => {
     if (!hasColumnKeys || numColDims === 0) return [];
+    const allKeys = effectiveColumns.map((c) => c.headerKey);
     const levels = [];
     for (let level = 0; level < numColDims; level++) {
-      levels.push(computeHeaderSpans(columnKeys, level));
+      levels.push(computeHeaderSpans(allKeys, level));
     }
     return levels;
-  }, [columnKeys, hasColumnKeys, numColDims]);
+  }, [effectiveColumns, hasColumnKeys, numColDims]);
 
   // Frozen column styles (colors applied via inline styles using theme)
   const frozenCellClass = freezeFirstColumn
@@ -314,16 +372,26 @@ export default function PivotTableChart({
                     style={headerCellStyle}
                   />
                 )}
-                {spans.map((span, spanIdx) => (
-                  <th
-                    key={`ch-${level}-${spanIdx}`}
-                    colSpan={span.span * metricCount}
-                    className="px-3 py-2 text-center font-semibold border-b border-r"
-                    style={headerCellStyle}
-                  >
-                    {span.value}
-                  </th>
-                ))}
+                {spans.map((span, spanIdx) => {
+                  const isSubtotalHeader = span.value === COL_SUBTOTAL_MARKER;
+                  return (
+                    <th
+                      key={`ch-${level}-${spanIdx}`}
+                      colSpan={span.span * metricCount}
+                      className={`px-3 py-2 text-center font-semibold border-b border-r ${
+                        isSubtotalHeader ? 'italic' : ''
+                      }`}
+                      style={{
+                        ...headerCellStyle,
+                        ...(isSubtotalHeader
+                          ? { backgroundColor: theme.subtotalRow, color: theme.headerText }
+                          : {}),
+                      }}
+                    >
+                      {isSubtotalHeader ? columnSubtotalLabel || 'Subtotal' : span.value}
+                    </th>
+                  );
+                })}
                 {/* Total column header — only on first row, spanning all header rows */}
                 {level === 0 && (
                   <th
@@ -351,18 +419,28 @@ export default function PivotTableChart({
                   {label}
                 </th>
               ))}
-              {hasColumnKeys
-                ? [...columnKeys, null].map((colKey, colIdx) => {
-                    const isTotal = colKey === null;
+              {hasColumnKeys ? (
+                <>
+                  {effectiveColumns.map((col, colIdx) => {
+                    const isColSubtotal = col.type === 'column_subtotal';
                     return metricHeaders.map((metric, mIdx) => (
                       <th
                         key={`metric-${colIdx}-${mIdx}`}
-                        className="px-3 py-2 text-right font-medium border-b border-r last:border-r-0 cursor-pointer hover:opacity-80"
-                        style={headerCellStyle}
+                        className={`px-3 py-2 text-right font-medium border-b border-r cursor-pointer hover:opacity-80 ${
+                          isColSubtotal ? 'italic' : ''
+                        }`}
+                        style={{
+                          ...headerCellStyle,
+                          ...(isColSubtotal
+                            ? { backgroundColor: theme.subtotalRow, color: theme.headerText }
+                            : {}),
+                        }}
                         onClick={() =>
                           onSort?.({
                             column: metric,
-                            pivot_value: isTotal ? undefined : colKey?.join(' | '),
+                            pivot_value: col.headerKey
+                              .filter((v) => v !== COL_SUBTOTAL_MARKER)
+                              .join(' | '),
                             direction: 'desc',
                           })
                         }
@@ -370,17 +448,31 @@ export default function PivotTableChart({
                         {metric}
                       </th>
                     ));
-                  })
-                : metricHeaders.map((metric, mIdx) => (
+                  })}
+                  {/* Total column metrics */}
+                  {metricHeaders.map((metric, mIdx) => (
                     <th
-                      key={`metric-${mIdx}`}
-                      className="px-3 py-2 text-right font-medium border-b cursor-pointer hover:opacity-80"
+                      key={`metric-total-${mIdx}`}
+                      className="px-3 py-2 text-right font-medium border-b border-r last:border-r-0 cursor-pointer hover:opacity-80"
                       style={headerCellStyle}
                       onClick={() => onSort?.({ column: metric, direction: 'desc' })}
                     >
                       {metric}
                     </th>
                   ))}
+                </>
+              ) : (
+                metricHeaders.map((metric, mIdx) => (
+                  <th
+                    key={`metric-${mIdx}`}
+                    className="px-3 py-2 text-right font-medium border-b cursor-pointer hover:opacity-80"
+                    style={headerCellStyle}
+                    onClick={() => onSort?.({ column: metric, direction: 'desc' })}
+                  >
+                    {metric}
+                  </th>
+                ))
+              )}
             </tr>
           </thead>
           <tbody>
@@ -451,29 +543,42 @@ export default function PivotTableChart({
                     );
                   })}
 
-                  {/* Value cells per column key */}
+                  {/* Value cells per effective column (leaf + subtotal interleaved) */}
                   {hasColumnKeys
-                    ? row.values.map((colValues, colIdx) =>
-                        colValues.map((val, mIdx) => {
+                    ? effectiveColumns.map((col, ecIdx) => {
+                        const isColSubtotal = col.type === 'column_subtotal';
+                        const colValues =
+                          col.type === 'leaf'
+                            ? row.values[col.leafIdx!]
+                            : (row.column_subtotal_values?.[col.subIdx!] ??
+                              Array(metricCount).fill(null));
+                        return colValues.map((val, mIdx) => {
                           const cellCol = colCounter;
                           colCounter++;
                           const metricName = metricHeaders[mIdx] || '';
-                          const bgColor = getConditionalColor(val, metricName);
+                          const bgColor = isColSubtotal
+                            ? undefined
+                            : getConditionalColor(val, metricName);
                           return (
                             <td
-                              key={`val-${colIdx}-${mIdx}`}
+                              key={`val-${ecIdx}-${mIdx}`}
                               data-search-cell={`${rowIdx}-${cellCol}`}
-                              className="px-3 py-2 text-right border-b border-r tabular-nums"
+                              className={`px-3 py-2 text-right border-b border-r tabular-nums ${
+                                isColSubtotal ? 'font-semibold italic' : ''
+                              }`}
                               style={{
                                 ...borderStyle,
+                                ...(isColSubtotal && !row.is_subtotal
+                                  ? { backgroundColor: theme.subtotalRow }
+                                  : {}),
                                 ...getSearchStyle(rowIdx, cellCol, bgColor),
                               }}
                             >
                               {formatCell(val, metricName)}
                             </td>
                           );
-                        })
-                      )
+                        });
+                      })
                     : null}
 
                   {/* Row total cells */}
@@ -517,20 +622,28 @@ export default function PivotTableChart({
                   {grandTotalLabel || 'Grand Total'}
                 </td>
                 {hasColumnKeys
-                  ? data.grand_total.values.map((colValues, colIdx) =>
-                      colValues.map((val, mIdx) => {
+                  ? effectiveColumns.map((col, ecIdx) => {
+                      const colValues =
+                        col.type === 'leaf'
+                          ? data.grand_total!.values[col.leafIdx!]
+                          : (data.grand_total!.column_subtotal_values?.[col.subIdx!] ??
+                            Array(metricCount).fill(null));
+                      const isColSubtotal = col.type === 'column_subtotal';
+                      return colValues.map((val, mIdx) => {
                         const metricName = metricHeaders[mIdx] || '';
                         return (
                           <td
-                            key={`gt-val-${colIdx}-${mIdx}`}
-                            className="px-3 py-2 text-right border-t-2 border-b border-r tabular-nums"
+                            key={`gt-val-${ecIdx}-${mIdx}`}
+                            className={`px-3 py-2 text-right border-t-2 border-b border-r tabular-nums ${
+                              isColSubtotal ? 'italic' : ''
+                            }`}
                             style={borderStyle}
                           >
                             {formatCell(val, metricName)}
                           </td>
                         );
-                      })
-                    )
+                      });
+                    })
                   : null}
                 {data.grand_total.row_total.map((val, mIdx) => {
                   const metricName = metricHeaders[mIdx] || '';

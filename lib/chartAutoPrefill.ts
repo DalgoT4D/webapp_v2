@@ -139,6 +139,7 @@ export function generateAutoPrefilledConfig(
           ? { [firstDateCol.column_name || firstDateCol.name]: 'month' }
           : {},
         show_row_subtotals: true,
+        show_column_subtotals: false,
         show_grand_total: true,
       };
       config.metrics = [

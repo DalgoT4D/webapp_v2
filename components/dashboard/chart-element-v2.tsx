@@ -1273,6 +1273,7 @@ export function ChartElementV2({
                     rowDimLabels={chart.extra_config?.row_dimensions || []}
                     customizations={chart.extra_config?.customizations || {}}
                     subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
+                    columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
                     grandTotalLabel={chart.extra_config?.grand_total_label || 'Grand Total'}
                   />
                 ) : (

@@ -36,8 +36,8 @@ interface TableDimensionsSelectorProps {
   hasLevelScopedRules?: boolean;
   /** Called after reorder when level-scoped rules exist (T7) */
   onReorderWithScopedRules?: () => void;
-  /** Maps dimension index to count of conditional formatting rules scoped to it (T9) */
-  scopedRuleCountByLevel?: Record<number, number>;
+  /** Maps dimension column name to count of conditional formatting rules scoped to it (T9) */
+  scopedRuleCountByLevel?: Record<string, number>;
 }
 
 // Sortable dimension item component
@@ -241,7 +241,8 @@ export function TableDimensionsSelector({
 
   const handleRemoveDimension = (index: number) => {
     // T9: if this dimension has scoped rules, show inline confirmation first
-    const scopedCount = scopedRuleCountByLevel?.[index] ?? 0;
+    const dimColumn = effectiveDimensions[index]?.column || '';
+    const scopedCount = scopedRuleCountByLevel?.[dimColumn] ?? 0;
     if (scopedCount > 0) {
       setPendingRemoveIndex(index);
       return;
@@ -339,10 +340,10 @@ export function TableDimensionsSelector({
       {/* T9: Inline confirmation when removing a dimension with scoped rules */}
       {pendingRemoveIndex !== null &&
         (() => {
-          const count = scopedRuleCountByLevel?.[pendingRemoveIndex] ?? 0;
           const dimName =
             effectiveDimensions[pendingRemoveIndex]?.column ||
             `Dimension ${pendingRemoveIndex + 1}`;
+          const count = scopedRuleCountByLevel?.[dimName] ?? 0;
           return (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start justify-between gap-2">
               <span>

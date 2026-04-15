@@ -8,10 +8,11 @@ interface BaseConditionalFormattingRule {
   column: string;
   color: string; // hex color e.g. "#C8E6C9"
   /**
-   * Optional drill level index (0-based, matches orderedDimensions index).
+   * Optional dimension column name the rule is scoped to.
    * undefined = rule applies at all drill levels.
+   * Stored as a column name (not index) so reordering dimensions doesn't break rules.
    */
-  level?: number;
+  level?: string;
 }
 
 /** Conditional formatting rule for numeric columns */

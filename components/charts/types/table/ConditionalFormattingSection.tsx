@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ColorPicker } from './ColorPicker';
 import { CONDITIONAL_OPERATORS, TEXT_CONDITIONAL_OPERATORS, PRESET_COLORS } from './constants';
 import type {
@@ -98,7 +99,7 @@ export function ConditionalFormattingSection({
       if (i !== index) return rule;
 
       if (field === 'level') {
-        return { ...rule, level: value as number | undefined };
+        return { ...rule, level: value as string | undefined };
       }
 
       if (field === 'column') {
@@ -198,7 +199,7 @@ export function ConditionalFormattingSection({
         </p>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {rules.map((rule, index) => {
           const ruleIsText = (rule as any).type === 'text' || isTextColumn(rule.column);
           const operators = ruleIsText ? TEXT_CONDITIONAL_OPERATORS : CONDITIONAL_OPERATORS;
@@ -209,10 +210,10 @@ export function ConditionalFormattingSection({
             <div
               key={index}
               data-testid={`formatting-rule-${index}`}
-              className="border rounded-md p-3 space-y-2"
+              className="space-y-2 p-3 border rounded-lg bg-white"
             >
-              {/* Row 1: Column + Operator + Value + (Level chip for metrics) + Delete */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* All controls in one row — truncate text to prevent overflow */}
+              <div className="flex items-center gap-1.5">
                 {/* Column selector */}
                 <Select
                   value={rule.column}
@@ -221,9 +222,11 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-column-${index}`}
-                    className="h-8 text-xs flex-1 min-w-[100px]"
+                    className="h-8 text-xs min-w-0 flex-[2]"
                   >
-                    <SelectValue />
+                    <span className="truncate">
+                      <SelectValue />
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {availableColumns.map((col) => {
@@ -233,12 +236,12 @@ export function ConditionalFormattingSection({
                         <SelectItem key={col} value={col}>
                           <span>{col}</span>
                           {isDim && (
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              {`(dimension${dimLabel ? ` · ${dimLabel}` : ''})`}
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              {`(dim${dimLabel ? ` · ${dimLabel}` : ''})`}
                             </span>
                           )}
                           {!isDim && drillDownEnabled && (
-                            <span className="ml-2 text-xs text-muted-foreground">(metric)</span>
+                            <span className="ml-1 text-xs text-muted-foreground">(metric)</span>
                           )}
                         </SelectItem>
                       );
@@ -260,9 +263,11 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-operator-${index}`}
-                    className="h-8 text-xs w-[130px]"
+                    className="h-8 text-xs min-w-0 flex-[2]"
                   >
-                    <SelectValue />
+                    <span className="truncate">
+                      <SelectValue />
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {operators.map((op) => (
@@ -273,7 +278,7 @@ export function ConditionalFormattingSection({
                   </SelectContent>
                 </Select>
 
-                {/* Value input — text or number depending on column type */}
+                {/* Value input */}
                 {ruleIsText ? (
                   <Input
                     type="text"
@@ -282,7 +287,7 @@ export function ConditionalFormattingSection({
                     onChange={(e) => handleUpdateRule(index, 'value', e.target.value)}
                     disabled={disabled}
                     placeholder="e.g. active"
-                    className="h-8 text-xs min-w-[80px] flex-1"
+                    className="h-8 text-xs min-w-0 flex-[1.5]"
                   />
                 ) : (
                   <Input
@@ -291,29 +296,52 @@ export function ConditionalFormattingSection({
                     value={rule.value as number}
                     onChange={(e) => handleUpdateRule(index, 'value', e.target.value)}
                     disabled={disabled}
-                    className="h-8 text-xs w-[80px]"
+                    className="h-8 text-xs min-w-0 flex-1"
                   />
                 )}
 
-                {/* Level scope chip — only for metric columns when drill-down is on */}
+                {/* Color swatch — opens ColorPicker in a popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      data-testid={`rule-color-${index}`}
+                      disabled={disabled}
+                      className="h-8 w-8 rounded-md border flex-shrink-0 cursor-pointer hover:ring-1 hover:ring-muted-foreground transition-all"
+                      style={{ backgroundColor: rule.color }}
+                      aria-label="Pick color"
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3" align="end">
+                    <ColorPicker
+                      value={rule.color}
+                      onChange={(color) => handleUpdateRule(index, 'color', color)}
+                      disabled={disabled}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {/* Level scope — only for metric columns when drill-down is on */}
                 {isMetricCol && orderedDimensions && orderedDimensions.length > 0 && (
                   <Select
-                    value={rule.level !== undefined ? String(rule.level) : '__all__'}
+                    value={rule.level ?? '__all__'}
                     onValueChange={(val) =>
-                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : Number(val))
+                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : val)
                     }
                     disabled={disabled}
                   >
                     <SelectTrigger
                       data-testid={`rule-level-${index}`}
-                      className="h-8 text-xs w-[120px]"
+                      className="h-8 text-xs min-w-0 flex-[1.5]"
                     >
-                      <SelectValue placeholder="All levels" />
+                      <span className="truncate">
+                        <SelectValue placeholder="All levels" />
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All levels</SelectItem>
-                      {orderedDimensions.map((dimCol, i) => (
-                        <SelectItem key={i} value={String(i)}>
+                      {orderedDimensions.map((dimCol) => (
+                        <SelectItem key={dimCol} value={dimCol}>
                           {dimCol} level
                         </SelectItem>
                       ))}
@@ -329,34 +357,25 @@ export function ConditionalFormattingSection({
                   data-testid={`delete-rule-${index}`}
                   onClick={() => handleDeleteRule(index)}
                   disabled={disabled}
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+                  className="h-8 w-8 flex-shrink-0 text-gray-400 hover:text-red-500"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
 
-              {/* Dimension level annotation (read-only) */}
+              {/* Annotations — only shown when relevant */}
               {drillDownEnabled && isDimensionCol(rule.column) && dimLevelLabel && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground pl-1">
                   {dimLevelLabel === 'top level'
                     ? 'Active at the top level.'
                     : `Active ${dimLevelLabel}.`}
                 </p>
               )}
-
-              {/* Helper text for exact-match text rules */}
               {ruleIsText && (
-                <p className="text-xs text-muted-foreground">
-                  Value must match exact database value (case-sensitive).
+                <p className="text-[11px] text-muted-foreground pl-1">
+                  Exact match, case-sensitive.
                 </p>
               )}
-
-              {/* Row 2: Color picker */}
-              <ColorPicker
-                value={rule.color}
-                onChange={(color) => handleUpdateRule(index, 'color', color)}
-                disabled={disabled}
-              />
             </div>
           );
         })}

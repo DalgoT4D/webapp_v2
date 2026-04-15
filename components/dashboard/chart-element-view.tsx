@@ -430,6 +430,7 @@ export function ChartElementView({
               column_dimensions: effectiveChart.extra_config?.column_dimensions || [],
               column_time_grains: effectiveChart.extra_config?.column_time_grains || {},
               show_row_subtotals: effectiveChart.extra_config?.show_row_subtotals ?? true,
+              show_column_subtotals: effectiveChart.extra_config?.show_column_subtotals ?? false,
               show_grand_total: effectiveChart.extra_config?.show_grand_total ?? true,
             }),
             metrics: effectiveChart.extra_config?.metrics,
@@ -467,6 +468,7 @@ export function ChartElementView({
                 column_dimensions: effectiveChart.extra_config?.column_dimensions || [],
                 column_time_grains: effectiveChart.extra_config?.column_time_grains || {},
                 show_row_subtotals: effectiveChart.extra_config?.show_row_subtotals ?? true,
+                show_column_subtotals: effectiveChart.extra_config?.show_column_subtotals ?? false,
                 show_grand_total: effectiveChart.extra_config?.show_grand_total ?? true,
               }),
             },
@@ -1831,6 +1833,9 @@ export function ChartElementView({
               rowDimLabels={effectiveChart?.extra_config?.row_dimensions || []}
               customizations={effectiveChart?.extra_config?.customizations || {}}
               subtotalLabel={effectiveChart?.extra_config?.subtotal_label || 'Subtotal'}
+              columnSubtotalLabel={
+                effectiveChart?.extra_config?.column_subtotal_label || 'Subtotal'
+              }
               grandTotalLabel={effectiveChart?.extra_config?.grand_total_label || 'Grand Total'}
             />
           ) : (

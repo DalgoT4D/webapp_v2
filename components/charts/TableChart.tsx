@@ -232,8 +232,8 @@ export function TableChart({
     let matchedColor: string | undefined;
     for (const rule of rules) {
       if (rule.column !== column) continue;
-      // Skip rules scoped to a different drill level
-      if (rule.level !== undefined && rule.level !== currentDrillLevel) continue;
+      // Skip rules scoped to a different drill level (level stores dimension column name)
+      if (rule.level !== undefined && rule.level !== currentDimensionColumn) continue;
 
       // Treat legacy rules saved without a `type` field as numeric
       const ruleType = (rule as any).type ?? 'numeric';
