@@ -10,6 +10,9 @@ import type { MetricDefinition } from '@/types/metrics';
 
 jest.mock('@/hooks/api/useMetrics');
 jest.mock('@/hooks/api/useWarehouse');
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/alerts/new',
+}));
 jest.mock('@/components/charts/DatasetSelector', () => ({
   DatasetSelector: () => <div data-testid="dataset-selector">Dataset selector</div>,
 }));
@@ -46,6 +49,7 @@ const baseAlert: Alert = {
   name: 'Grouped attendance alert',
   metric_id: null,
   metric_name: null,
+  metric_rag_level: null,
   query_config: {
     schema_name: 'analytics',
     table_name: 'attendance_fact',
@@ -60,7 +64,6 @@ const baseAlert: Alert = {
   recipients: ['ops@example.com'],
   message: 'The following {{group_by_column}} values failed {{alert_name}}.',
   group_message: '{{group_by_value}} {{alert_value}}',
-  message_placeholders: [],
   is_active: true,
   created_at: '2026-04-14T12:00:00Z',
   updated_at: '2026-04-14T12:00:00Z',
@@ -98,30 +101,19 @@ describe('AlertForm', () => {
     expect(screen.getByText('Metric-backed')).toBeInTheDocument();
     expect(screen.getByDisplayValue('analytics.attendance_fact')).toBeInTheDocument();
     expect(screen.getByDisplayValue('attendance')).toBeInTheDocument();
+    expect(screen.getByText('Alert when metric is')).toBeInTheDocument();
     expect(screen.queryByTestId('dataset-selector')).not.toBeInTheDocument();
+    expect(screen.queryByText('Filters')).not.toBeInTheDocument();
   });
 
-  it('adds a dataset token without auto-inserting it, then inserts on click', async () => {
-    const user = userEvent.setup();
-
+  it('shows the create metric link and hides metric token when standalone', () => {
     render(<AlertForm onSave={jest.fn().mockResolvedValue(undefined)} onCancel={jest.fn()} />);
 
-    const messageBox = screen.getByLabelText('Email body');
-    await user.click(screen.getByRole('button', { name: /add dataset token/i }));
-    expect(screen.getByRole('heading', { name: 'Add dataset token' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Add token' }));
-
-    expect(
-      screen.getByRole('button', { name: 'Insert SUM(attendance) token' })
-    ).toBeInTheDocument();
-    expect((messageBox as HTMLTextAreaElement).value).not.toContain('{{sum_attendance}}');
-
-    await user.click(messageBox);
-    await user.click(screen.getByRole('button', { name: 'Insert SUM(attendance) token' }));
-
-    await waitFor(() => {
-      expect((messageBox as HTMLTextAreaElement).value).toContain('{{sum_attendance}}');
-    });
+    expect(screen.getByRole('link', { name: 'Create a metric' })).toHaveAttribute(
+      'href',
+      '/metrics?create=1&returnTo=%2Falerts%2Fnew'
+    );
+    expect(screen.queryByRole('button', { name: 'Metric name' })).not.toBeInTheDocument();
   });
 
   it('shows grouped message fields and per-group tokens when group_by_column is configured', async () => {

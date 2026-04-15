@@ -7,23 +7,23 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { testAlert } from '@/hooks/api/useAlerts';
 import { toastError } from '@/lib/toast';
-import type { AlertMessagePlaceholder, AlertQueryConfig, AlertTestResult } from '@/types/alert';
+import type { AlertQueryConfig, AlertTestResult, MetricRagLevel } from '@/types/alert';
 
 interface AlertTestPreviewProps {
   queryConfig: AlertQueryConfig;
   metricId?: number | null;
+  metricRagLevel?: MetricRagLevel | null;
   message: string;
   groupMessage?: string;
-  messagePlaceholders: AlertMessagePlaceholder[];
   disabled?: boolean;
 }
 
 export function AlertTestPreview({
   queryConfig,
   metricId,
+  metricRagLevel,
   message,
   groupMessage,
-  messagePlaceholders,
   disabled,
 }: AlertTestPreviewProps) {
   const [testResult, setTestResult] = useState<AlertTestResult | null>(null);
@@ -37,10 +37,10 @@ export function AlertTestPreview({
       try {
         const result = await testAlert({
           metric_id: metricId ?? null,
+          metric_rag_level: metricRagLevel ?? null,
           query_config: queryConfig,
           message,
           group_message: groupMessage ?? '',
-          message_placeholders: messagePlaceholders,
           page,
           page_size: pageSize,
         });
@@ -54,7 +54,7 @@ export function AlertTestPreview({
         setIsLoading(false);
       }
     },
-    [groupMessage, message, messagePlaceholders, metricId, queryConfig, testPage, testPageSize]
+    [groupMessage, message, metricId, metricRagLevel, queryConfig, testPage, testPageSize]
   );
 
   const handlePageChange = useCallback(

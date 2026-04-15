@@ -4,11 +4,7 @@ export interface AlertFilter {
   value: string;
 }
 
-export interface AlertMessagePlaceholder {
-  key: string;
-  aggregation: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
-  column: string | null;
-}
+export type MetricRagLevel = 'red' | 'amber' | 'green';
 
 export interface AlertQueryConfig {
   schema_name: string;
@@ -27,11 +23,11 @@ export interface Alert {
   name: string;
   metric_id: number | null;
   metric_name: string | null;
+  metric_rag_level: MetricRagLevel | null;
   query_config: AlertQueryConfig;
   recipients: string[];
   message: string;
   group_message: string;
-  message_placeholders: AlertMessagePlaceholder[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -72,6 +68,7 @@ export interface TriggeredAlertEvent {
   alert_name: string;
   metric_id: number | null;
   metric_name: string | null;
+  metric_rag_level: MetricRagLevel | null;
   rows_returned: number;
   num_recipients: number;
   rendered_message: string;
@@ -83,6 +80,7 @@ export interface TriggeredAlertEvent {
 export interface AlertFormData {
   name: string;
   metric_id?: number | null;
+  metric_rag_level?: MetricRagLevel | null;
   query_config: {
     schema_name: string;
     table_name: string;
@@ -97,7 +95,6 @@ export interface AlertFormData {
   recipients: string[];
   message: string;
   group_message?: string;
-  message_placeholders?: AlertMessagePlaceholder[];
 }
 
 export const AGGREGATION_OPTIONS = [

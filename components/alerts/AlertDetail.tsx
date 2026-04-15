@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlert, useAlertEvaluations } from '@/hooks/api/useAlerts';
+import type { Alert } from '@/types/alert';
 
 interface AlertDetailProps {
   alertId: number;
@@ -26,6 +27,16 @@ function evaluationTone(fired: boolean, errorMessage: string | null) {
   return fired
     ? 'border-rose-200 bg-rose-50 text-rose-700'
     : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+}
+
+function formatConditionSummary(alert: Alert) {
+  if (alert.metric_rag_level) {
+    return `When metric is ${alert.metric_rag_level.charAt(0).toUpperCase()}${alert.metric_rag_level.slice(1)}`;
+  }
+
+  return `${alert.query_config.aggregation} ${alert.query_config.condition_operator} ${
+    alert.query_config.condition_value
+  }${alert.query_config.measure_column ? ` on ${alert.query_config.measure_column}` : ' on rows'}`;
 }
 
 export function AlertDetail({ alertId }: AlertDetailProps) {
@@ -91,13 +102,7 @@ export function AlertDetail({ alertId }: AlertDetailProps) {
               <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 Condition
               </div>
-              <div className="mt-2 text-sm font-medium">
-                {alert.query_config.aggregation} {alert.query_config.condition_operator}{' '}
-                {alert.query_config.condition_value}
-                {alert.query_config.measure_column
-                  ? ` on ${alert.query_config.measure_column}`
-                  : ' on rows'}
-              </div>
+              <div className="mt-2 text-sm font-medium">{formatConditionSummary(alert)}</div>
             </div>
             <div className="rounded-2xl border bg-white/85 px-4 py-4">
               <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">

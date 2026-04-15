@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertForm } from '@/components/alerts/AlertForm';
 import { createAlert } from '@/hooks/api/useAlerts';
 import { toastSuccess, toastError } from '@/lib/toast';
-import type { AlertMessagePlaceholder, AlertQueryConfig } from '@/types/alert';
+import type { AlertQueryConfig, MetricRagLevel } from '@/types/alert';
 
 export default function NewAlertPage() {
   const router = useRouter();
@@ -14,11 +14,11 @@ export default function NewAlertPage() {
   const handleSave = async (data: {
     name: string;
     metric_id?: number | null;
+    metric_rag_level?: MetricRagLevel | null;
     query_config: AlertQueryConfig;
     recipients: string[];
     message: string;
     group_message?: string;
-    message_placeholders: AlertMessagePlaceholder[];
   }) => {
     try {
       await createAlert(data);

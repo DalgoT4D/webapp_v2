@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +19,6 @@ import { MetricCard } from './MetricCard';
 import { MetricConfigDialog } from './MetricConfigDialog';
 import { MetricDetailDrawer } from './MetricDetailDrawer';
 import { MetricAlertsDialog } from './MetricAlertsDialog';
-import { MetricAlertDialog } from '@/components/alerts/MetricAlertDialog';
 import {
   useMetrics,
   useMetricsData,
@@ -41,6 +41,8 @@ interface MetricsListProps {
 }
 
 export function MetricsList({ canEdit }: MetricsListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
   const { hasPermission } = useUserPermissions();
   // ── Data fetching ─────────────────────────────────────────────────────────
@@ -141,12 +143,20 @@ export function MetricsList({ canEdit }: MetricsListProps) {
   const { trigger: createMetric, isMutating: isCreating } = useCreateMetric();
   const { trigger: updateMetric, isMutating: isUpdating } = useUpdateMetric();
   const { trigger: deleteMetric } = useDeleteMetric();
-  const [createAlertMetric, setCreateAlertMetric] = useState<MetricDefinition | null>(null);
   const [viewAlertsMetric, setViewAlertsMetric] = useState<MetricDefinition | null>(null);
+  const createParam = searchParams.get('create');
+  const returnToParam = searchParams.get('returnTo');
 
   // ── Detail Drawer ─────────────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<MetricDefinition | null>(null);
+
+  useEffect(() => {
+    if (createParam === '1') {
+      setEditingMetric(null);
+      setConfigDialogOpen(true);
+    }
+  }, [createParam]);
 
   const handleCardClick = (metric: MetricDefinition) => {
     setSelectedMetric(metric);
@@ -166,7 +176,7 @@ export function MetricsList({ canEdit }: MetricsListProps) {
 
   const handleCreateAlert = (metric: MetricDefinition) => {
     setDrawerOpen(false);
-    setCreateAlertMetric(metric);
+    router.push(`/alerts/new?metric_id=${metric.id}`);
   };
 
   const handleViewAlerts = (metric: MetricDefinition) => {
@@ -197,12 +207,28 @@ export function MetricsList({ canEdit }: MetricsListProps) {
       if (editingMetric) {
         await updateMetric({ id: editingMetric.id, data });
         toastSuccess.updated('Metric');
+        await refreshMetrics();
+        setConfigDialogOpen(false);
+        if (createParam === '1') {
+          router.replace('/metrics');
+        }
+        return;
       } else {
-        await createMetric(data);
+        const createdMetric = (await createMetric(data)) as MetricDefinition;
         toastSuccess.created('Metric');
+        await refreshMetrics();
+        setConfigDialogOpen(false);
+
+        if (returnToParam) {
+          const search = new URLSearchParams();
+          search.set('metric_id', String(createdMetric.id));
+          router.push(`${returnToParam}?${search.toString()}`);
+          return;
+        }
       }
-      await refreshMetrics();
-      setConfigDialogOpen(false);
+      if (createParam === '1') {
+        router.replace('/metrics');
+      }
     } catch (error: unknown) {
       toastError.save(error, 'metric');
     }
@@ -370,7 +396,12 @@ export function MetricsList({ canEdit }: MetricsListProps) {
         {/* Config Dialog */}
         <MetricConfigDialog
           open={configDialogOpen}
-          onOpenChange={setConfigDialogOpen}
+          onOpenChange={(open) => {
+            setConfigDialogOpen(open);
+            if (!open && createParam === '1') {
+              router.replace('/metrics');
+            }
+          }}
           metric={editingMetric}
           existingProgramTags={programTags}
           onSave={handleSaveMetric}
@@ -391,16 +422,6 @@ export function MetricsList({ canEdit }: MetricsListProps) {
           onViewAlerts={handleViewAlerts}
         />
         <DeleteDialog />
-        <MetricAlertDialog
-          open={Boolean(createAlertMetric)}
-          onOpenChange={(open) => {
-            if (!open) {
-              setCreateAlertMetric(null);
-            }
-          }}
-          metricId={createAlertMetric?.id ?? null}
-          metricName={createAlertMetric?.name ?? null}
-        />
         <MetricAlertsDialog
           open={Boolean(viewAlertsMetric)}
           onOpenChange={(open) => {

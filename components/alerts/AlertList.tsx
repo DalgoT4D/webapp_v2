@@ -46,6 +46,18 @@ interface TriggeredAlertGroup {
   events: TriggeredAlertEvent[];
 }
 
+function formatConditionSummary(alert: Alert) {
+  if (alert.metric_rag_level) {
+    return `When metric is ${alert.metric_rag_level.charAt(0).toUpperCase()}${alert.metric_rag_level.slice(1)}`;
+  }
+
+  return `${alert.query_config.aggregation} ${alert.query_config.condition_operator} ${
+    alert.query_config.condition_value
+  }${alert.query_config.measure_column ? ` on ${alert.query_config.measure_column}` : ' on rows'}${
+    alert.query_config.group_by_column ? ` · Group by ${alert.query_config.group_by_column}` : ''
+  }`;
+}
+
 function formatRelativeDate(value: string | null) {
   if (!value) return 'Never';
   return formatDistanceToNow(new Date(value), { addSuffix: true });
@@ -212,14 +224,7 @@ export function AlertList() {
                         {alert.query_config.schema_name}.{alert.query_config.table_name}
                       </p>
                       <p className="mt-1 text-sm text-foreground/80">
-                        {alert.query_config.aggregation} {alert.query_config.condition_operator}{' '}
-                        {alert.query_config.condition_value}
-                        {alert.query_config.measure_column
-                          ? ` on ${alert.query_config.measure_column}`
-                          : ' on rows'}
-                        {alert.query_config.group_by_column
-                          ? ` · Group by ${alert.query_config.group_by_column}`
-                          : ''}
+                        {formatConditionSummary(alert)}
                       </p>
                     </button>
 

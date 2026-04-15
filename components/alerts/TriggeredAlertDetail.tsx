@@ -23,6 +23,18 @@ function evaluationTone(fired: boolean, errorMessage: string | null) {
     : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 }
 
+function formatConditionSummary(
+  ragLevel: 'red' | 'amber' | 'green' | null,
+  aggregation: string,
+  operator: string,
+  value: number
+) {
+  if (ragLevel) {
+    return `When metric is ${ragLevel.charAt(0).toUpperCase()}${ragLevel.slice(1)}`;
+  }
+  return `${aggregation} ${operator} ${value}`;
+}
+
 export function TriggeredAlertDetail({ alertId, evaluationId }: TriggeredAlertDetailProps) {
   const router = useRouter();
   const { alert, isLoading: alertLoading } = useAlert(alertId);
@@ -100,8 +112,12 @@ export function TriggeredAlertDetail({ alertId, evaluationId }: TriggeredAlertDe
                 Condition
               </div>
               <div className="mt-2 text-sm font-medium">
-                {alert.query_config.aggregation} {alert.query_config.condition_operator}{' '}
-                {alert.query_config.condition_value}
+                {formatConditionSummary(
+                  alert.metric_rag_level,
+                  alert.query_config.aggregation,
+                  alert.query_config.condition_operator,
+                  alert.query_config.condition_value
+                )}
               </div>
             </div>
             <div className="rounded-2xl border bg-white/85 px-4 py-4">

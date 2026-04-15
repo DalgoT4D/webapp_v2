@@ -7,7 +7,7 @@ import type {
   AlertEvaluation,
   AlertTestResult,
   AlertQueryConfig,
-  AlertMessagePlaceholder,
+  MetricRagLevel,
   TriggeredAlertEvent,
 } from '@/types/alert';
 
@@ -151,11 +151,11 @@ export function useAlertEvaluations(
 export async function createAlert(data: {
   name: string;
   metric_id?: number | null;
+  metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
   recipients: string[];
   message: string;
   group_message?: string;
-  message_placeholders?: AlertMessagePlaceholder[];
 }): Promise<Alert> {
   const response = await apiPost('/api/alerts/', data);
   return response.data;
@@ -166,11 +166,11 @@ export async function updateAlert(
   data: {
     name?: string;
     metric_id?: number | null;
+    metric_rag_level?: MetricRagLevel | null;
     query_config?: AlertQueryConfig;
     recipients?: string[];
     message?: string;
     group_message?: string;
-    message_placeholders?: AlertMessagePlaceholder[];
     is_active?: boolean;
   }
 ): Promise<Alert> {
@@ -184,19 +184,19 @@ export async function deleteAlert(id: number): Promise<void> {
 
 export async function testAlert(data: {
   metric_id?: number | null;
+  metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
   message?: string;
   group_message?: string;
-  message_placeholders?: AlertMessagePlaceholder[];
   page?: number;
   page_size?: number;
 }): Promise<AlertTestResult> {
   const response: AlertTestResponse = await apiPost('/api/alerts/test', {
     metric_id: data.metric_id ?? null,
+    metric_rag_level: data.metric_rag_level ?? null,
     query_config: data.query_config,
     message: data.message ?? '',
     group_message: data.group_message ?? '',
-    message_placeholders: data.message_placeholders ?? [],
     page: data.page ?? 1,
     page_size: data.page_size ?? 20,
   });

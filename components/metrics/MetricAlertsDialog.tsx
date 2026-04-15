@@ -21,7 +21,7 @@ interface MetricAlertsDialogProps {
   onAlertSelected?: (alertId: number) => void;
 }
 
-function formatConditionText(
+function formatThresholdConditionText(
   aggregation: string,
   measureColumn: string | null,
   operator: string,
@@ -29,6 +29,11 @@ function formatConditionText(
 ) {
   const subject = measureColumn ? `${aggregation}(${measureColumn})` : `${aggregation}(rows)`;
   return `${subject} ${operator} ${value}`;
+}
+
+function formatRagConditionText(level: 'red' | 'amber' | 'green' | null) {
+  if (!level) return null;
+  return `When metric is ${level.charAt(0).toUpperCase()}${level.slice(1)}`;
 }
 
 function formatTimestamp(value: string | null) {
@@ -102,12 +107,13 @@ export function MetricAlertsDialog({
 
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <Badge variant="outline" className="rounded-full bg-muted/20 font-normal">
-                        {formatConditionText(
-                          alert.query_config.aggregation,
-                          alert.query_config.measure_column,
-                          alert.query_config.condition_operator,
-                          alert.query_config.condition_value
-                        )}
+                        {formatRagConditionText(alert.metric_rag_level) ||
+                          formatThresholdConditionText(
+                            alert.query_config.aggregation,
+                            alert.query_config.measure_column,
+                            alert.query_config.condition_operator,
+                            alert.query_config.condition_value
+                          )}
                       </Badge>
                       {alert.query_config.group_by_column ? (
                         <Badge variant="outline" className="rounded-full bg-muted/20 font-normal">

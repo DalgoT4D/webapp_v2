@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { CircleHelp, Mail, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,13 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -28,17 +23,18 @@ import { FilterRow } from '@/components/alerts/FilterRow';
 import { AlertTestPreview } from '@/components/alerts/AlertTestPreview';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { useMetrics } from '@/hooks/api/useMetrics';
-import type { Alert, AlertFilter, AlertMessagePlaceholder, AlertQueryConfig } from '@/types/alert';
+import type { Alert, AlertFilter, AlertQueryConfig, MetricRagLevel } from '@/types/alert';
+import type { MetricDefinition } from '@/types/metrics';
 import { AGGREGATION_OPTIONS, CONDITION_OPERATORS } from '@/types/alert';
 
 interface AlertSavePayload {
   name: string;
   metric_id?: number | null;
+  metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
   recipients: string[];
   message: string;
   group_message?: string;
-  message_placeholders: AlertMessagePlaceholder[];
 }
 
 interface AlertFormProps {
@@ -63,14 +59,14 @@ interface AlertFormState {
   group_by_column: string;
   condition_operator: string;
   condition_value: string;
+  metric_rag_level: MetricRagLevel | '';
   recipients: string[];
   message: string;
   group_message: string;
-  message_placeholders: AlertMessagePlaceholder[];
 }
 
 const DEFAULT_MESSAGE = '{{alert_name}} fired for {{table_name}}. Current value: {{alert_value}}.';
-const DEFAULT_GROUPED_MESSAGE = 'The following {{group_by_column}} values failed {{alert_name}}:';
+const DEFAULT_GROUPED_MESSAGE = 'The following {{group_by_column}} values failed {{alert_name}}.';
 const DEFAULT_GROUP_TEMPLATE = '{{group_by_value}}\nAlert value: {{alert_value}}';
 
 function generateAlertName(
@@ -79,30 +75,19 @@ function generateAlertName(
   measureColumn: string,
   conditionOperator: string,
   conditionValue: string,
-  groupByColumn: string
+  groupByColumn: string,
+  metricRagLevel: MetricRagLevel | ''
 ) {
+  if (metricName && metricRagLevel) {
+    return `${metricName} is ${metricRagLevel.charAt(0).toUpperCase()}${metricRagLevel.slice(1)}`;
+  }
   const source = metricName || `${aggregation.toLowerCase()} of ${measureColumn || 'rows'}`;
   const groupSuffix = groupByColumn ? ` by ${groupByColumn}` : '';
   return `${source} ${conditionOperator} ${conditionValue}${groupSuffix}`;
 }
 
-function placeholderLabel(placeholder: AlertMessagePlaceholder) {
-  if (placeholder.aggregation === 'COUNT' && !placeholder.column) {
-    return 'COUNT(rows)';
-  }
-  return `${placeholder.aggregation}(${placeholder.column || '*'})`;
-}
-
-function autoPlaceholderKey(aggregation: string, column: string | null) {
-  if (aggregation === 'COUNT' && !column) {
-    return 'count_rows';
-  }
-  const safeColumn = (column || 'value').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-  return `${aggregation.toLowerCase()}_${safeColumn}`.replace(/^_+|_+$/g, '');
-}
-
 function aggregationLabel(value: string) {
-  return AGGREGATION_OPTIONS.find((option) => option.value === value.toLowerCase())?.label ?? value;
+  return AGGREGATION_OPTIONS.find((option) => option.value === value.toUpperCase())?.label ?? value;
 }
 
 function isNumericColumnType(dataType?: string) {
@@ -136,10 +121,10 @@ function buildInitialState(alert?: Alert | null, initialMetricId?: number | null
     condition_operator: alert?.query_config.condition_operator ?? '>',
     condition_value:
       alert?.query_config.condition_value != null ? String(alert.query_config.condition_value) : '',
+    metric_rag_level: alert?.metric_rag_level ?? '',
     recipients: alert?.recipients ?? [],
     message: alert?.message ?? DEFAULT_MESSAGE,
     group_message: alert?.group_message ?? '',
-    message_placeholders: alert?.message_placeholders ?? [],
   };
 }
 
@@ -181,6 +166,73 @@ function extractTemplateTokens(template: string) {
   return matches.map((match) => match.replace(/[{} ]/g, ''));
 }
 
+function formatMetricValue(value: number | null | undefined) {
+  if (value == null) return '—';
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function formatMetricPercent(value: number) {
+  const rounded = Number.isInteger(value) ? value.toString() : value.toFixed(1);
+  return `${rounded}%`;
+}
+
+function buildMetricThresholdInfo(metric: MetricDefinition, level: MetricRagLevel) {
+  if (metric.target_value == null || metric.target_value === 0) {
+    return null;
+  }
+
+  const amberValue = (metric.target_value * metric.amber_threshold_pct) / 100;
+  const greenValue = (metric.target_value * metric.green_threshold_pct) / 100;
+
+  if (metric.direction === 'decrease') {
+    if (level === 'green') {
+      return {
+        label: 'Green',
+        tone: 'border-emerald-200 bg-emerald-50/80 text-emerald-700',
+        percentageRule: `At or below ${formatMetricPercent(metric.green_threshold_pct)} of target`,
+        valueRule: `Value <= ${formatMetricValue(greenValue)}`,
+      };
+    }
+    if (level === 'amber') {
+      return {
+        label: 'Amber',
+        tone: 'border-amber-200 bg-amber-50/80 text-amber-700',
+        percentageRule: `Above ${formatMetricPercent(metric.green_threshold_pct)} and at or below ${formatMetricPercent(metric.amber_threshold_pct)} of target`,
+        valueRule: `${formatMetricValue(greenValue)} < value <= ${formatMetricValue(amberValue)}`,
+      };
+    }
+    return {
+      label: 'Red',
+      tone: 'border-rose-200 bg-rose-50/80 text-rose-700',
+      percentageRule: `Above ${formatMetricPercent(metric.amber_threshold_pct)} of target`,
+      valueRule: `Value > ${formatMetricValue(amberValue)}`,
+    };
+  }
+
+  if (level === 'green') {
+    return {
+      label: 'Green',
+      tone: 'border-emerald-200 bg-emerald-50/80 text-emerald-700',
+      percentageRule: `At or above ${formatMetricPercent(metric.green_threshold_pct)} of target`,
+      valueRule: `Value >= ${formatMetricValue(greenValue)}`,
+    };
+  }
+  if (level === 'amber') {
+    return {
+      label: 'Amber',
+      tone: 'border-amber-200 bg-amber-50/80 text-amber-700',
+      percentageRule: `At or above ${formatMetricPercent(metric.amber_threshold_pct)} and below ${formatMetricPercent(metric.green_threshold_pct)} of target`,
+      valueRule: `${formatMetricValue(amberValue)} <= value < ${formatMetricValue(greenValue)}`,
+    };
+  }
+  return {
+    label: 'Red',
+    tone: 'border-rose-200 bg-rose-50/80 text-rose-700',
+    percentageRule: `Below ${formatMetricPercent(metric.amber_threshold_pct)} of target`,
+    valueRule: `Value < ${formatMetricValue(amberValue)}`,
+  };
+}
+
 export function AlertForm({
   alert,
   initialMetricId,
@@ -190,6 +242,7 @@ export function AlertForm({
   onSave,
   onCancel,
 }: AlertFormProps) {
+  const pathname = usePathname();
   const { data: metrics } = useMetrics();
   const [form, setForm] = useState<AlertFormState>(() => buildInitialState(alert, initialMetricId));
   const [submitting, setSubmitting] = useState(false);
@@ -201,13 +254,6 @@ export function AlertForm({
   );
   const messageRef = useRef<HTMLTextAreaElement | null>(null);
   const groupMessageRef = useRef<HTMLTextAreaElement | null>(null);
-  const [placeholderDialogOpen, setPlaceholderDialogOpen] = useState(false);
-  const [placeholderDialogError, setPlaceholderDialogError] = useState<string | null>(null);
-  const [placeholderDraft, setPlaceholderDraft] = useState<AlertMessagePlaceholder>({
-    aggregation: 'SUM',
-    column: null,
-    key: 'sum_value',
-  });
 
   const selectedMetric = useMemo(
     () => (metrics || []).find((metric) => metric.id === form.metric_id) || null,
@@ -222,29 +268,52 @@ export function AlertForm({
       table_name: selectedMetric.table_name,
       aggregation: selectedMetric.aggregation.toUpperCase() as AlertQueryConfig['aggregation'],
       measure_column: selectedMetric.column,
+      filters: [],
+      filter_connector: 'AND',
+      group_by_column: '',
       message:
         current.message === DEFAULT_MESSAGE || current.message === ''
           ? DEFAULT_MESSAGE
           : current.message,
+      group_message: '',
     }));
   }, [selectedMetric]);
 
   useEffect(() => {
-    if (
-      !nameManuallyEdited &&
-      form.aggregation &&
-      form.condition_operator &&
-      form.condition_value.trim()
-    ) {
+    if (nameManuallyEdited) {
+      return;
+    }
+
+    if (selectedMetric) {
+      if (!form.metric_rag_level) {
+        return;
+      }
       setForm((current) => ({
         ...current,
         name: generateAlertName(
-          selectedMetric?.name ?? null,
+          selectedMetric.name,
           current.aggregation,
           current.measure_column,
           current.condition_operator,
           current.condition_value,
-          current.group_by_column
+          current.group_by_column,
+          current.metric_rag_level
+        ),
+      }));
+      return;
+    }
+
+    if (form.aggregation && form.condition_operator && form.condition_value.trim()) {
+      setForm((current) => ({
+        ...current,
+        name: generateAlertName(
+          null,
+          current.aggregation,
+          current.measure_column,
+          current.condition_operator,
+          current.condition_value,
+          current.group_by_column,
+          current.metric_rag_level
         ),
       }));
     }
@@ -254,11 +323,17 @@ export function AlertForm({
     form.condition_value,
     form.group_by_column,
     form.measure_column,
+    form.metric_rag_level,
     nameManuallyEdited,
-    selectedMetric?.name,
+    selectedMetric,
   ]);
 
   useEffect(() => {
+    if (selectedMetric) {
+      setForm((current) => ({ ...current, group_message: '' }));
+      return;
+    }
+
     if (!form.group_by_column) {
       setForm((current) => ({
         ...current,
@@ -279,7 +354,7 @@ export function AlertForm({
           : current.message,
       group_message: current.group_message || DEFAULT_GROUP_TEMPLATE,
     }));
-  }, [form.group_by_column]);
+  }, [form.group_by_column, selectedMetric]);
 
   const { data: tableColumns } = useTableColumns(form.schema_name || null, form.table_name || null);
 
@@ -290,28 +365,33 @@ export function AlertForm({
   const aggregationColumnOptions =
     form.aggregation === 'COUNT' ? tableColumnOptions : numericColumns.length ? numericColumns : [];
 
-  const buildPlaceholderDraft = () => {
-    const aggregation: AlertMessagePlaceholder['aggregation'] =
-      numericColumns.length > 0 ? 'SUM' : 'COUNT';
-    const defaultColumn =
-      aggregation === 'COUNT'
-        ? null
-        : numericColumns[0]?.name || tableColumnOptions[0]?.name || null;
-    return {
-      aggregation,
-      column: defaultColumn,
-      key: autoPlaceholderKey(aggregation, defaultColumn),
-    };
-  };
-
-  const availablePlaceholderColumns =
-    placeholderDraft.aggregation === 'COUNT'
-      ? tableColumnOptions
-      : numericColumns.length
-        ? numericColumns
-        : tableColumnOptions;
+  const metricRequiresTarget =
+    selectedMetric != null &&
+    (selectedMetric.target_value == null || selectedMetric.target_value === 0);
+  const metricThresholdInfo =
+    selectedMetric && form.metric_rag_level
+      ? buildMetricThresholdInfo(selectedMetric, form.metric_rag_level)
+      : null;
 
   const queryConfig = useMemo<AlertQueryConfig | null>(() => {
+    if (selectedMetric) {
+      if (!form.metric_rag_level || metricRequiresTarget) {
+        return null;
+      }
+
+      return {
+        schema_name: selectedMetric.schema_name,
+        table_name: selectedMetric.table_name,
+        filters: [],
+        filter_connector: 'AND',
+        aggregation: selectedMetric.aggregation.toUpperCase() as AlertQueryConfig['aggregation'],
+        measure_column: selectedMetric.column,
+        group_by_column: null,
+        condition_operator: '=',
+        condition_value: 0,
+      };
+    }
+
     if (
       !form.schema_name ||
       !form.table_name ||
@@ -338,58 +418,57 @@ export function AlertForm({
       condition_operator: form.condition_operator,
       condition_value: parsedCondition,
     };
-  }, [form]);
+  }, [form, metricRequiresTarget, selectedMetric]);
 
   const builtInGlobalTokens = useMemo(
     () => [
       { label: 'Alert name', token: '{{alert_name}}' },
-      { label: 'Metric name', token: '{{metric_name}}' },
+      ...(selectedMetric ? [{ label: 'Metric name', token: '{{metric_name}}' }] : []),
       { label: 'Table name', token: '{{table_name}}' },
-      ...(form.group_by_column
+      ...(!form.group_by_column ? [{ label: 'Alert value', token: '{{alert_value}}' }] : []),
+      ...(!selectedMetric && form.group_by_column
         ? [
             { label: 'Group by Column', token: '{{group_by_column}}' },
             { label: 'Failing group count', token: '{{failing_group_count}}' },
           ]
         : []),
-      ...(!form.group_by_column ? [{ label: 'Alert value', token: '{{alert_value}}' }] : []),
     ],
-    [form.group_by_column]
+    [form.group_by_column, selectedMetric]
   );
 
   const builtInGroupTokens = useMemo(
     () =>
-      form.group_by_column
+      !selectedMetric && form.group_by_column
         ? [
             { label: 'Group value', token: '{{group_by_value}}' },
             { label: 'Alert value', token: '{{alert_value}}' },
           ]
         : [],
-    [form.group_by_column]
+    [form.group_by_column, selectedMetric]
   );
 
-  const metricSelectionLocked = compact && initialMetricId != null && !alert;
+  const metricSelectionLocked =
+    Boolean(selectedMetric) && (initialMetricId != null || Boolean(alert?.metric_id));
+  const createMetricHref =
+    pathname === '/alerts/new'
+      ? `/metrics?create=1&returnTo=${encodeURIComponent('/alerts/new')}`
+      : null;
+
   const wrapperClassName = compact
     ? 'flex h-full w-full flex-col overflow-hidden'
     : 'mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6';
   const headerClassName = compact ? 'shrink-0 border-b px-6 py-5' : 'flex flex-col gap-2';
-  const headerCopyClassName = compact
-    ? 'flex max-w-4xl flex-col gap-2 pr-10'
-    : 'flex flex-col gap-2';
   const errorClassName = compact
     ? 'mx-6 mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive'
     : 'rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive';
   const contentGridClassName = compact
-    ? 'flex-1 overflow-y-auto px-10 pb-10 pt-6'
-    : 'grid gap-6 lg:grid-cols-[1.2fr_0.8fr]';
+    ? 'flex-1 overflow-y-auto px-8 pb-8 pt-6'
+    : 'grid gap-6 lg:grid-cols-[1.15fr_0.85fr]';
   const leftColumnClassName = compact ? 'space-y-4' : 'space-y-6';
   const rightColumnClassName = compact ? 'mt-4 space-y-4' : 'space-y-6';
   const sectionClassName = compact
     ? 'rounded-[28px] border bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.08)]'
     : 'rounded-[28px] border bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)]';
-  const sectionTitleClassName = compact ? 'text-base font-semibold' : 'text-lg font-semibold';
-  const sectionDescriptionClassName = compact
-    ? 'text-xs text-muted-foreground'
-    : 'text-sm text-muted-foreground';
 
   const insertToken = (token: string) => {
     const field = activeMessageField;
@@ -462,69 +541,15 @@ export function AlertForm({
     }));
   };
 
-  const openAddPlaceholderDialog = () => {
-    setPlaceholderDialogError(null);
-    setPlaceholderDraft(buildPlaceholderDraft());
-    setPlaceholderDialogOpen(true);
-  };
-
-  const updatePlaceholderDraft = (
-    updates: Partial<AlertMessagePlaceholder> & { column?: string | null }
-  ) => {
-    setPlaceholderDraft((current) => {
-      const nextAggregation = updates.aggregation ?? current.aggregation;
-      const nextColumn =
-        updates.column === undefined
-          ? current.column
-          : updates.column === '__rows__'
-            ? null
-            : updates.column;
-
-      return {
-        aggregation: nextAggregation,
-        column: nextColumn,
-        key: autoPlaceholderKey(nextAggregation, nextColumn),
-      };
-    });
-  };
-
-  const savePlaceholderDraft = () => {
-    const key = autoPlaceholderKey(placeholderDraft.aggregation, placeholderDraft.column);
-
-    const duplicate = form.message_placeholders.some((placeholder) => placeholder.key === key);
-    if (duplicate) {
-      setPlaceholderDialogError('That dataset token already exists.');
-      return;
-    }
-
-    const nextPlaceholder = {
-      aggregation: placeholderDraft.aggregation,
-      column: placeholderDraft.column,
-      key,
-    };
-
-    setForm((current) => ({
-      ...current,
-      message_placeholders: [...current.message_placeholders, nextPlaceholder],
-    }));
-    setPlaceholderDialogError(null);
-    setPlaceholderDialogOpen(false);
-  };
-
-  const removePlaceholder = (index: number) => {
-    setForm((current) => ({
-      ...current,
-      message_placeholders: current.message_placeholders.filter(
-        (_, placeholderIndex) => placeholderIndex !== index
-      ),
-    }));
-  };
-
   const handleSave = async () => {
     setFormError(null);
 
     if (!queryConfig) {
-      setFormError('Complete the alert condition before saving.');
+      setFormError(
+        selectedMetric
+          ? 'Choose Red, Amber, or Green before saving the alert.'
+          : 'Complete the alert condition before saving.'
+      );
       return;
     }
     if (!form.name.trim()) {
@@ -539,21 +564,24 @@ export function AlertForm({
       setFormError('Add an email message.');
       return;
     }
-    if (form.group_by_column && !form.group_message.trim()) {
+    if (!selectedMetric && form.group_by_column && !form.group_message.trim()) {
       setFormError('Add the per-group message section for grouped alerts.');
+      return;
+    }
+    if (selectedMetric && metricRequiresTarget) {
+      setFormError('This metric needs a target before you can create a RAG-based alert.');
       return;
     }
 
     const validTokens = new Set(
       [
         'alert_name',
-        'metric_name',
         'table_name',
         'alert_value',
-        'group_by_column',
-        'group_by_value',
-        'failing_group_count',
-        ...form.message_placeholders.map((placeholder) => placeholder.key),
+        ...(selectedMetric ? ['metric_name'] : []),
+        ...(!selectedMetric && form.group_by_column
+          ? ['group_by_column', 'group_by_value', 'failing_group_count']
+          : []),
       ].filter(Boolean)
     );
 
@@ -574,11 +602,11 @@ export function AlertForm({
       await onSave({
         name: form.name.trim(),
         metric_id: form.metric_id,
+        metric_rag_level: form.metric_rag_level || null,
         query_config: queryConfig,
         recipients: form.recipients,
         message: form.message,
-        group_message: form.group_message,
-        message_placeholders: form.message_placeholders,
+        group_message: selectedMetric ? '' : form.group_message,
       });
     } finally {
       setSubmitting(false);
@@ -588,7 +616,7 @@ export function AlertForm({
   return (
     <div className={wrapperClassName}>
       <div className={headerClassName}>
-        <div className={headerCopyClassName}>
+        <div className="flex max-w-4xl flex-col gap-2 pr-10">
           <h1 className={`${compact ? 'text-2xl' : 'text-3xl'} font-bold`}>
             {title || (alert ? 'Edit alert' : 'Create alert')}
           </h1>
@@ -596,23 +624,16 @@ export function AlertForm({
         </div>
       </div>
 
-      {formError && <div className={errorClassName}>{formError}</div>}
+      {formError ? <div className={errorClassName}>{formError}</div> : null}
 
       <div className={contentGridClassName}>
         <div className={leftColumnClassName}>
           <section className={sectionClassName}>
             <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className={sectionTitleClassName}>
-                  {metricSelectionLocked ? 'Metric alert setup' : 'Alert source'}
-                </h2>
-                {!metricSelectionLocked ? (
-                  <p className={sectionDescriptionClassName}>
-                    Choose a metric or configure a standalone alert.
-                  </p>
-                ) : null}
-              </div>
-              {selectedMetric && <Badge variant="secondary">Metric-backed</Badge>}
+              <h2 className="text-lg font-semibold">
+                {selectedMetric ? 'Metric alert' : 'Alert source'}
+              </h2>
+              {selectedMetric ? <Badge variant="secondary">Metric-backed</Badge> : null}
             </div>
 
             <div className="space-y-4">
@@ -629,11 +650,11 @@ export function AlertForm({
                 />
               </div>
 
-              {!metricSelectionLocked && (
+              {!metricSelectionLocked ? (
                 <div className="grid gap-2">
                   <div className="flex items-center gap-2">
                     <Label>Metric</Label>
-                    <FieldHint text="Choosing a metric locks the dataset, aggregation, and measure column to that metric. You only configure the alert condition, filters, grouping, and message here." />
+                    <FieldHint text="Choose a metric to create a RAG-based alert, or continue without one to configure a standalone alert." />
                   </div>
                   <Select
                     value={form.metric_id != null ? String(form.metric_id) : 'standalone'}
@@ -641,6 +662,7 @@ export function AlertForm({
                       setForm((current) => ({
                         ...current,
                         metric_id: value === 'standalone' ? null : Number(value),
+                        metric_rag_level: value === 'standalone' ? '' : current.metric_rag_level,
                       }))
                     }
                   >
@@ -656,12 +678,32 @@ export function AlertForm({
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {!selectedMetric && createMetricHref ? (
+                    <div className="pt-1">
+                      <Link
+                        href={createMetricHref}
+                        className="text-sm font-medium text-sky-700 transition hover:text-sky-800 hover:underline"
+                      >
+                        Create a metric
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
               {selectedMetric ? (
-                <div className="space-y-3">
-                  <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label>Metric</Label>
+                      <Input
+                        value={selectedMetric.name}
+                        readOnly
+                        disabled
+                        className="bg-muted/40"
+                      />
+                    </div>
                     <div className="grid gap-2">
                       <Label>Dataset</Label>
                       <Input
@@ -690,6 +732,58 @@ export function AlertForm({
                       />
                     </div>
                   </div>
+
+                  {metricRequiresTarget ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
+                      This metric needs a target before you can create a Red, Amber, or Green alert.
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-2 md:max-w-sm">
+                    <div className="flex items-center gap-2">
+                      <Label>Alert when metric is</Label>
+                      <FieldHint text="After each successful transform run, this alert fires when the metric's current RAG status matches the level you choose." />
+                    </div>
+                    <Select
+                      value={form.metric_rag_level || undefined}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          metric_rag_level: value as MetricRagLevel,
+                        }))
+                      }
+                      disabled={metricRequiresTarget}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select RAG status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="red">Red</SelectItem>
+                        <SelectItem value="amber">Amber</SelectItem>
+                        <SelectItem value="green">Green</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {metricThresholdInfo ? (
+                    <div className={`rounded-[24px] border px-4 py-4 ${metricThresholdInfo.tone}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold">
+                            {metricThresholdInfo.label} threshold
+                          </div>
+                          <div className="mt-1 text-sm">{metricThresholdInfo.percentageRule}</div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="border-current/20 bg-white/60 text-current"
+                        >
+                          Target {formatMetricValue(selectedMetric.target_value)}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 text-sm">{metricThresholdInfo.valueRule}</div>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <>
@@ -706,7 +800,6 @@ export function AlertForm({
                           filters: [],
                           measure_column: '',
                           group_by_column: '',
-                          message_placeholders: [],
                         }))
                       }
                     />
@@ -722,7 +815,6 @@ export function AlertForm({
                             ...current,
                             aggregation: value as AlertQueryConfig['aggregation'],
                             measure_column: '',
-                            message_placeholders: [],
                           }))
                         }
                       >
@@ -757,9 +849,9 @@ export function AlertForm({
                           <SelectValue placeholder="Select column" />
                         </SelectTrigger>
                         <SelectContent>
-                          {form.aggregation === 'COUNT' && (
+                          {form.aggregation === 'COUNT' ? (
                             <SelectItem value="__rows__">Rows (*)</SelectItem>
-                          )}
+                          ) : null}
                           {aggregationColumnOptions.map((column) => (
                             <SelectItem key={column.name} value={column.name}>
                               {column.name}
@@ -769,146 +861,144 @@ export function AlertForm({
                       </Select>
                     </div>
                   </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">Filters</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Narrow the rows included before the alert aggregate is computed.
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={addFilter}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add filter
+                      </Button>
+                    </div>
+
+                    {form.filters.length > 0 ? (
+                      <div className="grid max-w-[220px] gap-2">
+                        <Label>Filter connector</Label>
+                        <Select
+                          value={form.filter_connector}
+                          onValueChange={(value) =>
+                            setForm((current) => ({
+                              ...current,
+                              filter_connector: value as 'AND' | 'OR',
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AND">AND</SelectItem>
+                            <SelectItem value="OR">OR</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
+
+                    {form.filters.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                        No filters yet. The alert will evaluate the entire dataset.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {form.filters.map((filter, index) => (
+                          <FilterRow
+                            key={`filter-${index}`}
+                            filter={filter}
+                            columns={tableColumnOptions}
+                            onChange={(updated) => updateFilter(index, updated)}
+                            onRemove={() => removeFilter(index)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <div className="grid gap-2 md:max-w-md">
+                      <div className="flex items-center gap-2">
+                        <Label>
+                          Group by Column <span className="text-muted-foreground">(optional)</span>
+                        </Label>
+                        <FieldHint text="If you pick a column, the alert evaluates the aggregate separately for each value in that column and sends one email containing all failing groups." />
+                      </div>
+                      <Select
+                        value={form.group_by_column || 'none'}
+                        onValueChange={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            group_by_column: value === 'none' ? '' : value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="No grouping" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No grouping</SelectItem>
+                          {tableColumnOptions.map((column) => (
+                            <SelectItem key={column.name} value={column.name}>
+                              {column.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-2">
+                        <Label>Condition</Label>
+                        <Select
+                          value={form.condition_operator}
+                          onValueChange={(value) =>
+                            setForm((current) => ({ ...current, condition_operator: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONDITION_OPERATORS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Threshold</Label>
+                        <Input
+                          value={form.condition_value}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              condition_value: event.target.value,
+                            }))
+                          }
+                          placeholder="e.g. 10"
+                          inputMode="decimal"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
-
-              <Separator />
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Filters</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Narrow the rows included before the alert aggregate is computed.
-                    </p>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" onClick={addFilter}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add filter
-                  </Button>
-                </div>
-
-                {form.filters.length > 0 && (
-                  <div className="grid max-w-[220px] gap-2">
-                    <Label>Filter connector</Label>
-                    <Select
-                      value={form.filter_connector}
-                      onValueChange={(value) =>
-                        setForm((current) => ({
-                          ...current,
-                          filter_connector: value as 'AND' | 'OR',
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="AND">AND</SelectItem>
-                        <SelectItem value="OR">OR</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {form.filters.length === 0 ? (
-                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    No filters yet. The alert will evaluate the entire dataset or metric table.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {form.filters.map((filter, index) => (
-                      <FilterRow
-                        key={`filter-${index}`}
-                        filter={filter}
-                        columns={tableColumnOptions}
-                        onChange={(updated) => updateFilter(index, updated)}
-                        onRemove={() => removeFilter(index)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="grid gap-2 md:max-w-md">
-                  <div className="flex items-center gap-2">
-                    <Label>
-                      Group by Column <span className="text-muted-foreground">(optional)</span>
-                    </Label>
-                    <FieldHint text="If you pick a column, the alert evaluates the aggregate separately for each value in that column and sends one email containing all failing groups." />
-                  </div>
-                  <Select
-                    value={form.group_by_column || 'none'}
-                    onValueChange={(value) =>
-                      setForm((current) => ({
-                        ...current,
-                        group_by_column: value === 'none' ? '' : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="No grouping" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No grouping</SelectItem>
-                      {tableColumnOptions.map((column) => (
-                        <SelectItem key={column.name} value={column.name}>
-                          {column.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label>Condition</Label>
-                    <Select
-                      value={form.condition_operator}
-                      onValueChange={(value) =>
-                        setForm((current) => ({ ...current, condition_operator: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONDITION_OPERATORS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Threshold</Label>
-                    <Input
-                      value={form.condition_value}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, condition_value: event.target.value }))
-                      }
-                      placeholder="e.g. 10"
-                      inputMode="decimal"
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
           </section>
 
           <section className={sectionClassName}>
             <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className={sectionTitleClassName}>Recipients</h2>
-                <p className={sectionDescriptionClassName}>
-                  Everyone listed here receives the same alert email.
-                </p>
-              </div>
+              <h2 className="text-lg font-semibold">Recipients</h2>
               <Badge variant="secondary">{form.recipients.length} recipients</Badge>
             </div>
 
@@ -953,7 +1043,7 @@ export function AlertForm({
 
           <section className={sectionClassName}>
             <div className="mb-4">
-              <h2 className={sectionTitleClassName}>Email message</h2>
+              <h2 className="text-lg font-semibold">Email message</h2>
             </div>
 
             <div className="space-y-5">
@@ -974,7 +1064,7 @@ export function AlertForm({
                 </div>
               </div>
 
-              {form.group_by_column && (
+              {!selectedMetric && form.group_by_column ? (
                 <div className="space-y-2">
                   <Label>Group tokens</Label>
                   <div className="flex flex-wrap gap-2">
@@ -988,49 +1078,7 @@ export function AlertForm({
                     ))}
                   </div>
                 </div>
-              )}
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label>Dataset tokens</Label>
-                  <FieldHint text="Create extra aggregated values from the dataset, then place those tokens anywhere in the email." />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {form.message_placeholders.map((placeholder, index) => (
-                    <span
-                      key={`${placeholder.key}-${index}`}
-                      className="inline-flex items-center gap-1 rounded-full border bg-white px-3 py-1 text-xs text-muted-foreground transition hover:border-primary"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => insertToken(`{{${placeholder.key}}}`)}
-                        className="text-xs font-medium text-foreground transition hover:text-primary"
-                        aria-label={`Insert ${placeholderLabel(placeholder)} token`}
-                      >
-                        {placeholderLabel(placeholder)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removePlaceholder(index)}
-                        className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground transition hover:text-foreground"
-                        aria-label={`Remove ${placeholderLabel(placeholder)} token`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </span>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={openAddPlaceholderDialog}
-                    disabled={!tableColumnOptions.length}
-                    aria-label="Add dataset token"
-                    className="inline-flex items-center justify-center rounded-full border border-dashed bg-white px-3 py-1 text-xs text-muted-foreground transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+              ) : null}
 
               <div className="grid gap-4">
                 <div className="grid gap-2">
@@ -1050,7 +1098,7 @@ export function AlertForm({
                   />
                 </div>
 
-                {form.group_by_column && (
+                {!selectedMetric && form.group_by_column ? (
                   <div className="grid gap-2">
                     <div className="flex items-center gap-2">
                       <Label htmlFor="alert-group-message">Per failing group section</Label>
@@ -1067,7 +1115,7 @@ export function AlertForm({
                       rows={6}
                     />
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </section>
@@ -1076,25 +1124,23 @@ export function AlertForm({
         <div className={rightColumnClassName}>
           <section className={`${sectionClassName} ${compact ? 'flex min-h-0 flex-col' : ''}`}>
             <div className="mb-4">
-              <h2 className={sectionTitleClassName}>Preview</h2>
+              <h2 className="text-lg font-semibold">Preview</h2>
             </div>
 
-            <div>
-              {queryConfig ? (
-                <AlertTestPreview
-                  queryConfig={queryConfig}
-                  metricId={form.metric_id}
-                  message={form.message}
-                  groupMessage={form.group_message}
-                  messagePlaceholders={form.message_placeholders}
-                  disabled={submitting}
-                />
-              ) : (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  Complete the alert condition to unlock preview.
-                </div>
-              )}
-            </div>
+            {queryConfig ? (
+              <AlertTestPreview
+                queryConfig={queryConfig}
+                metricId={form.metric_id}
+                metricRagLevel={form.metric_rag_level || null}
+                message={form.message}
+                groupMessage={form.group_message}
+                disabled={submitting}
+              />
+            ) : (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                Complete the alert condition to unlock preview.
+              </div>
+            )}
           </section>
 
           <section className={sectionClassName}>
@@ -1109,79 +1155,6 @@ export function AlertForm({
           </section>
         </div>
       </div>
-
-      <Dialog open={placeholderDialogOpen} onOpenChange={setPlaceholderDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add dataset token</DialogTitle>
-            <DialogDescription>
-              Configure an extra aggregate from the alert dataset and reuse it inside the email.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Aggregation</Label>
-                <Select
-                  value={placeholderDraft.aggregation}
-                  onValueChange={(value) =>
-                    updatePlaceholderDraft({
-                      aggregation: value as AlertMessagePlaceholder['aggregation'],
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AGGREGATION_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Column</Label>
-                <Select
-                  value={placeholderDraft.column || '__rows__'}
-                  onValueChange={(value) => updatePlaceholderDraft({ column: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {placeholderDraft.aggregation === 'COUNT' && (
-                      <SelectItem value="__rows__">Rows (*)</SelectItem>
-                    )}
-                    {availablePlaceholderColumns.map((column) => (
-                      <SelectItem key={column.name} value={column.name}>
-                        {column.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {placeholderDialogError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {placeholderDialogError}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setPlaceholderDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={savePlaceholderDraft}>Add token</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

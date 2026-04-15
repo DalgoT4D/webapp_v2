@@ -32,6 +32,7 @@ describe('AlertList', () => {
           name: 'Attendance threshold alert',
           metric_id: 11,
           metric_name: 'Attendance Metric',
+          metric_rag_level: 'red',
           query_config: {
             schema_name: 'analytics',
             table_name: 'attendance_fact',
@@ -46,7 +47,6 @@ describe('AlertList', () => {
           recipients: ['ops@example.com'],
           message: 'Alert message',
           group_message: '{{group_by_value}} {{alert_value}}',
-          message_placeholders: [],
           is_active: true,
           created_at: '2026-04-14T12:00:00Z',
           updated_at: '2026-04-14T12:00:00Z',
@@ -67,6 +67,7 @@ describe('AlertList', () => {
           alert_name: 'Attendance threshold alert',
           metric_id: 11,
           metric_name: 'Attendance Metric',
+          metric_rag_level: 'red',
           rows_returned: 2,
           num_recipients: 1,
           rendered_message: 'North attendance: 8',
@@ -85,9 +86,7 @@ describe('AlertList', () => {
 
     expect(screen.getByText('Attendance threshold alert')).toBeInTheDocument();
     expect(screen.getByText('Attendance Metric')).toBeInTheDocument();
-    expect(
-      screen.getByText(/SUM < 10 on attendance · Group by district_name/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/When metric is Red/i)).toBeInTheDocument();
   });
 
   it('renders grouped triggered alerts and opens an instance detail route', async () => {
