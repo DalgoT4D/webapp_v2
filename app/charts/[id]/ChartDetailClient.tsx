@@ -786,6 +786,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   ? chartContentRef.current
                   : undefined
               }
+              drillFilters={
+                chart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                  ? tableDrillDownState.appliedFilters
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -864,9 +869,44 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         table_columns: (() => {
                           const cols =
                             tableData?.columns || chart.extra_config?.table_columns || [];
-                          const order = chart.extra_config?.customizations?.columnOrder;
+                          const order: string[] | undefined =
+                            chart.extra_config?.customizations?.columnOrder;
+
+                          if (!order?.length) return cols;
+
+                          // T10: when drill-down is active, the saved order includes all
+                          // dimension columns but the current response only contains the
+                          // currently-displayed dimension. Build an effective order by
+                          // removing all drill dimension columns from the saved order and
+                          // prepending whichever one is active now.
+                          if (tableDrillDownState) {
+                            const allDrillDimCols: string[] = (chart.extra_config?.dimensions || [])
+                              .filter((dim: any) => dim.enable_drill_down)
+                              .map((d: any) => d.column)
+                              .filter(Boolean);
+
+                            const currentDimCol =
+                              allDrillDimCols[tableDrillDownState.currentLevel + 1] ||
+                              allDrillDimCols[allDrillDimCols.length - 1];
+
+                            const effectiveOrder = currentDimCol
+                              ? [
+                                  currentDimCol,
+                                  ...order.filter((c) => !allDrillDimCols.includes(c)),
+                                ]
+                              : order.filter((c) => !allDrillDimCols.includes(c));
+
+                            if (
+                              effectiveOrder.length === cols.length &&
+                              effectiveOrder.every((c) => cols.includes(c))
+                            ) {
+                              return effectiveOrder;
+                            }
+                            return cols;
+                          }
+
+                          // Normal (non-drill) path: use saved order when it matches cols exactly
                           if (
-                            order?.length &&
                             order.length === cols.length &&
                             order.every((c: string) => cols.includes(c))
                           ) {
@@ -915,6 +955,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                               ?.filter((dim: any) => dim.enable_drill_down)
                               .map((d: any) => d.column)
                               .filter(Boolean)[0]
+                      }
+                      currentDrillLevel={
+                        // 0-based index of the currently-displayed dimension
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
                       }
                     />
                   </div>

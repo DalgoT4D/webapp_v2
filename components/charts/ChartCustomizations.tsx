@@ -133,6 +133,19 @@ export function ChartCustomizations({
     return result;
   }, [chartType, formData, rawColumnTypeMap]);
 
+  // Compute drill-down context for conditional formatting UI
+  const drillDownEnabled =
+    chartType === ChartTypes.TABLE &&
+    (formData?.dimensions?.some((d) => d.enable_drill_down) ?? false);
+
+  const orderedDimensions = useMemo(() => {
+    if (!drillDownEnabled || !formData?.dimensions) return [];
+    return formData.dimensions
+      .filter((d) => d.enable_drill_down)
+      .map((d) => d.column)
+      .filter(Boolean) as string[];
+  }, [drillDownEnabled, formData?.dimensions]);
+
   // Clean up stale column formatting using useEffect (side effect, not during render)
   useEffect(() => {
     if (chartType !== ChartTypes.TABLE) return;
@@ -255,6 +268,8 @@ export function ChartCustomizations({
           availableColumns={numericColumns}
           allColumns={allDisplayedColumns}
           columnTypeMap={columnTypeMap}
+          drillDownEnabled={drillDownEnabled}
+          orderedDimensions={orderedDimensions}
           onTableColumnsChange={(newOrder: string[]) => {
             updateCustomization('columnOrder', newOrder);
           }}

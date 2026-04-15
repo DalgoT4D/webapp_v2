@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -32,6 +32,12 @@ interface TableDimensionsSelectorProps {
   onChange: (dimensions: ChartDimension[]) => void;
   disabled?: boolean;
   showDrillDown?: boolean;
+  /** True when any conditional formatting rule has a level scope (T7) */
+  hasLevelScopedRules?: boolean;
+  /** Called after reorder when level-scoped rules exist (T7) */
+  onReorderWithScopedRules?: () => void;
+  /** Maps dimension index to count of conditional formatting rules scoped to it (T9) */
+  scopedRuleCountByLevel?: Record<number, number>;
 }
 
 // Sortable dimension item component
@@ -172,7 +178,13 @@ export function TableDimensionsSelector({
   onChange,
   disabled,
   showDrillDown = true,
+  hasLevelScopedRules,
+  onReorderWithScopedRules,
+  scopedRuleCountByLevel,
 }: TableDimensionsSelectorProps) {
+  // Index of the dimension pending removal confirmation (T9)
+  const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
+
   // Get available columns that aren't already selected
   const getAvailableColumns = () => {
     const selectedColumns = dimensions.map((d) => d.column).filter(Boolean);
@@ -199,6 +211,11 @@ export function TableDimensionsSelector({
 
       const newDimensions = arrayMove(dimensions, oldIndex, newIndex);
       onChange(newDimensions);
+
+      // T7: notify parent when level-scoped rules may be invalidated by reorder
+      if (hasLevelScopedRules) {
+        onReorderWithScopedRules?.();
+      }
     }
   };
 
@@ -223,8 +240,21 @@ export function TableDimensionsSelector({
   };
 
   const handleRemoveDimension = (index: number) => {
+    // T9: if this dimension has scoped rules, show inline confirmation first
+    const scopedCount = scopedRuleCountByLevel?.[index] ?? 0;
+    if (scopedCount > 0) {
+      setPendingRemoveIndex(index);
+      return;
+    }
     const newDimensions = dimensions.filter((_, i) => i !== index);
     onChange(newDimensions);
+  };
+
+  const confirmRemoveDimension = () => {
+    if (pendingRemoveIndex === null) return;
+    const newDimensions = dimensions.filter((_, i) => i !== pendingRemoveIndex);
+    onChange(newDimensions);
+    setPendingRemoveIndex(null);
   };
 
   const handleDimensionChange = (index: number, field: keyof ChartDimension, value: any) => {
@@ -305,6 +335,39 @@ export function TableDimensionsSelector({
         <Plus className="h-4 w-4 mr-2" />
         ADD DIMENSION(s)
       </Button>
+
+      {/* T9: Inline confirmation when removing a dimension with scoped rules */}
+      {pendingRemoveIndex !== null &&
+        (() => {
+          const count = scopedRuleCountByLevel?.[pendingRemoveIndex] ?? 0;
+          const dimName =
+            effectiveDimensions[pendingRemoveIndex]?.column ||
+            `Dimension ${pendingRemoveIndex + 1}`;
+          return (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start justify-between gap-2">
+              <span>
+                Removing <strong>{dimName}</strong> will deactivate {count} conditional formatting
+                rule{count !== 1 ? 's' : ''} scoped to it.
+              </span>
+              <div className="flex gap-3 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={confirmRemoveDimension}
+                  className="underline font-medium"
+                >
+                  Remove anyway
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingRemoveIndex(null)}
+                  className="underline font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Drill-down order indicator */}
       {showDrillDown && isDrillDownEnabled && effectiveDimensions.length > 0 && (

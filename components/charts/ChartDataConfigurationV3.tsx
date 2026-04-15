@@ -35,6 +35,12 @@ interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
+  /** True when any conditional formatting rule has a level scope — for T7 reorder warning */
+  hasLevelScopedRules?: boolean;
+  /** Called after dimension reorder when level-scoped rules exist — for T7 */
+  onReorderWithScopedRules?: () => void;
+  /** Maps dimension index → count of rules scoped to it — for T9 remove warning */
+  scopedRuleCountByLevel?: Record<number, number>;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -162,6 +168,9 @@ export function ChartDataConfigurationV3({
   formData,
   onChange,
   disabled,
+  hasLevelScopedRules,
+  onReorderWithScopedRules,
+  scopedRuleCountByLevel,
 }: ChartDataConfigurationV3Props) {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
@@ -493,6 +502,9 @@ export function ChartDataConfigurationV3({
             });
           }}
           disabled={disabled}
+          hasLevelScopedRules={hasLevelScopedRules}
+          onReorderWithScopedRules={onReorderWithScopedRules}
+          scopedRuleCountByLevel={scopedRuleCountByLevel}
         />
       )}
 
