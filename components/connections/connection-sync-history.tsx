@@ -22,8 +22,8 @@ import {
   JobType,
   CONNECTION_API,
 } from '@/constants/connections';
-import { ENABLE_LOG_SUMMARIES, LockStatus } from '@/constants/pipeline';
-import { PipelineRunDisplayStatus } from '@/constants/pipeline';
+import { LockStatus, PipelineRunDisplayStatus } from '@/constants/pipeline';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { formatDuration, formatBytes, getStatusInfo } from './utils';
 import { trimEmail, lastRunTime } from '@/components/pipeline/utils';
 import { cn } from '@/lib/utils';
@@ -76,6 +76,8 @@ export function ConnectionSyncHistory({
   const [hasMore, setHasMore] = useState(true);
 
   const { syncJobs, totalSyncs, isLoading } = useSyncHistory(connectionId, 0);
+  const { isFeatureFlagEnabled } = useFeatureFlags();
+  const enableLogSummaries = isFeatureFlagEnabled(FeatureFlagKeys.LOG_SUMMARIZATION);
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
   const [jobLogs, setJobLogs] = useState<Record<number, string[]>>({});
   const [loadingLogs, setLoadingLogs] = useState<number | null>(null);
@@ -220,17 +222,26 @@ export function ConnectionSyncHistory({
         const pollTask = async () => {
           try {
             const taskResult = (await apiGet(`/api/tasks/stp/${task_id}`)) as {
-              status: string;
-              result: LogSummaryResult;
+              progress: Array<{
+                status: string;
+                result?: LogSummaryResult[];
+              }>;
             };
 
-            if (taskResult.status === TaskStatus.COMPLETED) {
+            const lastProgress = taskResult.progress?.[taskResult.progress.length - 1];
+            const taskStatus = lastProgress?.status;
+
+            if (taskStatus === TaskStatus.COMPLETED) {
+              const summaryText = lastProgress.result?.map((r) => r.response).join('\n\n');
               setSummaryResults((prev) => ({
                 ...prev,
-                [job.job_id]: taskResult.result,
+                [job.job_id]: {
+                  prompt: lastProgress.result?.[0]?.prompt ?? '',
+                  response: summaryText || 'No summary available',
+                },
               }));
               setSummaryLoading(null);
-            } else if (taskResult.status === TaskStatus.FAILED) {
+            } else if (taskStatus === TaskStatus.FAILED) {
               toastError.api(null, 'Log summary generation failed. Please try again.');
               setSummaryLoading(null);
             } else {
@@ -300,6 +311,7 @@ export function ConnectionSyncHistory({
                 logs={jobLogs[job.job_id] || []}
                 summaryLoading={summaryLoading === job.job_id}
                 summaryResult={summaryResults[job.job_id]}
+                enableLogSummaries={enableLogSummaries}
                 onToggleLogs={handleToggleLogs}
                 onTriggerSummary={handleTriggerLogSummary}
               />
@@ -341,6 +353,7 @@ interface SyncJobRowProps {
   logs: string[];
   summaryLoading: boolean;
   summaryResult?: LogSummaryResult;
+  enableLogSummaries: boolean;
   onToggleLogs: (jobId: number, attemptNumber: number) => void;
   onTriggerSummary: (job: ConnectionSyncJob) => void;
 }
@@ -352,6 +365,7 @@ function SyncJobRow({
   logs,
   summaryLoading,
   summaryResult,
+  enableLogSummaries,
   onToggleLogs,
   onTriggerSummary,
 }: SyncJobRowProps) {
@@ -373,7 +387,13 @@ function SyncJobRow({
       ? format(new Date(job.created_at), 'HH:mm:ss')
       : '';
 
-  const showAISummaryButton = ENABLE_LOG_SUMMARIES && isFailed && !summaryResult;
+  const showAISummaryButton = enableLogSummaries && isFailed;
+  const [showSummary, setShowSummary] = useState(false);
+
+  // Auto-open summary panel when result arrives
+  useEffect(() => {
+    if (summaryResult) setShowSummary(true);
+  }, [summaryResult]);
 
   return (
     <div
@@ -453,10 +473,18 @@ function SyncJobRow({
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                onTriggerSummary(job);
+                if (summaryResult) {
+                  setShowSummary((prev) => !prev);
+                } else {
+                  setShowSummary(true);
+                  onTriggerSummary(job);
+                }
               }}
               disabled={summaryLoading}
-              className={cn('h-8 px-3 text-xs font-medium uppercase tracking-wide')}
+              className={cn(
+                'h-8 px-3 text-xs font-medium uppercase tracking-wide',
+                showSummary && 'bg-gray-100'
+              )}
               data-testid={`log-summary-btn-${job.job_id}`}
             >
               {summaryLoading ? (
@@ -482,12 +510,19 @@ function SyncJobRow({
       )}
 
       {/* AI Summary panel - matches orchestrate style */}
-      {summaryResult && (
+      {showSummary && (
         <div className="bg-gray-50 border-t border-gray-200 p-4">
-          <div className="text-sm text-gray-700">
-            <p className="text-xs font-semibold text-primary mb-1">AI Summary</p>
-            <p className="whitespace-pre-wrap">{summaryResult.response}</p>
-          </div>
+          {summaryLoading ? (
+            <div className="flex items-center gap-2 text-gray-600 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating AI summary...
+            </div>
+          ) : summaryResult ? (
+            <div className="text-sm text-gray-700">
+              <p className="text-xs font-semibold text-primary mb-1">AI Summary</p>
+              <p className="whitespace-pre-wrap">{summaryResult.response}</p>
+            </div>
+          ) : null}
         </div>
       )}
     </div>
