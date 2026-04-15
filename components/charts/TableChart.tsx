@@ -453,16 +453,10 @@ export function TableChart({
               return (
                 <TableRow
                   key={index}
-                  className={`${
+                  className={`hover:bg-transparent ${
                     drillDownEnabled && currentDimensionColumn ? 'cursor-pointer' : ''
                   }`}
                   style={{ backgroundColor: rowBg }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.hoverRow;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = rowBg;
-                  }}
                 >
                   {columns.map((column) => {
                     const isDrillDownClickable =

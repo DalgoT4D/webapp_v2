@@ -1196,6 +1196,7 @@ function ConfigureChartPageContent() {
                             columnAlignment: formData.customizations?.columnAlignment || {},
                             zebraRows: formData.customizations?.zebraRows || false,
                             freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
+                            theme: formData.customizations?.theme,
                           }}
                           isLoading={tableChartLoading}
                           error={tableChartError}

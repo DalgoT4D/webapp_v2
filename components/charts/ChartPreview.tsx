@@ -393,6 +393,7 @@ export function ChartPreview({
       columnAlignment: customizations?.columnAlignment || {},
       zebraRows: customizations?.zebraRows || false,
       freezeFirstColumn: customizations?.freezeFirstColumn || false,
+      theme: customizations?.theme as string | undefined,
     };
 
     return (

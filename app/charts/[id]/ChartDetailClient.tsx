@@ -887,6 +887,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         zebraRows: chart.extra_config?.customizations?.zebraRows || false,
                         freezeFirstColumn:
                           chart.extra_config?.customizations?.freezeFirstColumn || false,
+                        theme: chart.extra_config?.customizations?.theme,
                       }}
                       isLoading={tableLoading}
                       error={tableError}
