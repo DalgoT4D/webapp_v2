@@ -1,6 +1,4 @@
-/**
- * CommentPopover Tests
- *
+/*
  * Covers the two behavioral changes:
  * 1. markAsRead fires on open (not close)
  * 2. markAsRead fires after posting a new comment
