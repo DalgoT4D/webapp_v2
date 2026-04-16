@@ -81,7 +81,7 @@ beforeEach(() => {
     if (url === '/api/prefect/v1/flows/') {
       return Promise.resolve(mockPipelines);
     }
-    if (url === '/api/prefect/tasks/transform/') {
+    if (url.startsWith('/api/prefect/tasks/transform/')) {
       return Promise.resolve(mockTasks);
     }
     if (url === '/api/airbyte/v1/connections') {
