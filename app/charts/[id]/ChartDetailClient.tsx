@@ -123,9 +123,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               row_dimensions: chart.extra_config?.row_dimensions || [],
               column_dimensions: chart.extra_config?.column_dimensions || [],
               column_time_grains: chart.extra_config?.column_time_grains || {},
-              show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+              show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
               show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-              show_grand_total: chart.extra_config?.show_grand_total ?? true,
+              show_grand_total: chart.extra_config?.show_grand_total ?? false,
             }),
             // For table charts, include dimensions array with drill-down support
             ...(chart.chart_type === 'table' && {
@@ -192,9 +192,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 row_dimensions: chart.extra_config?.row_dimensions || [],
                 column_dimensions: chart.extra_config?.column_dimensions || [],
                 column_time_grains: chart.extra_config?.column_time_grains || {},
-                show_row_subtotals: chart.extra_config?.show_row_subtotals ?? true,
+                show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
                 show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-                show_grand_total: chart.extra_config?.show_grand_total ?? true,
+                show_grand_total: chart.extra_config?.show_grand_total ?? false,
               }),
             },
           }
@@ -870,10 +870,22 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     <TableChart
                       data={Array.isArray(tableData?.data) ? tableData.data : []}
                       config={{
-                        table_columns:
-                          tableData?.columns || chart.extra_config?.table_columns || [],
-                        column_formatting:
-                          chart.extra_config?.customizations?.columnFormatting || {},
+                        table_columns: (() => {
+                          const cols =
+                            tableData?.columns || chart.extra_config?.table_columns || [];
+                          const order = chart.extra_config?.customizations?.columnOrder;
+                          if (
+                            order?.length &&
+                            order.length === cols.length &&
+                            order.every((c: string) => cols.includes(c))
+                          ) {
+                            return order;
+                          }
+                          return cols;
+                        })(),
+                        column_formatting: mergeTableColumnFormatting(
+                          chart.extra_config?.customizations
+                        ),
                         sort: chart.extra_config?.sort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,

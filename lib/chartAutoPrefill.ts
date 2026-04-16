@@ -138,9 +138,9 @@ export function generateAutoPrefilledConfig(
         column_time_grains: firstDateCol
           ? { [firstDateCol.column_name || firstDateCol.name]: 'month' }
           : {},
-        show_row_subtotals: true,
+        show_row_subtotals: false,
         show_column_subtotals: false,
-        show_grand_total: true,
+        show_grand_total: false,
       };
       config.metrics = [
         {

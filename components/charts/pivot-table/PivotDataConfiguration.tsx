@@ -399,7 +399,7 @@ export default function PivotDataConfiguration({
             <Switch
               id="show-grand-total"
               data-testid="pivot-show-grand-total"
-              checked={formData.extra_config?.show_grand_total ?? true}
+              checked={formData.extra_config?.show_grand_total ?? false}
               onCheckedChange={(checked: boolean) =>
                 onChange({
                   extra_config: {

@@ -311,110 +311,141 @@ function ConfigureChartPageContent() {
     }
   };
 
-  // Build payload for chart data
-  const chartDataPayload: ChartDataPayload | null = isChartDataReady()
-    ? {
-        chart_type: formData.chart_type!,
-        computation_type: formData.computation_type!,
-        schema_name: formData.schema_name!,
-        table_name: formData.table_name!,
-        ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
-        ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
-        ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
-        ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
-        ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
-        ...(formData.extra_dimension_column && {
-          extra_dimension: formData.extra_dimension_column,
-        }),
-        // Multiple metrics for bar/line charts
-        ...(formData.metrics && { metrics: formData.metrics }),
-        // Pivot table top-level fields (backend reads these directly on the payload)
-        ...(formData.chart_type === 'pivot_table' && {
-          row_dimensions: formData.extra_config?.row_dimensions || [],
-          column_dimensions: formData.extra_config?.column_dimensions || [],
-          column_time_grains: formData.extra_config?.column_time_grains || {},
-          show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
-          show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
-          show_grand_total: formData.extra_config?.show_grand_total ?? true,
-        }),
-        // For table charts, include dimensions array with drill-down support
-        ...(formData.chart_type === 'table' &&
-          formData.dimensions &&
-          formData.dimensions.length > 0 && {
-            dimensions: (() => {
-              const isDrillDownEnabled = formData.dimensions.some(
-                (dim) => dim.enable_drill_down === true
-              );
+  // Build payload for chart data - memoized to prevent infinite re-render loops
+  const chartDataPayload: ChartDataPayload | null = useMemo(
+    () =>
+      isChartDataReady()
+        ? {
+            chart_type: formData.chart_type!,
+            computation_type: formData.computation_type!,
+            schema_name: formData.schema_name!,
+            table_name: formData.table_name!,
+            ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
+            ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
+            ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
+            ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
+            ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
+            ...(formData.extra_dimension_column && {
+              extra_dimension: formData.extra_dimension_column,
+            }),
+            // Multiple metrics for bar/line charts
+            ...(formData.metrics && { metrics: formData.metrics }),
+            // Pivot table top-level fields (backend reads these directly on the payload)
+            ...(formData.chart_type === 'pivot_table' && {
+              row_dimensions: formData.extra_config?.row_dimensions || [],
+              column_dimensions: formData.extra_config?.column_dimensions || [],
+              column_time_grains: formData.extra_config?.column_time_grains || {},
+              show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
+              show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
+              show_grand_total: formData.extra_config?.show_grand_total ?? false,
+            }),
+            // For table charts, include dimensions array with drill-down support
+            ...(formData.chart_type === 'table' &&
+              formData.dimensions &&
+              formData.dimensions.length > 0 && {
+                dimensions: (() => {
+                  const isDrillDownEnabled = formData.dimensions.some(
+                    (dim) => dim.enable_drill_down === true
+                  );
 
-              if (!isDrillDownEnabled) {
-                // Show all dimensions if drill-down disabled
-                return formData.dimensions.map((d) => d.column).filter(Boolean);
-              }
+                  if (!isDrillDownEnabled) {
+                    // Show all dimensions if drill-down disabled
+                    return formData.dimensions.map((d) => d.column).filter(Boolean);
+                  }
 
-              // When drill-down is enabled, only use dimensions with enable_drill_down
-              const drillDownDimensions = formData.dimensions
-                .filter((dim) => dim.enable_drill_down)
-                .map((d) => d.column)
-                .filter(Boolean);
+                  // When drill-down is enabled, only use dimensions with enable_drill_down
+                  const drillDownDimensions = formData.dimensions
+                    .filter((dim) => dim.enable_drill_down)
+                    .map((d) => d.column)
+                    .filter(Boolean);
 
-              // When drill-down is enabled and active, use only the current level dimension
-              if (tableDrillDownState) {
-                const nextIndex = Math.min(
-                  tableDrillDownState.currentLevel + 1,
-                  drillDownDimensions.length - 1
-                );
-                return [drillDownDimensions[nextIndex]]; // Only current level
-              }
+                  // When drill-down is enabled and active, use only the current level dimension
+                  if (tableDrillDownState) {
+                    const nextIndex = Math.min(
+                      tableDrillDownState.currentLevel + 1,
+                      drillDownDimensions.length - 1
+                    );
+                    return [drillDownDimensions[nextIndex]]; // Only current level
+                  }
 
-              // Drill-down enabled but not yet started: use top-level dimension only
-              return [drillDownDimensions[0]]; // Only first dimension
-            })(),
-          }),
-        ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-        ...(formData.value_column && { value_column: formData.value_column }),
-        ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
-        ...(formData.chart_type === 'map' &&
-          formData.layers?.[0]?.geojson_id && {
-            selected_geojson_id: formData.layers[0].geojson_id,
-          }),
-        ...(formData.chart_type === 'map' && {
-          ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
-          ...((formData.aggregate_column || formData.value_column) && {
-            aggregate_col: formData.aggregate_column || formData.value_column,
-          }),
-        }),
-        // Number formatting is frontend-only - exclude from API payload
-        ...(formData.chart_type !== ChartTypes.TABLE &&
-          formData.chart_type !== ChartTypes.PIVOT_TABLE && {
-            customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-          }),
-        extra_config: {
-          filters: [
-            ...(formData.filters || []),
-            // Add drill-down filters from tableDrillDownState
-            ...(formData.chart_type === 'table' && tableDrillDownState?.appliedFilters
-              ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
-                  column,
-                  operator: 'equals',
-                  value,
-                }))
-              : []),
-          ],
-          pagination: formData.pagination,
-          sort: formData.sort,
-          time_grain: formData.time_grain,
-          // Pivot table fields
-          ...(formData.chart_type === 'pivot_table' && {
-            row_dimensions: formData.extra_config?.row_dimensions || [],
-            column_dimensions: formData.extra_config?.column_dimensions || [],
-            column_time_grains: formData.extra_config?.column_time_grains || {},
-            show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
-            show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
-            show_grand_total: formData.extra_config?.show_grand_total ?? true,
-          }),
-        },
-      }
-    : null;
+                  // Drill-down enabled but not yet started: use top-level dimension only
+                  return [drillDownDimensions[0]]; // Only first dimension
+                })(),
+              }),
+            ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
+            ...(formData.value_column && { value_column: formData.value_column }),
+            ...(formData.selected_geojson_id && {
+              selected_geojson_id: formData.selected_geojson_id,
+            }),
+            ...(formData.chart_type === 'map' &&
+              formData.layers?.[0]?.geojson_id && {
+                selected_geojson_id: formData.layers[0].geojson_id,
+              }),
+            ...(formData.chart_type === 'map' && {
+              ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
+              ...((formData.aggregate_column || formData.value_column) && {
+                aggregate_col: formData.aggregate_column || formData.value_column,
+              }),
+            }),
+            // Number formatting is frontend-only - exclude from API payload
+            ...(formData.chart_type !== ChartTypes.TABLE &&
+              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
+                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+              }),
+            extra_config: {
+              filters: [
+                ...(formData.filters || []),
+                // Add drill-down filters from tableDrillDownState
+                ...(formData.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                  ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
+                      column,
+                      operator: 'equals',
+                      value,
+                    }))
+                  : []),
+              ],
+              pagination: formData.pagination,
+              sort: formData.sort,
+              time_grain: formData.time_grain,
+              // Pivot table fields
+              ...(formData.chart_type === 'pivot_table' && {
+                row_dimensions: formData.extra_config?.row_dimensions || [],
+                column_dimensions: formData.extra_config?.column_dimensions || [],
+                column_time_grains: formData.extra_config?.column_time_grains || {},
+                show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
+                show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
+                show_grand_total: formData.extra_config?.show_grand_total ?? false,
+              }),
+            },
+          }
+        : null,
+    [
+      formData.chart_type,
+      formData.computation_type,
+      formData.schema_name,
+      formData.table_name,
+      formData.x_axis_column,
+      formData.y_axis_column,
+      formData.dimension_column,
+      formData.aggregate_column,
+      formData.aggregate_function,
+      formData.extra_dimension_column,
+      formData.metrics,
+      formData.geographic_column,
+      formData.value_column,
+      formData.selected_geojson_id,
+      formData.layers,
+      formData.dimensions,
+      formData.table_columns,
+      formData.customizations,
+      formData.filters,
+      formData.pagination,
+      formData.sort,
+      formData.time_grain,
+      formData.extra_config,
+      tableDrillDownState,
+    ]
+  );
 
   // Fetch chart data
   const {
@@ -931,9 +962,9 @@ function ConfigureChartPageContent() {
           row_dimensions: formData.extra_config?.row_dimensions || [],
           column_dimensions: formData.extra_config?.column_dimensions || [],
           column_time_grains: formData.extra_config?.column_time_grains || {},
-          show_row_subtotals: formData.extra_config?.show_row_subtotals ?? true,
+          show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
           show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
-          show_grand_total: formData.extra_config?.show_grand_total ?? true,
+          show_grand_total: formData.extra_config?.show_grand_total ?? false,
           subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
           grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',
         }),
