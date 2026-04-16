@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
   },
 };
 
+// withSentryConfig wraps the build to upload source maps to Sentry (so stack traces
+// show original source, not minified bundles) and strips them from production bundles
+// so they're not publicly accessible.
 export default withSentryConfig(nextConfig, {
   org: 'dalgo',
   project: 'javascript-nextjs',

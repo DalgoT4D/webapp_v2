@@ -1,3 +1,7 @@
+// Root-level error boundary with Sentry reporting.
+// Catches unhandled errors at the top of the component tree (above the root layout).
+// Reports them to Sentry via captureException and shows a fallback UI.
+// Must include its own <html> and <body> tags because it replaces the entire page.
 'use client';
 
 import * as Sentry from '@sentry/nextjs';
