@@ -35,7 +35,7 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -1758,7 +1758,7 @@ function EditChartPageContent() {
                               }
                               return cols;
                             })(),
-                            column_formatting: formData.customizations?.columnFormatting || {},
+                            column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                             conditionalFormatting:

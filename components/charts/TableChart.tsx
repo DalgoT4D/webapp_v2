@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatNumber, type NumberFormat } from '@/lib/formatters';
+import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { getTableTheme } from './types/table/constants';
 import { useTableSearch } from './hooks/useTableSearch';
 import { TableSearchBar } from './TableSearchBar';
@@ -61,6 +61,7 @@ interface TableChartProps {
       {
         type?: 'currency' | 'percentage' | 'date' | 'number' | 'text';
         numberFormat?: NumberFormat;
+        dateFormat?: DateFormat;
         decimalPlaces?: number;
         /** @deprecated Use decimalPlaces instead. Kept for backwards compatibility. */
         precision?: number;
@@ -175,9 +176,19 @@ export function TableChart({
       return value?.toString() || '';
     }
 
-    const { type, numberFormat, prefix = '', suffix = '' } = formatting;
+    const { type, numberFormat, dateFormat, prefix = '', suffix = '' } = formatting;
     // Support both decimalPlaces (new) and precision (old) for backwards compatibility
     const decimalPlaces = formatting.decimalPlaces ?? formatting.precision;
+
+    // Use formatDate path when dateFormat is explicitly specified
+    if (dateFormat && dateFormat !== 'default') {
+      try {
+        const formatted = formatDate(value, { format: dateFormat });
+        return `${prefix}${formatted}${suffix}`;
+      } catch {
+        return value?.toString() || '';
+      }
+    }
 
     // Use formatNumber path when:
     // - numberFormat is explicitly specified, OR

@@ -1,5 +1,5 @@
-import ExploreData from '@/components/explore-data';
+import { Explore } from '@/components/explore';
 
 export default function ExplorePage() {
-  return <ExploreData />;
+  return <Explore />;
 }

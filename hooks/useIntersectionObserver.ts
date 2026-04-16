@@ -15,10 +15,10 @@ export function useIntersectionObserver(options: UseIntersectionObserverOptions 
 
   useEffect(() => {
     const element = targetRef.current;
-    if (!element) return;
+    if (!element) return undefined;
 
     // If triggerOnce and already triggered, don't set up observer
-    if (triggerOnce && hasTriggered) return;
+    if (triggerOnce && hasTriggered) return undefined;
 
     const observer = new IntersectionObserver(
       ([entry]) => {

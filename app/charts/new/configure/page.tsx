@@ -38,7 +38,7 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -1191,7 +1191,7 @@ function ConfigureChartPageContent() {
                               }
                               return cols;
                             })(),
-                            column_formatting: formData.customizations?.columnFormatting || {},
+                            column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                             conditionalFormatting:

@@ -19,9 +19,12 @@ import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyPieDateFormatting,
   applyLineBarChartFormatting,
+  applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { ChartTypes } from '@/types/charts';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -275,6 +278,7 @@ export function ChartPreview({
       // Apply number formatting and visibility settings for pie chart data labels
       if (isPieChart) {
         applyPieChartFormatting(modifiedConfig, customizations);
+        applyPieDateFormatting(modifiedConfig, customizations);
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
@@ -282,6 +286,7 @@ export function ChartPreview({
       const isBarChart = detectedChartType === ChartTypes.BAR;
       if (isLineChart || isBarChart) {
         applyLineBarChartFormatting(modifiedConfig, customizations);
+        applyLineBarDateFormatting(modifiedConfig, customizations);
       }
 
       // Apply stacked bar data labels (shows total at top of each stacked bar)
@@ -381,14 +386,10 @@ export function ChartPreview({
     const tableConfig = {
       ...config,
       ...(orderedColumns.length ? { table_columns: orderedColumns } : {}),
-      ...(customizations?.columnFormatting
-        ? {
-            column_formatting: {
-              ...(config?.column_formatting || {}),
-              ...customizations.columnFormatting,
-            },
-          }
-        : {}),
+      column_formatting: {
+        ...(config?.column_formatting || {}),
+        ...mergeTableColumnFormatting(customizations),
+      },
       conditionalFormatting: customizations?.conditionalFormatting || [],
       columnAlignment: customizations?.columnAlignment || {},
       zebraRows: customizations?.zebraRows || false,
