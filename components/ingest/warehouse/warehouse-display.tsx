@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Plus, Loader2, Shield, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWarehouse, deleteWarehouse } from '@/hooks/api/useWarehouse';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { WAREHOUSE_PERMISSIONS } from '@/constants/warehouse';
+import { WAREHOUSE_PERMISSIONS, DALGO_IP_ADDRESSES } from '@/constants/warehouse';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { getWarehouseTableData } from './warehouse-table-data';
 import { WarehouseForm } from './warehouse-form';
@@ -17,6 +17,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+function IpWhitelistBanner() {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const handleCopy = useCallback((ip: string, index: number) => {
+    navigator.clipboard.writeText(ip);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  }, []);
+
+  return (
+    <div
+      className="rounded-lg border border-primary/20 bg-primary/5 p-4"
+      data-testid="ip-whitelist-banner"
+    >
+      <div className="flex items-start gap-3">
+        <Shield className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">
+            Dalgo runs on the following IP addresses. Please whitelist these if your warehouse is
+            behind a firewall:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DALGO_IP_ADDRESSES.map((ip, index) => (
+              <button
+                key={ip}
+                onClick={() => handleCopy(ip, index)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-background border px-3 py-1.5 text-sm font-mono transition-colors hover:bg-muted cursor-pointer"
+                data-testid={`ip-address-${index}`}
+                title="Click to copy"
+              >
+                <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                {ip}
+                {copiedIndex === index ? (
+                  <Check className="h-3.5 w-3.5 text-primary ml-1" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function WarehouseDisplay() {
   const { data: warehouse, isLoading, mutate } = useWarehouse();
@@ -78,23 +124,30 @@ export function WarehouseDisplay() {
   // Empty state — no warehouse configured
   if (!warehouse) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-muted-foreground">No warehouse configured yet.</p>
-        <Button
-          variant="ghost"
-          className="text-white hover:opacity-90 shadow-xs uppercase"
-          style={{ backgroundColor: 'var(--primary)' }}
-          onClick={handleCreate}
-          disabled={!canCreate}
-          data-testid="create-warehouse-btn"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Set Up Warehouse
-        </Button>
+      <div className="px-6 pt-6 pb-6 space-y-6">
+        <IpWhitelistBanner />
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <p className="text-muted-foreground">No warehouse configured yet.</p>
+          <Button
+            variant="ghost"
+            className="text-white hover:opacity-90 shadow-xs uppercase"
+            style={{ backgroundColor: 'var(--primary)' }}
+            onClick={handleCreate}
+            disabled={!canCreate}
+            data-testid="create-warehouse-btn"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Set Up Warehouse
+          </Button>
 
-        {formOpen && (
-          <WarehouseForm open={formOpen} onOpenChange={setFormOpen} onSuccess={handleFormSuccess} />
-        )}
+          {formOpen && (
+            <WarehouseForm
+              open={formOpen}
+              onOpenChange={setFormOpen}
+              onSuccess={handleFormSuccess}
+            />
+          )}
+        </div>
       </div>
     );
   }
@@ -102,8 +155,10 @@ export function WarehouseDisplay() {
   // Display existing warehouse
   return (
     <div className="px-6 pt-6 pb-6 max-w-3xl">
+      <IpWhitelistBanner />
+
       {/* Warehouse heading — name + icon */}
-      <h2 className="text-3xl font-bold tracking-tight">{warehouse.name}</h2>
+      <h2 className="text-3xl font-bold tracking-tight mt-6">{warehouse.name}</h2>
       {warehouse.icon && (
         <img
           src={warehouse.icon}
