@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { TaskLock } from '@/types/pipeline';
 import { LockStatus } from '@/constants/pipeline';
+
+// Accept any lock object that has an optional status field
+// Works with both pipeline TaskLock and connection TaskLock
+interface LockLike {
+  status?: string;
+}
 
 /**
  * Hook to manage optimistic UI state for sync/run buttons
@@ -17,7 +22,7 @@ import { LockStatus } from '@/constants/pipeline';
  * 2. API responds → lock status takes over from polling
  * 3. Pipeline completes → lock becomes null → button re-enables
  */
-export function useSyncLock(lock: TaskLock | null | undefined) {
+export function useSyncLock(lock: LockLike | null | undefined) {
   const [tempSyncState, setTempSyncState] = useState(false);
   const lockLastStateRef = useRef<LockStatus | null>(null);
 
