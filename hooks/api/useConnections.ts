@@ -73,22 +73,38 @@ export function useSyncHistory(
   };
 }
 
-/** Poll async task status */
+interface TaskProgressMessage {
+  status: string;
+  message?: string;
+  result?: unknown;
+}
+
+interface TaskProgressResponse {
+  progress: TaskProgressMessage[];
+}
+
+/** Poll async task status — reads the last item in the `progress` array */
 export function useTaskProgress(taskId: string | null) {
-  const { data, error, isLoading } = useSWR(taskId ? `/api/tasks/stp/${taskId}` : null, apiGet, {
-    refreshInterval: (latestData) => {
-      const progress = latestData as { status: string } | undefined;
-      if (progress?.status === 'completed' || progress?.status === 'failed') {
-        return 0;
-      }
-      return TASK_PROGRESS_POLL_INTERVAL_MS;
-    },
-    revalidateOnFocus: false,
-  });
+  const { data, error, isLoading } = useSWR<TaskProgressResponse>(
+    taskId ? `/api/tasks/stp/${taskId}` : null,
+    apiGet,
+    {
+      refreshInterval: (latestData) => {
+        const messages = latestData?.progress;
+        const lastStatus = messages?.[messages.length - 1]?.status;
+        if (lastStatus === 'completed' || lastStatus === 'failed') {
+          return 0;
+        }
+        return TASK_PROGRESS_POLL_INTERVAL_MS;
+      },
+      revalidateOnFocus: false,
+    }
+  );
+  const lastMessage = data?.progress?.[data.progress.length - 1];
   return {
-    progress: data,
-    isComplete: data?.status === 'completed',
-    isFailed: data?.status === 'failed',
+    progress: lastMessage,
+    isComplete: lastMessage?.status === 'completed',
+    isFailed: lastMessage?.status === 'failed',
     isLoading,
     isError: error,
   };

@@ -121,11 +121,14 @@ export interface ConnectionSyncJob {
 
 // ============ Schema Change Types ============
 
+// Matches the `OrgSchemaChange` model dict returned by
+// GET /api/airbyte/v1/connection/schema_change (snake_case from Django)
 export interface SchemaChange {
-  connectionId: string;
-  connectionName: string;
-  catalogDiff: CatalogDiff;
-  breaking: boolean;
+  connection_id: string;
+  change_type: string; // e.g. 'breaking' | 'non_breaking'
+  created_at?: string;
+  updated_at?: string;
+  schedule_job?: number | null;
 }
 
 export interface CatalogDiff {

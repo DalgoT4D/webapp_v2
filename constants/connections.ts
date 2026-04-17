@@ -90,7 +90,7 @@ export const SYNC_STATUS_CONFIG: Record<string, { label: string; colorClass: str
   [SyncStatus.SUCCESS]: { label: 'Success', colorClass: 'text-green-700' },
   [SyncStatus.FAILED]: { label: 'Failed', colorClass: 'text-red-700' },
   [SyncStatus.CANCELLED]: { label: 'Cancelled', colorClass: 'text-amber-600' },
-  [SyncStatus.RUNNING]: { label: 'Running', colorClass: 'text-green-600' },
+  [SyncStatus.RUNNING]: { label: 'Running', colorClass: 'text-gray-600' },
   [SyncStatus.QUEUED]: { label: 'Queued', colorClass: 'text-gray-600' },
   [SyncStatus.LOCKED]: { label: 'Locked', colorClass: 'text-gray-600' },
 };

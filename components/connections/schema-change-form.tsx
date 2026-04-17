@@ -22,23 +22,17 @@ import {
   FieldTransformType,
   SCHEMA_CHANGE_BREAKING,
 } from '@/constants/connections';
-import type { CatalogTransform, StreamTransform } from '@/types/connections';
+import type { CatalogDiff, StreamTransform } from '@/types/connections';
 
 interface SchemaChangeFormProps {
   connectionId: string;
-  connectionName: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function SchemaChangeForm({
-  connectionId,
-  connectionName,
-  onClose,
-  onSuccess,
-}: SchemaChangeFormProps) {
+export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaChangeFormProps) {
   const [taskId, setTaskId] = useState<string | null>(null);
-  const [transforms, setTransforms] = useState<CatalogTransform[]>([]);
+  const [catalogDiff, setCatalogDiff] = useState<CatalogDiff | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasBreakingChanges, setHasBreakingChanges] = useState(false);
@@ -58,25 +52,36 @@ export function SchemaChangeForm({
   // Handle task completion
   useEffect(() => {
     if (isComplete && progress) {
-      const catalogDiff = progress.result?.catalogDiff;
-      if (catalogDiff?.transforms) {
-        setTransforms(catalogDiff.transforms);
+      const result = progress.result as
+        | {
+            catalogDiff?: CatalogDiff;
+            schemaChange?: string;
+          }
+        | undefined;
+      if (result?.catalogDiff) {
+        setCatalogDiff(result.catalogDiff);
       }
-      if (progress.result?.schemaChange === SCHEMA_CHANGE_BREAKING) {
+      if (result?.schemaChange === SCHEMA_CHANGE_BREAKING) {
         setHasBreakingChanges(true);
       }
     }
     if (isFailed) {
-      setError('Schema refresh failed');
+      const message = progress?.message;
+      setError(
+        typeof message === 'string' && message.length > 0
+          ? message
+          : 'Failed to fetch schema changes'
+      );
     }
   }, [isComplete, isFailed, progress]);
 
+  const transforms = useMemo(() => catalogDiff?.transforms ?? [], [catalogDiff]);
+
   const handleAccept = useCallback(async () => {
+    if (!catalogDiff) return;
     setIsSubmitting(true);
     try {
-      await scheduleSchemaUpdate(connectionId, {
-        transforms,
-      });
+      await scheduleSchemaUpdate(connectionId, { catalogDiff });
       toastSuccess.generic('Schema changes accepted');
       onSuccess();
     } catch (err) {
@@ -84,7 +89,7 @@ export function SchemaChangeForm({
     } finally {
       setIsSubmitting(false);
     }
-  }, [connectionId, transforms, onSuccess]);
+  }, [connectionId, catalogDiff, onSuccess]);
 
   // Group transforms by type for sectioned display
   const groupedTransforms = useMemo(() => {
@@ -104,7 +109,7 @@ export function SchemaChangeForm({
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-[80vw] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Schema Changes — {connectionName}</DialogTitle>
+          <DialogTitle>Schema Changes</DialogTitle>
           <DialogDescription>
             Review and accept the schema changes detected for this connection. Accepting the schema
             changes will not trigger a clear &amp; resync of the connection. You are free to do this

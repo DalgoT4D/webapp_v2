@@ -48,7 +48,6 @@ export function ConnectionsList() {
   const [clearStreamConnectionId, setClearStreamConnectionId] = useState<string | null>(null);
   const [clearDeploymentId, setClearDeploymentId] = useState<string | null>(null);
   const [schemaRefreshConnectionId, setSchemaRefreshConnectionId] = useState<string | null>(null);
-  const [schemaRefreshConnectionName, setSchemaRefreshConnectionName] = useState('');
 
   const pollTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -193,7 +192,6 @@ export function ConnectionsList() {
 
   const handleRefreshSchema = useCallback((conn: Connection) => {
     setSchemaRefreshConnectionId(conn.connectionId);
-    setSchemaRefreshConnectionName(conn.name);
   }, []);
 
   const handleClearStreamsConfirm = useCallback(
@@ -393,14 +391,9 @@ export function ConnectionsList() {
       {schemaRefreshConnectionId && (
         <SchemaChangeForm
           connectionId={schemaRefreshConnectionId}
-          connectionName={schemaRefreshConnectionName}
-          onClose={() => {
-            setSchemaRefreshConnectionId(null);
-            setSchemaRefreshConnectionName('');
-          }}
+          onClose={() => setSchemaRefreshConnectionId(null)}
           onSuccess={() => {
             setSchemaRefreshConnectionId(null);
-            setSchemaRefreshConnectionName('');
             mutate();
           }}
         />

@@ -71,6 +71,7 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
           [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_AIRBYTE_URL"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1
@@ -180,6 +181,7 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_AIRBYTE_URL"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1

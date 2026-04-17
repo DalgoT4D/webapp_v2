@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchemaChanges } from '@/hooks/api/useConnections';
 import { SchemaChangeForm } from './schema-change-form';
+import { SCHEMA_CHANGE_BREAKING } from '@/constants/connections';
 import type { SchemaChange, Connection } from '@/types/connections';
 
 interface PendingActionsProps {
@@ -71,54 +72,55 @@ export function PendingActions({ connections, onSuccess }: PendingActionsProps) 
       {/* Expanded list */}
       {expanded && (
         <div className="border-t border-yellow-300 dark:border-yellow-700">
-          {schemaChanges.map((change) => (
-            <div
-              key={change.connectionId}
-              className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 border-yellow-200 dark:border-yellow-800"
-              data-testid={`schema-change-${change.connectionId}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">
-                  {change.connectionName || getConnectionName(change.connectionId)}
-                </span>
-                <Badge variant={change.breaking ? 'destructive' : 'outline'} className="text-xs">
-                  {change.breaking ? 'Breaking' : 'Updates'}
-                </Badge>
+          {schemaChanges.map((change) => {
+            const isBreaking = change.change_type === SCHEMA_CHANGE_BREAKING;
+            const isLocked = !!connectionLockMap.get(change.connection_id);
+            return (
+              <div
+                key={change.connection_id}
+                className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 border-yellow-200 dark:border-yellow-800"
+                data-testid={`schema-change-${change.connection_id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {getConnectionName(change.connection_id)}
+                  </span>
+                  <Badge variant={isBreaking ? 'destructive' : 'outline'} className="text-xs">
+                    {isBreaking ? 'Breaking' : 'Updates'}
+                  </Badge>
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedChange(change)}
+                          disabled={isLocked}
+                          data-testid={`view-schema-change-${change.connection_id}`}
+                        >
+                          View
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {isLocked && (
+                      <TooltipContent>
+                        Schema changes cannot be accepted while a connection is syncing
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedChange(change)}
-                        disabled={!!connectionLockMap.get(change.connectionId)}
-                        data-testid={`view-schema-change-${change.connectionId}`}
-                      >
-                        View
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {connectionLockMap.get(change.connectionId) && (
-                    <TooltipContent>
-                      Schema changes cannot be accepted while a connection is syncing
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Schema change form dialog */}
       {selectedChange && (
         <SchemaChangeForm
-          connectionId={selectedChange.connectionId}
-          connectionName={
-            selectedChange.connectionName || getConnectionName(selectedChange.connectionId)
-          }
+          connectionId={selectedChange.connection_id}
           onClose={() => setSelectedChange(null)}
           onSuccess={handleSchemaChangeSuccess}
         />

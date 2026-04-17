@@ -24,7 +24,7 @@ import {
 } from '@/constants/connections';
 import { LockStatus, PipelineRunDisplayStatus } from '@/constants/pipeline';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
-import { formatDuration, formatBytes, getStatusInfo } from './utils';
+import { formatDuration, formatBytes } from './utils';
 import { trimEmail, lastRunTime } from '@/components/pipeline/utils';
 import { cn } from '@/lib/utils';
 import { LogCard } from '@/components/pipeline/log-card';
@@ -374,7 +374,6 @@ function SyncJobRow({
   const isReset = job.job_type === JobType.RESET_CONNECTION;
   const resetConfig = job.reset_config as ResetConfig | null;
   const resetStreamNames = resetConfig?.streamsToReset?.map((s) => s.name) || [];
-  const status = getStatusInfo(job.status);
   const displayStatus = mapStatusToDisplayStatus(job.status);
 
   const formattedDate =
@@ -400,7 +399,7 @@ function SyncJobRow({
       className={cn(
         'rounded-lg overflow-hidden',
         isFailed
-          ? 'bg-red-50/70 border border-red-200/60'
+          ? 'bg-red-100 border border-red-300'
           : isCancelled
             ? 'bg-yellow-50/50 border border-yellow-200/60'
             : 'bg-white border border-gray-200/70'
@@ -444,10 +443,8 @@ function SyncJobRow({
           <span className="text-sm text-gray-600">{formatDuration(job.duration_seconds)}</span>
         </div>
 
-        {/* Action: Status + Logs button */}
+        {/* Action: Logs button */}
         <div className="col-span-3 flex items-center justify-end gap-3">
-          <span className={cn('text-sm font-medium', status.className)}>{status.label}</span>
-
           <Button
             variant="outline"
             size="sm"
