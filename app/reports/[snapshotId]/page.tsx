@@ -110,7 +110,7 @@ export default function SnapshotViewerPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex-shrink-0 border-b bg-white shadow-sm px-6 py-4">
+      <div className="flex-shrink-0 border-b bg-background shadow-sm px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 min-w-0 flex-1">
             <Button
@@ -123,9 +123,9 @@ export default function SnapshotViewerPage() {
               Back
             </Button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-bold text-gray-900">{report_metadata.title}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{report_metadata.title}</h1>
               {/* Metadata below title */}
-              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   {report_metadata.period_start
@@ -179,7 +179,10 @@ export default function SnapshotViewerPage() {
             {canEdit && (
               <Button
                 data-testid="report-save-btn"
+                variant="ghost"
                 size="sm"
+                className="text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: 'var(--primary)' }}
                 onClick={handleSave}
                 disabled={isSaving}
               >
