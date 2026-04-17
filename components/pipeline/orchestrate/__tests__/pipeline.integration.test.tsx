@@ -444,14 +444,14 @@ describe('Pipeline Form - Integration Tests', () => {
       isScheduleActive: true,
       connections: [{ id: 'conn-1', name: 'Postgres Source', seq: 1 }],
       transformTasks: [
-        { uuid: 'task-1', seq: 1 },
-        { uuid: 'task-2', seq: 2 },
+        { uuid: 'task-2', seq: 1 },
+        { uuid: 'task-3', seq: 2 },
       ],
     };
 
     mockApiGet.mockImplementation((url: string) => {
       if (url === '/api/prefect/v1/flows/existing-dep') return Promise.resolve(dailyPipeline);
-      if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);
+      if (url.startsWith('/api/prefect/tasks/transform/')) return Promise.resolve(mockTasks);
       if (url === '/api/airbyte/v1/connections') return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unmocked GET: ${url}`));
     });
@@ -482,7 +482,7 @@ describe('Pipeline Form - Integration Tests', () => {
           connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
           transformTasks: [],
         });
-      if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);
+      if (url.startsWith('/api/prefect/tasks/transform/')) return Promise.resolve(mockTasks);
       if (url === '/api/airbyte/v1/connections') return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unmocked GET: ${url}`));
     });
@@ -499,7 +499,7 @@ describe('Pipeline Form - Integration Tests', () => {
     expect(screen.queryByTestId('cronTimeOfDay')).not.toBeInTheDocument();
     unmount2();
 
-    // Non-aligned tasks → advanced mode
+    // Non-aligned tasks → advanced mode (reversed order)
     mockApiGet.mockImplementation((url: string) => {
       if (url === '/api/prefect/v1/flows/custom-order-dep')
         return Promise.resolve({
@@ -509,10 +509,10 @@ describe('Pipeline Form - Integration Tests', () => {
           connections: [],
           transformTasks: [
             { uuid: 'task-3', seq: 1 },
-            { uuid: 'task-1', seq: 2 },
+            { uuid: 'task-2', seq: 2 },
           ],
         });
-      if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);
+      if (url.startsWith('/api/prefect/tasks/transform/')) return Promise.resolve(mockTasks);
       if (url === '/api/airbyte/v1/connections') return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unmocked GET: ${url}`));
     });
