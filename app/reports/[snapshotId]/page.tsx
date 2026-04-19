@@ -176,19 +176,6 @@ export default function SnapshotViewerPage() {
             {canShare && currentUserEmail === report_metadata.created_by && (
               <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
-            {canEdit && (
-              <Button
-                data-testid="report-save-btn"
-                variant="ghost"
-                size="sm"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save'}
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -254,6 +241,36 @@ export default function SnapshotViewerPage() {
                 rows={2}
                 className={`resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground ${!isEditingSummary ? 'cursor-default' : ''}`}
               />
+              {canEdit && isEditingSummary && (
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button
+                    data-testid="report-cancel-edit-btn"
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: 'var(--destructive)' }}
+                    onClick={() => {
+                      setSummaryDraft(viewData?.report_metadata.summary || '');
+                      setSummaryTouched(false);
+                      setIsEditingSummary(false);
+                    }}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    data-testid="report-save-btn"
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: 'var(--primary)' }}
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              )}
             </div>
           }
         />
