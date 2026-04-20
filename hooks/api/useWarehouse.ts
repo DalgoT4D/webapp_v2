@@ -125,9 +125,8 @@ export async function updateWarehouse(
     config: Record<string, unknown>;
     destinationDefId: string;
   }
-): Promise<Warehouse> {
-  const raw: WarehouseApiItem = await apiPut(WAREHOUSE_API.UPDATE(destId), payload);
-  return mapWarehouseResponse(raw);
+): Promise<void> {
+  await apiPut(WAREHOUSE_API.UPDATE(destId), payload);
 }
 
 export async function deleteWarehouse(): Promise<void> {
