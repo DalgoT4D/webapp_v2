@@ -64,6 +64,7 @@ export default function SnapshotViewerPage() {
     try {
       await updateSnapshot(parsedId, { summary: summaryDraft });
       mutate();
+      setSummaryTouched(false);
       setIsEditingSummary(false);
       toastSuccess.saved('Report');
     } catch (error) {
