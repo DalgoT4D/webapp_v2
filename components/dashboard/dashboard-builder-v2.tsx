@@ -48,7 +48,6 @@ import {
   Edit,
   Wand2,
   LayoutGrid,
-  AlignLeft,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -910,55 +909,25 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // React state updates are async, but react-grid-layout calls handlers synchronously
     // Without refs, the values won't be available when handleLayoutChange is called
     const isDraggingRef = useRef(false);
-    const draggedItemRef = useRef<DashboardLayout | null>(null);
-    const originalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
     // Handle layout changes for responsive grid
     const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
       // Update snap zones when layout changes
       dashboardAnimation.updateSnapZones(currentLayout);
 
-      let finalLayout = currentLayout;
-
-      // During drag, restore non-dragged items to their original positions
-      // This prevents react-grid-layout's collision resolution from pushing other items
-      // Use refs for synchronous access since this callback is called synchronously by react-grid-layout
-      if (isDraggingRef.current) {
-        const currentDraggedItem = draggedItemRef.current;
-        const currentOriginalPositions = originalPositionsRef.current;
-
-        if (currentDraggedItem && currentOriginalPositions.size > 0) {
-          finalLayout = currentLayout.map((item) => {
-            // Keep the dragged item's current position (where user is dragging it)
-            if (item.i === currentDraggedItem.i) {
-              return item;
-            }
-            // Restore other items to their original positions
-            const originalPos = currentOriginalPositions.get(item.i);
-            if (originalPos) {
-              return {
-                ...item,
-                x: originalPos.x,
-                y: originalPos.y,
-              };
-            }
-            return item;
-          });
-        }
-      }
-
-      // During drag, resize, or undo/redo operations, use setStateWithoutHistory to avoid flooding history
+      // During drag, resize, or undo/redo operations, use setStateWithoutHistory to avoid
+      // flooding history with intermediate positions produced by RGL's collision cascade.
       if (isDraggingRef.current || isResizing || isUndoRedoOperation) {
         setStateWithoutHistory({
           ...state,
-          layout: finalLayout,
+          layout: currentLayout,
           layouts: allLayouts,
         });
       } else {
         // Only save to history for user-initiated layout changes
         setState({
           ...state,
-          layout: finalLayout,
+          layout: currentLayout,
           layouts: allLayouts,
         });
       }
@@ -966,19 +935,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Handle drag start
     const handleDragStart = (layout: any[], oldItem: any, newItem: any) => {
-      // Store original positions of ALL items at drag start
-      // This allows us to restore non-dragged items when react-grid-layout tries to push them
-      const positions = new Map<string, { x: number; y: number }>();
-      layout.forEach((item) => {
-        positions.set(item.i, { x: item.x, y: item.y });
-      });
-
-      // IMPORTANT: Set refs FIRST (synchronous) before state (async)
-      // react-grid-layout calls onLayoutChange synchronously after onDragStart
-      // so the refs must be set before the state updates
+      // IMPORTANT: Set ref FIRST (synchronous) before state (async).
+      // react-grid-layout calls onLayoutChange synchronously after onDragStart,
+      // so the ref must be set before the state updates for handleLayoutChange
+      // to route intermediate layouts to setStateWithoutHistory.
       isDraggingRef.current = true;
-      draggedItemRef.current = newItem;
-      originalPositionsRef.current = positions;
 
       // Also update state for UI purposes (async)
       setIsDragging(true);
@@ -991,72 +952,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setDraggedItem(newItem);
     };
 
-    // Helper function to check if two items overlap
-    const checkCollision = (item1: DashboardLayout, item2: DashboardLayout): boolean => {
-      // Two rectangles don't overlap if one is completely to the left, right, above, or below the other
-      const noOverlap =
-        item1.x + item1.w <= item2.x || // item1 is left of item2
-        item2.x + item2.w <= item1.x || // item2 is left of item1
-        item1.y + item1.h <= item2.y || // item1 is above item2
-        item2.y + item2.h <= item1.y; // item2 is above item1
-      return !noOverlap;
-    };
-
     // Handle drag stop - save final position to history
     const handleDragStop = (layout: any[], oldItem: any, newItem: any) => {
       // Clear space-making state
       dashboardAnimation.clearSpaceMaking();
 
-      // Get original positions from ref
-      const currentOriginalPositions = originalPositionsRef.current;
-      const draggedOriginalPos = currentOriginalPositions.get(newItem.i);
+      // Apply magnetic snapping to the dropped item. RGL has already pushed
+      // colliding items out of the way (preventCollision={false}); we just commit
+      // the resulting layout to history.
+      const snappedItem = dashboardAnimation.applySnapping(newItem, layout);
+      const finalLayout = layout.map((item) => (item.i === snappedItem.i ? snappedItem : item));
 
-      // Apply magnetic snapping to the dropped item
-      let snappedItem = dashboardAnimation.applySnapping(newItem, layout);
-
-      // Check if the new position would cause a collision with any other item
-      // Since we allow overlap during drag, we need to check and snap back on drop
-      const hasCollision = layout.some((item) => {
-        if (item.i === snappedItem.i) return false; // Skip self
-        // Get original position for comparison (other items should be at original positions)
-        const itemOriginalPos = currentOriginalPositions.get(item.i);
-        const itemToCheck = itemOriginalPos
-          ? { ...item, x: itemOriginalPos.x, y: itemOriginalPos.y }
-          : item;
-        return checkCollision(snappedItem, itemToCheck);
-      });
-
-      // If there's a collision, snap the dragged item back to its original position
-      if (hasCollision && draggedOriginalPos) {
-        snappedItem = {
-          ...snappedItem,
-          x: draggedOriginalPos.x,
-          y: draggedOriginalPos.y,
-        };
-      }
-
-      // Build final layout: dragged item at new (or snapped back) position,
-      // all other items at their original positions
-      const finalLayout = layout.map((item) => {
-        if (item.i === snappedItem.i) {
-          return snappedItem;
-        }
-        // Restore other items to their original positions
-        const originalPos = currentOriginalPositions.get(item.i);
-        if (originalPos) {
-          return {
-            ...item,
-            x: originalPos.x,
-            y: originalPos.y,
-          };
-        }
-        return item;
-      });
-
-      // Clear refs FIRST (synchronous)
+      // Clear ref FIRST (synchronous)
       isDraggingRef.current = false;
-      draggedItemRef.current = null;
-      originalPositionsRef.current = new Map();
 
       // Clear state (async)
       setIsDragging(false);
@@ -1837,25 +1745,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       <LayoutGrid className="w-3 h-3 mr-2" />
                       Smart Pack
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="justify-start h-8 text-xs"
-                      onClick={async () => {
-                        const newLayout = await dashboardAnimation.autoArrange(
-                          state.layout,
-                          'flow'
-                        );
-                        setState({
-                          ...state,
-                          layout: newLayout,
-                          layouts: generateResponsiveLayouts(newLayout),
-                        });
-                      }}
-                    >
-                      <AlignLeft className="w-3 h-3 mr-2" />
-                      Flow Layout
-                    </Button>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -1986,6 +1875,45 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   <Type className="w-4 h-4 mr-2" />
                   Add Text
                 </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={dashboardAnimation.isAnimating}
+                      data-testid="auto-arrange-btn"
+                    >
+                      <Wand2 className="w-4 h-4 mr-2" />
+                      Auto
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56">
+                    <div className="grid gap-2">
+                      <h4 className="font-medium text-sm">Auto-Arrange</h4>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="justify-start h-8 text-xs"
+                        data-testid="auto-arrange-smart-pack-btn"
+                        onClick={async () => {
+                          const newLayout = await dashboardAnimation.autoArrange(
+                            state.layout,
+                            'dashboard'
+                          );
+                          setState({
+                            ...state,
+                            layout: newLayout,
+                            layouts: generateResponsiveLayouts(newLayout),
+                          });
+                        }}
+                      >
+                        <LayoutGrid className="w-3 h-3 mr-2" />
+                        Smart Pack
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 <div className="ml-2 flex gap-1">
                   <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
@@ -2233,13 +2161,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 onResize={handleResize}
                 onResizeStop={handleResizeStop}
                 draggableCancel=".drag-cancel"
-                compactType={null}
-                preventCollision={true}
+                compactType="vertical"
+                preventCollision={false}
                 allowOverlap={false}
                 margin={[8, 8]} // Match preview mode spacing
                 containerPadding={[8, 8]} // Match preview mode padding
                 autoSize={true}
-                verticalCompact={false}
                 useCSSTransforms={true}
                 transformScale={1}
                 isDraggable={true}
