@@ -107,7 +107,7 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-[80vw] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[80vw] max-h-[85vh] overflow-y-auto" preventOutsideClose>
         <DialogHeader>
           <DialogTitle>Schema Changes</DialogTitle>
           <DialogDescription>
