@@ -324,26 +324,19 @@ export function UnifiedTextElement({
       const scrollTop = textarea?.scrollTop || 0;
       const parentScroll = containerRef.current?.scrollTop || 0;
 
-      // Default font sizes matching standard HTML heading hierarchy
-      const headingFontSizes: Record<number, number> = { 1: 32, 2: 24, 3: 20 };
-      // Default paragraph size matches base text size used across the app
-      const paragraphFontSize = 14;
-
       if (newType === 'paragraph') {
         updateWithContentConstraints({
           ...config,
-          content: tempContent,
+          content: tempContent, // Auto-save current content
           type: 'paragraph',
-          fontSize: paragraphFontSize,
         });
       } else {
         const headingLevel = newType as 1 | 2 | 3;
         updateWithContentConstraints({
           ...config,
-          content: tempContent,
+          content: tempContent, // Auto-save current content
           type: 'heading',
           headingLevel,
-          fontSize: headingFontSizes[headingLevel],
         });
       }
 
