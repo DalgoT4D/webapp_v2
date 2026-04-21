@@ -265,7 +265,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto overscroll-none">
+      <DialogContent
+        className="sm:max-w-3xl max-h-[85vh] overflow-y-auto overscroll-none"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Source' : 'Add Source'}</DialogTitle>
           <DialogDescription>

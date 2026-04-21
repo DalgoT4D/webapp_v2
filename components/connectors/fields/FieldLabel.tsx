@@ -38,26 +38,26 @@ export function FieldLabel({ title, required, description, htmlFor }: FieldLabel
   );
 
   return (
-    <div className="flex items-center gap-1.5 mb-1.5">
+    <div className="mb-1.5">
       <label htmlFor={htmlFor} className="text-[15px] font-medium">
         {title}
         {required && <span className="text-destructive ml-0.5">*</span>}
+        {description && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info
+                  className="h-3.5 w-3.5 text-muted-foreground cursor-help inline-block align-middle ml-1"
+                  data-testid={`field-info-${htmlFor}`}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs">
+                <p dangerouslySetInnerHTML={{ __html: sanitizedDescription }} />
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </label>
-      {description && (
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info
-                className="h-3.5 w-3.5 text-muted-foreground cursor-help"
-                data-testid={`field-info-${htmlFor}`}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs text-xs">
-              <p dangerouslySetInnerHTML={{ __html: sanitizedDescription }} />
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
     </div>
   );
 }

@@ -127,7 +127,7 @@ export function SourceList() {
                 placeholder="Search Sources"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-background"
                 data-testid="source-search-input"
               />
             </div>
