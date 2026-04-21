@@ -352,7 +352,7 @@ function SingleComboboxInner({
             }}
             onKeyDown={handleKeyDown}
             className={cn(
-              'pl-9 pr-8 w-full bg-white cursor-pointer',
+              'pl-9 pr-8 w-full bg-card cursor-pointer',
               compact ? 'h-8 text-xs' : 'h-10'
             )}
             disabled={disabled || loading}
@@ -382,7 +382,7 @@ function SingleComboboxInner({
       </PopoverAnchor>
 
       <PopoverContent
-        className="p-0 shadow-lg border border-gray-200"
+        className="p-0 shadow-lg border border-border"
         align="start"
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
@@ -404,7 +404,10 @@ function SingleComboboxInner({
           onWheel={(e) => e.stopPropagation()}
         >
           {filtered.length === 0 ? (
-            <div data-testid={`${baseId}-empty`} className="p-3 text-center text-sm text-gray-500">
+            <div
+              data-testid={`${baseId}-empty`}
+              className="p-3 text-center text-sm text-muted-foreground"
+            >
               {search.trim() ? emptyMessage : noItemsMessage}
             </div>
           ) : (
@@ -426,13 +429,13 @@ function SingleComboboxInner({
                   aria-selected={isSelected}
                   aria-disabled={isItemDisabled}
                   className={cn(
-                    'px-3 py-2 text-sm border-b border-gray-100 last:border-b-0 select-none',
+                    'px-3 py-2 text-sm border-b border-border last:border-b-0 select-none',
                     isItemDisabled
                       ? 'cursor-not-allowed opacity-50 text-gray-400'
                       : 'cursor-pointer',
                     !isItemDisabled && isSelected && 'bg-blue-50 text-blue-900',
-                    !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
-                    !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
+                    !isItemDisabled && isHl && !isSelected && 'bg-muted',
+                    !isItemDisabled && !isSelected && !isHl && 'hover:bg-muted'
                   )}
                   onClick={() => !isItemDisabled && handleSelect(item.value)}
                   onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
@@ -625,7 +628,7 @@ function MultiComboboxInner({
       </PopoverAnchor>
 
       <PopoverContent
-        className="p-0 shadow-lg border border-gray-200"
+        className="p-0 shadow-lg border border-border"
         align="start"
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
@@ -675,10 +678,10 @@ function MultiComboboxInner({
                   role="option"
                   aria-selected={isSelected}
                   className={cn(
-                    'flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-100 last:border-b-0',
+                    'flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-border last:border-b-0',
                     isSelected && 'bg-blue-50',
-                    isHighlighted && !isSelected && 'bg-gray-100',
-                    !isSelected && !isHighlighted && 'hover:bg-gray-50'
+                    isHighlighted && !isSelected && 'bg-muted',
+                    !isSelected && !isHighlighted && 'hover:bg-muted'
                   )}
                   onClick={() => handleToggle(item.value)}
                   onMouseEnter={() => setHighlightedIndex(idx)}

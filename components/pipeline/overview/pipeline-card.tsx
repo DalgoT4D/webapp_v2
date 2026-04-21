@@ -51,7 +51,7 @@ export function PipelineCard({
   const isRunning = pipeline.lock;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+    <div className="bg-card rounded-xl border border-border p-4 md:p-6">
       {/* Header row: status icon + last run + success stats */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
@@ -59,7 +59,7 @@ export function PipelineCard({
           {isRunning ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" style={{ color: STATUS_COLOR_RUNNING }} />
-              <span className="text-sm font-semibold text-gray-700">Currently running</span>
+              <span className="text-sm font-semibold text-foreground">Currently running</span>
             </>
           ) : (
             <>
@@ -74,7 +74,7 @@ export function PipelineCard({
               )}
 
               {/* Last run time */}
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-foreground">
                 last run performed {lastRunTimeStr || 'never'}
               </span>
             </>
@@ -82,7 +82,7 @@ export function PipelineCard({
         </div>
 
         {/* Success stats */}
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-muted-foreground">
           {successfulRuns}/{runCount} successful runs
         </span>
       </div>
@@ -99,7 +99,7 @@ export function PipelineCard({
 
       {/* Footer row: Last X runs + scale toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <span className="text-sm text-gray-700 font-medium">Last {runCount} runs</span>
+        <span className="text-sm text-foreground font-medium">Last {runCount} runs</span>
 
         <div className="flex items-center gap-2">
           <Checkbox
@@ -110,7 +110,7 @@ export function PipelineCard({
           />
           <label
             htmlFor={`scale-${pipeline.deploymentName}`}
-            className="text-sm text-gray-600 cursor-pointer select-none"
+            className="text-sm text-muted-foreground cursor-pointer select-none"
           >
             Scale height to runtimes
           </label>

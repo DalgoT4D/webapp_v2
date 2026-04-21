@@ -277,7 +277,7 @@ export function MapDataConfigurationV3({
 
       {/* Data Source - Simple Search Dropdown */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Data Source</Label>
+        <Label className="text-sm font-medium text-foreground">Data Source</Label>
         <DatasetSelector
           schema_name={formData.schema_name}
           table_name={formData.table_name}
@@ -308,7 +308,7 @@ export function MapDataConfigurationV3({
 
       {/* Filters Section */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
+        <Label className="text-sm font-medium text-foreground">Data Filters</Label>
         <div className="space-y-2">
           {(formData.filters || []).map((filter, index) => (
             <div key={index} className="flex gap-2 items-center">
@@ -407,7 +407,7 @@ export function MapDataConfigurationV3({
         (formData.aggregate_function === 'count' || formData.aggregate_column) && (
           <div className="space-y-4 pt-4 border-t">
             <div>
-              <Label className="text-sm font-medium text-gray-900">Map Configuration</Label>
+              <Label className="text-sm font-medium text-foreground">Map Configuration</Label>
               <p className="text-xs text-muted-foreground mt-1">
                 Configure geographic levels and drill-down functionality
               </p>

@@ -910,14 +910,14 @@ export function MapPreview({
       >
         <button
           onClick={handleZoomIn}
-          className="w-9 h-9 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-md shadow-md hover:bg-white hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-gray-700 hover:text-gray-900"
+          className="w-9 h-9 bg-card/90 backdrop-blur-sm border border-border rounded-md shadow-md hover:bg-card hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-foreground hover:text-foreground"
           title="Zoom In"
         >
           +
         </button>
         <button
           onClick={handleZoomOut}
-          className="w-9 h-9 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-md shadow-md hover:bg-white hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-gray-700 hover:text-gray-900"
+          className="w-9 h-9 bg-card/90 backdrop-blur-sm border border-border rounded-md shadow-md hover:bg-card hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-foreground hover:text-foreground"
           title="Zoom Out"
         >
           −
@@ -926,7 +926,7 @@ export function MapPreview({
 
       {/* Data loading overlay */}
       {showDataLoadingOverlay && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+        <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
             <p className="text-sm text-muted-foreground">Loading data...</p>

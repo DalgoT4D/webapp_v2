@@ -159,10 +159,10 @@ export function PipelineList() {
           {pipelines.length === 0 ? (
             <EmptyState canCreate={canCreatePipeline} onCreate={handleCreate} />
           ) : (
-            <div className="bg-white rounded-lg border shadow-sm">
+            <div className="bg-card rounded-lg border shadow-sm">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50 hover:bg-gray-50">
+                  <TableRow className="bg-muted hover:bg-muted">
                     <TableHead className="text-base font-medium text-center">Pipeline</TableHead>
                     <TableHead className="text-base font-medium text-center">Schedule</TableHead>
                     <TableHead className="text-base font-medium text-center">Status</TableHead>
@@ -282,7 +282,7 @@ function PipelineRow({
   }, [lock, lastRun, isRunning]);
 
   return (
-    <TableRow className="hover:bg-gray-50/50" data-testid={`pipeline-row-${deploymentId}`}>
+    <TableRow className="hover:bg-muted/50" data-testid={`pipeline-row-${deploymentId}`}>
       {/* Pipeline Name */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
@@ -299,7 +299,7 @@ function PipelineRow({
             }
           />
           <span
-            className="font-medium text-lg text-gray-900"
+            className="font-medium text-lg text-foreground"
             data-testid={`pipeline-name-${deploymentId}`}
           >
             {name}
@@ -309,10 +309,10 @@ function PipelineRow({
 
       {/* Schedule */}
       <TableCell className="py-4">
-        <div className="text-base text-gray-700">
+        <div className="text-base text-foreground">
           <span>{cron ? cronToString(cron) : 'Manual'}</span>
         </div>
-        {cron && <span className="text-base text-gray-700">{localTimezone()}</span>}
+        {cron && <span className="text-base text-foreground">{localTimezone()}</span>}
       </TableCell>
 
       {/* Pipeline Status */}
@@ -324,7 +324,7 @@ function PipelineRow({
             'text-[13px] min-w-[70px] justify-center',
             status
               ? 'bg-green-100 text-green-700 hover:bg-green-100'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-100'
+              : 'bg-muted text-muted-foreground hover:bg-muted'
           )}
         >
           {status ? 'Active' : 'Inactive'}
@@ -335,10 +335,10 @@ function PipelineRow({
       <TableCell className="py-4">
         {lastRunInfo ? (
           <div>
-            <span className="text-base text-gray-900">{lastRunInfo.time}</span>
+            <span className="text-base text-foreground">{lastRunInfo.time}</span>
             {lastRunInfo.by && (
-              <div className="text-sm text-gray-500 mt-0.5">
-                by <span className="text-gray-900">{lastRunInfo.by}</span>
+              <div className="text-sm text-muted-foreground mt-0.5">
+                by <span className="text-foreground">{lastRunInfo.by}</span>
               </div>
             )}
           </div>
@@ -360,11 +360,11 @@ function PipelineRow({
             size="icon"
             onClick={() => onViewHistory(pipeline)}
             disabled={!canViewPipeline}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
+            className="h-8 w-8 p-0 hover:bg-muted"
             data-testid={`history-btn-${deploymentId}`}
             aria-label="History"
           >
-            <History className="w-4 h-4 text-gray-600" />
+            <History className="w-4 h-4 text-muted-foreground" />
           </Button>
 
           <Button
@@ -373,13 +373,13 @@ function PipelineRow({
             onClick={handleRunClick}
             disabled={isDisabled || !canRunPipeline}
             data-testid={`run-btn-${deploymentId}`}
-            className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
+            className={cn('h-8 w-8 p-0 hover:bg-muted', isRunning && 'cursor-not-allowed')}
             aria-label="Run"
           >
             {isRunning ? (
-              <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+              <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
             ) : (
-              <RefreshCw className="w-4 h-4 text-gray-600" />
+              <RefreshCw className="w-4 h-4 text-muted-foreground" />
             )}
           </Button>
 
@@ -389,10 +389,10 @@ function PipelineRow({
                 variant="ghost"
                 size="icon"
                 disabled={isDisabled}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-muted"
                 data-testid={`more-btn-${deploymentId}`}
               >
-                <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
@@ -456,7 +456,7 @@ function StatusBadge({
     [PipelineRunDisplayStatus.LOCKED]: {
       icon: <Lock className="h-3.5 w-3.5" />,
       label: 'Locked',
-      className: 'bg-gray-50 text-gray-600 border-gray-200',
+      className: 'bg-muted text-muted-foreground border-border',
     },
     [PipelineRunDisplayStatus.SUCCESS]: {
       icon: <TaskAltIcon className="h-3.5 w-3.5" />,
@@ -494,14 +494,14 @@ function StatusBadge({
 function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
   return (
     <div
-      className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-lg border"
+      className="flex flex-col items-center justify-center py-16 px-4 bg-card rounded-lg border"
       data-testid="empty-state"
     >
       <div className="mb-4">
         <FlowIcon className="h-16 w-16 rounded-lg" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">No pipelines yet</h3>
-      <p className="text-base text-gray-500 text-center max-w-sm mb-6">
+      <h3 className="text-lg font-semibold text-foreground mb-2">No pipelines yet</h3>
+      <p className="text-base text-muted-foreground text-center max-w-sm mb-6">
         Pipelines orchestrate your data syncs and transformations. Create your first pipeline to get
         started.
       </p>
@@ -535,7 +535,7 @@ function PipelineListSkeleton() {
       </div>
       <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6">
         <div className="h-full overflow-y-auto">
-          <div className="bg-white rounded-lg border shadow-sm">
+          <div className="bg-card rounded-lg border shadow-sm">
             <div className="p-4 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="flex items-center gap-4 py-3">

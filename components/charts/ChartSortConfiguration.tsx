@@ -95,8 +95,8 @@ export function ChartSortConfiguration({
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-gray-600" />
-              <span className="text-sm text-gray-600">Sorting ({sort.length})</span>
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Sorting ({sort.length})</span>
             </div>
             <Button
               variant="outline"
@@ -112,7 +112,7 @@ export function ChartSortConfiguration({
               {sort.map((sortItem, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded"
+                  className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded"
                 >
                   <span className="text-gray-400">{index + 1}.</span>
                   {getSortIcon(sortItem.direction)}
@@ -142,7 +142,7 @@ export function ChartSortConfiguration({
       </CardHeader>
       <CardContent className="space-y-4">
         {sort.length === 0 ? (
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-muted-foreground">
             <ArrowUpDown className="h-8 w-8 mx-auto mb-2 text-gray-400" />
             <p className="text-sm">No sorting configured</p>
             <p className="text-xs">Add sort criteria to order the data in your chart</p>
@@ -153,9 +153,9 @@ export function ChartSortConfiguration({
               <div key={index} className="p-4 border rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-gray-700">Sort {index + 1}</Label>
+                    <Label className="text-xs font-medium text-foreground">Sort {index + 1}</Label>
                     {sort.length > 1 && (
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                         Priority {index + 1}
                       </span>
                     )}
@@ -200,7 +200,7 @@ export function ChartSortConfiguration({
                 <div className="grid grid-cols-2 gap-3">
                   {/* Column Selection */}
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Column</Label>
+                    <Label className="text-xs text-muted-foreground">Column</Label>
                     <Combobox
                       items={columnItems}
                       value={sortItem.column}
@@ -214,7 +214,7 @@ export function ChartSortConfiguration({
 
                   {/* Direction Selection */}
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Direction</Label>
+                    <Label className="text-xs text-muted-foreground">Direction</Label>
                     <Select
                       value={sortItem.direction}
                       onValueChange={(value) =>
@@ -246,7 +246,7 @@ export function ChartSortConfiguration({
             ))}
 
             {sort.length > 1 && (
-              <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
+              <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
                 <p className="font-medium text-blue-700 mb-1">Sort Priority</p>
                 <p>Data will be sorted by the first criteria, then by the second, and so on.</p>
               </div>
@@ -266,7 +266,7 @@ export function ChartSortConfiguration({
         </Button>
 
         {sort.length === 0 && (
-          <div className="text-xs text-gray-500 space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>• Sorting controls the order of data points in your chart</p>
             <p>• Multiple sort criteria are applied in the order they appear</p>
             <p>• Numerical columns sort by value, text columns sort alphabetically</p>

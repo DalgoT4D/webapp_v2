@@ -31,9 +31,9 @@ export function TablePagination({
   const endItem = Math.min(clampedPage * pageSize, count);
 
   return (
-    <div className="flex items-center justify-between px-6 py-3 bg-gray-50/30 border-t border-gray-100">
+    <div className="flex items-center justify-between px-6 py-3 bg-muted/30 border-t border-border">
       {/* Left: Compact Item Count */}
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-muted-foreground">
         {count === 0 ? '0–0 of 0' : `${startItem}–${endItem} of ${count}`}
       </div>
 
@@ -41,11 +41,11 @@ export function TablePagination({
       <div className="flex items-center gap-4">
         {/* Compact Page Size Selector */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Show</span>
+          <span className="text-sm text-muted-foreground">Show</span>
           <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
             <SelectTrigger
               data-testid="page-size-select"
-              className="h-7 text-sm border-gray-200 bg-white"
+              className="h-7 text-sm border-border bg-card"
               style={{ width: '70px' }}
             >
               <SelectValue />
@@ -68,13 +68,13 @@ export function TablePagination({
             size="sm"
             onClick={() => onPageChange(clampedPage - 1)}
             disabled={clampedPage === 1}
-            className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+            className="h-7 px-2 hover:bg-muted disabled:opacity-50"
             aria-label="Previous page"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
-          <span className="text-sm text-gray-600 px-3 py-1">
+          <span className="text-sm text-muted-foreground px-3 py-1">
             {clampedPage} of {totalPages}
           </span>
 
@@ -84,7 +84,7 @@ export function TablePagination({
             size="sm"
             onClick={() => onPageChange(clampedPage + 1)}
             disabled={clampedPage >= totalPages}
-            className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+            className="h-7 px-2 hover:bg-muted disabled:opacity-50"
             aria-label="Next page"
           >
             <ChevronRight className="h-4 w-4" />

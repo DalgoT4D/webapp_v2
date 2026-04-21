@@ -305,7 +305,7 @@ function PipelineFormContent({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-foreground">
           {isEditMode ? 'Update Pipeline' : 'Create Pipeline'}
         </h1>
         <div className="flex items-center gap-3">
@@ -327,11 +327,11 @@ function PipelineFormContent({
       </div>
 
       {/* Form content - Two column layout */}
-      <div className="bg-white rounded-lg border shadow-sm max-h-[calc(100vh-12rem)] overflow-y-auto">
+      <div className="bg-card rounded-lg border shadow-sm max-h-[calc(100vh-12rem)] overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x">
           {/* Left column - Pipeline details */}
           <div className="lg:col-span-3 p-6 space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900">Pipeline Details</h2>
+            <h2 className="text-lg font-semibold text-foreground">Pipeline Details</h2>
 
             {/* Active toggle (edit mode only) */}
             {isEditMode && (
@@ -419,7 +419,7 @@ function PipelineFormContent({
                     Advanced
                   </ToggleGroupItem>
                 </ToggleGroup>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   You can create custom tasks from the transformation page
                 </span>
               </div>
@@ -456,7 +456,7 @@ function PipelineFormContent({
 
           {/* Right column - Schedule */}
           <div className="lg:col-span-2 p-6 space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900">Schedule</h2>
+            <h2 className="text-lg font-semibold text-foreground">Schedule</h2>
 
             {/* Schedule type */}
             <div className="space-y-2">
@@ -539,7 +539,7 @@ function PipelineFormContent({
                       />
                     )}
                   />
-                  <span className="text-sm text-gray-500">({localTimezone()})</span>
+                  <span className="text-sm text-muted-foreground">({localTimezone()})</span>
                 </div>
                 {errors.cronTimeOfDay && (
                   <p className="text-sm text-red-500">{errors.cronTimeOfDay.message}</p>
@@ -563,7 +563,7 @@ function FormSkeleton() {
           <Skeleton className="h-10 w-32" />
         </div>
       </div>
-      <div className="bg-white rounded-lg border shadow-sm">
+      <div className="bg-card rounded-lg border shadow-sm">
         <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x">
           <div className="lg:col-span-3 p-6 space-y-6">
             <Skeleton className="h-6 w-36" />

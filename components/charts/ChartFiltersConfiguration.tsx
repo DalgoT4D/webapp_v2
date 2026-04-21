@@ -69,7 +69,7 @@ export function ChartFiltersConfiguration({
       <Card className="border-dashed">
         <CardContent className="pt-6">
           <div className="flex items-center justify-center py-4">
-            <div className="text-sm text-gray-500">Loading columns...</div>
+            <div className="text-sm text-muted-foreground">Loading columns...</div>
           </div>
         </CardContent>
       </Card>
@@ -161,8 +161,8 @@ export function ChartFiltersConfiguration({
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-600" />
-              <span className="text-sm text-gray-600">Filters ({filters.length})</span>
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Filters ({filters.length})</span>
             </div>
             <Button
               variant="outline"
@@ -176,7 +176,10 @@ export function ChartFiltersConfiguration({
           {filters.length > 0 && (
             <div className="mt-3 space-y-1">
               {filters.map((filter, index) => (
-                <div key={index} className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                <div
+                  key={index}
+                  className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded"
+                >
                   {filter.column} {filter.operator.replace(/_/g, ' ')} {filter.value}
                 </div>
               ))}
@@ -202,7 +205,7 @@ export function ChartFiltersConfiguration({
       </CardHeader>
       <CardContent className="space-y-4">
         {filters.length === 0 ? (
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-muted-foreground">
             <Filter className="h-8 w-8 mx-auto mb-2 text-gray-400" />
             <p className="text-sm">No filters configured</p>
             <p className="text-xs">Add filters to limit the data shown in your chart</p>
@@ -212,7 +215,7 @@ export function ChartFiltersConfiguration({
             {filters.map((filter, index) => (
               <div key={index} className="p-4 border rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium text-gray-700">Filter {index + 1}</Label>
+                  <Label className="text-xs font-medium text-foreground">Filter {index + 1}</Label>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -226,7 +229,7 @@ export function ChartFiltersConfiguration({
 
                 {/* Column Selection */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">Column</Label>
+                  <Label className="text-xs text-muted-foreground">Column</Label>
                   <Combobox
                     items={columnItems}
                     value={filter.column}
@@ -249,7 +252,7 @@ export function ChartFiltersConfiguration({
                 {/* Operator Selection */}
                 {filter.column && (
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Operator</Label>
+                    <Label className="text-xs text-muted-foreground">Operator</Label>
                     <Select
                       value={filter.operator}
                       onValueChange={(value) =>
@@ -277,7 +280,7 @@ export function ChartFiltersConfiguration({
                 {/* Value Input */}
                 {filter.column && filter.operator && (
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Value</Label>
+                    <Label className="text-xs text-muted-foreground">Value</Label>
                     {renderValueInput(filter, index)}
                   </div>
                 )}

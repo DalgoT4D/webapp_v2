@@ -568,7 +568,7 @@ export function DashboardNativeView({
         // Legacy heading component - keep for backward compatibility
         const level = component.config?.level || 2;
         const headingStyles = cn(
-          'text-gray-900 font-semibold',
+          'text-foreground font-semibold',
           level === 1 && 'text-2xl',
           level === 2 && 'text-xl',
           level === 3 && 'text-lg'
@@ -636,8 +636,8 @@ export function DashboardNativeView({
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
+      <div className="h-screen flex flex-col bg-muted overflow-hidden">
+        <div className="bg-card border-b px-6 py-4 flex-shrink-0">
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-4 w-96" />
         </div>
@@ -655,7 +655,7 @@ export function DashboardNativeView({
 
   if (isError || !dashboard) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-muted">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6">
             <div className="text-center">
@@ -678,7 +678,7 @@ export function DashboardNativeView({
     <div
       ref={containerRef}
       className={cn(
-        'h-full flex flex-col bg-white overflow-hidden',
+        'h-full flex flex-col bg-card overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50',
         isPublicMode &&
           !isPrintMode &&
@@ -688,7 +688,7 @@ export function DashboardNativeView({
     >
       {/* Fixed Header - Conditional rendering for landing page */}
       {!hideHeader && !showMinimalHeader && !isEmbedMode && (
-        <div className="bg-white border-b shadow-sm flex-shrink-0">
+        <div className="bg-card border-b shadow-sm flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
             {/* Mobile Top Row */}
@@ -706,7 +706,7 @@ export function DashboardNativeView({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
+                    <h1 className="text-lg font-bold text-foreground truncate dashboard-header-title">
                       {dashboard.title}
                     </h1>
                     {dashboard.is_published && (
@@ -739,7 +739,7 @@ export function DashboardNativeView({
                         variant="outline"
                         size="sm"
                         className={cn(
-                          'px-3 py-1 text-xs border-green-600 text-green-600 bg-white hover:bg-green-50',
+                          'px-3 py-1 text-xs border-green-600 text-green-600 bg-card hover:bg-green-50',
                           (isPersonalLanding || isOrgDefault) &&
                             'bg-blue-50 border-blue-200 text-blue-700'
                         )}
@@ -865,7 +865,7 @@ export function DashboardNativeView({
             )}
 
             {/* Mobile Metadata Row */}
-            <div className="px-4 pb-2 flex items-center gap-4 text-xs text-gray-500 border-t pt-2">
+            <div className="px-4 pb-2 flex items-center gap-4 text-xs text-muted-foreground border-t pt-2">
               {dashboard.last_modified_by && (
                 <div className="flex items-center gap-1">
                   <User className="w-3 h-3" />
@@ -896,7 +896,7 @@ export function DashboardNativeView({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                    <h1 className="text-2xl font-bold text-foreground dashboard-header-title">
                       {dashboard.title}
                     </h1>
                     {dashboard.is_published && (
@@ -916,7 +916,7 @@ export function DashboardNativeView({
                   </div>
 
                   {/* Metadata below title */}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                     {dashboard.last_modified_by && (
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3" />
@@ -945,7 +945,7 @@ export function DashboardNativeView({
                         variant="outline"
                         size="sm"
                         className={cn(
-                          'text-xs border-green-600 text-green-600 bg-white hover:bg-green-50',
+                          'text-xs border-green-600 text-green-600 bg-card hover:bg-green-50',
                           (isPersonalLanding || isOrgDefault) &&
                             'bg-blue-50 border-blue-200 text-blue-700'
                         )}
@@ -1055,7 +1055,7 @@ export function DashboardNativeView({
       )}
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && !isEmbedMode && (
-        <div className="bg-white border-b flex-shrink-0 px-6 py-6">
+        <div className="bg-card border-b flex-shrink-0 px-6 py-6">
           <div>
             <h1 className="text-3xl font-bold">{dashboard.title}</h1>
           </div>
@@ -1098,7 +1098,7 @@ export function DashboardNativeView({
         {/* Dashboard Content - Scrollable Canvas Area */}
         <div
           className={cn(
-            'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
+            'flex-1 overflow-auto min-w-0 bg-muted p-4 pb-[150px]',
             isPublicMode && 'pb-24 sm:pb-16',
             isPrintMode && 'overflow-visible pb-4'
           )}
@@ -1109,7 +1109,7 @@ export function DashboardNativeView({
               onContainerRef?.(el);
             }}
             className={`dashboard-canvas relative z-10 ${
-              isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
+              isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-card') : 'bg-card'
             }`}
             style={{
               width: '100%',
@@ -1121,7 +1121,7 @@ export function DashboardNativeView({
 
             {/* Show empty state if no layout config */}
             {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-muted-foreground">
                 <p className="text-lg mb-2">No Dashboard Components</p>
                 <p className="text-sm">
                   This dashboard doesn't have any components configured yet.

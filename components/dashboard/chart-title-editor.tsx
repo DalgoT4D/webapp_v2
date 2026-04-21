@@ -100,7 +100,7 @@ export function ChartTitleEditor({
   // If not in edit mode, just render the title
   if (!isEditMode) {
     return resolvedTitle && showTitle ? (
-      <h3 className={cn('chart-title text-lg font-semibold text-gray-900 mb-3', className)}>
+      <h3 className={cn('chart-title text-lg font-semibold text-foreground mb-3', className)}>
         {resolvedTitle}
       </h3>
     ) : null;
@@ -138,12 +138,12 @@ export function ChartTitleEditor({
               <div
                 className={cn(
                   'flex-1 min-h-[2rem] flex items-center cursor-text rounded px-2 py-1 -mx-2 -my-1',
-                  'hover:bg-gray-50 transition-colors'
+                  'hover:bg-muted transition-colors'
                 )}
                 onClick={handleStartEdit}
                 title="Click to edit title"
               >
-                <span className="text-lg font-semibold text-gray-900">{resolvedTitle}</span>
+                <span className="text-lg font-semibold text-foreground">{resolvedTitle}</span>
               </div>
               {/* Small hide title button */}
               <Button
@@ -153,14 +153,14 @@ export function ChartTitleEditor({
                 className="h-5 w-5 p-0 opacity-0 group-hover/title:opacity-100 transition-opacity ml-2"
                 title="Hide title"
               >
-                <EyeOff className="w-3 h-3 text-gray-500" />
+                <EyeOff className="w-3 h-3 text-muted-foreground" />
               </Button>
             </div>
           ) : showTitle ? (
             <div
               className={cn(
                 'min-h-[2rem] flex items-center cursor-text rounded px-2 py-1 -mx-2 -my-1',
-                'hover:bg-gray-50 transition-colors text-gray-400 italic'
+                'hover:bg-muted transition-colors text-gray-400 italic'
               )}
               onClick={handleStartEdit}
               title="Click to add title"
@@ -174,7 +174,7 @@ export function ChartTitleEditor({
                 size="sm"
                 variant="ghost"
                 onClick={handleShowTitle}
-                className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-5 px-2 text-xs text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Show title"
               >
                 <Type className="w-3 h-3 mr-1" />
@@ -187,7 +187,7 @@ export function ChartTitleEditor({
 
       {/* Helper text for overridden titles */}
       {!isEditing && isOverridden && (
-        <div className="text-xs text-gray-500 mt-1">
+        <div className="text-xs text-muted-foreground mt-1">
           Custom title • Original: "{chartData?.title || 'Untitled Chart'}"
         </div>
       )}

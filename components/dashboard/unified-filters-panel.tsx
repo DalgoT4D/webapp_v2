@@ -118,9 +118,9 @@ function SortableFilterItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'border border-gray-100 rounded-lg p-3 bg-gray-50 transition-all',
+        'border border-border rounded-lg p-3 bg-muted transition-all',
         isDragging && 'shadow-lg scale-105 z-50',
-        isEditMode && 'hover:border-gray-300'
+        isEditMode && 'hover:border-border'
       )}
       {...attributes}
     >
@@ -344,7 +344,7 @@ export function UnifiedFiltersPanel({
         return (
           <div
             className={cn(
-              'border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 shadow-sm md:shadow-none transition-all duration-300',
+              'border-b-2 md:border-b-0 md:border-r border-border bg-card flex-shrink-0 shadow-sm md:shadow-none transition-all duration-300',
               isCollapsed ? 'w-full md:w-12' : 'w-full md:w-96'
             )}
           >
@@ -353,11 +353,11 @@ export function UnifiedFiltersPanel({
               <div className="p-2 flex flex-col items-center gap-2">
                 <button
                   onClick={togglePanelCollapse}
-                  className="p-2 hover:bg-gray-100 rounded transition-colors"
+                  className="p-2 hover:bg-muted rounded transition-colors"
                   aria-label="Expand filters panel"
                   title="Expand filters panel"
                 >
-                  <PanelLeftClose className="w-4 h-4 text-gray-500 rotate-180" />
+                  <PanelLeftClose className="w-4 h-4 text-muted-foreground rotate-180" />
                 </button>
                 {hasActiveFilters && (
                   <div className="w-2 h-2 bg-blue-500 rounded-full" title="Filters applied" />
@@ -368,7 +368,7 @@ export function UnifiedFiltersPanel({
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Filters</h3>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
@@ -377,15 +377,15 @@ export function UnifiedFiltersPanel({
                     </Button>
                     <button
                       onClick={togglePanelCollapse}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
+                      className="p-1 hover:bg-muted rounded transition-colors ml-1"
                       aria-label="Collapse filters panel"
                       title="Collapse filters panel"
                     >
-                      <PanelLeftClose className="w-4 h-4 text-gray-500" />
+                      <PanelLeftClose className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <FilterIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm font-medium">No filters added yet</p>
                   <p className="text-xs mt-1">Click "Add" to create your first filter</p>
@@ -399,7 +399,7 @@ export function UnifiedFiltersPanel({
         return (
           <div
             className={cn(
-              'border-b border-gray-200 bg-white transition-all duration-300',
+              'border-b border-border bg-card transition-all duration-300',
               isCollapsed && 'h-0 overflow-hidden'
             )}
           >
@@ -407,7 +407,7 @@ export function UnifiedFiltersPanel({
               <div className="px-4 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Filters</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
@@ -416,15 +416,15 @@ export function UnifiedFiltersPanel({
                     </Button>
                     <button
                       onClick={togglePanelCollapse}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      className="p-1 hover:bg-muted rounded transition-colors"
                       aria-label="Hide filters"
                       title="Hide filters"
                     >
-                      <X className="w-4 h-4 text-gray-500" />
+                      <X className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
-                <div className="text-center py-8 text-gray-500 mt-4">
+                <div className="text-center py-8 text-muted-foreground mt-4">
                   <FilterIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm font-medium">No filters added yet</p>
                   <p className="text-xs mt-1">Click "Add Filter" to create your first filter</p>
@@ -442,7 +442,7 @@ export function UnifiedFiltersPanel({
     return (
       <div
         className={cn(
-          'border-b border-gray-200 bg-white transition-all duration-300',
+          'border-b border-border bg-card transition-all duration-300',
           isCollapsed && 'h-0 overflow-hidden'
         )}
       >
@@ -453,24 +453,24 @@ export function UnifiedFiltersPanel({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Filters</h3>
                     <button
                       onClick={toggleFiltersExpansion}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      className="p-1 hover:bg-muted rounded transition-colors"
                       aria-label={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
                       title={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
                     >
                       {isFiltersExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-gray-500" />
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       )}
                     </button>
                     {hasActiveFilters && (
                       <div className="w-2 h-2 bg-blue-500 rounded-full" title="Filters applied" />
                     )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {filters.length} filter{filters.length !== 1 ? 's' : ''}
                     {hasActiveFilters && ' • Some applied'}
                   </p>
@@ -507,11 +507,11 @@ export function UnifiedFiltersPanel({
                   </Button>
                   <button
                     onClick={togglePanelCollapse}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
+                    className="p-1 hover:bg-muted rounded transition-colors ml-1"
                     aria-label="Hide filters"
                     title="Hide filters"
                   >
-                    <X className="w-4 h-4 text-gray-500" />
+                    <X className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </div>
               </div>
@@ -559,7 +559,7 @@ export function UnifiedFiltersPanel({
   return (
     <div
       className={cn(
-        'border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col overflow-hidden shadow-sm md:shadow-none transition-all duration-300',
+        'border-b-2 md:border-b-0 md:border-r border-border bg-card flex-shrink-0 flex flex-col overflow-hidden shadow-sm md:shadow-none transition-all duration-300',
         isCollapsed ? 'w-full md:w-12' : 'w-full md:w-96'
       )}
     >
@@ -568,11 +568,11 @@ export function UnifiedFiltersPanel({
         <div className="p-2 flex flex-col items-center gap-2">
           <button
             onClick={togglePanelCollapse}
-            className="p-2 hover:bg-gray-100 rounded transition-colors"
+            className="p-2 hover:bg-muted rounded transition-colors"
             aria-label="Expand filters panel"
             title="Expand filters panel"
           >
-            <PanelLeftClose className="w-4 h-4 text-gray-500 rotate-180" />
+            <PanelLeftClose className="w-4 h-4 text-muted-foreground rotate-180" />
           </button>
           {hasActiveFilters && (
             <div className="w-2 h-2 bg-blue-500 rounded-full" title="Filters applied" />
@@ -582,20 +582,20 @@ export function UnifiedFiltersPanel({
         // Expanded panel
         <>
           {/* Header */}
-          <div className="p-4 border-b border-gray-100 flex-shrink-0">
+          <div className="p-4 border-b border-border flex-shrink-0">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                <h3 className="text-sm font-semibold text-foreground">Filters</h3>
                 <button
                   onClick={toggleFiltersExpansion}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  className="p-1 hover:bg-muted rounded transition-colors"
                   aria-label={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
                   title={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
                 >
                   {isFiltersExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   )}
                 </button>
                 {hasActiveFilters && (
@@ -611,17 +611,17 @@ export function UnifiedFiltersPanel({
                 )}
                 <button
                   onClick={togglePanelCollapse}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
+                  className="p-1 hover:bg-muted rounded transition-colors ml-1"
                   aria-label="Collapse filters panel"
                   title="Collapse filters panel"
                 >
-                  <PanelLeftClose className="w-4 h-4 text-gray-500" />
+                  <PanelLeftClose className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {filters.length} filter{filters.length !== 1 ? 's' : ''}
                 {hasActiveFilters && ' • Some applied'}
               </p>
@@ -685,8 +685,8 @@ export function UnifiedFiltersPanel({
                   </SortableContext>
                 </DndContext>
                 {/* Mobile section separator */}
-                <div className="block md:hidden mt-4 pt-4 border-t border-gray-200">
-                  <div className="text-center text-xs text-gray-500 font-medium">
+                <div className="block md:hidden mt-4 pt-4 border-t border-border">
+                  <div className="text-center text-xs text-muted-foreground font-medium">
                     Dashboard Content
                   </div>
                 </div>

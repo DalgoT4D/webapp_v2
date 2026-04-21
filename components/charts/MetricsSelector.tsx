@@ -138,7 +138,7 @@ export function MetricsSelector({
   if (metrics.length === 0) {
     return (
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Metrics</Label>
+        <Label className="text-sm font-medium text-foreground">Metrics</Label>
         <Button
           variant="outline"
           size="sm"
@@ -155,15 +155,15 @@ export function MetricsSelector({
 
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium text-gray-900">Metrics</Label>
+      <Label className="text-sm font-medium text-foreground">Metrics</Label>
       <div className="space-y-3">
         {metrics.map((metric, index) => (
-          <div key={index} className="space-y-2 p-3 border rounded-lg bg-white">
+          <div key={index} className="space-y-2 p-3 border rounded-lg bg-card">
             <div className="flex items-center gap-2">
               <div className="flex-1 grid grid-cols-2 gap-2">
                 {/* Aggregation Function - Now First */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.function}</Label>
+                  <Label className="text-xs text-muted-foreground">{labels.function}</Label>
                   <Select
                     value={metric.aggregation}
                     onValueChange={(value) => {
@@ -204,7 +204,7 @@ export function MetricsSelector({
 
                 {/* Column Selection - Now Second */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.column}</Label>
+                  <Label className="text-xs text-muted-foreground">{labels.column}</Label>
                   <Combobox
                     items={getAvailableColumns(metric.aggregation).map((col) => ({
                       value: col.column_name,
@@ -250,7 +250,7 @@ export function MetricsSelector({
 
             {/* Display Name (Alias) */}
             <div className="space-y-1">
-              <Label className="text-xs text-gray-600">{labels.alias}</Label>
+              <Label className="text-xs text-muted-foreground">{labels.alias}</Label>
               <Input
                 type="text"
                 placeholder="Auto-generated display name"

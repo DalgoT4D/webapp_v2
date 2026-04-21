@@ -919,7 +919,7 @@ export function ChartElementV2({
                     nameGap: axis.name ? 80 : 15,
                     nameTextStyle: {
                       fontSize: 14,
-                      color: '#374151',
+                      color: 'var(--color-foreground)',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
@@ -936,7 +936,7 @@ export function ChartElementV2({
                       nameGap: configWithLegend.xAxis.name ? 80 : 15,
                       nameTextStyle: {
                         fontSize: 14,
-                        color: '#374151',
+                        color: 'var(--color-foreground)',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
@@ -954,7 +954,7 @@ export function ChartElementV2({
                     nameGap: axis.name ? 100 : 15,
                     nameTextStyle: {
                       fontSize: 14,
-                      color: '#374151',
+                      color: 'var(--color-foreground)',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
@@ -968,7 +968,7 @@ export function ChartElementV2({
                       nameGap: configWithLegend.yAxis.name ? 100 : 15,
                       nameTextStyle: {
                         fontSize: 14,
-                        color: '#374151',
+                        color: 'var(--color-foreground)',
                         fontFamily: 'Inter, system-ui, sans-serif',
                       },
                       axisLabel: {
@@ -985,7 +985,7 @@ export function ChartElementV2({
           borderColor: '#e5e7eb',
           borderWidth: 1,
           textStyle: {
-            color: '#1f2937',
+            color: 'var(--color-foreground)',
             fontSize: 12,
           },
           extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
@@ -1203,7 +1203,7 @@ export function ChartElementV2({
 
           {/* Drill-down navigation for maps */}
           {isMapChart && drillDownPath.length > 0 && (
-            <div className="px-2 py-1 border-b border-gray-100 flex-shrink-0">
+            <div className="px-2 py-1 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-1 text-xs">
                 <Button
                   variant="ghost"
@@ -1265,7 +1265,7 @@ export function ChartElementV2({
               <div className="flex flex-col h-full">
                 {/* Breadcrumb navigation for drill-down */}
                 {tableDrillDownState && (
-                  <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2 flex-shrink-0">
+                  <div className="px-4 py-2 border-b bg-muted flex items-center gap-2 flex-shrink-0">
                     <Button variant="ghost" size="sm" onClick={handleTableDrillUp} className="h-8">
                       ← Back
                     </Button>

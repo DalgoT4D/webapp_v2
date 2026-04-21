@@ -57,7 +57,7 @@ export function ChartPaginationConfiguration({
                 <MoreHorizontal className="h-3 w-3 text-gray-400" />
                 <ChevronRight className="h-3 w-3 text-gray-400" />
               </div>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 Pagination: {pagination.enabled ? `${pagination.page_size} per page` : 'Disabled'}
               </span>
             </div>
@@ -97,7 +97,9 @@ export function ChartPaginationConfiguration({
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <Label className="text-sm font-medium">Enable Pagination</Label>
-            <p className="text-xs text-gray-600">Limit the number of data points shown at once</p>
+            <p className="text-xs text-muted-foreground">
+              Limit the number of data points shown at once
+            </p>
           </div>
           <Switch
             checked={pagination.enabled}
@@ -150,17 +152,17 @@ export function ChartPaginationConfiguration({
                 }}
                 disabled={disabled}
               />
-              <p className="text-xs text-gray-500">Enter a value between 1 and 10,000</p>
+              <p className="text-xs text-muted-foreground">Enter a value between 1 and 10,000</p>
             </div>
 
             {/* Preview */}
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-gray-600 mb-2">Preview:</p>
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-2">Preview:</p>
               <div className="flex items-center gap-2 text-xs">
                 <Button variant="outline" size="sm" disabled className="h-6 px-2">
                   ← Previous
                 </Button>
-                <span className="text-gray-600">
+                <span className="text-muted-foreground">
                   Showing 1-{pagination.page_size} of {pagination.page_size * 3} items
                 </span>
                 <Button variant="outline" size="sm" disabled className="h-6 px-2">
@@ -170,7 +172,7 @@ export function ChartPaginationConfiguration({
             </div>
 
             {/* Help Text */}
-            <div className="text-xs text-gray-500 space-y-1">
+            <div className="text-xs text-muted-foreground space-y-1">
               <p>• Pagination helps improve chart performance with large datasets</p>
               <p>• Users can navigate through data using pagination controls</p>
               <p>• Smaller page sizes load faster but require more navigation</p>
@@ -179,7 +181,7 @@ export function ChartPaginationConfiguration({
         )}
 
         {!pagination.enabled && (
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-muted-foreground">
             <div className="flex items-center justify-center gap-1 mb-2">
               <ChevronLeft className="h-6 w-6 text-gray-400" />
               <MoreHorizontal className="h-6 w-6 text-gray-400" />

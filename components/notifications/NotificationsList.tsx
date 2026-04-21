@@ -67,7 +67,7 @@ export function NotificationsList({
     return (
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-auto px-6 pt-4">
-          <div className="bg-white rounded-lg border shadow-sm">
+          <div className="bg-card rounded-lg border shadow-sm">
             <div className="p-4 space-y-3">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-4">
@@ -91,12 +91,12 @@ export function NotificationsList({
   if (totalCount === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 px-6 pt-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <Inbox className="h-8 w-8 text-gray-400" />
         </div>
         <div className="text-center">
-          <h3 className="font-semibold text-gray-900 text-lg">No notifications</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="font-semibold text-foreground text-lg">No notifications</h3>
+          <p className="text-sm text-muted-foreground mt-1">
             You&apos;re all caught up! Check back later for new notifications.
           </p>
         </div>
@@ -108,12 +108,12 @@ export function NotificationsList({
   if (notifications.length === 0 && totalCount > 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 px-6 pt-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <Inbox className="h-8 w-8 text-gray-400" />
         </div>
         <div className="text-center">
-          <h3 className="font-semibold text-gray-900 text-lg">No notifications on this page</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="font-semibold text-foreground text-lg">No notifications on this page</h3>
+          <p className="text-sm text-muted-foreground mt-1">
             Try going back to the first page to see your notifications.
           </p>
           <button
@@ -131,9 +131,9 @@ export function NotificationsList({
     <div className="flex h-full flex-col">
       {/* Table Container */}
       <div className="flex-1 overflow-hidden px-6 pt-4">
-        <div className="h-full flex flex-col bg-white rounded-lg border shadow-sm">
+        <div className="h-full flex flex-col bg-card rounded-lg border shadow-sm">
           {/* Header Bar */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
+          <div className="flex items-center justify-between px-4 py-3 bg-muted border-b">
             <div className="flex items-center gap-3">
               <Checkbox
                 data-testid="select-all-checkbox"
@@ -142,9 +142,9 @@ export function NotificationsList({
                 aria-label="Select all notifications"
                 className="border-gray-800 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 data-[state=indeterminate]:bg-gray-600 data-[state=indeterminate]:border-gray-600"
               />
-              <span className="text-sm text-gray-700 font-medium">
+              <span className="text-sm text-foreground font-medium">
                 Select all
-                <span className="text-gray-500 mx-2">|</span>
+                <span className="text-muted-foreground mx-2">|</span>
                 Showing {notifications.length} of {totalCount} notifications
               </span>
             </div>

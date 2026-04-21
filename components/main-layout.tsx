@@ -37,6 +37,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformType, useTransformType } from '@/hooks/api/useTransformType';
 import Image from 'next/image';
+import { ThemeToggle } from './theme-toggle';
 
 // Define types for navigation items
 interface NavItemType {
@@ -261,8 +262,9 @@ function CollapsedNavItem({ item }: { item: NavItemType }) {
           <Link
             href={item.href}
             className={cn(
-              'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+              'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors group',
+              item.isActive &&
+                'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
             )}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -350,8 +352,9 @@ function ExpandedNavItem({
                   key={index}
                   href={child.href}
                   className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors text-sm',
+                    child.isActive &&
+                      'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
                   )}
                   title={child.title}
                 >
@@ -421,8 +424,9 @@ function ExpandedNavItem({
                 key={index}
                 href={child.href}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+                  'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors text-sm',
+                  child.isActive &&
+                    'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
                 )}
                 title={child.title}
               >
@@ -445,8 +449,9 @@ function ExpandedNavItem({
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+        'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors group',
+        item.isActive &&
+          'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
       )}
       title={item.title}
     >
@@ -531,8 +536,9 @@ function MobileNavItem({
                   href={child.href}
                   onClick={onClose}
                   className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors',
+                    child.isActive &&
+                      'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
                   )}
                 >
                   <child.icon
@@ -600,8 +606,9 @@ function MobileNavItem({
                 href={child.href}
                 onClick={onClose}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                  child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+                  'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors',
+                  child.isActive &&
+                    'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
                 )}
               >
                 <child.icon
@@ -624,8 +631,9 @@ function MobileNavItem({
       href={item.href}
       onClick={onClose}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-        item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+        'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 dark:hover:bg-primary/10 hover:text-[#002B5C] dark:hover:text-primary transition-colors',
+        item.isActive &&
+          'bg-[#0066FF]/10 dark:bg-primary/20 text-[#002B5C] dark:text-primary font-bold'
       )}
     >
       <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -679,7 +687,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
 
   return (
-    <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-gray-50">
+    <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-background">
       {/* SECTION 1: NAVBAR - Fixed Full Width */}
       <header
         id="main-layout-navbar"
@@ -715,7 +723,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   setHasUserToggledSidebar(true);
                 }}
                 className={cn(
-                  'h-6 w-6 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:shadow-md transition-all duration-200',
+                  'h-6 w-6 rounded-full bg-card/80 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-card hover:shadow-md transition-all duration-200',
                   'text-gray-400 hover:text-gray-600',
                   'opacity-75 hover:opacity-100'
                 )}
@@ -750,6 +758,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                       />
                     ))}
             </div>
+
+            {/* Theme toggle at sidebar bottom */}
+            <div className="flex-shrink-0 border-t p-4">
+              <ThemeToggle collapsed={isSidebarCollapsed} />
+            </div>
           </aside>
         )}
         {/* Mobile Sidebar */}
@@ -767,7 +780,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                     alt="Dalgo"
                     width={60}
                     height={68}
-                    className="text-primary"
+                    className="text-primary dark:invert"
                   />
                 </div>
               </div>
@@ -785,12 +798,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                     />
                   ))}
               </div>
+
+              {/* Theme toggle at mobile sidebar bottom */}
+              <div className="flex-shrink-0 border-t p-4">
+                <ThemeToggle />
+              </div>
             </div>
           </SheetContent>
         </Sheet>
 
         {/* SECTION 3: MAIN CONTENT AREA - Remaining Width */}
-        <main id="main-layout-main-content" className="flex-1 overflow-hidden bg-gray-50">
+        <main id="main-layout-main-content" className="flex-1 overflow-hidden bg-background">
           {/* Page Container - Dashboard pages handle their own scrolling */}
           <div id="main-layout-page-container" className="h-full w-full">
             {/* Consistent Inner Padding Container - No padding for dashboard pages */}

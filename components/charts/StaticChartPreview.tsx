@@ -89,7 +89,7 @@ export function StaticChartPreview({
             className={`${className} flex items-center justify-center p-4 rounded-lg`}
             style={{ backgroundColor: tableColors.bgColor }}
           >
-            <div className="w-full h-full max-w-24 max-h-20 border border-slate-300 bg-white rounded-sm overflow-hidden">
+            <div className="w-full h-full max-w-24 max-h-20 border border-slate-300 bg-card rounded-sm overflow-hidden">
               {/* Table Header */}
               <div className="grid grid-cols-3 bg-slate-200 border-b border-slate-300">
                 <div className="p-1 text-[6px] font-semibold text-slate-700 border-r border-slate-300 flex items-center justify-center">
@@ -173,7 +173,7 @@ export function StaticChartPreview({
             style={{ backgroundColor: numberColors.bgColor }}
           >
             <div
-              className="bg-white border-2 rounded-lg p-3 shadow-sm w-20 h-16 flex flex-col items-center justify-center"
+              className="bg-card border-2 rounded-lg p-3 shadow-sm w-20 h-16 flex flex-col items-center justify-center"
               style={{ borderColor: numberColors.color + '40' }}
             >
               {/* Large Number */}

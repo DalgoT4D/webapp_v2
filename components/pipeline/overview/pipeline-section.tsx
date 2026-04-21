@@ -114,7 +114,7 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
   return (
     <div data-testid={`pipeline-section-${pipeline.deploymentName}`}>
       {/* Pipeline name as header */}
-      <h2 className="text-base font-medium text-gray-700 mb-2">{pipeline.name}</h2>
+      <h2 className="text-base font-medium text-foreground mb-2">{pipeline.name}</h2>
 
       {/* Card */}
       {hasRuns ? (
@@ -141,8 +141,8 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
           )}
         </>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-500">No runs found for this pipeline</p>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <p className="text-sm text-muted-foreground">No runs found for this pipeline</p>
         </div>
       )}
     </div>

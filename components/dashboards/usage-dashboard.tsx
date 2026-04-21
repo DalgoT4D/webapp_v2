@@ -72,7 +72,7 @@ export default function UsageDashboard() {
 
   return (
     <main className="usage-dashboard w-full h-screen flex flex-col">
-      <div className="flex items-center justify-between p-6 border-b bg-white flex-shrink-0">
+      <div className="flex items-center justify-between p-6 border-b bg-card flex-shrink-0">
         <h1 className="text-3xl font-bold">Usage Dashboard</h1>
       </div>
       <div className="flex-1 p-6 pb-10 overflow-auto relative">
@@ -80,12 +80,12 @@ export default function UsageDashboard() {
         <div
           ref={containerRef}
           id="dashboard-container"
-          className="w-full h-full bg-white rounded-lg shadow-sm"
+          className="w-full h-full bg-card rounded-lg shadow-sm"
         />
 
         {/* loading overlay */}
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+          <div className="absolute inset-0 flex items-center justify-center bg-card/80">
             <div className="text-lg">Loading usage dashboard...</div>
           </div>
         )}

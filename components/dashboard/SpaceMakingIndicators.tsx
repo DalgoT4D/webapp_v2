@@ -96,7 +96,7 @@ export const SpaceMakingIndicators: React.FC<SpaceMakingIndicatorsProps> = ({
             {/* Optional distance indicator */}
             {distance > 30 && (
               <div
-                className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-blue-600 bg-white/90 px-2 py-1 rounded shadow-sm border"
+                className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-blue-600 bg-card/90 px-2 py-1 rounded shadow-sm border"
                 style={{ fontSize: '10px' }}
               >
                 {Math.round((distance / colWidth) * 10) / 10}u

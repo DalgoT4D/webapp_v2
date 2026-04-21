@@ -935,9 +935,9 @@ function ConfigureChartPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       {/* Single Header with Everything */}
-      <div className="bg-white border-b px-6 py-4">
+      <div className="bg-card border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back Button */}
@@ -964,7 +964,7 @@ function ConfigureChartPageContent() {
             <Input
               value={formData.title}
               onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
+              className="text-lg font-semibold border border-border shadow-sm px-4 py-2 h-11 bg-card min-w-[300px]"
               placeholder="Untitled Chart"
             />
           </div>
@@ -985,7 +985,7 @@ function ConfigureChartPageContent() {
 
       {/* Main Content Area with 2rem margin container */}
       <div className="p-8 h-[calc(100vh-144px)]">
-        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="flex h-full bg-card rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
@@ -1097,7 +1097,7 @@ function ConfigureChartPageContent() {
                     <div className="w-full h-full flex flex-col">
                       {/* Breadcrumb navigation for drill-down */}
                       {tableDrillDownState && (
-                        <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
+                        <div className="px-4 py-2 border-b bg-muted flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"

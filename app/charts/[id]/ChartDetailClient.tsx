@@ -714,7 +714,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="bg-white border-b px-6 py-4 mb-6">
+      <div className="bg-card border-b px-6 py-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {isFromDashboard ? (
@@ -795,7 +795,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 <div className="w-full h-full flex flex-col">
                   {/* Breadcrumb navigation for drill-down */}
                   {tableDrillDownState && (
-                    <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
+                    <div className="px-4 py-2 border-b bg-muted flex items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"

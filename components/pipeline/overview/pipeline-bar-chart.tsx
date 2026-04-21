@@ -81,7 +81,7 @@ function ChartTooltip({
       data-testid="pipeline-chart-tooltip"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="fixed z-[9999] bg-white border border-black rounded-[10px] px-4 py-3 text-sm shadow-md"
+      className="fixed z-[9999] bg-card border border-black rounded-[10px] px-4 py-3 text-sm shadow-md"
       style={{
         left: `${x}px`,
         top: `${y}px`,

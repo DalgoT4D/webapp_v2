@@ -96,10 +96,10 @@ export function FilterElement({
       {isEditMode && dragHandleProps && (
         <div
           {...dragHandleProps}
-          className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-white border border-gray-200 rounded shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all opacity-0 group-hover:opacity-100"
+          className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-card border border-border rounded shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all opacity-0 group-hover:opacity-100"
           title="Drag to reorder"
         >
-          <GripVertical className="w-3 h-3 text-gray-500" />
+          <GripVertical className="w-3 h-3 text-muted-foreground" />
         </div>
       )}
 
@@ -109,28 +109,28 @@ export function FilterElement({
           {hasValue() && (
             <button
               onClick={handleClear}
-              className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+              className="p-1.5 bg-card border border-border rounded-full shadow-sm hover:shadow-md transition-all"
               title="Clear filter"
             >
-              <RotateCcw className="w-3 h-3 text-gray-600 hover:text-orange-600" />
+              <RotateCcw className="w-3 h-3 text-muted-foreground hover:text-orange-600" />
             </button>
           )}
           {isEditMode && onEdit && (
             <button
               onClick={onEdit}
-              className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+              className="p-1.5 bg-card border border-border rounded-full shadow-sm hover:shadow-md transition-all"
               title="Edit filter"
             >
-              <Edit2 className="w-3 h-3 text-gray-600 hover:text-blue-600" />
+              <Edit2 className="w-3 h-3 text-muted-foreground hover:text-blue-600" />
             </button>
           )}
           {isEditMode && onRemove && (
             <button
               onClick={onRemove}
-              className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
+              className="p-1.5 bg-card border border-border rounded-full shadow-sm hover:shadow-md transition-all"
               title="Remove filter"
             >
-              <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+              <X className="w-3 h-3 text-muted-foreground hover:text-red-600" />
             </button>
           )}
         </div>

@@ -52,7 +52,7 @@ export function FullScreenModal({
         {/* Content - Full screen with margins */}
         <DialogPrimitive.Content
           className={cn(
-            'fixed z-50 bg-white rounded-xl shadow-xl flex flex-col',
+            'fixed z-50 bg-card rounded-xl shadow-xl flex flex-col',
             'top-[74px] left-6 right-6 bottom-[22px]',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -65,10 +65,10 @@ export function FullScreenModal({
           <div className="flex-shrink-0 px-7 py-5 border-b">
             <div className="flex items-start justify-between">
               <div>
-                <DialogPrimitive.Title className="text-xl font-semibold text-gray-900">
+                <DialogPrimitive.Title className="text-xl font-semibold text-foreground">
                   {title}
                 </DialogPrimitive.Title>
-                {subtitle && <div className="text-sm text-gray-600 mt-1">{subtitle}</div>}
+                {subtitle && <div className="text-sm text-muted-foreground mt-1">{subtitle}</div>}
               </div>
               <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">
                 <X className="h-5 w-5" />

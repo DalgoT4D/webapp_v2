@@ -1257,7 +1257,7 @@ export function ChartElementView({
                   nameGap: axis.name ? 80 : 15,
                   nameTextStyle: {
                     fontSize: 14,
-                    color: '#374151',
+                    color: 'var(--color-foreground)',
                     fontFamily: 'Inter, system-ui, sans-serif',
                   },
                   axisLabel: {
@@ -1274,7 +1274,7 @@ export function ChartElementView({
                     nameGap: configWithLegend.xAxis.name ? 80 : 15,
                     nameTextStyle: {
                       fontSize: 14,
-                      color: '#374151',
+                      color: 'var(--color-foreground)',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
@@ -1292,7 +1292,7 @@ export function ChartElementView({
                   nameGap: axis.name ? 100 : 15,
                   nameTextStyle: {
                     fontSize: 14,
-                    color: '#374151',
+                    color: 'var(--color-foreground)',
                     fontFamily: 'Inter, system-ui, sans-serif',
                   },
                   axisLabel: {
@@ -1306,7 +1306,7 @@ export function ChartElementView({
                     nameGap: configWithLegend.yAxis.name ? 100 : 15,
                     nameTextStyle: {
                       fontSize: 14,
-                      color: '#374151',
+                      color: 'var(--color-foreground)',
                       fontFamily: 'Inter, system-ui, sans-serif',
                     },
                     axisLabel: {
@@ -1322,7 +1322,7 @@ export function ChartElementView({
         borderColor: '#e5e7eb',
         borderWidth: 1,
         textStyle: {
-          color: '#1f2937',
+          color: 'var(--color-foreground)',
           fontSize: 12,
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
@@ -1467,7 +1467,7 @@ export function ChartElementView({
         await ChartExporter.exportTableAsImage(tableRef.current, {
           filename,
           format: 'png',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--color-card)',
         });
         toast.success('Table downloaded successfully');
         return;
@@ -1480,7 +1480,7 @@ export function ChartElementView({
         const url = activeChartInstance.getDataURL({
           type: 'png',
           pixelRatio: 2,
-          backgroundColor: '#fff',
+          backgroundColor: 'var(--color-card)',
         });
         const link = document.createElement('a');
         link.download = `${isMapChart ? 'map' : 'chart'}-${chartId}.png`;
@@ -1660,19 +1660,19 @@ export function ChartElementView({
       className={cn(
         'h-full relative group flex flex-col min-h-0',
         className,
-        isFullscreen && '!h-screen !w-screen !bg-white p-4'
+        isFullscreen && '!h-screen !w-screen !bg-card p-4'
       )}
       style={{
         ...(isFullscreen && {
-          backgroundColor: 'white !important',
-          background: 'white !important',
+          backgroundColor: 'var(--color-card) !important',
+          background: 'var(--color-card) !important',
         }),
       }}
     >
       {/* Chart toolbar - only visible on hover in view mode */}
       {viewMode && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
+          <div className="flex gap-1 bg-card/90 backdrop-blur rounded-md shadow-sm p-1">
             {/* Download dropdown with PNG and CSV options */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1719,7 +1719,7 @@ export function ChartElementView({
 
       {/* Drill-down navigation for maps */}
       {isMapChart && drillDownPath.length > 0 && (
-        <div className="px-2 py-1 border-b border-gray-100 flex-shrink-0">
+        <div className="px-2 py-1 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-1 text-xs">
             <Button
               variant="ghost"
@@ -1754,18 +1754,18 @@ export function ChartElementView({
           ref={tableRef}
           className={cn(
             'w-full flex-1 h-full flex flex-col',
-            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+            isFullscreen && '!h-full !min-h-[90vh] !bg-card'
           )}
           style={{
             ...(isFullscreen && {
-              backgroundColor: 'white !important',
-              background: 'white !important',
+              backgroundColor: 'var(--color-card) !important',
+              background: 'var(--color-card) !important',
             }),
           }}
         >
           {/* Breadcrumb navigation for drill-down */}
           {tableDrillDownState && (
-            <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2 flex-shrink-0">
+            <div className="px-4 py-2 border-b bg-muted flex items-center gap-2 flex-shrink-0">
               <Button variant="ghost" size="sm" onClick={handleTableDrillUp} className="h-8">
                 ← Back
               </Button>
@@ -1824,13 +1824,13 @@ export function ChartElementView({
           ref={chartRef}
           className={cn(
             'w-full flex-1 h-full min-h-[200px]',
-            isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+            isFullscreen && '!h-full !min-h-[90vh] !bg-card'
           )}
           style={{
             padding: viewMode ? '8px' : '0',
             ...(isFullscreen && {
-              backgroundColor: 'white !important',
-              background: 'white !important',
+              backgroundColor: 'var(--color-card) !important',
+              background: 'var(--color-card) !important',
             }),
           }}
         >
@@ -1861,12 +1861,12 @@ export function ChartElementView({
             ref={chartRef}
             className={cn(
               'chart-container w-full h-full',
-              isFullscreen && '!h-full !min-h-[90vh] !bg-white'
+              isFullscreen && '!h-full !min-h-[90vh] !bg-card'
             )}
             style={{
               ...(isFullscreen && {
-                backgroundColor: 'white !important',
-                background: 'white !important',
+                backgroundColor: 'var(--color-card) !important',
+                background: 'var(--color-card) !important',
               }),
             }}
           />

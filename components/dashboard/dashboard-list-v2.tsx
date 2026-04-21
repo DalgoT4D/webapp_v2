@@ -515,9 +515,9 @@ export function DashboardListV2() {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
     }
     return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4 text-gray-600" />
+      <ChevronUp className="w-4 h-4 text-muted-foreground" />
     ) : (
-      <ChevronDownSort className="w-4 h-4 text-gray-600" />
+      <ChevronDownSort className="w-4 h-4 text-muted-foreground" />
     );
   };
 
@@ -548,7 +548,7 @@ export function DashboardListV2() {
         <Filter
           className={cn(
             'w-4 h-4 transition-colors',
-            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
+            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-muted-foreground'
           )}
         />
         {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
@@ -573,7 +573,7 @@ export function DashboardListV2() {
                 showShared: false,
               })
             }
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
           >
             Clear
           </Button>
@@ -648,7 +648,7 @@ export function DashboardListV2() {
               variant="ghost"
               size="sm"
               onClick={() => setOwnerFilters([])}
-              className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+              className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
             >
               Clear
             </Button>
@@ -668,7 +668,7 @@ export function DashboardListV2() {
               filteredOwners.map((owner) => (
                 <div
                   key={owner}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-muted p-2 rounded"
                   onClick={() => {
                     setOwnerFilters((prev) => {
                       if (prev.includes(owner)) {
@@ -683,11 +683,11 @@ export function DashboardListV2() {
                     checked={ownerFilters.includes(owner)}
                     onChange={() => {}} // Handled by parent onClick
                   />
-                  <Label className="text-sm cursor-pointer flex-1 text-gray-900">{owner}</Label>
+                  <Label className="text-sm cursor-pointer flex-1 text-foreground">{owner}</Label>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-500 text-center py-2">No owners found</p>
+              <p className="text-sm text-muted-foreground text-center py-2">No owners found</p>
             )}
           </div>
         </div>
@@ -705,7 +705,7 @@ export function DashboardListV2() {
             variant="ghost"
             size="sm"
             onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
           >
             Clear
           </Button>
@@ -737,7 +737,7 @@ export function DashboardListV2() {
 
         {dateFilters.range === 'custom' && (
           <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs text-gray-600">Custom Date Range</Label>
+            <Label className="text-xs text-muted-foreground">Custom Date Range</Label>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">From</Label>
@@ -791,7 +791,7 @@ export function DashboardListV2() {
     };
 
     return (
-      <TableRow key={dashboard.id} className="hover:bg-gray-50">
+      <TableRow key={dashboard.id} className="hover:bg-muted">
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
@@ -813,7 +813,7 @@ export function DashboardListV2() {
             <div className="flex flex-col">
               <Link
                 href={getNavigationUrl()}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+                className="font-medium text-lg text-foreground hover:text-teal-700 hover:underline"
               >
                 {dashboard.title || dashboard.dashboard_title}
               </Link>
@@ -865,17 +865,17 @@ export function DashboardListV2() {
         {/* Owner Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-3 h-3 text-gray-600" />
+            <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center">
+              <User className="w-3 h-3 text-muted-foreground" />
             </div>
-            <span className="text-base text-gray-700">
+            <span className="text-base text-foreground">
               {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
             </span>
           </div>
         </TableCell>
 
         {/* Last Modified Column */}
-        <TableCell className="py-4 text-base text-gray-600">
+        <TableCell className="py-4 text-base text-muted-foreground">
           {dashboard.updated_at
             ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
             : 'Unknown'}
@@ -886,8 +886,8 @@ export function DashboardListV2() {
           <div className="flex items-center gap-2">
             {hasPermission('can_edit_dashboards') && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <Edit className="w-4 h-4 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-muted">
+                  <Edit className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </Link>
             )}
@@ -895,16 +895,16 @@ export function DashboardListV2() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-muted"
                 onClick={() => handleShareDashboard(dashboard)}
               >
-                <Share2 className="w-4 h-4 text-gray-600" />
+                <Share2 className="w-4 h-4 text-muted-foreground" />
               </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-muted">
+                  <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -963,7 +963,7 @@ export function DashboardListV2() {
                   >
                     {isDuplicating === dashboard.id ? (
                       <>
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                        <div className="w-4 h-4 mr-2 border-2 border-border border-t-foreground rounded-full animate-spin" />
                         Duplicating...
                       </>
                     ) : (
@@ -1047,7 +1047,7 @@ export function DashboardListV2() {
         key={dashboard.id}
         className={cn(
           'transition-all duration-300 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-1 h-full relative group',
-          'bg-white border border-gray-200 rounded-lg overflow-hidden'
+          'bg-card border border-border rounded-lg overflow-hidden'
           // COMMENTED OUT: Draft opacity styling - not applicable for dashboards
           // !dashboard.is_published && 'opacity-75'
         )}
@@ -1062,13 +1062,13 @@ export function DashboardListV2() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
+                    className="h-7 w-7 bg-card/90 backdrop-blur-sm border-white/20 hover:bg-card text-foreground hover:text-foreground shadow-sm"
                     onClick={(e) => e.preventDefault()}
                   >
                     <User className="w-3 h-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
+                <TooltipContent side="top" className="bg-foreground text-background border-border">
                   <p className="text-sm">
                     Updated by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
                   </p>
@@ -1082,7 +1082,7 @@ export function DashboardListV2() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
+                  className="h-7 w-7 bg-card/90 backdrop-blur-sm border-white/20 hover:bg-card text-foreground hover:text-foreground shadow-sm"
                 >
                   <Edit className="w-3 h-3" />
                 </Button>
@@ -1094,7 +1094,7 @@ export function DashboardListV2() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
+                className="h-7 w-7 bg-card/90 backdrop-blur-sm border-white/20 hover:bg-card text-foreground hover:text-foreground shadow-sm"
                 onClick={(e) => {
                   e.preventDefault();
                   handleShareDashboard(dashboard);
@@ -1128,9 +1128,9 @@ export function DashboardListV2() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white shadow-sm"
+                    className="h-7 w-7 bg-card/90 backdrop-blur-sm border-white/20 hover:bg-card shadow-sm"
                   >
-                    <MoreVertical className="w-3 h-3 text-gray-700" />
+                    <MoreVertical className="w-3 h-3 text-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -1147,7 +1147,7 @@ export function DashboardListV2() {
                     >
                       {isDuplicating === dashboard.id ? (
                         <>
-                          <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                          <div className="w-4 h-4 mr-2 border-2 border-border border-t-foreground rounded-full animate-spin" />
                           Duplicating...
                         </>
                       ) : (
@@ -1210,8 +1210,8 @@ export function DashboardListV2() {
             {/* Dashboard Icon Preview */}
             <div className="relative h-52 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden rounded-t-lg">
               <div className="flex items-center justify-center h-full p-6">
-                <div className="rounded-xl flex items-center justify-center w-32 h-32 shadow-sm border border-white/50 bg-gray-200/60">
-                  <LayoutDashboard className="w-20 h-20 text-gray-600" />
+                <div className="rounded-xl flex items-center justify-center w-32 h-32 shadow-sm border border-white/50 bg-muted/60">
+                  <LayoutDashboard className="w-20 h-20 text-muted-foreground" />
                 </div>
               </div>
 
@@ -1234,12 +1234,12 @@ export function DashboardListV2() {
               {/* Left-aligned Title and Metadata Stack */}
               <div className="space-y-2">
                 {/* Title */}
-                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 leading-tight text-left">
+                <h3 className="text-lg font-semibold text-foreground line-clamp-2 leading-tight text-left">
                   {dashboard.title || dashboard.dashboard_title}
                 </h3>
 
                 {/* Modified Time - Left aligned below title */}
-                <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Clock className="w-4 h-4 text-gray-400" />
                   <span>
                     Modified{' '}
@@ -1326,8 +1326,8 @@ export function DashboardListV2() {
                 hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'
               )}
             >
-              <div className="w-16 h-16 bg-gray-200/60 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-200">
-                <LayoutDashboard className="w-8 h-8 text-gray-600" />
+              <div className="w-16 h-16 bg-muted/60 rounded-lg flex items-center justify-center flex-shrink-0 border border-border">
+                <LayoutDashboard className="w-8 h-8 text-muted-foreground" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -1372,11 +1372,14 @@ export function DashboardListV2() {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center">
-                          <User className="w-3 h-3 text-gray-600" />
+                        <div className="w-5 h-5 bg-muted rounded-full flex items-center justify-center">
+                          <User className="w-3 h-3 text-muted-foreground" />
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
+                      <TooltipContent
+                        side="top"
+                        className="bg-foreground text-background border-border"
+                      >
                         <p className="text-sm">
                           {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
                         </p>
@@ -1416,9 +1419,9 @@ export function DashboardListV2() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    className="h-8 w-8 border-border hover:bg-muted hover:border-border"
                   >
-                    <Edit className="w-4 h-4 text-gray-700" />
+                    <Edit className="w-4 h-4 text-foreground" />
                   </Button>
                 </Link>
               )}
@@ -1426,10 +1429,10 @@ export function DashboardListV2() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  className="h-8 w-8 border-border hover:bg-muted hover:border-border"
                   onClick={() => handleShareDashboard(dashboard)}
                 >
-                  <Share2 className="w-4 h-4 text-gray-700" />
+                  <Share2 className="w-4 h-4 text-foreground" />
                 </Button>
               )}
 
@@ -1443,9 +1446,9 @@ export function DashboardListV2() {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                      className="h-8 w-8 border-border hover:bg-muted hover:border-border"
                     >
-                      <MoreHorizontal className="w-3 h-3 text-gray-700" />
+                      <MoreHorizontal className="w-3 h-3 text-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -1509,7 +1512,7 @@ export function DashboardListV2() {
                       >
                         {isDuplicating === dashboard.id ? (
                           <>
-                            <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                            <div className="w-4 h-4 mr-2 border-2 border-border border-t-foreground rounded-full animate-spin" />
                             Duplicating...
                           </>
                         ) : (
@@ -1630,14 +1633,14 @@ export function DashboardListV2() {
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
           <div id="dashboard-filters-section" className="flex items-center gap-2 mt-2">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
-              className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
             >
               <X className="w-3 h-3 mr-1" />
               Clear all
@@ -1652,10 +1655,10 @@ export function DashboardListV2() {
           {isLoading ? (
             viewMode === 'table' ? (
               <div className="py-6">
-                <div className="border rounded-lg bg-white">
+                <div className="border rounded-lg bg-card">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50">
+                      <TableRow className="bg-muted">
                         <TableHead className="w-[40%]">
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-20" />
@@ -1730,7 +1733,7 @@ export function DashboardListV2() {
               >
                 {[...Array(8)].map((_, i) => (
                   <Card key={i} className="h-full overflow-hidden">
-                    <div className="h-52 bg-gray-100 animate-pulse rounded-t-lg" />
+                    <div className="h-52 bg-muted animate-pulse rounded-t-lg" />
                     <div className="p-4">
                       <div className="mb-3">
                         <Skeleton className="h-6 w-3/4 mb-1" />
@@ -1754,10 +1757,10 @@ export function DashboardListV2() {
           ) : pinnedDashboards.length > 0 || paginatedRegularDashboards.length > 0 ? (
             viewMode === 'table' ? (
               <div className="py-6">
-                <div className="border rounded-lg bg-white">
+                <div className="border rounded-lg bg-card">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50">
+                      <TableRow className="bg-muted">
                         <TableHead className="w-[40%]">
                           <div className="flex items-center gap-2">
                             <Button
@@ -1780,7 +1783,7 @@ export function DashboardListV2() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  className="h-6 w-6 p-0 hover:bg-muted"
                                 >
                                   {renderFilterIcon('name')}
                                 </Button>
@@ -1813,7 +1816,7 @@ export function DashboardListV2() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  className="h-6 w-6 p-0 hover:bg-muted"
                                 >
                                   {renderFilterIcon('owner')}
                                 </Button>
@@ -1844,7 +1847,7 @@ export function DashboardListV2() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  className="h-6 w-6 p-0 hover:bg-muted"
                                 >
                                   {renderFilterIcon('date')}
                                 </Button>
@@ -1936,11 +1939,11 @@ export function DashboardListV2() {
       {/* Lightweight Modern Pagination */}
       <div
         id="dashboard-pagination-footer"
-        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+        className="flex-shrink-0 border-t border-border bg-muted/30 py-3 px-6"
       >
         <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
           {/* Left: Compact Item Count */}
-          <div id="dashboard-pagination-info" className="text-sm text-gray-600">
+          <div id="dashboard-pagination-info" className="text-sm text-muted-foreground">
             {total === 0
               ? '0–0 of 0'
               : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total}`}
@@ -1950,7 +1953,7 @@ export function DashboardListV2() {
           <div id="dashboard-pagination-controls" className="flex items-center gap-4">
             {/* Compact Page Size Selector */}
             <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
-              <span id="dashboard-page-size-label" className="text-sm text-gray-500">
+              <span id="dashboard-page-size-label" className="text-sm text-muted-foreground">
                 Show
               </span>
               <Select
@@ -1963,7 +1966,7 @@ export function DashboardListV2() {
               >
                 <SelectTrigger
                   id="dashboard-page-size-trigger"
-                  className="h-7 text-sm border-gray-200 bg-white"
+                  className="h-7 text-sm border-border bg-card"
                   style={{ width: '70px' }}
                 >
                   <SelectValue id="dashboard-page-size-value" />
@@ -1993,12 +1996,12 @@ export function DashboardListV2() {
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+                className="h-7 px-2 hover:bg-muted disabled:opacity-50"
               >
                 <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
               </Button>
 
-              <span id="dashboard-page-info" className="text-sm text-gray-600 px-3 py-1">
+              <span id="dashboard-page-info" className="text-sm text-muted-foreground px-3 py-1">
                 {currentPage} of {totalPages}
               </span>
 
@@ -2008,7 +2011,7 @@ export function DashboardListV2() {
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage >= totalPages}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+                className="h-7 px-2 hover:bg-muted disabled:opacity-50"
               >
                 <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
               </Button>

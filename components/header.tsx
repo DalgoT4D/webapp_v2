@@ -151,7 +151,7 @@ export function Header({
             alt="Dalgo"
             width={60}
             height={68}
-            className="text-primary"
+            className="text-primary dark:invert"
           />
         </div>
 

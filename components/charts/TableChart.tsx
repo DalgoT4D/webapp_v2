@@ -298,9 +298,7 @@ export function TableChart({
               <TableRow
                 key={index}
                 className={
-                  drillDownEnabled && currentDimensionColumn
-                    ? 'hover:bg-gray-50 cursor-pointer'
-                    : ''
+                  drillDownEnabled && currentDimensionColumn ? 'hover:bg-muted cursor-pointer' : ''
                 }
               >
                 {columns.map((column) => {

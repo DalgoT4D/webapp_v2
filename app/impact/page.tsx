@@ -82,8 +82,8 @@ export default function ImpactAtAGlancePage() {
     // Show loading while dashboard data is being fetched
     if (!dashboard) {
       return (
-        <div className="h-screen flex flex-col bg-gray-50">
-          <div className="bg-white border-b px-6 py-4">
+        <div className="h-screen flex flex-col bg-muted">
+          <div className="bg-card border-b px-6 py-4">
             <Skeleton className="h-8 w-64 mb-2" />
             <Skeleton className="h-4 w-96" />
           </div>

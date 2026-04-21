@@ -94,11 +94,11 @@ export function LogsTable({
   if (runs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
           <FileText className="h-6 w-6 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No run history</h3>
-        <p className="text-sm text-gray-500">No runs have been recorded yet.</p>
+        <h3 className="text-lg font-medium text-foreground mb-1">No run history</h3>
+        <p className="text-sm text-muted-foreground">No runs have been recorded yet.</p>
       </div>
     );
   }
@@ -170,24 +170,24 @@ function FlowRunRow({ run, onFetchLogs, onStartSummary, enableAISummary }: FlowR
     <div
       className={cn(
         'grid grid-cols-12 rounded-lg overflow-hidden',
-        isFailed ? 'bg-red-50/70 border border-red-200/60' : 'bg-white border border-gray-200/70'
+        isFailed ? 'bg-red-50/70 border border-red-200/60' : 'bg-card border border-border/70'
       )}
     >
       {/* Date Cell - Fixed width, vertically centered */}
       <div
         className={cn(
           'col-span-2 px-4 py-4 flex flex-col justify-center border-r',
-          isFailed ? 'border-red-100/50' : 'border-gray-100'
+          isFailed ? 'border-red-100/50' : 'border-border'
         )}
       >
-        <span className="text-sm font-semibold text-gray-900">{formattedDate}</span>
+        <span className="text-sm font-semibold text-foreground">{formattedDate}</span>
         {run.startedBy && (
-          <span className="text-xs text-gray-500 mt-1">
+          <span className="text-xs text-muted-foreground mt-1">
             By:{' '}
             <span
               className={cn(
                 'font-medium',
-                run.startedBy === 'System' ? 'text-gray-600' : 'text-amber-600'
+                run.startedBy === 'System' ? 'text-muted-foreground' : 'text-amber-600'
               )}
             >
               {run.startedBy}
@@ -291,12 +291,12 @@ function TaskRunRow({
       <div className="grid grid-cols-10 items-center px-4 py-3">
         {/* Task Name - 5/10 */}
         <div className="col-span-5">
-          <span className="text-sm font-medium text-gray-900">{taskName}</span>
+          <span className="text-sm font-medium text-foreground">{taskName}</span>
         </div>
 
         {/* Duration - 2/10 */}
         <div className="col-span-2">
-          <span className="text-sm text-gray-600">{formatDuration(task.duration)}</span>
+          <span className="text-sm text-muted-foreground">{formatDuration(task.duration)}</span>
         </div>
 
         {/* Actions - 3/10 */}
@@ -308,7 +308,7 @@ function TaskRunRow({
             disabled={logsLoading}
             className={cn(
               'h-8 px-3 text-xs font-medium uppercase tracking-wide',
-              showLogs && 'bg-gray-100'
+              showLogs && 'bg-muted'
             )}
           >
             {logsLoading ? (
@@ -327,7 +327,7 @@ function TaskRunRow({
               disabled={isPolling}
               className={cn(
                 'h-8 px-3 text-xs font-medium uppercase tracking-wide',
-                showSummary && 'bg-gray-100'
+                showSummary && 'bg-muted'
               )}
             >
               {isPolling ? (
@@ -354,14 +354,14 @@ function TaskRunRow({
 
       {/* AI Summary Panel - neutral gray since it provides info about failures */}
       {showSummary && (
-        <div className="bg-gray-50 border-t border-gray-200 p-4">
+        <div className="bg-muted border-t border-border p-4">
           {isPolling ? (
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Generating AI summary...
             </div>
           ) : (
-            <div className="text-sm text-gray-700">{summaryText || 'No summary available'}</div>
+            <div className="text-sm text-foreground">{summaryText || 'No summary available'}</div>
           )}
         </div>
       )}

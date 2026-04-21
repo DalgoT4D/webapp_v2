@@ -330,11 +330,11 @@ export function DynamicLevelConfig({
   }
 
   return (
-    <div className="bg-gray-50 p-4 rounded-lg border space-y-4">
+    <div className="bg-muted p-4 rounded-lg border space-y-4">
       {/* Country Selection */}
       <div>
         <Label className="text-sm font-medium">Country</Label>
-        <p className="text-xs text-gray-600 mb-2">Select the country for your map</p>
+        <p className="text-xs text-muted-foreground mb-2">Select the country for your map</p>
         <Select value="IND" disabled>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="India" />
@@ -350,7 +350,9 @@ export function DynamicLevelConfig({
         <div className="flex items-center justify-between mb-2">
           <div>
             <Label className="text-sm font-medium">State Column</Label>
-            <p className="text-xs text-gray-600 mt-1">Column containing state/region names</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Column containing state/region names
+            </p>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -403,7 +405,7 @@ export function DynamicLevelConfig({
           <div className="flex items-center justify-between mb-2">
             <div>
               <Label className="text-sm font-medium">District Column (Optional)</Label>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Enable drill-down from states to districts
               </p>
             </div>

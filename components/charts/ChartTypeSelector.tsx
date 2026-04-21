@@ -55,7 +55,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-medium text-gray-900 mb-1">Chart Type</h3>
+        <h3 className="text-sm font-medium text-foreground mb-1">Chart Type</h3>
       </div>
 
       <div className="grid grid-cols-6 gap-3">
@@ -69,7 +69,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
               key={type.id}
               variant="outline"
               className={`aspect-square p-3 flex items-center justify-center transition-all ${
-                isSelected ? 'shadow-sm' : 'bg-white hover:bg-gray-50 border-gray-200'
+                isSelected ? 'shadow-sm' : 'bg-card hover:bg-muted border-border'
               }`}
               style={
                 isSelected
@@ -94,7 +94,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
       </div>
 
       {/* Show description for selected chart type */}
-      <p className="text-sm text-gray-500 text-center">
+      <p className="text-sm text-muted-foreground text-center">
         {chartTypes.find((t) => t.id === selectedType)?.description}
       </p>
     </div>

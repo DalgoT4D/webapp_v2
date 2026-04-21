@@ -51,7 +51,7 @@ export function DashboardMiniPreview({ dashboardData, className }: DashboardMini
   const gridColumns = dashboardData?.grid_columns || 12;
 
   return (
-    <div className={cn('w-full h-full bg-gray-50 p-2 relative overflow-hidden border', className)}>
+    <div className={cn('w-full h-full bg-muted p-2 relative overflow-hidden border', className)}>
       <div
         className="grid gap-1 h-full"
         style={{

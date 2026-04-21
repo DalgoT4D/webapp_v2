@@ -404,7 +404,7 @@ export function UnifiedTextElement({
         data-toolbar="true"
       >
         <div
-          className="bg-white shadow-2xl rounded-lg border border-gray-200 px-3 py-2 flex items-center backdrop-blur-sm w-full"
+          className="bg-card shadow-2xl rounded-lg border border-border px-3 py-2 flex items-center backdrop-blur-sm w-full"
           data-toolbar="true"
         >
           {/* Left: Quick format buttons */}
@@ -437,7 +437,7 @@ export function UnifiedTextElement({
               <select
                 value={config.fontSize}
                 onChange={(e) => handleQuickFormat('fontSize', parseInt(e.target.value))}
-                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel"
+                className="h-6 px-1 text-xs border rounded bg-card hover:bg-muted focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel"
                 title="Font Size"
               >
                 {fontSizeOptions.map((size) => (
@@ -526,7 +526,7 @@ export function UnifiedTextElement({
             {/* Color picker dropdown */}
             {showColorPicker && (
               <div
-                className="absolute bg-white shadow-lg border rounded p-2 z-[10000] min-w-[120px]"
+                className="absolute bg-card shadow-lg border rounded p-2 z-[10000] min-w-[120px]"
                 style={{
                   // Smart positioning: try bottom first, then top, then left if needed
                   top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
@@ -544,7 +544,7 @@ export function UnifiedTextElement({
                         'w-6 h-6 rounded border transition-all hover:scale-110',
                         config.color === preset.color
                           ? 'border-blue-500 scale-110'
-                          : 'border-gray-200'
+                          : 'border-border'
                       )}
                       style={{ backgroundColor: preset.color }}
                       onClick={() => {
@@ -556,7 +556,7 @@ export function UnifiedTextElement({
                   ))}
                 </div>
                 {/* Custom color input */}
-                <div className="mt-2 pt-2 border-t border-gray-200">
+                <div className="mt-2 pt-2 border-t border-border">
                   <input
                     type="color"
                     value={config.color}
@@ -653,7 +653,7 @@ export function UnifiedTextElement({
             <div
               className={cn(
                 'flex-1 w-full h-full cursor-text transition-all duration-200 drag-cancel flex items-center justify-center',
-                isEditing ? 'bg-white rounded' : 'bg-transparent',
+                isEditing ? 'bg-card rounded' : 'bg-transparent',
                 !config.content && 'justify-center'
               )}
               onClick={startEditing}

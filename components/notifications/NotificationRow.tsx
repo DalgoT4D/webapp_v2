@@ -57,7 +57,7 @@ export function NotificationRow({
   return (
     <TableRow
       data-testid={`notification-row-${notification.id}`}
-      className={cn(isRead ? 'bg-gray-50 hover:bg-gray-100' : 'bg-white hover:bg-gray-50/50')}
+      className={cn(isRead ? 'bg-muted hover:bg-muted' : 'bg-card hover:bg-muted/50')}
     >
       <TableCell className="w-12 pl-4 align-top py-4">
         <Checkbox
@@ -67,7 +67,7 @@ export function NotificationRow({
           aria-label={`Select notification ${notification.id}`}
           className={cn(
             isRead
-              ? 'border-gray-300 data-[state=checked]:bg-gray-400 data-[state=checked]:border-gray-400'
+              ? 'border-border data-[state=checked]:bg-gray-400 data-[state=checked]:border-gray-400'
               : 'border-gray-800 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900'
           )}
         />
@@ -77,12 +77,12 @@ export function NotificationRow({
         <p
           className={cn(
             'leading-relaxed text-base break-words whitespace-normal',
-            isRead ? 'text-gray-500 font-normal' : 'text-gray-800 font-medium'
+            isRead ? 'text-muted-foreground font-normal' : 'text-foreground font-medium'
           )}
         >
           {renderMessageWithLinks(displayMessage)}
         </p>
-        <p className={cn('text-sm mt-2', isRead ? 'text-gray-400' : 'text-gray-600')}>
+        <p className={cn('text-sm mt-2', isRead ? 'text-gray-400' : 'text-muted-foreground')}>
           {formatDistanceToNow(new Date(notification.timestamp), {
             addSuffix: true,
           })}
@@ -102,7 +102,7 @@ export function NotificationRow({
             variant="ghost"
             size="icon"
             onClick={() => onToggleExpand(notification.id)}
-            className="h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            className="h-8 w-8 text-gray-400 hover:text-muted-foreground hover:bg-muted"
             aria-label={isExpanded ? 'Collapse message' : 'Expand message'}
           >
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}

@@ -13,14 +13,14 @@ export function PoweredByDalgoFooter({ theme = 'light', className }: PoweredByDa
     <footer
       className={cn(
         'border-t flex-shrink-0',
-        isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200',
+        isDark ? 'bg-gray-800 border-gray-700' : 'bg-card border-border',
         className
       )}
     >
       <div
         className={cn(
           'px-3 sm:px-4 py-2 text-center text-xs',
-          isDark ? 'text-gray-400' : 'text-gray-600'
+          isDark ? 'text-gray-400' : 'text-muted-foreground'
         )}
       >
         <p>

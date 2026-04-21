@@ -413,7 +413,7 @@ export function ChartDataConfigurationV3({
 
       {/* Data Source - Simple Search Dropdown */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Data Source</Label>
+        <Label className="text-sm font-medium text-foreground">Data Source</Label>
         <DatasetSelector
           schema_name={formData.schema_name}
           table_name={formData.table_name}
@@ -428,7 +428,7 @@ export function ChartDataConfigurationV3({
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' && (
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">
+            <Label className="text-sm font-medium text-foreground">
               {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
             </Label>
             <Combobox
@@ -498,7 +498,7 @@ export function ChartDataConfigurationV3({
         formData.chart_type !== 'table' &&
         !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
+            <Label className="text-sm font-medium text-foreground">Y Axis</Label>
             <Combobox
               items={allColumns
                 .filter(
@@ -580,7 +580,7 @@ export function ChartDataConfigurationV3({
       {/* Extra Dimension - for stacked/grouped charts (NOT tables - tables use dimensions array) */}
       {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
+          <Label className="text-sm font-medium text-foreground">Extra Dimension</Label>
           <Combobox
             items={[
               { value: 'none', label: 'None' },
@@ -612,7 +612,7 @@ export function ChartDataConfigurationV3({
       {/* Filters Section */}
       {formData.chart_type !== 'map' && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
+          <Label className="text-sm font-medium text-foreground">Data Filters</Label>
           <div className="space-y-2">
             {(formData.filters || []).map((filter, index) => (
               <div key={index} className="flex gap-2 items-center">
@@ -716,7 +716,7 @@ export function ChartDataConfigurationV3({
       {/* Pagination Section */}
       {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+          <Label className="text-sm font-medium text-foreground">Pagination</Label>
           <Select
             value={
               formData.pagination?.enabled
@@ -754,7 +754,7 @@ export function ChartDataConfigurationV3({
       {/* Sort Section */}
       {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
+          <Label className="text-sm font-medium text-foreground">Sort Configuration</Label>
 
           {(() => {
             // Build sortable options list
@@ -886,7 +886,7 @@ export function ChartDataConfigurationV3({
               );
             } else {
               return (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   Configure metrics first to enable sorting
                 </div>
               );

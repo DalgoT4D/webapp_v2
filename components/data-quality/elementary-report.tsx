@@ -133,7 +133,7 @@ export function ElementaryReport() {
       </div>
 
       {/* Report content */}
-      <div className="flex-1 bg-white rounded-lg p-4 flex flex-col items-center justify-center">
+      <div className="flex-1 bg-card rounded-lg p-4 flex flex-col items-center justify-center">
         {loading ? (
           <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="report-loader" />
         ) : elementaryToken ? (

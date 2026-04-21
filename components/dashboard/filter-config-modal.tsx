@@ -648,7 +648,7 @@ export function FilterConfigModal({
                                   {filterPreview.options.slice(0, 50).map((option: any) => (
                                     <div
                                       key={option.value}
-                                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                                      className="flex items-center justify-between p-2 bg-muted rounded"
                                     >
                                       <span>{option.label}</span>
                                       {option.count && (
@@ -657,7 +657,7 @@ export function FilterConfigModal({
                                     </div>
                                   ))}
                                   {filterPreview.options.length > 50 && (
-                                    <div className="text-center text-sm text-gray-500 p-2">
+                                    <div className="text-center text-sm text-muted-foreground p-2">
                                       ... and {filterPreview.options.length - 50} more values
                                     </div>
                                   )}
@@ -669,12 +669,12 @@ export function FilterConfigModal({
                           {filterType === DashboardFilterType.NUMERICAL && (
                             <div>
                               <h4 className="font-medium mb-2">Numerical Filter Ready</h4>
-                              <div className="bg-gray-50 p-4 rounded">
-                                <p className="text-sm text-gray-600">
+                              <div className="bg-muted p-4 rounded">
+                                <p className="text-sm text-muted-foreground">
                                   This column is ready for numerical filtering. Users will be able
                                   to set min/max ranges or single values to filter the data.
                                 </p>
-                                <div className="mt-2 h-2 bg-gray-200 rounded relative">
+                                <div className="mt-2 h-2 bg-muted rounded relative">
                                   <div
                                     className="h-full bg-green-500 rounded"
                                     style={{ width: '100%' }}
@@ -723,7 +723,7 @@ export function FilterConfigModal({
                           )}
                         </div>
                       ) : (
-                        <div className="text-center py-8 text-gray-500">
+                        <div className="text-center py-8 text-muted-foreground">
                           {columnName
                             ? 'Loading data preview...'
                             : 'Select schema, table, and column to see preview'}

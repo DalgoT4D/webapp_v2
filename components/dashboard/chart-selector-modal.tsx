@@ -89,8 +89,8 @@ export function ChartSelectorModal({
                       key={chart.id}
                       className={`border rounded-lg p-4 transition-all duration-200 ${
                         isAlreadyAdded
-                          ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
-                          : 'cursor-pointer hover:bg-gray-50 hover:border-gray-300'
+                          ? 'opacity-50 cursor-not-allowed bg-muted border-border'
+                          : 'cursor-pointer hover:bg-muted hover:border-border'
                       }`}
                       onClick={() => handleSelect(chart.id)}
                     >
@@ -99,7 +99,9 @@ export function ChartSelectorModal({
                       </div>
                       <div className="text-center">
                         <h4 className="text-sm font-medium truncate mb-1">{chart.title}</h4>
-                        <p className="text-xs text-gray-500 capitalize">{chart.chart_type}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {chart.chart_type}
+                        </p>
                         {isAlreadyAdded && (
                           <p className="text-xs text-orange-600 font-medium mt-1">Already added</p>
                         )}
@@ -110,7 +112,7 @@ export function ChartSelectorModal({
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="text-gray-500 mb-4">
+                <div className="text-muted-foreground mb-4">
                   {search ? 'No charts found matching your search.' : 'No charts available yet.'}
                 </div>
                 {!search && (

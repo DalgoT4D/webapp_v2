@@ -136,9 +136,7 @@ function ValueFilterWidget({
     <div
       className={cn(
         'w-full rounded-lg',
-        isEditMode
-          ? 'bg-white border p-3 shadow-sm'
-          : 'bg-white border border-gray-200 p-4 shadow-sm',
+        isEditMode ? 'bg-card border p-3 shadow-sm' : 'bg-card border border-border p-4 shadow-sm',
         className
       )}
     >
@@ -147,7 +145,7 @@ function ValueFilterWidget({
           <span
             className={cn(
               'font-medium truncate',
-              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-gray-900'
+              isEditMode ? 'text-xs text-foreground' : 'text-sm text-foreground'
             )}
           >
             {filter.name || filter.column_name || 'Filter'}
@@ -164,7 +162,7 @@ function ValueFilterWidget({
       </div>
       <div>
         {filterOptionsLoading ? (
-          <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
+          <div className="text-xs text-muted-foreground p-2 bg-muted rounded text-center">
             Loading options...
           </div>
         ) : filterOptionsError ? (
@@ -175,7 +173,7 @@ function ValueFilterWidget({
             </div>
           </div>
         ) : availableOptions.length === 0 ? (
-          <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
+          <div className="text-xs text-muted-foreground p-2 bg-muted rounded text-center">
             No options available
           </div>
         ) : valueFilter.settings?.can_select_multiple ? (
@@ -349,9 +347,7 @@ function NumericalFilterWidget({
     <div
       className={cn(
         'w-full rounded-lg',
-        isEditMode
-          ? 'bg-white border p-3 shadow-sm'
-          : 'bg-white border border-gray-200 p-4 shadow-sm',
+        isEditMode ? 'bg-card border p-3 shadow-sm' : 'bg-card border border-border p-4 shadow-sm',
         className
       )}
     >
@@ -360,7 +356,7 @@ function NumericalFilterWidget({
           <span
             className={cn(
               'font-medium truncate',
-              isEditMode ? 'text-xs text-gray-700' : 'text-sm text-gray-900'
+              isEditMode ? 'text-xs text-foreground' : 'text-sm text-foreground'
             )}
           >
             {filter.name}
@@ -375,7 +371,7 @@ function NumericalFilterWidget({
       </div>
       <div className="space-y-3">
         {/* Current value display */}
-        <div className="text-xs text-center font-medium text-gray-600">
+        <div className="text-xs text-center font-medium text-muted-foreground">
           <span>
             {localValue.min} - {localValue.max}
           </span>
@@ -404,7 +400,7 @@ function NumericalFilterWidget({
           <>
             <div className="grid grid-cols-2 gap-1.5">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Min</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Min</label>
                 <Input
                   type="number"
                   value={localValue.min}
@@ -419,7 +415,7 @@ function NumericalFilterWidget({
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Max</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Max</label>
                 <Input
                   type="number"
                   value={localValue.max}

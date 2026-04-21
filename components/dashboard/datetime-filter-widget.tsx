@@ -68,15 +68,15 @@ export function DateTimeFilterWidget({
   const hasValue = startDate || endDate;
 
   return (
-    <div className="space-y-2 p-4 bg-white rounded-lg border">
+    <div className="space-y-2 p-4 bg-card rounded-lg border">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">{filter.name}</label>
+        <label className="text-sm font-medium text-foreground">{filter.name}</label>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         {/* Start Date */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">From</label>
+          <label className="text-xs text-muted-foreground mb-1 block">From</label>
           <DatePicker
             value={startDate}
             placeholder="Start date"
@@ -91,7 +91,7 @@ export function DateTimeFilterWidget({
 
         {/* End Date */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">To</label>
+          <label className="text-xs text-muted-foreground mb-1 block">To</label>
           <DatePicker
             value={endDate}
             placeholder="End date"
@@ -107,7 +107,7 @@ export function DateTimeFilterWidget({
 
       {/* Filter summary */}
       {hasValue && (
-        <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+        <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
           {startDate && endDate
             ? `Filtering from ${format(startDate, 'MMM dd, yyyy')} to ${format(endDate, 'MMM dd, yyyy')}`
             : startDate

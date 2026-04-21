@@ -42,15 +42,15 @@ export function UnsavedChangesExitDialog({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="w-full justify-start h-auto p-4 text-left bg-white border border-gray-200 text-gray-900 hover:bg-gray-50"
+            className="w-full justify-start h-auto p-4 text-left bg-card border border-border text-foreground hover:bg-muted"
             variant="outline"
           >
-            <Save className="w-5 h-5 mr-3 flex-shrink-0 text-gray-600" />
+            <Save className="w-5 h-5 mr-3 flex-shrink-0 text-muted-foreground" />
             <div>
-              <div className="font-medium text-gray-900 uppercase">
+              <div className="font-medium text-foreground uppercase">
                 {isSaving ? 'SAVING...' : 'SAVE AND LEAVE'}
               </div>
-              <div className="text-sm text-gray-500 mt-1">
+              <div className="text-sm text-muted-foreground mt-1">
                 Save your changes and return to charts
               </div>
             </div>
@@ -76,13 +76,13 @@ export function UnsavedChangesExitDialog({
           <Button
             onClick={onStay}
             disabled={isSaving}
-            className="w-full justify-start h-auto p-4 text-left bg-white border border-gray-200 text-gray-900 hover:bg-gray-50"
+            className="w-full justify-start h-auto p-4 text-left bg-card border border-border text-foreground hover:bg-muted"
             variant="outline"
           >
-            <X className="w-5 h-5 mr-3 flex-shrink-0 text-gray-600" />
+            <X className="w-5 h-5 mr-3 flex-shrink-0 text-muted-foreground" />
             <div>
-              <div className="font-medium text-gray-900 uppercase">STAY ON PAGE</div>
-              <div className="text-sm text-gray-500 mt-1">Continue editing this chart</div>
+              <div className="font-medium text-foreground uppercase">STAY ON PAGE</div>
+              <div className="text-sm text-muted-foreground mt-1">Continue editing this chart</div>
             </div>
           </Button>
         </div>

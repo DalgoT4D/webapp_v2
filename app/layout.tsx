@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Anek_Latin } from 'next/font/google';
 import './globals.css';
+import { ThemeProvider } from 'next-themes';
 import { SWRProvider } from '@/lib/swr';
 import { ClientLayout } from '@/components/client-layout';
 import { PendoScript } from '@/components/pendo-script';
@@ -43,9 +44,11 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <PendoScript />
-        <SWRProvider>
-          <ClientLayout>{children}</ClientLayout>
-        </SWRProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
+          <SWRProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </SWRProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

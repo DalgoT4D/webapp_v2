@@ -92,9 +92,9 @@ export function InvitationsTable() {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
     }
     return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4 text-gray-600" />
+      <ChevronUp className="w-4 h-4 text-muted-foreground" />
     ) : (
-      <ChevronDown className="w-4 h-4 text-gray-600" />
+      <ChevronDown className="w-4 h-4 text-muted-foreground" />
     );
   };
 
@@ -120,7 +120,7 @@ export function InvitationsTable() {
         <Filter
           className={cn(
             'w-4 h-4 transition-colors',
-            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
+            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-muted-foreground'
           )}
         />
         {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
@@ -357,7 +357,7 @@ export function InvitationsTable() {
             <>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
+                  <TableRow className="bg-muted">
                     <TableHead className="w-[35%]">
                       <div className="flex items-center gap-2">
                         <Button
@@ -380,7 +380,7 @@ export function InvitationsTable() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 p-0 hover:bg-gray-100"
+                              className="h-6 w-6 p-0 hover:bg-muted"
                             >
                               {renderFilterIcon('email')}
                             </Button>
@@ -411,7 +411,7 @@ export function InvitationsTable() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 p-0 hover:bg-gray-100"
+                              className="h-6 w-6 p-0 hover:bg-muted"
                             >
                               {renderFilterIcon('role')}
                             </Button>
@@ -442,7 +442,7 @@ export function InvitationsTable() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 p-0 hover:bg-gray-100"
+                              className="h-6 w-6 p-0 hover:bg-muted"
                             >
                               {renderFilterIcon('date')}
                             </Button>

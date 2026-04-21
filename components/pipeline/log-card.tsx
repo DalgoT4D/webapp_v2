@@ -79,7 +79,7 @@ export function LogCard({
     <div
       className={cn(
         'border rounded-lg shadow-sm overflow-hidden',
-        'bg-gray-50 border-gray-200',
+        'bg-muted border-border',
         className ?? 'mt-4'
       )}
     >
@@ -88,35 +88,37 @@ export function LogCard({
         <div
           className={cn(
             'flex items-center justify-between px-4 py-3 border-b',
-            styles?.header || 'bg-gray-200 border-gray-300'
+            styles?.header || 'bg-gray-200 border-border'
           )}
         >
-          <span className={cn('text-sm font-medium', styles?.headerText || 'text-gray-700')}>
+          <span className={cn('text-sm font-medium', styles?.headerText || 'text-foreground')}>
             {title}
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setExpanded(!expanded)}
-              className="p-1 rounded transition-colors hover:bg-white/30"
+              className="p-1 rounded transition-colors hover:bg-card/30"
               aria-label={expanded ? 'Collapse logs' : 'Expand logs'}
               data-testid="log-card-toggle-btn"
             >
               {expanded ? (
-                <ChevronUp className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
+                <ChevronUp
+                  className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-muted-foreground')}
+                />
               ) : (
                 <ChevronDown
-                  className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')}
+                  className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-muted-foreground')}
                 />
               )}
             </button>
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1 rounded transition-colors hover:bg-white/30"
+                className="p-1 rounded transition-colors hover:bg-card/30"
                 aria-label="Close logs"
                 data-testid="log-card-close-btn"
               >
-                <X className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-gray-500')} />
+                <X className={cn('h-4 w-4', styles ? 'text-white/80' : 'text-muted-foreground')} />
               </button>
             )}
           </div>
@@ -128,18 +130,18 @@ export function LogCard({
         <div
           className={cn(
             'max-h-80 overflow-y-auto',
-            !showHeader && styles ? styles.bodyBg : 'bg-gray-50'
+            !showHeader && styles ? styles.bodyBg : 'bg-muted'
           )}
         >
           {isLoading && logs.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-              <span className="ml-2 text-sm text-gray-500">Loading logs...</span>
+              <span className="ml-2 text-sm text-muted-foreground">Loading logs...</span>
             </div>
           ) : logs.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-500">No logs available</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">No logs available</div>
           ) : (
-            <div className="px-4 py-3 font-mono text-sm text-gray-600 space-y-1">
+            <div className="px-4 py-3 font-mono text-sm text-muted-foreground space-y-1">
               {logs.map((log, idx) => (
                 <div
                   key={idx}

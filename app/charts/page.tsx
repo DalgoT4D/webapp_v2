@@ -509,9 +509,9 @@ export default function ChartsPage() {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
     }
     return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4 text-gray-600" />
+      <ChevronUp className="w-4 h-4 text-muted-foreground" />
     ) : (
-      <ChevronDownSort className="w-4 h-4 text-gray-600" />
+      <ChevronDownSort className="w-4 h-4 text-muted-foreground" />
     );
   };
 
@@ -539,7 +539,7 @@ export default function ChartsPage() {
         <Filter
           className={cn(
             'w-4 h-4 transition-colors',
-            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
+            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-muted-foreground'
           )}
         />
         {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
@@ -557,7 +557,7 @@ export default function ChartsPage() {
             variant="ghost"
             size="sm"
             onClick={() => setNameFilters({ text: '', showFavorites: false })}
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
           >
             Clear
           </Button>
@@ -608,7 +608,7 @@ export default function ChartsPage() {
               variant="ghost"
               size="sm"
               onClick={() => setDataSourceFilters([])}
-              className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+              className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
             >
               Clear
             </Button>
@@ -628,7 +628,7 @@ export default function ChartsPage() {
               filteredDataSources.map((dataSource) => (
                 <div
                   key={dataSource}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-muted p-2 rounded"
                   onClick={() => {
                     setDataSourceFilters((prev) => {
                       if (prev.includes(dataSource)) {
@@ -643,13 +643,15 @@ export default function ChartsPage() {
                     checked={dataSourceFilters.includes(dataSource)}
                     onChange={() => {}} // Handled by parent onClick
                   />
-                  <Label className="text-sm cursor-pointer flex-1 text-gray-900">
+                  <Label className="text-sm cursor-pointer flex-1 text-foreground">
                     {dataSource}
                   </Label>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-500 text-center py-2">No data sources found</p>
+              <p className="text-sm text-muted-foreground text-center py-2">
+                No data sources found
+              </p>
             )}
           </div>
         </div>
@@ -667,7 +669,7 @@ export default function ChartsPage() {
             variant="ghost"
             size="sm"
             onClick={() => setChartTypeFilters([])}
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
           >
             Clear
           </Button>
@@ -677,7 +679,7 @@ export default function ChartsPage() {
           {uniqueChartTypes.map((chartType) => (
             <div
               key={chartType}
-              className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+              className="flex items-center space-x-2 cursor-pointer hover:bg-muted p-2 rounded"
               onClick={() => {
                 setChartTypeFilters((prev) => {
                   if (prev.includes(chartType)) {
@@ -692,7 +694,7 @@ export default function ChartsPage() {
                 checked={chartTypeFilters.includes(chartType)}
                 onChange={() => {}} // Handled by parent onClick
               />
-              <Label className="text-sm cursor-pointer flex-1 text-gray-900 capitalize">
+              <Label className="text-sm cursor-pointer flex-1 text-foreground capitalize">
                 {chartType}
               </Label>
             </div>
@@ -712,7 +714,7 @@ export default function ChartsPage() {
             variant="ghost"
             size="sm"
             onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
           >
             Clear
           </Button>
@@ -744,7 +746,7 @@ export default function ChartsPage() {
 
         {dateFilters.range === 'custom' && (
           <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs text-gray-600">Custom Date Range</Label>
+            <Label className="text-xs text-muted-foreground">Custom Date Range</Label>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">From</Label>
@@ -795,7 +797,7 @@ export default function ChartsPage() {
     const dataSource = `${chart.schema_name}.${chart.table_name}`;
 
     return (
-      <TableRow key={chart.id} className="hover:bg-gray-50">
+      <TableRow key={chart.id} className="hover:bg-muted">
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
@@ -817,7 +819,7 @@ export default function ChartsPage() {
             <div className="flex flex-col">
               <Link
                 href={hasPermission('can_view_charts') ? `/charts/${chart.id}` : '#'}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+                className="font-medium text-lg text-foreground hover:text-teal-700 hover:underline"
               >
                 {chart.title}
               </Link>
@@ -828,7 +830,7 @@ export default function ChartsPage() {
         {/* Data Source Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            <div className="text-base text-gray-700">{dataSource}</div>
+            <div className="text-base text-foreground">{dataSource}</div>
           </div>
         </TableCell>
 
@@ -854,7 +856,7 @@ export default function ChartsPage() {
         </TableCell>
 
         {/* Last Modified Column */}
-        <TableCell className="py-4 text-base text-gray-600">
+        <TableCell className="py-4 text-base text-muted-foreground">
           {chart.updated_at
             ? formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })
             : 'Unknown'}
@@ -865,15 +867,15 @@ export default function ChartsPage() {
           <div className="flex items-center gap-2">
             {hasPermission('can_edit_charts') && (
               <Link href={`/charts/${chart.id}/edit`}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <Edit className="w-4 h-4 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-muted">
+                  <Edit className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </Link>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-muted">
+                  <MoreVertical className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -1043,14 +1045,14 @@ export default function ChartsPage() {
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
           <div id="charts-filters-section" className="flex items-center gap-2 px-6 pb-0">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
-              className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
             >
               <X className="w-3 h-3 mr-1" />
               Clear all
@@ -1064,10 +1066,10 @@ export default function ChartsPage() {
         <div id="charts-scrollable-content" className="h-full overflow-y-auto">
           {isLoading ? (
             <div className="py-6">
-              <div className="border rounded-lg bg-white">
+              <div className="border rounded-lg bg-card">
                 <TableComponent>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
+                    <TableRow className="bg-muted">
                       <TableHead className="w-[35%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-16" />
@@ -1131,10 +1133,10 @@ export default function ChartsPage() {
             </div>
           ) : paginatedCharts.length > 0 ? (
             <div className="py-6">
-              <div className="border rounded-lg bg-white">
+              <div className="border rounded-lg bg-card">
                 <TableComponent>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
+                    <TableRow className="bg-muted">
                       <TableHead className="w-[35%]">
                         <div className="flex items-center gap-2">
                           <Button
@@ -1157,7 +1159,7 @@ export default function ChartsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                className="h-6 w-6 p-0 hover:bg-muted"
                               >
                                 {renderFilterIcon('name')}
                               </Button>
@@ -1188,7 +1190,7 @@ export default function ChartsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                className="h-6 w-6 p-0 hover:bg-muted"
                               >
                                 {renderFilterIcon('dataSource')}
                               </Button>
@@ -1219,7 +1221,7 @@ export default function ChartsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                className="h-6 w-6 p-0 hover:bg-muted"
                               >
                                 {renderFilterIcon('chartType')}
                               </Button>
@@ -1250,7 +1252,7 @@ export default function ChartsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                className="h-6 w-6 p-0 hover:bg-muted"
                               >
                                 {renderFilterIcon('date')}
                               </Button>
@@ -1298,11 +1300,11 @@ export default function ChartsPage() {
       {/* Lightweight Modern Pagination */}
       <div
         id="charts-pagination-footer"
-        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
+        className="flex-shrink-0 border-t border-border bg-muted/30 py-3 px-6"
       >
         <div id="charts-pagination-wrapper" className="flex items-center justify-between">
           {/* Left: Compact Item Count */}
-          <div id="charts-pagination-info" className="text-sm text-gray-600">
+          <div id="charts-pagination-info" className="text-sm text-muted-foreground">
             {total === 0
               ? '0–0 of 0'
               : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} of ${total}`}
@@ -1312,7 +1314,7 @@ export default function ChartsPage() {
           <div id="charts-pagination-controls" className="flex items-center gap-4">
             {/* Compact Page Size Selector */}
             <div id="charts-page-size-wrapper" className="flex items-center gap-2">
-              <span id="charts-page-size-label" className="text-sm text-gray-500">
+              <span id="charts-page-size-label" className="text-sm text-muted-foreground">
                 Show
               </span>
               <Select
@@ -1325,7 +1327,7 @@ export default function ChartsPage() {
               >
                 <SelectTrigger
                   id="charts-page-size-trigger"
-                  className="h-7 text-sm border-gray-200 bg-white"
+                  className="h-7 text-sm border-border bg-card"
                   style={{ width: '70px' }}
                 >
                   <SelectValue id="charts-page-size-value" />
@@ -1355,12 +1357,12 @@ export default function ChartsPage() {
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+                className="h-7 px-2 hover:bg-muted disabled:opacity-50"
               >
                 <ChevronLeft id="charts-prev-icon" className="h-4 w-4" />
               </Button>
 
-              <span id="charts-page-info" className="text-sm text-gray-600 px-3 py-1">
+              <span id="charts-page-info" className="text-sm text-muted-foreground px-3 py-1">
                 {currentPage} of {totalPages}
               </span>
 
@@ -1370,7 +1372,7 @@ export default function ChartsPage() {
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage >= totalPages}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
+                className="h-7 px-2 hover:bg-muted disabled:opacity-50"
               >
                 <ChevronRight id="charts-next-icon" className="h-4 w-4" />
               </Button>

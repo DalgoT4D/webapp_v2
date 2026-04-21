@@ -1632,7 +1632,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     return (
       <div className="dashboard-builder h-full flex flex-col overflow-hidden">
         {/* Fixed Header with Title and Toolbar */}
-        <div className="border-b bg-white flex-shrink-0">
+        <div className="border-b bg-card flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
             {/* Mobile Top Row - Title and Essential Actions */}
@@ -1773,7 +1773,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             </option>
                           </select>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           Canvas: {SCREEN_SIZES[targetScreenSize].width} ×{' '}
                           {SCREEN_SIZES[targetScreenSize].height}px
                         </div>
@@ -1891,7 +1891,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </div>
                 )}
                 {saveStatus === 'saving' && (
-                  <div className="flex items-center gap-1 text-gray-500">
+                  <div className="flex items-center gap-1 text-muted-foreground">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     <span>Saving...</span>
                   </div>
@@ -1953,7 +1953,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </div>
                 ) : (
                   <div
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
+                    className="flex items-center gap-2 cursor-pointer hover:bg-muted rounded px-2 py-1"
                     onClick={() => setIsEditingTitle(true)}
                   >
                     <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
@@ -2016,7 +2016,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 {/* Save Status Indicator */}
                 {saveStatus === 'saving' && (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="hidden xl:inline">Saving...</span>
                   </div>
@@ -2107,7 +2107,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                             </option>
                           </select>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           Canvas will resize to {SCREEN_SIZES[targetScreenSize].width} ×{' '}
                           {SCREEN_SIZES[targetScreenSize].height}px
                         </div>
@@ -2154,7 +2154,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         )}
         {/* Show Filters Button - appears when horizontal filters are collapsed */}
         {filterLayout === 'horizontal' && isFiltersCollapsed && initialFilters.length > 0 && (
-          <div className="border-b border-gray-200 bg-white p-2">
+          <div className="border-b border-border bg-card p-2">
             <div className="flex items-center justify-center">
               <Button
                 onClick={() => setIsFiltersCollapsed(false)}
@@ -2191,11 +2191,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           )}
 
           {/* Dashboard Canvas - Responsive Container */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
+          <div ref={canvasRef} className="flex-1 overflow-auto bg-muted p-4 pb-[150px] min-w-0">
             {/* Canvas container with full width */}
             <div
               ref={dashboardContainerRef}
-              className="bg-white dashboard-canvas-responsive"
+              className="bg-card dashboard-canvas-responsive"
               style={{
                 width: '100%',
                 // Calculate minimum height based on actual content:
@@ -2276,10 +2276,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                               e.stopPropagation();
                               router.push(`/charts/${component.config.chartId}?from=dashboard`);
                             }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
+                            className="h-7 w-7 flex items-center justify-center bg-card/90 hover:bg-card rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
                             title="View Chart"
                           >
-                            <Eye className="w-3.5 h-3.5 text-gray-600" />
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                           <button
                             onClick={(e) => {
@@ -2288,20 +2288,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                                 `/charts/${component.config.chartId}/edit?from=dashboard`
                               );
                             }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
+                            className="h-7 w-7 flex items-center justify-center bg-card/90 hover:bg-card rounded shadow-sm transition-all drag-cancel hover:text-green-600"
                             title="Edit Chart"
                           >
-                            <Edit className="w-3.5 h-3.5 text-gray-600" />
+                            <Edit className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               removeComponent(item.i);
                             }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
+                            className="h-7 w-7 flex items-center justify-center bg-card/90 hover:bg-card rounded shadow-sm transition-all drag-cancel hover:text-red-600"
                             title="Remove Chart From Dashboard"
                           >
-                            <X className="w-3.5 h-3.5 text-gray-600" />
+                            <X className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                         </div>
                       )}
@@ -2314,10 +2314,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                               e.stopPropagation();
                               removeComponent(item.i);
                             }}
-                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
+                            className="p-1 bg-card/80 hover:bg-card rounded transition-all drag-cancel hover:text-red-600"
                             title="Remove text"
                           >
-                            <X className="w-3 h-3 text-gray-500" />
+                            <X className="w-3 h-3 text-muted-foreground" />
                           </button>
                         </div>
                       )}

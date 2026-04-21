@@ -219,7 +219,7 @@ export default function EditDashboardPage() {
   // Component for when dashboard is locked by another user
   const LockedDashboardView = () => (
     <div className="h-screen flex flex-col">
-      <div className="border-b px-6 py-3 bg-white">
+      <div className="border-b px-6 py-3 bg-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
@@ -233,7 +233,7 @@ export default function EditDashboardPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-muted">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
@@ -262,7 +262,7 @@ export default function EditDashboardPage() {
               </div>
             </div>
 
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               <p>
                 To edit this dashboard, please wait for the current user to finish or contact them
                 directly.
@@ -272,7 +272,7 @@ export default function EditDashboardPage() {
               </p>
             </div>
 
-            <div className="text-center text-xs text-gray-500 mb-4">
+            <div className="text-center text-xs text-muted-foreground mb-4">
               Auto-refreshing in {refreshCountdown} seconds...
             </div>
 
