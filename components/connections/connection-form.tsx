@@ -213,7 +213,10 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-[70vw] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent
+        className="sm:max-w-[70vw] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden"
+        preventOutsideClose
+      >
         <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
           <DialogTitle>
             {isCreate ? 'New Connection' : isView ? 'View Connection' : 'Edit Connection'}

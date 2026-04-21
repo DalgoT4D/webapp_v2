@@ -72,7 +72,7 @@ export function StreamSelectionDialog({
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-[70vw] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[70vw] max-h-[80vh] overflow-y-auto" preventOutsideClose>
         <DialogHeader>
           <DialogTitle>Select Streams to Clear</DialogTitle>
           <DialogDescription>

@@ -200,7 +200,7 @@ export function WarehouseForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
-        onInteractOutside={(e) => e.preventDefault()}
+        preventOutsideClose
       >
         {/* Pinned header */}
         <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
