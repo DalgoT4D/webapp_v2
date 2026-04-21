@@ -23,9 +23,14 @@ import {
 } from '@/components/ui/select';
 import { RAGBadge } from './RAGBadge';
 import { MetricSparkline } from './MetricSparkline';
-import { useMetricEntries, useCreateEntry, useDeleteEntry } from '@/hooks/api/useMetrics';
+import { useAnnotations, useSaveAnnotation, useDeleteAnnotation } from '@/hooks/api/useMetrics';
 import { toastError, toastSuccess } from '@/lib/toast';
-import type { MetricDefinition, MetricDataPoint, MetricEntry, RAGStatus } from '@/types/metrics';
+import type {
+  AnnotationCreate,
+  MetricDefinition,
+  MetricDataPoint,
+  RAGStatus,
+} from '@/types/metrics';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -37,7 +42,9 @@ function formatValue(value: number | null | undefined): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-function formatPeriodLabel(periodKey: string, timeGrain: string): string {
+function formatPeriodLabel(periodKey: string | undefined, timeGrain: string): string {
+  if (!periodKey) return 'Unknown period';
+
   if (timeGrain === 'month') {
     // "2026-03" → "March 2026"
     const [year, month] = periodKey.split('-');
@@ -87,20 +94,15 @@ function generatePeriodOptions(timeGrain: string): { value: string; label: strin
   return options;
 }
 
-// ── Snapshot badge (compact inline RAG) ────────────────────────────────────
-
-const SNAPSHOT_RAG_COLORS: Record<string, string> = {
-  green: 'text-emerald-700',
-  amber: 'text-amber-700',
-  red: 'text-red-700',
-  grey: 'text-gray-500',
-};
-
-const SNAPSHOT_RAG_LABELS: Record<string, string> = {
-  green: 'On track',
-  amber: 'Needs attention',
-  red: 'Critical',
-  grey: 'No data',
+type DrawerEntry = {
+  key: string;
+  annotationId: number;
+  entryType: 'comment' | 'quote';
+  periodKey: string;
+  content: string;
+  attribution: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -133,13 +135,11 @@ export function MetricDetailDrawer({
   onViewAlerts,
 }: MetricDetailDrawerProps) {
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
-  const { data: entries, mutate: refreshEntries } = useMetricEntries(
+  const { data: annotations, mutate: refreshAnnotations } = useAnnotations(
     open && metric ? metric.id : null
   );
-  const { trigger: createEntry, isMutating: isCreating } = useCreateEntry(
-    metric ? metric.id : null
-  );
-  const { trigger: deleteEntry } = useDeleteEntry(metric ? metric.id : null);
+  const { trigger: saveAnnotation, isMutating: isSaving } = useSaveAnnotation(metric?.id ?? null);
+  const { trigger: deleteAnnotation } = useDeleteAnnotation(metric?.id ?? null);
 
   // ── Add entry form state ──────────────────────────────────────────────
   const [showAddForm, setShowAddForm] = useState(false);
@@ -158,6 +158,9 @@ export function MetricDetailDrawer({
       setFilter('all');
       const periods = generatePeriodOptions(metric.time_grain);
       setEntryPeriod(periods[0]?.value || '');
+      setEntryType('comment');
+      setEntryContent('');
+      setEntryAttribution('');
     }
   }, [open, metric]);
 
@@ -168,17 +171,52 @@ export function MetricDetailDrawer({
     [metric]
   );
 
+  const allEntries = useMemo<DrawerEntry[]>(() => {
+    if (!annotations) return [];
+
+    return annotations.flatMap((annotation) => {
+      const items: DrawerEntry[] = [];
+
+      if (annotation.rationale.trim()) {
+        items.push({
+          key: `${annotation.id}-comment`,
+          annotationId: annotation.id,
+          entryType: 'comment',
+          periodKey: annotation.period_key,
+          content: annotation.rationale,
+          attribution: '',
+          createdAt: annotation.created_at,
+          updatedAt: annotation.updated_at,
+        });
+      }
+
+      if (annotation.quote_text.trim()) {
+        items.push({
+          key: `${annotation.id}-quote`,
+          annotationId: annotation.id,
+          entryType: 'quote',
+          periodKey: annotation.period_key,
+          content: annotation.quote_text,
+          attribution: annotation.quote_attribution,
+          createdAt: annotation.created_at,
+          updatedAt: annotation.updated_at,
+        });
+      }
+
+      return items;
+    });
+  }, [annotations]);
+
   const filteredEntries = useMemo(() => {
-    if (!entries) return [];
-    if (filter === 'all') return entries;
-    return entries.filter((e) => e.entry_type === filter);
-  }, [entries, filter]);
+    if (filter === 'all') return allEntries;
+    return allEntries.filter((entry) => entry.entryType === filter);
+  }, [allEntries, filter]);
 
   // Group entries by period
   const groupedEntries = useMemo(() => {
     if (!metric) return [];
 
-    const groups = new Map<string, MetricEntry[]>();
+    const groups = new Map<string, DrawerEntry[]>();
 
     // Seed all periods from periodOptions so empty ones show
     periodOptions.forEach((p) => {
@@ -187,9 +225,9 @@ export function MetricDetailDrawer({
 
     // Fill with actual entries
     filteredEntries.forEach((e) => {
-      const list = groups.get(e.period_key) || [];
+      const list = groups.get(e.periodKey) || [];
       list.push(e);
-      groups.set(e.period_key, list);
+      groups.set(e.periodKey, list);
     });
 
     // Sort periods descending
@@ -201,25 +239,6 @@ export function MetricDetailDrawer({
         entries: items,
       }));
   }, [filteredEntries, periodOptions, metric]);
-
-  // Compute deltas — build a sorted list of all entries by date asc for delta calculation
-  const deltaMap = useMemo(() => {
-    if (!entries || entries.length === 0) return new Map<number, number | null>();
-    const sorted = [...entries].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-    const map = new Map<number, number | null>();
-    for (let i = 0; i < sorted.length; i++) {
-      if (i === 0 || sorted[i].snapshot_value == null) {
-        map.set(sorted[i].id, null); // first entry or no snapshot
-      } else {
-        const prev = sorted[i - 1].snapshot_value;
-        const curr = sorted[i].snapshot_value!;
-        map.set(sorted[i].id, prev != null ? curr - prev : null);
-      }
-    }
-    return map;
-  }, [entries]);
 
   // Period-over-period change for the header
   const periodChange = useMemo(() => {
@@ -233,44 +252,94 @@ export function MetricDetailDrawer({
     return { pct: Math.round(pct), raw: curr - prev };
   }, [data?.trend]);
 
+  React.useEffect(() => {
+    if (!showAddForm) return;
+
+    const existing = annotations?.find((annotation) => annotation.period_key === entryPeriod);
+    if (!existing) {
+      setEntryContent('');
+      setEntryAttribution('');
+      return;
+    }
+
+    if (entryType === 'comment') {
+      setEntryContent(existing.rationale);
+      setEntryAttribution('');
+      return;
+    }
+
+    setEntryContent(existing.quote_text);
+    setEntryAttribution(existing.quote_attribution);
+  }, [annotations, entryPeriod, entryType, showAddForm]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   const handleSaveEntry = async () => {
     if (!entryContent.trim()) return;
+
+    const existing = annotations?.find((annotation) => annotation.period_key === entryPeriod);
+    const payload: AnnotationCreate =
+      entryType === 'comment'
+        ? {
+            period_key: entryPeriod,
+            rationale: entryContent.trim(),
+            quote_text: existing?.quote_text ?? '',
+            quote_attribution: existing?.quote_attribution ?? '',
+          }
+        : {
+            period_key: entryPeriod,
+            rationale: existing?.rationale ?? '',
+            quote_text: entryContent.trim(),
+            quote_attribution: entryAttribution.trim(),
+          };
+
     try {
-      await createEntry({
-        entry_type: entryType,
-        period_key: entryPeriod,
-        content: entryContent.trim(),
-        attribution: entryType === 'quote' ? entryAttribution.trim() : '',
-      });
-      refreshEntries();
-      toastSuccess.created('Metric entry');
+      await saveAnnotation(payload);
+      refreshAnnotations();
+      toastSuccess.saved('Metric note');
       setShowAddForm(false);
       setEntryContent('');
       setEntryAttribution('');
       setEntryType('comment');
     } catch (error: unknown) {
-      console.error('Failed to create entry:', error);
-      toastError.save(error, 'metric entry');
+      console.error('Failed to save metric note:', error);
+      toastError.save(error, 'metric note');
     }
   };
 
-  const handleDeleteEntry = async (entryId: number) => {
+  const handleDeleteEntry = async (entry: DrawerEntry) => {
     const confirmed = await confirm({
-      title: 'Delete metric entry?',
+      title: `Delete ${entry.entryType === 'quote' ? 'beneficiary quote' : 'comment'}?`,
       description: 'This cannot be undone.',
       confirmText: 'Delete',
       type: 'warning',
     });
     if (!confirmed) return;
+
+    const existing = annotations?.find((annotation) => annotation.id === entry.annotationId);
+    if (!existing) return;
+
     try {
-      await deleteEntry(entryId);
-      refreshEntries();
-      toastSuccess.deleted('Metric entry');
+      const nextRationale = entry.entryType === 'comment' ? '' : existing.rationale;
+      const nextQuoteText = entry.entryType === 'quote' ? '' : existing.quote_text;
+      const nextQuoteAttribution = entry.entryType === 'quote' ? '' : existing.quote_attribution;
+
+      if (!nextRationale.trim() && !nextQuoteText.trim()) {
+        await deleteAnnotation(existing.id);
+      } else {
+        await saveAnnotation({
+          period_key: existing.period_key,
+          rationale: nextRationale,
+          quote_text: nextQuoteText,
+          quote_attribution: nextQuoteAttribution,
+        });
+      }
+
+      refreshAnnotations();
+      toastSuccess.deleted('Metric note');
     } catch (error: unknown) {
-      console.error('Failed to delete entry:', error);
-      toastError.delete(error, 'metric entry');
+      console.error('Failed to delete metric note:', error);
+      toastError.delete(error, 'metric note');
     }
   };
 
@@ -280,7 +349,7 @@ export function MetricDetailDrawer({
   const ragStatus = (data?.rag_status ?? 'grey') as RAGStatus;
   const trend = data?.trend ?? [];
   const hasTarget = metric.target_value != null;
-  const hasEntries = (entries || []).length > 0;
+  const hasEntries = allEntries.length > 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -498,9 +567,9 @@ export function MetricDetailDrawer({
                 <Button
                   size="sm"
                   onClick={handleSaveEntry}
-                  disabled={!entryContent.trim() || isCreating}
+                  disabled={!entryContent.trim() || isSaving}
                 >
-                  {isCreating ? 'Saving...' : 'Save'}
+                  {isSaving ? 'Saving...' : 'Save'}
                 </Button>
               </div>
             </div>
@@ -521,12 +590,11 @@ export function MetricDetailDrawer({
               {group.entries.length > 0 ? (
                 <div className="space-y-3 ml-2 pl-3 border-l-2 border-muted">
                   {group.entries.map((entry) => {
-                    const delta = deltaMap.get(entry.id);
-                    const isQuote = entry.entry_type === 'quote';
+                    const isQuote = entry.entryType === 'quote';
 
                     return (
                       <div
-                        key={entry.id}
+                        key={entry.key}
                         className="relative rounded-lg border bg-card p-3 space-y-2"
                       >
                         {/* Entry type badge + delete */}
@@ -541,7 +609,7 @@ export function MetricDetailDrawer({
                           </span>
                           {canEdit && (
                             <button
-                              onClick={() => handleDeleteEntry(entry.id)}
+                              onClick={() => handleDeleteEntry(entry)}
                               className="ml-auto p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
                               title="Delete entry"
                             >
@@ -565,37 +633,9 @@ export function MetricDetailDrawer({
                         )}
 
                         {/* Snapshot */}
-                        {entry.snapshot_value != null && (
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                            <span>
-                              Value: {formatValue(entry.snapshot_value)}
-                              {hasTarget && ` / ${formatValue(metric.target_value)}`}
-                            </span>
-                            <span
-                              className={SNAPSHOT_RAG_COLORS[entry.snapshot_rag] || 'text-gray-500'}
-                            >
-                              {SNAPSHOT_RAG_LABELS[entry.snapshot_rag] || 'No data'}
-                              {entry.snapshot_achievement_pct != null &&
-                                ` (${entry.snapshot_achievement_pct}%)`}
-                            </span>
-                            {delta != null && (
-                              <span>
-                                {delta >= 0 ? '△ +' : '△ '}
-                                {formatValue(delta)} since last entry
-                              </span>
-                            )}
-                            {delta == null &&
-                              entries &&
-                              entries.indexOf(entry) === entries.length - 1 && (
-                                <span className="italic">First entry</span>
-                              )}
-                          </div>
-                        )}
-
-                        {/* Author + timestamp */}
+                        {/* Timestamp */}
                         <p className="text-[11px] text-muted-foreground/70">
-                          by {entry.created_by_name.split('@')[0]} &middot;{' '}
-                          {formatTimestamp(entry.created_at)}
+                          Saved {formatTimestamp(entry.updatedAt || entry.createdAt)}
                         </p>
                       </div>
                     );

@@ -87,6 +87,14 @@ export function useSaveAnnotation(metricId: number | null) {
   );
 }
 
+export function useDeleteAnnotation(metricId: number | null) {
+  return useSWRMutation(
+    metricId ? `/api/metrics/${metricId}/annotations/` : null,
+    (_url: string, { arg }: { arg: number }) =>
+      apiDelete(`/api/metrics/${metricId}/annotations/${arg}/`)
+  );
+}
+
 export function useLatestAnnotations(metricIds: number[] | null) {
   const key =
     metricIds && metricIds.length > 0
