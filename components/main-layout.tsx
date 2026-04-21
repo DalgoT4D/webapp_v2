@@ -49,9 +49,8 @@ interface NavItemType {
 }
 
 // Menu items to hide in production environment
-const PRODUCTION_HIDDEN_ITEMS = [
+const PRODUCTION_HIDDEN_ITEMS: string[] = [
   // Add menu item titles to hide in production
-  'Alerts',
 ];
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
