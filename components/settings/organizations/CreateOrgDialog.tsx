@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useOrganizationActions } from '@/hooks/api/useUserManagement';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 
 interface CreateOrgDialogProps {
@@ -46,6 +47,8 @@ const SUPERSET_OPTIONS = [
 
 export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
   const { createOrganization } = useOrganizationActions();
+  const router = useRouter();
+  const { refreshOrganizations } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -57,7 +60,6 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
     end_date: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { refreshOrganizations } = useAuthStore();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -118,11 +120,15 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
         end_date: formData.end_date || undefined,
       };
 
-      await createOrganization(payload);
+      const response = await createOrganization(payload);
 
-      await refreshOrganizations();
+      if (response?.slug) {
+        localStorage.setItem('selectedOrg', response.slug);
+      }
 
       handleClose();
+      await refreshOrganizations();
+      router.refresh();
     } catch (error) {
       // Error is handled in the hook
     } finally {
