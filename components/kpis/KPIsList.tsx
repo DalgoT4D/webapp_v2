@@ -26,6 +26,7 @@ import {
   useUpdateKPI,
   useDeleteKPI,
 } from '@/hooks/api/useKPIs';
+import { useAlerts } from '@/hooks/api/useAlerts';
 import { toastSuccess, toastError } from '@/lib/toast';
 import type { KPI, KPICreate } from '@/types/kpis';
 import { METRIC_TYPES } from '@/types/kpis';
@@ -60,6 +61,20 @@ export function KPIsList({ canEdit }: KPIsListProps) {
     (kpisData || []).forEach((d) => map.set(d.kpi_id, d));
     return map;
   }, [kpisData]);
+
+  // Bulk-fetch every alert in the org, then count per KPI for the linked-alerts
+  // dot. One extra request for the whole page — cheap, and keeps the dot in
+  // sync when alerts are created/deleted from this page via the alerts dialog.
+  const { alerts: allAlerts } = useAlerts(1, 500);
+  const linkedAlertCountByKPI = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const a of allAlerts) {
+      if (a.kpi_id != null) {
+        counts.set(a.kpi_id, (counts.get(a.kpi_id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [allAlerts]);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -369,6 +384,7 @@ export function KPIsList({ canEdit }: KPIsListProps) {
                   key={kpi.id}
                   kpi={kpi}
                   data={dataMap.get(kpi.id)}
+                  linkedAlertCount={linkedAlertCountByKPI.get(kpi.id) ?? 0}
                   isLoading={dataLoading}
                   canEdit={canEdit}
                   canCreateAlert={canCreateAlerts}

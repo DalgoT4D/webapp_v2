@@ -1,6 +1,17 @@
 'use client';
 
-import { MoreHorizontal, Pencil, Trash2, AlertCircle, ChevronRight, Eye, Plus } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  ChevronRight,
+  Eye,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Bell,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,6 +28,9 @@ interface KPICardProps {
   kpi: KPI;
   data?: KPIDataPoint;
   hasEntries?: boolean;
+  // Number of alerts linked to this KPI. When > 0 the card shows a small
+  // bell-marker (Batch 7 linked-alerts indicator, spec § 5.2).
+  linkedAlertCount?: number;
   isLoading?: boolean;
   canEdit?: boolean;
   canCreateAlert?: boolean;
@@ -40,6 +54,7 @@ export function KPICard({
   kpi,
   data,
   hasEntries = false,
+  linkedAlertCount = 0,
   isLoading = false,
   canEdit = false,
   canCreateAlert = false,
@@ -150,11 +165,11 @@ export function KPICard({
       </div>
 
       {/* Value line */}
-      <div className="flex items-baseline gap-1.5">
+      <div className="flex items-baseline justify-between gap-3">
         {isLoading ? (
           <div className="h-7 w-20 animate-pulse rounded bg-muted" />
         ) : (
-          <>
+          <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-bold tabular-nums text-foreground">
               {formatValue(currentValue)}
             </span>
@@ -163,7 +178,39 @@ export function KPICard({
                 / {formatValue(kpi.target_value)}
               </span>
             )}
-          </>
+          </div>
+        )}
+        {/* Period-over-period delta (spec § 7). Green when moving in the KPI's
+            favoured direction, red otherwise. */}
+        {!isLoading && data?.period_over_period_pct != null && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                  data.period_over_period_pct >= 0 === (kpi.direction === 'increase')
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-rose-50 text-rose-700'
+                }`}
+              >
+                {data.period_over_period_pct >= 0 ? (
+                  <TrendingUp className="h-3 w-3" />
+                ) : (
+                  <TrendingDown className="h-3 w-3" />
+                )}
+                {data.period_over_period_pct >= 0 ? '+' : ''}
+                {data.period_over_period_pct}%
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">vs. previous period</p>
+              {data.period_over_period_delta != null && (
+                <p className="text-xs text-muted-foreground">
+                  Δ {data.period_over_period_delta >= 0 ? '+' : ''}
+                  {formatValue(data.period_over_period_delta)}
+                </p>
+              )}
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
 
@@ -215,8 +262,40 @@ export function KPICard({
         </Tooltip>
       )}
 
-      {/* Click affordance — chevron in bottom right */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-1 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors">
+      {/* Freshness label: when did the underlying data last update? */}
+      {!isLoading && data?.last_pipeline_update && (
+        <p className="text-[11px] text-muted-foreground/80">
+          Data updated{' '}
+          {(() => {
+            const diffMs = Date.now() - new Date(data.last_pipeline_update).getTime();
+            const mins = Math.floor(diffMs / 60000);
+            if (mins < 1) return 'just now';
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ago`;
+            const days = Math.floor(hrs / 24);
+            return `${days}d ago`;
+          })()}
+        </p>
+      )}
+
+      {/* Click affordance + status markers in bottom right */}
+      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors">
+        {linkedAlertCount > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                <Bell className="h-2.5 w-2.5" />
+                {linkedAlertCount}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">
+                {linkedAlertCount} alert{linkedAlertCount === 1 ? '' : 's'} linked
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        )}
         {hasEntries && (
           <span className="h-1.5 w-1.5 rounded-full bg-blue-400" title="Has entries" />
         )}
