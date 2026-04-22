@@ -125,6 +125,55 @@ describe('ChartCustomizations', () => {
       });
     });
 
+    it('should keep a selected bar default swatch highlighted after the customization state updates', async () => {
+      const user = userEvent.setup();
+
+      function Wrapper() {
+        const [formData, setFormData] = React.useState(
+          createFormData('bar', {
+            extra_dimension_column: 'state',
+            dimension_column: 'region',
+            customizations: {
+              bar_color_target: 'primary',
+              color_palette_colors: ['#ff0000', '#ffaa00', '#00aa00'],
+              dimension_colors: {
+                North: '#dc2626',
+              },
+            },
+          })
+        );
+
+        return (
+          <ChartCustomizations
+            chartType="bar"
+            formData={formData}
+            onChange={(updates) => setFormData((prev) => ({ ...prev, ...updates }))}
+            chartConfig={{
+              xAxis: { type: 'category', data: ['North', 'South'] },
+              yAxis: { type: 'value' },
+              series: [
+                { type: 'bar', name: 'R', data: [12, 8] },
+                { type: 'bar', name: 'G', data: [5, 10] },
+              ],
+            }}
+          />
+        );
+      }
+
+      render(<Wrapper />);
+
+      await user.click(screen.getByTestId('dimension-color-row-0'));
+      expect(screen.getByText('Reset to default color')).toBeInTheDocument();
+
+      const selectedSwatch = screen.getAllByTestId('color-swatch-00897B')[0];
+      await user.click(selectedSwatch);
+
+      expect(screen.getAllByTestId('color-swatch-00897B')[0].className).toContain(
+        'border-blue-500'
+      );
+      expect(screen.queryByText('Reset to default color')).not.toBeInTheDocument();
+    });
+
     it('should disable all controls when disabled prop is true', () => {
       render(
         <ChartCustomizations
@@ -183,7 +232,7 @@ describe('ChartCustomizations', () => {
       expect(screen.getByTestId('metric-color-row-1')).toBeInTheDocument();
     });
 
-    it('shows palette selector instead of per-metric rows when extra dimension is set', () => {
+    it('shows an extra-dimension color selector when extra dimension is set', () => {
       render(
         <ChartCustomizations
           chartType="bar"
@@ -195,10 +244,45 @@ describe('ChartCustomizations', () => {
             ],
           })}
           onChange={mockOnChange}
+          chartConfig={{
+            xAxis: { type: 'category', data: ['North', 'South'] },
+            yAxis: { type: 'value' },
+            series: [
+              { type: 'bar', name: 'R', data: [12, 8] },
+              { type: 'bar', name: 'G', data: [5, 10] },
+            ],
+          }}
         />
       );
       expect(screen.queryByTestId('metric-color-row-0')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Color Dimension')).toBeInTheDocument();
+      expect(screen.queryByText('Default Color')).not.toBeInTheDocument();
       expect(screen.getByText('Color Palette')).toBeInTheDocument();
+      expect(screen.getByText('region Colors')).toBeInTheDocument();
+      expect(screen.getByText('R')).toBeInTheDocument();
+      expect(screen.getByText('G')).toBeInTheDocument();
+    });
+
+    it('shows category color overrides and a single default color for a simple single-series bar chart', () => {
+      render(
+        <ChartCustomizations
+          chartType="bar"
+          formData={createFormData('bar')}
+          onChange={mockOnChange}
+          chartConfig={{
+            xAxis: { type: 'category', data: ['R', 'A', 'G'] },
+            yAxis: { type: 'value' },
+            series: [{ type: 'bar', data: [10, 5, 20] }],
+          }}
+        />
+      );
+
+      expect(screen.getByText('Default Color')).toBeInTheDocument();
+      expect(screen.queryByText('Color Palette')).not.toBeInTheDocument();
+      expect(screen.getByText('Category Colors')).toBeInTheDocument();
+      expect(screen.getByText('R')).toBeInTheDocument();
+      expect(screen.getByText('A')).toBeInTheDocument();
+      expect(screen.getByText('G')).toBeInTheDocument();
     });
   });
 });

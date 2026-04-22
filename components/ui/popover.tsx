@@ -5,6 +5,35 @@ import * as PopoverPrimitive from '@radix-ui/react-popover';
 
 import { cn } from '@/lib/utils';
 
+function useFullscreenPortalContainer() {
+  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | undefined>(
+    typeof document !== 'undefined' && document.fullscreenElement instanceof HTMLElement
+      ? document.fullscreenElement
+      : undefined
+  );
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const syncPortalContainer = () => {
+      setPortalContainer(
+        document.fullscreenElement instanceof HTMLElement ? document.fullscreenElement : undefined
+      );
+    };
+
+    syncPortalContainer();
+    document.addEventListener('fullscreenchange', syncPortalContainer);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncPortalContainer);
+    };
+  }, []);
+
+  return portalContainer;
+}
+
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
 }
@@ -19,8 +48,10 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const portalContainer = useFullscreenPortalContainer();
+
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={portalContainer}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

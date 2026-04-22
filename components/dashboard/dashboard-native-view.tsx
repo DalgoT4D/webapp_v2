@@ -38,6 +38,7 @@ import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import type { OrgBranding } from '@/hooks/api/useDashboardBranding';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import {
@@ -305,6 +306,17 @@ export function DashboardNativeView({
     );
   }, [dashboard?.filters]);
 
+  const publicBranding = useMemo<OrgBranding | null>(() => {
+    if (!isPublicMode || !dashboard) return null;
+
+    return {
+      dashboard_logo_url: dashboard.dashboard_logo_url ?? null,
+      dashboard_logo_width: dashboard.dashboard_logo_width ?? 80,
+      chart_palette_name: dashboard.chart_palette_name ?? null,
+      chart_palette_colors: dashboard.chart_palette_colors ?? null,
+    };
+  }, [dashboard, isPublicMode]);
+
   // Generate theme styles for the dashboard canvas
   const themeSurfaceStyle = useMemo(() => buildDashboardSurfaceStyle(dashboard), [dashboard]);
   const themeBackgroundImageStyle = useMemo(
@@ -435,6 +447,7 @@ export function DashboardNativeView({
               isPublicMode={isPublicMode}
               publicToken={publicToken}
               config={component.config}
+              brandingOverride={isPublicMode ? publicBranding : undefined}
               frozenChartConfig={
                 isReportMode && frozenChartConfigs
                   ? frozenChartConfigs[String(component.config?.chartId)]
@@ -607,7 +620,7 @@ export function DashboardNativeView({
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                 )}
-                <DashboardLogo />
+                <DashboardLogo branding={isPublicMode ? publicBranding : undefined} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
@@ -751,7 +764,7 @@ export function DashboardNativeView({
                     Back
                   </Button>
                 )}
-                <DashboardLogo />
+                <DashboardLogo branding={isPublicMode ? publicBranding : undefined} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
@@ -880,7 +893,7 @@ export function DashboardNativeView({
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div className="flex items-center gap-4 min-w-0">
-            <DashboardLogo />
+            <DashboardLogo branding={isPublicMode ? publicBranding : undefined} />
             <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
           </div>
         </div>

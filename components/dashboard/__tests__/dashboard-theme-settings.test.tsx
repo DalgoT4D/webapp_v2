@@ -87,7 +87,8 @@ describe('DashboardThemeSettings', () => {
       />
     );
 
-    expect(screen.getByTestId('dashboard-background-preview')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-background-preview')).not.toBeInTheDocument();
+    expect(screen.getByText('Optional')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('dashboard-background-save-btn'));
 

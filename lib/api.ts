@@ -218,7 +218,7 @@ export function apiDelete(path: string, options: RequestInit = {}) {
 // Helper for public GET requests (no auth, no cookies)
 export async function apiPublicGet(path: string) {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`Public API error: ${response.status} ${response.statusText}`);
   }

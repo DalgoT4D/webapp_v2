@@ -54,7 +54,10 @@ describe('LineChartCustomizations', () => {
     expect(screen.getByText('Legend Position')).toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Show All Legends in Chart Area'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('legendDisplay', 'all');
+    expect(mockUpdateCustomization).toHaveBeenCalledWith({
+      legendPosition: 'right',
+      legendDisplay: 'all',
+    });
 
     // Hide legend options when disabled
     rerender(<LineChartCustomizations {...defaultProps} customizations={{ showLegend: false }} />);

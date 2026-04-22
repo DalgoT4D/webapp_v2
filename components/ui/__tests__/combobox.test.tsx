@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Combobox, highlightText, type ComboboxItem } from '../combobox';
 
+const SELECT_ALL_OPTION_VALUE = '__combobox_select_all__';
+
 const mockItems: ComboboxItem[] = [
   { value: '1', label: 'Option 1' },
   { value: '2', label: 'Option 2' },
@@ -137,6 +139,42 @@ describe('Combobox - Single Mode', () => {
     await user.click(chevron);
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
   });
+
+  it('renders the dropdown inside the fullscreen container when fullscreen is active', async () => {
+    const user = userEvent.setup();
+    const fullscreenContainer = document.createElement('div');
+    const originalFullscreenDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      'fullscreenElement'
+    );
+
+    document.body.appendChild(fullscreenContainer);
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fullscreenContainer,
+    });
+
+    const { unmount } = render(
+      <Combobox items={mockItems} value="" onValueChange={jest.fn()} placeholder="Select option" />
+    );
+
+    try {
+      await user.click(screen.getByRole('combobox'));
+      const listbox = await screen.findByRole('listbox');
+
+      expect(fullscreenContainer).toContainElement(listbox);
+    } finally {
+      unmount();
+
+      if (originalFullscreenDescriptor) {
+        Object.defineProperty(document, 'fullscreenElement', originalFullscreenDescriptor);
+      } else {
+        delete (document as any).fullscreenElement;
+      }
+
+      fullscreenContainer.remove();
+    }
+  });
 });
 
 describe('Combobox - Multi Mode', () => {
@@ -230,7 +268,9 @@ describe('Combobox - Multi Mode', () => {
     // Test search filtering
     await user.type(searchInput, 'Another');
     await waitFor(() => {
-      const options = screen.getAllByRole('option');
+      const options = screen
+        .getAllByRole('option')
+        .filter((opt) => opt.getAttribute('data-value') !== SELECT_ALL_OPTION_VALUE);
       expect(options).toHaveLength(1);
       expect(options[0]).toHaveTextContent('Another Option');
     });
@@ -278,6 +318,44 @@ describe('Combobox - Multi Mode', () => {
       const listbox = screen.getByRole('listbox');
       expect(listbox).toHaveAttribute('aria-multiselectable', 'true');
     });
+  });
+
+  it('supports selecting and clearing all options from the dropdown', async () => {
+    const mockOnChange = jest.fn();
+    const user = userEvent.setup();
+
+    const { rerender } = render(
+      <Combobox
+        mode="multi"
+        items={mockItems}
+        values={[]}
+        onValuesChange={mockOnChange}
+        id="multi"
+      />
+    );
+
+    await user.click(screen.getByRole('combobox'));
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+    await user.click(screen.getByTestId('multi-item-__combobox_select_all__'));
+
+    expect(mockOnChange).toHaveBeenCalledWith(['1', '2', '3', '4']);
+
+    mockOnChange.mockClear();
+    rerender(
+      <Combobox
+        mode="multi"
+        items={mockItems}
+        values={['1', '2', '3', '4']}
+        onValuesChange={mockOnChange}
+        id="multi"
+      />
+    );
+
+    await user.click(screen.getByRole('combobox'));
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+    await user.click(screen.getByTestId('multi-item-__combobox_select_all__'));
+
+    expect(mockOnChange).toHaveBeenCalledWith([]);
   });
 });
 

@@ -10,6 +10,10 @@ import {
   getSolidColors,
 } from '@/constants/chart-palettes';
 
+function buildPaletteGradient(colors: string[]) {
+  return `linear-gradient(90deg, ${colors.join(', ')})`;
+}
+
 interface ChartPaletteSelectorProps {
   /**
    * Currently selected palette solid colors array.
@@ -22,7 +26,7 @@ interface ChartPaletteSelectorProps {
 }
 
 /**
- * Full-palette row selector for charts that use multiple colors (pie, multi-series bar/line).
+ * Full-palette row selector for charts that use multiple colors (for example pie and multi-series line charts).
  * Always shows an "Org Default" row at the top reflecting the org's current branding palette,
  * followed by all preset palettes.
  */
@@ -57,23 +61,22 @@ export function ChartPaletteSelector({
             disabled={disabled}
             onClick={() => onSelect(null)}
             className={cn(
-              'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all text-left disabled:cursor-not-allowed disabled:opacity-50',
+              'w-full flex items-center gap-3 px-3 py-2 rounded-lg border-2 transition-all text-left disabled:cursor-not-allowed disabled:opacity-50',
               isOrgDefault
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
             )}
             data-testid="palette-org-default"
           >
-            <div className="flex gap-0.5 flex-shrink-0">
-              {orgPalette.slice(0, 8).map((color) => (
-                <div
-                  key={color}
-                  className="w-4 h-4 rounded-sm"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+            <div
+              aria-hidden="true"
+              className="h-3 w-28 flex-shrink-0 rounded-full border border-black/10"
+              style={{ backgroundImage: buildPaletteGradient(orgPalette.slice(0, 8)) }}
+            />
+            <div className="min-w-0 flex-1">
+              <span className="text-sm text-gray-700">Org Default</span>
+              <p className="text-xs text-gray-500">Current workspace palette</p>
             </div>
-            <span className="text-xs text-gray-600 flex-1">Org Default</span>
             {isOrgDefault && <Check className="w-3 h-3 text-blue-500 flex-shrink-0" />}
           </button>
         )}
@@ -89,23 +92,24 @@ export function ChartPaletteSelector({
               disabled={disabled}
               onClick={() => onSelect(solidColors)}
               className={cn(
-                'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all text-left disabled:cursor-not-allowed disabled:opacity-50',
+                'w-full flex items-center gap-3 px-3 py-2 rounded-lg border-2 transition-all text-left disabled:cursor-not-allowed disabled:opacity-50',
                 active
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
               )}
               data-testid={`palette-${palette.name.toLowerCase().replace(/\s/g, '-')}`}
             >
-              <div className="flex gap-0.5 flex-shrink-0">
-                {solidColors.slice(0, 8).map((color) => (
-                  <div
-                    key={color}
-                    className="w-4 h-4 rounded-sm"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
+              <div
+                aria-hidden="true"
+                className="h-3 w-28 flex-shrink-0 rounded-full border border-black/10"
+                style={{ backgroundImage: buildPaletteGradient(solidColors.slice(0, 8)) }}
+              />
+              <div className="min-w-0 flex-1">
+                <span className="text-sm text-gray-700">{palette.name}</span>
+                <p className="text-xs text-gray-500">
+                  {palette.name.includes('Gradient') ? 'Sequential range' : 'Categorical default'}
+                </p>
               </div>
-              <span className="text-xs text-gray-600 flex-1">{palette.name}</span>
               {active && <Check className="w-3 h-3 text-blue-500 flex-shrink-0" />}
             </button>
           );

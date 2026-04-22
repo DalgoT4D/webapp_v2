@@ -43,6 +43,10 @@ import {
   shouldShowLegend,
   getLegendMode,
 } from '@/lib/responsive-legend';
+import {
+  applyChartColorCustomizations,
+  resolveBarColorMode,
+} from '@/lib/chart-color-customizations';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
@@ -840,16 +844,9 @@ export function ChartElementV2({
         // Legend is already properly positioned by applyLegendPosition and applyResponsiveLegend
         // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
         series: Array.isArray(configWithLegend.series)
-          ? configWithLegend.series.map((series: any, idx: number) => {
-              const isMultiSeries = configWithLegend.series.length > 1;
-              const seriesColors: string[] = customizations.series_colors ?? [];
-              const hasSeriesColors = isMultiSeries && seriesColors.some(Boolean);
+          ? configWithLegend.series.map((series: any) => {
               return {
                 ...series,
-                // Per-series color override for grouped bar (multi-metric)
-                ...(hasSeriesColors && seriesColors[idx]
-                  ? { itemStyle: { ...series.itemStyle, color: seriesColors[idx] } }
-                  : {}),
                 label: {
                   ...series.label,
                   fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
@@ -871,14 +868,6 @@ export function ChartElementV2({
                 },
               }
             : undefined,
-        // Color priority: per-chart single color → per-chart palette → org branding → default
-        // For multi-series (stacked bar, multi-line), skip single color so each series gets distinct color
-        color: (() => {
-          const isMultiSeries = Array.isArray(chartConfig.series) && chartConfig.series.length > 1;
-          if (customizations.chart_color && !isMultiSeries) return [customizations.chart_color];
-          if (customizations.color_palette_colors) return customizations.color_palette_colors;
-          return branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS;
-        })(),
         // For pie and number charts, completely remove grid and axis configurations
         ...(isPieChart || isNumberChart
           ? {
@@ -1023,13 +1012,25 @@ export function ChartElementV2({
         },
       };
 
+      const colorizedConfig = applyChartColorCustomizations({
+        chartType: chart?.chart_type,
+        chartConfig: modifiedConfig,
+        customizations,
+        fallbackPaletteColors: branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS,
+        barColorMode: resolveBarColorMode({
+          chartType: chart?.chart_type,
+          hasExtraDimension: Boolean(chart?.extra_config?.extra_dimension_column),
+          metrics: chart?.extra_config?.metrics,
+        }),
+      });
+
       // Handle stacked bar chart data labels
       if (chart?.chart_type === 'bar') {
-        Object.assign(modifiedConfig, applyStackedBarLabels(modifiedConfig, customizations));
+        Object.assign(colorizedConfig, applyStackedBarLabels(colorizedConfig, customizations));
       }
 
       // Set chart option with animation disabled for better performance
-      chartInstance.current.setOption(modifiedConfig, {
+      chartInstance.current.setOption(colorizedConfig, {
         notMerge: true,
         lazyUpdate: false,
         silent: false,

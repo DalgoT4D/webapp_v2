@@ -1094,6 +1094,9 @@ export function ChartBuilder({
                 config={chartData?.echarts_config}
                 isLoading={chartLoading}
                 error={chartError}
+                chartType={formData.chart_type}
+                hasExtraDimension={Boolean(formData.extra_dimension_column)}
+                metrics={formData.metrics}
               />
             )}
           </TabsContent>

@@ -43,8 +43,10 @@ describe('PieChartCustomizations', () => {
     expect(screen.getByText('Legend Position')).toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Show All Legends in Chart Area'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('legendPosition', 'right');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('legendDisplay', 'all');
+    expect(mockUpdateCustomization).toHaveBeenCalledWith({
+      legendPosition: 'right',
+      legendDisplay: 'all',
+    });
 
     // Hide when disabled
     rerender(<PieChartCustomizations {...defaultProps} customizations={{ showLegend: false }} />);

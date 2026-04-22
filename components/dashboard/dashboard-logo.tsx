@@ -1,25 +1,24 @@
 'use client';
 
-import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { type OrgBranding, useDashboardBranding } from '@/hooks/api/useDashboardBranding';
 
 interface DashboardLogoProps {
   /** When in public mode, pass branding data directly instead of fetching */
-  logoUrl?: string | null;
-  logoWidth?: number;
+  branding?: OrgBranding | null;
 }
 
 /**
  * Renders the org-level dashboard logo in the top-left corner.
  * Collapses cleanly when no logo URL is set.
  */
-export function DashboardLogo({
-  logoUrl: propLogoUrl,
-  logoWidth: propLogoWidth,
-}: DashboardLogoProps) {
-  const { branding } = useDashboardBranding();
+export function DashboardLogo({ branding: brandingOverride }: DashboardLogoProps) {
+  const { branding } = useDashboardBranding({
+    enabled: brandingOverride === undefined,
+    initialBranding: brandingOverride,
+  });
 
-  const logoUrl = propLogoUrl ?? branding?.dashboard_logo_url;
-  const logoWidth = propLogoWidth ?? branding?.dashboard_logo_width ?? 80;
+  const logoUrl = branding?.dashboard_logo_url;
+  const logoWidth = branding?.dashboard_logo_width ?? 80;
 
   if (!logoUrl) return null;
 

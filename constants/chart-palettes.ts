@@ -1,12 +1,13 @@
 // Palette names as an enum so they can be referenced without magic strings
 export enum ChartPaletteName {
   DEFAULT = 'Default',
-  EARTH_TONES = 'Earth Tones',
-  OCEAN = 'Ocean',
-  SUNSET = 'Sunset',
-  PASTEL = 'Pastel',
+  DALGO = 'Dalgo',
   VIBRANT = 'Vibrant',
-  MONOCHROME = 'Monochrome',
+  BLUE_GRADIENT = 'Blue Gradient',
+  GREEN_GRADIENT = 'Green Gradient',
+  WARM_GRADIENT = 'Warm Gradient',
+  PURPLE_GRADIENT = 'Purple Gradient',
+  NEUTRAL_GRADIENT = 'Neutral Gradient',
 }
 
 export interface PaletteColor {
@@ -50,98 +51,97 @@ export function blendWithWhite(hex: string, opacity: number = 0.2): string {
   return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
 }
 
+function createPalette(name: ChartPaletteName, solidColors: string[]): ChartPalette {
+  return {
+    name,
+    colors: solidColors.map((solid) => ({
+      solid,
+      light: blendWithWhite(solid, 0.22),
+    })),
+  };
+}
+
 export const PRESET_CHART_PALETTES: ChartPalette[] = [
-  {
-    name: ChartPaletteName.DEFAULT,
-    colors: [
-      { solid: '#3b82f6', light: '#dbeafe' },
-      { solid: '#10b981', light: '#d1fae5' },
-      { solid: '#f59e0b', light: '#fef3c7' },
-      { solid: '#ef4444', light: '#fee2e2' },
-      { solid: '#8b5cf6', light: '#ede9fe' },
-      { solid: '#ec4899', light: '#fce7f3' },
-      { solid: '#14b8a6', light: '#ccfbf1' },
-      { solid: '#f97316', light: '#ffedd5' },
-    ],
-  },
-  {
-    name: ChartPaletteName.EARTH_TONES,
-    colors: [
-      { solid: '#8B6914', light: '#e8d5a3' },
-      { solid: '#2E7D32', light: '#c8e6c9' },
-      { solid: '#C75B12', light: '#f8cba8' },
-      { solid: '#5D4037', light: '#d7ccc8' },
-      { solid: '#00695C', light: '#b2dfdb' },
-      { solid: '#BF360C', light: '#ffccbc' },
-      { solid: '#827717', light: '#f9f0b6' },
-      { solid: '#4E342E', light: '#d7bca8' },
-    ],
-  },
-  {
-    name: ChartPaletteName.OCEAN,
-    colors: [
-      { solid: '#0D47A1', light: '#bbdefb' },
-      { solid: '#00838F', light: '#b2ebf2' },
-      { solid: '#1565C0', light: '#c5cae9' },
-      { solid: '#00ACC1', light: '#e0f7fa' },
-      { solid: '#0277BD', light: '#b3e5fc' },
-      { solid: '#4DD0E1', light: '#e0f7fa' },
-      { solid: '#01579B', light: '#b3d4f7' },
-      { solid: '#26C6DA', light: '#e0f7fa' },
-    ],
-  },
-  {
-    name: ChartPaletteName.SUNSET,
-    colors: [
-      { solid: '#E65100', light: '#ffe0b2' },
-      { solid: '#F57C00', light: '#fff3e0' },
-      { solid: '#FF8F00', light: '#fff8e1' },
-      { solid: '#FFB300', light: '#fffde7' },
-      { solid: '#D84315', light: '#fbe9e7' },
-      { solid: '#FF7043', light: '#fbe9e7' },
-      { solid: '#E64A19', light: '#fbe9e7' },
-      { solid: '#FFAB40', light: '#fff3e0' },
-    ],
-  },
-  {
-    name: ChartPaletteName.PASTEL,
-    colors: [
-      { solid: '#90CAF9', light: '#e3f2fd' },
-      { solid: '#A5D6A7', light: '#e8f5e9' },
-      { solid: '#FFCC02', light: '#fffde7' },
-      { solid: '#EF9A9A', light: '#fce4ec' },
-      { solid: '#CE93D8', light: '#f3e5f5' },
-      { solid: '#F48FB1', light: '#fce4ec' },
-      { solid: '#80CBC4', light: '#e0f2f1' },
-      { solid: '#FFAB91', light: '#fbe9e7' },
-    ],
-  },
-  {
-    name: ChartPaletteName.VIBRANT,
-    colors: [
-      { solid: '#D50000', light: '#ffcdd2' },
-      { solid: '#304FFE', light: '#c5cae9' },
-      { solid: '#00C853', light: '#ccff90' },
-      { solid: '#FFAB00', light: '#fff8e1' },
-      { solid: '#AA00FF', light: '#e1bee7' },
-      { solid: '#00BFA5', light: '#ccfbf1' },
-      { solid: '#FF6D00', light: '#ffe0b2' },
-      { solid: '#6200EA', light: '#ede7f6' },
-    ],
-  },
-  {
-    name: ChartPaletteName.MONOCHROME,
-    colors: [
-      { solid: '#212121', light: '#f5f5f5' },
-      { solid: '#424242', light: '#eeeeee' },
-      { solid: '#616161', light: '#e0e0e0' },
-      { solid: '#757575', light: '#f5f5f5' },
-      { solid: '#9E9E9E', light: '#fafafa' },
-      { solid: '#BDBDBD', light: '#fafafa' },
-      { solid: '#E0E0E0', light: '#f5f5f5' },
-      { solid: '#F5F5F5', light: '#ffffff' },
-    ],
-  },
+  createPalette(ChartPaletteName.DEFAULT, [
+    '#4285F4',
+    '#DB4437',
+    '#F4B400',
+    '#0F9D58',
+    '#AB47BC',
+    '#00ACC1',
+    '#FF7043',
+    '#9AA0A6',
+  ]),
+  createPalette(ChartPaletteName.DALGO, [
+    '#00897B',
+    '#0F2440',
+    '#1F6AA5',
+    '#39A0C8',
+    '#6EC9C2',
+    '#F4A261',
+    '#E76F51',
+    '#8A94A6',
+  ]),
+  createPalette(ChartPaletteName.VIBRANT, [
+    '#118DFF',
+    '#12239E',
+    '#E66C37',
+    '#6B007B',
+    '#E044A7',
+    '#744EC2',
+    '#D9B300',
+    '#D64550',
+  ]),
+  createPalette(ChartPaletteName.BLUE_GRADIENT, [
+    '#DCEBFA',
+    '#B6D3F5',
+    '#8EBBED',
+    '#649FE2',
+    '#447FD4',
+    '#2F62B8',
+    '#224A8E',
+    '#173467',
+  ]),
+  createPalette(ChartPaletteName.GREEN_GRADIENT, [
+    '#DDF4E4',
+    '#B7E4C7',
+    '#8FD3A6',
+    '#65C083',
+    '#3FA968',
+    '#238A4A',
+    '#186B38',
+    '#114A29',
+  ]),
+  createPalette(ChartPaletteName.WARM_GRADIENT, [
+    '#FCE7D6',
+    '#F8C99F',
+    '#F3A96E',
+    '#EC8844',
+    '#E16A2D',
+    '#C9501F',
+    '#A63B19',
+    '#7A2814',
+  ]),
+  createPalette(ChartPaletteName.PURPLE_GRADIENT, [
+    '#F0E5FA',
+    '#DCC5F1',
+    '#C6A1E6',
+    '#AE7AD8',
+    '#9456C7',
+    '#7938B0',
+    '#5E2887',
+    '#411B5E',
+  ]),
+  createPalette(ChartPaletteName.NEUTRAL_GRADIENT, [
+    '#F4F5F7',
+    '#DBDEE3',
+    '#C0C6CF',
+    '#A3ABB7',
+    '#808A98',
+    '#646D7A',
+    '#4A515C',
+    '#2F343C',
+  ]),
 ];
 
 // Default palette solid colors — used as the ultimate fallback across all chart renderers

@@ -5,6 +5,8 @@ export interface Dashboard {
   id: number;
   title: string;
   description?: string | null;
+  org_name?: string;
+  is_valid?: boolean;
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
   target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
@@ -38,6 +40,10 @@ export interface Dashboard {
   theme_chart_opacity?: number;
   theme_overlay_color?: string | null;
   theme_overlay_opacity?: number;
+  dashboard_logo_url?: string | null;
+  dashboard_logo_width?: number;
+  chart_palette_name?: string | null;
+  chart_palette_colors?: string[] | null;
 }
 
 export interface DashboardFilter {
@@ -248,7 +254,12 @@ export async function getDashboardSharingStatus(dashboardId: number) {
 export function usePublicDashboard(token: string) {
   const { data, error, mutate } = useSWR(
     token ? `/api/v1/public/dashboards/${token}/` : null,
-    apiPublicGet
+    apiPublicGet,
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 0,
+    }
   );
 
   return {

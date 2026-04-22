@@ -339,12 +339,201 @@ describe('ChartPreview', () => {
       expect(calledConfig.series[1].itemStyle.color).toBe('#00ff00');
     });
 
-    it('should not apply series_colors when only one series exists', () => {
+    it('should ignore series_colors when only one series exists and keep the default base color', () => {
       const config = { series: [{ type: 'bar', data: [1, 2, 3] }] };
       render(<ChartPreview config={config} customizations={{ series_colors: ['#ff0000'] }} />);
 
       const calledConfig = mockChart.setOption.mock.calls[0][0];
-      expect(calledConfig.series[0].itemStyle?.color).toBeUndefined();
+      expect(calledConfig.series[0].itemStyle.color).toBe('#4285F4');
+    });
+
+    it('should use one base color for single-series bar categories even when legacy palette colors exist', () => {
+      const config = {
+        series: [{ type: 'bar', data: [10, 5, 20] }],
+        xAxis: { type: 'category', data: ['R', 'A', 'G'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={config}
+          customizations={{
+            color_palette_colors: ['#ff0000', '#ffaa00', '#00aa00'],
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.color).toEqual(['#ff0000']);
+      expect(calledConfig.series[0].itemStyle.color).toBe('#ff0000');
+      expect(calledConfig.series[0].data[0].itemStyle?.color).toBeUndefined();
+      expect(calledConfig.series[0].data[1].itemStyle?.color).toBeUndefined();
+      expect(calledConfig.series[0].data[2].itemStyle?.color).toBeUndefined();
+    });
+
+    it('should let category-specific colors override the default base color on single-series bars', () => {
+      const config = {
+        series: [{ type: 'bar', data: [10, 5, 20] }],
+        xAxis: { type: 'category', data: ['R', 'A', 'G'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={config}
+          customizations={{
+            color_palette_colors: ['#ff0000', '#ffaa00', '#00aa00'],
+            dimension_colors: {
+              A: '#1d4ed8',
+            },
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.color).toEqual(['#ff0000']);
+      expect(calledConfig.series[0].itemStyle.color).toBe('#ff0000');
+      expect(calledConfig.series[0].data[0].itemStyle?.color).toBeUndefined();
+      expect(calledConfig.series[0].data[1].itemStyle.color).toBe('#1d4ed8');
+      expect(calledConfig.series[0].data[2].itemStyle?.color).toBeUndefined();
+    });
+
+    it('should use automatic series colors for extra-dimension multi-series bars and allow extra-dimension overrides', () => {
+      const config = {
+        series: [
+          { type: 'bar', name: 'R', data: [10, 5] },
+          { type: 'bar', name: 'G', data: [7, 12] },
+        ],
+        xAxis: { type: 'category', data: ['North', 'South'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={config}
+          chartType="bar"
+          hasExtraDimension={true}
+          metrics={[{ column: 'count', aggregation: 'SUM' } as any]}
+          customizations={{
+            extra_dimension_colors: {
+              G: '#16a34a',
+            },
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.color).toEqual([
+        '#4285F4',
+        '#DB4437',
+        '#F4B400',
+        '#0F9D58',
+        '#AB47BC',
+        '#00ACC1',
+        '#FF7043',
+        '#9AA0A6',
+      ]);
+      expect(calledConfig.series[0].itemStyle.color).toBe('#4285F4');
+      expect(calledConfig.series[1].itemStyle.color).toBe('#16a34a');
+    });
+
+    it('should let extra-dimension bars color by the primary dimension when requested', () => {
+      const config = {
+        series: [
+          { type: 'bar', name: 'R', data: [10, 5] },
+          { type: 'bar', name: 'G', data: [7, 12] },
+        ],
+        xAxis: { type: 'category', data: ['North', 'South'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={config}
+          chartType="bar"
+          hasExtraDimension={true}
+          metrics={[{ column: 'count', aggregation: 'SUM' } as any]}
+          customizations={{
+            bar_color_target: 'primary',
+            chart_color: '#0f766e',
+            dimension_colors: {
+              South: '#16a34a',
+            },
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.color).toEqual(['#0f766e']);
+      expect(calledConfig.series[0].itemStyle.color).toBe('#0f766e');
+      expect(calledConfig.series[1].itemStyle.color).toBe('#0f766e');
+      expect(calledConfig.series[0].data[0].itemStyle?.color).toBeUndefined();
+      expect(calledConfig.series[0].data[1].itemStyle.color).toBe('#16a34a');
+      expect(calledConfig.series[1].data[0].itemStyle?.color).toBeUndefined();
+      expect(calledConfig.series[1].data[1].itemStyle.color).toBe('#16a34a');
+    });
+
+    it('should keep the legend aligned to the extra dimension when extra-dimension colors are active', () => {
+      const config = {
+        legend: { show: true },
+        series: [
+          { type: 'bar', name: 'R', data: [10, 5] },
+          { type: 'bar', name: 'G', data: [7, 12] },
+        ],
+        xAxis: { type: 'category', data: ['North', 'South'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={config}
+          chartType="bar"
+          hasExtraDimension={true}
+          metrics={[{ column: 'count', aggregation: 'SUM' } as any]}
+          customizations={{
+            extra_dimension_colors: {
+              G: '#16a34a',
+            },
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.legend.data).toEqual(['R', 'G']);
+      expect(calledConfig.legend.selectedMode).toBeUndefined();
+    });
+
+    it('should swap the legend to the primary dimension when primary-dimension colors are active', () => {
+      const config = {
+        legend: { show: true },
+        series: [
+          { type: 'bar', name: 'R', data: [10, 5] },
+          { type: 'bar', name: 'G', data: [7, 12] },
+        ],
+        xAxis: { type: 'category', data: ['North', 'South'] },
+        yAxis: { type: 'value' },
+      };
+
+      render(
+        <ChartPreview
+          config={config}
+          chartType="bar"
+          hasExtraDimension={true}
+          metrics={[{ column: 'count', aggregation: 'SUM' } as any]}
+          customizations={{
+            bar_color_target: 'primary',
+            chart_color: '#0f766e',
+            dimension_colors: {
+              South: '#16a34a',
+            },
+          }}
+        />
+      );
+
+      const calledConfig = mockChart.setOption.mock.calls[0][0];
+      expect(calledConfig.legend.data).toEqual(['North', 'South']);
+      expect(calledConfig.legend.selectedMode).toBe(false);
+      expect(calledConfig.color).toEqual(['#0f766e', '#16a34a']);
     });
   });
 

@@ -15,13 +15,17 @@ interface ChartCustomizationsProps {
   formData: ChartBuilderFormData;
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
+  chartConfig?: Record<string, any>;
 }
+
+type CustomizationUpdates = Record<string, any>;
 
 export function ChartCustomizations({
   chartType,
   formData,
   onChange,
   disabled,
+  chartConfig,
 }: ChartCustomizationsProps) {
   // Safety check for undefined formData
   if (!formData) {
@@ -34,11 +38,14 @@ export function ChartCustomizations({
 
   const customizations = formData.customizations || {};
 
-  const updateCustomization = (key: string, value: any) => {
+  const updateCustomization = (keyOrUpdates: string | CustomizationUpdates, value?: any) => {
+    const customizationUpdates =
+      typeof keyOrUpdates === 'string' ? { [keyOrUpdates]: value } : keyOrUpdates;
+
     onChange({
       customizations: {
         ...customizations,
-        [key]: value,
+        ...customizationUpdates,
       },
     });
   };
@@ -52,6 +59,9 @@ export function ChartCustomizations({
           disabled={disabled}
           hasExtraDimension={!!formData.extra_dimension_column}
           metrics={formData.metrics}
+          chartConfig={chartConfig}
+          primaryDimensionLabel={formData.dimension_column || formData.x_axis_column}
+          extraDimensionLabel={formData.extra_dimension_column}
         />
       );
 
@@ -62,6 +72,7 @@ export function ChartCustomizations({
           updateCustomization={updateCustomization}
           disabled={disabled}
           hasExtraDimension={!!formData.extra_dimension_column}
+          chartConfig={chartConfig}
         />
       );
 
@@ -71,6 +82,7 @@ export function ChartCustomizations({
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
+          chartConfig={chartConfig}
         />
       );
 

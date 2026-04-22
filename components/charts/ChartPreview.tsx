@@ -13,7 +13,12 @@ import {
   isLegendPaginated,
   type LegendPosition,
 } from '@/lib/chart-legend-utils';
+import {
+  applyChartColorCustomizations,
+  resolveBarColorMode,
+} from '@/lib/chart-color-customizations';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+import type { ChartMetric } from '@/types/charts';
 
 interface ChartPreviewProps {
   config?: Record<string, any>;
@@ -31,6 +36,8 @@ interface ChartPreviewProps {
     onPageSizeChange?: (pageSize: number) => void;
   };
   customizations?: Record<string, any>;
+  hasExtraDimension?: boolean;
+  metrics?: ChartMetric[];
 }
 
 export function ChartPreview({
@@ -43,6 +50,8 @@ export function ChartPreview({
   onTableSort,
   tablePagination,
   customizations: propCustomizations,
+  hasExtraDimension,
+  metrics,
 }: ChartPreviewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -89,19 +98,6 @@ export function ChartPreview({
       const customizations =
         propCustomizations || config.extra_config?.customizations || config.customizations || {};
 
-      // Resolve the color array: per-chart single color → per-chart palette → org branding → default
-      // For multi-series charts (stacked bar, multi-line), skip single color so each series gets distinct color
-      const isMultiSeries = Array.isArray(config.series) && config.series.length > 1;
-      const seriesColors: string[] = customizations.series_colors ?? [];
-      const hasSeriesColors = isMultiSeries && seriesColors.some(Boolean);
-      const resolvedColors: string[] = (() => {
-        // Pie charts always need multi-color palette — never apply single chart_color
-        const isSingleColorEligible = !isMultiSeries && detectedChartType !== 'pie';
-        if (customizations.chart_color && isSingleColorEligible)
-          return [customizations.chart_color];
-        if (customizations.color_palette_colors) return customizations.color_palette_colors;
-        return branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS;
-      })();
       const legendPosition = extractLegendPosition(customizations, config) as LegendPosition;
       const isPaginated = isLegendPaginated(customizations);
 
@@ -114,16 +110,10 @@ export function ChartPreview({
       // Use configWithLegend as the canonical config (preserves legend positioning and pie center/radius)
       const modifiedConfig = {
         ...configWithLegend,
-        // Per-chart color override → org palette → default
-        color: resolvedColors,
         // Enhanced data labels styling - derive from configWithLegend.series to preserve pie adjustments
         series: Array.isArray(configWithLegend.series)
-          ? configWithLegend.series.map((series: any, idx: number) => ({
+          ? configWithLegend.series.map((series: any) => ({
               ...series,
-              // Per-series color override for grouped bar (multi-metric)
-              ...(hasSeriesColors && seriesColors[idx]
-                ? { itemStyle: { ...series.itemStyle, color: seriesColors[idx] } }
-                : {}),
               label: {
                 ...series.label,
                 fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
@@ -293,25 +283,37 @@ export function ChartPreview({
             }),
       };
 
+      const colorizedConfig = applyChartColorCustomizations({
+        chartType: detectedChartType,
+        chartConfig: modifiedConfig,
+        customizations,
+        fallbackPaletteColors: branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS,
+        barColorMode: resolveBarColorMode({
+          chartType: detectedChartType,
+          hasExtraDimension,
+          metrics,
+        }),
+      });
+
       // Debug the final config for pie/number charts
       if (isPieChart || isNumberChart) {
         console.log('ChartPreview - Final config for pie/number chart:', {
-          hasXAxis: 'xAxis' in modifiedConfig,
-          hasYAxis: 'yAxis' in modifiedConfig,
-          hasGrid: 'grid' in modifiedConfig,
-          xAxisValue: modifiedConfig.xAxis,
-          yAxisValue: modifiedConfig.yAxis,
-          gridValue: modifiedConfig.grid,
+          hasXAxis: 'xAxis' in colorizedConfig,
+          hasYAxis: 'yAxis' in colorizedConfig,
+          hasGrid: 'grid' in colorizedConfig,
+          xAxisValue: colorizedConfig.xAxis,
+          yAxisValue: colorizedConfig.yAxis,
+          gridValue: colorizedConfig.grid,
         });
       }
 
       // Handle stacked bar chart data labels
       if (detectedChartType === 'bar') {
-        Object.assign(modifiedConfig, applyStackedBarLabels(modifiedConfig, customizations));
+        Object.assign(colorizedConfig, applyStackedBarLabels(colorizedConfig, customizations));
       }
 
       // Set chart option
-      chartInstance.current.setOption(modifiedConfig);
+      chartInstance.current.setOption(colorizedConfig);
 
       // Notify parent component that chart is ready
       if (onChartReady) {
@@ -320,7 +322,7 @@ export function ChartPreview({
     } catch (err) {
       console.error('Error initializing chart:', err);
     }
-  }, [config, onChartReady, chartType, propCustomizations, branding]);
+  }, [branding, chartType, config, hasExtraDimension, metrics, onChartReady, propCustomizations]);
 
   useEffect(() => {
     initializeChart();

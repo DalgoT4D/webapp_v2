@@ -861,7 +861,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   isLoading={dataLoading}
                   error={dataError}
                   onChartReady={setChartInstance}
+                  chartType={chart?.chart_type}
                   customizations={chart?.extra_config?.customizations}
+                  hasExtraDimension={Boolean(chart?.extra_config?.extra_dimension_column)}
+                  metrics={chart?.extra_config?.metrics}
                 />
               )}
             </CardContent>

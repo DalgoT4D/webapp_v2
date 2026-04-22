@@ -59,8 +59,10 @@ describe('BarChartCustomizations', () => {
     expect(screen.getByText('Legend Position')).toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Show All Legends in Chart Area'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('legendPosition', 'right');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('legendDisplay', 'all');
+    expect(mockUpdateCustomization).toHaveBeenCalledWith({
+      legendPosition: 'right',
+      legendDisplay: 'all',
+    });
   });
 
   it('should handle data labels options', async () => {
@@ -111,6 +113,226 @@ describe('BarChartCustomizations', () => {
     await user.click(yRotationSelect);
     await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
     expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
+  });
+
+  it('shows a default color picker and per-category rows for single-series categorical bars', () => {
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        chartConfig={{
+          xAxis: { type: 'category', data: ['R', 'A', 'G'] },
+          yAxis: { type: 'value' },
+          series: [{ type: 'bar', data: [12, 6, 20] }],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Default Color')).toBeInTheDocument();
+    expect(screen.queryByText('Color Palette')).not.toBeInTheDocument();
+    expect(screen.getByText('Category Colors')).toBeInTheDocument();
+    expect(screen.getByTestId('dimension-color-row-0')).toBeInTheDocument();
+    expect(screen.getByText('R')).toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText('G')).toBeInTheDocument();
+  });
+
+  it('shows additional-dimension color rows by default when extra dimension is set', () => {
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        hasExtraDimension={true}
+        primaryDimensionLabel="region"
+        extraDimensionLabel="status"
+        chartConfig={{
+          xAxis: { type: 'category', data: ['North', 'South'] },
+          yAxis: { type: 'value' },
+          series: [
+            { type: 'bar', name: 'R', data: [12, 6] },
+            { type: 'bar', name: 'G', data: [7, 10] },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText('Color Dimension')).toBeInTheDocument();
+    expect(screen.queryByText('Default Color')).not.toBeInTheDocument();
+    expect(screen.getByText('Color Palette')).toBeInTheDocument();
+    expect(screen.getByText('status Colors')).toBeInTheDocument();
+    expect(screen.getByText('R')).toBeInTheDocument();
+    expect(screen.getByText('G')).toBeInTheDocument();
+  });
+
+  it('offers a palette selector for the added dimension alongside individual overrides', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        hasExtraDimension={true}
+        extraDimensionLabel="status"
+        chartConfig={{
+          xAxis: { type: 'category', data: ['North', 'South'] },
+          yAxis: { type: 'value' },
+          series: [
+            { type: 'bar', name: 'R', data: [12, 6] },
+            { type: 'bar', name: 'G', data: [7, 10] },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Color Palette')).toBeInTheDocument();
+    expect(screen.getByTestId('dimension-color-row-0')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('palette-dalgo'));
+
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('color_palette_colors', [
+      '#00897B',
+      '#0F2440',
+      '#1F6AA5',
+      '#39A0C8',
+      '#6EC9C2',
+      '#F4A261',
+      '#E76F51',
+      '#8A94A6',
+    ]);
+  });
+
+  it('shows tooltip guidance for extra-dimension color editing', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        hasExtraDimension={true}
+        primaryDimensionLabel="state"
+        extraDimensionLabel="status"
+        chartConfig={{
+          xAxis: { type: 'category', data: ['North', 'South'] },
+          yAxis: { type: 'value' },
+          series: [
+            { type: 'bar', name: 'R', data: [12, 6] },
+            { type: 'bar', name: 'G', data: [7, 10] },
+          ],
+        }}
+      />
+    );
+
+    await user.hover(screen.getByTestId('color-guidance-trigger'));
+
+    expect(
+      (
+        await screen.findAllByText(
+          'With an extra dimension, you can color up to two dimensions here. Use Color Dimension to switch between state and status.'
+        )
+      )[0]
+    ).toBeInTheDocument();
+  });
+
+  it('shows primary-dimension color controls when that dimension is selected', () => {
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        hasExtraDimension={true}
+        primaryDimensionLabel="region"
+        extraDimensionLabel="status"
+        customizations={{ bar_color_target: 'primary' }}
+        chartConfig={{
+          xAxis: { type: 'category', data: ['North', 'South'] },
+          yAxis: { type: 'value' },
+          series: [
+            { type: 'bar', name: 'R', data: [12, 6] },
+            { type: 'bar', name: 'G', data: [7, 10] },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Default Color')).toBeInTheDocument();
+    expect(screen.queryByText('Color Palette')).not.toBeInTheDocument();
+    expect(screen.getByText('region Colors')).toBeInTheDocument();
+    expect(screen.getByText('North')).toBeInTheDocument();
+    expect(screen.getByText('South')).toBeInTheDocument();
+  });
+
+  it('shows tooltip guidance for multi-metric color editing', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        metrics={[
+          { column: 'value_a', aggregation: 'SUM' },
+          { column: 'value_b', aggregation: 'SUM' },
+        ]}
+        primaryDimensionLabel="state"
+      />
+    );
+
+    await user.hover(screen.getByTestId('color-guidance-trigger'));
+
+    expect(
+      (
+        await screen.findAllByText(
+          'With multiple metrics, colors can only be changed per metric. Categories in state keep the same color inside each metric.'
+        )
+      )[0]
+    ).toBeInTheDocument();
+  });
+
+  it('stores additional-dimension overrides separately when extra dimension colors are edited', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        hasExtraDimension={true}
+        extraDimensionLabel="status"
+        chartConfig={{
+          xAxis: { type: 'category', data: ['North', 'South'] },
+          yAxis: { type: 'value' },
+          series: [
+            { type: 'bar', name: 'R', data: [12, 6] },
+            { type: 'bar', name: 'G', data: [7, 10] },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByTestId('dimension-color-row-1'));
+    await user.click(screen.getByTestId('color-swatch-00897B'));
+
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('extra_dimension_colors', {
+      G: '#00897B',
+    });
+  });
+
+  it('clears category overrides when a new default color is selected', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BarChartCustomizations
+        {...defaultProps}
+        customizations={{
+          dimension_colors: {
+            R: '#dc2626',
+          },
+        }}
+        chartConfig={{
+          xAxis: { type: 'category', data: ['R', 'A', 'G'] },
+          yAxis: { type: 'value' },
+          series: [{ type: 'bar', data: [12, 6, 20] }],
+        }}
+      />
+    );
+
+    await user.click(screen.getByTestId('color-swatch-00897B'));
+
+    expect(mockUpdateCustomization).toHaveBeenCalledWith({
+      chart_color: '#00897B',
+      color_palette_colors: undefined,
+      dimension_colors: undefined,
+    });
   });
 
   it('should disable all controls when disabled is true', () => {

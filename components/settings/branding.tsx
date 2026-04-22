@@ -5,24 +5,18 @@ import { HexColorPicker } from 'react-colorful';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Save, Check, Palette, X } from 'lucide-react';
+import { Save, Check, X } from 'lucide-react';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { cn } from '@/lib/utils';
 import { useSWRConfig } from 'swr';
-import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { useDashboardBranding, saveLogoToLocal } from '@/hooks/api/useDashboardBranding';
 import { toastSuccess } from '@/lib/toast';
 import {
   PRESET_CHART_PALETTES,
   DEFAULT_CHART_PALETTE_COLORS,
   getSolidColors,
 } from '@/constants/chart-palettes';
-import { saveLogoToLocal } from '@/hooks/api/useDashboardBranding';
-
-// Logo width constraints
-const MIN_LOGO_WIDTH = 40;
-const MAX_LOGO_WIDTH = 200;
 
 // Flatten palettes to the { name, colors } shape expected by the branding UI
 const PRESET_PALETTES = PRESET_CHART_PALETTES.map((p) => ({
@@ -230,7 +224,6 @@ export default function BrandingSettings() {
   const { mutate: globalMutate } = useSWRConfig();
 
   const [logoUrl, setLogoUrl] = useState('');
-  const [logoWidth, setLogoWidth] = useState(80);
   const [paletteName, setPaletteName] = useState<string | null>(null);
   const [paletteColors, setPaletteColors] = useState<string[]>(DEFAULT_PALETTE);
 
@@ -243,7 +236,6 @@ export default function BrandingSettings() {
     if (branding && !hasSynced.current) {
       hasSynced.current = true;
       setLogoUrl(branding.dashboard_logo_url || '');
-      setLogoWidth(branding.dashboard_logo_width || 80);
       setPaletteName(branding.chart_palette_name);
       setPaletteColors(branding.chart_palette_colors || DEFAULT_PALETTE);
     }
@@ -251,14 +243,16 @@ export default function BrandingSettings() {
 
   const markChanged = useCallback(() => setHasChanges(true), []);
 
+  const logoDisplayWidth = branding?.dashboard_logo_width || 80;
+
   const handleSave = useCallback(() => {
     // Save logo to localStorage only (no backend API call yet)
-    saveLogoToLocal(logoUrl.trim() || null, logoWidth);
+    saveLogoToLocal(logoUrl.trim() || null, logoDisplayWidth);
     // Revalidate SWR cache so header and charts pick up the new logo immediately
     globalMutate('/api/orgpreferences/');
     setHasChanges(false);
     toastSuccess.saved('Branding settings');
-  }, [logoUrl, logoWidth, globalMutate]);
+  }, [logoDisplayWidth, logoUrl, globalMutate]);
 
   const handleSelectPreset = useCallback(
     (preset: { name: string; colors: string[] }) => {
@@ -344,8 +338,8 @@ export default function BrandingSettings() {
             <CardHeader>
               <CardTitle>Organization Logo</CardTitle>
               <CardDescription>
-                Set a logo that appears across the platform — on dashboards, reports, and shared
-                views. Provide an image URL (no file upload).
+                Set a logo that appears across the platform. The logo keeps its native aspect ratio
+                automatically, so there is no separate height or width control here.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -358,31 +352,9 @@ export default function BrandingSettings() {
                 onRemove={handleRemoveLogo}
                 uploadLabel="Upload Logo"
                 changeLabel="Change Logo"
-                previewStyle={{ width: `${logoWidth}px`, height: 'auto', maxHeight: 'none' }}
+                previewStyle={{ width: `${logoDisplayWidth}px`, height: 'auto', maxHeight: 'none' }}
                 data-testid="branding-logo-uploader"
               />
-
-              {logoUrl && (
-                <div className="space-y-2">
-                  <Label>Logo Width: {logoWidth}px</Label>
-                  <Slider
-                    value={[logoWidth]}
-                    onValueChange={([value]) => {
-                      setLogoWidth(value);
-                      markChanged();
-                    }}
-                    min={MIN_LOGO_WIDTH}
-                    max={MAX_LOGO_WIDTH}
-                    step={5}
-                    className="w-full"
-                    data-testid="branding-logo-width-slider"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{MIN_LOGO_WIDTH}px</span>
-                    <span>{MAX_LOGO_WIDTH}px</span>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

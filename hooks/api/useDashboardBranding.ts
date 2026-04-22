@@ -29,17 +29,27 @@ interface OrgPreferencesResponse {
   res: OrgBranding & Record<string, unknown>;
 }
 
+interface UseDashboardBrandingOptions {
+  enabled?: boolean;
+  initialBranding?: OrgBranding | null;
+}
+
 /**
  * Hook to fetch org branding settings (logo + chart palette)
  */
-export function useDashboardBranding() {
+export function useDashboardBranding(options: UseDashboardBrandingOptions = {}) {
+  const { enabled = true, initialBranding } = options;
   const { data, error, isLoading, mutate } = useSWR<OrgPreferencesResponse>(
-    '/api/orgpreferences/',
+    enabled ? '/api/orgpreferences/' : null,
     apiGet,
     { revalidateOnFocus: false }
   );
 
   const branding = useMemo<OrgBranding | null>(() => {
+    if (initialBranding !== undefined) {
+      return initialBranding;
+    }
+
     // Read local logo as fallback for prototype (when backend doesn't store uploaded files yet)
     const localLogoUrl =
       typeof window !== 'undefined' ? localStorage.getItem(LOGO_STORAGE_KEY) : null;
@@ -64,7 +74,7 @@ export function useDashboardBranding() {
       chart_palette_name: data.res.chart_palette_name,
       chart_palette_colors: data.res.chart_palette_colors,
     };
-  }, [data]);
+  }, [data, initialBranding]);
 
   return {
     branding,

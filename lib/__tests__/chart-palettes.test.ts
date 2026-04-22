@@ -6,9 +6,16 @@ import {
 } from '@/constants/chart-palettes';
 
 describe('chart-palettes', () => {
-  it('should have 7 palettes each with 8 colors', () => {
-    expect(PRESET_CHART_PALETTES).toHaveLength(7);
+  it('should have 8 palettes each with 8 colors', () => {
+    expect(PRESET_CHART_PALETTES).toHaveLength(8);
     PRESET_CHART_PALETTES.forEach((p) => expect(p.colors).toHaveLength(8));
+  });
+
+  it('includes the renamed and brand palettes', () => {
+    const paletteNames = PRESET_CHART_PALETTES.map((palette) => palette.name);
+    expect(paletteNames).toContain('Dalgo');
+    expect(paletteNames).toContain('Vibrant');
+    expect(paletteNames).not.toContain('Power BI');
   });
 
   it('every color should have valid solid and light hex values', () => {

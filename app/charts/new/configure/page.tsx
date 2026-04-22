@@ -398,11 +398,12 @@ function ConfigureChartPageContent() {
       return regionGeojsons[0].id;
     }
 
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
+    // Otherwise use the base geojson, falling back to the selected geojson immediately
+    return formData.geojsonPreviewPayload?.geojsonId || formData.selected_geojson_id || null;
   }, [
     formData.chart_type,
     formData.geojsonPreviewPayload?.geojsonId,
+    formData.selected_geojson_id,
     drillDownPath,
     regionGeojsons,
   ]);
@@ -415,10 +416,51 @@ function ConfigureChartPageContent() {
 
   // Fetch map data overlay
   // ✅ FIXED: Keep original data overlay logic, just make it drill-down aware
-  const baseDataOverlayPayload =
-    formData.chart_type === 'map' && formData.dataOverlayPayload
-      ? formData.dataOverlayPayload
-      : null;
+  const baseDataOverlayPayload = useMemo(() => {
+    if (
+      formData.chart_type !== 'map' ||
+      !formData.schema_name ||
+      !formData.table_name ||
+      !formData.geographic_column ||
+      !formData.aggregate_function
+    ) {
+      return null;
+    }
+
+    const valueColumn =
+      formData.aggregate_column || formData.value_column || formData.geographic_column;
+    const needsValueColumn = formData.aggregate_function.toLowerCase() !== 'count';
+
+    if (needsValueColumn && !valueColumn) {
+      return null;
+    }
+
+    return {
+      schema_name: formData.schema_name,
+      table_name: formData.table_name,
+      geographic_column: formData.geographic_column,
+      value_column: valueColumn,
+      aggregate_function: formData.aggregate_function,
+      filters: formData.dataOverlayPayload?.filters || {},
+      extra_config: {
+        filters: formData.filters || [],
+        pagination: formData.pagination,
+        sort: formData.sort,
+      },
+    };
+  }, [
+    formData.chart_type,
+    formData.schema_name,
+    formData.table_name,
+    formData.geographic_column,
+    formData.aggregate_column,
+    formData.value_column,
+    formData.aggregate_function,
+    formData.filters,
+    formData.pagination,
+    formData.sort,
+    formData.dataOverlayPayload?.filters,
+  ]);
 
   const dataOverlayPayload = useMemo(() => {
     if (!baseDataOverlayPayload) return null;
@@ -541,23 +583,34 @@ function ConfigureChartPageContent() {
 
   // Generate map preview payloads in create mode
   useEffect(() => {
+    const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
+    const valueColumn =
+      formData.aggregate_column || formData.value_column || formData.geographic_column;
+
     if (
       formData.chart_type === 'map' &&
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
       formData.aggregate_function &&
       formData.schema_name &&
-      formData.table_name
+      formData.table_name &&
+      (!needsValueColumn || valueColumn)
     ) {
-      // Check if payloads need updating
-      const needsUpdate =
-        !formData.geojsonPreviewPayload ||
-        !formData.dataOverlayPayload ||
-        formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
-        formData.dataOverlayPayload.geographic_column !== formData.geographic_column;
+      const currentFiltersHash = JSON.stringify(formData.filters || []);
+      const payloadFiltersHash = JSON.stringify(
+        formData.dataOverlayPayload?.extra_config?.filters ||
+          formData.dataOverlayPayload?.chart_filters ||
+          []
+      );
 
-      if (needsUpdate) {
+      const hasValidPayloads =
+        formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
+        formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
+        formData.dataOverlayPayload?.value_column === valueColumn &&
+        formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
+        currentFiltersHash === payloadFiltersHash;
+
+      if (!hasValidPayloads) {
         const geojsonPayload = {
           geojsonId: formData.selected_geojson_id,
         };
@@ -566,11 +619,15 @@ function ConfigureChartPageContent() {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
-          value_column: formData.aggregate_column,
+          value_column: valueColumn,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
-          chart_filters: formData.filters || [],
+          extra_config: {
+            filters: formData.filters || [],
+            pagination: formData.pagination,
+            sort: formData.sort,
+          },
         };
 
         setFormData((prev) => ({
@@ -585,10 +642,13 @@ function ConfigureChartPageContent() {
     formData.geographic_column,
     formData.selected_geojson_id,
     formData.aggregate_column,
+    formData.value_column,
     formData.aggregate_function,
     formData.schema_name,
     formData.table_name,
     formData.filters,
+    formData.pagination,
+    formData.sort,
     // ✅ FIX: Include geographic_hierarchy to regenerate payloads when drill-down config changes
     JSON.stringify(formData.geographic_hierarchy || {}),
     // Stringify payloads to prevent infinite loops
@@ -1048,6 +1108,7 @@ function ConfigureChartPageContent() {
                         chartType={formData.chart_type || 'bar'}
                         formData={formData}
                         onChange={handleFormChange}
+                        chartConfig={chartData?.echarts_config}
                       />
                     )}
                   </div>
@@ -1156,7 +1217,10 @@ function ConfigureChartPageContent() {
                         config={chartData?.echarts_config}
                         isLoading={chartLoading}
                         error={chartError}
+                        chartType={formData.chart_type}
                         customizations={formData.customizations}
+                        hasExtraDimension={Boolean(formData.extra_dimension_column)}
+                        metrics={formData.metrics}
                       />
                     </div>
                   )}

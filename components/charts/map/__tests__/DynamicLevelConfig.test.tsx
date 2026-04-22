@@ -532,6 +532,33 @@ describe('DynamicLevelConfig', () => {
         );
       });
     });
+
+    it('should store chart filters in extra_config for preview payloads', async () => {
+      const filteredFormData = {
+        ...defaultFormData,
+        geographic_column: 'state',
+        aggregate_column: 'population',
+        aggregate_function: 'sum' as const,
+        selected_geojson_id: 1,
+        filters: [{ column: 'state', operator: 'equals' as const, value: 'Karnataka' }],
+      };
+
+      render(<DynamicLevelConfig formData={filteredFormData} onChange={mockOnChange} />);
+
+      await waitFor(() => {
+        const previewCall = mockOnChange.mock.calls.find(([updates]) => updates.dataOverlayPayload);
+        expect(previewCall?.[0]).toEqual(
+          expect.objectContaining({
+            dataOverlayPayload: expect.objectContaining({
+              extra_config: expect.objectContaining({
+                filters: filteredFormData.filters,
+              }),
+            }),
+          })
+        );
+        expect(previewCall?.[0].dataOverlayPayload.chart_filters).toBeUndefined();
+      });
+    });
   });
 
   /**

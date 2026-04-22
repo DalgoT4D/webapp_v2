@@ -250,25 +250,30 @@ export function DynamicLevelConfig({
   // Auto-generate preview when all required fields are configured (copied from CountryLevelConfig)
   useEffect(() => {
     // For count operations, aggregate_column is not required (same pattern as bar charts)
-    const needsAggregateColumn = formData.aggregate_function !== 'count';
+    const needsAggregateColumn = formData.aggregate_function?.toLowerCase() !== 'count';
+    const valueColumn =
+      formData.aggregate_column || formData.value_column || formData.geographic_column;
 
     if (
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      (!needsAggregateColumn || formData.aggregate_column) &&
+      (!needsAggregateColumn || valueColumn) &&
       formData.aggregate_function &&
       formData.schema_name &&
       formData.table_name
     ) {
       // Check if we need to update preview payloads
       const currentFiltersHash = JSON.stringify(formData.filters || []);
-      const payloadFiltersHash = JSON.stringify(formData.dataOverlayPayload?.chart_filters || []);
+      const payloadFiltersHash = JSON.stringify(
+        formData.dataOverlayPayload?.extra_config?.filters ||
+          formData.dataOverlayPayload?.chart_filters ||
+          []
+      );
 
       const hasValidPayloads =
         formData.geojsonPreviewPayload?.geojsonId === formData.selected_geojson_id &&
         formData.dataOverlayPayload?.geographic_column === formData.geographic_column &&
-        formData.dataOverlayPayload?.value_column ===
-          (formData.aggregate_column || formData.value_column || formData.geographic_column) &&
+        formData.dataOverlayPayload?.value_column === valueColumn &&
         formData.dataOverlayPayload?.aggregate_function === formData.aggregate_function &&
         currentFiltersHash === payloadFiltersHash;
 
@@ -282,12 +287,15 @@ export function DynamicLevelConfig({
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
           // For count operations without a column, fall back to geographic_column
-          value_column:
-            formData.aggregate_column || formData.value_column || formData.geographic_column,
+          value_column: valueColumn,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
-          chart_filters: formData.filters || [],
+          extra_config: {
+            filters: formData.filters || [],
+            pagination: formData.pagination,
+            sort: formData.sort,
+          },
         };
 
         onChange({
@@ -300,9 +308,12 @@ export function DynamicLevelConfig({
     formData.geographic_column,
     formData.selected_geojson_id,
     formData.aggregate_column,
+    formData.value_column,
     formData.aggregate_function,
     formData.schema_name,
     formData.table_name,
+    formData.pagination,
+    formData.sort,
     JSON.stringify(formData.filters || []),
     JSON.stringify(formData.geojsonPreviewPayload || {}),
     JSON.stringify(formData.dataOverlayPayload || {}),

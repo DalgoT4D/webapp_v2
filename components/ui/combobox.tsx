@@ -9,6 +9,8 @@ import { Search, ChevronDown, X } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
 
+const SELECT_ALL_OPTION_VALUE = '__combobox_select_all__';
+
 export interface ComboboxItem {
   value: string;
   label: string;
@@ -502,6 +504,16 @@ function MultiComboboxInner({
     );
   }, [safeItems, search]);
 
+  const enabledFilteredItems = React.useMemo(
+    () => filtered.filter((item) => item && item.disabled !== true),
+    [filtered]
+  );
+
+  const allFilteredSelected =
+    enabledFilteredItems.length > 0 &&
+    enabledFilteredItems.every((item) => safeValues.includes(item.value));
+  const someFilteredSelected = enabledFilteredItems.some((item) => safeValues.includes(item.value));
+
   const handleToggle = React.useCallback(
     (val: string) => {
       if (safeValues.includes(val)) {
@@ -514,18 +526,62 @@ function MultiComboboxInner({
     [safeValues, onValuesChange]
   );
 
+  const handleToggleAll = React.useCallback(() => {
+    if (enabledFilteredItems.length === 0) return;
+
+    const filteredValues = enabledFilteredItems.map((item) => item.value);
+
+    if (allFilteredSelected) {
+      onValuesChange(safeValues.filter((value) => !filteredValues.includes(value)));
+    } else {
+      const nextValues = [...safeValues];
+      filteredValues.forEach((value) => {
+        if (!nextValues.includes(value)) {
+          nextValues.push(value);
+        }
+      });
+      onValuesChange(nextValues);
+    }
+
+    setSearch('');
+  }, [allFilteredSelected, enabledFilteredItems, onValuesChange, safeValues]);
+
+  const dropdownItems = React.useMemo(() => {
+    if (enabledFilteredItems.length === 0) return filtered;
+
+    return [
+      {
+        value: SELECT_ALL_OPTION_VALUE,
+        label: allFilteredSelected ? 'Clear all' : 'Select all',
+      },
+      ...filtered,
+    ];
+  }, [allFilteredSelected, enabledFilteredItems.length, filtered]);
+
   const handleRemove = (val: string, e: React.MouseEvent) => {
     e.stopPropagation();
     onValuesChange(safeValues.filter((v) => v !== val));
   };
 
+  const handleSelect = React.useCallback(
+    (val: string) => {
+      if (val === SELECT_ALL_OPTION_VALUE) {
+        handleToggleAll();
+        return;
+      }
+
+      handleToggle(val);
+    },
+    [handleToggle, handleToggleAll]
+  );
+
   // Use shared keyboard navigation hook
   const { highlightedIndex, setHighlightedIndex, listRef, handleKeyDown, resetHighlight } =
     useKeyboardNavigation({
-      items: filtered,
+      items: dropdownItems,
       open,
       setOpen,
-      onSelect: handleToggle,
+      onSelect: handleSelect,
       onEscape: () => setSearch(''),
       skipDisabled: false,
     });
@@ -616,8 +672,8 @@ function MultiComboboxInner({
             aria-expanded={open}
             aria-controls={`${baseId}-listbox`}
             aria-activedescendant={
-              highlightedIndex >= 0 && filtered[highlightedIndex]
-                ? `${baseId}-item-${filtered[highlightedIndex].value}`
+              highlightedIndex >= 0 && dropdownItems[highlightedIndex]
+                ? `${baseId}-item-${dropdownItems[highlightedIndex].value}`
                 : undefined
             }
           />
@@ -660,9 +716,53 @@ function MultiComboboxInner({
               {search.trim() ? emptyMessage : noItemsMessage}
             </div>
           ) : (
-            filtered.map((item, idx) => {
+            dropdownItems.map((item, idx) => {
+              if (item.value === SELECT_ALL_OPTION_VALUE) {
+                const isHighlighted = idx === highlightedIndex;
+
+                return (
+                  <div
+                    key={item.value}
+                    id={`${baseId}-item-${item.value}`}
+                    data-testid={`${baseId}-item-${item.value}`}
+                    data-combobox-item=""
+                    data-value={item.value}
+                    data-selected={allFilteredSelected || undefined}
+                    data-highlighted={isHighlighted || undefined}
+                    role="option"
+                    aria-selected={allFilteredSelected}
+                    className={cn(
+                      'flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-200 bg-gray-50',
+                      (allFilteredSelected || someFilteredSelected) && 'bg-blue-50',
+                      isHighlighted &&
+                        !allFilteredSelected &&
+                        !someFilteredSelected &&
+                        'bg-gray-100',
+                      !isHighlighted &&
+                        !allFilteredSelected &&
+                        !someFilteredSelected &&
+                        'hover:bg-gray-100'
+                    )}
+                    onClick={handleToggleAll}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                  >
+                    <Checkbox
+                      id={`${baseId}-checkbox-${item.value}`}
+                      checked={
+                        allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false
+                      }
+                      onCheckedChange={handleToggleAll}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-4 w-4"
+                    />
+                    <span className="flex-1 text-sm font-medium">{item.label}</span>
+                  </div>
+                );
+              }
+
               const isSelected = safeValues.includes(item.value);
               const isHighlighted = idx === highlightedIndex;
+              const isItemDisabled = item.disabled === true;
               return (
                 <div
                   key={item.value}
@@ -672,23 +772,29 @@ function MultiComboboxInner({
                   data-value={item.value}
                   data-selected={isSelected || undefined}
                   data-highlighted={isHighlighted || undefined}
+                  data-disabled={isItemDisabled || undefined}
                   role="option"
                   aria-selected={isSelected}
+                  aria-disabled={isItemDisabled}
                   className={cn(
-                    'flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-100 last:border-b-0',
-                    isSelected && 'bg-blue-50',
-                    isHighlighted && !isSelected && 'bg-gray-100',
-                    !isSelected && !isHighlighted && 'hover:bg-gray-50'
+                    'flex items-center gap-2 w-full py-2 px-3 border-b border-gray-100 last:border-b-0',
+                    isItemDisabled
+                      ? 'cursor-not-allowed opacity-50 text-gray-400'
+                      : 'cursor-pointer',
+                    !isItemDisabled && isSelected && 'bg-blue-50',
+                    !isItemDisabled && isHighlighted && !isSelected && 'bg-gray-100',
+                    !isItemDisabled && !isSelected && !isHighlighted && 'hover:bg-gray-50'
                   )}
-                  onClick={() => handleToggle(item.value)}
-                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  onClick={() => !isItemDisabled && handleToggle(item.value)}
+                  onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
                 >
                   <Checkbox
                     id={`${baseId}-checkbox-${item.value}`}
                     checked={isSelected}
-                    onCheckedChange={() => handleToggle(item.value)}
+                    onCheckedChange={() => !isItemDisabled && handleToggle(item.value)}
                     onClick={(e) => e.stopPropagation()}
                     className="h-4 w-4"
+                    disabled={isItemDisabled}
                   />
                   {renderItem ? (
                     renderItem(item, isSelected, search)

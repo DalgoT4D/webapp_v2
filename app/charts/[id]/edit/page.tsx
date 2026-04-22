@@ -667,11 +667,12 @@ function EditChartPageContent() {
       return regionGeojsons[0].id;
     }
 
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
+    // Otherwise use the base geojson, falling back to the selected geojson immediately
+    return formData.geojsonPreviewPayload?.geojsonId || formData.selected_geojson_id || null;
   }, [
     formData.chart_type,
     formData.geojsonPreviewPayload?.geojsonId,
+    formData.selected_geojson_id,
     drillDownPath.length,
     regionGeojsons,
   ]);
@@ -679,7 +680,14 @@ function EditChartPageContent() {
   // Dynamic map data overlay payload with drill-down filters
   // Build map data overlay payload similar to view component (stable approach)
   const activeDataOverlayPayload = useMemo(() => {
-    if (formData.chart_type !== 'map' || !formData.schema_name || !formData.table_name) return null;
+    if (
+      formData.chart_type !== 'map' ||
+      !formData.schema_name ||
+      !formData.table_name ||
+      !formData.aggregate_function
+    ) {
+      return null;
+    }
 
     // Build filters from drill-down path
     const filters: Record<string, string> = {};
@@ -704,16 +712,23 @@ function EditChartPageContent() {
       }
     }
 
-    return activeGeographicColumn
+    const valueColumn =
+      formData.aggregate_column || formData.value_column || activeGeographicColumn;
+    const needsValueColumn = formData.aggregate_function.toLowerCase() !== 'count';
+
+    return activeGeographicColumn && (!needsValueColumn || valueColumn)
       ? {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: activeGeographicColumn,
-          value_column: formData.aggregate_column,
+          value_column: valueColumn,
           aggregate_function: formData.aggregate_function || 'sum',
           filters: filters,
-          chart_filters: [] as any[],
-          chart_id: chartId ? parseInt(String(chartId)) : undefined,
+          extra_config: {
+            filters: formData.filters || [],
+            pagination: formData.pagination,
+            sort: formData.sort,
+          },
         }
       : null;
   }, [
@@ -722,11 +737,14 @@ function EditChartPageContent() {
     formData.table_name,
     formData.geographic_column,
     formData.aggregate_column,
+    formData.value_column,
     formData.aggregate_function,
     formData.geographic_hierarchy,
     formData.district_column,
+    formData.filters,
+    formData.pagination,
+    formData.sort,
     drillDownPath,
-    chartId,
   ]);
 
   // Fetch GeoJSON data for maps (dynamic based on drill-down state)
@@ -1569,6 +1587,7 @@ function EditChartPageContent() {
                         chartType={formData.chart_type || 'bar'}
                         formData={formData}
                         onChange={handleFormChange}
+                        chartConfig={chartData?.echarts_config}
                       />
                     )}
                   </div>
@@ -1709,6 +1728,8 @@ function EditChartPageContent() {
                         error={null} // Error handled by toast
                         chartType={formData.chart_type}
                         customizations={formData.customizations}
+                        hasExtraDimension={Boolean(formData.extra_dimension_column)}
+                        metrics={formData.metrics}
                       />
                     </div>
                   )}

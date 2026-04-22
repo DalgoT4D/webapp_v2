@@ -11,18 +11,39 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ChartPaletteSelector } from '../../ChartPaletteSelector';
+import { ChartNamedColorRows } from '../../ChartNamedColorRows';
+import { getChartNamedColorEntries, getDimensionColorMap } from '@/lib/chart-color-customizations';
 
 interface PieChartCustomizationsProps {
   customizations: Record<string, any>;
-  updateCustomization: (key: string, value: any) => void;
+  updateCustomization: (keyOrUpdates: string | Record<string, any>, value?: any) => void;
   disabled?: boolean;
+  chartConfig?: Record<string, any>;
 }
 
 export function PieChartCustomizations({
   customizations,
   updateCustomization,
   disabled,
+  chartConfig,
 }: PieChartCustomizationsProps) {
+  const dimensionColors = getDimensionColorMap(customizations);
+  const dimensionColorEntries = getChartNamedColorEntries({
+    chartType: 'pie',
+    chartConfig,
+    customizations,
+  });
+
+  const updateDimensionColor = (key: string, color: string | null) => {
+    const updated = { ...dimensionColors };
+    if (color) {
+      updated[key] = color;
+    } else {
+      delete updated[key];
+    }
+    updateCustomization('dimension_colors', Object.keys(updated).length > 0 ? updated : undefined);
+  };
+
   return (
     <div className="space-y-6">
       {/* Legend */}
@@ -47,10 +68,10 @@ export function PieChartCustomizations({
                 value={customizations.legendDisplay || 'paginated'}
                 onValueChange={(value) => {
                   // Ensure legendPosition has a default value
-                  if (!customizations.legendPosition) {
-                    updateCustomization('legendPosition', 'right');
-                  }
-                  updateCustomization('legendDisplay', value);
+                  updateCustomization({
+                    ...(customizations.legendPosition ? {} : { legendPosition: 'right' }),
+                    legendDisplay: value,
+                  });
                 }}
                 disabled={disabled}
               >
@@ -152,11 +173,23 @@ export function PieChartCustomizations({
       {/* Colors */}
       <div className="space-y-4 pb-4 border-b">
         <h4 className="text-sm font-medium">Colors</h4>
-        <ChartPaletteSelector
-          selectedColors={customizations.color_palette_colors ?? null}
-          onSelect={(colors) => updateCustomization('color_palette_colors', colors)}
-          disabled={disabled}
-        />
+        <div className="space-y-4">
+          <ChartPaletteSelector
+            selectedColors={customizations.color_palette_colors ?? null}
+            onSelect={(colors) => updateCustomization('color_palette_colors', colors)}
+            disabled={disabled}
+          />
+
+          <ChartNamedColorRows
+            entries={dimensionColorEntries}
+            selectedColors={dimensionColors}
+            onChange={updateDimensionColor}
+            disabled={disabled}
+            fallbackColors={customizations.color_palette_colors}
+            title="Slice Colors"
+            description="Override specific slices while the remaining slices keep using the selected palette."
+          />
+        </div>
       </div>
 
       {/* Data Labels */}

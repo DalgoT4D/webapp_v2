@@ -10,6 +10,7 @@ import {
   useMemo,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { HexColorInput, HexColorPicker } from 'react-colorful';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -63,7 +64,7 @@ import {
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
 import { UnifiedTextElement, type UnifiedTextConfig } from './text-element-unified';
-import { ImageElement, type ImageComponentConfig } from './image-element';
+import { DEFAULT_IMAGE_FIT_MODE, ImageElement, type ImageComponentConfig } from './image-element';
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardThemeSettings } from './dashboard-theme-settings';
@@ -91,6 +92,23 @@ import {
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
 const ROW_HEIGHT = 20;
+
+const PANEL_BACKGROUND_PRESETS = [
+  '#FFFFFF',
+  '#F3F4F6',
+  '#FEF3C7',
+  '#DBEAFE',
+  '#D1FAE5',
+  '#FCE7F3',
+  '#EDE9FE',
+] as const;
+
+const OPAQUE_HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function normalizeOpaqueHexColor(value: string | undefined, fallback = '#FFFFFF') {
+  const trimmed = value?.trim();
+  return trimmed && OPAQUE_HEX_COLOR.test(trimmed) ? trimmed : fallback;
+}
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -1325,6 +1343,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         config: {
           imageUrl: '',
           alt: '',
+          objectFit: DEFAULT_IMAGE_FIT_MODE,
         } as ImageComponentConfig,
       };
 
@@ -2041,6 +2060,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     (affected) => affected.componentId === `${item.x}-${item.y}`
                   );
                   const isDraggedComponent = draggedItem?.i === item.i;
+                  const panelBackgroundColor = normalizeOpaqueHexColor(
+                    component.config?.panelBackgroundColor
+                  );
 
                   return (
                     <div
@@ -2061,7 +2083,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     >
                       {/* Chart Action Buttons - Single clean row */}
                       {component?.type === DashboardComponentType.CHART && (
-                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div
+                          className={cn(
+                            'absolute top-2 right-2 z-50 flex gap-1 drag-cancel transition-opacity duration-200',
+                            panelColorPickerOpen === item.i
+                              ? 'opacity-100'
+                              : 'opacity-0 group-hover:opacity-100'
+                          )}
+                        >
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -2076,56 +2105,70 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                               <PaintBucket className="w-3.5 h-3.5 text-gray-600" />
                             </button>
                             {panelColorPickerOpen === item.i && (
-                              <div className="absolute top-8 right-0 z-[60] bg-white rounded shadow-lg p-2 border border-gray-200 drag-cancel">
-                                <div className="flex gap-1 mb-2">
-                                  {[
-                                    '#FFFFFF',
-                                    '#F3F4F6',
-                                    '#FEF3C7',
-                                    '#DBEAFE',
-                                    '#D1FAE5',
-                                    '#FCE7F3',
-                                    '#EDE9FE',
-                                  ].map((color) => (
-                                    <button
-                                      key={color}
-                                      className="w-5 h-5 rounded border border-gray-300 hover:border-gray-500 transition-all"
-                                      style={{ backgroundColor: color }}
-                                      onClick={() => {
+                              <div className="absolute top-8 right-0 z-[60] w-64 bg-white rounded shadow-lg p-3 border border-gray-200 drag-cancel">
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-7 gap-1">
+                                    {PANEL_BACKGROUND_PRESETS.map((color) => (
+                                      <button
+                                        key={color}
+                                        className={cn(
+                                          'h-6 rounded border transition-all',
+                                          panelBackgroundColor === color
+                                            ? 'border-gray-900 ring-2 ring-gray-300'
+                                            : 'border-gray-300 hover:border-gray-500'
+                                        )}
+                                        style={{ backgroundColor: color }}
+                                        onClick={() => {
+                                          updateComponent(item.i, {
+                                            ...component.config,
+                                            panelBackgroundColor: color,
+                                          });
+                                        }}
+                                        title={color}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="border-t border-gray-200 pt-3">
+                                    <HexColorPicker
+                                      color={panelBackgroundColor}
+                                      onChange={(color) => {
                                         updateComponent(item.i, {
                                           ...component.config,
                                           panelBackgroundColor: color,
                                         });
+                                      }}
+                                      style={{ width: '100%', height: '128px' }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="h-8 w-8 rounded border border-gray-300"
+                                      style={{ backgroundColor: panelBackgroundColor }}
+                                    />
+                                    <HexColorInput
+                                      color={panelBackgroundColor}
+                                      onChange={(color) => {
+                                        updateComponent(item.i, {
+                                          ...component.config,
+                                          panelBackgroundColor: color,
+                                        });
+                                      }}
+                                      prefixed
+                                      className="h-8 flex-1 rounded border border-gray-300 px-2 text-xs font-medium uppercase outline-none focus:border-gray-500"
+                                    />
+                                    <button
+                                      className="text-xs px-2 py-1 hover:bg-gray-100 rounded drag-cancel"
+                                      onClick={() => {
+                                        updateComponent(item.i, {
+                                          ...component.config,
+                                          panelBackgroundColor: undefined,
+                                        });
                                         setPanelColorPickerOpen(null);
                                       }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="color"
-                                    value={component.config.panelBackgroundColor || '#FFFFFF'}
-                                    onChange={(e) => {
-                                      updateComponent(item.i, {
-                                        ...component.config,
-                                        panelBackgroundColor: e.target.value,
-                                      });
-                                    }}
-                                    className="w-6 h-6 rounded border border-gray-300 cursor-pointer drag-cancel"
-                                  />
-                                  <button
-                                    className="text-xs px-1.5 py-0.5 hover:bg-gray-100 rounded drag-cancel"
-                                    onClick={() => {
-                                      updateComponent(item.i, {
-                                        ...component.config,
-                                        panelBackgroundColor: undefined,
-                                      });
-                                      setPanelColorPickerOpen(null);
-                                    }}
-                                  >
-                                    Clear
-                                  </button>
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             )}

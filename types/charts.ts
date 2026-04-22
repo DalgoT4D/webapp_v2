@@ -340,7 +340,12 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     aggregate_function: string;
     selected_geojson_id: number;
     filters?: Record<string, any>;
-    chart_filters?: ChartFilter[];
+    chart_filters?: ChartFilter[]; // Legacy preview field
+    extra_config?: {
+      filters?: ChartFilter[];
+      pagination?: ChartPagination;
+      sort?: ChartSort[];
+    };
     time_grain?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | null;
   };
 };

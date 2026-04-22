@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
+import { apiGet, apiPost, apiPublicGet, apiPublicPost } from '@/lib/api';
 import {
   useChart,
   useChartDataPreview,
@@ -25,7 +25,7 @@ import {
   useRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
-import { useDashboardBranding } from '@/hooks/api/useDashboardBranding';
+import { type OrgBranding, useDashboardBranding } from '@/hooks/api/useDashboardBranding';
 import { DEFAULT_CHART_PALETTE_COLORS } from '@/constants/chart-palettes';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
@@ -44,6 +44,10 @@ import {
   getResponsiveGridMargins,
   shouldShowLegend,
 } from '@/lib/responsive-legend';
+import {
+  applyChartColorCustomizations,
+  resolveBarColorMode,
+} from '@/lib/chart-color-customizations';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import type { ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
@@ -118,6 +122,7 @@ interface ChartElementViewProps {
   publicToken?: string; // Required when isPublicMode=true
   config?: ChartTitleConfig & { panelBackgroundColor?: string }; // For dashboard title configuration
   frozenChartConfig?: FrozenChartConfig; // Frozen chart config from report snapshot
+  brandingOverride?: OrgBranding | null;
 }
 
 interface DrillDownLevel {
@@ -142,8 +147,12 @@ export function ChartElementView({
   publicToken,
   config = {},
   frozenChartConfig,
+  brandingOverride,
 }: ChartElementViewProps) {
-  const { branding } = useDashboardBranding();
+  const { branding } = useDashboardBranding({
+    enabled: brandingOverride === undefined,
+    initialBranding: brandingOverride,
+  });
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
   const wrapperRef = useRef<HTMLDivElement>(null); // Wrapper ref for fullscreen (stable element)
@@ -177,11 +186,7 @@ export function ChartElementView({
       : null;
 
   const { data: publicRegions } = useSWR(publicRegionsUrl, async (url: string) => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch public regions');
-    }
-    return response.json();
+    return apiPublicGet(url);
   });
 
   const regions = isPublicMode ? publicRegions : privateRegions;
@@ -218,16 +223,7 @@ export function ChartElementView({
       : `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
   // Custom fetcher for public mode
-  const fetcher = isPublicMode
-    ? async (url: string) => {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch chart data');
-        }
-        const data = await response.json();
-        return data;
-      }
-    : apiGet;
+  const fetcher = isPublicMode ? async (url: string) => apiPublicGet(url) : apiGet;
 
   // Fetch chart metadata - public vs private mode
   const publicChartMetadataUrl =
@@ -241,19 +237,12 @@ export function ChartElementView({
     isLoading: publicChartLoading,
   } = useSWR(
     publicChartMetadataUrl,
-    isPublicMode
-      ? async (url: string) => {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          return response.json();
-        }
-      : null,
+    isPublicMode ? async (url: string) => apiPublicGet(url) : null,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
       refreshInterval: 0,
+      dedupingInterval: 0,
     }
   );
 
@@ -305,6 +294,7 @@ export function ChartElementView({
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     refreshInterval: 0, // Disable auto-refresh
+    dedupingInterval: 0,
     // Don't retry on 404 errors
     onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
       // Never retry on 404
@@ -682,11 +672,7 @@ export function ChartElementView({
       : null;
 
   const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch public geojsons');
-    }
-    return response.json();
+    return apiPublicGet(url);
   });
 
   const regionGeojsons = isPublicMode ? publicRegionGeojsons : privateRegionGeojsons;
@@ -793,13 +779,7 @@ export function ChartElementView({
     isLoading: publicGeojsonLoading,
   } = useSWR(
     publicGeojsonUrl,
-    isPublicMode && isMapChart
-      ? async (url: string) => {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          return response.json();
-        }
-      : null,
+    isPublicMode && isMapChart ? async (url: string) => apiPublicGet(url) : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
@@ -1200,14 +1180,6 @@ export function ChartElementView({
               },
             }
           : undefined,
-      // Color priority: per-chart single color → per-chart palette → org branding → default
-      // For multi-series (stacked bar, multi-line), skip single color so each series gets distinct color
-      color: (() => {
-        const isMultiSeries = Array.isArray(baseConfig.series) && baseConfig.series.length > 1;
-        if (customizations.chart_color && !isMultiSeries) return [customizations.chart_color];
-        if (customizations.color_palette_colors) return customizations.color_palette_colors;
-        return branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS;
-      })(),
       // For pie and number charts, completely remove grid and axis configurations
       ...(isPieChart || isNumberChart
         ? {
@@ -1351,9 +1323,21 @@ export function ChartElementView({
       },
     };
 
+    const colorizedConfig = applyChartColorCustomizations({
+      chartType: effectiveChart?.chart_type,
+      chartConfig: styledConfig,
+      customizations,
+      fallbackPaletteColors: branding?.chart_palette_colors ?? DEFAULT_CHART_PALETTE_COLORS,
+      barColorMode: resolveBarColorMode({
+        chartType: effectiveChart?.chart_type,
+        hasExtraDimension: Boolean(effectiveChart?.extra_config?.extra_dimension_column),
+        metrics: effectiveChart?.extra_config?.metrics,
+      }),
+    });
+
     // Handle stacked bar chart data labels
     if (effectiveChart?.chart_type === 'bar') {
-      Object.assign(styledConfig, applyStackedBarLabels(styledConfig, customizations));
+      Object.assign(colorizedConfig, applyStackedBarLabels(colorizedConfig, customizations));
     }
 
     // Check DOM element dimensions before setting options
@@ -1364,7 +1348,7 @@ export function ChartElementView({
       const notMerge = filtersChanged || !chartInstance.current.getOption();
 
       // Force notMerge to ensure axis title styling is applied
-      chartInstance.current.setOption(styledConfig, true);
+      chartInstance.current.setOption(colorizedConfig, true);
 
       // Click event listeners for non-map charts only (maps use MapPreview component)
       if (!isMapChart) {
