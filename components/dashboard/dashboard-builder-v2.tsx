@@ -8,6 +8,8 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { ChartSelectorModal } from './chart-selector-modal';
+import { KPISelectorModal } from './kpi-selector-modal';
+import { KPIWidget } from './KPIWidget';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -49,6 +51,7 @@ import {
   Wand2,
   LayoutGrid,
   AlignLeft,
+  Target,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
@@ -141,6 +144,7 @@ export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',
   FILTER = 'filter',
+  KPI = 'kpi',
 }
 
 interface DashboardLayout {
@@ -461,6 +465,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
+    const [showKPISelector, setShowKPISelector] = useState(false);
     // Fetch all charts
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
@@ -1270,6 +1275,50 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
+    // Add KPI widget (dashboard-embedded KPI card — spec § 5.5).
+    const handleKPISelected = (kpiId: number) => {
+      const newComponent: DashboardComponent = {
+        id: `kpi-${Date.now()}`,
+        type: DashboardComponentType.KPI,
+        config: {
+          kpiId,
+          contentConstraints: null,
+        },
+      };
+
+      // KPIs are compact-scalar widgets — reuse the "number" chart dimensions
+      // so the default footprint matches the rest of the dashboard.
+      const defaultDimensions = getDefaultGridDimensions('number');
+      const minDimensions = getMinGridDimensions('number');
+      const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
+
+      const newLayoutItem: DashboardLayout = {
+        i: newComponent.id,
+        x: position.x,
+        y: position.y,
+        w: defaultDimensions.w,
+        h: defaultDimensions.h,
+        minW: minDimensions.w,
+        maxW: 12,
+        minH: minDimensions.h,
+      };
+
+      const newLayout = [...state.layout, newLayoutItem];
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
+      setState({
+        layout: newLayout,
+        layouts: newLayouts,
+        components: {
+          ...state.components,
+          [newComponent.id]: newComponent,
+        },
+      });
+
+      dashboardAnimation.animateComponent(newComponent.id, 500);
+      scrollToComponentIfNeeded(newComponent.id);
+    };
+
     // Add text component
     const addTextComponent = () => {
       // Calculate minimum dimensions for empty text component
@@ -1622,6 +1671,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           );
 
+        case DashboardComponentType.KPI:
+          return <KPIWidget config={component.config} className="h-full" />;
+
         // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
 
         default:
@@ -1793,6 +1845,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               >
                 <Plus className="w-3 h-3 mr-1" />
                 Chart
+              </Button>
+              <Button
+                onClick={() => setShowKPISelector(true)}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Target className="w-3 h-3 mr-1" />
+                KPI
               </Button>
               <Button
                 onClick={addTextComponent}
@@ -1980,6 +2041,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
+                </Button>
+
+                <Button onClick={() => setShowKPISelector(true)} size="sm" variant="outline">
+                  <Target className="w-4 h-4 mr-2" />
+                  Add KPI
                 </Button>
 
                 <Button onClick={addTextComponent} size="sm" variant="outline">
@@ -2364,6 +2430,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onClose={() => setShowChartSelector(false)}
           onSelect={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
+        />
+        {/* KPI Selector Modal */}
+        <KPISelectorModal
+          open={showKPISelector}
+          onOpenChange={setShowKPISelector}
+          onSelect={handleKPISelected}
         />
         {/* Filter Config Modal */}
         <FilterConfigModal

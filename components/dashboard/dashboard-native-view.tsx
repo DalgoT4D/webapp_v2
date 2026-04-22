@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
+import { KPIWidget } from './KPIWidget';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
@@ -571,6 +572,14 @@ export function DashboardNativeView({
               onUpdate={() => {}} // No-op in view mode
               isEditMode={false}
             />
+          </div>
+        );
+
+      case 'kpi':
+        // Native dashboard KPI widget (spec § 5.5). Config shape: { kpiId }.
+        return (
+          <div key={componentId} className="h-full">
+            <KPIWidget config={component.config} className="h-full" />
           </div>
         );
 
