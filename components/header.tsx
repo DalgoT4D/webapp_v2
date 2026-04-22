@@ -89,9 +89,6 @@ export function Header({
     // Update the selected org in store and localStorage
     setSelectedOrg(orgSlug);
 
-    // Clear all SWR caches so the new org gets fresh data
-    // await mutate(() => true, undefined, { revalidate: false });
-
     // Full reload ensures all API calls use the new org header cleanly
     window.location.reload();
   };
