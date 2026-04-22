@@ -51,6 +51,7 @@ import {
   applyLineBarChartFormatting,
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -1412,6 +1413,12 @@ export function ChartElementView({
     if (isLineChart || isBarChart) {
       applyLineBarChartFormatting(styledConfig, customizations);
       applyLineBarDateFormatting(styledConfig, customizations);
+    }
+
+    // Apply stacked bar data labels (shows total at top of each stacked bar)
+    if (isBarChart) {
+      const stackedConfig = applyStackedBarLabels(styledConfig, customizations);
+      Object.assign(styledConfig, stackedConfig);
     }
 
     // Check DOM element dimensions before setting options
