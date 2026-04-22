@@ -8,13 +8,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, BookMarked } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
+import type { Metric } from '@/types/metrics';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { useMetrics } from '@/hooks/api/useMetrics';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -82,6 +92,29 @@ export function MetricsSelector({
     onChange([...metrics, newMetric]);
   };
 
+  // Load saved Metrics so the user can pick one as a chart measure. Only
+  // single-term Simple metrics map cleanly to (column, aggregation); compound
+  // and Calculated-SQL metrics are hidden from the picker in Batch 6.
+  const { data: savedMetrics } = useMetrics();
+  const pickableMetrics: Metric[] = (savedMetrics || []).filter(
+    (m) =>
+      m.creation_mode === 'simple' &&
+      m.simple_terms?.length === 1 &&
+      (m.simple_formula === 't1' || !m.simple_formula)
+  );
+
+  const addFromSavedMetric = (metric: Metric) => {
+    const term = metric.simple_terms[0];
+    onChange([
+      ...metrics,
+      {
+        column: term.column || null,
+        aggregation: term.agg,
+        alias: metric.name,
+      },
+    ]);
+  };
+
   const updateMetric = (index: number, updates: Partial<ChartMetric>) => {
     const newMetrics = [...metrics];
     newMetrics[index] = { ...newMetrics[index], ...updates };
@@ -135,10 +168,44 @@ export function MetricsSelector({
     }));
   };
 
+  const renderLibraryButton = () => {
+    if (!pickableMetrics.length) return null;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" disabled={disabled} className="h-8">
+            <BookMarked className="h-3.5 w-3.5 mr-1.5" />
+            Pick saved Metric
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto w-72">
+          <DropdownMenuLabel>From Metrics library</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {pickableMetrics.map((m) => (
+            <DropdownMenuItem
+              key={m.id}
+              onClick={() => addFromSavedMetric(m)}
+              className="flex flex-col items-start gap-0.5 py-2"
+            >
+              <span className="text-sm font-medium">{m.name}</span>
+              <span className="text-[11px] font-mono text-muted-foreground">
+                {m.simple_terms[0]?.agg.toUpperCase()}({m.simple_terms[0]?.column}) ·{' '}
+                {m.schema_name}.{m.table_name}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   if (metrics.length === 0) {
     return (
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Metrics</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium text-gray-900">Metrics</Label>
+          {renderLibraryButton()}
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -155,7 +222,10 @@ export function MetricsSelector({
 
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium text-gray-900">Metrics</Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium text-gray-900">Metrics</Label>
+        {renderLibraryButton()}
+      </div>
       <div className="space-y-3">
         {metrics.map((metric, index) => (
           <div key={index} className="space-y-2 p-3 border rounded-lg bg-white">
