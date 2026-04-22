@@ -1,21 +1,19 @@
 'use client';
 
+import { MetricLibraryList } from '@/components/metrics-library/MetricLibraryList';
+
 /**
- * Metrics library — placeholder page.
+ * Metrics library — the reusable-primitive layer.
  *
- * Batch 5 of the KPI+Alerts overhaul will turn this into the full reusable-
- * primitive library (list, search, tags, create/edit/delete, references).
- * For now it renders a stub so the nav entry resolves and the existing
- * route shape is preserved.
+ * canEdit is hardcoded `true` in this prototype; the dedicated Access
+ * Controls spec will replace it with real role gating.
  */
 export default function MetricsLibraryPage() {
+  const canEdit = true;
+
   return (
-    <div className="flex h-full flex-col items-center justify-center p-12 text-center">
-      <h1 className="text-2xl font-bold mb-2">Metrics library</h1>
-      <p className="text-sm text-muted-foreground max-w-md">
-        The reusable Metric primitive library is coming in the next build batch. You can already
-        create Metrics inline from a KPI or chart.
-      </p>
+    <div className="h-full overflow-y-auto">
+      <MetricLibraryList canEdit={canEdit} />
     </div>
   );
 }
