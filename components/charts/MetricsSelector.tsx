@@ -155,7 +155,7 @@ export function MetricsSelector({
       mutateSavedMetrics();
       toastSuccess.generic(`Saved metric "${saved.name}"`);
     } catch (err: any) {
-      toastError.generic(err?.message || 'Failed to save metric');
+      toastError.save(err, 'metric');
     } finally {
       setSavingIndex(null);
     }
