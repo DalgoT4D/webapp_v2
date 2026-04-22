@@ -542,6 +542,8 @@ export function ChartDataConfigurationV3({
           columns={normalizedColumns}
           disabled={disabled}
           chartType={formData.chart_type}
+          schemaName={formData.schema_name}
+          tableName={formData.table_name}
         />
       )}
 
@@ -554,6 +556,8 @@ export function ChartDataConfigurationV3({
           disabled={disabled}
           chartType="pie"
           maxMetrics={1}
+          schemaName={formData.schema_name}
+          tableName={formData.table_name}
         />
       )}
 
@@ -574,6 +578,8 @@ export function ChartDataConfigurationV3({
           disabled={disabled}
           chartType="number"
           maxMetrics={1}
+          schemaName={formData.schema_name}
+          tableName={formData.table_name}
         />
       )}
 

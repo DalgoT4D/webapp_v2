@@ -50,7 +50,6 @@ interface NavItemType {
 // Menu items to hide in production environment
 const PRODUCTION_HIDDEN_ITEMS = [
   // Add menu item titles to hide in production
-  'Metrics',
   'Alerts',
 ];
 // Function to filter menu items for production environment
@@ -115,12 +114,6 @@ const getNavItems = (
       isActive: currentPath === '/impact',
     },
     {
-      title: 'Metrics',
-      href: '/metrics',
-      icon: BarChart3,
-      isActive: currentPath.startsWith('/metrics'),
-    },
-    {
       title: 'Charts',
       href: '/charts',
       icon: ChartBarBig,
@@ -177,6 +170,12 @@ const getNavItems = (
           href: '/explore',
           icon: ExploreIcon,
           isActive: currentPath.startsWith('/explore'),
+        },
+        {
+          title: 'Metrics',
+          href: '/metrics',
+          icon: BarChart3,
+          isActive: currentPath.startsWith('/metrics'),
         },
         {
           title: 'Quality',
