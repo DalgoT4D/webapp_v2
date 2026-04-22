@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { RAGStatus } from '@/types/metrics';
+import type { RAGStatus } from '@/types/kpis';
 
 const STATUS_CONFIG: Record<RAGStatus, { label: string; classes: string }> = {
   green: {

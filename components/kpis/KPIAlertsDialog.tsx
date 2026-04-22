@@ -13,11 +13,11 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAlerts } from '@/hooks/api/useAlerts';
 
-interface MetricAlertsDialogProps {
+interface KPIAlertsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  metricId: number | null;
-  metricName?: string | null;
+  kpiId: number | null;
+  kpiName?: string | null;
   onAlertSelected?: (alertId: number) => void;
 }
 
@@ -33,7 +33,7 @@ function formatThresholdConditionText(
 
 function formatRagConditionText(level: 'red' | 'amber' | 'green' | null) {
   if (!level) return null;
-  return `When metric is ${level.charAt(0).toUpperCase()}${level.slice(1)}`;
+  return `When KPI is ${level.charAt(0).toUpperCase()}${level.slice(1)}`;
 }
 
 function formatTimestamp(value: string | null) {
@@ -47,17 +47,17 @@ function formatTimestamp(value: string | null) {
   }).format(new Date(value));
 }
 
-export function MetricAlertsDialog({
+export function KPIAlertsDialog({
   open,
   onOpenChange,
-  metricId,
-  metricName,
+  kpiId,
+  kpiName,
   onAlertSelected,
-}: MetricAlertsDialogProps) {
+}: KPIAlertsDialogProps) {
   const router = useRouter();
-  const { alerts, isLoading } = useAlerts(1, 50, open ? metricId : null);
+  const { alerts, isLoading } = useAlerts(1, 50, open ? { kpiId } : null);
 
-  if (!metricId) return null;
+  if (!kpiId) return null;
 
   const handleSelectAlert = (alertId: number) => {
     onOpenChange(false);
@@ -70,7 +70,7 @@ export function MetricAlertsDialog({
       <DialogContent className="max-w-3xl gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle className="text-2xl font-semibold tracking-tight">
-            Alerts for {metricName || 'metric'}
+            Alerts for {kpiName || 'KPI'}
           </DialogTitle>
           <DialogDescription>
             Open any linked alert to edit its condition, recipients, or message.
@@ -88,7 +88,7 @@ export function MetricAlertsDialog({
                 <BellRing className="mx-auto mb-4 h-8 w-8 text-muted-foreground/50" />
                 <h3 className="text-lg font-semibold">No alerts linked yet</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Create an alert from this metric to start monitoring it.
+                  Create an alert from this KPI to start monitoring it.
                 </p>
               </div>
             ) : (

@@ -21,6 +21,10 @@ export interface AlertQueryConfig {
 export interface Alert {
   id: number;
   name: string;
+  // KPI-backed RAG alerts set kpi_id + metric_rag_level.
+  // metric_id is reserved for the Batch 3 metric-threshold alert path.
+  kpi_id: number | null;
+  kpi_name: string | null;
   metric_id: number | null;
   metric_name: string | null;
   metric_rag_level: MetricRagLevel | null;
@@ -66,6 +70,8 @@ export interface TriggeredAlertEvent {
   id: number;
   alert_id: number;
   alert_name: string;
+  kpi_id: number | null;
+  kpi_name: string | null;
   metric_id: number | null;
   metric_name: string | null;
   metric_rag_level: MetricRagLevel | null;
@@ -79,6 +85,9 @@ export interface TriggeredAlertEvent {
 
 export interface AlertFormData {
   name: string;
+  // For KPI-backed RAG alerts — replaces the old metric_id wire field.
+  kpi_id?: number | null;
+  // Reserved for Batch 3's metric-threshold alert path.
   metric_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: {

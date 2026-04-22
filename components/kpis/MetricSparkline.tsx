@@ -1,6 +1,6 @@
 'use client';
 
-import type { TrendPoint } from '@/types/metrics';
+import type { TrendPoint } from '@/types/kpis';
 
 interface MetricSparklineProps {
   data: TrendPoint[];

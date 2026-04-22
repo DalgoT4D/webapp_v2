@@ -86,7 +86,9 @@ export function TriggeredAlertDetail({ alertId, evaluationId }: TriggeredAlertDe
             >
               {evaluation.error_message ? 'Error' : evaluation.fired ? 'Triggered' : 'OK'}
             </Badge>
-            {alert.metric_name ? <Badge variant="secondary">{alert.metric_name}</Badge> : null}
+            {(alert.kpi_name ?? alert.metric_name) ? (
+              <Badge variant="secondary">{alert.kpi_name ?? alert.metric_name}</Badge>
+            ) : null}
             {alert.query_config.group_by_column ? (
               <Badge variant="outline">Group by {alert.query_config.group_by_column}</Badge>
             ) : null}

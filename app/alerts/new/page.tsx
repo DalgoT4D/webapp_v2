@@ -9,11 +9,12 @@ import type { AlertQueryConfig, MetricRagLevel } from '@/types/alert';
 export default function NewAlertPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialMetricId = searchParams.get('metric_id');
+  // Prefer ?kpi_id=; fall back to ?metric_id= for backwards-compat links.
+  const kpiIdParam = searchParams.get('kpi_id') ?? searchParams.get('metric_id');
 
   const handleSave = async (data: {
     name: string;
-    metric_id?: number | null;
+    kpi_id?: number | null;
     metric_rag_level?: MetricRagLevel | null;
     query_config: AlertQueryConfig;
     recipients: string[];
@@ -32,7 +33,7 @@ export default function NewAlertPage() {
   return (
     <div className="h-full min-h-0 overflow-y-auto">
       <AlertForm
-        initialMetricId={initialMetricId ? Number(initialMetricId) : null}
+        initialKPIId={kpiIdParam ? Number(kpiIdParam) : null}
         onSave={handleSave}
         onCancel={() => router.push('/alerts')}
       />

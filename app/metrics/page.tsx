@@ -1,26 +1,21 @@
 'use client';
 
-import { MetricsList } from '@/components/metrics/MetricsList';
-
 /**
- * My Metrics page — KPI tracking with RAG status.
+ * Metrics library — placeholder page.
  *
- * Permissions:
- *   - All roles can view metrics.
- *   - Analyst and above can add/edit metrics and annotations.
- *
- * The canEdit prop is derived from the user's role. For the prototype,
- * we default to true (editable). In production, wire this to the
- * role-based permission check from useAuthStore / request.permissions.
+ * Batch 5 of the KPI+Alerts overhaul will turn this into the full reusable-
+ * primitive library (list, search, tags, create/edit/delete, references).
+ * For now it renders a stub so the nav entry resolves and the existing
+ * route shape is preserved.
  */
-export default function MetricsPage() {
-  // TODO: wire to real permission check, e.g.:
-  // const canEdit = userRole !== 'guest';
-  const canEdit = true;
-
+export default function MetricsLibraryPage() {
   return (
-    <div className="h-full overflow-y-auto">
-      <MetricsList canEdit={canEdit} />
+    <div className="flex h-full flex-col items-center justify-center p-12 text-center">
+      <h1 className="text-2xl font-bold mb-2">Metrics library</h1>
+      <p className="text-sm text-muted-foreground max-w-md">
+        The reusable Metric primitive library is coming in the next build batch. You can already
+        create Metrics inline from a KPI or chart.
+      </p>
     </div>
   );
 }

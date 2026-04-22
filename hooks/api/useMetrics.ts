@@ -1,34 +1,52 @@
+// Hooks for the Metric primitive library (/api/metrics/).
+//
+// Batch 2 rewires this to the new primitive API. The KPI tracked layer that
+// used to live here has moved to `useKPIs.ts`. The dedicated library UI lands
+// in Batch 5; for now these hooks power inline "pick a saved Metric" flows
+// in the chart builder and KPI/alert forms.
+
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
-  MetricDefinition,
+  Metric,
   MetricCreate,
   MetricUpdate,
+  MetricDetail,
   MetricDataPoint,
-  MetricAnnotation,
-  AnnotationCreate,
-  LatestAnnotationEntry,
-  MetricEntry,
-  EntryCreate,
+  MetricReferences,
+  ValidateSqlRequest,
+  ValidateSqlResponse,
 } from '@/types/metrics';
 
-// ── Shared SWR config: fetch once on mount, only refetch on explicit mutate() ─
 const FETCH_ONCE = {
   revalidateOnFocus: false,
   revalidateOnReconnect: false,
   revalidateIfStale: false,
 } as const;
 
-// ── Fetchers ────────────────────────────────────────────────────────────────
+const jsonFetcher = (url: string) => apiGet(url);
 
-const metricsFetcher = (url: string) => apiGet(url);
-const annotationsFetcher = (url: string) => apiGet(url);
-
-// ── Metric Definitions ──────────────────────────────────────────────────────
+// ── Metric CRUD ─────────────────────────────────────────────────────────────
 
 export function useMetrics() {
-  return useSWR<MetricDefinition[]>('/api/metrics/', metricsFetcher, FETCH_ONCE);
+  return useSWR<Metric[]>('/api/metrics/', jsonFetcher, FETCH_ONCE);
+}
+
+export function useMetric(metricId: number | null) {
+  return useSWR<MetricDetail>(
+    metricId ? `/api/metrics/${metricId}/` : null,
+    jsonFetcher,
+    FETCH_ONCE
+  );
+}
+
+export function useMetricReferences(metricId: number | null) {
+  return useSWR<MetricReferences>(
+    metricId ? `/api/metrics/${metricId}/references/` : null,
+    jsonFetcher,
+    FETCH_ONCE
+  );
 }
 
 export function useCreateMetric() {
@@ -51,75 +69,31 @@ export function useDeleteMetric() {
   );
 }
 
-// ── Metric Data (live warehouse values) ─────────────────────────────────────
+// ── Metric live data (current value + optional trend, no RAG) ───────────────
 
-export function useMetricsData(metricIds: number[] | null) {
-  // Use a stable key based on sorted IDs — spread to avoid mutating the original array
+export function useMetricsData(metricIds: number[] | null, includeTrend = false) {
   const key =
     metricIds && metricIds.length > 0
-      ? ['/api/metrics/data/', [...metricIds].sort().join(',')]
+      ? ['/api/metrics/data/', [...metricIds].sort().join(','), includeTrend]
       : null;
 
   return useSWR<MetricDataPoint[]>(
     key,
-    ([url]: [string, string]) => apiPost(url, { metric_ids: metricIds }),
+    ([url]: [string, string, boolean]) =>
+      apiPost(url, { metric_ids: metricIds, include_trend: includeTrend }),
     {
       ...FETCH_ONCE,
-      dedupingInterval: 30000, // 30s cache — warehouse queries are expensive
+      dedupingInterval: 30000,
     }
   );
 }
 
-// ── Annotations ─────────────────────────────────────────────────────────────
+// ── Calculated-SQL validator (pre-save dry-run) ─────────────────────────────
 
-export function useAnnotations(metricId: number | null) {
-  return useSWR<MetricAnnotation[]>(
-    metricId ? `/api/metrics/${metricId}/annotations/` : null,
-    annotationsFetcher,
-    FETCH_ONCE
-  );
-}
-
-export function useSaveAnnotation(metricId: number | null) {
+export function useValidateMetricSql() {
   return useSWRMutation(
-    metricId ? `/api/metrics/${metricId}/annotations/` : null,
-    (url: string, { arg }: { arg: AnnotationCreate }) => apiPost(url, arg)
-  );
-}
-
-export function useLatestAnnotations(metricIds: number[] | null) {
-  const key =
-    metricIds && metricIds.length > 0
-      ? ['/api/metrics/latest-annotations/', [...metricIds].sort().join(',')]
-      : null;
-
-  return useSWR<LatestAnnotationEntry[]>(
-    key,
-    ([url]: [string, string]) => apiPost(url, { metric_ids: metricIds }),
-    FETCH_ONCE
-  );
-}
-
-// ── Metric Entries (timeline) ──────────────────────────────────────────────
-
-export function useMetricEntries(metricId: number | null) {
-  return useSWR<MetricEntry[]>(
-    metricId ? `/api/metrics/${metricId}/entries/` : null,
-    metricsFetcher,
-    FETCH_ONCE
-  );
-}
-
-export function useCreateEntry(metricId: number | null) {
-  return useSWRMutation(
-    metricId ? `/api/metrics/${metricId}/entries/` : null,
-    (url: string, { arg }: { arg: EntryCreate }) => apiPost(url, arg)
-  );
-}
-
-export function useDeleteEntry(metricId: number | null) {
-  return useSWRMutation(
-    metricId ? `/api/metrics/${metricId}/entries/` : null,
-    (url: string, { arg }: { arg: number }) => apiDelete(`/api/metrics/${metricId}/entries/${arg}/`)
+    '/api/metrics/validate-sql/',
+    (url: string, { arg }: { arg: ValidateSqlRequest }) =>
+      apiPost(url, arg) as Promise<ValidateSqlResponse>
   );
 }

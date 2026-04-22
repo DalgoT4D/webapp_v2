@@ -23,9 +23,9 @@ import {
 } from '@/components/ui/select';
 import { RAGBadge } from './RAGBadge';
 import { MetricSparkline } from './MetricSparkline';
-import { useMetricEntries, useCreateEntry, useDeleteEntry } from '@/hooks/api/useMetrics';
+import { useKPIEntries, useCreateKPIEntry, useDeleteKPIEntry } from '@/hooks/api/useKPIs';
 import { toastError, toastSuccess } from '@/lib/toast';
-import type { MetricDefinition, MetricDataPoint, MetricEntry, RAGStatus } from '@/types/metrics';
+import type { KPI, KPIDataPoint, KPIEntry, RAGStatus } from '@/types/kpis';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -39,16 +39,14 @@ function formatValue(value: number | null | undefined): string {
 
 function formatPeriodLabel(periodKey: string, timeGrain: string): string {
   if (timeGrain === 'month') {
-    // "2026-03" → "March 2026"
     const [year, month] = periodKey.split('-');
     const date = new Date(Number(year), Number(month) - 1);
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }
   if (timeGrain === 'quarter') {
-    // "2026-Q1" → "Q1 2026"
     return periodKey.replace(/^(\d{4})-/, '$1 ').replace(/(\d{4}) (Q\d)/, '$2 $1');
   }
-  return periodKey; // year
+  return periodKey;
 }
 
 function formatTimestamp(dateStr: string): string {
@@ -87,8 +85,6 @@ function generatePeriodOptions(timeGrain: string): { value: string; label: strin
   return options;
 }
 
-// ── Snapshot badge (compact inline RAG) ────────────────────────────────────
-
 const SNAPSHOT_RAG_COLORS: Record<string, string> = {
   green: 'text-emerald-700',
   amber: 'text-amber-700',
@@ -105,68 +101,56 @@ const SNAPSHOT_RAG_LABELS: Record<string, string> = {
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
-interface MetricDetailDrawerProps {
+interface KPIDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  metric: MetricDefinition | null;
-  data?: MetricDataPoint;
+  kpi: KPI | null;
+  data?: KPIDataPoint;
   canEdit: boolean;
   canCreateAlerts: boolean;
   canViewAlerts: boolean;
-  onEditMetric: (metric: MetricDefinition) => void;
-  onCreateAlert: (metric: MetricDefinition) => void;
-  onViewAlerts: (metric: MetricDefinition) => void;
+  onEditKPI: (kpi: KPI) => void;
+  onCreateAlert: (kpi: KPI) => void;
+  onViewAlerts: (kpi: KPI) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function MetricDetailDrawer({
+export function KPIDetailDrawer({
   open,
   onOpenChange,
-  metric,
+  kpi,
   data,
   canEdit,
   canCreateAlerts,
   canViewAlerts,
-  onEditMetric,
+  onEditKPI,
   onCreateAlert,
   onViewAlerts,
-}: MetricDetailDrawerProps) {
+}: KPIDetailDrawerProps) {
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
-  const { data: entries, mutate: refreshEntries } = useMetricEntries(
-    open && metric ? metric.id : null
-  );
-  const { trigger: createEntry, isMutating: isCreating } = useCreateEntry(
-    metric ? metric.id : null
-  );
-  const { trigger: deleteEntry } = useDeleteEntry(metric ? metric.id : null);
+  const { data: entries, mutate: refreshEntries } = useKPIEntries(open && kpi ? kpi.id : null);
+  const { trigger: createEntry, isMutating: isCreating } = useCreateKPIEntry(kpi ? kpi.id : null);
+  const { trigger: deleteEntry } = useDeleteKPIEntry(kpi ? kpi.id : null);
 
-  // ── Add entry form state ──────────────────────────────────────────────
   const [showAddForm, setShowAddForm] = useState(false);
   const [entryType, setEntryType] = useState<'comment' | 'quote'>('comment');
   const [entryPeriod, setEntryPeriod] = useState('');
   const [entryContent, setEntryContent] = useState('');
   const [entryAttribution, setEntryAttribution] = useState('');
 
-  // ── Filter state ──────────────────────────────────────────────────────
   const [filter, setFilter] = useState<'all' | 'comment' | 'quote'>('all');
 
-  // Reset form state when drawer opens/closes
   React.useEffect(() => {
-    if (open && metric) {
+    if (open && kpi) {
       setShowAddForm(false);
       setFilter('all');
-      const periods = generatePeriodOptions(metric.time_grain);
+      const periods = generatePeriodOptions(kpi.trend_grain);
       setEntryPeriod(periods[0]?.value || '');
     }
-  }, [open, metric]);
+  }, [open, kpi]);
 
-  // ── Derived data ──────────────────────────────────────────────────────
-
-  const periodOptions = useMemo(
-    () => (metric ? generatePeriodOptions(metric.time_grain) : []),
-    [metric]
-  );
+  const periodOptions = useMemo(() => (kpi ? generatePeriodOptions(kpi.trend_grain) : []), [kpi]);
 
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
@@ -174,35 +158,30 @@ export function MetricDetailDrawer({
     return entries.filter((e) => e.entry_type === filter);
   }, [entries, filter]);
 
-  // Group entries by period
   const groupedEntries = useMemo(() => {
-    if (!metric) return [];
+    if (!kpi) return [];
 
-    const groups = new Map<string, MetricEntry[]>();
+    const groups = new Map<string, KPIEntry[]>();
 
-    // Seed all periods from periodOptions so empty ones show
     periodOptions.forEach((p) => {
       groups.set(p.value, []);
     });
 
-    // Fill with actual entries
     filteredEntries.forEach((e) => {
       const list = groups.get(e.period_key) || [];
       list.push(e);
       groups.set(e.period_key, list);
     });
 
-    // Sort periods descending
     return Array.from(groups.entries())
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([period, items]) => ({
         period,
-        label: formatPeriodLabel(period, metric.time_grain),
+        label: formatPeriodLabel(period, kpi.trend_grain),
         entries: items,
       }));
-  }, [filteredEntries, periodOptions, metric]);
+  }, [filteredEntries, periodOptions, kpi]);
 
-  // Compute deltas — build a sorted list of all entries by date asc for delta calculation
   const deltaMap = useMemo(() => {
     if (!entries || entries.length === 0) return new Map<number, number | null>();
     const sorted = [...entries].sort(
@@ -211,7 +190,7 @@ export function MetricDetailDrawer({
     const map = new Map<number, number | null>();
     for (let i = 0; i < sorted.length; i++) {
       if (i === 0 || sorted[i].snapshot_value == null) {
-        map.set(sorted[i].id, null); // first entry or no snapshot
+        map.set(sorted[i].id, null);
       } else {
         const prev = sorted[i - 1].snapshot_value;
         const curr = sorted[i].snapshot_value!;
@@ -221,7 +200,6 @@ export function MetricDetailDrawer({
     return map;
   }, [entries]);
 
-  // Period-over-period change for the header
   const periodChange = useMemo(() => {
     if (!data?.trend || data.trend.length < 2) return null;
     const validPoints = data.trend.filter((t) => t.value != null);
@@ -233,8 +211,6 @@ export function MetricDetailDrawer({
     return { pct: Math.round(pct), raw: curr - prev };
   }, [data?.trend]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────
-
   const handleSaveEntry = async () => {
     if (!entryContent.trim()) return;
     try {
@@ -245,20 +221,20 @@ export function MetricDetailDrawer({
         attribution: entryType === 'quote' ? entryAttribution.trim() : '',
       });
       refreshEntries();
-      toastSuccess.created('Metric entry');
+      toastSuccess.created('KPI entry');
       setShowAddForm(false);
       setEntryContent('');
       setEntryAttribution('');
       setEntryType('comment');
     } catch (error: unknown) {
       console.error('Failed to create entry:', error);
-      toastError.save(error, 'metric entry');
+      toastError.save(error, 'KPI entry');
     }
   };
 
   const handleDeleteEntry = async (entryId: number) => {
     const confirmed = await confirm({
-      title: 'Delete metric entry?',
+      title: 'Delete KPI entry?',
       description: 'This cannot be undone.',
       confirmText: 'Delete',
       type: 'warning',
@@ -267,19 +243,20 @@ export function MetricDetailDrawer({
     try {
       await deleteEntry(entryId);
       refreshEntries();
-      toastSuccess.deleted('Metric entry');
+      toastSuccess.deleted('KPI entry');
     } catch (error: unknown) {
       console.error('Failed to delete entry:', error);
-      toastError.delete(error, 'metric entry');
+      toastError.delete(error, 'KPI entry');
     }
   };
 
-  if (!metric) return null;
+  if (!kpi) return null;
 
+  const metric = kpi.metric;
   const currentValue = data?.current_value;
   const ragStatus = (data?.rag_status ?? 'grey') as RAGStatus;
   const trend = data?.trend ?? [];
-  const hasTarget = metric.target_value != null;
+  const hasTarget = kpi.target_value != null;
   const hasEntries = (entries || []).length > 0;
 
   return (
@@ -295,7 +272,7 @@ export function MetricDetailDrawer({
               <SheetTitle className="text-lg">
                 {metric.name}
                 <span className="ml-1.5 text-sm text-muted-foreground font-normal">
-                  {metric.direction === 'decrease' ? '↓' : '↑'}
+                  {kpi.direction === 'decrease' ? '↓' : '↑'}
                 </span>
               </SheetTitle>
               {(canEdit || canCreateAlerts || canViewAlerts) && (
@@ -304,17 +281,17 @@ export function MetricDetailDrawer({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => onEditMetric(metric)}
+                      onClick={() => onEditKPI(kpi)}
                       className="shrink-0"
                     >
-                      Edit metric
+                      Edit KPI
                     </Button>
                   )}
                   {canViewAlerts && (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => onViewAlerts(metric)}
+                      onClick={() => onViewAlerts(kpi)}
                       className="shrink-0"
                     >
                       View alerts
@@ -324,7 +301,7 @@ export function MetricDetailDrawer({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => onCreateAlert(metric)}
+                      onClick={() => onCreateAlert(kpi)}
                       className="shrink-0"
                     >
                       Create alert
@@ -347,14 +324,14 @@ export function MetricDetailDrawer({
             <SheetDescription className="sr-only">Activity feed for {metric.name}</SheetDescription>
           </SheetHeader>
 
-          {/* Metric summary */}
+          {/* KPI summary */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
             <div className="flex items-baseline justify-between">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold tabular-nums">{formatValue(currentValue)}</span>
                 {hasTarget && (
                   <span className="text-sm text-muted-foreground">
-                    / {formatValue(metric.target_value)}
+                    / {formatValue(kpi.target_value)}
                   </span>
                 )}
               </div>
@@ -366,18 +343,16 @@ export function MetricDetailDrawer({
               />
             </div>
 
-            {/* Sparkline */}
             {trend.length >= 2 && (
               <MetricSparkline
                 data={trend}
-                direction={metric.direction}
+                direction={kpi.direction}
                 width={400}
                 height={48}
                 className="w-full"
               />
             )}
 
-            {/* Period-over-period change */}
             {periodChange && (
               <p className="text-xs text-muted-foreground">
                 {periodChange.pct >= 0 ? '+' : ''}
@@ -411,12 +386,10 @@ export function MetricDetailDrawer({
 
         {/* ── Scrollable body ─────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
-          {/* Inline add form */}
           {showAddForm && (
             <div className="rounded-lg border-2 border-dashed p-4 mb-4 space-y-3">
               <p className="text-xs font-medium text-muted-foreground">New Entry</p>
 
-              {/* Type toggle */}
               <div className="flex gap-2">
                 <button
                   onClick={() => setEntryType('comment')}
@@ -442,7 +415,6 @@ export function MetricDetailDrawer({
                 </button>
               </div>
 
-              {/* Period selector */}
               <div className="grid gap-1.5">
                 <Label className="text-xs">Period</Label>
                 <Select value={entryPeriod} onValueChange={setEntryPeriod}>
@@ -459,7 +431,6 @@ export function MetricDetailDrawer({
                 </Select>
               </div>
 
-              {/* Content */}
               <Textarea
                 placeholder={
                   entryType === 'comment'
@@ -472,7 +443,6 @@ export function MetricDetailDrawer({
                 className="text-sm"
               />
 
-              {/* Attribution (quotes only) */}
               {entryType === 'quote' && (
                 <Input
                   placeholder="Attribution — e.g. Beneficiary, Karnataka"
@@ -482,7 +452,6 @@ export function MetricDetailDrawer({
                 />
               )}
 
-              {/* Actions */}
               <div className="flex justify-end gap-2">
                 <Button
                   variant="ghost"
@@ -509,7 +478,6 @@ export function MetricDetailDrawer({
           {/* Timeline */}
           {groupedEntries.map((group) => (
             <div key={group.period}>
-              {/* Period divider */}
               <div className="flex items-center gap-2 py-3">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                   {group.label}
@@ -517,7 +485,6 @@ export function MetricDetailDrawer({
                 <div className="flex-1 border-t" />
               </div>
 
-              {/* Entries for this period */}
               {group.entries.length > 0 ? (
                 <div className="space-y-3 ml-2 pl-3 border-l-2 border-muted">
                   {group.entries.map((entry) => {
@@ -529,7 +496,6 @@ export function MetricDetailDrawer({
                         key={entry.id}
                         className="relative rounded-lg border bg-card p-3 space-y-2"
                       >
-                        {/* Entry type badge + delete */}
                         <div className="flex items-center gap-1.5">
                           {isQuote ? (
                             <Quote className="h-3 w-3 text-muted-foreground" />
@@ -550,7 +516,6 @@ export function MetricDetailDrawer({
                           )}
                         </div>
 
-                        {/* Content */}
                         {isQuote ? (
                           <blockquote className="text-sm italic border-l-2 border-muted-foreground/30 pl-3">
                             &ldquo;{entry.content}&rdquo;
@@ -559,17 +524,15 @@ export function MetricDetailDrawer({
                           <p className="text-sm">{entry.content}</p>
                         )}
 
-                        {/* Quote attribution */}
                         {isQuote && entry.attribution && (
                           <p className="text-xs text-muted-foreground">— {entry.attribution}</p>
                         )}
 
-                        {/* Snapshot */}
                         {entry.snapshot_value != null && (
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <span>
                               Value: {formatValue(entry.snapshot_value)}
-                              {hasTarget && ` / ${formatValue(metric.target_value)}`}
+                              {hasTarget && ` / ${formatValue(kpi.target_value)}`}
                             </span>
                             <span
                               className={SNAPSHOT_RAG_COLORS[entry.snapshot_rag] || 'text-gray-500'}
@@ -592,7 +555,6 @@ export function MetricDetailDrawer({
                           </div>
                         )}
 
-                        {/* Author + timestamp */}
                         <p className="text-[11px] text-muted-foreground/70">
                           by {entry.created_by_name.split('@')[0]} &middot;{' '}
                           {formatTimestamp(entry.created_at)}
@@ -609,13 +571,12 @@ export function MetricDetailDrawer({
             </div>
           ))}
 
-          {/* Empty state */}
           {!hasEntries && !showAddForm && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <MessageSquare className="h-8 w-8 text-muted-foreground/30 mb-3" />
               <p className="text-sm text-muted-foreground mb-1">No entries yet</p>
               <p className="text-xs text-muted-foreground/70 mb-4 max-w-[240px]">
-                Add comments or beneficiary quotes to build a timeline for this metric.
+                Add comments or beneficiary quotes to build a timeline for this KPI.
               </p>
               {canEdit && (
                 <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>

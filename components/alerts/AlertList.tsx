@@ -93,7 +93,7 @@ function buildTriggeredGroups(events: TriggeredAlertEvent[]) {
       groups.set(event.alert_id, {
         alertId: event.alert_id,
         alertName: event.alert_name,
-        metricName: event.metric_name,
+        metricName: event.kpi_name ?? event.metric_name,
         latestCreatedAt: event.created_at,
         events: [event],
       });
@@ -211,8 +211,8 @@ export function AlertList() {
                       className="min-w-0 flex-1 text-left"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        {alert.metric_name ? (
-                          <Badge variant="secondary">{alert.metric_name}</Badge>
+                        {(alert.kpi_name ?? alert.metric_name) ? (
+                          <Badge variant="secondary">{alert.kpi_name ?? alert.metric_name}</Badge>
                         ) : null}
                         {!alert.is_active ? <Badge variant="outline">Paused</Badge> : null}
                       </div>

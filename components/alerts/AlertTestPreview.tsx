@@ -11,7 +11,7 @@ import type { AlertQueryConfig, AlertTestResult, MetricRagLevel } from '@/types/
 
 interface AlertTestPreviewProps {
   queryConfig: AlertQueryConfig;
-  metricId?: number | null;
+  kpiId?: number | null;
   metricRagLevel?: MetricRagLevel | null;
   message: string;
   groupMessage?: string;
@@ -20,7 +20,7 @@ interface AlertTestPreviewProps {
 
 export function AlertTestPreview({
   queryConfig,
-  metricId,
+  kpiId,
   metricRagLevel,
   message,
   groupMessage,
@@ -36,7 +36,7 @@ export function AlertTestPreview({
       setIsLoading(true);
       try {
         const result = await testAlert({
-          metric_id: metricId ?? null,
+          kpi_id: kpiId ?? null,
           metric_rag_level: metricRagLevel ?? null,
           query_config: queryConfig,
           message,
@@ -54,7 +54,7 @@ export function AlertTestPreview({
         setIsLoading(false);
       }
     },
-    [groupMessage, message, metricId, metricRagLevel, queryConfig, testPage, testPageSize]
+    [groupMessage, message, kpiId, metricRagLevel, queryConfig, testPage, testPageSize]
   );
 
   const handlePageChange = useCallback(

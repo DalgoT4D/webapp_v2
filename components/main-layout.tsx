@@ -49,9 +49,9 @@ interface NavItemType {
 }
 
 // Menu items to hide in production environment
-const PRODUCTION_HIDDEN_ITEMS = [
-  // Add menu item titles to hide in production
-  'Alerts',
+const PRODUCTION_HIDDEN_ITEMS: string[] = [
+  // Alerts is now a first-class left-menu item (promoted in Batch 2 of the
+  // KPI+Alerts overhaul). Add titles here to hide them in production.
 ];
 // Function to filter menu items for production environment
 const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
@@ -115,10 +115,10 @@ const getNavItems = (
       isActive: currentPath === '/impact',
     },
     {
-      title: 'Metrics',
-      href: '/metrics',
+      title: 'KPIs',
+      href: '/kpis',
       icon: Target,
-      isActive: currentPath.startsWith('/metrics'),
+      isActive: currentPath.startsWith('/kpis'),
     },
     {
       title: 'Charts',
@@ -187,6 +187,12 @@ const getNavItems = (
             !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
             transformType === TransformType.UI,
         },
+        {
+          title: 'Metrics',
+          href: '/metrics',
+          icon: Target,
+          isActive: currentPath.startsWith('/metrics'),
+        },
       ],
     },
     {
@@ -194,7 +200,6 @@ const getNavItems = (
       href: '/alerts',
       icon: AlertTriangle,
       isActive: currentPath.startsWith('/alerts'),
-      hide: !isFeatureFlagEnabled(FeatureFlagKeys.ALERTS),
     },
     {
       title: 'Settings',

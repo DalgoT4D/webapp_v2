@@ -70,7 +70,9 @@ export function AlertDetail({ alertId }: AlertDetailProps) {
 
         <section className="rounded-[32px] border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50 p-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
           <div className="flex flex-wrap items-center gap-2">
-            {alert.metric_name ? <Badge variant="secondary">{alert.metric_name}</Badge> : null}
+            {(alert.kpi_name ?? alert.metric_name) ? (
+              <Badge variant="secondary">{alert.kpi_name ?? alert.metric_name}</Badge>
+            ) : null}
             {alert.query_config.group_by_column ? (
               <Badge variant="outline">Group by {alert.query_config.group_by_column}</Badge>
             ) : null}

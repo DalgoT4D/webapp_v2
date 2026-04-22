@@ -15,7 +15,7 @@ export default function EditAlertPage({ params }: { params: Promise<{ id: string
 
   const handleSave = async (data: {
     name: string;
-    metric_id?: number | null;
+    kpi_id?: number | null;
     metric_rag_level?: MetricRagLevel | null;
     query_config: AlertQueryConfig;
     recipients: string[];

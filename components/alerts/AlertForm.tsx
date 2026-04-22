@@ -22,14 +22,14 @@ import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { FilterRow } from '@/components/alerts/FilterRow';
 import { AlertTestPreview } from '@/components/alerts/AlertTestPreview';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
-import { useMetrics } from '@/hooks/api/useMetrics';
+import { useKPIs } from '@/hooks/api/useKPIs';
 import type { Alert, AlertFilter, AlertQueryConfig, MetricRagLevel } from '@/types/alert';
-import type { MetricDefinition } from '@/types/metrics';
+import type { KPI } from '@/types/kpis';
 import { AGGREGATION_OPTIONS, CONDITION_OPERATORS } from '@/types/alert';
 
 interface AlertSavePayload {
   name: string;
-  metric_id?: number | null;
+  kpi_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
   recipients: string[];
@@ -39,7 +39,8 @@ interface AlertSavePayload {
 
 interface AlertFormProps {
   alert?: Alert | null;
-  initialMetricId?: number | null;
+  // Pre-select a KPI when launched from a KPI card or detail drawer.
+  initialKPIId?: number | null;
   compact?: boolean;
   title?: string;
   description?: string;
@@ -49,7 +50,7 @@ interface AlertFormProps {
 
 interface AlertFormState {
   name: string;
-  metric_id: number | null;
+  kpi_id: number | null;
   schema_name: string;
   table_name: string;
   filters: AlertFilter[];
@@ -70,7 +71,7 @@ const DEFAULT_GROUPED_MESSAGE = 'The following {{group_by_column}} values failed
 const DEFAULT_GROUP_TEMPLATE = '{{group_by_value}}\nAlert value: {{alert_value}}';
 
 function generateAlertName(
-  metricName: string | null,
+  kpiName: string | null,
   aggregation: string,
   measureColumn: string,
   conditionOperator: string,
@@ -78,10 +79,10 @@ function generateAlertName(
   groupByColumn: string,
   metricRagLevel: MetricRagLevel | ''
 ) {
-  if (metricName && metricRagLevel) {
-    return `${metricName} is ${metricRagLevel.charAt(0).toUpperCase()}${metricRagLevel.slice(1)}`;
+  if (kpiName && metricRagLevel) {
+    return `${kpiName} is ${metricRagLevel.charAt(0).toUpperCase()}${metricRagLevel.slice(1)}`;
   }
-  const source = metricName || `${aggregation.toLowerCase()} of ${measureColumn || 'rows'}`;
+  const source = kpiName || `${aggregation.toLowerCase()} of ${measureColumn || 'rows'}`;
   const groupSuffix = groupByColumn ? ` by ${groupByColumn}` : '';
   return `${source} ${conditionOperator} ${conditionValue}${groupSuffix}`;
 }
@@ -107,10 +108,10 @@ function isNumericColumnType(dataType?: string) {
   ].some((token) => lower.includes(token));
 }
 
-function buildInitialState(alert?: Alert | null, initialMetricId?: number | null): AlertFormState {
+function buildInitialState(alert?: Alert | null, initialKPIId?: number | null): AlertFormState {
   return {
     name: alert?.name ?? '',
-    metric_id: alert?.metric_id ?? initialMetricId ?? null,
+    kpi_id: alert?.kpi_id ?? initialKPIId ?? null,
     schema_name: alert?.query_config.schema_name ?? '',
     table_name: alert?.query_config.table_name ?? '',
     filters: alert?.query_config.filters ?? [],
@@ -176,20 +177,20 @@ function formatMetricPercent(value: number) {
   return `${rounded}%`;
 }
 
-function buildMetricThresholdInfo(metric: MetricDefinition, level: MetricRagLevel) {
-  if (metric.target_value == null || metric.target_value === 0) {
+function buildKPIThresholdInfo(kpi: KPI, level: MetricRagLevel) {
+  if (kpi.target_value == null || kpi.target_value === 0) {
     return null;
   }
 
-  const amberValue = (metric.target_value * metric.amber_threshold_pct) / 100;
-  const greenValue = (metric.target_value * metric.green_threshold_pct) / 100;
+  const amberValue = (kpi.target_value * kpi.amber_threshold_pct) / 100;
+  const greenValue = (kpi.target_value * kpi.green_threshold_pct) / 100;
 
-  if (metric.direction === 'decrease') {
+  if (kpi.direction === 'decrease') {
     if (level === 'green') {
       return {
         label: 'Green',
         tone: 'border-emerald-200 bg-emerald-50/80 text-emerald-700',
-        percentageRule: `At or below ${formatMetricPercent(metric.green_threshold_pct)} of target`,
+        percentageRule: `At or below ${formatMetricPercent(kpi.green_threshold_pct)} of target`,
         valueRule: `Value <= ${formatMetricValue(greenValue)}`,
       };
     }
@@ -197,14 +198,14 @@ function buildMetricThresholdInfo(metric: MetricDefinition, level: MetricRagLeve
       return {
         label: 'Amber',
         tone: 'border-amber-200 bg-amber-50/80 text-amber-700',
-        percentageRule: `Above ${formatMetricPercent(metric.green_threshold_pct)} and at or below ${formatMetricPercent(metric.amber_threshold_pct)} of target`,
+        percentageRule: `Above ${formatMetricPercent(kpi.green_threshold_pct)} and at or below ${formatMetricPercent(kpi.amber_threshold_pct)} of target`,
         valueRule: `${formatMetricValue(greenValue)} < value <= ${formatMetricValue(amberValue)}`,
       };
     }
     return {
       label: 'Red',
       tone: 'border-rose-200 bg-rose-50/80 text-rose-700',
-      percentageRule: `Above ${formatMetricPercent(metric.amber_threshold_pct)} of target`,
+      percentageRule: `Above ${formatMetricPercent(kpi.amber_threshold_pct)} of target`,
       valueRule: `Value > ${formatMetricValue(amberValue)}`,
     };
   }
@@ -213,7 +214,7 @@ function buildMetricThresholdInfo(metric: MetricDefinition, level: MetricRagLeve
     return {
       label: 'Green',
       tone: 'border-emerald-200 bg-emerald-50/80 text-emerald-700',
-      percentageRule: `At or above ${formatMetricPercent(metric.green_threshold_pct)} of target`,
+      percentageRule: `At or above ${formatMetricPercent(kpi.green_threshold_pct)} of target`,
       valueRule: `Value >= ${formatMetricValue(greenValue)}`,
     };
   }
@@ -221,21 +222,56 @@ function buildMetricThresholdInfo(metric: MetricDefinition, level: MetricRagLeve
     return {
       label: 'Amber',
       tone: 'border-amber-200 bg-amber-50/80 text-amber-700',
-      percentageRule: `At or above ${formatMetricPercent(metric.amber_threshold_pct)} and below ${formatMetricPercent(metric.green_threshold_pct)} of target`,
+      percentageRule: `At or above ${formatMetricPercent(kpi.amber_threshold_pct)} and below ${formatMetricPercent(kpi.green_threshold_pct)} of target`,
       valueRule: `${formatMetricValue(amberValue)} <= value < ${formatMetricValue(greenValue)}`,
     };
   }
   return {
     label: 'Red',
     tone: 'border-rose-200 bg-rose-50/80 text-rose-700',
-    percentageRule: `Below ${formatMetricPercent(metric.amber_threshold_pct)} of target`,
+    percentageRule: `Below ${formatMetricPercent(kpi.amber_threshold_pct)} of target`,
     valueRule: `Value < ${formatMetricValue(amberValue)}`,
   };
 }
 
+// Helpers to derive aggregation/column from a KPI's underlying Metric.
+// Single-term Simple-mode maps cleanly; compound/SQL metrics fall back to
+// a summary label with no measure_column (Batch 3 wires full semantics).
+function deriveAggregationFromKPI(kpi: KPI): AlertQueryConfig['aggregation'] {
+  const firstTerm = kpi.metric.simple_terms?.[0];
+  if (
+    kpi.metric.creation_mode === 'simple' &&
+    kpi.metric.simple_terms?.length === 1 &&
+    (kpi.metric.simple_formula === 't1' || !kpi.metric.simple_formula) &&
+    firstTerm
+  ) {
+    const agg = firstTerm.agg.toUpperCase();
+    if (['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'].includes(agg)) {
+      return agg as AlertQueryConfig['aggregation'];
+    }
+    // count_distinct collapses to COUNT for the threshold UI; the server-side
+    // RAG evaluator uses the Metric's real definition regardless.
+    return 'COUNT';
+  }
+  return 'COUNT';
+}
+
+function deriveMeasureColumnFromKPI(kpi: KPI): string {
+  const firstTerm = kpi.metric.simple_terms?.[0];
+  if (
+    kpi.metric.creation_mode === 'simple' &&
+    kpi.metric.simple_terms?.length === 1 &&
+    (kpi.metric.simple_formula === 't1' || !kpi.metric.simple_formula) &&
+    firstTerm
+  ) {
+    return firstTerm.column;
+  }
+  return '';
+}
+
 export function AlertForm({
   alert,
-  initialMetricId,
+  initialKPIId,
   compact = false,
   title,
   description,
@@ -243,8 +279,8 @@ export function AlertForm({
   onCancel,
 }: AlertFormProps) {
   const pathname = usePathname();
-  const { data: metrics } = useMetrics();
-  const [form, setForm] = useState<AlertFormState>(() => buildInitialState(alert, initialMetricId));
+  const { data: kpis } = useKPIs();
+  const [form, setForm] = useState<AlertFormState>(() => buildInitialState(alert, initialKPIId));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState('');
@@ -255,19 +291,19 @@ export function AlertForm({
   const messageRef = useRef<HTMLTextAreaElement | null>(null);
   const groupMessageRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const selectedMetric = useMemo(
-    () => (metrics || []).find((metric) => metric.id === form.metric_id) || null,
-    [form.metric_id, metrics]
+  const selectedKPI = useMemo(
+    () => (kpis || []).find((k) => k.id === form.kpi_id) || null,
+    [form.kpi_id, kpis]
   );
 
   useEffect(() => {
-    if (!selectedMetric) return;
+    if (!selectedKPI) return;
     setForm((current) => ({
       ...current,
-      schema_name: selectedMetric.schema_name,
-      table_name: selectedMetric.table_name,
-      aggregation: selectedMetric.aggregation.toUpperCase() as AlertQueryConfig['aggregation'],
-      measure_column: selectedMetric.column,
+      schema_name: selectedKPI.metric.schema_name,
+      table_name: selectedKPI.metric.table_name,
+      aggregation: deriveAggregationFromKPI(selectedKPI),
+      measure_column: deriveMeasureColumnFromKPI(selectedKPI),
       filters: [],
       filter_connector: 'AND',
       group_by_column: '',
@@ -277,21 +313,21 @@ export function AlertForm({
           : current.message,
       group_message: '',
     }));
-  }, [selectedMetric]);
+  }, [selectedKPI]);
 
   useEffect(() => {
     if (nameManuallyEdited) {
       return;
     }
 
-    if (selectedMetric) {
+    if (selectedKPI) {
       if (!form.metric_rag_level) {
         return;
       }
       setForm((current) => ({
         ...current,
         name: generateAlertName(
-          selectedMetric.name,
+          selectedKPI.metric.name,
           current.aggregation,
           current.measure_column,
           current.condition_operator,
@@ -325,11 +361,11 @@ export function AlertForm({
     form.measure_column,
     form.metric_rag_level,
     nameManuallyEdited,
-    selectedMetric,
+    selectedKPI,
   ]);
 
   useEffect(() => {
-    if (selectedMetric) {
+    if (selectedKPI) {
       setForm((current) => ({ ...current, group_message: '' }));
       return;
     }
@@ -354,7 +390,7 @@ export function AlertForm({
           : current.message,
       group_message: current.group_message || DEFAULT_GROUP_TEMPLATE,
     }));
-  }, [form.group_by_column, selectedMetric]);
+  }, [form.group_by_column, selectedKPI]);
 
   const { data: tableColumns } = useTableColumns(form.schema_name || null, form.table_name || null);
 
@@ -366,26 +402,25 @@ export function AlertForm({
     form.aggregation === 'COUNT' ? tableColumnOptions : numericColumns.length ? numericColumns : [];
 
   const metricRequiresTarget =
-    selectedMetric != null &&
-    (selectedMetric.target_value == null || selectedMetric.target_value === 0);
+    selectedKPI != null && (selectedKPI.target_value == null || selectedKPI.target_value === 0);
   const metricThresholdInfo =
-    selectedMetric && form.metric_rag_level
-      ? buildMetricThresholdInfo(selectedMetric, form.metric_rag_level)
+    selectedKPI && form.metric_rag_level
+      ? buildKPIThresholdInfo(selectedKPI, form.metric_rag_level)
       : null;
 
   const queryConfig = useMemo<AlertQueryConfig | null>(() => {
-    if (selectedMetric) {
+    if (selectedKPI) {
       if (!form.metric_rag_level || metricRequiresTarget) {
         return null;
       }
 
       return {
-        schema_name: selectedMetric.schema_name,
-        table_name: selectedMetric.table_name,
+        schema_name: selectedKPI.metric.schema_name,
+        table_name: selectedKPI.metric.table_name,
         filters: [],
         filter_connector: 'AND',
-        aggregation: selectedMetric.aggregation.toUpperCase() as AlertQueryConfig['aggregation'],
-        measure_column: selectedMetric.column,
+        aggregation: deriveAggregationFromKPI(selectedKPI),
+        measure_column: deriveMeasureColumnFromKPI(selectedKPI) || null,
         group_by_column: null,
         condition_operator: '=',
         condition_value: 0,
@@ -418,40 +453,41 @@ export function AlertForm({
       condition_operator: form.condition_operator,
       condition_value: parsedCondition,
     };
-  }, [form, metricRequiresTarget, selectedMetric]);
+  }, [form, metricRequiresTarget, selectedKPI]);
 
   const builtInGlobalTokens = useMemo(
     () => [
       { label: 'Alert name', token: '{{alert_name}}' },
-      ...(selectedMetric ? [{ label: 'Metric name', token: '{{metric_name}}' }] : []),
+      ...(selectedKPI ? [{ label: 'KPI name', token: '{{kpi_name}}' }] : []),
       { label: 'Table name', token: '{{table_name}}' },
       ...(!form.group_by_column ? [{ label: 'Alert value', token: '{{alert_value}}' }] : []),
-      ...(!selectedMetric && form.group_by_column
+      ...(!selectedKPI && form.group_by_column
         ? [
             { label: 'Group by Column', token: '{{group_by_column}}' },
             { label: 'Failing group count', token: '{{failing_group_count}}' },
           ]
         : []),
     ],
-    [form.group_by_column, selectedMetric]
+    [form.group_by_column, selectedKPI]
   );
 
   const builtInGroupTokens = useMemo(
     () =>
-      !selectedMetric && form.group_by_column
+      !selectedKPI && form.group_by_column
         ? [
             { label: 'Group value', token: '{{group_by_value}}' },
             { label: 'Alert value', token: '{{alert_value}}' },
           ]
         : [],
-    [form.group_by_column, selectedMetric]
+    [form.group_by_column, selectedKPI]
   );
 
-  const metricSelectionLocked =
-    Boolean(selectedMetric) && (initialMetricId != null || Boolean(alert?.metric_id));
-  const createMetricHref =
+  const kpiSelectionLocked =
+    Boolean(selectedKPI) && (initialKPIId != null || Boolean(alert?.kpi_id));
+  // Inline "Create a KPI" link — points to /kpis with the create dialog open.
+  const createKPIHref =
     pathname === '/alerts/new'
-      ? `/metrics?create=1&returnTo=${encodeURIComponent('/alerts/new')}`
+      ? `/kpis?create=1&returnTo=${encodeURIComponent('/alerts/new')}`
       : null;
 
   const wrapperClassName = compact
@@ -546,7 +582,7 @@ export function AlertForm({
 
     if (!queryConfig) {
       setFormError(
-        selectedMetric
+        selectedKPI
           ? 'Choose Red, Amber, or Green before saving the alert.'
           : 'Complete the alert condition before saving.'
       );
@@ -564,12 +600,12 @@ export function AlertForm({
       setFormError('Add an email message.');
       return;
     }
-    if (!selectedMetric && form.group_by_column && !form.group_message.trim()) {
+    if (!selectedKPI && form.group_by_column && !form.group_message.trim()) {
       setFormError('Add the per-group message section for grouped alerts.');
       return;
     }
-    if (selectedMetric && metricRequiresTarget) {
-      setFormError('This metric needs a target before you can create a RAG-based alert.');
+    if (selectedKPI && metricRequiresTarget) {
+      setFormError('This KPI needs a target before you can create a RAG-based alert.');
       return;
     }
 
@@ -578,8 +614,8 @@ export function AlertForm({
         'alert_name',
         'table_name',
         'alert_value',
-        ...(selectedMetric ? ['metric_name'] : []),
-        ...(!selectedMetric && form.group_by_column
+        ...(selectedKPI ? ['kpi_name', 'metric_name'] : []),
+        ...(!selectedKPI && form.group_by_column
           ? ['group_by_column', 'group_by_value', 'failing_group_count']
           : []),
       ].filter(Boolean)
@@ -601,12 +637,12 @@ export function AlertForm({
     try {
       await onSave({
         name: form.name.trim(),
-        metric_id: form.metric_id,
+        kpi_id: form.kpi_id,
         metric_rag_level: form.metric_rag_level || null,
         query_config: queryConfig,
         recipients: form.recipients,
         message: form.message,
-        group_message: selectedMetric ? '' : form.group_message,
+        group_message: selectedKPI ? '' : form.group_message,
       });
     } finally {
       setSubmitting(false);
@@ -631,9 +667,9 @@ export function AlertForm({
           <section className={sectionClassName}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">
-                {selectedMetric ? 'Metric alert' : 'Alert source'}
+                {selectedKPI ? 'KPI alert' : 'Alert source'}
               </h2>
-              {selectedMetric ? <Badge variant="secondary">Metric-backed</Badge> : null}
+              {selectedKPI ? <Badge variant="secondary">KPI-backed</Badge> : null}
             </div>
 
             <div className="space-y-4">
@@ -650,55 +686,55 @@ export function AlertForm({
                 />
               </div>
 
-              {!metricSelectionLocked ? (
+              {!kpiSelectionLocked ? (
                 <div className="grid gap-2">
                   <div className="flex items-center gap-2">
-                    <Label>Metric</Label>
-                    <FieldHint text="Choose a metric to create a RAG-based alert, or continue without one to configure a standalone alert." />
+                    <Label>KPI</Label>
+                    <FieldHint text="Choose a KPI to create a RAG-based alert, or continue without one to configure a standalone alert." />
                   </div>
                   <Select
-                    value={form.metric_id != null ? String(form.metric_id) : 'standalone'}
+                    value={form.kpi_id != null ? String(form.kpi_id) : 'standalone'}
                     onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        metric_id: value === 'standalone' ? null : Number(value),
+                        kpi_id: value === 'standalone' ? null : Number(value),
                         metric_rag_level: value === 'standalone' ? '' : current.metric_rag_level,
                       }))
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a metric" />
+                      <SelectValue placeholder="Select a KPI" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standalone">Proceed without metric</SelectItem>
-                      {(metrics || []).map((metric) => (
-                        <SelectItem key={metric.id} value={String(metric.id)}>
-                          {metric.name}
+                      <SelectItem value="standalone">Proceed without KPI</SelectItem>
+                      {(kpis || []).map((kpi) => (
+                        <SelectItem key={kpi.id} value={String(kpi.id)}>
+                          {kpi.metric.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
-                  {!selectedMetric && createMetricHref ? (
+                  {!selectedKPI && createKPIHref ? (
                     <div className="pt-1">
                       <Link
-                        href={createMetricHref}
+                        href={createKPIHref}
                         className="text-sm font-medium text-sky-700 transition hover:text-sky-800 hover:underline"
                       >
-                        Create a metric
+                        Create a KPI
                       </Link>
                     </div>
                   ) : null}
                 </div>
               ) : null}
 
-              {selectedMetric ? (
+              {selectedKPI ? (
                 <div className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="grid gap-2">
-                      <Label>Metric</Label>
+                      <Label>KPI</Label>
                       <Input
-                        value={selectedMetric.name}
+                        value={selectedKPI.metric.name}
                         readOnly
                         disabled
                         className="bg-muted/40"
@@ -707,7 +743,7 @@ export function AlertForm({
                     <div className="grid gap-2">
                       <Label>Dataset</Label>
                       <Input
-                        value={`${selectedMetric.schema_name}.${selectedMetric.table_name}`}
+                        value={`${selectedKPI.metric.schema_name}.${selectedKPI.metric.table_name}`}
                         readOnly
                         disabled
                         className="bg-muted/40 font-mono"
@@ -716,7 +752,7 @@ export function AlertForm({
                     <div className="grid gap-2">
                       <Label>Aggregation</Label>
                       <Input
-                        value={aggregationLabel(selectedMetric.aggregation)}
+                        value={aggregationLabel(deriveAggregationFromKPI(selectedKPI))}
                         readOnly
                         disabled
                         className="bg-muted/40"
@@ -725,7 +761,7 @@ export function AlertForm({
                     <div className="grid gap-2">
                       <Label>Measure column</Label>
                       <Input
-                        value={selectedMetric.column}
+                        value={deriveMeasureColumnFromKPI(selectedKPI) || '(custom formula)'}
                         readOnly
                         disabled
                         className="bg-muted/40"
@@ -735,14 +771,14 @@ export function AlertForm({
 
                   {metricRequiresTarget ? (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
-                      This metric needs a target before you can create a Red, Amber, or Green alert.
+                      This KPI needs a target before you can create a Red, Amber, or Green alert.
                     </div>
                   ) : null}
 
                   <div className="grid gap-2 md:max-w-sm">
                     <div className="flex items-center gap-2">
-                      <Label>Alert when metric is</Label>
-                      <FieldHint text="After each successful transform run, this alert fires when the metric's current RAG status matches the level you choose." />
+                      <Label>Alert when KPI is</Label>
+                      <FieldHint text="After each successful transform run, this alert fires when the KPI's current RAG status matches the level you choose." />
                     </div>
                     <Select
                       value={form.metric_rag_level || undefined}
@@ -778,7 +814,7 @@ export function AlertForm({
                           variant="outline"
                           className="border-current/20 bg-white/60 text-current"
                         >
-                          Target {formatMetricValue(selectedMetric.target_value)}
+                          Target {formatMetricValue(selectedKPI.target_value)}
                         </Badge>
                       </div>
                       <div className="mt-3 text-sm">{metricThresholdInfo.valueRule}</div>
@@ -1064,7 +1100,7 @@ export function AlertForm({
                 </div>
               </div>
 
-              {!selectedMetric && form.group_by_column ? (
+              {!selectedKPI && form.group_by_column ? (
                 <div className="space-y-2">
                   <Label>Group tokens</Label>
                   <div className="flex flex-wrap gap-2">
@@ -1098,7 +1134,7 @@ export function AlertForm({
                   />
                 </div>
 
-                {!selectedMetric && form.group_by_column ? (
+                {!selectedKPI && form.group_by_column ? (
                   <div className="grid gap-2">
                     <div className="flex items-center gap-2">
                       <Label htmlFor="alert-group-message">Per failing group section</Label>
@@ -1130,7 +1166,7 @@ export function AlertForm({
             {queryConfig ? (
               <AlertTestPreview
                 queryConfig={queryConfig}
-                metricId={form.metric_id}
+                kpiId={form.kpi_id}
                 metricRagLevel={form.metric_rag_level || null}
                 message={form.message}
                 groupMessage={form.group_message}

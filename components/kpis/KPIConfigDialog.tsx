@@ -21,8 +21,9 @@ import {
 } from '@/components/ui/select';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { useColumns } from '@/hooks/api/useChart';
-import type { MetricDefinition, MetricCreate } from '@/types/metrics';
-import { METRIC_TYPES, METRIC_TYPE_DESCRIPTIONS, METRIC_TYPE_ICONS } from '@/types/metrics';
+import type { KPI, KPICreate } from '@/types/kpis';
+import { METRIC_TYPES, METRIC_TYPE_DESCRIPTIONS, METRIC_TYPE_ICONS } from '@/types/kpis';
+import type { MetricCreate } from '@/types/metrics';
 
 const AGGREGATION_OPTIONS = [
   { value: 'sum', label: 'Sum' },
@@ -39,34 +40,43 @@ const TIME_GRAIN_OPTIONS = [
   { value: 'year', label: 'Year' },
 ];
 
-interface MetricConfigDialogProps {
+// Minimum viable shape of a column record the backend returns.
+interface WarehouseColumn {
+  name: string;
+  data_type?: string;
+}
+
+interface KPIConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  metric?: MetricDefinition | null; // null = create mode
+  kpi?: KPI | null; // null = create mode
   existingProgramTags: string[];
   existingMetricTypes?: string[];
-  onSave: (data: MetricCreate) => void | Promise<void>;
+  onSave: (data: KPICreate) => void | Promise<void>;
   isSaving?: boolean;
 }
 
-export function MetricConfigDialog({
+export function KPIConfigDialog({
   open,
   onOpenChange,
-  metric,
+  kpi,
   existingProgramTags,
-  existingMetricTypes,
   onSave,
   isSaving = false,
-}: MetricConfigDialogProps) {
-  const isEditing = !!metric;
+}: KPIConfigDialogProps) {
+  const isEditing = !!kpi;
 
+  // ── Metric-primitive fields (only used in create mode; Batch 5 library will
+  //    own full Metric editing UX). In edit mode these are read-only hints.
   const [name, setName] = useState('');
   const [schemaName, setSchemaName] = useState('');
   const [tableName, setTableName] = useState('');
   const [valueColumn, setValueColumn] = useState('');
   const [aggregation, setAggregation] = useState('sum');
   const [timeColumn, setTimeColumn] = useState<string>('');
-  const [timeGrain, setTimeGrain] = useState('month');
+
+  // ── KPI-level fields
+  const [trendGrain, setTrendGrain] = useState('month');
   const [trendPeriods, setTrendPeriods] = useState(12);
   const [direction, setDirection] = useState<'increase' | 'decrease'>('increase');
   const [targetValue, setTargetValue] = useState<string>('');
@@ -75,35 +85,36 @@ export function MetricConfigDialog({
   const [programTag, setProgramTag] = useState('');
   const [metricType, setMetricType] = useState('');
 
-  // Fetch columns when dataset changes
   const { data: columns } = useColumns(schemaName || null, tableName || null);
 
-  // Populate form when editing
   useEffect(() => {
-    if (metric) {
-      setName(metric.name);
-      setSchemaName(metric.schema_name);
-      setTableName(metric.table_name);
-      setValueColumn(metric.column);
-      setAggregation(metric.aggregation);
-      setTimeColumn(metric.time_column || '');
-      setTimeGrain(metric.time_grain);
-      setTrendPeriods(metric.trend_periods);
-      setDirection(metric.direction || 'increase');
-      setTargetValue(metric.target_value?.toString() ?? '');
-      setGreenPct(metric.green_threshold_pct);
-      setAmberPct(metric.amber_threshold_pct);
-      setProgramTag(metric.program_tag);
-      setMetricType(metric.metric_type_tag);
+    if (kpi) {
+      const m = kpi.metric;
+      setName(m.name);
+      setSchemaName(m.schema_name);
+      setTableName(m.table_name);
+      // Flat form preview uses the first Simple-mode term; multi-term and SQL
+      // metrics show read-only summaries inline. Batch 5 wires the full editor.
+      const firstTerm = m.simple_terms?.[0];
+      setValueColumn(firstTerm?.column || '');
+      setAggregation(firstTerm?.agg || 'sum');
+      setTimeColumn(m.time_column || '');
+      setTrendGrain(kpi.trend_grain);
+      setTrendPeriods(kpi.trend_periods);
+      setDirection(kpi.direction || 'increase');
+      setTargetValue(kpi.target_value?.toString() ?? '');
+      setGreenPct(kpi.green_threshold_pct);
+      setAmberPct(kpi.amber_threshold_pct);
+      setProgramTag(kpi.program_tag);
+      setMetricType(kpi.metric_type_tag);
     } else {
-      // Reset for create mode
       setName('');
       setSchemaName('');
       setTableName('');
       setValueColumn('');
       setAggregation('sum');
       setTimeColumn('');
-      setTimeGrain('month');
+      setTrendGrain('month');
       setTrendPeriods(12);
       setDirection('increase');
       setTargetValue('');
@@ -112,10 +123,9 @@ export function MetricConfigDialog({
       setProgramTag('');
       setMetricType('');
     }
-  }, [metric, open]);
+  }, [kpi, open]);
 
-  // Filter numeric columns for the value column dropdown
-  const numericColumns = (columns || []).filter((c: any) => {
+  const numericColumns = (columns || []).filter((c: WarehouseColumn) => {
     const dt = (c.data_type || '').toLowerCase();
     return (
       dt.includes('int') ||
@@ -130,9 +140,7 @@ export function MetricConfigDialog({
     );
   });
 
-  // Prefer date/timestamp columns for the time column dropdown, but allow all columns
-  // so that date columns imported from CSV as VARCHAR are still selectable.
-  const dateColumns = (columns || []).slice().sort((a: any, b: any) => {
+  const dateColumns = (columns || []).slice().sort((a: WarehouseColumn, b: WarehouseColumn) => {
     const isDateA = ['date', 'time', 'timestamp'].some((t) =>
       (a.data_type || '').toLowerCase().includes(t)
     );
@@ -145,104 +153,150 @@ export function MetricConfigDialog({
   const allColumns = columns || [];
 
   const handleSave = () => {
+    const kpiFields: Partial<KPICreate> = {
+      direction,
+      target_value: targetValue ? parseFloat(targetValue) : null,
+      amber_threshold_pct: amberPct,
+      green_threshold_pct: greenPct,
+      trend_grain: trendGrain as 'month' | 'quarter' | 'year',
+      trend_periods: trendPeriods,
+      program_tag: programTag,
+      metric_type_tag: metricType,
+    };
+
+    if (isEditing) {
+      // Edit path updates KPI-level fields only. Metric-level edits happen in
+      // the Metric library (Batch 5).
+      onSave(kpiFields as KPICreate);
+      return;
+    }
+
+    // Create path: build an inline Metric + KPI payload. Simple single-term
+    // mapping (formula "t1") gives us parity with today's flat form UX.
     if (!name || !schemaName || !tableName || !valueColumn || !aggregation) return;
 
-    onSave({
+    const inlineMetric: MetricCreate = {
       name,
       schema_name: schemaName,
       table_name: tableName,
-      column: valueColumn,
-      aggregation,
       time_column: timeColumn || null,
-      time_grain: timeGrain,
-      trend_periods: trendPeriods,
-      direction,
-      target_value: targetValue ? parseFloat(targetValue) : null,
-      green_threshold_pct: greenPct,
-      amber_threshold_pct: amberPct,
-      program_tag: programTag,
-      metric_type_tag: metricType,
+      default_time_grain: trendGrain as 'month' | 'quarter' | 'year',
+      creation_mode: 'simple',
+      simple_terms: [
+        {
+          id: 't1',
+          agg: aggregation as 'sum' | 'avg' | 'count' | 'min' | 'max' | 'count_distinct',
+          column: valueColumn,
+        },
+      ],
+      simple_formula: 't1',
+    };
+
+    onSave({
+      inline_metric: inlineMetric,
+      ...kpiFields,
     });
   };
 
-  const canSave = name && schemaName && tableName && valueColumn && aggregation && metricType;
+  const canSave = isEditing
+    ? Boolean(metricType)
+    : Boolean(name && schemaName && tableName && valueColumn && aggregation && metricType);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Metric' : 'Add Metric'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit KPI' : 'Add KPI'}</DialogTitle>
           <DialogDescription>
-            Configure the metric definition, target logic, and reporting context.
+            {isEditing
+              ? 'Update the target, RAG thresholds, grain, and tags for this KPI. To change the underlying Metric definition, visit the Metrics library.'
+              : 'Create a new KPI. Define the underlying Metric inline, set a target, and configure RAG thresholds.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
-          {/* Metric name */}
-          <div className="grid gap-1.5">
-            <Label htmlFor="metric-name">Metric Name</Label>
-            <Input
-              id="metric-name"
-              placeholder="e.g. Children vaccinated"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+          {/* Metric-primitive fields (create mode only) */}
+          {!isEditing && (
+            <>
+              <div className="grid gap-1.5">
+                <Label htmlFor="metric-name">KPI Name</Label>
+                <Input
+                  id="metric-name"
+                  placeholder="e.g. Children vaccinated"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
 
-          {/* Dataset */}
-          <div className="grid gap-1.5">
-            <Label>Dataset</Label>
-            <DatasetSelector
-              schema_name={schemaName}
-              table_name={tableName}
-              onDatasetChange={(s, t) => {
-                setSchemaName(s);
-                setTableName(t);
-                setValueColumn('');
-                setTimeColumn('');
-              }}
-            />
-          </div>
+              <div className="grid gap-1.5">
+                <Label>Dataset</Label>
+                <DatasetSelector
+                  schema_name={schemaName}
+                  table_name={tableName}
+                  onDatasetChange={(s, t) => {
+                    setSchemaName(s);
+                    setTableName(t);
+                    setValueColumn('');
+                    setTimeColumn('');
+                  }}
+                />
+              </div>
 
-          {/* Value column + Aggregation */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Value Column</Label>
-              <Select value={valueColumn} onValueChange={setValueColumn}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select column" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(aggregation === 'count' ? allColumns : numericColumns).map((col: any) => (
-                    <SelectItem key={col.name} value={col.name}>
-                      {col.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label>Value Column</Label>
+                  <Select value={valueColumn} onValueChange={setValueColumn}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select column" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(aggregation === 'count' ? allColumns : numericColumns).map(
+                        (col: WarehouseColumn) => (
+                          <SelectItem key={col.name} value={col.name}>
+                            {col.name}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Aggregation</Label>
+                  <Select value={aggregation} onValueChange={setAggregation}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGGREGATION_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Read-only underlying Metric summary in edit mode */}
+          {isEditing && (
+            <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+              <p className="font-medium text-foreground">Underlying Metric: {name}</p>
+              <p className="text-muted-foreground">
+                {schemaName}.{tableName}
+                {valueColumn && aggregation && ` — ${aggregation.toUpperCase()}(${valueColumn})`}
+              </p>
+              <p className="text-muted-foreground">
+                To change the Metric definition, edit it in the Metrics library.
+              </p>
             </div>
-            <div className="grid gap-1.5">
-              <Label>Aggregation</Label>
-              <Select value={aggregation} onValueChange={setAggregation}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AGGREGATION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           {/* Target & RAG section */}
           <div className="border-t pt-3 mt-1">
             <p className="text-xs font-medium text-muted-foreground mb-3">Target & RAG Status</p>
             <div className="grid gap-3">
-              {/* Direction dropdown */}
               <div className="grid gap-1.5">
                 <Label>Direction</Label>
                 <Select
@@ -250,7 +304,6 @@ export function MetricConfigDialog({
                   onValueChange={(v) => {
                     const dir = v as 'increase' | 'decrease';
                     setDirection(dir);
-                    // Swap threshold defaults when direction changes
                     if (dir === 'decrease') {
                       setGreenPct(100);
                       setAmberPct(130);
@@ -273,7 +326,6 @@ export function MetricConfigDialog({
                 </p>
               </div>
 
-              {/* Target value */}
               <div className="grid gap-1.5">
                 <Label htmlFor="target-value">Target Value</Label>
                 <Input
@@ -285,7 +337,6 @@ export function MetricConfigDialog({
                 />
               </div>
 
-              {/* Threshold lines with dynamic labels */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
                   <Label htmlFor="green-pct" className="flex items-center gap-1.5">
@@ -325,7 +376,6 @@ export function MetricConfigDialog({
                 </div>
               </div>
 
-              {/* Red line — auto-computed, read-only */}
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
                 Red when {direction === 'increase' ? '<' : '>'} {amberPct}% of target
@@ -335,42 +385,42 @@ export function MetricConfigDialog({
 
           {/* Time configuration */}
           <div className="border-t pt-3 mt-1">
-            <p className="text-xs font-medium text-muted-foreground mb-3">
-              Time Configuration (optional)
-            </p>
+            <p className="text-xs font-medium text-muted-foreground mb-3">Trend Configuration</p>
             <div className="grid grid-cols-3 gap-3">
+              {!isEditing && (
+                <div className="grid gap-1.5">
+                  <Label>Time Column</Label>
+                  <Select
+                    value={timeColumn || '__none__'}
+                    onValueChange={(v) => setTimeColumn(v === '__none__' ? '' : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {dateColumns.map((col: WarehouseColumn) => {
+                        const isDate = ['date', 'time', 'timestamp'].some((t) =>
+                          (col.data_type || '').toLowerCase().includes(t)
+                        );
+                        return (
+                          <SelectItem key={col.name} value={col.name}>
+                            {col.name}
+                            {!isDate && (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({col.data_type})
+                              </span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid gap-1.5">
-                <Label>Time Column</Label>
-                <Select
-                  value={timeColumn || '__none__'}
-                  onValueChange={(v) => setTimeColumn(v === '__none__' ? '' : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {dateColumns.map((col: any) => {
-                      const isDate = ['date', 'time', 'timestamp'].some((t) =>
-                        (col.data_type || '').toLowerCase().includes(t)
-                      );
-                      return (
-                        <SelectItem key={col.name} value={col.name}>
-                          {col.name}
-                          {!isDate && (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                              ({col.data_type})
-                            </span>
-                          )}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Time Grain</Label>
-                <Select value={timeGrain} onValueChange={setTimeGrain}>
+                <Label>Grain</Label>
+                <Select value={trendGrain} onValueChange={setTrendGrain}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -400,7 +450,6 @@ export function MetricConfigDialog({
           <div className="border-t pt-3 mt-1">
             <p className="text-xs font-medium text-muted-foreground mb-3">Classification</p>
 
-            {/* Program tag — free text, unchanged */}
             <div className="grid gap-1.5 mb-4">
               <Label>Program</Label>
               <Input
@@ -416,9 +465,8 @@ export function MetricConfigDialog({
               </datalist>
             </div>
 
-            {/* Metric type — icon button selector */}
             <div className="grid gap-2">
-              <Label>Metric Type</Label>
+              <Label>KPI Type</Label>
               <div className="grid grid-cols-4 gap-2">
                 {METRIC_TYPES.map((type) => (
                   <button
@@ -443,7 +491,7 @@ export function MetricConfigDialog({
               )}
               {!metricType && (
                 <p className="text-xs text-muted-foreground">
-                  How does this metric fit in your theory of change?
+                  How does this KPI fit in your theory of change?
                 </p>
               )}
             </div>
@@ -455,7 +503,7 @@ export function MetricConfigDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!canSave || isSaving}>
-            {isSaving ? 'Saving...' : isEditing ? 'Update Metric' : 'Save Metric'}
+            {isSaving ? 'Saving...' : isEditing ? 'Update KPI' : 'Save KPI'}
           </Button>
         </DialogFooter>
       </DialogContent>

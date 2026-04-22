@@ -11,11 +11,11 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { RAGBadge } from './RAGBadge';
 import { MetricSparkline } from './MetricSparkline';
-import type { MetricDefinition, MetricDataPoint } from '@/types/metrics';
+import type { KPI, KPIDataPoint } from '@/types/kpis';
 
-interface MetricCardProps {
-  metric: MetricDefinition;
-  data?: MetricDataPoint;
+interface KPICardProps {
+  kpi: KPI;
+  data?: KPIDataPoint;
   hasEntries?: boolean;
   isLoading?: boolean;
   canEdit?: boolean;
@@ -36,8 +36,8 @@ function formatValue(value: number | null | undefined): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-export function MetricCard({
-  metric,
+export function KPICard({
+  kpi,
   data,
   hasEntries = false,
   isLoading = false,
@@ -49,13 +49,20 @@ export function MetricCard({
   onCreateAlert,
   onViewAlerts,
   onDelete,
-}: MetricCardProps) {
+}: KPICardProps) {
   const currentValue = data?.current_value;
   const ragStatus = data?.rag_status ?? 'grey';
   const trend = data?.trend ?? [];
   const hasError = !!data?.error;
-  const hasTarget = metric.target_value != null;
+  const hasTarget = kpi.target_value != null;
   const showActions = canEdit || canCreateAlert || canViewAlerts || Boolean(onDelete);
+  const metric = kpi.metric;
+
+  // Compact summary of the underlying Metric for the tooltip.
+  const sourceSummary =
+    metric.creation_mode === 'sql'
+      ? `Calculated SQL on ${metric.schema_name}.${metric.table_name}`
+      : `${metric.simple_formula || metric.simple_terms.map((t) => t.id).join(' ')} from ${metric.schema_name}.${metric.table_name}`;
 
   return (
     <div
@@ -69,16 +76,13 @@ export function MetricCard({
             <h3 className="text-sm font-semibold leading-tight line-clamp-2 text-foreground">
               {metric.name}
               <span className="ml-1 text-xs text-muted-foreground font-normal">
-                {metric.direction === 'decrease' ? '↓' : '↑'}
+                {kpi.direction === 'decrease' ? '↓' : '↑'}
               </span>
             </h3>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs">
             <p>{metric.name}</p>
-            <p className="text-muted-foreground text-xs mt-1">
-              {metric.aggregation.toUpperCase()}({metric.column}) from {metric.schema_name}.
-              {metric.table_name}
-            </p>
+            <p className="text-muted-foreground text-xs mt-1">{sourceSummary}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -103,7 +107,7 @@ export function MetricCard({
                   }}
                 >
                   <Pencil className="mr-2 h-3.5 w-3.5" />
-                  Edit metric
+                  Edit KPI
                 </DropdownMenuItem>
               ) : null}
               {canCreateAlert ? (
@@ -156,7 +160,7 @@ export function MetricCard({
             </span>
             {hasTarget && (
               <span className="text-sm text-muted-foreground">
-                / {formatValue(metric.target_value)}
+                / {formatValue(kpi.target_value)}
               </span>
             )}
           </>
@@ -170,7 +174,7 @@ export function MetricCard({
         ) : trend.length >= 2 ? (
           <MetricSparkline
             data={trend}
-            direction={metric.direction}
+            direction={kpi.direction}
             width={280}
             height={40}
             className="w-full"

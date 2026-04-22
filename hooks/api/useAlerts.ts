@@ -53,13 +53,29 @@ interface TriggeredAlertListResponse {
 
 // --- SWR Read Hooks ---
 
-export function useAlerts(page: number = 1, pageSize: number = 10, metricId?: number | null) {
+export function useAlerts(
+  page: number = 1,
+  pageSize: number = 10,
+  filter?: { kpiId?: number | null; metricId?: number | null } | number | null
+) {
+  // Backwards-compat shim: callers that passed a single numeric metricId still
+  // work; new callers should pass { kpiId } or { metricId }.
+  const f: { kpiId?: number | null; metricId?: number | null } =
+    typeof filter === 'object' && filter !== null
+      ? filter
+      : typeof filter === 'number'
+        ? { kpiId: filter }
+        : {};
+
   const searchParams = new URLSearchParams({
     page: String(page),
     page_size: String(pageSize),
   });
-  if (metricId != null) {
-    searchParams.set('metric_id', String(metricId));
+  if (f.kpiId != null) {
+    searchParams.set('kpi_id', String(f.kpiId));
+  }
+  if (f.metricId != null) {
+    searchParams.set('metric_id', String(f.metricId));
   }
   const url = `/api/alerts/?${searchParams.toString()}`;
 
@@ -81,14 +97,24 @@ export function useAlerts(page: number = 1, pageSize: number = 10, metricId?: nu
 export function useTriggeredAlerts(
   page: number = 1,
   pageSize: number = 20,
-  metricId?: number | null
+  filter?: { kpiId?: number | null; metricId?: number | null } | number | null
 ) {
+  const f: { kpiId?: number | null; metricId?: number | null } =
+    typeof filter === 'object' && filter !== null
+      ? filter
+      : typeof filter === 'number'
+        ? { kpiId: filter }
+        : {};
+
   const searchParams = new URLSearchParams({
     page: String(page),
     page_size: String(pageSize),
   });
-  if (metricId != null) {
-    searchParams.set('metric_id', String(metricId));
+  if (f.kpiId != null) {
+    searchParams.set('kpi_id', String(f.kpiId));
+  }
+  if (f.metricId != null) {
+    searchParams.set('metric_id', String(f.metricId));
   }
   const url = `/api/alerts/fired/?${searchParams.toString()}`;
 
@@ -150,6 +176,7 @@ export function useAlertEvaluations(
 
 export async function createAlert(data: {
   name: string;
+  kpi_id?: number | null;
   metric_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
@@ -165,6 +192,7 @@ export async function updateAlert(
   id: number,
   data: {
     name?: string;
+    kpi_id?: number | null;
     metric_id?: number | null;
     metric_rag_level?: MetricRagLevel | null;
     query_config?: AlertQueryConfig;
@@ -183,6 +211,7 @@ export async function deleteAlert(id: number): Promise<void> {
 }
 
 export async function testAlert(data: {
+  kpi_id?: number | null;
   metric_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
@@ -192,6 +221,7 @@ export async function testAlert(data: {
   page_size?: number;
 }): Promise<AlertTestResult> {
   const response: AlertTestResponse = await apiPost('/api/alerts/test', {
+    kpi_id: data.kpi_id ?? null,
     metric_id: data.metric_id ?? null,
     metric_rag_level: data.metric_rag_level ?? null,
     query_config: data.query_config,

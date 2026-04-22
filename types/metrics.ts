@@ -1,44 +1,47 @@
-// ── Constants ───────────────────────────────────────────────────────────────
+// ── Metric primitive types
+//
+// A Metric is a reusable, saved aggregation — the building block consumed
+// by KPIs (see ./kpis.ts), charts, and alerts. Two creation modes:
+//
+//   Simple — one or more (agg, column) terms combined via an arithmetic
+//            formula over term IDs. E.g. `t1 - t2`, `(t1 / t2) * 100`.
+//   SQL    — a raw SQL scalar expression, validated server-side against the
+//            warehouse before save.
+//
+// Legacy `MetricDefinition` / `MetricAnnotation` types that conflated the
+// primitive with the tracked layer have moved to `types/kpis.ts` under the
+// `KPI` + `KPIEntry` names.
 
-export const METRIC_TYPES = ['Input', 'Output', 'Outcome', 'Impact'] as const;
+export type Aggregation = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'count_distinct';
 
-export const METRIC_TYPE_DESCRIPTIONS: Record<string, string> = {
-  Input: 'Resources put into the program (staff, funding, materials)',
-  Output: 'Direct products of program activities (trainings held, people served)',
-  Outcome: 'Changes in participants or conditions (knowledge gained, behavior change)',
-  Impact: 'Long-term, broad effects on community or society',
-};
+export interface MetricTerm {
+  id: string;
+  agg: Aggregation;
+  column: string;
+}
 
-export const METRIC_TYPE_ICONS: Record<string, string> = {
-  Input: '\u{1F4E5}',
-  Output: '\u{1F4E4}',
-  Outcome: '\u{1F3AF}',
-  Impact: '\u{1F4A5}',
-};
+export interface MetricFilter {
+  column: string;
+  operator: string;
+  value: string;
+}
 
-// ── Metric Definition ───────────────────────────────────────────────────────
-
-export interface MetricDefinition {
+export interface Metric {
   id: number;
   name: string;
+  description: string;
+  tags: string[];
+
   schema_name: string;
   table_name: string;
-  column: string;
-  aggregation: string;
-
   time_column: string | null;
-  time_grain: 'month' | 'quarter' | 'year';
+  default_time_grain: 'month' | 'quarter' | 'year';
 
-  direction: 'increase' | 'decrease';
-  target_value: number | null;
-  amber_threshold_pct: number;
-  green_threshold_pct: number;
-
-  program_tag: string;
-  metric_type_tag: string;
-
-  trend_periods: number;
-  display_order: number;
+  creation_mode: 'simple' | 'sql';
+  simple_terms: MetricTerm[];
+  simple_formula: string;
+  sql_expression: string;
+  filters: MetricFilter[];
 
   created_at: string;
   updated_at: string;
@@ -46,87 +49,54 @@ export interface MetricDefinition {
 
 export interface MetricCreate {
   name: string;
+  description?: string;
+  tags?: string[];
+
   schema_name: string;
   table_name: string;
-  column: string;
-  aggregation: string;
-
   time_column?: string | null;
-  time_grain?: string;
+  default_time_grain?: 'month' | 'quarter' | 'year';
 
-  direction?: 'increase' | 'decrease';
-  target_value?: number | null;
-  amber_threshold_pct?: number;
-  green_threshold_pct?: number;
-
-  program_tag?: string;
-  metric_type_tag?: string;
-
-  trend_periods?: number;
-  display_order?: number;
+  creation_mode?: 'simple' | 'sql';
+  simple_terms?: MetricTerm[];
+  simple_formula?: string;
+  sql_expression?: string;
+  filters?: MetricFilter[];
 }
 
 export type MetricUpdate = Partial<MetricCreate>;
 
-// ── Metric Live Data ────────────────────────────────────────────────────────
-
-export interface TrendPoint {
-  period: string;
-  value: number | null;
+export interface MetricReferences {
+  metric_id: number;
+  kpi_count: number;
+  alert_count: number;
+  chart_count: number;
+  kpi_ids: number[];
+  alert_ids: number[];
 }
 
-export type RAGStatus = 'green' | 'amber' | 'red' | 'grey';
+export interface MetricDetail {
+  metric: Metric;
+  references: MetricReferences;
+}
 
 export interface MetricDataPoint {
   metric_id: number;
   current_value: number | null;
-  rag_status: RAGStatus;
-  achievement_pct: number | null;
-  trend: TrendPoint[];
+  trend: { period: string; value: number | null }[];
   error?: string | null;
 }
 
-// ── Annotations ─────────────────────────────────────────────────────────────
-
-export interface MetricAnnotation {
-  id: number;
-  period_key: string;
-  rationale: string;
-  quote_text: string;
-  quote_attribution: string;
-  created_at: string;
-  updated_at: string;
+export interface ValidateSqlRequest {
+  schema_name: string;
+  table_name: string;
+  sql_expression: string;
+  filters?: MetricFilter[];
 }
 
-export interface AnnotationCreate {
-  period_key: string;
-  rationale?: string;
-  quote_text?: string;
-  quote_attribution?: string;
-}
-
-export interface LatestAnnotationEntry extends MetricAnnotation {
-  metric_id: number;
-}
-
-// ── Metric Entries (timeline) ──────────────────────────────────────────────
-
-export interface MetricEntry {
-  id: number;
-  entry_type: 'comment' | 'quote';
-  period_key: string;
-  content: string;
-  attribution: string;
-  snapshot_value: number | null;
-  snapshot_rag: RAGStatus;
-  snapshot_achievement_pct: number | null;
-  created_by_name: string;
-  created_at: string;
-}
-
-export interface EntryCreate {
-  entry_type: 'comment' | 'quote';
-  period_key: string;
-  content: string;
-  attribution?: string;
+export interface ValidateSqlResponse {
+  ok: boolean;
+  value: number | null;
+  error: string | null;
+  query_executed: string | null;
 }
