@@ -39,21 +39,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setOrgUsers(orgUsersData);
       setIsCheckingAuth(false);
 
-      // Auto-select organization if none selected OR if stored org differs from current
-      const storedOrgSlug = localStorage.getItem('selectedOrg');
+      // Auto-select organization if none selected
+      if (!currentOrg) {
+        const storedOrgSlug = localStorage.getItem('selectedOrg');
 
-      if (!currentOrg || (storedOrgSlug && storedOrgSlug !== currentOrg?.slug)) {
         if (storedOrgSlug) {
           // Verify stored org exists
           const orgExists = orgUsersData.some((ou: any) => ou.org.slug === storedOrgSlug);
           if (orgExists) {
             setSelectedOrg(storedOrgSlug);
-          } else if (!currentOrg) {
-            // Stored org doesn't exist and no current org, select first one
+          } else {
+            // Stored org doesn't exist, select first one
             setSelectedOrg(orgUsersData[0].org.slug);
           }
-        } else if (!currentOrg) {
-          // No stored org and no current org, select first one
+        } else {
+          // No stored org, select first one
           setSelectedOrg(orgUsersData[0].org.slug);
         }
       }
