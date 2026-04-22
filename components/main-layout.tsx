@@ -24,6 +24,7 @@ import {
   Info,
   CreditCard,
   Users,
+  Target,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -112,6 +113,12 @@ const getNavItems = (
       href: '/impact',
       icon: Home,
       isActive: currentPath === '/impact',
+    },
+    {
+      title: 'KPIs',
+      href: '/kpis',
+      icon: Target,
+      isActive: currentPath.startsWith('/kpis'),
     },
     {
       title: 'Charts',

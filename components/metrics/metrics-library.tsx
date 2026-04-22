@@ -15,6 +15,7 @@ import {
   ChevronDown as ChevronDownSort,
   Filter,
   X,
+  Target,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +56,7 @@ import {
 import { useMetrics, deleteMetric, getMetricConsumers } from '@/hooks/api/useMetrics';
 import type { Metric, MetricConsumersResponse } from '@/types/metrics';
 import { MetricFormDialog } from './metric-form-dialog';
+import { KPIForm } from '@/components/kpis/kpi-form';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -73,6 +75,8 @@ export function MetricsLibrary() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [consumers, setConsumers] = useState<MetricConsumersResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [kpiFormOpen, setKpiFormOpen] = useState(false);
+  const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
 
   const {
     data: allMetrics,
@@ -263,6 +267,16 @@ export function MetricsLibrary() {
               <DropdownMenuItem onClick={() => handleEdit(metric)} className="cursor-pointer">
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setKpiPreselectedMetricId(metric.id);
+                  setKpiFormOpen(true);
+                }}
+                className="cursor-pointer"
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Create KPI
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -553,6 +567,13 @@ export function MetricsLibrary() {
         onOpenChange={setFormOpen}
         onSuccess={() => mutate()}
         metric={editingMetric}
+      />
+
+      <KPIForm
+        open={kpiFormOpen}
+        onOpenChange={setKpiFormOpen}
+        onSuccess={() => setKpiFormOpen(false)}
+        preselectedMetricId={kpiPreselectedMetricId}
       />
 
       {/* Delete Confirmation */}
