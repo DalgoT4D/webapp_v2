@@ -14,10 +14,14 @@ export default function NewAlertPage() {
 
   const handleSave = async (data: {
     name: string;
+    alert_type: 'threshold' | 'rag' | 'standalone';
     kpi_id?: number | null;
+    metric_id?: number | null;
     metric_rag_level?: MetricRagLevel | null;
     query_config: AlertQueryConfig;
     recipients: string[];
+    pipeline_triggers?: string[];
+    notification_cooldown_days?: number | null;
     message: string;
     group_message?: string;
   }) => {

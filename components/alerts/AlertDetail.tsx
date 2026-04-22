@@ -142,11 +142,14 @@ export function AlertDetail({ alertId }: AlertDetailProps) {
                 <h2 className="text-lg font-semibold">Recipients</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                {alert.recipients.map((email) => (
-                  <Badge key={email} variant="outline">
-                    {email}
-                  </Badge>
-                ))}
+                {alert.recipients.map((r) => {
+                  const label = typeof r === 'string' ? r : `${r.type}:${r.ref}`;
+                  return (
+                    <Badge key={label} variant="outline">
+                      {label}
+                    </Badge>
+                  );
+                })}
               </div>
             </section>
 

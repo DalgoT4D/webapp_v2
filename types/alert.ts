@@ -6,6 +6,19 @@ export interface AlertFilter {
 
 export type MetricRagLevel = 'red' | 'amber' | 'green';
 
+// Three alert variants. Authoritative at create time — see backend
+// AlertService.create_alert for the validation rules.
+export type AlertType = 'threshold' | 'rag' | 'standalone';
+
+// Recipient types: free-form email OR a reference to a Dalgo user (resolved
+// to the user's current email at send time).
+export type RecipientType = 'email' | 'user';
+
+export interface AlertRecipient {
+  type: RecipientType;
+  ref: string;
+}
+
 export interface AlertQueryConfig {
   schema_name: string;
   table_name: string;
@@ -21,15 +34,22 @@ export interface AlertQueryConfig {
 export interface Alert {
   id: number;
   name: string;
-  // KPI-backed RAG alerts set kpi_id + metric_rag_level.
-  // metric_id is reserved for the Batch 3 metric-threshold alert path.
+  alert_type: AlertType;
   kpi_id: number | null;
   kpi_name: string | null;
   metric_id: number | null;
   metric_name: string | null;
   metric_rag_level: MetricRagLevel | null;
   query_config: AlertQueryConfig;
-  recipients: string[];
+  // Typed recipient list (the backend normalises legacy plain-email strings
+  // into this shape on write). Plain strings may still appear on responses
+  // from old records — consumers should tolerate both.
+  recipients: (AlertRecipient | string)[];
+  // Empty list = infer from context (current behavior). Non-empty = only
+  // fire when one of these deployment IDs completes.
+  pipeline_triggers: string[];
+  // null = "notify only on state change"; N = re-notify every N days.
+  notification_cooldown_days: number | null;
   message: string;
   group_message: string;
   is_active: boolean;
@@ -44,7 +64,7 @@ export interface AlertEvaluation {
   id: number;
   query_config: AlertQueryConfig;
   query_executed: string;
-  recipients: string[];
+  recipients: (AlertRecipient | string)[];
   num_recipients: number;
   message: string;
   fired: boolean;
@@ -52,6 +72,10 @@ export interface AlertEvaluation {
   result_preview: Record<string, unknown>[];
   rendered_message: string;
   trigger_flow_run_id: string | null;
+  // True iff the notification actually sent (cooldown may have suppressed).
+  notification_sent: boolean;
+  // Provenance timestamp for the underlying pipeline run.
+  last_pipeline_update: string | null;
   error_message: string | null;
   created_at: string;
 }
@@ -70,6 +94,7 @@ export interface TriggeredAlertEvent {
   id: number;
   alert_id: number;
   alert_name: string;
+  alert_type: AlertType;
   kpi_id: number | null;
   kpi_name: string | null;
   metric_id: number | null;
@@ -77,6 +102,8 @@ export interface TriggeredAlertEvent {
   metric_rag_level: MetricRagLevel | null;
   rows_returned: number;
   num_recipients: number;
+  notification_sent: boolean;
+  last_pipeline_update: string | null;
   rendered_message: string;
   result_preview: Record<string, unknown>[];
   trigger_flow_run_id: string | null;
@@ -85,9 +112,8 @@ export interface TriggeredAlertEvent {
 
 export interface AlertFormData {
   name: string;
-  // For KPI-backed RAG alerts — replaces the old metric_id wire field.
+  alert_type?: AlertType;
   kpi_id?: number | null;
-  // Reserved for Batch 3's metric-threshold alert path.
   metric_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: {
@@ -102,6 +128,8 @@ export interface AlertFormData {
     condition_value: number | '';
   };
   recipients: string[];
+  pipeline_triggers?: string[];
+  notification_cooldown_days?: number | null;
   message: string;
   group_message?: string;
 }

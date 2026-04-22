@@ -272,7 +272,9 @@ export function AlertList() {
                   <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
                       <Mail className="h-4 w-4" />
-                      {alert.recipients.join(', ')}
+                      {alert.recipients
+                        .map((r) => (typeof r === 'string' ? r : `${r.type}:${r.ref}`))
+                        .join(', ')}
                     </span>
                   </div>
                 </div>

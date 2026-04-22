@@ -98,7 +98,20 @@ export function TriggeredAlertDetail({ alertId, evaluationId }: TriggeredAlertDe
           <p className="mt-3 text-sm text-muted-foreground">
             Fired {formatDistanceToNow(new Date(evaluation.created_at), { addSuffix: true })} on{' '}
             {format(new Date(evaluation.created_at), 'MMM d, yyyy h:mm a')}
+            {evaluation.notification_sent === false ? (
+              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                suppressed by cooldown
+              </span>
+            ) : null}
           </p>
+          {evaluation.last_pipeline_update ? (
+            <p className="mt-1 text-xs text-muted-foreground/80">
+              Underlying pipeline last updated{' '}
+              {formatDistanceToNow(new Date(evaluation.last_pipeline_update), {
+                addSuffix: true,
+              })}
+            </p>
+          ) : null}
 
           <div className="mt-6 grid gap-3 md:grid-cols-4">
             <div className="rounded-2xl border bg-white/85 px-4 py-4">
@@ -155,11 +168,14 @@ export function TriggeredAlertDetail({ alertId, evaluationId }: TriggeredAlertDe
                 <h2 className="text-lg font-semibold">Recipients</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                {evaluation.recipients.map((email) => (
-                  <Badge key={email} variant="outline">
-                    {email}
-                  </Badge>
-                ))}
+                {evaluation.recipients.map((r) => {
+                  const label = typeof r === 'string' ? r : `${r.type}:${r.ref}`;
+                  return (
+                    <Badge key={label} variant="outline">
+                      {label}
+                    </Badge>
+                  );
+                })}
               </div>
             </section>
           </div>

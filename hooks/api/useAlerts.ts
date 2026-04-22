@@ -176,11 +176,14 @@ export function useAlertEvaluations(
 
 export async function createAlert(data: {
   name: string;
+  alert_type: 'threshold' | 'rag' | 'standalone';
   kpi_id?: number | null;
   metric_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
-  recipients: string[];
+  recipients: (string | { type: 'email' | 'user'; ref: string })[];
+  pipeline_triggers?: string[];
+  notification_cooldown_days?: number | null;
   message: string;
   group_message?: string;
 }): Promise<Alert> {
@@ -192,11 +195,14 @@ export async function updateAlert(
   id: number,
   data: {
     name?: string;
+    alert_type?: 'threshold' | 'rag' | 'standalone';
     kpi_id?: number | null;
     metric_id?: number | null;
     metric_rag_level?: MetricRagLevel | null;
     query_config?: AlertQueryConfig;
-    recipients?: string[];
+    recipients?: (string | { type: 'email' | 'user'; ref: string })[];
+    pipeline_triggers?: string[];
+    notification_cooldown_days?: number | null;
     message?: string;
     group_message?: string;
     is_active?: boolean;
@@ -211,6 +217,7 @@ export async function deleteAlert(id: number): Promise<void> {
 }
 
 export async function testAlert(data: {
+  alert_type?: 'threshold' | 'rag' | 'standalone';
   kpi_id?: number | null;
   metric_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
@@ -221,6 +228,7 @@ export async function testAlert(data: {
   page_size?: number;
 }): Promise<AlertTestResult> {
   const response: AlertTestResponse = await apiPost('/api/alerts/test', {
+    alert_type: data.alert_type ?? null,
     kpi_id: data.kpi_id ?? null,
     metric_id: data.metric_id ?? null,
     metric_rag_level: data.metric_rag_level ?? null,

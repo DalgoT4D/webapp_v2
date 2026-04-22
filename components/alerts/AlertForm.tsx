@@ -29,10 +29,13 @@ import { AGGREGATION_OPTIONS, CONDITION_OPERATORS } from '@/types/alert';
 
 interface AlertSavePayload {
   name: string;
+  alert_type: 'rag' | 'standalone';
   kpi_id?: number | null;
   metric_rag_level?: MetricRagLevel | null;
   query_config: AlertQueryConfig;
   recipients: string[];
+  pipeline_triggers: string[];
+  notification_cooldown_days: number | null;
   message: string;
   group_message?: string;
 }
@@ -62,6 +65,11 @@ interface AlertFormState {
   condition_value: string;
   metric_rag_level: MetricRagLevel | '';
   recipients: string[];
+  // Empty string = "infer" (server-side fallback). Otherwise a comma-separated
+  // list of deployment IDs that trigger this alert.
+  pipeline_triggers_text: string;
+  // '' = notify on state change (default). Otherwise parsed as an integer.
+  notification_cooldown_text: string;
   message: string;
   group_message: string;
 }
@@ -109,6 +117,18 @@ function isNumericColumnType(dataType?: string) {
 }
 
 function buildInitialState(alert?: Alert | null, initialKPIId?: number | null): AlertFormState {
+  const rawRecipients = alert?.recipients ?? [];
+  // Flatten typed/string recipients into plain email strings for the simple
+  // text input UI (Batch 4 keeps email-only; structured recipient UX lands
+  // when user-picker groundwork exists).
+  const flatEmails: string[] = [];
+  for (const r of rawRecipients) {
+    if (typeof r === 'string') {
+      flatEmails.push(r);
+    } else if (r && typeof r === 'object' && r.type === 'email') {
+      flatEmails.push(r.ref);
+    }
+  }
   return {
     name: alert?.name ?? '',
     kpi_id: alert?.kpi_id ?? initialKPIId ?? null,
@@ -123,7 +143,10 @@ function buildInitialState(alert?: Alert | null, initialKPIId?: number | null): 
     condition_value:
       alert?.query_config.condition_value != null ? String(alert.query_config.condition_value) : '',
     metric_rag_level: alert?.metric_rag_level ?? '',
-    recipients: alert?.recipients ?? [],
+    recipients: flatEmails,
+    pipeline_triggers_text: (alert?.pipeline_triggers ?? []).join(', '),
+    notification_cooldown_text:
+      alert?.notification_cooldown_days != null ? String(alert.notification_cooldown_days) : '',
     message: alert?.message ?? DEFAULT_MESSAGE,
     group_message: alert?.group_message ?? '',
   };
@@ -633,14 +656,33 @@ export function AlertForm({
       return;
     }
 
+    // Derive alert_type from form shape. Threshold alerts (Metric-backed) land
+    // once the Metric library is in place — Batch 4 only exposes rag + standalone.
+    const alertType: 'rag' | 'standalone' = selectedKPI ? 'rag' : 'standalone';
+
+    const pipelineTriggers = form.pipeline_triggers_text
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const cooldownRaw = form.notification_cooldown_text.trim();
+    const cooldownDays = cooldownRaw === '' ? null : Number(cooldownRaw);
+    if (cooldownRaw !== '' && (!Number.isFinite(cooldownDays) || cooldownDays! < 0)) {
+      setFormError('Cooldown must be a non-negative whole number of days (or leave blank).');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await onSave({
         name: form.name.trim(),
+        alert_type: alertType,
         kpi_id: form.kpi_id,
         metric_rag_level: form.metric_rag_level || null,
         query_config: queryConfig,
         recipients: form.recipients,
+        pipeline_triggers: pipelineTriggers,
+        notification_cooldown_days: cooldownDays,
         message: form.message,
         group_message: selectedKPI ? '' : form.group_message,
       });
@@ -1074,6 +1116,56 @@ export function AlertForm({
               ) : (
                 <p className="text-sm text-muted-foreground">No recipients added yet.</p>
               )}
+            </div>
+          </section>
+
+          <section className={sectionClassName}>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Delivery policy</h2>
+              <p className="text-sm text-muted-foreground">
+                Control when evaluations run and how often recipients get re-notified.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="pipeline-triggers">Pipeline triggers (optional)</Label>
+                  <FieldHint text="Comma-separated deployment IDs. Leave blank to evaluate on every transform-pipeline completion for this org." />
+                </div>
+                <Input
+                  id="pipeline-triggers"
+                  placeholder="Leave blank to infer"
+                  value={form.pipeline_triggers_text}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      pipeline_triggers_text: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="cooldown-days">Notification cooldown (days)</Label>
+                  <FieldHint text="Blank = notify only on state change (default). A number N = re-notify every N days while still firing. Evaluations still run on every pipeline completion; the cooldown only gates the outgoing email." />
+                </div>
+                <Input
+                  id="cooldown-days"
+                  type="number"
+                  min={0}
+                  max={365}
+                  placeholder="Blank = on state change"
+                  value={form.notification_cooldown_text}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      notification_cooldown_text: event.target.value,
+                    }))
+                  }
+                />
+              </div>
             </div>
           </section>
 
