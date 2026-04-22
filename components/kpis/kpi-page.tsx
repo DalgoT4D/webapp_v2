@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSWRConfig } from 'swr';
 import * as echarts from 'echarts';
 import { Plus, Search, Target, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -149,16 +150,6 @@ function KPICardWithData({
         </div>
       </div>
 
-      {/* Value */}
-      <div>
-        <div className="text-2xl font-bold text-gray-900">
-          {isLoading ? <Skeleton className="h-8 w-20" /> : formatValue(currentValue)}
-        </div>
-        {kpi.target_value !== null && (
-          <p className="text-xs text-muted-foreground">Target: {formatValue(kpi.target_value)}</p>
-        )}
-      </div>
-
       {/* Chart */}
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
@@ -170,12 +161,16 @@ function KPICardWithData({
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-1">
           {metricTypeLabel && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge className="text-xs bg-violet-100 text-violet-700 border-0 hover:bg-violet-100">
+              {kpi.metric_type_tag === 'input' && '\u{1F4E5} '}
+              {kpi.metric_type_tag === 'output' && '\u{1F4E4} '}
+              {kpi.metric_type_tag === 'outcome' && '\u{1F3AF} '}
+              {kpi.metric_type_tag === 'impact' && '\u{1F4A5} '}
               {metricTypeLabel}
             </Badge>
           )}
           {kpi.program_tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
+            <Badge key={tag} variant="outline" className="text-xs text-gray-600 border-gray-300">
               {tag}
             </Badge>
           ))}
@@ -213,6 +208,19 @@ export function KPIPageComponent() {
     metricType: metricTypeFilter || undefined,
     programTag: programTagFilter || undefined,
   });
+
+  const { mutate: globalMutate } = useSWRConfig();
+
+  const handleFormSuccess = useCallback(() => {
+    mutate(); // refresh KPI list
+    // Also invalidate all KPI data endpoints so charts re-render
+    globalMutate(
+      (key: string) =>
+        typeof key === 'string' && key.includes('/api/kpis/') && key.includes('/data/'),
+      undefined,
+      { revalidate: true }
+    );
+  }, [mutate, globalMutate]);
 
   const handleCreate = () => {
     setEditingKpi(null);
@@ -418,7 +426,7 @@ export function KPIPageComponent() {
       <KPIForm
         open={formOpen}
         onOpenChange={setFormOpen}
-        onSuccess={() => mutate()}
+        onSuccess={handleFormSuccess}
         kpi={editingKpi}
       />
 
