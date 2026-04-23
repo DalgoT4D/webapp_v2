@@ -2,7 +2,6 @@
 
 import { useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle } from 'lucide-react';
@@ -62,64 +61,60 @@ export function KPIChartElement({ kpiId, config, isResizing }: KPIChartElementPr
 
   if (isError) {
     return (
-      <Card className="h-full">
-        <CardContent className="h-full flex items-center justify-center p-4">
-          <div className="text-center text-sm text-muted-foreground">
-            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive" />
-            Failed to load KPI
-          </div>
-        </CardContent>
-      </Card>
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="text-center text-sm text-muted-foreground">
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+          Failed to load KPI
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="h-full overflow-hidden">
-      <CardContent className="h-full flex flex-col p-4">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-2 shrink-0">
-          <h3 className="text-sm font-semibold text-gray-900 truncate">{config?.title || 'KPI'}</h3>
-          {ragInfo && (
-            <Badge
-              variant="outline"
-              className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs shrink-0`}
-            >
-              {ragInfo.label}
-            </Badge>
+    <div className="h-full flex flex-col p-4 bg-white rounded-lg">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2 shrink-0">
+        <h3 className="text-sm font-semibold text-gray-900 truncate">{config?.title || 'KPI'}</h3>
+        {ragInfo && (
+          <Badge
+            variant="outline"
+            className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs shrink-0`}
+          >
+            {ragInfo.label}
+          </Badge>
+        )}
+      </div>
+
+      {/* Value / Target — only show when there's trend data */}
+      {hasTrend && (
+        <div className="mb-1 shrink-0">
+          {isLoading ? (
+            <Skeleton className="h-7 w-24" />
+          ) : (
+            <>
+              <span className="text-xl font-bold text-gray-900">{formatValue(currentValue)}</span>
+              {targetValue !== null && targetValue !== undefined && (
+                <span className="text-sm text-muted-foreground ml-1">
+                  / {formatValue(targetValue)}
+                </span>
+              )}
+            </>
           )}
         </div>
+      )}
 
-        {/* Value / Target — only show when there's trend data (number chart shows it in echarts) */}
-        {hasTrend && (
-          <div className="mb-1 shrink-0">
-            {isLoading ? (
-              <Skeleton className="h-7 w-24" />
-            ) : (
-              <>
-                <span className="text-xl font-bold text-gray-900">{formatValue(currentValue)}</span>
-                {targetValue !== null && targetValue !== undefined && (
-                  <span className="text-sm text-muted-foreground ml-1">
-                    / {formatValue(targetValue)}
-                  </span>
-                )}
-              </>
-            )}
+      {/* Chart */}
+      <div className="flex-1 min-h-0">
+        {isLoading ? (
+          <Skeleton className="h-full w-full" />
+        ) : echartsConfig && Object.keys(echartsConfig).length > 0 ? (
+          <div ref={chartRef} className="h-full w-full" />
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No data
           </div>
         )}
-
-        {/* Chart */}
-        <div className="flex-1 min-h-0">
-          {isLoading ? (
-            <Skeleton className="h-full w-full" />
-          ) : echartsConfig && Object.keys(echartsConfig).length > 0 ? (
-            <div ref={chartRef} className="h-full w-full" />
-          ) : (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-              No trend data
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
