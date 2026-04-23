@@ -54,10 +54,12 @@ function EChartsRenderer({
   useEffect(() => {
     if (!chartRef.current || !config || Object.keys(config).length === 0) return;
 
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
+    // Always dispose and reinit to handle chart type changes (e.g. line → gauge)
+    if (chartInstance.current) {
+      chartInstance.current.dispose();
     }
-    chartInstance.current.setOption(config, true);
+    chartInstance.current = echarts.init(chartRef.current);
+    chartInstance.current.setOption(config);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
