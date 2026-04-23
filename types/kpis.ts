@@ -61,13 +61,14 @@ export interface KPICreate {
 }
 
 export interface KPIUpdate {
+  metric_id?: number;
   name?: string;
   target_value?: number;
   direction?: string;
   green_threshold_pct?: number;
   amber_threshold_pct?: number;
   time_grain?: string;
-  time_dimension_column?: string;
+  time_dimension_column?: string | null;
   trend_periods?: number;
   metric_type_tag?: string;
   program_tags?: string[];

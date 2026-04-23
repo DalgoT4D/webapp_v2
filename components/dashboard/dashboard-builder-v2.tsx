@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
+import { KPIChartElement } from './kpi-chart-element';
 import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
@@ -141,6 +142,7 @@ export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',
   FILTER = 'filter',
+  KPI = 'kpi',
 }
 
 interface DashboardLayout {
@@ -1270,6 +1272,48 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
+    // Add KPI component
+    const handleKPISelected = (kpiId: number, kpiName: string) => {
+      const newComponent: DashboardComponent = {
+        id: `kpi-${Date.now()}`,
+        type: DashboardComponentType.KPI,
+        config: {
+          kpiId,
+          title: kpiName,
+        },
+      };
+
+      const defaultDimensions = getDefaultGridDimensions('kpi');
+      const minDimensions = getMinGridDimensions('kpi');
+      const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
+
+      const newLayoutItem: DashboardLayout = {
+        i: newComponent.id,
+        x: position.x,
+        y: position.y,
+        w: defaultDimensions.w,
+        h: defaultDimensions.h,
+        minW: minDimensions.w,
+        maxW: 12,
+        minH: minDimensions.h,
+      };
+
+      const newLayout = [...state.layout, newLayoutItem];
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
+      setState({
+        layout: newLayout,
+        layouts: newLayouts,
+        components: {
+          ...state.components,
+          [newComponent.id]: newComponent,
+        },
+      });
+
+      dashboardAnimation.animateComponent(newComponent.id, 500);
+      scrollToComponentIfNeeded(newComponent.id);
+    };
+
     // Add text component
     const addTextComponent = () => {
       // Calculate minimum dimensions for empty text component
@@ -1525,6 +1569,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return chartIds;
     };
 
+    const getExcludedKPIIds = (): number[] => {
+      const kpiIds: number[] = [];
+      if (state.components) {
+        Object.values(state.components).forEach((component) => {
+          if (component.type === DashboardComponentType.KPI && component.config.kpiId) {
+            kpiIds.push(component.config.kpiId);
+          }
+        });
+      }
+      return kpiIds;
+    };
+
     // Update component config
     const updateComponent = (componentId: string, newConfig: any) => {
       setState({
@@ -1622,7 +1678,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           );
 
-        // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
+        case DashboardComponentType.KPI:
+          return (
+            <KPIChartElement
+              kpiId={component.config.kpiId}
+              config={component.config}
+              isResizing={resizingItems.has(componentId)}
+            />
+          );
 
         default:
           return null;
@@ -2306,6 +2369,32 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         </div>
                       )}
 
+                      {/* Action Buttons for KPI Elements */}
+                      {component?.type === DashboardComponentType.KPI && (
+                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/kpis`);
+                            }}
+                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
+                            title="View KPI"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-gray-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeComponent(item.i);
+                            }}
+                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
+                            title="Remove KPI From Dashboard"
+                          >
+                            <X className="w-3.5 h-3.5 text-gray-600" />
+                          </button>
+                        </div>
+                      )}
+
                       {/* Action Buttons for Text Elements */}
                       {component?.type === DashboardComponentType.TEXT && (
                         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -2363,7 +2452,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           open={showChartSelector}
           onClose={() => setShowChartSelector(false)}
           onSelect={handleChartSelected}
+          onSelectKPI={handleKPISelected}
           excludedChartIds={getExcludedChartIds()}
+          excludedKPIIds={getExcludedKPIIds()}
         />
         {/* Filter Config Modal */}
         <FilterConfigModal

@@ -99,6 +99,7 @@ function KPICardWithData({
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
   const currentValue = chartData?.current_value;
+  const hasTrend = chartData?.periods && chartData.periods.length > 0;
 
   const formatValue = (v: number | null | undefined) => {
     if (v === null || v === undefined) return '\u2014';
@@ -118,6 +119,7 @@ function KPICardWithData({
           >
             {kpi.name}
           </h3>
+          <p className="text-xs text-muted-foreground truncate">{kpi.metric.name}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {ragInfo && (
@@ -148,6 +150,24 @@ function KPICardWithData({
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Value / Target — only show above chart when there's trend data */}
+      {hasTrend && (
+        <div className="shrink-0">
+          {isLoading ? (
+            <Skeleton className="h-7 w-24" />
+          ) : (
+            <>
+              <span className="text-xl font-bold text-gray-900">{formatValue(currentValue)}</span>
+              {kpi.target_value !== null && (
+                <span className="text-sm text-muted-foreground ml-1">
+                  / {formatValue(kpi.target_value)}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Chart */}
       {isLoading ? (

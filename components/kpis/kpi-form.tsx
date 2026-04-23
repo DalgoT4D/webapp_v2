@@ -128,8 +128,14 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   }, [open, kpi, preselectedMetricId]);
 
   const handleSelectMetric = (m: { id: number; name: string }) => {
+    const metricChanged = metricId !== null && metricId !== m.id;
     setMetricId(m.id);
-    if (!name) setName(m.name);
+    if (!name || metricChanged) setName(m.name);
+    if (metricChanged) {
+      setTimeDimensionColumn('');
+      setTimeGrain('monthly');
+      setTrendPeriods('12');
+    }
   };
 
   const handleNext = () => {
@@ -153,13 +159,14 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     try {
       if (isEdit && kpi) {
         const updateData: KPIUpdate = {
+          metric_id: metricId !== kpi.metric.id ? (metricId ?? undefined) : undefined,
           name: name || undefined,
           target_value: targetValue ? parseFloat(targetValue) : undefined,
           direction,
           green_threshold_pct: parseFloat(greenThreshold),
           amber_threshold_pct: parseFloat(amberThreshold),
           time_grain: timeGrain,
-          time_dimension_column: timeDimensionColumn || undefined,
+          time_dimension_column: timeDimensionColumn || null,
           trend_periods: parseInt(trendPeriods),
           metric_type_tag: metricTypeTag || undefined,
           program_tags: programTags,
@@ -174,7 +181,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           green_threshold_pct: parseFloat(greenThreshold),
           amber_threshold_pct: parseFloat(amberThreshold),
           time_grain: timeGrain,
-          time_dimension_column: timeDimensionColumn || undefined,
+          time_dimension_column: timeDimensionColumn || null,
           trend_periods: parseInt(trendPeriods),
           metric_type_tag: metricTypeTag || undefined,
           program_tags: programTags,

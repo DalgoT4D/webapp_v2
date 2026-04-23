@@ -1,0 +1,125 @@
+'use client';
+
+import { useRef, useEffect } from 'react';
+import * as echarts from 'echarts';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AlertCircle } from 'lucide-react';
+import { useKPIData } from '@/hooks/api/useKPIs';
+import { RAG_COLORS } from '@/types/kpis';
+import type { RAGStatus } from '@/types/kpis';
+
+interface KPIChartElementProps {
+  kpiId: number;
+  config: any;
+  isResizing?: boolean;
+}
+
+function formatValue(v: number | null | undefined): string {
+  if (v === null || v === undefined) return '\u2014';
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+export function KPIChartElement({ kpiId, config, isResizing }: KPIChartElementProps) {
+  const { chartData, echartsConfig, isLoading, isError } = useKPIData(kpiId);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  const ragStatus = chartData?.rag_status as RAGStatus | null;
+  const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
+  const currentValue = chartData?.current_value;
+  const targetValue = chartData?.target_value;
+  const hasTrend = chartData?.periods && chartData.periods.length > 0;
+
+  useEffect(() => {
+    if (!chartRef.current || !echartsConfig || Object.keys(echartsConfig).length === 0) return;
+
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current);
+    }
+    chartInstance.current.setOption(echartsConfig, true);
+
+    return () => {
+      chartInstance.current?.dispose();
+      chartInstance.current = null;
+    };
+  }, [echartsConfig]);
+
+  useEffect(() => {
+    const handleResize = () => chartInstance.current?.resize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) {
+      setTimeout(() => chartInstance.current?.resize(), 100);
+    }
+  }, [isResizing]);
+
+  if (isError) {
+    return (
+      <Card className="h-full">
+        <CardContent className="h-full flex items-center justify-center p-4">
+          <div className="text-center text-sm text-muted-foreground">
+            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+            Failed to load KPI
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="h-full overflow-hidden">
+      <CardContent className="h-full flex flex-col p-4">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2 shrink-0">
+          <h3 className="text-sm font-semibold text-gray-900 truncate">{config?.title || 'KPI'}</h3>
+          {ragInfo && (
+            <Badge
+              variant="outline"
+              className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs shrink-0`}
+            >
+              {ragInfo.label}
+            </Badge>
+          )}
+        </div>
+
+        {/* Value / Target — only show when there's trend data (number chart shows it in echarts) */}
+        {hasTrend && (
+          <div className="mb-1 shrink-0">
+            {isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <>
+                <span className="text-xl font-bold text-gray-900">{formatValue(currentValue)}</span>
+                {targetValue !== null && targetValue !== undefined && (
+                  <span className="text-sm text-muted-foreground ml-1">
+                    / {formatValue(targetValue)}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Chart */}
+        <div className="flex-1 min-h-0">
+          {isLoading ? (
+            <Skeleton className="h-full w-full" />
+          ) : echartsConfig && Object.keys(echartsConfig).length > 0 ? (
+            <div ref={chartRef} className="h-full w-full" />
+          ) : (
+            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+              No trend data
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
