@@ -118,7 +118,6 @@ function KPICardWithData({
           >
             {kpi.name}
           </h3>
-          <p className="text-xs text-muted-foreground truncate">{kpi.metric.name}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {ragInfo && (
