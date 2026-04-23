@@ -98,6 +98,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
         borderRadius: 8,
         padding: selected || data?.isDummy ? 0 : 2,
         cursor: canInteractWithCanvas() ? 'grab' : 'pointer',
+        position: 'relative',
       }}
       onClick={handleNodeClick}
     >
@@ -112,6 +113,32 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
         style={{ width: 8, height: 8, background: '#999' }}
       />
 
+      {/* Delete button — floating circle outside top-right corner (matches OperationNode) */}
+      {canDelete && (
+        <button
+          onClick={handleDeleteClick}
+          aria-label="Delete node"
+          style={{
+            position: 'absolute',
+            right: -15,
+            top: -15,
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: '#fff',
+            border: '1px solid #ccc',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            cursor: 'pointer',
+          }}
+          data-testid={`delete-node-${id}`}
+        >
+          <Trash2 style={{ width: 12, height: 12, color: '#666' }} />
+        </button>
+      )}
+
       <div
         style={{
           width: 250,
@@ -121,7 +148,6 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
           background: '#fff',
           display: 'flex',
           alignItems: 'stretch',
-          position: 'relative',
         }}
       >
         {/* Icon panel */}
@@ -144,7 +170,6 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
           style={{
             flex: 1,
             padding: '10px 12px',
-            paddingRight: canDelete ? 32 : 12,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
@@ -190,33 +215,6 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
             </Tooltip>
           </TooltipProvider>
         </div>
-
-        {/* Delete button (top-right, only on leaf nodes with permission) */}
-        {canDelete && (
-          <button
-            onClick={handleDeleteClick}
-            aria-label="Delete node"
-            style={{
-              position: 'absolute',
-              top: 6,
-              right: 6,
-              width: 22,
-              height: 22,
-              background: 'rgba(0, 0, 0, 0.04)',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-              color: '#6b7280',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
-            }}
-            data-testid={`delete-node-${id}`}
-          >
-            <Trash2 style={{ width: 13, height: 13 }} />
-          </button>
-        )}
       </div>
     </div>
   );
