@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import {
   updatePipeline,
   setScheduleStatus,
 } from '@/hooks/api/usePipelines';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import type {
   TransformTask,
   PipelineFormData,
@@ -48,7 +49,7 @@ interface PipelineFormProps {
 // Wrapper component that handles data fetching
 export function PipelineForm({ deploymentId }: PipelineFormProps) {
   const { pipeline, isLoading: pipelineLoading } = usePipeline(deploymentId || null);
-  const { tasks, isLoading: tasksLoading } = useTransformTasks();
+  const { tasks, isLoading: tasksLoading } = useTransformTasks(true);
   const { connections, isLoading: connectionsLoading } = useConnections();
 
   const isLoading = pipelineLoading || tasksLoading || connectionsLoading;
@@ -396,7 +397,24 @@ function PipelineFormContent({
 
             {/* Transform tasks */}
             <div className="space-y-3">
-              <Label className="text-[15px] font-medium">Transform Tasks</Label>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[15px] font-medium">Transform Tasks</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                      aria-label="Transform tasks info"
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={4} className="max-w-xs">
+                    The latest code from the default branch of your git repository will be pulled
+                    automatically before running the transformation tasks.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <div className="flex items-center gap-3">
                 <ToggleGroup
                   type="single"
