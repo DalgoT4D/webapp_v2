@@ -1,15 +1,3 @@
-/** API endpoints for warehouse operations */
-export const WAREHOUSE_API = {
-  LIST: '/api/organizations/warehouses',
-  CREATE: '/api/organizations/warehouse/',
-  DESTINATION_DEFINITIONS: '/api/airbyte/destination_definitions',
-  DESTINATION_SPEC: (defId: string) =>
-    `/api/airbyte/destination_definitions/${defId}/specifications`,
-  DESTINATION_EDIT_SPEC: (destId: string) => `/api/airbyte/destinations/${destId}/specifications`,
-  UPDATE: (destId: string) => `/api/airbyte/v1/destinations/${destId}/`,
-  DELETE: '/api/v1/organizations/warehouses/',
-} as const;
-
 /** WebSocket endpoint for destination connection check */
 export const DESTINATION_CHECK_WS_PATH = 'airbyte/destination/check_connection';
 

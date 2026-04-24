@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiGetBinary } from '@/lib/api';
 import type { Warehouse, DestinationDefinition } from '@/types/warehouse';
 import type { ConnectionSpecification } from '@/components/connectors/types';
-import { WAREHOUSE_API } from '@/constants/warehouse';
+
 import type {
   WarehouseTable,
   TableColumn,
@@ -54,7 +54,7 @@ function mapWarehouseResponse(raw: WarehouseApiItem): Warehouse {
 /** Current warehouse for the org (single warehouse per org) */
 export function useWarehouse() {
   const { data, error, mutate, isLoading } = useSWR<WarehouseListResponse>(
-    WAREHOUSE_API.LIST,
+    '/api/organizations/warehouses',
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -65,7 +65,7 @@ export function useWarehouse() {
 /** Available destination type definitions */
 export function useDestinationDefinitions() {
   const { data, error, isLoading } = useSWR<DestinationDefinition[]>(
-    WAREHOUSE_API.DESTINATION_DEFINITIONS,
+    '/api/airbyte/destination_definitions',
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -89,7 +89,7 @@ function unwrapSpec(
 /** Spec for a selected destination definition (for creating new warehouse) */
 export function useDestinationSpec(defId: string | null) {
   const { data, error, isLoading } = useSWR<SpecResponse>(
-    defId ? WAREHOUSE_API.DESTINATION_SPEC(defId) : null,
+    defId ? `/api/airbyte/destination_definitions/${defId}/specifications` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -99,7 +99,7 @@ export function useDestinationSpec(defId: string | null) {
 /** Spec for an existing destination (for editing warehouse) */
 export function useDestinationEditSpec(destId: string | null) {
   const { data, error, isLoading } = useSWR<SpecResponse>(
-    destId ? WAREHOUSE_API.DESTINATION_EDIT_SPEC(destId) : null,
+    destId ? `/api/airbyte/destinations/${destId}/specifications` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -114,7 +114,7 @@ export async function createWarehouse(payload: {
   destinationDefId: string;
   airbyteConfig: Record<string, unknown>;
 }): Promise<Warehouse> {
-  const raw: WarehouseApiItem = await apiPost(WAREHOUSE_API.CREATE, payload);
+  const raw: WarehouseApiItem = await apiPost('/api/organizations/warehouse/', payload);
   return mapWarehouseResponse(raw);
 }
 
@@ -126,11 +126,11 @@ export async function updateWarehouse(
     destinationDefId: string;
   }
 ): Promise<void> {
-  await apiPut(WAREHOUSE_API.UPDATE(destId), payload);
+  await apiPut(`/api/airbyte/v1/destinations/${destId}/`, payload);
 }
 
 export async function deleteWarehouse(): Promise<void> {
-  return apiDelete(WAREHOUSE_API.DELETE);
+  return apiDelete('/api/v1/organizations/warehouses/');
 }
 
 // ============ Warehouse Data Exploration Hooks ============

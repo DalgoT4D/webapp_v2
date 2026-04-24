@@ -1,18 +1,14 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type { Connection, ConnectionSyncJob, SchemaChange } from '@/types/connections';
-import {
-  CONNECTION_API,
-  SYNC_HISTORY_PAGE_SIZE,
-  TASK_PROGRESS_POLL_INTERVAL_MS,
-} from '@/constants/connections';
+import { SYNC_HISTORY_PAGE_SIZE, TASK_PROGRESS_POLL_INTERVAL_MS } from '@/constants/connections';
 
 // ============ SWR Read Hooks ============
 
 /** All connections with smart polling (polls when any connection has a lock) */
 export function useConnectionsList() {
   const { data, error, mutate, isLoading } = useSWR<Connection[]>(
-    CONNECTION_API.CONNECTIONS,
+    '/api/airbyte/v1/connections',
     apiGet,
     {
       revalidateOnFocus: false,
@@ -31,7 +27,7 @@ export function useConnectionsList() {
 /** Single connection detail */
 export function useConnection(connectionId: string | null) {
   const { data, error, mutate, isLoading } = useSWR<Connection>(
-    connectionId ? `${CONNECTION_API.CONNECTIONS}/${connectionId}` : null,
+    connectionId ? `${'/api/airbyte/v1/connections'}/${connectionId}` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -41,7 +37,7 @@ export function useConnection(connectionId: string | null) {
 /** Pending schema changes */
 export function useSchemaChanges() {
   const { data, error, mutate, isLoading } = useSWR<SchemaChange[]>(
-    CONNECTION_API.SCHEMA_CHANGES,
+    '/api/airbyte/v1/connection/schema_change',
     apiGet,
     { revalidateOnFocus: false }
   );
@@ -59,7 +55,7 @@ export function useSyncHistory(
     totalSyncs: number;
   }>(
     connectionId
-      ? `${CONNECTION_API.CONNECTIONS}/${connectionId}/sync/history?limit=${limit}&offset=${offset}`
+      ? `${'/api/airbyte/v1/connections'}/${connectionId}/sync/history?limit=${limit}&offset=${offset}`
       : null,
     apiGet,
     { revalidateOnFocus: false }
@@ -121,7 +117,7 @@ export async function createConnection(payload: {
   syncCatalog?: unknown;
   catalogId?: string;
 }): Promise<Connection> {
-  return apiPost(`${CONNECTION_API.CONNECTIONS}/`, payload);
+  return apiPost(`${'/api/airbyte/v1/connections'}/`, payload);
 }
 
 export async function updateConnection(
@@ -136,11 +132,11 @@ export async function updateConnection(
     catalogId?: string;
   }
 ): Promise<Connection> {
-  return apiPut(`${CONNECTION_API.CONNECTIONS}/${connectionId}/update`, payload);
+  return apiPut(`${'/api/airbyte/v1/connections'}/${connectionId}/update`, payload);
 }
 
 export async function deleteConnection(connectionId: string): Promise<void> {
-  return apiDelete(`${CONNECTION_API.CONNECTIONS}/${connectionId}`);
+  return apiDelete(`${'/api/airbyte/v1/connections'}/${connectionId}`);
 }
 
 export async function triggerSync(deploymentId: string): Promise<{ flow_run_id: string }> {
@@ -155,7 +151,7 @@ export async function cancelQueuedSync(flowRunId: string): Promise<void> {
 }
 
 export async function refreshConnectionCatalog(connectionId: string): Promise<{ task_id: string }> {
-  return apiGet(`${CONNECTION_API.CONNECTIONS}/${connectionId}/catalog`);
+  return apiGet(`${'/api/airbyte/v1/connections'}/${connectionId}/catalog`);
 }
 
 export async function clearAllStreams(
@@ -176,7 +172,10 @@ export async function clearSelectedStreams(
 }
 
 export async function scheduleSchemaUpdate(connectionId: string, payload: unknown): Promise<void> {
-  return apiPost(`${CONNECTION_API.CONNECTIONS}/${connectionId}/schema_update/schedule`, payload);
+  return apiPost(
+    `${'/api/airbyte/v1/connections'}/${connectionId}/schema_update/schedule`,
+    payload
+  );
 }
 
 export async function fetchSyncLogs(jobId: number, attemptNumber: number): Promise<string[]> {
@@ -214,6 +213,6 @@ export async function triggerLogSummary(
   attemptNumber: number
 ): Promise<{ task_id: string }> {
   return apiGet(
-    `${CONNECTION_API.CONNECTIONS}/${connectionId}/logsummary?job_id=${jobId}&attempt_number=${attemptNumber}`
+    `${'/api/airbyte/v1/connections'}/${connectionId}/logsummary?job_id=${jobId}&attempt_number=${attemptNumber}`
   );
 }

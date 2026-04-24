@@ -20,7 +20,6 @@ import {
   SyncStatus,
   TaskStatus,
   JobType,
-  CONNECTION_API,
 } from '@/constants/connections';
 import { LockStatus, PipelineRunDisplayStatus } from '@/constants/pipeline';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
@@ -104,7 +103,7 @@ export function ConnectionSyncHistory({
     setLoadingMore(true);
     try {
       const result = await apiGet(
-        `${CONNECTION_API.CONNECTIONS}/${connectionId}/sync/history?limit=${SYNC_HISTORY_PAGE_SIZE}&offset=${offset}`
+        `/api/airbyte/v1/connections/${connectionId}/sync/history?limit=${SYNC_HISTORY_PAGE_SIZE}&offset=${offset}`
       );
 
       const moreJobs: ConnectionSyncJob[] = result?.history || [];

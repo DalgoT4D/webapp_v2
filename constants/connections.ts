@@ -97,8 +97,3 @@ export const SYNC_STATUS_CONFIG: Record<string, { label: string; colorClass: str
 
 // Fallback for unrecognized statuses
 export const SYNC_STATUS_DEFAULT = { label: 'Unknown', colorClass: 'text-gray-500' };
-
-export const CONNECTION_API = {
-  CONNECTIONS: '/api/airbyte/v1/connections',
-  SCHEMA_CHANGES: '/api/airbyte/v1/connection/schema_change',
-} as const;
