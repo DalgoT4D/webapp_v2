@@ -71,6 +71,7 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
           [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_AIRBYTE_URL"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1
@@ -106,6 +107,7 @@ jobs:
             NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}
             NEXT_PUBLIC_PENDO_API_KEY=${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}
             NEXT_PUBLIC_TRANSFORM_DOCS_URL=${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}
+            NEXT_PUBLIC_AIRBYTE_URL=${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}
 
       - name: Deploy to staging
         uses: ./.github/actions/deploy
@@ -179,6 +181,7 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_ID"
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
+          [ -z "${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_AIRBYTE_URL"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
             exit 1
@@ -213,6 +216,7 @@ jobs:
             NEXT_PUBLIC_USAGE_DASHBOARD_ID=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_ID }}
             NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN=${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}
             NEXT_PUBLIC_TRANSFORM_DOCS_URL=${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}
+            NEXT_PUBLIC_AIRBYTE_URL=${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}
 
       - name: Deploy to production
         uses: ./.github/actions/deploy
