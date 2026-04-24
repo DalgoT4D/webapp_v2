@@ -47,8 +47,16 @@ export function useKPI(id: number | null) {
   };
 }
 
-export function useKPIData(id: number | null) {
-  const { data, error } = useSWR<ChartDataResponse>(id ? `/api/kpis/${id}/data/` : null, apiGet);
+export function useKPIData(id: number | null, snapshotId?: number) {
+  // In report mode, use the report endpoint (applies frozen filters)
+  // In live mode, use the KPI endpoint directly
+  const url = id
+    ? snapshotId
+      ? `/api/reports/${snapshotId}/kpis/${id}/data/`
+      : `/api/kpis/${id}/data/`
+    : null;
+
+  const { data, error } = useSWR<ChartDataResponse>(url, apiGet);
 
   return {
     chartData: data?.data,

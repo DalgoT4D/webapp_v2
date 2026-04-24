@@ -8,11 +8,17 @@ import { AlertCircle } from 'lucide-react';
 import { useKPIData } from '@/hooks/api/useKPIs';
 import { RAG_COLORS } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
+import type { CommentStates, CommentIconState } from '@/types/comments';
+import { CommentPopover } from '@/components/reports/comment-popover';
 
 interface KPIChartElementProps {
   kpiId: number;
   config: any;
   isResizing?: boolean;
+  snapshotId?: number;
+  commentStates?: CommentStates;
+  onCommentStateChange?: () => void;
+  autoOpenCommentChartId?: string;
 }
 
 function formatValue(v: number | null | undefined): string {
@@ -22,8 +28,16 @@ function formatValue(v: number | null | undefined): string {
   return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-export function KPIChartElement({ kpiId, config, isResizing }: KPIChartElementProps) {
-  const { chartData, echartsConfig, isLoading, isError } = useKPIData(kpiId);
+export function KPIChartElement({
+  kpiId,
+  config,
+  isResizing,
+  snapshotId,
+  commentStates,
+  onCommentStateChange,
+  autoOpenCommentChartId,
+}: KPIChartElementProps) {
+  const { chartData, echartsConfig, isLoading, isError } = useKPIData(kpiId, snapshotId);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -36,22 +50,21 @@ export function KPIChartElement({ kpiId, config, isResizing }: KPIChartElementPr
   useEffect(() => {
     if (!chartRef.current || !echartsConfig || Object.keys(echartsConfig).length === 0) return;
 
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
+    if (chartInstance.current) {
+      chartInstance.current.dispose();
     }
-    chartInstance.current.setOption(echartsConfig, true);
+    chartInstance.current = echarts.init(chartRef.current);
+    chartInstance.current.setOption(echartsConfig);
+
+    const handleResize = () => chartInstance.current?.resize();
+    window.addEventListener('resize', handleResize);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
   }, [echartsConfig]);
-
-  useEffect(() => {
-    const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   useEffect(() => {
     if (!isResizing) {
@@ -71,10 +84,12 @@ export function KPIChartElement({ kpiId, config, isResizing }: KPIChartElementPr
   }
 
   return (
-    <div className="h-full flex flex-col p-4 bg-white rounded-lg">
+    <div className="h-full w-full flex flex-col p-3">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2 shrink-0">
-        <h3 className="text-sm font-semibold text-gray-900 truncate">{config?.title || 'KPI'}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 truncate flex-1">
+          {config?.title || 'KPI'}
+        </h3>
         {ragInfo && (
           <Badge
             variant="outline"
@@ -83,9 +98,23 @@ export function KPIChartElement({ kpiId, config, isResizing }: KPIChartElementPr
             {ragInfo.label}
           </Badge>
         )}
+        {snapshotId && (
+          <CommentPopover
+            snapshotId={snapshotId}
+            targetType="kpi"
+            chartId={kpiId}
+            state={
+              (commentStates?.find((s) => s.target_id === kpiId)?.state as CommentIconState) ??
+              'none'
+            }
+            triggerClassName="h-7 w-7 p-0"
+            onStateChange={onCommentStateChange}
+            autoOpen={autoOpenCommentChartId === String(kpiId)}
+          />
+        )}
       </div>
 
-      {/* Value / Target — only show when there's trend data */}
+      {/* Value / Target — only when trend data exists */}
       {hasTrend && (
         <div className="mb-1 shrink-0">
           {isLoading ? (

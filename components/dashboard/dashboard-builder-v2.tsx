@@ -53,6 +53,7 @@ import {
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
 import { KPIChartElement } from './kpi-chart-element';
+import { Card, CardContent } from '@/components/ui/card';
 import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
@@ -1680,11 +1681,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         case DashboardComponentType.KPI:
           return (
-            <KPIChartElement
-              kpiId={component.config.kpiId}
-              config={component.config}
-              isResizing={resizingItems.has(componentId)}
-            />
+            <Card className="h-full w-full flex flex-col">
+              <CardContent className="p-2 flex-1 flex flex-col min-h-0">
+                <KPIChartElement
+                  kpiId={component.config.kpiId}
+                  config={component.config}
+                  isResizing={resizingItems.has(componentId)}
+                />
+              </CardContent>
+            </Card>
           );
 
         default:

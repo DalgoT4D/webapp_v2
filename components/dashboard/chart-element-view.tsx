@@ -1778,8 +1778,8 @@ export function ChartElementView({
                 targetType="chart"
                 chartId={chartId}
                 state={
-                  (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
-                  'none'
+                  (commentStates?.find((s) => s.target_id === chartId)
+                    ?.state as CommentIconState) ?? 'none'
                 }
                 triggerClassName="h-7 w-7 p-0"
                 onStateChange={onCommentStateChange}

@@ -600,7 +600,14 @@ export function DashboardNativeView({
       case 'kpi':
         return (
           <div key={componentId} className="h-full">
-            <KPIChartElement kpiId={component.config?.kpiId} config={component.config} />
+            <KPIChartElement
+              kpiId={component.config?.kpiId}
+              config={component.config}
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+            />
           </div>
         );
 
