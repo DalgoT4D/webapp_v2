@@ -172,10 +172,7 @@ export async function clearSelectedStreams(
 }
 
 export async function scheduleSchemaUpdate(connectionId: string, payload: unknown): Promise<void> {
-  return apiPost(
-    `${'/api/airbyte/v1/connections'}/${connectionId}/schema_update/schedule`,
-    payload
-  );
+  return apiPost(`/api/airbyte/v1/connections/${connectionId}/schema_update/schedule`, payload);
 }
 
 export async function fetchSyncLogs(jobId: number, attemptNumber: number): Promise<string[]> {
