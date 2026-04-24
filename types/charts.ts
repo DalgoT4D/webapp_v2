@@ -14,6 +14,8 @@ export interface ChartMetric {
   column: string | null; // null for COUNT(*) operations
   aggregation: string; // SUM, COUNT, AVG, MAX, MIN, etc.
   alias?: string; // Display name for the metric
+  column_expression?: string; // Raw SQL expression (mutually exclusive with column + aggregation)
+  saved_metric_id?: number; // Reference to a saved Metric (resolved at query time)
 }
 
 // Chart dimension configuration for table charts with drill-down support

@@ -19,12 +19,12 @@ interface ApiResponse<T> {
 
 export function useComments(
   snapshotId: number | null,
-  targetType: 'summary' | 'chart',
-  chartId?: number
+  targetType: 'summary' | 'chart' | 'kpi',
+  targetId?: number
 ) {
   const params = new URLSearchParams();
   params.set('target_type', targetType);
-  if (chartId !== undefined) params.set('chart_id', String(chartId));
+  if (targetId !== undefined) params.set('target_id', String(targetId));
 
   const { data, error, isLoading, mutate } = useSWR<ApiResponse<Comment[]>>(
     snapshotId ? `/api/reports/${snapshotId}/comments/?${params.toString()}` : null,

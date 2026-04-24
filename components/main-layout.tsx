@@ -24,6 +24,7 @@ import {
   Info,
   CreditCard,
   Users,
+  Target,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -50,7 +51,6 @@ interface NavItemType {
 // Menu items to hide in production environment
 const PRODUCTION_HIDDEN_ITEMS = [
   // Add menu item titles to hide in production
-  'Metrics',
   'Alerts',
 ];
 // Function to filter menu items for production environment
@@ -115,10 +115,10 @@ const getNavItems = (
       isActive: currentPath === '/impact',
     },
     {
-      title: 'Metrics',
-      href: '/metrics',
-      icon: BarChart3,
-      isActive: currentPath.startsWith('/metrics'),
+      title: 'KPIs',
+      href: '/kpis',
+      icon: Target,
+      isActive: currentPath.startsWith('/kpis'),
     },
     {
       title: 'Charts',
@@ -177,6 +177,12 @@ const getNavItems = (
           href: '/explore',
           icon: ExploreIcon,
           isActive: currentPath.startsWith('/explore'),
+        },
+        {
+          title: 'Metrics',
+          href: '/metrics',
+          icon: BarChart3,
+          isActive: currentPath.startsWith('/metrics'),
         },
         {
           title: 'Quality',
