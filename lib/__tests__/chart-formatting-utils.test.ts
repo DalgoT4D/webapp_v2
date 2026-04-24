@@ -6,9 +6,12 @@ import {
   formatAxisValue,
   createTooltipFormatter,
   createPieDimensionFormatter,
+  createPieDateFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyPieDateFormatting,
   applyLineBarChartFormatting,
+  applyLineBarDateFormatting,
 } from '../chart-formatting-utils';
 
 describe('chart-formatting-utils', () => {
@@ -34,6 +37,24 @@ describe('chart-formatting-utils', () => {
       expect(formatAxisValue(1500000, withFormat, 'x', 'bar')).toBe('1.5M');
       expect(formatAxisValue(1500000, withoutFormat, 'x', 'bar')).toBe(1500000);
       expect(formatAxisValue('January', withFormat, 'x', 'bar')).toBe('January');
+    });
+
+    it('should preserve date strings instead of parsing them as numbers', () => {
+      // Number("2019-01-14") returns NaN, while parseFloat("2019-01-14") returns 2019
+      // This ensures date strings are returned as-is, not corrupted to "2,019"
+      const withFormat = {
+        yAxisNumberFormat: 'international' as const,
+        xAxisNumberFormat: 'international' as const,
+      };
+
+      // Y-axis: date strings should be preserved
+      expect(formatAxisValue('2019-01-14', withFormat, 'y', 'bar')).toBe('2019-01-14');
+      expect(formatAxisValue('2025-04-15T10:30:00', withFormat, 'y', 'line')).toBe(
+        '2025-04-15T10:30:00'
+      );
+
+      // X-axis: date strings should be preserved
+      expect(formatAxisValue('2019-01-14', withFormat, 'x', 'bar')).toBe('2019-01-14');
     });
 
     it('should use numberFormat for non-axis charts (pie)', () => {
@@ -92,6 +113,48 @@ describe('chart-formatting-utils', () => {
       });
       expect(result).toContain('1.5M');
       expect(result).toContain('35.5%');
+    });
+
+    it('should apply xAxisDateFormat to tooltip X-axis name for bar/line charts', () => {
+      // applyLineBarDateFormatting only sets axisLabel.formatter (display only),
+      // so tooltip receives raw date strings — createTooltipFormatter must format them too
+      const customizations = { xAxisDateFormat: 'dd_mm_yyyy' as const };
+      const formatter = createTooltipFormatter(customizations, 'bar');
+
+      const result = formatter({
+        marker: '●',
+        seriesName: 'Sales',
+        name: '2019-01-14',
+        value: 100,
+      });
+      expect(result).toContain('14/01/2019');
+      expect(result).not.toContain('2019-01-14');
+    });
+
+    it('should apply xAxisDateFormat to multi-series tooltip X-axis name', () => {
+      const customizations = { xAxisDateFormat: 'dd_mm_yyyy' as const };
+      const formatter = createTooltipFormatter(customizations, 'line');
+
+      const result = formatter([
+        { marker: '●', seriesName: 'Revenue', name: '2019-01-14', value: 100 },
+        { marker: '●', seriesName: 'Profit', name: '2019-01-14', value: 50 },
+      ]);
+      expect(result).toContain('14/01/2019');
+      expect(result).not.toContain('2019-01-14');
+    });
+
+    it('should not apply xAxisDateFormat when set to default', () => {
+      const customizations = { xAxisDateFormat: 'default' as const };
+      const formatter = createTooltipFormatter(customizations, 'bar');
+
+      const result = formatter({
+        marker: '●',
+        seriesName: 'Sales',
+        name: '2019-01-14',
+        value: 100,
+      });
+      // 'default' means no date formatting — raw value shown as-is
+      expect(result).toContain('2019-01-14');
     });
   });
 
@@ -281,6 +344,149 @@ describe('chart-formatting-utils', () => {
       const formatter = createPieDimensionFormatter('international', undefined);
       expect(formatter('Category A')).toBe('Category A');
       expect(formatter('Product - Description')).toBe('Product - Description');
+    });
+  });
+
+  describe('createPieDateFormatter', () => {
+    it('should format a plain date string', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('2019-01-14')).toBe('14/01/2019');
+    });
+
+    it('should format combined "date - category" names (date is first part)', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('2019-01-14 - Electronics')).toBe('14/01/2019 - Electronics');
+    });
+
+    it('should format combined "category - date" names (date is second part)', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('Electronics - 2019-01-14')).toBe('Electronics - 14/01/2019');
+    });
+
+    it('should format combined "date - date" names when both parts are dates', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('2019-01-14 - 2020-06-30')).toBe('14/01/2019 - 30/06/2020');
+    });
+
+    it('should leave non-date strings unchanged', () => {
+      const formatter = createPieDateFormatter('dd_mm_yyyy');
+      expect(formatter('Electronics')).toBe('Electronics');
+      expect(formatter('Category - SubCategory')).toBe('Category - SubCategory');
+    });
+  });
+
+  describe('applyPieDateFormatting', () => {
+    const makePieConfig = (data = [{ name: '2019-01-14', value: 100 }]) => ({
+      series: [{ type: 'pie', label: {}, data }],
+      legend: { data: ['2019-01-14'] },
+    });
+
+    it('should do nothing when dateFormat is default or missing', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, {});
+      expect((config.series[0] as any).label.formatter).toBeUndefined();
+
+      applyPieDateFormatting(config, { dateFormat: 'default' });
+      expect((config.series[0] as any).label.formatter).toBeUndefined();
+    });
+
+    it('should format series.data names with date format', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.series[0] as any).data[0].name).toBe('14/01/2019');
+    });
+
+    it('should format combined "date - category" names in series.data', () => {
+      const config = makePieConfig([{ name: '2019-01-14 - Electronics', value: 100 }]);
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.series[0] as any).data[0].name).toBe('14/01/2019 - Electronics');
+    });
+
+    it('should format combined "category - date" names in series.data', () => {
+      const config = makePieConfig([{ name: 'Electronics - 2019-01-14', value: 100 }]);
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.series[0] as any).data[0].name).toBe('Electronics - 14/01/2019');
+    });
+
+    it('should update legend.data to match formatted names', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.legend as any).data[0]).toBe('14/01/2019');
+    });
+
+    it('should update combined legend.data entries correctly', () => {
+      const config = {
+        series: [
+          { type: 'pie', label: {}, data: [{ name: '2019-01-14 - Electronics', value: 100 }] },
+        ],
+        legend: { data: ['2019-01-14 - Electronics'] },
+      };
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect((config.legend as any).data[0]).toBe('14/01/2019 - Electronics');
+    });
+
+    it('should add legend formatter for dates', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect(typeof (config.legend as any).formatter).toBe('function');
+      expect((config.legend as any).formatter('2019-01-14')).toBe('14/01/2019');
+      expect((config.legend as any).formatter('2019-01-14 - Electronics')).toBe(
+        '14/01/2019 - Electronics'
+      );
+    });
+
+    it('should inject label formatter using date format for name', () => {
+      const config = makePieConfig();
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy', labelFormat: 'name_percentage' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 100, name: '2019-01-14', percent: 40 })).toBe('14/01/2019\n40%');
+    });
+
+    it('should inject label formatter that handles combined names', () => {
+      const config = makePieConfig([{ name: '2019-01-14 - Electronics', value: 100 }]);
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy', labelFormat: 'name_percentage' });
+      const formatter = (config.series[0] as any).label.formatter;
+      expect(formatter({ value: 100, name: '2019-01-14 - Electronics', percent: 40 })).toBe(
+        '14/01/2019 - Electronics\n40%'
+      );
+    });
+
+    it('should do nothing when series is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyPieDateFormatting(config, { dateFormat: 'dd_mm_yyyy' });
+      expect(config.series).toBeUndefined();
+    });
+  });
+
+  describe('applyLineBarDateFormatting', () => {
+    it('should do nothing when xAxisDateFormat is default or missing', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarDateFormatting(config, {});
+      expect((config.xAxis as any).axisLabel.formatter).toBeUndefined();
+
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'default' });
+      expect((config.xAxis as any).axisLabel.formatter).toBeUndefined();
+    });
+
+    it('should apply X-axis date formatter', () => {
+      const config = { xAxis: { axisLabel: {} } };
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'dd_mm_yyyy' });
+      const formatter = (config.xAxis as any).axisLabel.formatter;
+      expect(formatter('2019-01-14')).toBe('14/01/2019');
+    });
+
+    it('should apply formatter to each axis when xAxis is an array', () => {
+      const config = { xAxis: [{ axisLabel: {} }, { axisLabel: {} }] };
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'yyyy_mm_dd' });
+      (config.xAxis as any[]).forEach((axis) => {
+        expect(axis.axisLabel.formatter('2019-01-14')).toBe('2019-01-14');
+      });
+    });
+
+    it('should do nothing when xAxis is missing', () => {
+      const config: Record<string, unknown> = {};
+      applyLineBarDateFormatting(config, { xAxisDateFormat: 'dd_mm_yyyy' });
+      expect(config.xAxis).toBeUndefined();
     });
   });
 });

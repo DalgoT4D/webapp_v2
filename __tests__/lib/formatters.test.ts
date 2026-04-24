@@ -2,7 +2,7 @@
  * Tests for formatters utility
  */
 
-import { formatNumber } from '@/lib/formatters';
+import { formatNumber, formatDate, type DateFormat } from '@/lib/formatters';
 
 describe('formatNumber', () => {
   it.each([
@@ -68,5 +68,40 @@ describe('formatNumber', () => {
     [150000000, { format: 'adaptive_indian', decimalPlaces: 0 }, '15Cr'],
   ])('formatNumber(%s, %j) => %s (adaptive with decimal places)', (value, options, expected) => {
     expect(formatNumber(value as number, options as any)).toBe(expected);
+  });
+});
+
+describe('formatDate', () => {
+  // Edge cases
+  it.each([
+    [null, ''],
+    [undefined, ''],
+    ['', ''],
+    ['not-a-date', 'not-a-date'],
+    ['2025-02-14', '2025-02-14'], // default format returns raw value
+  ])('formatDate edge case: %s => %s', (value, expected) => {
+    expect(formatDate(value as any, { format: 'default' })).toBe(expected);
+  });
+
+  // All format patterns — naive string (no timezone)
+  it.each([
+    ['iso_datetime', '2019-01-14 01:32:10'],
+    ['dd_mm_yyyy', '14/01/2019'],
+    ['mm_dd_yyyy', '01/14/2019'],
+    ['yyyy_mm_dd', '2019-01-14'],
+    ['dd_mm_yyyy_time', '14-01-2019 01:32:10'],
+    ['time_only', '01:32:10'],
+  ])('format pattern %s on naive string', (format, expected) => {
+    expect(formatDate('2019-01-14T01:32:10', { format: format as DateFormat })).toBe(expected);
+  });
+
+  // Timezone-aware strings — formatted in warehouse timezone, not local timezone
+  it.each([
+    ['2025-06-13T00:00:00Z', 'iso_datetime', '2025-06-13 00:00:00'], // UTC (Z)
+    ['2025-06-13T10:30:00+05:30', 'iso_datetime', '2025-06-13 10:30:00'], // IST
+    ['2025-06-13T15:00:00-05:00', 'iso_datetime', '2025-06-13 15:00:00'], // UTC-5
+    ['2025-06-13T00:00:00Z', 'dd_mm_yyyy', '13/06/2025'], // date-only format
+  ])('formatDate(%s) formats in warehouse timezone', (value, format, expected) => {
+    expect(formatDate(value, { format: format as DateFormat })).toBe(expected);
   });
 });
