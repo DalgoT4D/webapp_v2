@@ -281,7 +281,14 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
                   {sources.map((source) => (
                     <SelectItem key={source.sourceId} value={source.sourceId}>
                       <div className="flex items-center gap-2">
-                        {source.icon && <img src={source.icon} alt="" className="h-4 w-4" />}
+                        <img
+                          src={source.icon || '/icons/connection.svg'}
+                          alt=""
+                          className="h-4 w-4"
+                          onError={(e) => {
+                            e.currentTarget.src = '/icons/connection.svg';
+                          }}
+                        />
                         {source.name}
                       </div>
                     </SelectItem>
@@ -293,9 +300,14 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
             <div>
               <label className="text-[15px] font-medium">Source</label>
               <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/50 text-sm">
-                {connection.source?.icon && (
-                  <img src={connection.source.icon} alt="" className="h-4 w-4" />
-                )}
+                <img
+                  src={connection.source?.icon || '/icons/connection.svg'}
+                  alt=""
+                  className="h-4 w-4"
+                  onError={(e) => {
+                    e.currentTarget.src = '/icons/connection.svg';
+                  }}
+                />
                 <span data-testid="connection-source-name">
                   {connection.source?.name || connection.source?.sourceName || '—'}
                 </span>

@@ -310,14 +310,15 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                 disabled={isEdit || loading}
                 renderItem={(item, _isSelected, searchQuery) => (
                   <div className="flex items-center gap-2">
-                    {item.icon && (
-                      <img
-                        src={item.icon as string}
-                        alt=""
-                        className="h-4 w-4 flex-shrink-0"
-                        loading="lazy"
-                      />
-                    )}
+                    <img
+                      src={(item.icon as string) || '/icons/connection.svg'}
+                      alt=""
+                      className="h-4 w-4 flex-shrink-0"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.src = '/icons/connection.svg';
+                      }}
+                    />
                     <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
                   </div>
                 )}
