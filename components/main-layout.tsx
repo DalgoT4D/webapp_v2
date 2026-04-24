@@ -540,8 +540,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     transformType,
     role ?? ''
   );
-  const flattenedNavItems = getFlattenedNavItems(navItems, expandedMenus);
-
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {
     setExpandedMenus((prev) => {
