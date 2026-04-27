@@ -142,6 +142,7 @@ export function DatePicker({
             onSelect={(date) => onSelect(date)}
             disabled={calendarDisabled}
             captionLayout="dropdown"
+            fixedWeeks
           />
 
           {showFooter && (
