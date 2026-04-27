@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+/tmp/dalgo-local-webapp-next/
 
 # production
 /build
