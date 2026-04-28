@@ -21,6 +21,7 @@ import {
   useChartDataPreview,
   useChartDataPreviewTotalRows,
   useMapDataOverlay,
+  transformMapDataOverlayPayload,
   useGeoJSONData,
   useRegions,
   useRegionGeoJSONs,
@@ -880,8 +881,14 @@ export function ChartElementView({
   const geojsonLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
 
   // Fetch map data overlay - public vs private mode
+  // Apply same payload transformation as useMapDataOverlay (handles count, builds metrics)
+  const transformedPublicMapPayload = useMemo(
+    () => (isPublicMode ? transformMapDataOverlayPayload(mapDataOverlayPayload) : null),
+    [isPublicMode, mapDataOverlayPayload]
+  );
+
   const publicMapDataUrl =
-    isPublicMode && publicToken && mapDataOverlayPayload && isMapChart
+    isPublicMode && publicToken && transformedPublicMapPayload && isMapChart
       ? isPublicReport
         ? `/api/v1/public/reports/${publicToken}/map-data/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
@@ -893,11 +900,11 @@ export function ChartElementView({
     isLoading: publicMapLoading,
     mutate: mutatePublicMapData,
   } = useSWR(
-    publicMapDataUrl ? [publicMapDataUrl, JSON.stringify(mapDataOverlayPayload)] : null,
+    publicMapDataUrl ? [publicMapDataUrl, JSON.stringify(transformedPublicMapPayload)] : null,
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          return apiPublicPost(url, mapDataOverlayPayload);
+          return apiPublicPost(url, transformedPublicMapPayload);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
