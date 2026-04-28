@@ -29,16 +29,18 @@ function MigrationContent() {
                 className="text-primary"
               />
             </div>
-            <h1 className="text-2xl font-bold mb-2">Welcome to Dalgo V2</h1>
+            <h1 className="text-2xl font-bold mb-2">🎉 Dalgo 2.0 is here.</h1>
             <p className="text-gray-600">
-              We have upgraded to a new and improved experience. The old dashboard domain is no
-              longer active. Dalgo V2 shifts the focus from data pipelines and ETL to what matters
-              most — charts, dashboards, reports, and actionable insights.
+              Today, we&apos;re opening the doors to something we&apos;re incredibly proud of. Dalgo
+              2.0 is now on a new domain, and it goes well beyond automation. We&apos;ve built
+              around your needs: charts, dashboards, and reports, all in one place, designed around
+              the data decisions nonprofits make every day. Bookmark this new link, and we&apos;re
+              so excited for you to have a look around.
             </p>
           </div>
 
           <Button data-testid="migration-continue-btn" className="w-full" onClick={handleContinue}>
-            Continue to Dalgo v2
+            Continue to Dalgo 2.0
           </Button>
         </div>
       </div>
