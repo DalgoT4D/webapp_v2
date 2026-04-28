@@ -586,9 +586,9 @@ function ConfigureChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
+  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
-  };
+  }, []);
 
   // Auto-prefill when columns are loaded
   useEffect(() => {
