@@ -62,9 +62,9 @@ export interface DiscoveredDatetimeColumn {
 export interface CreateSnapshotPayload {
   title: string;
   dashboard_id: number;
-  date_column: DateColumn;
+  date_column?: DateColumn;
   period_start?: string;
-  period_end: string;
+  period_end?: string;
   description?: string;
 }
 
