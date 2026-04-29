@@ -74,6 +74,7 @@ export function CreateSnapshotDialog({
     watch,
     setValue,
     reset,
+    clearErrors,
     formState: { errors },
   } = useForm<SnapshotFormData>({
     defaultValues: {
@@ -134,6 +135,13 @@ export function CreateSnapshotDialog({
   };
 
   const hasDatetimeColumns = discoveredColumns.length > 0;
+
+  // Clear date field validation errors when no datetime columns are available
+  useEffect(() => {
+    if (!hasDatetimeColumns) {
+      clearErrors(['selectedDateColumn', 'periodEnd']);
+    }
+  }, [hasDatetimeColumns, clearErrors]);
 
   const onSubmit = async (data: SnapshotFormData) => {
     setIsSubmitting(true);
@@ -236,23 +244,17 @@ export function CreateSnapshotDialog({
             )}
           </div>
 
-          {/* No datetime columns message */}
-          {effectiveDashboardId &&
-            !columnsLoading &&
-            discoveredColumns.length === 0 &&
-            dashboardData && (
-              <p className="text-sm text-muted-foreground">
-                No datetime columns found in this dashboard&apos;s data sources. The report will be
-                created without date filtering.
-              </p>
-            )}
-
-          {/* Filter by — only shown when datetime columns exist */}
-          {hasDatetimeColumns && (
+          {/* Filter by */}
+          <div className={!hasDatetimeColumns ? 'opacity-50' : ''}>
             <div className="space-y-2">
               <Label className="font-semibold">
-                Filter by <span className="text-red-600 ml-1">*</span>
+                Filter by {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
               </Label>
+              {!hasDatetimeColumns && effectiveDashboardId && !columnsLoading && dashboardData && (
+                <p className="text-sm text-muted-foreground">
+                  No datetime columns found — date filtering will be skipped.
+                </p>
+              )}
               <Controller
                 name="selectedDateColumn"
                 control={control}
@@ -261,14 +263,16 @@ export function CreateSnapshotDialog({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    disabled={!effectiveDashboardId || columnsLoading}
+                    disabled={!hasDatetimeColumns || !effectiveDashboardId || columnsLoading}
                   >
                     <SelectTrigger data-testid="snapshot-date-column">
                       <SelectValue
                         placeholder={
                           columnsLoading
                             ? 'Discovering date columns...'
-                            : 'Pick the date-time column to filter by'
+                            : !hasDatetimeColumns
+                              ? 'No date columns available'
+                              : 'Pick the date-time column to filter by'
                         }
                       />
                     </SelectTrigger>
@@ -289,13 +293,13 @@ export function CreateSnapshotDialog({
                 <p className="text-sm text-red-500">{errors.selectedDateColumn.message}</p>
               )}
             </div>
-          )}
+          </div>
 
-          {/* Duration — only shown when datetime columns exist */}
-          {hasDatetimeColumns && (
+          {/* Duration */}
+          <div className={!hasDatetimeColumns ? 'opacity-50 pointer-events-none' : ''}>
             <div className="space-y-2">
               <Label className="font-semibold">
-                Duration <span className="text-red-600 ml-1">*</span>
+                Duration {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
               </Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -314,7 +318,7 @@ export function CreateSnapshotDialog({
                 </div>
                 <div className="space-y-1">
                   <span className="text-sm text-muted-foreground">
-                    End date <span className="text-red-600">*</span>
+                    End date {hasDatetimeColumns && <span className="text-red-600">*</span>}
                   </span>
                   <Controller
                     name="periodEnd"
@@ -334,7 +338,7 @@ export function CreateSnapshotDialog({
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Buttons - left aligned */}
