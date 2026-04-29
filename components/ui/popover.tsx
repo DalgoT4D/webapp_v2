@@ -19,8 +19,21 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      // Render portal inside the fullscreen element so it remains visible
+      // when the browser's native Fullscreen API is active. Without this,
+      // portals render to document.body which is hidden outside fullscreen.
+      setPortalContainer((document.fullscreenElement as HTMLElement) ?? null);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={portalContainer}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}
