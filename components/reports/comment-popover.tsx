@@ -115,7 +115,7 @@ const MentionDropdown = memo(function MentionDropdown({
           type="button"
           data-testid={`mention-user-${user.email}`}
           className={cn(
-            'w-full text-left px-4 py-3 text-sm flex items-center gap-3',
+            'w-full text-left px-3 py-2 text-sm flex items-center gap-2',
             idx === highlightedIndex ? 'bg-accent' : 'hover:bg-accent'
           )}
           onMouseDown={(e) => {
@@ -124,7 +124,7 @@ const MentionDropdown = memo(function MentionDropdown({
           }}
           onMouseEnter={() => onHighlightChange(idx)}
         >
-          <Avatar className="h-7 w-7 text-xs flex-shrink-0">
+          <Avatar className="h-5 w-5 text-[10px] flex-shrink-0">
             <AvatarFallback
               style={{ backgroundColor: getAvatarColor(user.email) }}
               className="text-white"
@@ -737,8 +737,8 @@ function CommentPopoverInner({
         )}
 
         {/* Add comment input */}
-        <div className={cn('p-3 flex-shrink-0', visibleComments.length > 0 && 'border-t relative')}>
-          <div>
+        <div className={cn('p-3 flex-shrink-0', visibleComments.length > 0 && 'border-t')}>
+          <div className="relative">
             <MentionDropdown
               filteredUsers={filteredMentionUsers}
               onSelect={handleMentionSelect}
