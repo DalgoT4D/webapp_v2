@@ -555,7 +555,7 @@ function CommentPopoverInner({
         try {
           await markAsRead(snapshotId, {
             target_type: targetType,
-            chart_id: chartId,
+            target_id: chartId,
           });
           onStateChange?.();
         } catch {
@@ -579,7 +579,7 @@ function CommentPopoverInner({
     try {
       await createComment(snapshotId, {
         target_type: targetType,
-        chart_id: chartId,
+        target_id: chartId,
         content,
         mentioned_emails: extractMentionedEmails(content),
       });

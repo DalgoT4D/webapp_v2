@@ -58,6 +58,7 @@ import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
+import { KPIChartElement } from './kpi-chart-element';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
@@ -593,6 +594,20 @@ export function DashboardNativeView({
             >
               {component.config?.text || 'Heading'}
             </HeadingTag>
+          </div>
+        );
+
+      case 'kpi':
+        return (
+          <div key={componentId} className="h-full">
+            <KPIChartElement
+              kpiId={component.config?.kpiId}
+              config={component.config}
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+            />
           </div>
         );
 

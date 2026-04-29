@@ -13,15 +13,16 @@ function lookupSummaryState(states: CommentStates | undefined): CommentIconState
 }
 
 /** Mirrors the lookup in components/dashboard/chart-element-view.tsx */
-function lookupChartState(states: CommentStates | undefined, chartId: number): CommentIconState {
-  return (states?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ?? 'none';
+function lookupChartState(states: CommentStates | undefined, targetId: number): CommentIconState {
+  return (states?.find((s) => s.target_id === targetId)?.state as CommentIconState) ?? 'none';
 }
 
 describe('Comment states array lookups', () => {
   const sampleStates: CommentStates = [
-    { target_type: 'summary', chart_id: null, state: 'unread' },
-    { target_type: 'chart', chart_id: 19, state: 'read' },
-    { target_type: 'chart', chart_id: 34, state: 'mentioned' },
+    { target_type: 'summary', target_id: null, state: 'unread' },
+    { target_type: 'chart', target_id: 19, state: 'read' },
+    { target_type: 'chart', target_id: 34, state: 'mentioned' },
+    { target_type: 'kpi', target_id: 42, state: 'unread' },
   ];
 
   describe('lookupSummaryState', () => {
@@ -38,18 +39,22 @@ describe('Comment states array lookups', () => {
     });
 
     it('returns "none" when no summary entry exists', () => {
-      const chartsOnly: CommentStates = [{ target_type: 'chart', chart_id: 10, state: 'read' }];
+      const chartsOnly: CommentStates = [{ target_type: 'chart', target_id: 10, state: 'read' }];
       expect(lookupSummaryState(chartsOnly)).toBe('none');
     });
   });
 
   describe('lookupChartState', () => {
-    it('finds chart state by chart_id', () => {
+    it('finds chart state by target_id', () => {
       expect(lookupChartState(sampleStates, 19)).toBe('read');
       expect(lookupChartState(sampleStates, 34)).toBe('mentioned');
     });
 
-    it('returns "none" for unknown chart_id', () => {
+    it('finds kpi state by target_id', () => {
+      expect(lookupChartState(sampleStates, 42)).toBe('unread');
+    });
+
+    it('returns "none" for unknown target_id', () => {
       expect(lookupChartState(sampleStates, 999)).toBe('none');
     });
 
@@ -61,8 +66,7 @@ describe('Comment states array lookups', () => {
       expect(lookupChartState([], 19)).toBe('none');
     });
 
-    it('does not confuse chart entries across different chart_ids', () => {
-      // chart_id 19 should not return chart_id 34's state
+    it('does not confuse entries across different target_ids', () => {
       expect(lookupChartState(sampleStates, 19)).not.toBe(lookupChartState(sampleStates, 34));
     });
   });
@@ -71,23 +75,25 @@ describe('Comment states array lookups', () => {
     it('each entry has required fields', () => {
       for (const entry of sampleStates) {
         expect(entry).toHaveProperty('target_type');
-        expect(entry).toHaveProperty('chart_id');
+        expect(entry).toHaveProperty('target_id');
         expect(entry).toHaveProperty('state');
-        expect(['summary', 'chart']).toContain(entry.target_type);
+        expect(['summary', 'chart', 'kpi']).toContain(entry.target_type);
       }
     });
 
-    it('chart entries have numeric chart_id', () => {
-      const chartEntries = sampleStates.filter((s) => s.target_type === 'chart');
-      for (const entry of chartEntries) {
-        expect(typeof entry.chart_id).toBe('number');
+    it('chart/kpi entries have numeric target_id', () => {
+      const entityEntries = sampleStates.filter(
+        (s) => s.target_type === 'chart' || s.target_type === 'kpi'
+      );
+      for (const entry of entityEntries) {
+        expect(typeof entry.target_id).toBe('number');
       }
     });
 
-    it('summary entries have null chart_id', () => {
+    it('summary entries have null target_id', () => {
       const summaryEntries = sampleStates.filter((s) => s.target_type === 'summary');
       for (const entry of summaryEntries) {
-        expect(entry.chart_id).toBeNull();
+        expect(entry.target_id).toBeNull();
       }
     });
   });
