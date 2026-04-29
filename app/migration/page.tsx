@@ -29,13 +29,11 @@ function MigrationContent() {
                 className="text-primary"
               />
             </div>
-            <h1 className="text-2xl font-bold mb-2">🎉 Dalgo 2.0 is here.</h1>
+            <h1 className="text-2xl font-bold mb-2">Hi, Dalgo has a new home!</h1>
             <p className="text-gray-600">
-              Today, we&apos;re opening the doors to something we&apos;re incredibly proud of. Dalgo
-              2.0 is now on a new domain, and it goes well beyond automation. We&apos;ve built
-              around your needs: charts, dashboards, and reports, all in one place, designed around
-              the data decisions nonprofits make every day. Bookmark this new link, and we&apos;re
-              so excited for you to have a look around.
+              Dalgo 2.0 is here and has permanently moved to insights.dalgo.org. You can find your
+              existing workflows, in addition to charts, dashboards, and more in the link below.
+              Don&apos;t forget to bookmark and share with other Dalgo users in your team!
             </p>
           </div>
 
