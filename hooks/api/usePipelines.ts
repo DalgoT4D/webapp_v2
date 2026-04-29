@@ -62,15 +62,16 @@ export function usePipeline(deploymentId: string | null) {
 
 /**
  * Fetch all transform tasks
+ * @param excludeGit - If true, excludes git tasks (used in pipeline orchestration where git is auto-managed)
  */
-export function useTransformTasks() {
-  const { data, error, mutate, isLoading } = useSWR<TransformTask[]>(
-    '/api/prefect/tasks/transform/',
-    apiGet,
-    {
-      revalidateOnFocus: false,
-    }
-  );
+export function useTransformTasks(excludeGit: boolean = false) {
+  const url = excludeGit
+    ? '/api/prefect/tasks/transform/?exclude_git=true'
+    : '/api/prefect/tasks/transform/';
+
+  const { data, error, mutate, isLoading } = useSWR<TransformTask[]>(url, apiGet, {
+    revalidateOnFocus: false,
+  });
 
   return {
     tasks: data || [],

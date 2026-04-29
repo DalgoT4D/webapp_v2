@@ -233,38 +233,46 @@ const getNavItems = (
   return filterMenuItemsForProduction(allNavItems);
 };
 
-// Flatten menu items for collapsed view based on expanded state
-const getFlattenedNavItems = (items: NavItemType[]): NavItemType[] => {
-  const flattened: NavItemType[] = [];
-
-  items.forEach((item) => {
-    // Skip hidden items
-    if (item.hide) return;
-
-    // Always include the parent item
-    flattened.push(item);
-
-    // Always include children in collapsed mode so sub-items are accessible
-    if (item.children) {
-      const visibleChildren = item.children.filter((child) => !child.hide);
-      flattened.push(...visibleChildren);
-    }
-  });
-
-  return flattened;
+// A parent menu item is "active" when the current path lives inside any of its visible children.
+const hasActiveChild = (item: NavItemType): boolean => {
+  if (!item.children) return false;
+  return item.children.some((child) => !child.hide && child.isActive);
 };
 
 // Collapsed navigation item component
-function CollapsedNavItem({ item }: { item: NavItemType }) {
+function CollapsedNavItem({
+  item,
+  onExpandSidebar,
+  isSubmenuExpanded = false,
+}: {
+  item: NavItemType;
+  onExpandSidebar?: () => void;
+  isSubmenuExpanded?: boolean;
+}) {
+  const visibleChildren = item.children?.filter((child) => !child.hide) || [];
+  const hasChildren = visibleChildren.length > 0;
+  // Only self-active highlights here. Parents (Data/Settings) never highlight in collapsed view —
+  // their children render directly below and carry the selection themselves.
+  const active = item.isActive;
+
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
             href={item.href}
+            onClick={() => {
+              // Parents (Data, Settings) expand the sidebar so the full submenu is visible.
+              if (hasChildren) {
+                onExpandSidebar?.();
+              }
+            }}
             className={cn(
               'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-              item.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
+              // Border hints a parent has a submenu. Drop it once its submenu is open (children
+              // render below) — otherwise parent + highlighted child look like two selected items.
+              hasChildren && !isSubmenuExpanded && 'border border-border',
+              active && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
             )}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />
@@ -288,91 +296,10 @@ function ExpandedNavItem({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  // Filter out hidden children
   const visibleChildren = item.children?.filter((child) => !child.hide) || [];
   const hasChildren = visibleChildren.length > 0;
 
-  // Auto-expand if any child is active
-  useEffect(() => {
-    if (!isExpanded && hasChildren && visibleChildren.some((child) => child.isActive)) {
-      onToggle(); // Expand if a child is active
-    }
-  }, []);
-
   if (hasChildren) {
-    // Special handling for Data tab - make it clickable and show submenu
-    if (item.title === 'Data') {
-      return (
-        <div className="space-y-1">
-          <div
-            className={cn(
-              'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
-              item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
-            )}
-          >
-            <Link
-              href={item.href}
-              onClick={() => {
-                // Expand the menu when navigating to show the selected item
-                if (!isExpanded) {
-                  onToggle();
-                }
-              }}
-              className={cn(
-                'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
-                item.isActive && 'text-[#002B5C] font-bold'
-              )}
-              title={item.title}
-            >
-              <item.icon className="h-6 w-6 flex-shrink-0" />
-              <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
-            </Link>
-            <button
-              onClick={onToggle}
-              className={cn(
-                'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
-                item.isActive && 'text-[#002B5C]'
-              )}
-              title="Toggle submenu"
-            >
-              <ChevronDown
-                className={cn(
-                  'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-[#002B5C]',
-                  isExpanded && 'rotate-180',
-                  item.isActive && 'text-[#002B5C]'
-                )}
-              />
-            </button>
-          </div>
-
-          {isExpanded && (
-            <div className="ml-8 space-y-1">
-              {visibleChildren.map((child, index) => (
-                <Link
-                  key={index}
-                  href={child.href}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors text-sm',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
-                  )}
-                  title={child.title}
-                >
-                  <child.icon
-                    className={cn(
-                      'flex-shrink-0',
-                      child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
-                    )}
-                  />
-                  <span>{child.title}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Default behavior for other items with children (Dashboards and Settings)
     return (
       <div className="space-y-1">
         <div
@@ -383,12 +310,6 @@ function ExpandedNavItem({
         >
           <Link
             href={item.href}
-            onClick={() => {
-              // Expand the menu when navigating to show the selected item
-              if (!isExpanded) {
-                onToggle();
-              }
-            }}
             className={cn(
               'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C] font-bold'
@@ -399,18 +320,18 @@ function ExpandedNavItem({
             <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
           </Link>
           <button
+            type="button"
             onClick={onToggle}
+            aria-label={`Toggle ${item.title} submenu`}
             className={cn(
               'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C]'
             )}
-            title="Toggle submenu"
           >
             <ChevronDown
               className={cn(
                 'h-4 w-4 transition-transform flex-shrink-0 text-muted-foreground group-hover:text-[#002B5C]',
-                isExpanded && 'rotate-180',
-                item.isActive && 'text-[#002B5C]'
+                isExpanded && 'rotate-180'
               )}
             />
           </button>
@@ -470,89 +391,10 @@ function MobileNavItem({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  // Filter out hidden children
   const visibleChildren = item.children?.filter((child) => !child.hide) || [];
   const hasChildren = visibleChildren.length > 0;
 
-  // Auto-expand if any child is active
-  useEffect(() => {
-    if (!isExpanded && hasChildren && visibleChildren.some((child) => child.isActive)) {
-      onToggle(); // Expand if a child is active
-    }
-  }, []);
-
   if (hasChildren) {
-    // Special handling for Data tab in mobile view
-    if (item.title === 'Data') {
-      return (
-        <div className="space-y-1">
-          <div
-            className={cn(
-              'flex items-center rounded-lg transition-colors hover:bg-[#0066FF]/3 group',
-              item.isActive && 'bg-[#0066FF]/10 hover:bg-[#0066FF]/10'
-            )}
-          >
-            <Link
-              href={item.href}
-              onClick={() => {
-                // Expand the menu when navigating and close mobile menu
-                if (!isExpanded) {
-                  onToggle();
-                }
-                onClose();
-              }}
-              className={cn(
-                'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
-                item.isActive && 'text-[#002B5C] font-bold'
-              )}
-            >
-              <item.icon className="h-6 w-6" />
-              <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
-            </Link>
-            <button
-              onClick={onToggle}
-              className={cn(
-                'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
-                item.isActive && 'text-[#002B5C]'
-              )}
-            >
-              <ChevronDown
-                className={cn(
-                  'h-4 w-4 transition-transform text-muted-foreground group-hover:text-[#002B5C]',
-                  isExpanded && 'rotate-180',
-                  item.isActive && 'text-[#002B5C]'
-                )}
-              />
-            </button>
-          </div>
-          {isExpanded && (
-            <div className="ml-8 space-y-1">
-              {visibleChildren.map((child, index) => (
-                <Link
-                  key={index}
-                  href={child.href}
-                  onClick={onClose}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors',
-                    child.isActive && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
-                  )}
-                >
-                  <child.icon
-                    className={cn(
-                      'flex-shrink-0',
-                      child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
-                    )}
-                  />
-                  <span className="text-sm">{child.title}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Default behavior for other items with children (Dashboards and Settings)
     return (
       <div className="space-y-1">
         <div
@@ -563,13 +405,7 @@ function MobileNavItem({
         >
           <Link
             href={item.href}
-            onClick={() => {
-              // Expand the menu when navigating and close mobile menu
-              if (!isExpanded) {
-                onToggle();
-              }
-              onClose();
-            }}
+            onClick={onClose}
             className={cn(
               'flex items-center gap-3 p-3 transition-colors flex-1 rounded-l-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C] font-bold'
@@ -579,7 +415,9 @@ function MobileNavItem({
             <span className={cn('font-medium', item.isActive && 'font-bold')}>{item.title}</span>
           </Link>
           <button
+            type="button"
             onClick={onToggle}
+            aria-label={`Toggle ${item.title} submenu`}
             className={cn(
               'p-2 transition-colors rounded-r-lg group-hover:text-[#002B5C]',
               item.isActive && 'text-[#002B5C]'
@@ -588,8 +426,7 @@ function MobileNavItem({
             <ChevronDown
               className={cn(
                 'h-4 w-4 transition-transform text-muted-foreground group-hover:text-[#002B5C]',
-                isExpanded && 'rotate-180',
-                item.isActive && 'text-[#002B5C]'
+                isExpanded && 'rotate-180'
               )}
             />
           </button>
@@ -641,6 +478,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
+  // Explicit open/closed state per parent menu. `undefined` means "follow the path" (fallback
+  // to hasActiveChild). Once set (auto on subtree entry, or manually via the chevron), the
+  // state persists — navigating out of a subtree does NOT auto-close the parent.
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
@@ -648,11 +488,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
   const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
-  const flattenedNavItems = getFlattenedNavItems(navItems);
 
-  // Toggle menu expansion state
-  const toggleMenuExpansion = (title: string) => {
-    setExpandedMenus((prev) => ({ ...prev, [title]: !prev[title] }));
+  // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
+  useEffect(() => {
+    setExpandedMenus((prev) => {
+      let next = prev;
+      for (const item of navItems) {
+        if (item.children && hasActiveChild(item) && !next[item.title]) {
+          next = { ...next, [item.title]: true };
+        }
+      }
+      return next;
+    });
+    // navItems is recomputed each render from the same inputs; depending on pathname is sufficient.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const getMenuExpanded = (item: NavItemType): boolean =>
+    expandedMenus[item.title] ?? hasActiveChild(item);
+
+  const toggleMenuExpansion = (item: NavItemType) => {
+    const current = getMenuExpanded(item);
+    setExpandedMenus((prev) => ({ ...prev, [item.title]: !current }));
   };
 
   // Auto-collapse sidebar on specific dashboard/chart pages
@@ -738,21 +595,44 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             {/* Sidebar Navigation */}
             <div id="main-layout-sidebar-nav" className="flex-1 overflow-y-auto p-4 space-y-2">
               {isSidebarCollapsed
-                ? // Collapsed: Show all items (including nested) as individual icons with tooltips
-                  flattenedNavItems
+                ? // Collapsed: top-level icons; if a parent's submenu is open (path-derived or
+                  // manually toggled), render its children as icons directly beneath it.
+                  navItems
                     .filter((item) => !item.hide)
-                    .map((item, index) => (
-                      <CollapsedNavItem key={`${item.href}-${index}`} item={item} />
-                    ))
-                : // Expanded: Show hierarchical structure
+                    .map((item, index) => {
+                      const visibleChildren = item.children?.filter((c) => !c.hide) || [];
+                      const expanded = getMenuExpanded(item);
+                      const showChildren = expanded && visibleChildren.length > 0;
+                      return (
+                        <div key={`${item.href}-${index}`} className="space-y-1">
+                          <CollapsedNavItem
+                            item={item}
+                            isSubmenuExpanded={expanded}
+                            onExpandSidebar={() => {
+                              setIsSidebarCollapsed(false);
+                              setHasUserToggledSidebar(true);
+                            }}
+                          />
+                          {showChildren && (
+                            <div className="space-y-1">
+                              {visibleChildren.map((child, cIdx) => (
+                                <CollapsedNavItem key={`${child.href}-${cIdx}`} item={child} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                : // Expanded: hierarchical; submenu auto-opens on subtree entry, stays until the
+                  // user closes it via the chevron.
                   navItems
                     .filter((item) => !item.hide)
                     .map((item, index) => (
                       <ExpandedNavItem
                         key={index}
                         item={item}
-                        isExpanded={expandedMenus[item.title] || false}
-                        onToggle={() => toggleMenuExpansion(item.title)}
+                        isExpanded={getMenuExpanded(item)}
+                        onToggle={() => toggleMenuExpansion(item)}
                       />
                     ))}
             </div>
@@ -786,8 +666,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                       key={index}
                       item={item}
                       onClose={() => setIsMobileMenuOpen(false)}
-                      isExpanded={expandedMenus[item.title] || false}
-                      onToggle={() => toggleMenuExpansion(item.title)}
+                      isExpanded={getMenuExpanded(item)}
+                      onToggle={() => toggleMenuExpansion(item)}
                     />
                   ))}
               </div>
