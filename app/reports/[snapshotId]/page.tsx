@@ -229,7 +229,14 @@ export default function SnapshotViewerPage() {
                 </div>
               )}
 
-              <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+              <div className="flex items-baseline gap-2 mb-2">
+                <h2 className="text-lg font-semibold">Executive Summary</h2>
+                {report_metadata.last_modified_by && (
+                  <span className="text-sm text-muted-foreground">
+                    Last updated by {report_metadata.last_modified_by}
+                  </span>
+                )}
+              </div>
               <Textarea
                 data-testid="report-summary-textarea"
                 value={summaryDraft}
