@@ -379,7 +379,7 @@ export function applyLineBarChartFormatting(
     }
   }
 
-  // Format data labels on chart points/bars (uses Y-axis format since data labels show Y values)
+  // Format data labels on chart points/bars (uses same logic as tooltip Y-axis formatting)
   if (config.series && customizations.showDataLabels && hasYAxisFormatting) {
     const seriesArray = Array.isArray(config.series) ? config.series : [config.series];
     config.series = (seriesArray as Record<string, unknown>[]).map((series) => ({
@@ -387,15 +387,7 @@ export function applyLineBarChartFormatting(
       label: {
         ...(series.label as Record<string, unknown>),
         formatter: (params: Record<string, unknown>) => {
-          const value = params.value;
-          if (typeof value !== 'number' || isNaN(value)) return value;
-          if (yAxisNumberFormat && yAxisNumberFormat !== NumberFormats.DEFAULT) {
-            return formatNumber(value, {
-              format: yAxisNumberFormat,
-              decimalPlaces: yAxisDecimalPlaces,
-            });
-          }
-          return value.toFixed(yAxisDecimalPlaces);
+          return formatAxisValue(params.value, customizations, 'y', 'bar');
         },
       },
     }));
