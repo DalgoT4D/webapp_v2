@@ -41,11 +41,11 @@ export default function UserManagement() {
       <div className="flex-1 overflow-hidden w-full  px-6 pb-6 ">
         <Tabs defaultValue="users" className="w-full h-full flex flex-col">
           <TabsList className="mb-4">
-            <TabsTrigger value="users" className="cursor-pointer">
+            <TabsTrigger value="users" className="cursor-pointer" data-testid="tab-users">
               Users
             </TabsTrigger>
             {canViewInvitations && (
-              <TabsTrigger value="invitations" className="cursor-pointer">
+              <TabsTrigger value="invitations" className="cursor-pointer" data-testid="tab-pending">
                 Pending Invitations
               </TabsTrigger>
             )}

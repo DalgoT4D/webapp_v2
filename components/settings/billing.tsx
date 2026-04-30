@@ -162,7 +162,13 @@ export default function Billing() {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
-                        <Info className="h-5 w-5 text-muted-foreground" />
+                        <button
+                          aria-label="Upgrade plan request info"
+                          data-testid="upgrade-info-tooltip-trigger"
+                          className="text-muted-foreground"
+                        >
+                          <Info className="h-5 w-5" />
+                        </button>{' '}
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>The request to upgrade the plan has been registered</p>
@@ -207,8 +213,8 @@ export default function Billing() {
                   return (
                     <div key={key} className="space-y-2">
                       {Array.isArray(items) ? (
-                        items.map((item, index) => (
-                          <div key={index} className="flex items-start gap-2">
+                        items.map((item) => (
+                          <div key={item} className="flex items-start gap-2">
                             <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                             <p className="text-sm font-medium text-muted-foreground">{item}</p>
                           </div>

@@ -457,6 +457,7 @@ export function UsersTable() {
                             <DropdownMenuItem
                               onClick={() => handleEditRole(user.email, user.new_role_slug)}
                               className="cursor-pointer"
+                              data-testid={`edit-role-menu-item-${user.email}`}
                             >
                               <Edit className="w-4 h-4 text-gray-600" /> Edit Role
                             </DropdownMenuItem>
@@ -465,6 +466,7 @@ export function UsersTable() {
                             <DropdownMenuItem
                               onClick={() => setDeleteUser(user.email)}
                               className="cursor-pointer text-destructive focus:text-destructive"
+                              data-testid={`delete-user-menu-item-${user.email}`}
                             >
                               <Trash className="w-4 h-4 text-gray-600" />
                               Delete User
