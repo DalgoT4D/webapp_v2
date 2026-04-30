@@ -161,7 +161,7 @@ export default function Billing() {
                 {orgPlan.upgrade_requested && (
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
+                      <TooltipTrigger asChild>
                         <button
                           aria-label="Upgrade plan request info"
                           data-testid="upgrade-info-tooltip-trigger"
