@@ -397,23 +397,14 @@ function PipelineFormContent({
 
             {/* Transform tasks */}
             <div className="space-y-3">
-              <div className="flex items-center gap-1.5">
+              <div>
                 <Label className="text-[15px] font-medium">Transform Tasks</Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                      aria-label="Transform tasks info"
-                    >
-                      <Info className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={4} className="max-w-xs">
-                    The latest code from the default branch of your git repository will be pulled
-                    automatically before running the transformation tasks.
-                  </TooltipContent>
-                </Tooltip>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Git pull/clone, dbt clean, and dbt deps will run automatically (in that order)
+                  before your transformation tasks.
+                  <br />
+                  You can also add custom tasks from the transformation page.
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <ToggleGroup
@@ -437,9 +428,6 @@ function PipelineFormContent({
                     Advanced
                   </ToggleGroupItem>
                 </ToggleGroup>
-                <span className="text-sm text-gray-500">
-                  You can create custom tasks from the transformation page
-                </span>
               </div>
 
               <Controller
