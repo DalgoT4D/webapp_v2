@@ -43,6 +43,8 @@ import {
   ChevronUp,
   ChevronDown,
   Filter,
+  Edit,
+  Trash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DeleteUserDialog } from './DeleteUserDialog';
@@ -454,15 +456,17 @@ export function UsersTable() {
                           {canEditUser && (
                             <DropdownMenuItem
                               onClick={() => handleEditRole(user.email, user.new_role_slug)}
+                              className="cursor-pointer"
                             >
-                              Edit Role
+                              <Edit className="w-4 h-4 text-gray-600" /> Edit Role
                             </DropdownMenuItem>
                           )}
                           {canDeleteUser && (
                             <DropdownMenuItem
                               onClick={() => setDeleteUser(user.email)}
-                              className="text-destructive"
+                              className="cursor-pointer text-destructive focus:text-destructive"
                             >
+                              <Trash className="w-4 h-4 text-gray-600" />
                               Delete User
                             </DropdownMenuItem>
                           )}

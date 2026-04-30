@@ -18,7 +18,7 @@ export default function UserManagement() {
 
   return (
     <div className="h-screen flex flex-col">
-      <div className="container mx-auto px-6 pt-6 max-w-6xl">
+      <div className="w-full mx-auto px-6 pt-6 border-b  mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">User Management</h1>
@@ -38,12 +38,16 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden container mx-auto px-6 pb-6 max-w-6xl">
+      <div className="flex-1 overflow-hidden w-full  px-6 pb-6 ">
         <Tabs defaultValue="users" className="w-full h-full flex flex-col">
-          <TabsList className="mb-6">
-            <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsList className="mb-4">
+            <TabsTrigger value="users" className="cursor-pointer">
+              Users
+            </TabsTrigger>
             {canViewInvitations && (
-              <TabsTrigger value="invitations">Pending Invitations</TabsTrigger>
+              <TabsTrigger value="invitations" className="cursor-pointer">
+                Pending Invitations
+              </TabsTrigger>
             )}
           </TabsList>
 
