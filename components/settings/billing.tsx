@@ -113,27 +113,27 @@ export default function Billing() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6 max-w-6xl">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-lg">Loading Billing Information...</div>
-        </div>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="container mx-auto p-6 max-w-6xl">
+  //       <div className="flex items-center justify-center min-h-[400px]">
+  //         <div className="text-lg">Loading Billing Information...</div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  if (!orgPlan) {
-    return (
-      <div className="container mx-auto p-6 max-w-6xl">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-lg text-muted-foreground">No Billing Information Available</div>
-        </div>
-      </div>
-    );
-  }
+  // if (!orgPlan) {
+  //   return (
+  //     <div className="container mx-auto p-6 max-w-6xl">
+  //       <div className="flex items-center justify-center min-h-[400px]">
+  //         <div className="text-lg text-muted-foreground">No Billing Information Available</div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  const { isExpired, isLessThanAWeek, daysRemaining } = calculatePlanStatus(orgPlan.end_date);
+  const { isExpired, isLessThanAWeek, daysRemaining } = calculatePlanStatus(orgPlan?.end_date);
 
   return (
     <div className="w-full">
@@ -143,142 +143,154 @@ export default function Billing() {
       </div>
 
       <div className="px-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-2xl text-primary">
-                  {orgPlan.base_plan}
-                  {orgPlan.superset_included && !orgPlan.base_plan.includes('Free trial') && (
-                    <span className="text-foreground"> + Superset</span>
-                  )}
-                </CardTitle>
-                <Badge variant="secondary" className="text-xs font-semibold">
-                  {orgPlan.subscription_duration}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                {orgPlan.upgrade_requested && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          aria-label="Upgrade plan request info"
-                          data-testid="upgrade-info-tooltip-trigger"
-                          className="text-muted-foreground"
-                        >
-                          <Info className="h-5 w-5" />
-                        </button>{' '}
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>The request to upgrade the plan has been registered</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                <Button
-                  onClick={handleUpgradePlan}
-                  disabled={
-                    !orgPlan.can_upgrade_plan ||
-                    !canUpgrade ||
-                    orgPlan.upgrade_requested ||
-                    upgrading
-                  }
-                  className="min-w-[100px]"
-                >
-                  {upgrading ? 'Upgrading...' : 'Upgrade'}
-                </Button>
-              </div>
+        {loading ? (
+          <div className=" mx-auto p-6 max-w-6xl">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-lg">Loading Billing Information...</div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6 ">
-            {/* Features Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Plan Features</h3>
-              <div className="space-y-2">
-                {/* Pipeline Features */}
-                {orgPlan.features.pipeline && orgPlan.features.pipeline.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {orgPlan.features.pipeline.join(' | ')}
-                    </p>
-                  </div>
-                )}
-
-                {/* Other Features */}
-                {Object.entries(orgPlan.features).map(([key, items]) => {
-                  if (key === 'pipeline' || !items || items.length === 0) return null;
-
-                  return (
-                    <div key={key} className="space-y-2">
-                      {Array.isArray(items) ? (
-                        items.map((item) => (
-                          <div key={item} className="flex items-start gap-2">
-                            <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                            <p className="text-sm font-medium text-muted-foreground">{item}</p>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex items-start gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                          <p className="text-sm font-medium text-muted-foreground">{items}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Subscription Period */}
-            {(orgPlan.start_date || orgPlan.end_date) && (
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-
-                  {orgPlan.start_date && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm text-muted-foreground">Start date:</span>
-                      <span className="text-sm font-semibold">
-                        {formatDate(orgPlan.start_date)}
-                      </span>
-                    </div>
+          </div>
+        ) : !orgPlan ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-lg text-muted-foreground">No Billing Information Available</div>
+          </div>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-2xl text-primary">
+                    {orgPlan?.base_plan}
+                    {orgPlan?.superset_included && !orgPlan?.base_plan?.includes('Free trial') && (
+                      <span className="text-foreground"> + Superset</span>
+                    )}
+                  </CardTitle>
+                  <Badge variant="secondary" className="text-xs font-semibold">
+                    {orgPlan?.subscription_duration}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  {orgPlan?.upgrade_requested && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            aria-label="Upgrade plan request info"
+                            data-testid="upgrade-info-tooltip-trigger"
+                            className="text-muted-foreground"
+                          >
+                            <Info className="h-5 w-5" />
+                          </button>{' '}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>The request to upgrade the plan has been registered</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
-
-                  {orgPlan.end_date && (
-                    <>
-                      <span className="text-muted-foreground">-</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm text-muted-foreground">End date:</span>
-                        <span className="text-sm font-semibold">
-                          {formatDate(orgPlan.end_date)}
-                        </span>
-                      </div>
-
-                      <span className="text-muted-foreground">-</span>
-                      <span
-                        className={`text-sm font-semibold ${
-                          isExpired
-                            ? 'text-destructive'
-                            : isLessThanAWeek
-                              ? 'text-orange-500'
-                              : 'text-primary'
-                        }`}
-                      >
-                        {isExpired
-                          ? 'Plan has expired'
-                          : daysRemaining !== null
-                            ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
-                            : ''}
-                      </span>
-                    </>
-                  )}
+                  <Button
+                    onClick={handleUpgradePlan}
+                    disabled={
+                      !orgPlan?.can_upgrade_plan ||
+                      !canUpgrade ||
+                      orgPlan?.upgrade_requested ||
+                      upgrading
+                    }
+                    className="min-w-[100px]"
+                  >
+                    {upgrading ? 'Upgrading...' : 'Upgrade'}
+                  </Button>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-6 ">
+              {/* Features Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Plan Features</h3>
+                <div className="space-y-2">
+                  {/* Pipeline Features */}
+                  {orgPlan?.features.pipeline && orgPlan?.features.pipeline.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {orgPlan?.features.pipeline.join(' | ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Other Features */}
+                  {Object.entries(orgPlan.features).map(([key, items]) => {
+                    if (key === 'pipeline' || !items || items.length === 0) return null;
+
+                    return (
+                      <div key={key} className="space-y-2">
+                        {Array.isArray(items) ? (
+                          items.map((item) => (
+                            <div key={item} className="flex items-start gap-2">
+                              <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                              <p className="text-sm font-medium text-muted-foreground">{item}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                            <p className="text-sm font-medium text-muted-foreground">{items}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Subscription Period */}
+              {(orgPlan.start_date || orgPlan.end_date) && (
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+
+                    {orgPlan.start_date && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-muted-foreground">Start date:</span>
+                        <span className="text-sm font-semibold">
+                          {formatDate(orgPlan.start_date)}
+                        </span>
+                      </div>
+                    )}
+
+                    {orgPlan.end_date && (
+                      <>
+                        <span className="text-muted-foreground">-</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-muted-foreground">End date:</span>
+                          <span className="text-sm font-semibold">
+                            {formatDate(orgPlan.end_date)}
+                          </span>
+                        </div>
+
+                        <span className="text-muted-foreground">-</span>
+                        <span
+                          className={`text-sm font-semibold ${
+                            isExpired
+                              ? 'text-destructive'
+                              : isLessThanAWeek
+                                ? 'text-orange-500'
+                                : 'text-primary'
+                          }`}
+                        >
+                          {isExpired
+                            ? 'Plan has expired'
+                            : daysRemaining !== null
+                              ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
+                              : ''}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

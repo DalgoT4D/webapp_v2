@@ -25,7 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,7 +35,6 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   MoreHorizontal,
   User,
-  Info,
   Save,
   X,
   ArrowUpDown,
@@ -309,45 +307,19 @@ export function UsersTable() {
   return (
     <>
       <Card>
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            Users
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
-                      management
-                    </div>
-                    <div>
-                      <strong>Pipeline Manager:</strong> Org team member responsible for creating
-                      pipelines & DBT models
-                    </div>
-                    <div>
-                      <strong>Analyst:</strong> M&E team member working on transformation models
-                    </div>
-                    <div>
-                      <strong>Guest:</strong> Able to view the platform and usage dashboard
-                    </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </CardTitle>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="w-[50%]">
+                <TableHead className="w-[50%] align-middle">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
-                      className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                      className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                       onClick={() => handleSort('email')}
                     >
                       <div className="flex items-center gap-2">
@@ -372,11 +344,11 @@ export function UsersTable() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead className="w-[30%]">
+                <TableHead className="w-[30%] align-middle">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
-                      className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                      className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                       onClick={() => handleSort('role')}
                     >
                       <div className="flex items-center gap-2">
@@ -401,7 +373,9 @@ export function UsersTable() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead className="w-[20%] text-right font-medium text-base">Actions</TableHead>
+                <TableHead className="w-[20%] align-middle text-right font-medium text-base">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -445,7 +419,7 @@ export function UsersTable() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {user.email !== currentUser?.email && (canEditUser || canDeleteUser) && (
+                    {user.email !== currentUser?.email && (canEditUser || canDeleteUser) ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
@@ -474,6 +448,17 @@ export function UsersTable() {
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    ) : (
+                      <span className="inline-block cursor-not-allowed">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled
+                          className="opacity-40 pointer-events-none"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>

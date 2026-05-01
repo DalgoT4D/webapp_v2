@@ -332,9 +332,7 @@ export function InvitationsTable() {
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Pending Invitations</CardTitle>
-        </CardHeader>
+        <CardHeader></CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -347,9 +345,7 @@ export function InvitationsTable() {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Pending Invitations</CardTitle>
-        </CardHeader>
+        <CardHeader></CardHeader>
         <CardContent>
           {!invitations || invitations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No pending invitations</div>
@@ -358,11 +354,11 @@ export function InvitationsTable() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="w-[35%]">
+                    <TableHead className="w-[35%] align-middle">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                          className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                           onClick={() => handleSort('email')}
                         >
                           <div className="flex items-center gap-2">
@@ -389,11 +385,11 @@ export function InvitationsTable() {
                         </Popover>
                       </div>
                     </TableHead>
-                    <TableHead className="w-[25%]">
+                    <TableHead className="w-[25%] align-middle">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                          className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                           onClick={() => handleSort('role')}
                         >
                           <div className="flex items-center gap-2">
@@ -420,11 +416,11 @@ export function InvitationsTable() {
                         </Popover>
                       </div>
                     </TableHead>
-                    <TableHead className="w-[20%]">
+                    <TableHead className="w-[20%] align-middle">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                          className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                           onClick={() => handleSort('sent_on')}
                         >
                           <div className="flex items-center gap-2">
@@ -451,7 +447,7 @@ export function InvitationsTable() {
                         </Popover>
                       </div>
                     </TableHead>
-                    <TableHead className="w-[20%] text-right font-medium text-base">
+                    <TableHead className="w-[20%] align-middle text-right font-medium text-base">
                       Actions
                     </TableHead>
                   </TableRow>
