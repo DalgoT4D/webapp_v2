@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
@@ -1271,6 +1273,27 @@ export function ChartElementV2({
                   </div>
                 </div>
               </div>
+            ) : chart?.chart_type === ChartTypes.PIVOT_TABLE ? (
+              <div className="w-full h-full">
+                {dataLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : chartData?.data ? (
+                  <PivotTableChart
+                    data={chartData.data as unknown as PivotTableResponse}
+                    rowDimLabels={chart.extra_config?.row_dimensions || []}
+                    customizations={chart.extra_config?.customizations || {}}
+                    subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
+                    columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
+                    grandTotalLabel={chart.extra_config?.grand_total_label || 'Grand Total'}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No data available
+                  </div>
+                )}
+              </div>
             ) : chart?.chart_type === ChartTypes.TABLE ? (
               <div className="flex flex-col h-full">
                 {/* Breadcrumb navigation for drill-down */}
@@ -1290,7 +1313,18 @@ export function ChartElementV2({
                   <TableChart
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
-                      table_columns: tableData?.columns || [],
+                      table_columns: (() => {
+                        const cols = tableData?.columns || [];
+                        const order = chart?.extra_config?.customizations?.columnOrder;
+                        if (
+                          order?.length &&
+                          order.length === cols.length &&
+                          order.every((c: string) => cols.includes(c))
+                        ) {
+                          return order;
+                        }
+                        return cols;
+                      })(),
                       column_formatting: mergeTableColumnFormatting(
                         chart?.extra_config?.customizations
                       ),
@@ -1299,6 +1333,12 @@ export function ChartElementV2({
                         enabled: true,
                         page_size: 20,
                       },
+                      conditionalFormatting:
+                        chart?.extra_config?.customizations?.conditionalFormatting || [],
+                      columnAlignment: chart?.extra_config?.customizations?.columnAlignment || {},
+                      zebraRows: chart?.extra_config?.customizations?.zebraRows || false,
+                      freezeFirstColumn:
+                        chart?.extra_config?.customizations?.freezeFirstColumn || false,
                     }}
                     isLoading={tableLoading}
                     error={tableError}
