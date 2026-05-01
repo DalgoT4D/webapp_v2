@@ -113,26 +113,6 @@ export default function Billing() {
     }
   };
 
-  // if (loading) {
-  //   return (
-  //     <div className="container mx-auto p-6 max-w-6xl">
-  //       <div className="flex items-center justify-center min-h-[400px]">
-  //         <div className="text-lg">Loading Billing Information...</div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // if (!orgPlan) {
-  //   return (
-  //     <div className="container mx-auto p-6 max-w-6xl">
-  //       <div className="flex items-center justify-center min-h-[400px]">
-  //         <div className="text-lg text-muted-foreground">No Billing Information Available</div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
   const { isExpired, isLessThanAWeek, daysRemaining } = calculatePlanStatus(orgPlan?.end_date);
 
   return (
@@ -196,6 +176,7 @@ export default function Billing() {
                       upgrading
                     }
                     className="min-w-[100px]"
+                    data-testid="billing-upgrade-button"
                   >
                     {upgrading ? 'Upgrading...' : 'Upgrade'}
                   </Button>

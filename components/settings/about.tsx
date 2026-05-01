@@ -48,7 +48,7 @@ export default function About() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[400px]">
         <div className="text-lg text-red-500">{error}</div>
       </div>
     );
@@ -79,7 +79,7 @@ export default function About() {
 
                   return (
                     <div
-                      key={index}
+                      key={toolName}
                       className="flex items-center space-x-4 p-4 border rounded-lg hover:shadow-md transition-shadow"
                     >
                       <div className="flex-shrink-0 w-12 h-12 relative">

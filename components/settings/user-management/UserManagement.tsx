@@ -36,6 +36,7 @@ export default function UserManagement() {
               onClick={() => setShowInviteDialog(true)}
               disabled={!canCreateInvitation}
               className="flex items-center gap-2"
+              data-testid="invite-user-button"
             >
               <UserPlus className="h-4 w-4" />
               Invite User
@@ -58,7 +59,10 @@ export default function UserManagement() {
             </TabsList>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger
+                  aria-label="Role information"
+                  data-testid="role-info-tooltip-trigger"
+                >
                   <Info className="h-5 w-5 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs" side={`bottom`}>

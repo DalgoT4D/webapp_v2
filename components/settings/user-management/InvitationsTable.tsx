@@ -360,6 +360,7 @@ export function InvitationsTable() {
                           variant="ghost"
                           className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                           onClick={() => handleSort('email')}
+                          data-testid="sort-email-button"
                         >
                           <div className="flex items-center gap-2">
                             Email
@@ -377,6 +378,8 @@ export function InvitationsTable() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-gray-100"
+                              aria-label="Filter by email"
+                              data-testid="filter-email-button"
                             >
                               {renderFilterIcon('email')}
                             </Button>
@@ -391,6 +394,7 @@ export function InvitationsTable() {
                           variant="ghost"
                           className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                           onClick={() => handleSort('role')}
+                          data-testid="sort-role-button"
                         >
                           <div className="flex items-center gap-2">
                             Role
@@ -408,6 +412,8 @@ export function InvitationsTable() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-gray-100"
+                              aria-label="Filter by role"
+                              data-testid="filter-role-button"
                             >
                               {renderFilterIcon('role')}
                             </Button>
@@ -422,6 +428,7 @@ export function InvitationsTable() {
                           variant="ghost"
                           className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                           onClick={() => handleSort('sent_on')}
+                          data-testid="sort-sent_on-button"
                         >
                           <div className="flex items-center gap-2">
                             Sent On
@@ -439,6 +446,8 @@ export function InvitationsTable() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-gray-100"
+                              aria-label="Filter by date"
+                              data-testid="filter-date-button"
                             >
                               {renderFilterIcon('date')}
                             </Button>

@@ -292,9 +292,7 @@ export function UsersTable() {
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-        </CardHeader>
+        <CardHeader></CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -321,6 +319,7 @@ export function UsersTable() {
                       variant="ghost"
                       className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                       onClick={() => handleSort('email')}
+                      data-testid="sort-email-button"
                     >
                       <div className="flex items-center gap-2">
                         Email
@@ -336,6 +335,8 @@ export function UsersTable() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 p-0 hover:bg-gray-100"
+                          aria-label="Filter by email"
+                          data-testid="filter-email-button"
                         >
                           {renderFilterIcon('email')}
                         </Button>
@@ -350,6 +351,7 @@ export function UsersTable() {
                       variant="ghost"
                       className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                       onClick={() => handleSort('role')}
+                      data-testid="sort-role-button"
                     >
                       <div className="flex items-center gap-2">
                         Role
@@ -365,6 +367,8 @@ export function UsersTable() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 p-0 hover:bg-gray-100"
+                          aria-label="Filter by role"
+                          data-testid="filter-role-button"
                         >
                           {renderFilterIcon('role')}
                         </Button>
