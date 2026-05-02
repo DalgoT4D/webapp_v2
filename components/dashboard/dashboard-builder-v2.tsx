@@ -59,14 +59,17 @@ import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
 import { GridGuides } from './GridGuides';
-import { DashboardFilterType } from '@/types/dashboard-filters';
-import type {
-  CreateFilterPayload,
-  DashboardFilterConfig,
-  ValueFilterSettings,
-  NumericalFilterSettings,
-  DateTimeFilterSettings,
+import { TabBar } from './tabs/TabBar';
+import {
+  DashboardFilterType,
+  type CreateFilterPayload,
+  type DashboardFilterConfig,
+  type ValueFilterSettings,
+  type NumericalFilterSettings,
+  type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
+import { DashboardTab, DashboardTabsData, DashboardComponentType } from '@/types/dashboard';
+import { getDefaultTabsConfig } from './tabs/tab-utils';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
@@ -137,11 +140,6 @@ function convertFilterToConfig(
 }
 
 // Types
-export enum DashboardComponentType {
-  CHART = 'chart',
-  TEXT = 'text',
-  FILTER = 'filter',
-}
 
 interface DashboardLayout {
   i: string;
@@ -279,9 +277,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
-    // Ensure layout_config is always an array
-    let initialLayout = Array.isArray(initialData?.layout_config) ? initialData.layout_config : [];
-    const initialComponents = initialData?.components || {};
+    // Canvas is always driven by tab content — layout and components live inside tabs only.
+    // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
+    const firstTab =
+      initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0
+        ? initialData.tabs[0]
+        : null;
+
+    let initialLayout = Array.isArray(firstTab?.layout_config) ? firstTab.layout_config : [];
+    const initialComponents = firstTab?.components ?? {};
 
     // Helper function to ensure text components have content constraints
     const ensureTextContentConstraints = (components: any) => {
@@ -489,6 +493,25 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
+
+    // Tabs state - initialize from initialData or create default
+    const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
+      // Backend returns tabs as an array, convert to DashboardTabsData structure
+      if (initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0) {
+        return {
+          tabs: initialData.tabs as DashboardTab[],
+          activeTabId: initialData.tabs[0].id,
+        };
+      }
+      // For new dashboards or existing dashboards without tabs, use default
+      return getDefaultTabsConfig();
+    });
+
+    // Refs to always access the latest state/tabsData in callbacks without stale closures
+    const stateRef = useRef(state);
+    stateRef.current = state;
+    const tabsDataRef = useRef(tabsData);
+    tabsDataRef.current = tabsData;
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
@@ -832,6 +855,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         // Ensure title is not empty, use default if needed
         const finalTitle = title.trim() || 'Untitled Dashboard';
 
+        // Flush current tab's live canvas into tabsData before saving
+        // (tabsData only syncs per-tab content on tab switch, not on every canvas change)
+        const currentTabsData = tabsDataRef.current;
+        const tabsWithLatestCanvas = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: state.layout, components: state.components }
+            : t
+        );
+
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
           title: finalTitle,
@@ -841,6 +873,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           filter_layout: filterLayout,
           layout_config: JSON.parse(JSON.stringify(state.layout)), // Safe deep clone
           components: JSON.parse(JSON.stringify(state.components)), // Safe deep clone
+          tabs: JSON.parse(JSON.stringify(tabsWithLatestCanvas)), // Persist all tabs
           // filters removed - managed via separate API endpoints
           ...overrides, // Apply any overrides passed to the function
         };
@@ -905,6 +938,100 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Keep state for UI rendering purposes
     const [isDragging, setIsDragging] = useState(false);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
+
+    // ===== Tab Handlers =====
+
+    // Handle tab change (switching active tab)
+    // Saves current tab's canvas into tabsData, then loads the new tab's canvas into state
+    const handleTabChange = useCallback(
+      (tabId: string) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        // Save current tab's layout/components, then switch active tab
+        const updatedTabs = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: currentState.layout, components: currentState.components }
+            : t
+        );
+
+        setTabsData({ tabs: updatedTabs, activeTabId: tabId });
+
+        // Load the new tab's content into the canvas (no undo history — tab switch isn't undoable)
+        const newTab = updatedTabs.find((t) => t.id === tabId);
+        setStateWithoutHistory({
+          ...currentState,
+          layout: newTab?.layout_config || [],
+          components: newTab?.components || {},
+        });
+      },
+      [setStateWithoutHistory]
+    );
+
+    // Handle adding a new tab
+    // Saves current tab's canvas before switching to the new empty tab
+    const handleTabAdd = useCallback(
+      (newTab: DashboardTab) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        // Save current tab's layout/components first
+        const updatedTabs = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: currentState.layout, components: currentState.components }
+            : t
+        );
+
+        setTabsData({ tabs: [...updatedTabs, newTab], activeTabId: newTab.id });
+
+        // New tab starts with an empty canvas
+        setStateWithoutHistory({ ...currentState, layout: [], components: {} });
+      },
+      [setStateWithoutHistory]
+    );
+
+    // Handle removing a tab
+    const handleTabRemove = useCallback(
+      (tabId: string) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        if (currentTabsData.tabs.length <= 1) return;
+
+        const tabIndex = currentTabsData.tabs.findIndex((t) => t.id === tabId);
+        const newTabs = currentTabsData.tabs.filter((t) => t.id !== tabId);
+
+        let newActiveTabId = currentTabsData.activeTabId;
+        if (currentTabsData.activeTabId === tabId) {
+          // Prefer previous tab, or next if removing first
+          const newActiveIndex = Math.max(0, tabIndex - 1);
+          newActiveTabId = newTabs[newActiveIndex]?.id || newTabs[0]?.id;
+        }
+
+        setTabsData({ tabs: newTabs, activeTabId: newActiveTabId });
+
+        // If the deleted tab was active, load the new active tab's canvas
+        if (currentTabsData.activeTabId === tabId) {
+          const newActiveTab = newTabs.find((t) => t.id === newActiveTabId);
+          setStateWithoutHistory({
+            ...currentState,
+            layout: newActiveTab?.layout_config || [],
+            components: newActiveTab?.components || {},
+          });
+        }
+      },
+      [setStateWithoutHistory]
+    );
+
+    // Handle renaming a tab
+    const handleTabRename = useCallback((tabId: string, newTitle: string) => {
+      setTabsData((prev) => ({
+        ...prev,
+        tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
+      }));
+    }, []);
+
+    // ===== End Tab Handlers =====
 
     // IMPORTANT: Use refs for synchronous access in callbacks
     // React state updates are async, but react-grid-layout calls handlers synchronously
@@ -2138,6 +2265,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             </div>
           </div>
         </div>
+        {/* Tab Bar */}
+        <TabBar
+          tabs={tabsData.tabs}
+          activeTabId={tabsData.activeTabId}
+          isEditMode={true}
+          onTabChange={handleTabChange}
+          onTabAdd={handleTabAdd}
+          onTabRemove={handleTabRemove}
+          onTabRename={handleTabRename}
+        />
         {/* Horizontal Filters Bar */}
         {filterLayout === 'horizontal' && !isFiltersCollapsed && (
           <UnifiedFiltersPanel
