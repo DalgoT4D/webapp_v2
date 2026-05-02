@@ -113,7 +113,9 @@ export default function Billing() {
     }
   };
 
-  const { isExpired, isLessThanAWeek, daysRemaining } = calculatePlanStatus(orgPlan?.end_date);
+  const { isExpired, isLessThanAWeek, daysRemaining } = calculatePlanStatus(
+    orgPlan?.end_date ?? null
+  );
 
   return (
     <div className="w-full">
@@ -168,6 +170,7 @@ export default function Billing() {
                     </TooltipProvider>
                   )}
                   <Button
+                    variant="ghost"
                     onClick={handleUpgradePlan}
                     disabled={
                       !orgPlan?.can_upgrade_plan ||
@@ -175,7 +178,8 @@ export default function Billing() {
                       orgPlan?.upgrade_requested ||
                       upgrading
                     }
-                    className="min-w-[100px]"
+                    className="min-w-[100px] text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: 'var(--primary)' }}
                     data-testid="billing-upgrade-button"
                   >
                     {upgrading ? 'Upgrading...' : 'Upgrade'}

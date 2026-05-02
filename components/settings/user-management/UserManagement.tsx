@@ -21,8 +21,8 @@ export default function UserManagement() {
   const canViewInvitations = hasPermission('can_view_invitations');
 
   return (
-    <div className="h-screen flex flex-col">
-      <Tabs defaultValue="users" className="w-full h-full flex flex-col">
+    <div className="flex flex-col min-h-0">
+      <Tabs defaultValue="users" className="w-full h-full flex flex-col min-h-0">
         <div className="w-full mx-auto px-6 pt-6 border-b  mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -33,9 +33,11 @@ export default function UserManagement() {
             </div>
 
             <Button
+              variant="ghost"
               onClick={() => setShowInviteDialog(true)}
               disabled={!canCreateInvitation}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-white hover:opacity-90 shadow-xs"
+              style={{ backgroundColor: 'var(--primary)' }}
               data-testid="invite-user-button"
             >
               <UserPlus className="h-4 w-4" />
@@ -88,7 +90,7 @@ export default function UserManagement() {
           </div>
         </div>
 
-        <div className="flex-1 w-full px-6 pb-6 overflow-hidden">
+        <div className="flex-1 w-full px-6 pb-6 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto mb-10">
             <TabsContent value="users" className="mt-0 pb-6">
               <UsersTable />

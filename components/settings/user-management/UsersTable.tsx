@@ -444,7 +444,7 @@ export function UsersTable() {
                               className="cursor-pointer text-destructive focus:text-destructive"
                               data-testid={`delete-user-menu-item-${user.email}`}
                             >
-                              <Trash className="w-4 h-4 text-gray-600" />
+                              <Trash className="w-4 h-4" />
                               Delete User
                             </DropdownMenuItem>
                           )}

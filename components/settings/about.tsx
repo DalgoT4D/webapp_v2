@@ -62,7 +62,7 @@ export default function About() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-0 py-12">
           <div className="text-lg">Loading tool information...</div>
         </div>
       ) : (
