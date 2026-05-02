@@ -33,7 +33,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUsers, useRoles, useUserActions } from '@/hooks/api/useUserManagement';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  MoreHorizontal,
+  MoreVertical,
   User,
   Save,
   X,
@@ -291,29 +291,22 @@ export function UsersTable() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader></CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="border rounded-lg bg-white overflow-hidden p-6">
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        {/* <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-          </CardTitle>
-        </CardHeader> */}
-        <CardContent>
+      <div className="border rounded-lg bg-white overflow-hidden">
+        <div className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="w-[50%] align-middle">
+                <TableHead className="w-[45%]">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
@@ -345,7 +338,7 @@ export function UsersTable() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead className="w-[30%] align-middle">
+                <TableHead className="w-[45%]">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
@@ -377,21 +370,19 @@ export function UsersTable() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead className="w-[20%] align-middle text-right font-medium text-base">
-                  Actions
-                </TableHead>
+                <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAndSortedUsers.map((user) => (
                 <TableRow key={user.email}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell className="py-4">
+                    <div className="flex items-center gap-3">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{user.email}</span>
+                      <span className="font-medium text-lg text-gray-900">{user.email}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="py-4">
                     {editingUser === user.email ? (
                       <div className="flex items-center gap-2">
                         <Select value={selectedRole} onValueChange={setSelectedRole}>
@@ -419,15 +410,22 @@ export function UsersTable() {
                         </Button>
                       </div>
                     ) : (
-                      <Badge variant="secondary">{formatRoleName(user.new_role_slug)}</Badge>
+                      <div className="text-base text-gray-700">
+                        {formatRoleName(user.new_role_slug)}
+                      </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="py-4">
                     {user.email !== currentUser?.email && (canEditUser || canDeleteUser) ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0 hover:bg-gray-100"
+                            data-testid={`user-actions-${user.email}`}
+                          >
+                            <MoreVertical className="h-4 w-4 text-gray-600" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -456,11 +454,11 @@ export function UsersTable() {
                       <span className="inline-block cursor-not-allowed">
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon"
                           disabled
-                          className="opacity-40 pointer-events-none"
+                          className="h-8 w-8 p-0 opacity-40 pointer-events-none"
                         >
-                          <MoreHorizontal className="h-4 w-4" />
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
                       </span>
                     )}
@@ -477,8 +475,8 @@ export function UsersTable() {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <DeleteUserDialog
         open={!!deleteUser}

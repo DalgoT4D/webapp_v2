@@ -58,6 +58,7 @@ export function DeleteUserDialog({
             onClick={handleDelete}
             disabled={isDeleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            data-testid="delete-user-confirm"
           >
             {isDeleting ? 'Deleting...' : 'Delete User'}
           </AlertDialogAction>
