@@ -25,7 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,15 +33,16 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUsers, useRoles, useUserActions } from '@/hooks/api/useUserManagement';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  MoreHorizontal,
+  MoreVertical,
   User,
-  Info,
   Save,
   X,
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
   Filter,
+  Edit,
+  Trash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DeleteUserDialog } from './DeleteUserDialog';
@@ -291,62 +291,28 @@ export function UsersTable() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="border rounded-lg bg-white overflow-hidden p-6">
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Users
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
-                      management
-                    </div>
-                    <div>
-                      <strong>Pipeline Manager:</strong> Org team member responsible for creating
-                      pipelines & DBT models
-                    </div>
-                    <div>
-                      <strong>Analyst:</strong> M&E team member working on transformation models
-                    </div>
-                    <div>
-                      <strong>Guest:</strong> Able to view the platform and usage dashboard
-                    </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="border rounded-lg bg-white overflow-hidden">
+        <div className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="w-[50%]">
+                <TableHead className="w-[45%]">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
-                      className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                      className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                       onClick={() => handleSort('email')}
+                      data-testid="sort-email-button"
                     >
                       <div className="flex items-center gap-2">
                         Email
@@ -362,6 +328,8 @@ export function UsersTable() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 p-0 hover:bg-gray-100"
+                          aria-label="Filter by email"
+                          data-testid="filter-email-button"
                         >
                           {renderFilterIcon('email')}
                         </Button>
@@ -370,12 +338,13 @@ export function UsersTable() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead className="w-[30%]">
+                <TableHead className="w-[45%]">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
-                      className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                      className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                       onClick={() => handleSort('role')}
+                      data-testid="sort-role-button"
                     >
                       <div className="flex items-center gap-2">
                         Role
@@ -391,6 +360,8 @@ export function UsersTable() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 p-0 hover:bg-gray-100"
+                          aria-label="Filter by role"
+                          data-testid="filter-role-button"
                         >
                           {renderFilterIcon('role')}
                         </Button>
@@ -399,19 +370,19 @@ export function UsersTable() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead className="w-[20%] text-right font-medium text-base">Actions</TableHead>
+                <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAndSortedUsers.map((user) => (
                 <TableRow key={user.email}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell className="py-4">
+                    <div className="flex items-center gap-3">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{user.email}</span>
+                      <span className="font-medium text-lg text-gray-900">{user.email}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="py-4">
                     {editingUser === user.email ? (
                       <div className="flex items-center gap-2">
                         <Select value={selectedRole} onValueChange={setSelectedRole}>
@@ -439,35 +410,57 @@ export function UsersTable() {
                         </Button>
                       </div>
                     ) : (
-                      <Badge variant="secondary">{formatRoleName(user.new_role_slug)}</Badge>
+                      <div className="text-base text-gray-700">
+                        {formatRoleName(user.new_role_slug)}
+                      </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {user.email !== currentUser?.email && (canEditUser || canDeleteUser) && (
+                  <TableCell className="py-4">
+                    {user.email !== currentUser?.email && (canEditUser || canDeleteUser) ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0 hover:bg-gray-100"
+                            data-testid={`user-actions-${user.email}`}
+                          >
+                            <MoreVertical className="h-4 w-4 text-gray-600" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {canEditUser && (
                             <DropdownMenuItem
                               onClick={() => handleEditRole(user.email, user.new_role_slug)}
+                              className="cursor-pointer"
+                              data-testid={`edit-role-menu-item-${user.email}`}
                             >
-                              Edit Role
+                              <Edit className="w-4 h-4 text-gray-600" /> Edit Role
                             </DropdownMenuItem>
                           )}
                           {canDeleteUser && (
                             <DropdownMenuItem
                               onClick={() => setDeleteUser(user.email)}
-                              className="text-destructive"
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                              data-testid={`delete-user-menu-item-${user.email}`}
                             >
+                              <Trash className="w-4 h-4" />
                               Delete User
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    ) : (
+                      <span className="inline-block cursor-not-allowed">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled
+                          className="h-8 w-8 p-0 opacity-40 pointer-events-none"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -482,8 +475,8 @@ export function UsersTable() {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <DeleteUserDialog
         open={!!deleteUser}

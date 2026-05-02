@@ -32,7 +32,7 @@ import {
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useInvitations, useInvitationActions } from '@/hooks/api/useUserManagement';
 import {
-  MoreHorizontal,
+  MoreVertical,
   Mail,
   Send,
   Trash2,
@@ -331,26 +331,18 @@ export function InvitationsTable() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Invitations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="border rounded-lg bg-white overflow-hidden p-6">
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Invitations</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="border rounded-lg bg-white overflow-hidden">
+        <div className="p-0">
           {!invitations || invitations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No pending invitations</div>
           ) : (
@@ -358,12 +350,13 @@ export function InvitationsTable() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="w-[35%]">
+                    <TableHead className="w-[30%]">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                          className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                           onClick={() => handleSort('email')}
+                          data-testid="sort-email-button"
                         >
                           <div className="flex items-center gap-2">
                             Email
@@ -381,6 +374,8 @@ export function InvitationsTable() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-gray-100"
+                              aria-label="Filter by email"
+                              data-testid="filter-email-button"
                             >
                               {renderFilterIcon('email')}
                             </Button>
@@ -393,8 +388,9 @@ export function InvitationsTable() {
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                          className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                           onClick={() => handleSort('role')}
+                          data-testid="sort-role-button"
                         >
                           <div className="flex items-center gap-2">
                             Role
@@ -412,6 +408,8 @@ export function InvitationsTable() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-gray-100"
+                              aria-label="Filter by role"
+                              data-testid="filter-role-button"
                             >
                               {renderFilterIcon('role')}
                             </Button>
@@ -424,8 +422,9 @@ export function InvitationsTable() {
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                          className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
                           onClick={() => handleSort('sent_on')}
+                          data-testid="sort-sent_on-button"
                         >
                           <div className="flex items-center gap-2">
                             Sent On
@@ -443,6 +442,8 @@ export function InvitationsTable() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-gray-100"
+                              aria-label="Filter by date"
+                              data-testid="filter-date-button"
                             >
                               {renderFilterIcon('date')}
                             </Button>
@@ -451,7 +452,7 @@ export function InvitationsTable() {
                         </Popover>
                       </div>
                     </TableHead>
-                    <TableHead className="w-[20%] text-right font-medium text-base">
+                    <TableHead className="w-[25%] text-center font-medium text-base">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -459,27 +460,36 @@ export function InvitationsTable() {
                 <TableBody>
                   {filteredAndSortedInvitations.map((invitation) => (
                     <TableRow key={invitation.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="py-4">
+                        <div className="flex items-center gap-3">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{invitation.invited_email}</span>
+                          <span className="font-medium text-lg text-gray-900">
+                            {invitation.invited_email}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{invitation.invited_role.name}</Badge>
+                      <TableCell className="py-4">
+                        <div className="text-base text-gray-700">
+                          {invitation.invited_role.name}
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-4 text-base text-gray-600">
                         {invitation.invited_on &&
                         Number.isFinite(new Date(invitation.invited_on).getTime())
                           ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
                           : '—'}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="py-4">
                         {(canResendInvitation || canDeleteInvitation) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
+                                data-testid={`invitation-actions-${invitation.id}`}
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -487,6 +497,7 @@ export function InvitationsTable() {
                                 <DropdownMenuItem
                                   onClick={() => handleResendInvitation(invitation.id)}
                                   disabled={resendingId === invitation.id}
+                                  data-testid={`resend-invitation-${invitation.id}`}
                                 >
                                   <Send className="h-4 w-4 mr-2" />
                                   {resendingId === invitation.id ? 'Resending...' : 'Resend'}
@@ -496,6 +507,7 @@ export function InvitationsTable() {
                                 <DropdownMenuItem
                                   onClick={() => setDeleteInvitation(invitation.id)}
                                   className="text-destructive"
+                                  data-testid={`delete-invitation-${invitation.id}`}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete
@@ -521,8 +533,8 @@ export function InvitationsTable() {
                 )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <DeleteInvitationDialog
         open={!!deleteInvitation}
