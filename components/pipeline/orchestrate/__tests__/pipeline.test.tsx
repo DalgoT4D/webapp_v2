@@ -413,8 +413,7 @@ describe('PipelineForm', () => {
     expect(mockPush).toHaveBeenCalledWith('/orchestrate');
   });
 
-  it('renders edit mode with existing data and toggles simple/advanced task modes', async () => {
-    const user = userEvent.setup();
+  it('renders edit mode with existing data and shows transform tasks when pipeline has tasks', async () => {
     const existingPipeline: PipelineDetailResponse = {
       name: 'Existing Pipeline',
       cron: '0 9 * * *',
@@ -444,20 +443,12 @@ describe('PipelineForm', () => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Existing Pipeline');
     });
 
-    // Simple mode shows "Run all tasks" when tasks are aligned
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    // Checkbox is checked since pipeline has transform tasks
+    const checkbox = screen.getByLabelText('Run transform tasks');
+    expect(checkbox).toBeChecked();
 
-    // Switch to advanced
-    await user.click(screen.getByText('Advanced'));
-    await waitFor(() => {
-      expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
-    });
-
-    // Switch back to simple
-    await user.click(screen.getByText('Simple'));
-    await waitFor(() => {
-      expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
-    });
+    // TaskSequence is visible when checkbox is checked
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
   });
 });
 
@@ -501,10 +492,10 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
   });
 
-  it('populates form in simple mode when tasks align and switches to advanced when they do not', async () => {
-    // Aligned tasks → simple mode
-    const alignedPipeline: PipelineDetailResponse = {
-      name: 'Aligned Pipeline',
+  it('shows checkbox checked when pipeline has tasks and unchecked when it has none', async () => {
+    // Pipeline with tasks → checkbox checked, task list visible
+    const pipelineWithTasks: PipelineDetailResponse = {
+      name: 'Pipeline With Tasks',
       cron: '0 9 * * *',
       isScheduleActive: true,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
@@ -516,7 +507,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     };
 
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline: alignedPipeline,
+      pipeline: pipelineWithTasks,
       isLoading: false,
       isError: null,
       mutate: jest.fn(),
@@ -531,12 +522,13 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     const { unmount } = render(<PipelineForm deploymentId="test-dep-id" />);
 
     await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Aligned Pipeline');
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Pipeline With Tasks');
     });
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeChecked();
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
     unmount();
 
-    // Non-aligned tasks → advanced mode
+    // Pipeline with custom order tasks → checkbox checked, task list visible
     const customOrderPipeline: PipelineDetailResponse = {
       name: 'Custom Order Pipeline',
       cron: '0 14 * * *',
@@ -560,7 +552,8 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Custom Order Pipeline');
     });
-    expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeChecked();
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
   });
 
   it('handles dbt_cloud scenarios and missing task edge cases', async () => {
@@ -595,7 +588,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud Pipeline');
     });
     expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
-    expect(screen.getByLabelText('Run all tasks')).not.toBeChecked();
+    expect(screen.getByLabelText('Run transform tasks')).not.toBeChecked();
     unmount();
 
     // dbt_cloud: no tasks available at all
@@ -714,7 +707,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Mixed Tasks Pipeline');
     });
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeInTheDocument();
     unmount();
 
     // Schedule status update failure
@@ -825,7 +818,7 @@ describe('TaskSequence', () => {
     // Components and tasks rendered
     expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reset to default/i })).toBeInTheDocument();
-    expect(screen.getByText(/These are your transformation tasks/)).toBeInTheDocument();
+    expect(screen.getByText(/Add custom tasks from the dropdown above/)).toBeInTheDocument();
     expect(screen.getByText('git pull')).toBeInTheDocument();
     expect(screen.getByText('dbt run')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
