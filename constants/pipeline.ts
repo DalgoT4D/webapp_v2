@@ -52,22 +52,24 @@ export const TASK_DBTRUN = 'dbt-run';
 export const TASK_DBTTEST = 'dbt-test';
 export const TASK_DBTCLEAN = 'dbt-clean';
 export const TASK_DBTDEPS = 'dbt-deps';
+export const TASK_DBTSEED = 'dbt-seed';
 export const TASK_GITPULL = 'git-pull';
 export const TASK_DOCSGENERATE = 'dbt-docs-generate';
 export const TASK_DBTCLOUD_JOB = 'dbt-cloud-job';
 
-// System command ordering - these define the execution order
+// System command ordering - matches backend TRANSFORM_TASKS_SEQ
 export const SYSTEM_COMMAND_ORDER: Record<string, number> = {
   'git-pull': 1,
   'dbt-clean': 2,
   'dbt-deps': 3,
-  'dbt-run': 4,
-  'dbt-test': 7,
+  'dbt-seed': 4,
+  'dbt-run': 5,
+  'dbt-test': 6,
   'dbt-docs-generate': 8,
-  'dbt-cloud-job': 9,
+  'dbt-cloud-job': 20,
 };
 
-// Custom command ordering - custom tasks sit between system dbt-run (4) and system dbt-test (7)
+// Custom command ordering - custom tasks sit between system dbt-run (5) and system dbt-test (6)
 export const CUSTOM_COMMAND_ORDER: Record<string, number> = {
   'dbt-run': 5,
   'dbt-test': 6,
