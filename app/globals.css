@@ -43,6 +43,7 @@
     transform: scale(0.8);
     opacity: 0;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -102,6 +103,7 @@
     background: rgb(191, 219, 254, 0.05);
     border-color: rgb(191, 219, 254, 0.4);
   }
+
   100% {
     background: rgb(191, 219, 254, 0.1);
     border-color: rgb(191, 219, 254, 0.7);
@@ -117,18 +119,16 @@
 
 .snap-indicator.vertical {
   width: 2px;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(96, 165, 250, 0.2) 8%,
-    rgba(96, 165, 250, 0.5) 20%,
-    rgba(96, 165, 250, 0.8) 40%,
-    rgba(96, 165, 250, 1) 50%,
-    rgba(96, 165, 250, 0.8) 60%,
-    rgba(96, 165, 250, 0.5) 80%,
-    rgba(96, 165, 250, 0.2) 92%,
-    transparent 100%
-  );
+  background: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(96, 165, 250, 0.2) 8%,
+      rgba(96, 165, 250, 0.5) 20%,
+      rgba(96, 165, 250, 0.8) 40%,
+      rgba(96, 165, 250, 1) 50%,
+      rgba(96, 165, 250, 0.8) 60%,
+      rgba(96, 165, 250, 0.5) 80%,
+      rgba(96, 165, 250, 0.2) 92%,
+      transparent 100%);
   filter: blur(0.5px);
   box-shadow:
     0 0 6px rgba(96, 165, 250, 0.4),
@@ -137,18 +137,16 @@
 
 .snap-indicator.horizontal {
   height: 2px;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(96, 165, 250, 0.2) 8%,
-    rgba(96, 165, 250, 0.5) 20%,
-    rgba(96, 165, 250, 0.8) 40%,
-    rgba(96, 165, 250, 1) 50%,
-    rgba(96, 165, 250, 0.8) 60%,
-    rgba(96, 165, 250, 0.5) 80%,
-    rgba(96, 165, 250, 0.2) 92%,
-    transparent 100%
-  );
+  background: linear-gradient(to right,
+      transparent 0%,
+      rgba(96, 165, 250, 0.2) 8%,
+      rgba(96, 165, 250, 0.5) 20%,
+      rgba(96, 165, 250, 0.8) 40%,
+      rgba(96, 165, 250, 1) 50%,
+      rgba(96, 165, 250, 0.8) 60%,
+      rgba(96, 165, 250, 0.5) 80%,
+      rgba(96, 165, 250, 0.2) 92%,
+      transparent 100%);
   filter: blur(0.5px);
   box-shadow:
     0 0 6px rgba(96, 165, 250, 0.4),
@@ -174,6 +172,7 @@
     opacity: 0;
     transform: scale(0.5);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -182,15 +181,17 @@
 
 /* Space-making visual feedback */
 @keyframes spaceMakingPulse {
-  0% { 
+  0% {
     opacity: 0.6;
     transform: translate(-50%, -50%) scale(1);
   }
-  50% { 
+
+  50% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1.1);
   }
-  100% { 
+
+  100% {
     opacity: 0.6;
     transform: translate(-50%, -50%) scale(1);
   }
@@ -257,7 +258,8 @@
 
 /* Small chart container optimizations */
 .react-grid-item[style*="width"] .dashboard-item {
-  min-width: 0; /* Allow flex shrinking */
+  min-width: 0;
+  /* Allow flex shrinking */
 }
 
 /* Prevent axis labels from overflowing */
@@ -268,12 +270,13 @@
 
 /* Removed dashed border hover effect - keep UI clean */
 .dashboard-builder .dashboard-item::before {
-  display: none; /* Completely remove hover border */
+  display: none;
+  /* Completely remove hover border */
 }
 
 
 /* Invisible resize zones - Apache Superset style */
-.dashboard-builder .react-grid-item > .react-resizable-handle {
+.dashboard-builder .react-grid-item>.react-resizable-handle {
   opacity: 0 !important;
   background: transparent !important;
   border: none !important;
@@ -283,7 +286,7 @@
 }
 
 /* Show resize cursor in invisible zones */
-.dashboard-builder .react-grid-item > .react-resizable-handle::after {
+.dashboard-builder .react-grid-item>.react-resizable-handle::after {
   content: '';
   position: absolute;
   width: 20px;
@@ -292,35 +295,35 @@
 }
 
 /* Southeast resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-se {
+.dashboard-builder .react-grid-item>.react-resizable-handle-se {
   bottom: 0 !important;
   right: 0 !important;
   cursor: se-resize !important;
 }
 
 /* Southwest resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-sw {
+.dashboard-builder .react-grid-item>.react-resizable-handle-sw {
   bottom: 0 !important;
   left: 0 !important;
   cursor: sw-resize !important;
 }
 
 /* Northeast resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-ne {
+.dashboard-builder .react-grid-item>.react-resizable-handle-ne {
   top: 0 !important;
   right: 0 !important;
   cursor: ne-resize !important;
 }
 
 /* Northwest resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-nw {
+.dashboard-builder .react-grid-item>.react-resizable-handle-nw {
   top: 0 !important;
   left: 0 !important;
   cursor: nw-resize !important;
 }
 
 /* East resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-e {
+.dashboard-builder .react-grid-item>.react-resizable-handle-e {
   right: 0 !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
@@ -330,7 +333,7 @@
 }
 
 /* West resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-w {
+.dashboard-builder .react-grid-item>.react-resizable-handle-w {
   left: 0 !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
@@ -340,7 +343,7 @@
 }
 
 /* North resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-n {
+.dashboard-builder .react-grid-item>.react-resizable-handle-n {
   top: 0 !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
@@ -350,7 +353,7 @@
 }
 
 /* South resize handle */
-.dashboard-builder .react-grid-item > .react-resizable-handle-s {
+.dashboard-builder .react-grid-item>.react-resizable-handle-s {
   bottom: 0 !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
@@ -362,7 +365,7 @@
 
 
 
-.dashboard-item > * {
+.dashboard-item>* {
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -377,7 +380,7 @@
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
-  
+
   .react-grid-item {
     /* Ensure items are properly sized on mobile */
     font-size: 14px;
@@ -386,18 +389,18 @@
     max-width: 100% !important;
     overflow: hidden !important;
   }
-  
+
   .dashboard-item {
     box-sizing: border-box !important;
     max-width: 100% !important;
     overflow: hidden !important;
   }
-  
+
   .dashboard-item .drag-handle {
     /* Make drag handle more accessible on mobile */
     padding: 8px !important;
   }
-  
+
   /* Adjust chart containers for mobile */
   .dashboard-item canvas,
   .dashboard-item svg {
@@ -406,7 +409,7 @@
     height: auto !important;
     box-sizing: border-box !important;
   }
-  
+
   /* Ensure text content is readable */
   .dashboard-item p,
   .dashboard-item span,
@@ -416,12 +419,12 @@
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
-  
+
   /* Adjust padding for mobile - Compact design */
   .dashboard-item .p-2 {
     padding: 6px !important;
   }
-  
+
   /* Mobile specific grid fixes */
   @media (max-width: 480px) {
     .react-grid-layout {
@@ -431,7 +434,7 @@
       max-width: 100% !important;
       overflow-x: hidden !important;
     }
-    
+
     .react-grid-item {
       /* Ensure full width on mobile and prevent overflow */
       width: 100% !important;
@@ -443,19 +446,19 @@
       margin-bottom: 8px !important;
       box-sizing: border-box !important;
     }
-    
+
     .dashboard-item {
       width: 100% !important;
       max-width: 100% !important;
       box-sizing: border-box !important;
       overflow: hidden !important;
     }
-    
+
     .dashboard-item .text-xs,
     .dashboard-item .text-sm {
       font-size: 12px !important;
     }
-    
+
     /* Force all chart containers to respect mobile boundaries */
     .dashboard-item canvas,
     .dashboard-item svg {
@@ -507,25 +510,29 @@
 /* Header Responsive Styles */
 @media (max-width: 1024px) {
   .dashboard-header-title {
-    font-size: 1.25rem !important; /* text-xl */
+    font-size: 1.25rem !important;
+    /* text-xl */
   }
-  
+
   .dashboard-header-description {
-    font-size: 0.875rem !important; /* text-sm */
+    font-size: 0.875rem !important;
+    /* text-sm */
     line-height: 1.25rem !important;
   }
 }
 
 @media (max-width: 768px) {
   .dashboard-header-title {
-    font-size: 1.125rem !important; /* text-lg */
+    font-size: 1.125rem !important;
+    /* text-lg */
   }
-  
+
   .dashboard-header-description {
-    font-size: 0.75rem !important; /* text-xs */
+    font-size: 0.75rem !important;
+    /* text-xs */
     line-height: 1rem !important;
   }
-  
+
   /* Enable line clamping for mobile descriptions */
   .line-clamp-2 {
     display: -webkit-box;
@@ -533,13 +540,13 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  
+
   /* Scrollable button rows on mobile */
   .mobile-action-row {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  
+
   .mobile-action-row::-webkit-scrollbar {
     display: none;
   }
@@ -733,6 +740,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -783,7 +791,7 @@
   z-index: 3;
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle {
+.dashboard-builder .react-grid-item>.react-resizable-handle {
   position: absolute;
   width: 20px;
   height: 20px;
@@ -814,7 +822,7 @@
   box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.1), 0 4px 10px -6px rgb(0 0 0 / 0.1);
 }
 
-.dashboard-item > div {
+.dashboard-item>div {
   flex: 1;
   min-height: 0;
 }
@@ -824,7 +832,8 @@
 /* Ensure charts resize smoothly */
 .dashboard-item canvas,
 .dashboard-item svg {
-  transition: none !important; /* Prevent chart animations during resize */
+  transition: none !important;
+  /* Prevent chart animations during resize */
 }
 
 /* Enhanced chart container responsiveness - viewport aware */
@@ -854,7 +863,7 @@
 }
 
 /* Multi-directional resize handles styling */
-.dashboard-builder .react-grid-item > .react-resizable-handle {
+.dashboard-builder .react-grid-item>.react-resizable-handle {
   position: absolute;
   background-color: transparent;
   background-repeat: no-repeat;
@@ -864,7 +873,7 @@
 }
 
 /* Individual resize handle positions and styling */
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-se {
   bottom: 0;
   right: 0;
   width: 24px;
@@ -873,7 +882,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-sw {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-sw {
   bottom: 0;
   left: 0;
   width: 24px;
@@ -882,7 +891,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-ne {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-ne {
   top: 0;
   right: 0;
   width: 24px;
@@ -891,7 +900,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjUiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-nw {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-nw {
   top: 0;
   left: 0;
   width: 24px;
@@ -900,7 +909,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PGNpcmNsZSBjeD0iMyIgY3k9IjMiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-n {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-n {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
@@ -910,7 +919,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-s {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
@@ -920,7 +929,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSIzIiB2aWV3Qm94PSIwIDAgNiAzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEiIGN5PSIxLjUiIHI9IjEiLz48Y2lyY2xlIGN4PSIzIiBjeT0iMS41IiByPSIxIi8+PGNpcmNsZSBjeD0iNSIgY3k9IjEuNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-e {
   top: 50%;
   right: 0;
   transform: translateY(-50%);
@@ -930,7 +939,7 @@
   background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMyIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMyA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0MzQzNDMiPjxjaXJjbGUgY3g9IjEuNSIgY3k9IjEiIHI9IjEiLz48Y2lyY2xlIGN4PSIxLjUiIGN5PSIzIiByPSIxIi8+PGNpcmNsZSBjeD0iMS41IiBjeT0iNSIgcj0iMSIvPjwvZz48L3N2Zz4=');
 }
 
-.dashboard-builder .react-grid-item > .react-resizable-handle.react-resizable-handle-w {
+.dashboard-builder .react-grid-item>.react-resizable-handle.react-resizable-handle-w {
   top: 50%;
   left: 0;
   transform: translateY(-50%);
@@ -942,7 +951,7 @@
 
 
 /* Invisible resize handles - Apache Superset style */
-.dashboard-builder .react-grid-item > .react-resizable-handle {
+.dashboard-builder .react-grid-item>.react-resizable-handle {
   opacity: 0 !important;
   transition: all 0.2s ease;
   background-color: transparent !important;
@@ -950,18 +959,18 @@
 }
 
 /* Very subtle resize handle visibility on hover */
-.dashboard-builder .react-grid-item:hover > .react-resizable-handle {
+.dashboard-builder .react-grid-item:hover>.react-resizable-handle {
   opacity: 0.1 !important;
   background-color: rgba(96, 165, 250, 0.1) !important;
 }
 
-.dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover {
+.dashboard-builder .react-grid-item:hover>.react-resizable-handle:hover {
   opacity: 0.3 !important;
   background-color: rgba(96, 165, 250, 0.2) !important;
 }
 
 /* Add subtle border highlight on resize hover */
-.dashboard-builder .react-grid-item:hover > .react-resizable-handle:hover::before {
+.dashboard-builder .react-grid-item:hover>.react-resizable-handle:hover::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1055,4 +1064,14 @@
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* Primary Button Hover Fix - Ensure text and icons remain white */
+button:is(.bg-primary, [style*="background"][style*="var(--primary)"], [style*="background"][style*="#00897B"], .bg-teal-600, .bg-teal-700):hover {
+  color: white !important;
+}
+
+/* Ensure icons inside these buttons also stay white on hover */
+button:is(.bg-primary, [style*="background"][style*="var(--primary)"], [style*="background"][style*="#00897B"], .bg-teal-600, .bg-teal-700):hover svg {
+  color: white !important;
 }
