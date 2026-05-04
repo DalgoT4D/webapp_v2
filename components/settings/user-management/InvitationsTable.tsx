@@ -479,7 +479,7 @@ export function InvitationsTable() {
                           ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
                           : '—'}
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-4 text-center">
                         {(canResendInvitation || canDeleteInvitation) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
