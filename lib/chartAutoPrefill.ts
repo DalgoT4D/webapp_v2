@@ -121,6 +121,36 @@ export function generateAutoPrefilledConfig(
         .filter((col) => col.name)
         .map((col) => col.name);
       break;
+
+    case 'pivot_table': {
+      // Auto-prefill: first text column as row dimension, COUNT as metric
+      const firstTextCol = columns.find((col) => isTextColumn(col.data_type));
+      const firstDateCol = columns.find(
+        (col) =>
+          col.data_type.toLowerCase().includes('timestamp') ||
+          col.data_type.toLowerCase().includes('date')
+      );
+
+      config.computation_type = 'aggregated' as const;
+      config.extra_config = {
+        row_dimensions: firstTextCol ? [firstTextCol.column_name || firstTextCol.name] : [],
+        column_dimensions: firstDateCol ? [firstDateCol.column_name || firstDateCol.name] : [],
+        column_time_grains: firstDateCol
+          ? { [firstDateCol.column_name || firstDateCol.name]: 'month' }
+          : {},
+        show_row_subtotals: false,
+        show_column_subtotals: false,
+        show_grand_total: false,
+      };
+      config.metrics = [
+        {
+          column: null,
+          aggregation: 'count',
+          alias: 'Total Count',
+        },
+      ];
+      break;
+    }
   }
 
   return config;

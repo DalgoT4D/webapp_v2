@@ -6,7 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table, Lock } from 'lucide-react';
+import {
+  ArrowLeft,
+  BarChart2,
+  PieChart,
+  LineChart,
+  Hash,
+  MapPin,
+  Table,
+  Grid3X3,
+  Lock,
+} from 'lucide-react';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -61,6 +71,14 @@ const chartTypes = [
     icon: Table,
     color: 'text-slate-600',
     bgColor: 'bg-slate-50',
+  },
+  {
+    id: 'pivot_table',
+    name: 'Pivot Table',
+    description: 'Cross-tabulate data across two dimensions',
+    icon: Grid3X3,
+    color: 'text-sky-600',
+    bgColor: 'bg-sky-50',
   },
 ];
 
