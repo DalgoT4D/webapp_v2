@@ -1,20 +1,8 @@
 // Pipeline/Orchestrate types
 
-import { LockStatus } from '@/constants/pipeline';
-
-export interface TaskLock {
-  lockedBy: string;
-  lockedAt: string;
-  status: LockStatus;
-  flowRunId?: string;
-  celeryTaskId?: string;
-}
-
-export interface QueuedRuntimeInfo {
-  max_wait_time: number;
-  min_wait_time: number;
-  queue_no: number;
-}
+// Shared types — canonical definitions in types/common.ts
+import type { TaskLock, QueuedRuntimeInfo } from '@/types/common';
+export type { TaskLock, QueuedRuntimeInfo };
 
 export interface FlowRun {
   id: string;
@@ -84,31 +72,6 @@ export interface DeploymentRun {
   state_name: string;
   status: string;
   totalRunTime: number;
-}
-
-export interface Connection {
-  name: string;
-  connectionId: string;
-  deploymentId: string;
-  catalogId: string;
-  destination: {
-    destinationId: string;
-    destinationName: string;
-  };
-  source: {
-    sourceId: string;
-    sourceName: string;
-    icon?: string;
-  };
-  lock: TaskLock | null;
-  lastRun: any | null;
-  normalize: boolean;
-  status: string;
-  syncCatalog: object;
-  resetConnDeploymentId: string | null;
-  clearConnDeploymentId: string | null;
-  queuedFlowRunWaitTime: QueuedRuntimeInfo | null;
-  blockId: string;
 }
 
 // Form types

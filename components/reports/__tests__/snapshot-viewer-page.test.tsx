@@ -244,11 +244,15 @@ describe('SnapshotViewerPage', () => {
       expect(textarea.value).toBe('This is the initial summary.');
     });
 
-    it('renders action buttons (download, share, save)', () => {
+    it('renders action buttons (download, share, save)', async () => {
+      const user = userEvent.setup();
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+
+      // Save button only appears after entering edit mode
+      await user.click(screen.getByTestId('summary-edit-btn'));
       expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
     });
   });
@@ -349,6 +353,7 @@ describe('SnapshotViewerPage', () => {
 
       renderPage();
 
+      await user.click(screen.getByTestId('summary-edit-btn'));
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -363,6 +368,7 @@ describe('SnapshotViewerPage', () => {
 
       renderPage();
 
+      await user.click(screen.getByTestId('summary-edit-btn'));
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -501,16 +507,19 @@ describe('SnapshotViewerPage', () => {
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('shows all action buttons when user has full permissions and is creator', () => {
+    it('shows all action buttons when user has full permissions and is creator', async () => {
+      const user = userEvent.setup();
       mockHasPermission.mockReturnValue(true);
       mockGetCurrentUserEmail.mockReturnValue('user@test.com');
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
-      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
       expect(screen.getByTestId('summary-edit-btn')).toBeInTheDocument();
       expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
+      // Save button only appears after entering edit mode
+      await user.click(screen.getByTestId('summary-edit-btn'));
+      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
     });
   });
 

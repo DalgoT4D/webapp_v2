@@ -144,6 +144,11 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
         id="task-selector"
       />
 
+      <p className="text-sm text-muted-foreground">
+        Add custom tasks from the dropdown above. You can also create custom tasks from the
+        transformation page.
+      </p>
+
       <div className="flex justify-end">
         <Button
           type="button"
@@ -155,10 +160,6 @@ export function TaskSequence({ value, onChange, options }: TaskSequenceProps) {
           Reset to default
         </Button>
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        These are your transformation tasks. Most users don&apos;t need to change this list.
-      </p>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={value.map((t) => t.uuid)} strategy={verticalListSortingStrategy}>
