@@ -21,9 +21,9 @@ export default function UserManagement() {
   const canViewInvitations = hasPermission('can_view_invitations');
 
   return (
-    <div className="flex flex-col min-h-0">
-      <Tabs defaultValue="users" className="w-full h-full flex flex-col min-h-0">
-        <div className="w-full mx-auto px-6 pt-6 border-b  mb-6">
+    <div className="h-full flex flex-col min-h-0">
+      <Tabs defaultValue="users" className="w-full flex-1 flex flex-col min-h-0">
+        <div className="flex-shrink-0 w-full mx-auto px-6 pt-6 border-b  mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold mb-2">User Management</h1>
@@ -90,18 +90,16 @@ export default function UserManagement() {
           </div>
         </div>
 
-        <div className="flex-1 w-full px-6 pb-6 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto mb-10">
-            <TabsContent value="users" className="mt-0 pb-6">
-              <UsersTable />
-            </TabsContent>
+        <div className="flex-1 w-full px-6 overflow-hidden min-h-0">
+          <TabsContent value="users" className="mt-0 h-full">
+            <UsersTable />
+          </TabsContent>
 
-            {canViewInvitations && (
-              <TabsContent value="invitations" className="mt-0 pb-6">
-                <InvitationsTable />
-              </TabsContent>
-            )}
-          </div>
+          {canViewInvitations && (
+            <TabsContent value="invitations" className="mt-0 h-full">
+              <InvitationsTable />
+            </TabsContent>
+          )}
         </div>
       </Tabs>
 

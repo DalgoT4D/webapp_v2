@@ -132,9 +132,19 @@ export default function Billing() {
             </div>
           </div>
         ) : !orgPlan ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-lg text-muted-foreground">No Billing Information Available</div>
-          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <Info className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">
+                No Billing Information Available
+              </h3>
+              <p className="text-sm text-gray-500 max-w-md">
+                Contact your administrator to set up billing for your organization.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardHeader>
