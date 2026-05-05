@@ -50,18 +50,24 @@ export default function SnapshotViewerPage() {
     title: viewData?.report_metadata.title || 'report',
   });
 
-  // Initialize summary draft when viewData loads (replaces state-during-render pattern)
+  // Sync summary draft when viewData loads or revalidates (only if user isn't editing)
   useEffect(() => {
-    if (!summaryTouched && viewData?.report_metadata.summary) {
-      setSummaryDraft(viewData.report_metadata.summary);
+    if (!summaryTouched) {
+      setSummaryDraft(viewData?.report_metadata.summary ?? '');
     }
   }, [viewData?.report_metadata.summary, summaryTouched]);
 
   const handleSave = useCallback(async () => {
+    const currentSummary = (viewData?.report_metadata.summary ?? '').trim();
+    if (summaryDraft.trim() === currentSummary) {
+      setSummaryTouched(false);
+      setIsEditingSummary(false);
+      return;
+    }
     setIsSaving(true);
     try {
       await updateSnapshot(parsedId, { summary: summaryDraft });
-      mutate();
+      await mutate();
       setSummaryTouched(false);
       setIsEditingSummary(false);
       toastSuccess.saved('Report');
@@ -70,7 +76,7 @@ export default function SnapshotViewerPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [parsedId, summaryDraft, mutate]);
+  }, [parsedId, summaryDraft, mutate, viewData?.report_metadata.summary]);
 
   if (!isValidId) {
     return (
