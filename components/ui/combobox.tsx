@@ -13,6 +13,7 @@ export interface ComboboxItem {
   value: string;
   label: string;
   disabled?: boolean;
+  group?: string;
   [key: string]: any;
 }
 
@@ -265,7 +266,9 @@ function SingleComboboxInner({
         i &&
         i.label &&
         i.value &&
-        (i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q))
+        (i.label.toLowerCase().includes(q) ||
+          i.value.toLowerCase().includes(q) ||
+          i.group?.toLowerCase().includes(q))
     );
   }, [safeItems, search]);
 
@@ -412,37 +415,51 @@ function SingleComboboxInner({
               const isSelected = item.value === value;
               const isHl = idx === highlightedIndex;
               const isItemDisabled = item.disabled === true;
+              const showGroupHeader =
+                item.group && (idx === 0 || filtered[idx - 1]?.group !== item.group);
               return (
-                <div
-                  key={item.value}
-                  id={`${baseId}-item-${item.value}`}
-                  data-testid={`${baseId}-item-${item.value}`}
-                  data-combobox-item=""
-                  data-value={item.value}
-                  data-selected={isSelected || undefined}
-                  data-highlighted={isHl || undefined}
-                  data-disabled={isItemDisabled || undefined}
-                  role="option"
-                  aria-selected={isSelected}
-                  aria-disabled={isItemDisabled}
-                  className={cn(
-                    'px-3 py-2 text-sm border-b border-gray-100 last:border-b-0 select-none',
-                    isItemDisabled
-                      ? 'cursor-not-allowed opacity-50 text-gray-400'
-                      : 'cursor-pointer',
-                    !isItemDisabled && isSelected && 'bg-blue-50 text-blue-900',
-                    !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
-                    !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
+                <React.Fragment key={item.value}>
+                  {showGroupHeader && (
+                    <div
+                      className="px-3 py-1.5 text-sm font-bold text-foreground bg-muted/50 select-none"
+                      role="presentation"
+                    >
+                      {item.group}
+                    </div>
                   )}
-                  onClick={() => !isItemDisabled && handleSelect(item.value)}
-                  onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
-                >
-                  {renderItem ? (
-                    renderItem(item, isSelected, search)
-                  ) : (
-                    <div className="font-mono font-medium">{highlightText(item.label, search)}</div>
-                  )}
-                </div>
+                  <div
+                    id={`${baseId}-item-${item.value}`}
+                    data-testid={`${baseId}-item-${item.value}`}
+                    data-combobox-item=""
+                    data-value={item.value}
+                    data-selected={isSelected || undefined}
+                    data-highlighted={isHl || undefined}
+                    data-disabled={isItemDisabled || undefined}
+                    role="option"
+                    aria-selected={isSelected}
+                    aria-disabled={isItemDisabled}
+                    className={cn(
+                      'py-2 text-sm border-b border-gray-100 last:border-b-0 select-none',
+                      item.group ? 'px-5' : 'px-3',
+                      isItemDisabled
+                        ? 'cursor-not-allowed opacity-50 text-gray-400'
+                        : 'cursor-pointer',
+                      !isItemDisabled && isSelected && 'bg-blue-50 text-blue-900',
+                      !isItemDisabled && isHl && !isSelected && 'bg-gray-100',
+                      !isItemDisabled && !isSelected && !isHl && 'hover:bg-gray-50'
+                    )}
+                    onClick={() => !isItemDisabled && handleSelect(item.value)}
+                    onMouseEnter={() => !isItemDisabled && setHighlightedIndex(idx)}
+                  >
+                    {renderItem ? (
+                      renderItem(item, isSelected, search)
+                    ) : (
+                      <div className="font-mono font-medium">
+                        {highlightText(item.label, search)}
+                      </div>
+                    )}
+                  </div>
+                </React.Fragment>
               );
             })
           )}
@@ -513,6 +530,28 @@ function MultiComboboxInner({
     },
     [safeValues, onValuesChange]
   );
+
+  const allFilteredSelected = React.useMemo(
+    () => filtered.length > 0 && filtered.every((item) => safeValues.includes(item.value)),
+    [filtered, safeValues]
+  );
+
+  const someFilteredSelected = React.useMemo(
+    () => filtered.some((item) => safeValues.includes(item.value)) && !allFilteredSelected,
+    [filtered, safeValues, allFilteredSelected]
+  );
+
+  const handleSelectAll = React.useCallback(() => {
+    if (allFilteredSelected) {
+      // Deselect only filtered items, preserve selections outside current search
+      const filteredValueSet = new Set(filtered.map((item) => item.value));
+      onValuesChange(safeValues.filter((v) => !filteredValueSet.has(v)));
+    } else {
+      // Add all filtered items that aren't already selected
+      const filteredValues = filtered.map((item) => item.value);
+      onValuesChange([...safeValues, ...filteredValues.filter((v) => !safeValues.includes(v))]);
+    }
+  }, [allFilteredSelected, filtered, safeValues, onValuesChange]);
 
   const handleRemove = (val: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -637,6 +676,23 @@ function MultiComboboxInner({
         }}
         style={{ width: 'var(--radix-popper-anchor-width)' }}
       >
+        {!loading && filtered.length > 0 && (
+          <div
+            data-testid={`${baseId}-select-all`}
+            className="flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-200 bg-gray-50 hover:bg-gray-100"
+            onClick={handleSelectAll}
+          >
+            <Checkbox
+              id={`${baseId}-checkbox-select-all`}
+              data-testid={`${baseId}-checkbox-select-all`}
+              checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false}
+              onCheckedChange={handleSelectAll}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4"
+            />
+            <span className="flex-1 text-sm font-medium text-gray-700">Select all</span>
+          </div>
+        )}
         <div
           ref={listRef}
           id={`${baseId}-listbox`}

@@ -162,4 +162,45 @@ describe('BarChartCustomizations', () => {
       expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
     });
   });
+
+  describe('Date Formatting', () => {
+    it('should not show Date Format when hasDateXAxis is false', () => {
+      render(<BarChartCustomizations {...defaultProps} hasDateXAxis={false} />);
+
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+    });
+
+    it('should show Date Format in X-Axis section when hasDateXAxis is true', () => {
+      render(<BarChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
+    });
+
+    it('should call updateCustomization when date format changes', async () => {
+      const user = userEvent.setup();
+      render(<BarChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+
+      const formatSelect = screen.getByLabelText('Date Format');
+      await user.click(formatSelect);
+      await user.click(screen.getByRole('option', { name: '%d/%m/%Y (14/01/2019)' }));
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisDateFormat', 'dd_mm_yyyy');
+    });
+
+    it('should not show both number and date format simultaneously', () => {
+      // When X-axis is numeric, show number format
+      const { rerender } = render(
+        <BarChartCustomizations {...defaultProps} hasNumericXAxis={true} hasDateXAxis={false} />
+      );
+      expect(screen.getAllByLabelText('Number Format').length).toBe(2);
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+
+      // When X-axis is date, show date format
+      rerender(
+        <BarChartCustomizations {...defaultProps} hasNumericXAxis={false} hasDateXAxis={true} />
+      );
+      expect(screen.getAllByLabelText('Number Format').length).toBe(1); // Only Y-axis
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
+    });
+  });
 });

@@ -353,53 +353,58 @@ export function useNextLayerType(parentRegionId: number | null) {
   return useSWR(parentRegionId ? `/api/charts/regions/${parentRegionId}/children/` : null, apiGet);
 }
 
+export interface MapDataOverlayRawPayload {
+  schema_name: string;
+  table_name: string;
+  geographic_column: string;
+  value_column: string;
+  aggregate_function: string;
+  filters?: Record<string, any>;
+  dashboard_filters?: Record<string, any>;
+  extra_config?: {
+    filters?: any[];
+    pagination?: any;
+    sort?: any[];
+  };
+}
+
+// Transform raw map overlay payload to match backend requirements.
+// For count operations, value_column may be absent — falls back to geographic_column.
+export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload | null) {
+  if (
+    !payload ||
+    !payload.schema_name ||
+    !payload.table_name ||
+    !payload.geographic_column ||
+    !payload.aggregate_function ||
+    (!payload.value_column && payload.aggregate_function !== 'count')
+  ) {
+    return null;
+  }
+
+  return {
+    schema_name: payload.schema_name,
+    table_name: payload.table_name,
+    geographic_column: payload.geographic_column,
+    value_column: payload.value_column || payload.geographic_column,
+    metrics: [
+      {
+        column:
+          payload.value_column ||
+          (payload.aggregate_function === 'count' ? payload.geographic_column : null),
+        aggregation: payload.aggregate_function,
+        alias: 'value',
+      },
+    ],
+    filters: payload.filters || {},
+    dashboard_filters: payload.dashboard_filters || {},
+    extra_config: payload.extra_config || {},
+  };
+}
+
 // Fetch map data separately (for data overlay on existing GeoJSON)
-export function useMapDataOverlay(
-  payload: {
-    schema_name: string;
-    table_name: string;
-    geographic_column: string;
-    value_column: string;
-    aggregate_function: string;
-    filters?: Record<string, any>;
-    dashboard_filters?: Record<string, any>;
-    extra_config?: {
-      filters?: any[];
-      pagination?: any;
-      sort?: any[];
-    };
-  } | null
-) {
-  // Transform payload to match backend requirements
-  // For count operations, value_column can be null (same pattern as bar charts)
-  const transformedPayload =
-    payload &&
-    payload.schema_name &&
-    payload.table_name &&
-    payload.geographic_column &&
-    (payload.aggregate_function === 'count' || payload.value_column) &&
-    payload.aggregate_function
-      ? {
-          schema_name: payload.schema_name,
-          table_name: payload.table_name,
-          geographic_column: payload.geographic_column,
-          // For count operations without a column, use geographic_column as value_column
-          value_column: payload.value_column || payload.geographic_column,
-          metrics: [
-            {
-              // For count without column, use geographic_column to match value_column
-              column:
-                payload.value_column ||
-                (payload.aggregate_function === 'count' ? payload.geographic_column : null),
-              aggregation: payload.aggregate_function,
-              alias: 'value',
-            },
-          ],
-          filters: payload.filters || {},
-          dashboard_filters: payload.dashboard_filters || [],
-          extra_config: payload.extra_config || {},
-        }
-      : null;
+export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
+  const transformedPayload = transformMapDataOverlayPayload(payload);
 
   // Create a simple, stable key similar to regular charts for better filter change detection
   // Use a hash-based approach like regular charts do with query parameters

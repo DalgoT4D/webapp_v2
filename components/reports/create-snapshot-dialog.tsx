@@ -74,6 +74,7 @@ export function CreateSnapshotDialog({
     watch,
     setValue,
     reset,
+    clearErrors,
     formState: { errors },
   } = useForm<SnapshotFormData>({
     defaultValues: {
@@ -133,20 +134,33 @@ export function CreateSnapshotDialog({
     });
   };
 
-  const onSubmit = async (data: SnapshotFormData) => {
-    // Parse selected date column
-    const [schema_name, table_name, column_name] = data.selectedDateColumn.split('.');
-    const dateColumn: DateColumn = { schema_name, table_name, column_name };
+  const hasDatetimeColumns = discoveredColumns.length > 0;
 
+  // Clear date field validation errors when no datetime columns are available
+  useEffect(() => {
+    if (!hasDatetimeColumns) {
+      clearErrors(['selectedDateColumn', 'periodEnd']);
+    }
+  }, [hasDatetimeColumns, clearErrors]);
+
+  const onSubmit = async (data: SnapshotFormData) => {
     setIsSubmitting(true);
     try {
-      await createSnapshot({
+      const payload: Parameters<typeof createSnapshot>[0] = {
         title: data.reportName.trim(),
         dashboard_id: effectiveDashboardId!,
-        date_column: dateColumn,
-        period_start: data.periodStart ? format(data.periodStart, 'yyyy-MM-dd') : undefined,
-        period_end: format(data.periodEnd!, 'yyyy-MM-dd'),
-      });
+      };
+
+      if (hasDatetimeColumns && data.selectedDateColumn) {
+        const [schema_name, table_name, column_name] = data.selectedDateColumn.split('.');
+        payload.date_column = { schema_name, table_name, column_name } as DateColumn;
+        payload.period_start = data.periodStart
+          ? format(data.periodStart, 'yyyy-MM-dd')
+          : undefined;
+        payload.period_end = data.periodEnd ? format(data.periodEnd, 'yyyy-MM-dd') : undefined;
+      }
+
+      await createSnapshot(payload);
       toastSuccess.created('Report');
       setOpen(false);
       resetForm();
@@ -231,99 +245,97 @@ export function CreateSnapshotDialog({
           </div>
 
           {/* Filter by */}
-          <div className="space-y-2">
-            <Label className="font-semibold">
-              Filter by <span className="text-red-600 ml-1">*</span>
-            </Label>
-            {effectiveDashboardId &&
-            !columnsLoading &&
-            discoveredColumns.length === 0 &&
-            dashboardData ? (
-              <p className="text-sm text-muted-foreground">
-                No datetime columns found in this dashboard&apos;s data sources.
-              </p>
-            ) : (
-              <>
-                <Controller
-                  name="selectedDateColumn"
-                  control={control}
-                  rules={{ required: 'Please select a date-time column' }}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={
-                        !effectiveDashboardId || columnsLoading || discoveredColumns.length === 0
-                      }
-                    >
-                      <SelectTrigger data-testid="snapshot-date-column">
-                        <SelectValue
-                          placeholder={
-                            columnsLoading
-                              ? 'Discovering date columns...'
+          <div className={!hasDatetimeColumns ? 'opacity-50' : ''}>
+            <div className="space-y-2">
+              <Label className="font-semibold">
+                Filter by {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
+              </Label>
+              {!hasDatetimeColumns && effectiveDashboardId && !columnsLoading && dashboardData && (
+                <p className="text-sm text-muted-foreground">
+                  No datetime columns found — date filtering will be skipped.
+                </p>
+              )}
+              <Controller
+                name="selectedDateColumn"
+                control={control}
+                rules={hasDatetimeColumns ? { required: 'Please select a date-time column' } : {}}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={!hasDatetimeColumns || !effectiveDashboardId || columnsLoading}
+                  >
+                    <SelectTrigger data-testid="snapshot-date-column">
+                      <SelectValue
+                        placeholder={
+                          columnsLoading
+                            ? 'Discovering date columns...'
+                            : !hasDatetimeColumns
+                              ? 'No date columns available'
                               : 'Pick the date-time column to filter by'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {discoveredColumns.map((col) => {
-                          const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
-                          return (
-                            <SelectItem key={value} value={value}>
-                              {col.table_name}.{col.column_name}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.selectedDateColumn && (
-                  <p className="text-sm text-red-500">{errors.selectedDateColumn.message}</p>
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {discoveredColumns.map((col) => {
+                        const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
+                        return (
+                          <SelectItem key={value} value={value}>
+                            {col.table_name}.{col.column_name}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 )}
-              </>
-            )}
+              />
+              {errors.selectedDateColumn && (
+                <p className="text-sm text-red-500">{errors.selectedDateColumn.message}</p>
+              )}
+            </div>
           </div>
 
           {/* Duration */}
-          <div className="space-y-2">
-            <Label className="font-semibold">
-              Duration <span className="text-red-600 ml-1">*</span>
-            </Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <span className="text-sm text-muted-foreground">Start date</span>
-                <Controller
-                  name="periodStart"
-                  control={control}
-                  render={({ field }) => (
-                    <ConfirmDatePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      maxDate={startMaxDate}
-                    />
+          <div className={!hasDatetimeColumns ? 'opacity-50 pointer-events-none' : ''}>
+            <div className="space-y-2">
+              <Label className="font-semibold">
+                Duration {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
+              </Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">Start date</span>
+                  <Controller
+                    name="periodStart"
+                    control={control}
+                    render={({ field }) => (
+                      <ConfirmDatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        maxDate={startMaxDate}
+                      />
+                    )}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">
+                    End date {hasDatetimeColumns && <span className="text-red-600">*</span>}
+                  </span>
+                  <Controller
+                    name="periodEnd"
+                    control={control}
+                    rules={hasDatetimeColumns ? { required: 'Please select an end date' } : {}}
+                    render={({ field }) => (
+                      <ConfirmDatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        maxDate={today}
+                      />
+                    )}
+                  />
+                  {errors.periodEnd && (
+                    <p className="text-sm text-red-500">{errors.periodEnd.message}</p>
                   )}
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="text-sm text-muted-foreground">
-                  End date <span className="text-red-600">*</span>
-                </span>
-                <Controller
-                  name="periodEnd"
-                  control={control}
-                  rules={{ required: 'Please select an end date' }}
-                  render={({ field }) => (
-                    <ConfirmDatePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      maxDate={today}
-                    />
-                  )}
-                />
-                {errors.periodEnd && (
-                  <p className="text-sm text-red-500">{errors.periodEnd.message}</p>
-                )}
+                </div>
               </div>
             </div>
           </div>

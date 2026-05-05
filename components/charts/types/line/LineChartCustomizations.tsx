@@ -11,14 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { NumberFormat } from '@/lib/formatters';
+import type { NumberFormat, DateFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
+import { DateFormatSection } from '../shared/DateFormatSection';
 
 interface LineChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
   hasNumericXAxis?: boolean;
+  hasDateXAxis?: boolean;
 }
 
 export function LineChartCustomizations({
@@ -26,6 +28,7 @@ export function LineChartCustomizations({
   updateCustomization,
   disabled,
   hasNumericXAxis = false,
+  hasDateXAxis = false,
 }: LineChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -206,6 +209,16 @@ export function LineChartCustomizations({
             decimalPlaces={customizations.xAxisDecimalPlaces}
             onNumberFormatChange={(value) => updateCustomization('xAxisNumberFormat', value)}
             onDecimalPlacesChange={(value) => updateCustomization('xAxisDecimalPlaces', value)}
+            disabled={disabled}
+          />
+        )}
+
+        {/* X-Axis Date Formatting - only shown for date X-axis */}
+        {hasDateXAxis && (
+          <DateFormatSection
+            idPrefix="xAxis"
+            dateFormat={customizations.xAxisDateFormat as DateFormat}
+            onDateFormatChange={(value) => updateCustomization('xAxisDateFormat', value)}
             disabled={disabled}
           />
         )}

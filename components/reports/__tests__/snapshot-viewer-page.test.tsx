@@ -91,26 +91,60 @@ jest.mock('@/stores/authStore', () => ({
     }),
 }));
 
-// Mock ShareModal
-jest.mock('@/components/ui/share-modal', () => ({
-  ShareModal: ({
-    isOpen,
-    onClose,
-  }: {
-    entityId: number;
-    entityLabel: string;
-    isOpen: boolean;
-    onClose: () => void;
-    getShareStatus: (id: number) => Promise<unknown>;
-    updateSharing: (id: number, data: { is_public: boolean }) => Promise<unknown>;
-  }) =>
-    isOpen ? (
-      <div data-testid="report-share-modal">
-        <button data-testid="mock-close-share-modal" onClick={onClose}>
-          Close
+// Mock ReportShareMenu — renders a testable version with both share options
+jest.mock('@/components/reports/report-share-menu', () => ({
+  ReportShareMenu: ({ snapshotId }: { snapshotId: number; reportTitle?: string }) => {
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const [linkOpen, setLinkOpen] = React.useState(false);
+    const [emailOpen, setEmailOpen] = React.useState(false);
+    return (
+      <div data-testid="report-share-menu">
+        <button
+          data-testid="report-share-btn"
+          aria-label="Share report"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          Share
         </button>
+        {menuOpen && (
+          <div data-testid="share-menu-dropdown">
+            <button
+              data-testid="share-via-link-item"
+              onClick={() => {
+                setLinkOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Share via link
+            </button>
+            <button
+              data-testid="share-via-email-item"
+              onClick={() => {
+                setEmailOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Embed in email
+            </button>
+          </div>
+        )}
+        {linkOpen && (
+          <div data-testid="share-via-link-dialog">
+            <button data-testid="close-link-dialog" onClick={() => setLinkOpen(false)}>
+              Close
+            </button>
+          </div>
+        )}
+        {emailOpen && (
+          <div data-testid="share-via-email-dialog">
+            <button data-testid="close-email-dialog" onClick={() => setEmailOpen(false)}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
-    ) : null,
+    );
+  },
 }));
 
 // ============ Helpers ============
@@ -210,11 +244,15 @@ describe('SnapshotViewerPage', () => {
       expect(textarea.value).toBe('This is the initial summary.');
     });
 
-    it('renders action buttons (download, share, save)', () => {
+    it('renders action buttons (download, share, save)', async () => {
+      const user = userEvent.setup();
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+
+      // Save button only appears after entering edit mode
+      await user.click(screen.getByTestId('summary-edit-btn'));
       expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
     });
   });
@@ -315,6 +353,7 @@ describe('SnapshotViewerPage', () => {
 
       renderPage();
 
+      await user.click(screen.getByTestId('summary-edit-btn'));
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -329,6 +368,7 @@ describe('SnapshotViewerPage', () => {
 
       renderPage();
 
+      await user.click(screen.getByTestId('summary-edit-btn'));
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -349,32 +389,75 @@ describe('SnapshotViewerPage', () => {
     });
   });
 
-  describe('Share Modal', () => {
-    it('opens share modal when share button is clicked', async () => {
-      const user = userEvent.setup();
+  describe('Share Menu', () => {
+    it('renders share button when user has permission and is creator', () => {
       renderPage();
 
-      // Share modal should not be open initially
-      expect(screen.queryByTestId('report-share-modal')).not.toBeInTheDocument();
-
-      await user.click(screen.getByTestId('report-share-btn'));
-
-      expect(screen.getByTestId('report-share-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('closes share modal when close is triggered', async () => {
+    it('shows share via link and embed in email options when share button is clicked', async () => {
       const user = userEvent.setup();
       renderPage();
 
-      // Open share modal
-      await user.click(screen.getByTestId('report-share-btn'));
-      expect(screen.getByTestId('report-share-modal')).toBeInTheDocument();
+      // Dropdown should not be visible initially
+      expect(screen.queryByTestId('share-menu-dropdown')).not.toBeInTheDocument();
 
-      // Close it
-      await user.click(screen.getByTestId('mock-close-share-modal'));
+      await user.click(screen.getByTestId('report-share-btn'));
+
+      expect(screen.getByTestId('share-via-link-item')).toBeInTheDocument();
+      expect(screen.getByTestId('share-via-email-item')).toBeInTheDocument();
+    });
+
+    it('opens share via link dialog when link option is clicked', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-link-item'));
+
+      expect(screen.getByTestId('share-via-link-dialog')).toBeInTheDocument();
+      expect(screen.queryByTestId('share-via-email-dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens embed in email dialog when email option is clicked', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-email-item'));
+
+      expect(screen.getByTestId('share-via-email-dialog')).toBeInTheDocument();
+      expect(screen.queryByTestId('share-via-link-dialog')).not.toBeInTheDocument();
+    });
+
+    it('closes share via link dialog', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-link-item'));
+      expect(screen.getByTestId('share-via-link-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('close-link-dialog'));
 
       await waitFor(() => {
-        expect(screen.queryByTestId('report-share-modal')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('share-via-link-dialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes embed in email dialog', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByTestId('report-share-btn'));
+      await user.click(screen.getByTestId('share-via-email-item'));
+      expect(screen.getByTestId('share-via-email-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('close-email-dialog'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('share-via-email-dialog')).not.toBeInTheDocument();
       });
     });
   });
@@ -424,16 +507,19 @@ describe('SnapshotViewerPage', () => {
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('shows all action buttons when user has full permissions and is creator', () => {
+    it('shows all action buttons when user has full permissions and is creator', async () => {
+      const user = userEvent.setup();
       mockHasPermission.mockReturnValue(true);
       mockGetCurrentUserEmail.mockReturnValue('user@test.com');
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
-      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
       expect(screen.getByTestId('summary-edit-btn')).toBeInTheDocument();
       expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
+      // Save button only appears after entering edit mode
+      await user.click(screen.getByTestId('summary-edit-btn'));
+      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
     });
   });
 
