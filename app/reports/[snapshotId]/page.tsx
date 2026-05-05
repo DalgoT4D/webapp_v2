@@ -16,7 +16,6 @@ import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { useAuthStore } from '@/stores/authStore';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -38,7 +37,6 @@ export default function SnapshotViewerPage() {
   const { hasPermission } = useUserPermissions();
   const canEdit = hasPermission('can_edit_dashboards');
   const canShare = hasPermission('can_share_dashboards');
-  const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser())?.email;
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
     isValidId ? parsedId : null
@@ -174,7 +172,7 @@ export default function SnapshotViewerPage() {
                 <Download className="w-4 h-4" />
               )}
             </Button>
-            {canShare && currentUserEmail === report_metadata.created_by && (
+            {canShare && (
               <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
           </div>
