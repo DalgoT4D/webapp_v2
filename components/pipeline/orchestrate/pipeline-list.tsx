@@ -142,8 +142,12 @@ export function PipelineList() {
               </p>
               <TooltipProvider>
                 <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground cursor-help pointer-events-auto shrink-0" />
+                  <TooltipTrigger
+                    className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    aria-label="Pipeline locking information"
+                    data-testid="pipeline-info-tooltip-trigger"
+                  >
+                    <Info className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground cursor-help shrink-0" />
                   </TooltipTrigger>
                   <TooltipContent
                     className="max-w-[280px] md:max-w-none md:whitespace-nowrap"
