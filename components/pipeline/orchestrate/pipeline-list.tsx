@@ -34,7 +34,7 @@ import {
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
@@ -136,25 +136,31 @@ export function PipelineList() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Pipelines</h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1 md:gap-2 mt-1">
               <p className="text-muted-foreground">
                 Manage your data sync and transformation workflows
               </p>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs" side="right">
-                  <p>
-                    Running a pipeline puts it in <strong>Running</strong> state. Any other
-                    pipelines that share one of its <strong>syncs or tasks</strong> will show as{' '}
-                    <strong>Locked</strong> while it runs.
-                  </p>
-                  <p className="mt-2">
-                    The locked pipelines unlock automatically once the running one finishes.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground cursor-help pointer-events-auto shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    className="max-w-[280px] md:max-w-none md:whitespace-nowrap"
+                    side="bottom"
+                    align="center"
+                  >
+                    <p>
+                      Running a pipeline puts it in <strong>Running</strong> state. Any other
+                      pipelines that share one of its <strong>syncs or tasks</strong> will show as{' '}
+                      <strong>Locked</strong> while it runs.
+                    </p>
+                    <p className="mt-2">
+                      The locked pipelines unlock automatically once the running one finishes.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           {canCreatePipeline && (
