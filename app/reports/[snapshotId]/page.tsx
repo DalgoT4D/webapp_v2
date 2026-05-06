@@ -16,7 +16,6 @@ import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { useAuthStore } from '@/stores/authStore';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -38,7 +37,6 @@ export default function SnapshotViewerPage() {
   const { hasPermission } = useUserPermissions();
   const canEdit = hasPermission('can_edit_dashboards');
   const canShare = hasPermission('can_share_dashboards');
-  const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser())?.email;
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
     isValidId ? parsedId : null
@@ -52,18 +50,24 @@ export default function SnapshotViewerPage() {
     title: viewData?.report_metadata.title || 'report',
   });
 
-  // Initialize summary draft when viewData loads (replaces state-during-render pattern)
+  // Sync summary draft when viewData loads or revalidates (only if user isn't editing)
   useEffect(() => {
-    if (!summaryTouched && viewData?.report_metadata.summary) {
-      setSummaryDraft(viewData.report_metadata.summary);
+    if (!summaryTouched) {
+      setSummaryDraft(viewData?.report_metadata.summary ?? '');
     }
   }, [viewData?.report_metadata.summary, summaryTouched]);
 
   const handleSave = useCallback(async () => {
+    const currentSummary = (viewData?.report_metadata.summary ?? '').trim();
+    if (summaryDraft.trim() === currentSummary) {
+      setSummaryTouched(false);
+      setIsEditingSummary(false);
+      return;
+    }
     setIsSaving(true);
     try {
       await updateSnapshot(parsedId, { summary: summaryDraft });
-      mutate();
+      await mutate();
       setSummaryTouched(false);
       setIsEditingSummary(false);
       toastSuccess.saved('Report');
@@ -72,7 +76,7 @@ export default function SnapshotViewerPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [parsedId, summaryDraft, mutate]);
+  }, [parsedId, summaryDraft, mutate, viewData?.report_metadata.summary]);
 
   if (!isValidId) {
     return (
@@ -174,7 +178,7 @@ export default function SnapshotViewerPage() {
                 <Download className="w-4 h-4" />
               )}
             </Button>
-            {canShare && currentUserEmail === report_metadata.created_by && (
+            {canShare && (
               <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
           </div>
