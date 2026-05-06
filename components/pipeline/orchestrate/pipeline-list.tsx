@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   Clock,
+  Info,
 } from 'lucide-react';
 import { TaskAltIcon, WarningAmberIcon, LoopIcon } from '@/assets/icons/status-icons';
 import FlowIcon from '@/assets/icons/flow';
@@ -33,6 +34,7 @@ import {
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
@@ -134,9 +136,26 @@ export function PipelineList() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Pipelines</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your data sync and transformation workflows
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-muted-foreground">
+                Manage your data sync and transformation workflows
+              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs" side="right">
+                  <p>
+                    Running a pipeline puts it in <strong>Running</strong> state. Any other
+                    pipelines that share one of its <strong>syncs or tasks</strong> will show as{' '}
+                    <strong>Locked</strong> while it runs.
+                  </p>
+                  <p className="mt-2">
+                    The locked pipelines unlock automatically once the running one finishes.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
           {canCreatePipeline && (
             <Button
