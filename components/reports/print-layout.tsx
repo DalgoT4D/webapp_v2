@@ -63,15 +63,19 @@ export function PrintLayout({
   publicToken,
   isPublicMode = true,
 }: PrintLayoutProps) {
-  const components = dashboardData.components || {};
-  const layoutConfig: LayoutItem[] = dashboardData.layout_config || [];
+  const tabs = dashboardData.tabs || [];
+  const isTabBased = tabs.length > 0;
 
-  const rows = useMemo(
-    () => groupLayoutByRows(layoutConfig, components),
-    [layoutConfig, components]
+  // Legacy (root-level) layout — used only when no tabs
+  const rootComponents = dashboardData.components || {};
+  const rootLayoutConfig: LayoutItem[] = dashboardData.layout_config || [];
+
+  const rootRows = useMemo(
+    () => (isTabBased ? [] : groupLayoutByRows(rootLayoutConfig, rootComponents)),
+    [isTabBased, rootLayoutConfig, rootComponents]
   );
 
-  const renderItem = (layoutItem: LayoutItem) => {
+  const renderItem = (layoutItem: LayoutItem, components: Record<string, any>) => {
     const component = components[layoutItem.i];
     if (!component) return null;
 
@@ -138,11 +142,34 @@ export function PrintLayout({
     }
   };
 
+  // Tab-based dashboard: render all tabs' charts flat (no tab headings)
+  if (isTabBased) {
+    return (
+      <div className="px-2 py-2">
+        {tabs.map((tab) => {
+          const tabComponents = tab.components || {};
+          const tabLayout: LayoutItem[] = (tab.layout_config as LayoutItem[]) || [];
+          const tabRows = groupLayoutByRows(tabLayout, tabComponents);
+          return tabRows.map((row) => (
+            <div
+              key={`${tab.id}-row-${row.y}`}
+              className="flex gap-2 mb-2"
+              style={{ breakInside: 'avoid' }}
+            >
+              {row.items.map((item) => renderItem(item, tabComponents))}
+            </div>
+          ));
+        })}
+      </div>
+    );
+  }
+
+  // Legacy root-level layout (backward compat for old snapshots without tabs)
   return (
     <div className="px-2 py-2">
-      {rows.map((row) => (
+      {rootRows.map((row) => (
         <div key={`row-${row.y}`} className="flex gap-2 mb-2" style={{ breakInside: 'avoid' }}>
-          {row.items.map(renderItem)}
+          {row.items.map((item) => renderItem(item, rootComponents))}
         </div>
       ))}
     </div>

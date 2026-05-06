@@ -181,7 +181,96 @@ export default function SnapshotViewerPage() {
         </div>
       </div>
 
-      {/* Dashboard with executive summary inside the canvas */}
+      {/* Executive Summary — above tabs */}
+      <div className="flex-shrink-0 px-6 pt-4 pb-2">
+        <div className="border rounded-lg p-5 bg-background relative">
+          {/* Comment + Edit icons in top-right corner (edit permission required) */}
+          {canEdit && (
+            <div className="absolute top-3 right-3 flex items-center gap-1">
+              <CommentPopover
+                snapshotId={parsedId}
+                targetType="summary"
+                state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
+                triggerClassName="h-8 w-8"
+                onStateChange={handleCommentStateChange}
+                autoOpen={commentTarget === 'summary'}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                data-testid="summary-edit-btn"
+                aria-label="Edit summary"
+                onClick={() => {
+                  setIsEditingSummary(true);
+                  requestAnimationFrame(() => {
+                    const textarea = document.querySelector(
+                      '[data-testid="report-summary-textarea"]'
+                    ) as HTMLTextAreaElement;
+                    textarea?.focus();
+                  });
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          <div className="flex items-baseline gap-2 mb-2">
+            <h2 className="text-lg font-semibold">Executive Summary</h2>
+            {report_metadata.last_modified_by && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <User className="w-3 h-3" />
+                Last updated by: {report_metadata.last_modified_by}
+              </span>
+            )}
+          </div>
+          <Textarea
+            data-testid="report-summary-textarea"
+            value={summaryDraft}
+            onChange={(e) => {
+              setSummaryDraft(e.target.value);
+              setSummaryTouched(true);
+            }}
+            readOnly={!isEditingSummary}
+            placeholder="Add your notes here"
+            rows={2}
+            className={`resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground ${!isEditingSummary ? 'cursor-default' : ''}`}
+          />
+          {canEdit && isEditingSummary && (
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                data-testid="report-cancel-edit-btn"
+                variant="ghost"
+                size="sm"
+                className="text-white hover:text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: 'var(--destructive)' }}
+                onClick={() => {
+                  setSummaryDraft(viewData?.report_metadata.summary || '');
+                  setSummaryTouched(false);
+                  setIsEditingSummary(false);
+                }}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                data-testid="report-save-btn"
+                variant="ghost"
+                size="sm"
+                className="text-white hover:text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: 'var(--primary)' }}
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Dashboard canvas — tabs + charts */}
       <div className="flex-1 overflow-hidden min-h-0">
         <DashboardNativeView
           dashboardId={dashboard_data.id}
@@ -194,93 +283,6 @@ export default function SnapshotViewerPage() {
           onCommentStateChange={handleCommentStateChange}
           autoOpenCommentChartId={
             commentTarget === 'chart' && commentChartId ? commentChartId : undefined
-          }
-          beforeContent={
-            <div className="border rounded-lg p-5 mb-2 bg-background relative">
-              {/* Comment + Edit icons in top-right corner (edit permission required) */}
-              {canEdit && (
-                <div className="absolute top-3 right-3 flex items-center gap-1">
-                  <CommentPopover
-                    snapshotId={parsedId}
-                    targetType="summary"
-                    state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
-                    triggerClassName="h-8 w-8"
-                    onStateChange={handleCommentStateChange}
-                    autoOpen={commentTarget === 'summary'}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    data-testid="summary-edit-btn"
-                    aria-label="Edit summary"
-                    onClick={() => {
-                      setIsEditingSummary(true);
-                      requestAnimationFrame(() => {
-                        const textarea = document.querySelector(
-                          '[data-testid="report-summary-textarea"]'
-                        ) as HTMLTextAreaElement;
-                        textarea?.focus();
-                      });
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              <div className="flex items-baseline gap-2 mb-2">
-                <h2 className="text-lg font-semibold">Executive Summary</h2>
-                {report_metadata.last_modified_by && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    Last updated by: {report_metadata.last_modified_by}
-                  </span>
-                )}
-              </div>
-              <Textarea
-                data-testid="report-summary-textarea"
-                value={summaryDraft}
-                onChange={(e) => {
-                  setSummaryDraft(e.target.value);
-                  setSummaryTouched(true);
-                }}
-                readOnly={!isEditingSummary}
-                placeholder="Add your notes here"
-                rows={2}
-                className={`resize-y border-none shadow-none p-0 focus-visible:ring-0 text-sm text-muted-foreground placeholder:text-muted-foreground ${!isEditingSummary ? 'cursor-default' : ''}`}
-              />
-              {canEdit && isEditingSummary && (
-                <div className="flex justify-end gap-2 mt-2">
-                  <Button
-                    data-testid="report-cancel-edit-btn"
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--destructive)' }}
-                    onClick={() => {
-                      setSummaryDraft(viewData?.report_metadata.summary || '');
-                      setSummaryTouched(false);
-                      setIsEditingSummary(false);
-                    }}
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    data-testid="report-save-btn"
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </Button>
-                </div>
-              )}
-            </div>
           }
         />
       </div>
