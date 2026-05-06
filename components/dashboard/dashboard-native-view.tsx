@@ -57,6 +57,7 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
+import { flowLayout } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import {
   DashboardFilterType,
@@ -358,6 +359,13 @@ export function DashboardNativeView({
   // Use preview size if set, otherwise fall back to target size
   const effectiveScreenSize = previewScreenSize || targetScreenSize;
   const effectiveScreenConfig = SCREEN_SIZES[effectiveScreenSize];
+
+  // Re-flow layout so legacy dashboards (stored without fluid ordering) render packed.
+  // View mode supports a "preview different screen size" feature, so cols can differ from 12.
+  const flowedLayout = useMemo(
+    () => flowLayout(dashboard?.layout_config ?? [], effectiveScreenConfig?.cols ?? 12),
+    [dashboard?.layout_config, effectiveScreenConfig?.cols]
+  );
 
   // Get filter layout from dashboard data (same as edit mode)
   const filterLayout = (dashboard?.filter_layout as 'vertical' | 'horizontal') || 'vertical';
@@ -1139,12 +1147,14 @@ export function DashboardNativeView({
               </div>
             ) : null}
 
-            {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
+            {/* Use flowed layout for view mode — re-flows on render so legacy dashboards render packed */}
             {(() => {
-              // Use original layout without any modifications since toolbar is now external
               const modifiedLayout = dashboard.layout_config || [];
 
               return effectiveScreenSize !== targetScreenSize ? (
+                // TODO: The ResponsiveGrid branch below does not run applyMutation/fluid-row reflow
+                // before rendering, so legacy dashboards in preview-mode (different screen size)
+                // may show overlapping or uncompacted items. Defer to follow-up task.
                 // Preview mode with different screen size - use responsive layout
                 <ResponsiveGrid
                   className="dashboard-grid"
@@ -1182,10 +1192,11 @@ export function DashboardNativeView({
                   ))}
                 </ResponsiveGrid>
               ) : (
-                // Target screen size or no preview override - use exact layout
+                // Target screen size or no preview override - use flowed layout
                 <GridLayout
                   className="dashboard-grid"
-                  layout={modifiedLayout}
+                  data-fluid-flow="true"
+                  layout={flowedLayout}
                   cols={effectiveScreenConfig.cols}
                   rowHeight={20}
                   width={actualContainerWidth}
@@ -1202,7 +1213,7 @@ export function DashboardNativeView({
                   autoSize={true}
                   verticalCompact={false}
                 >
-                  {modifiedLayout.map((layoutItem: any) => (
+                  {flowedLayout.map((layoutItem: any) => (
                     <div key={layoutItem.i} className="dashboard-item">
                       <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
                         <CardContent className="p-2 h-full">

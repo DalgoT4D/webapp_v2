@@ -62,9 +62,9 @@
   box-shadow: 0 8px 32px rgba(15, 148, 124, 0.15);
 }
 
-/* Superset-style: Subtle blur on other charts when dragging/resizing */
-.react-grid-layout:has(.react-draggable-dragging) .react-grid-item:not(.react-draggable-dragging),
-.react-grid-layout:has(.resizing) .react-grid-item:not(.resizing) {
+/* Superset-style: Subtle blur on other charts when dragging/resizing (legacy mode only) */
+.react-grid-layout:not([data-fluid-flow]):has(.react-draggable-dragging) .react-grid-item:not(.react-draggable-dragging),
+.react-grid-layout:not([data-fluid-flow]):has(.resizing) .react-grid-item:not(.resizing) {
   filter: blur(1px);
   opacity: 0.8;
   transition: filter 200ms ease, opacity 200ms ease;
@@ -82,10 +82,9 @@
   visibility: hidden;
 }
 
-/* Show grid lines during drag - lighter blue and thinner */
-.react-grid-item.react-grid-placeholder,
-.react-grid-layout .react-grid-item.react-grid-placeholder,
-.dashboard-builder .react-grid-item.react-grid-placeholder {
+/* Show grid lines during drag - lighter blue and thinner (legacy mode only) */
+.react-grid-layout:not([data-fluid-flow]) .react-grid-item.react-grid-placeholder,
+.dashboard-builder:not([data-fluid-flow]) .react-grid-item.react-grid-placeholder {
   display: block !important;
   opacity: 0.4 !important;
   visibility: visible !important;
@@ -95,6 +94,11 @@
   box-shadow: 0 2px 6px rgba(191, 219, 254, 0.1) !important;
   position: relative !important;
   animation: placeholderPulse 1.5s ease-in-out infinite alternate;
+}
+
+/* In fluid-flow mode, hide RGL's placeholder entirely; we render our own InsertionLine. */
+.react-grid-layout[data-fluid-flow] .react-grid-item.react-grid-placeholder {
+  display: none !important;
 }
 
 @keyframes placeholderPulse {

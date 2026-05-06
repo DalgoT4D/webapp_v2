@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+  useMemo,
+} from 'react';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
 import GridLayout from 'react-grid-layout';
@@ -10,7 +18,6 @@ import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { ChartSelectorModal } from './chart-selector-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
@@ -31,13 +38,20 @@ import {
   calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
 import {
+  applyMutation,
+  computeInsertionIndex,
+  flowLayout,
+  moveItemToIndex,
+} from '@/lib/dashboard-animation-utils';
+import type { FluidFlowItem } from '@/lib/dashboard-animation-utils';
+import { InsertionLine } from '@/components/dashboard/InsertionLine';
+import {
   Plus,
   Undo,
   Redo,
   Save,
   Loader2,
   Type,
-  X,
   Lock,
   Unlock,
   Check,
@@ -45,20 +59,15 @@ import {
   Filter,
   ArrowLeft,
   Eye,
-  Edit,
-  Wand2,
-  LayoutGrid,
-  AlignLeft,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
-import { ChartElementV2 } from './chart-element-v2';
-import { UnifiedTextElement } from './text-element-unified';
-import type { UnifiedTextConfig } from './text-element-unified';
+// ChartElementV2 and UnifiedTextElement are rendered via DashboardCell
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { SnapIndicators } from './SnapIndicators';
 import { SpaceMakingIndicators } from './SpaceMakingIndicators';
 import { GridGuides } from './GridGuides';
+import { DashboardCell } from './DashboardCell';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -71,6 +80,54 @@ import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
 const ROW_HEIGHT = 20;
+// Grid is fixed at 12 columns regardless of viewport (Superset-style); fluid-row-flow honors this.
+const FLUID_GRID_COLS = 12;
+
+/**
+ * Converts a linear insertion index into pixel coordinates for the InsertionLine overlay.
+ * Uses the same margin/padding values as the GridLayout (margin=[8,8], containerPadding=[8,8]).
+ *
+ * IMPORTANT: The default marginX/marginY values (8) MUST stay in sync with the GridLayout
+ * `margin={[8, 8]}` and `containerPadding={[8, 8]}` props in the JSX below. If those change,
+ * update the defaults here accordingly.
+ */
+function gridIndexToPixel(
+  layout: FluidFlowItem[],
+  index: number,
+  containerWidthPx: number,
+  gridCols: number,
+  rowHeightPx: number,
+  marginX: number = 8,
+  marginY: number = 8
+): { pixelX: number; pixelY: number; pixelHeight: number } {
+  const colWidth = (containerWidthPx - marginX * (gridCols + 1)) / gridCols;
+  const target = layout[index];
+  if (!target) {
+    // Append at end: place line after the last item
+    const last = layout[layout.length - 1];
+    if (!last) return { pixelX: marginX, pixelY: marginY, pixelHeight: rowHeightPx };
+    // If the last item fills its row, the line goes to the start of the next row.
+    const fillsRow = last.x + last.w >= gridCols;
+    if (fillsRow) {
+      const nextRowY = last.y + last.h;
+      return {
+        pixelX: marginX,
+        pixelY: marginY + nextRowY * (rowHeightPx + marginY),
+        pixelHeight: rowHeightPx,
+      };
+    }
+    return {
+      pixelX: marginX + (last.x + last.w) * (colWidth + marginX),
+      pixelY: marginY + last.y * (rowHeightPx + marginY),
+      pixelHeight: last.h * rowHeightPx + (last.h - 1) * marginY,
+    };
+  }
+  return {
+    pixelX: marginX + target.x * (colWidth + marginX),
+    pixelY: marginY + target.y * (rowHeightPx + marginY),
+    pixelHeight: target.h * rowHeightPx + (target.h - 1) * marginY,
+  };
+}
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -904,174 +961,156 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Track if we're currently dragging
     // Keep state for UI rendering purposes
     const [isDragging, setIsDragging] = useState(false);
+    // Pixel position for the InsertionLine overlay; null when no drag is in progress
+    const [insertionPos, setInsertionPos] = useState<{
+      pixelX: number;
+      pixelY: number;
+      pixelHeight: number;
+    } | null>(null);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
 
     // IMPORTANT: Use refs for synchronous access in callbacks
     // React state updates are async, but react-grid-layout calls handlers synchronously
     // Without refs, the values won't be available when handleLayoutChange is called
     const isDraggingRef = useRef(false);
-    const draggedItemRef = useRef<DashboardLayout | null>(null);
-    const originalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-    // Handle layout changes for responsive grid
-    const handleLayoutChange = (currentLayout: any[], allLayouts: ResponsiveLayouts) => {
-      // Update snap zones when layout changes
-      dashboardAnimation.updateSnapZones(currentLayout);
+    // Ref mirrors for mutable values accessed inside useCallback/rAF without adding deps
+    const stateRef = useRef(state);
+    useEffect(() => {
+      stateRef.current = state;
+    }, [state]);
 
-      let finalLayout = currentLayout;
+    const setStateWithoutHistoryRef = useRef(setStateWithoutHistory);
+    // setStateWithoutHistory is stable (useCallback in useUndoRedo), but keep ref pattern for safety
+    setStateWithoutHistoryRef.current = setStateWithoutHistory;
 
-      // During drag, restore non-dragged items to their original positions
-      // This prevents react-grid-layout's collision resolution from pushing other items
-      // Use refs for synchronous access since this callback is called synchronously by react-grid-layout
-      if (isDraggingRef.current) {
-        const currentDraggedItem = draggedItemRef.current;
-        const currentOriginalPositions = originalPositionsRef.current;
+    const dashboardAnimationRef = useRef(dashboardAnimation);
+    useEffect(() => {
+      dashboardAnimationRef.current = dashboardAnimation;
+    }, [dashboardAnimation]);
 
-        if (currentDraggedItem && currentOriginalPositions.size > 0) {
-          finalLayout = currentLayout.map((item) => {
-            // Keep the dragged item's current position (where user is dragging it)
-            if (item.i === currentDraggedItem.i) {
-              return item;
-            }
-            // Restore other items to their original positions
-            const originalPos = currentOriginalPositions.get(item.i);
-            if (originalPos) {
-              return {
-                ...item,
-                x: originalPos.x,
-                y: originalPos.y,
-              };
-            }
-            return item;
-          });
-        }
-      }
+    // rAF throttling for handleDrag: fires at most once per animation frame
+    const dragRafIdRef = useRef<number | null>(null);
+    const lastDragArgsRef = useRef<{ newItem: DashboardLayout } | null>(null);
 
-      // During drag, resize, or undo/redo operations, use setStateWithoutHistory to avoid flooding history
-      if (isDraggingRef.current || isResizing || isUndoRedoOperation) {
-        setStateWithoutHistory({
-          ...state,
-          layout: finalLayout,
-          layouts: allLayouts,
-        });
-      } else {
-        // Only save to history for user-initiated layout changes
-        setState({
-          ...state,
-          layout: finalLayout,
-          layouts: allLayouts,
-        });
-      }
-    };
+    // Handle layout changes for responsive grid.
+    // In fluid-row-flow mode, state.layout is owned exclusively by the *Stop handlers
+    // (handleDragStop, handleResizeStop, handleChartSelected, addTextComponent, removeComponent),
+    // which all funnel through applyMutation to write canonical flowed coords.
+    // RGL fires onLayoutChange both mid-gesture and immediately after stop with raw,
+    // un-flowed coords (because we use preventCollision={true} + allowOverlap={true} so
+    // RGL doesn't compact). Writing those raw coords to state.layout would clobber the
+    // applyMutation result and reintroduce overlap. So we keep the snap-zone side effect
+    // but skip the setState entirely.
+    const handleLayoutChange = useCallback(
+      (currentLayout: any[], _allLayouts: ResponsiveLayouts) => {
+        dashboardAnimationRef.current.updateSnapZones(currentLayout);
+      },
+      []
+    );
+
+    // Flowed render layout: apply flowLayout so RGL always renders canonical row-flow coordinates.
+    // This ensures initial load with legacy/stale coords matches what our reflow produces, and
+    // provides the stable flowed coords used by drag handlers below.
+    const flowedRenderLayout = useMemo(
+      () => flowLayout(getAdjustedLayout(state.layout, currentScreenConfig.cols), FLUID_GRID_COLS),
+      [state.layout, currentScreenConfig.cols]
+    );
+
+    // Ref mirror so rAF callback always reads the latest flowed layout without dep churn
+    const flowedRenderLayoutRef = useRef(flowedRenderLayout);
+    useEffect(() => {
+      flowedRenderLayoutRef.current = flowedRenderLayout;
+    }, [flowedRenderLayout]);
+
+    // Ref mirror for isUndoRedoOperation so handleDragStop/handleResizeStop don't need it as dep
+    const isUndoRedoOperationRef = useRef(isUndoRedoOperation);
+    useEffect(() => {
+      isUndoRedoOperationRef.current = isUndoRedoOperation;
+    }, [isUndoRedoOperation]);
+
+    // Ref mirror for actualContainerWidth so rAF closure reads the latest value
+    const actualContainerWidthRef = useRef(actualContainerWidth);
+    useEffect(() => {
+      actualContainerWidthRef.current = actualContainerWidth;
+    }, [actualContainerWidth]);
 
     // Handle drag start
-    const handleDragStart = (layout: any[], oldItem: any, newItem: any) => {
-      // Store original positions of ALL items at drag start
-      // This allows us to restore non-dragged items when react-grid-layout tries to push them
-      const positions = new Map<string, { x: number; y: number }>();
-      layout.forEach((item) => {
-        positions.set(item.i, { x: item.x, y: item.y });
-      });
-
-      // IMPORTANT: Set refs FIRST (synchronous) before state (async)
-      // react-grid-layout calls onLayoutChange synchronously after onDragStart
-      // so the refs must be set before the state updates
+    const handleDragStart = useCallback((_layout: any[], _oldItem: any, _newItem: any) => {
       isDraggingRef.current = true;
-      draggedItemRef.current = newItem;
-      originalPositionsRef.current = positions;
-
-      // Also update state for UI purposes (async)
+      // No position snapshotting needed; reflow on stop is the source of truth.
       setIsDragging(true);
-      setDraggedItem(newItem);
-    };
+      setDraggedItem(_newItem);
+    }, []);
 
     // Handle drag (real-time updates during drag)
-    const handleDrag = (layout: any[], oldItem: any, newItem: any) => {
-      // Update the dragged item position for real-time space making
-      setDraggedItem(newItem);
-    };
-
-    // Helper function to check if two items overlap
-    const checkCollision = (item1: DashboardLayout, item2: DashboardLayout): boolean => {
-      // Two rectangles don't overlap if one is completely to the left, right, above, or below the other
-      const noOverlap =
-        item1.x + item1.w <= item2.x || // item1 is left of item2
-        item2.x + item2.w <= item1.x || // item2 is left of item1
-        item1.y + item1.h <= item2.y || // item1 is above item2
-        item2.y + item2.h <= item1.y; // item2 is above item1
-      return !noOverlap;
-    };
-
-    // Handle drag stop - save final position to history
-    const handleDragStop = (layout: any[], oldItem: any, newItem: any) => {
-      // Clear space-making state
-      dashboardAnimation.clearSpaceMaking();
-
-      // Get original positions from ref
-      const currentOriginalPositions = originalPositionsRef.current;
-      const draggedOriginalPos = currentOriginalPositions.get(newItem.i);
-
-      // Apply magnetic snapping to the dropped item
-      let snappedItem = dashboardAnimation.applySnapping(newItem, layout);
-
-      // Check if the new position would cause a collision with any other item
-      // Since we allow overlap during drag, we need to check and snap back on drop
-      const hasCollision = layout.some((item) => {
-        if (item.i === snappedItem.i) return false; // Skip self
-        // Get original position for comparison (other items should be at original positions)
-        const itemOriginalPos = currentOriginalPositions.get(item.i);
-        const itemToCheck = itemOriginalPos
-          ? { ...item, x: itemOriginalPos.x, y: itemOriginalPos.y }
-          : item;
-        return checkCollision(snappedItem, itemToCheck);
+    // rAF-throttled: executes at most once per animation frame to avoid per-mousemove layout walks
+    const handleDrag = useCallback((_layout: any[], _oldItem: any, newItem: DashboardLayout) => {
+      lastDragArgsRef.current = { newItem };
+      // Skip scheduling a new frame if one is already pending — the latest args are captured above
+      if (dragRafIdRef.current !== null) return;
+      dragRafIdRef.current = requestAnimationFrame(() => {
+        dragRafIdRef.current = null;
+        const args = lastDragArgsRef.current;
+        if (!args) return;
+        setDraggedItem(args.newItem);
+        if (!isDraggingRef.current) return;
+        const idx = computeInsertionIndex(
+          flowedRenderLayoutRef.current,
+          args.newItem,
+          FLUID_GRID_COLS
+        );
+        setInsertionPos(
+          gridIndexToPixel(
+            flowedRenderLayoutRef.current,
+            idx,
+            actualContainerWidthRef.current,
+            FLUID_GRID_COLS,
+            ROW_HEIGHT
+          )
+        );
       });
+    }, []);
 
-      // If there's a collision, snap the dragged item back to its original position
-      if (hasCollision && draggedOriginalPos) {
-        snappedItem = {
-          ...snappedItem,
-          x: draggedOriginalPos.x,
-          y: draggedOriginalPos.y,
-        };
-      }
-
-      // Build final layout: dragged item at new (or snapped back) position,
-      // all other items at their original positions
-      const finalLayout = layout.map((item) => {
-        if (item.i === snappedItem.i) {
-          return snappedItem;
+    // Handle drag stop - compute insertion index from drop position, reflow
+    const handleDragStop = useCallback(
+      (_layout: any[], _oldItem: any, newItem: DashboardLayout) => {
+        // Cancel any pending rAF so we don't write stale insertionPos after pointer release
+        if (dragRafIdRef.current !== null) {
+          cancelAnimationFrame(dragRafIdRef.current);
+          dragRafIdRef.current = null;
         }
-        // Restore other items to their original positions
-        const originalPos = currentOriginalPositions.get(item.i);
-        if (originalPos) {
-          return {
-            ...item,
-            x: originalPos.x,
-            y: originalPos.y,
-          };
+        lastDragArgsRef.current = null;
+
+        // Clear space-making state
+        dashboardAnimationRef.current.clearSpaceMaking();
+
+        // Clear drag tracking (synchronous ref first, then async state)
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        setDraggedItem(null);
+        setInsertionPos(null);
+
+        // Only save to history if we're not in an undo/redo operation
+        if (!isUndoRedoOperationRef.current) {
+          setState((prev) => {
+            const allLayouts = prev.layouts || {};
+            const flowedPrev = flowLayout(prev.layout, FLUID_GRID_COLS);
+            const targetIndex = computeInsertionIndex(flowedPrev, newItem, FLUID_GRID_COLS);
+            return {
+              ...prev,
+              layout: applyMutation(
+                prev.layout,
+                (l) => moveItemToIndex(l, newItem.i, targetIndex),
+                FLUID_GRID_COLS
+              ),
+              layouts: allLayouts,
+            };
+          });
         }
-        return item;
-      });
-
-      // Clear refs FIRST (synchronous)
-      isDraggingRef.current = false;
-      draggedItemRef.current = null;
-      originalPositionsRef.current = new Map();
-
-      // Clear state (async)
-      setIsDragging(false);
-      setDraggedItem(null);
-
-      // Only save to history if we're not in an undo/redo operation
-      if (!isUndoRedoOperation) {
-        const allLayouts = state.layouts || {};
-        setState({
-          ...state,
-          layout: finalLayout,
-          layouts: allLayouts,
-        });
-      }
-    };
+      },
+      [setState]
+    );
 
     // Handle breakpoint changes
     const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
@@ -1083,82 +1122,97 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isResizing, setIsResizing] = useState(false);
 
     // Handle resize start
-    const handleResizeStart = (
-      layout: DashboardLayout[],
-      oldItem: DashboardLayout,
-      newItem: DashboardLayout
-    ) => {
-      setResizingItems(new Set([...resizingItems, newItem.i]));
-      setIsResizing(true);
-    };
+    const handleResizeStart = useCallback(
+      (_layout: DashboardLayout[], _oldItem: DashboardLayout, newItem: DashboardLayout) => {
+        setResizingItems((prev) => new Set([...prev, newItem.i]));
+        setIsResizing(true);
+      },
+      []
+    );
 
     // Handle resize stop - save final size to history
-    const handleResizeStop = (
-      layout: DashboardLayout[],
-      oldItem: DashboardLayout,
-      newItem: DashboardLayout
-    ) => {
-      const newResizingItems = new Set(resizingItems);
-      newResizingItems.delete(newItem.i);
-      setResizingItems(newResizingItems);
-      setIsResizing(false);
+    const handleResizeStop = useCallback(
+      (layout: DashboardLayout[], _oldItem: DashboardLayout, newItem: DashboardLayout) => {
+        setResizingItems((prev) => {
+          const next = new Set(prev);
+          next.delete(newItem.i);
+          return next;
+        });
+        setIsResizing(false);
 
-      // Enforce minimum dimensions on final resize
-      const component = state.components[newItem.i];
-      let finalLayout = layout;
+        // Enforce minimum dimensions on final resize
+        const component = stateRef.current.components[newItem.i];
+        let finalLayout = layout;
 
-      if (component) {
-        const chartType = getChartTypeFromConfig(component.config);
-        let minDimensions;
+        if (component) {
+          const chartType = getChartTypeFromConfig(component.config);
+          let minDimensions;
 
-        // Use stored content constraints if available, otherwise use generic constraints
-        if (component.config.contentConstraints) {
-          // Convert content constraints to grid dimensions
-          minDimensions = {
-            w: Math.max(
-              1,
-              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
-            ),
-            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
+          // Use stored content constraints if available, otherwise use generic constraints
+          if (component.config.contentConstraints) {
+            // Convert content constraints to grid dimensions
+            minDimensions = {
+              w: Math.max(
+                1,
+                Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
+              ),
+              h: Math.max(
+                1,
+                pixelsToGridUnits(component.config.contentConstraints.minHeight, false)
+              ),
+            };
+
+            console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
+              contentConstraints: component.config.contentConstraints,
+              gridConstraints: minDimensions,
+            });
+          } else {
+            minDimensions = getMinGridDimensions(chartType);
+          }
+
+          // Ensure the resized item meets minimum requirements
+          const constrainedItem = {
+            ...newItem,
+            w: Math.max(newItem.w, minDimensions.w),
+            h: Math.max(newItem.h, minDimensions.h),
+            minW: minDimensions.w,
+            minH: minDimensions.h,
           };
 
-          console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
-            contentConstraints: component.config.contentConstraints,
-            gridConstraints: minDimensions,
-          });
-        } else {
-          minDimensions = getMinGridDimensions(chartType);
+          // Update layout with constrained item
+          finalLayout = layout.map((item) => (item.i === newItem.i ? constrainedItem : item));
         }
 
-        // Ensure the resized item meets minimum requirements
-        const constrainedItem = {
-          ...newItem,
-          w: Math.max(newItem.w, minDimensions.w),
-          h: Math.max(newItem.h, minDimensions.h),
-          minW: minDimensions.w,
-          minH: minDimensions.h,
-        };
-
-        // Update layout with constrained item
-        finalLayout = layout.map((item) => (item.i === newItem.i ? constrainedItem : item));
-      }
-
-      // Only save to history if we're not in an undo/redo operation
-      if (!isUndoRedoOperation) {
-        const allLayouts = state.layouts || {};
-        setState({
-          ...state,
-          layout: finalLayout,
-          layouts: allLayouts,
-        });
-      }
-    };
+        // Only save to history if we're not in an undo/redo operation
+        if (!isUndoRedoOperationRef.current) {
+          const currentState = stateRef.current;
+          const allLayouts = currentState.layouts || {};
+          // Fluid row flow: reflow after resize so row positions remain canonical.
+          // finalLayout already has the constrained w/h for the resized item.
+          setState({
+            ...currentState,
+            layout: applyMutation(
+              currentState.layout,
+              (l) =>
+                l.map((item) => {
+                  const updated = finalLayout.find((f) => f.i === item.i);
+                  return updated ? { ...item, w: updated.w, h: updated.h } : item;
+                }),
+              FLUID_GRID_COLS
+            ),
+            layouts: allLayouts,
+          });
+        }
+      },
+      [setState]
+    );
 
     // Handle resize (during resize)
-    const handleResize = (layout: DashboardLayout[]) => {
+    const handleResize = useCallback((layout: DashboardLayout[]) => {
       // Enforce minimum dimensions during resize
+      const currentState = stateRef.current;
       const constrainedLayout = layout.map((item) => {
-        const component = state.components[item.i];
+        const component = currentState.components[item.i];
         if (component) {
           const chartType = getChartTypeFromConfig(component.config);
           let minDimensions;
@@ -1192,13 +1246,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       });
 
       // Use setStateWithoutHistory during resize to avoid flooding history
-      const allLayouts = state.layouts || {};
-      setStateWithoutHistory({
-        ...state,
+      const allLayouts = currentState.layouts || {};
+      setStateWithoutHistoryRef.current({
+        ...currentState,
         layout: constrainedLayout,
         layouts: allLayouts,
       });
-    };
+    }, []);
 
     // Add chart component - optimized for speed
     const handleChartSelected = async (chartId: number) => {
@@ -1235,12 +1289,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         };
 
-        const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
-
+        // Fluid row flow: append at end of ordered list and reflow. Position is derived.
         const newLayoutItem: DashboardLayout = {
           i: newComponent.id,
-          x: position.x,
-          y: position.y,
+          x: 0,
+          y: 0,
           w: defaultDimensions.w,
           h: defaultDimensions.h,
           minW: minDimensions.w,
@@ -1248,7 +1301,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minH: minDimensions.h,
         };
 
-        const newLayout = [...state.layout, newLayoutItem];
+        const newLayout = applyMutation(
+          state.layout,
+          (l) => [...l, newLayoutItem],
+          FLUID_GRID_COLS
+        );
         const newLayouts = generateResponsiveLayouts(newLayout);
 
         setState({
@@ -1304,13 +1361,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const textDimensions = getDefaultGridDimensions('text');
       const textMinDimensions = getMinGridDimensions('text');
 
-      // Find the best available position for the new text component using smart positioning
-      const position = dashboardAnimation.findBestPosition(textDimensions, state.layout);
-
+      // Fluid row flow: append at end of ordered list and reflow. Position is derived.
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
-        x: position.x,
-        y: position.y,
+        x: 0,
+        y: 0,
         w: textDimensions.w,
         h: textDimensions.h,
         minW: textMinDimensions.w,
@@ -1318,7 +1373,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         minH: textMinDimensions.h,
       };
 
-      const newLayout = [...state.layout, newLayoutItem];
+      const newLayout = applyMutation(state.layout, (l) => [...l, newLayoutItem], FLUID_GRID_COLS);
       const newLayouts = generateResponsiveLayouts(newLayout);
 
       setState({
@@ -1342,7 +1397,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const newComponents = { ...state.components };
       delete newComponents[componentId];
 
-      const newLayout = state.layout.filter((item) => item.i !== componentId);
+      const newLayout = applyMutation(
+        state.layout,
+        (l) => l.filter((item) => item.i !== componentId),
+        FLUID_GRID_COLS
+      );
       const newLayouts = generateResponsiveLayouts(newLayout);
 
       setState({
@@ -1527,17 +1586,49 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Update component config
     const updateComponent = (componentId: string, newConfig: any) => {
+      // Skip constraint-driven updates while the user is dragging to prevent layout jumps.
+      // Content constraints (minWidth/minHeight) are stored in config and propagated to RGL
+      // as minW/minH; changing them mid-drag causes items to reflow under the pointer.
+      if (isDraggingRef.current && newConfig.contentConstraints !== undefined) return;
+
       setState({
-        ...state,
+        ...stateRef.current,
         components: {
-          ...state.components,
+          ...stateRef.current.components,
           [componentId]: {
-            ...state.components[componentId],
+            ...stateRef.current.components[componentId],
             config: newConfig,
           },
         },
       });
     };
+
+    // Stable ref-stabilized callbacks for DashboardCell so React.memo can do its job.
+    // Each wraps a mutable ref so the stable identity never goes stale.
+    const removeComponentRef = useRef(removeComponent);
+    removeComponentRef.current = removeComponent;
+    const stableRemoveComponent = useCallback((id: string) => removeComponentRef.current(id), []);
+
+    const updateComponentRef = useRef(updateComponent);
+    updateComponentRef.current = updateComponent;
+    const stableUpdateComponent = useCallback(
+      (id: string, config: any) => updateComponentRef.current(id, config),
+      []
+    );
+
+    const handleViewChart = useCallback(
+      (chartId: number) => {
+        router.push(`/charts/${chartId}?from=dashboard`);
+      },
+      [router]
+    );
+
+    const handleEditChart = useCallback(
+      (chartId: number) => {
+        router.push(`/charts/${chartId}/edit?from=dashboard`);
+      },
+      [router]
+    );
 
     // Find next available position for new component
     const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
@@ -1588,45 +1679,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       // If no position found, place at the end
       return { x: 0, y: maxY + 1 };
-    };
-
-    // Render components
-    const renderComponent = (componentId: string) => {
-      const component = state.components[componentId];
-      if (!component) return null;
-
-      const commonProps = {
-        onRemove: () => removeComponent(componentId),
-        onUpdate: (config: any) => updateComponent(componentId, config),
-      };
-
-      switch (component.type) {
-        case DashboardComponentType.CHART:
-          return (
-            <ChartElementV2
-              {...commonProps}
-              chartId={component.config.chartId}
-              config={component.config}
-              isResizing={resizingItems.has(componentId)}
-              appliedFilters={appliedFilters}
-              dashboardFilterConfigs={initialFilters}
-            />
-          );
-
-        case DashboardComponentType.TEXT:
-          return (
-            <UnifiedTextElement
-              onUpdate={(config: any) => updateComponent(componentId, config)}
-              config={component.config}
-              isEditMode={true}
-            />
-          );
-
-        // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
-
-        default:
-          return null;
-      }
     };
 
     return (
@@ -1803,62 +1855,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Type className="w-3 h-3 mr-1" />
                 Text
               </Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-shrink-0 h-8 text-xs"
-                    disabled={dashboardAnimation.isAnimating}
-                  >
-                    <Wand2 className="w-3 h-3 mr-1" />
-                    Auto
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56">
-                  <div className="grid gap-2">
-                    <h4 className="font-medium text-sm">Auto-Arrange</h4>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="justify-start h-8 text-xs"
-                      onClick={async () => {
-                        const newLayout = await dashboardAnimation.autoArrange(
-                          state.layout,
-                          'dashboard'
-                        );
-                        setState({
-                          ...state,
-                          layout: newLayout,
-                          layouts: generateResponsiveLayouts(newLayout),
-                        });
-                      }}
-                    >
-                      <LayoutGrid className="w-3 h-3 mr-2" />
-                      Smart Pack
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="justify-start h-8 text-xs"
-                      onClick={async () => {
-                        const newLayout = await dashboardAnimation.autoArrange(
-                          state.layout,
-                          'flow'
-                        );
-                        setState({
-                          ...state,
-                          layout: newLayout,
-                          layouts: generateResponsiveLayouts(newLayout),
-                        });
-                      }}
-                    >
-                      <AlignLeft className="w-3 h-3 mr-2" />
-                      Flow Layout
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
               <div className="flex gap-1 ml-auto flex-shrink-0">
                 <Button
                   onClick={undo}
@@ -2221,7 +2217,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               <GridLayout
                 className="layout relative z-10"
-                layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
+                data-fluid-flow="true"
+                layout={flowedRenderLayout}
                 cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
                 rowHeight={ROW_HEIGHT}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
@@ -2235,7 +2232,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 draggableCancel=".drag-cancel"
                 compactType={null}
                 preventCollision={true}
-                allowOverlap={false}
+                allowOverlap={true}
                 margin={[8, 8]} // Match preview mode spacing
                 containerPadding={[8, 8]} // Match preview mode padding
                 autoSize={true}
@@ -2248,93 +2245,41 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               >
                 {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
                   const component = state.components[item.i];
-                  const isTextComponent = component?.type === DashboardComponentType.TEXT;
-                  const isAnimating = dashboardAnimation.animatingComponents.has(item.i);
-                  const isBeingPushed = dashboardAnimation.affectedComponents.some(
-                    (affected) => affected.componentId === `${item.x}-${item.y}`
-                  );
-                  const isDraggedComponent = draggedItem?.i === item.i;
-
+                  if (!component) return null;
                   return (
-                    <div
-                      key={item.i}
-                      data-component-id={item.i}
-                      className={`dashboard-item bg-transparent relative group transition-all duration-200 ${
-                        isAnimating ? 'animating' : ''
-                      } ${isBeingPushed ? 'being-pushed' : ''} ${
-                        isDraggedComponent && dashboardAnimation.spaceMakingActive
-                          ? 'space-making-active'
-                          : ''
-                      } ${component.type === DashboardComponentType.TEXT ? 'text-component' : ''}`}
-                      style={dashboardAnimation.getAnimationStyles(item.i)}
-                    >
-                      {/* Chart Action Buttons - Single clean row */}
-                      {component?.type === DashboardComponentType.CHART && (
-                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/charts/${component.config.chartId}?from=dashboard`);
-                            }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
-                            title="View Chart"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(
-                                `/charts/${component.config.chartId}/edit?from=dashboard`
-                              );
-                            }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
-                            title="Edit Chart"
-                          >
-                            <Edit className="w-3.5 h-3.5 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeComponent(item.i);
-                            }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
-                            title="Remove Chart From Dashboard"
-                          >
-                            <X className="w-3.5 h-3.5 text-gray-600" />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Action Buttons for Text Elements */}
-                      {component?.type === DashboardComponentType.TEXT && (
-                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeComponent(item.i);
-                            }}
-                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
-                            title="Remove text"
-                          >
-                            <X className="w-3 h-3 text-gray-500" />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Drag Handle Area - Top section for dragging */}
-                      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
-                        <div className="text-xs text-gray-400 font-medium">Drag to move</div>
-                      </div>
-
-                      {/* Content Area - Charts fully visible and interactive */}
-                      <div className="flex-1 flex flex-col min-h-0 drag-cancel">
-                        {renderComponent(item.i)}
-                      </div>
+                    // RGL requires the immediate child to carry key={item.i}; the wrapping div
+                    // preserves that contract while DashboardCell handles all visual content.
+                    <div key={item.i}>
+                      <DashboardCell
+                        item={item}
+                        component={component}
+                        isAnimating={dashboardAnimation.animatingComponents.has(item.i)}
+                        isBeingPushed={dashboardAnimation.affectedComponents.some(
+                          (affected) => affected.componentId === `${item.x}-${item.y}`
+                        )}
+                        isDraggedComponent={draggedItem?.i === item.i}
+                        spaceMakingActive={dashboardAnimation.spaceMakingActive}
+                        animationStyles={dashboardAnimation.getAnimationStyles(item.i)}
+                        isResizing={resizingItems.has(item.i)}
+                        appliedFilters={appliedFilters}
+                        initialFilters={initialFilters}
+                        onViewChart={handleViewChart}
+                        onEditChart={handleEditChart}
+                        onRemove={stableRemoveComponent}
+                        onUpdate={stableUpdateComponent}
+                      />
                     </div>
                   );
                 })}
               </GridLayout>
+
+              {/* Insertion line overlay: shown during drag to indicate where the chart will land */}
+              <InsertionLine
+                pixelX={insertionPos?.pixelX ?? 0}
+                pixelY={insertionPos?.pixelY ?? 0}
+                pixelHeight={insertionPos?.pixelHeight ?? 0}
+                visible={insertionPos !== null}
+              />
 
               {/* Snap Indicators */}
               <SnapIndicators
