@@ -3,8 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useTransformStore } from '@/stores/transformStore';
@@ -139,9 +138,11 @@ export default function Transform() {
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md w-full space-y-4 text-center">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Setup Failed</AlertTitle>
+            <Alert variant="warning">
+              <div className="flex justify-center  gap-5 space-y-4">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertTitle>Setup Failed</AlertTitle>
+              </div>
               <AlertDescription>{setupError}</AlertDescription>
             </Alert>
             <Button
