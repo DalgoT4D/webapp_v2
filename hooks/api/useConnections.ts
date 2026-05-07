@@ -185,25 +185,6 @@ export async function fetchFlowRunStatus(
   return apiGet(`/api/prefect/flow_runs/${flowRunId}`);
 }
 
-interface PrefectFlowRunLog {
-  level: number;
-  timestamp: string;
-  message: string;
-}
-
-export async function fetchFlowRunLogs(
-  flowRunId: string
-): Promise<{ logs: { logs: PrefectFlowRunLog[] } }> {
-  return apiGet(`/api/prefect/flow_runs/${flowRunId}/logs`);
-}
-
-/** Extract log message strings from the nested Prefect flow run logs response */
-export function extractFlowRunLogMessages(response: {
-  logs: { logs: PrefectFlowRunLog[] };
-}): string[] {
-  return response?.logs?.logs?.map((log) => log.message) ?? [];
-}
-
 export async function triggerLogSummary(
   connectionId: string,
   jobId: number,

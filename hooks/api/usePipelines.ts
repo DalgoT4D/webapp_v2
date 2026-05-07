@@ -9,6 +9,7 @@ import {
   TaskProgressResponse,
   DashboardPipeline,
 } from '@/types/pipeline';
+import type { PrefectFlowRunLog } from '@/types/transform';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
   POLLING_INTERVAL_IDLE,
@@ -182,16 +183,20 @@ export async function setScheduleStatus(deploymentId: string, active: boolean): 
 }
 
 /**
- * Fetch flow run logs with pagination
+ * Canonical client for `GET /api/prefect/flow_runs/{id}/logs`.
+ * Used by Pipeline Overview, Orchestrate run history, DBT TaskList, and
+ * Connection sync history. Do not duplicate this wrapper in other hook files.
+ *
+ * Pass `limit=0` to get the full log set in one response (backend recurses
+ * through Prefect pages); pass a positive `limit` for paginated/"Fetch more"
+ * usage.
  */
 export async function fetchFlowRunLogs(
   flowRunId: string,
   taskRunId?: string,
   offset: number = 0,
   limit: number = FLOW_RUN_LOGS_OFFSET_LIMIT
-): Promise<{
-  logs: { logs: { message: string }[] };
-}> {
+): Promise<{ logs: { logs: PrefectFlowRunLog[] } }> {
   const params = new URLSearchParams({
     offset: Math.max(offset, 0).toString(),
     limit: limit.toString(),
@@ -202,6 +207,13 @@ export async function fetchFlowRunLogs(
   }
 
   return apiGet(`/api/prefect/flow_runs/${flowRunId}/logs?${params.toString()}`);
+}
+
+/** Extract log message strings from the nested Prefect flow run logs response */
+export function extractFlowRunLogMessages(response: {
+  logs: { logs: PrefectFlowRunLog[] };
+}): string[] {
+  return response?.logs?.logs?.map((log) => log.message) ?? [];
 }
 
 /**

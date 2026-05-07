@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { fetchFlowRunLogs } from '@/hooks/api/usePipelines';
+import { useFlowRunLogs } from '@/hooks/api/useFlowRunLogs';
 import type { DashboardPipeline, DashboardRun } from '@/types/pipeline';
 import { PipelineCard } from './pipeline-card';
 import { LogCard } from '@/components/pipeline/log-card';
@@ -22,47 +23,49 @@ interface PipelineSectionProps {
 export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: PipelineSectionProps) {
   const hasRuns = pipeline.runs && pipeline.runs.length > 0;
 
-  // State for selected run and logs (per pipeline)
+  // State for selected run (per pipeline). Logs themselves are owned by useFlowRunLogs.
   const [selectedRun, setSelectedRun] = useState<DashboardRun | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [logsOffset, setLogsOffset] = useState(0);
-  const [hasMoreLogs, setHasMoreLogs] = useState(false);
 
-  // Fetch logs when a run is selected
-  useEffect(() => {
-    if (!selectedRun) return;
-
-    async function loadLogs() {
-      setLogs([]);
-      setLogsOffset(0);
-      setLogsLoading(true);
-      setHasMoreLogs(false);
-
+  const fetcher = useCallback(
+    async (offset: number): Promise<string[]> => {
+      if (!selectedRun) return [];
       try {
         const data = await fetchFlowRunLogs(
           selectedRun.id,
           undefined,
-          0,
+          offset,
           FLOW_RUN_LOGS_OFFSET_LIMIT
         );
-        if (data?.logs?.logs) {
-          const messages = data.logs.logs.map((log: { message?: string } | string) =>
-            typeof log === 'object' ? log?.message || '' : log
-          );
-          setLogs(messages);
-          setHasMoreLogs(messages.length >= FLOW_RUN_LOGS_OFFSET_LIMIT);
-          setLogsOffset(FLOW_RUN_LOGS_OFFSET_LIMIT);
-        }
+        if (!data?.logs?.logs) return [];
+        return data.logs.logs.map((log: { message?: string } | string) =>
+          typeof log === 'object' ? log?.message || '' : log
+        );
       } catch (error) {
         console.error('Failed to fetch logs:', error);
         toastError.load(error, 'logs');
-      } finally {
-        setLogsLoading(false);
+        return [];
       }
-    }
+    },
+    [selectedRun]
+  );
 
+  const {
+    logs,
+    isLoading: logsLoading,
+    hasMore: hasMoreLogs,
+    load: loadLogs,
+    fetchMore: handleFetchMoreLogs,
+    reset: resetLogs,
+  } = useFlowRunLogs({ fetcher });
+
+  // Fetch logs when a run is selected
+  useEffect(() => {
+    if (!selectedRun) {
+      resetLogs();
+      return;
+    }
     loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRun]);
 
   const handleSelectRun = useCallback((run: DashboardRun) => {
@@ -71,39 +74,8 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
 
   const handleCloseLogs = useCallback(() => {
     setSelectedRun(null);
-    setLogs([]);
-    setLogsOffset(0);
-    setHasMoreLogs(false);
-  }, []);
-
-  const handleFetchMoreLogs = useCallback(async () => {
-    if (!selectedRun || logsLoading) return;
-
-    setLogsLoading(true);
-    try {
-      const data = await fetchFlowRunLogs(
-        selectedRun.id,
-        undefined,
-        logsOffset,
-        FLOW_RUN_LOGS_OFFSET_LIMIT
-      );
-      if (data?.logs?.logs) {
-        const newMessages = data.logs.logs.map((log: { message?: string } | string) =>
-          typeof log === 'object' ? log?.message || '' : log
-        );
-        setLogs((prev) => [...prev, ...newMessages]);
-        setHasMoreLogs(newMessages.length >= FLOW_RUN_LOGS_OFFSET_LIMIT);
-        setLogsOffset((prev) => prev + FLOW_RUN_LOGS_OFFSET_LIMIT);
-      } else {
-        setHasMoreLogs(false);
-      }
-    } catch (error) {
-      console.error('Failed to fetch more logs:', error);
-      toastError.load(error, 'logs');
-    } finally {
-      setLogsLoading(false);
-    }
-  }, [selectedRun, logsOffset, logsLoading]);
+    resetLogs();
+  }, [resetLogs]);
 
   const logTitle = selectedRun
     ? `Logs - ${format(new Date(selectedRun.startTime), 'MMM d, yyyy HH:mm')}`

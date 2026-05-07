@@ -89,14 +89,24 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
     }
   }, [pipeline.deploymentId, offset]);
 
-  // Fetch logs for a task
+  // Fetch logs for a task — accepts offset so the LogsTable can paginate via "Fetch more"
   const handleFetchLogs = useCallback(
-    async (flowRunId: string, taskId: string, taskKind?: string): Promise<string[]> => {
+    async (
+      flowRunId: string,
+      taskId: string,
+      taskKind?: string,
+      offset: number = 0
+    ): Promise<string[]> => {
       try {
         const pathParam = taskKind === 'task-run' ? flowRunId : taskId;
         const taskRunId = taskKind === 'task-run' ? taskId : undefined;
 
-        const data = await fetchFlowRunLogs(pathParam, taskRunId, 0, FLOW_RUN_LOGS_OFFSET_LIMIT);
+        const data = await fetchFlowRunLogs(
+          pathParam,
+          taskRunId,
+          offset,
+          FLOW_RUN_LOGS_OFFSET_LIMIT
+        );
 
         if (data?.logs?.logs) {
           return data.logs.logs.map((log: any) => log?.message || log);
