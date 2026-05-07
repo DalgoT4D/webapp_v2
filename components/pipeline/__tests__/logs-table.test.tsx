@@ -157,16 +157,16 @@ describe('LogsTable - Log expansion behavior', () => {
 
     const logsButtons = screen.getAllByRole('button', { name: /logs/i });
 
-    // Expand first flow run's task
+    // Expand first flow run's task — initial fetch passes offset=0
     await user.click(logsButtons[0]);
     await waitFor(() => {
-      expect(mockFetchLogs).toHaveBeenCalledWith('flow-1', 'task-1', undefined);
+      expect(mockFetchLogs).toHaveBeenCalledWith('flow-1', 'task-1', undefined, 0);
     });
 
     // Expand second flow run's task
     await user.click(logsButtons[1]);
     await waitFor(() => {
-      expect(mockFetchLogs).toHaveBeenCalledWith('flow-2', 'task-2', undefined);
+      expect(mockFetchLogs).toHaveBeenCalledWith('flow-2', 'task-2', undefined, 0);
     });
   });
 });
