@@ -276,22 +276,57 @@ export function applyMutation<T extends FluidFlowItem>(
  * Given the *current flowed layout* and a newly-positioned item (from RGL drag),
  * compute the linear index at which the dragged item should be inserted.
  *
- * Strategy: compare the dragged item's *center* to each existing item's row band
- * and horizontal center. Insert before the first item that is "after" the cursor
- * in reading order (top-to-bottom, left-to-right).
+ * Two-stage strategy:
  *
- * "After the cursor" means:
- *   - Item is in a strictly later row (its top is below the dragged item's center), OR
- *   - Item is in the same row band AND its center is to the right of the dragged center.
+ * 1. Containment-based displacement. If the dragged item's bounds fully cover one or
+ *    more other items, treat it as a clear "take this slot" intent — even when the
+ *    dragged item is much taller/wider than the targets and the center metric below
+ *    would silently miss them (e.g. a tall chart dragged over a row of short cards
+ *    has its center below the cards' row band). The slot returned is direction-aware:
+ *    leftward intent inserts before the first contained item; rightward intent inserts
+ *    after the last contained item, so a multi-card row collapses cleanly.
+ *
+ * 2. Center-based insertion (fallback). Compare the dragged item's center to each
+ *    other item's row band and horizontal center. Insert before the first item that
+ *    is "after" the cursor in reading order (top-to-bottom, left-to-right).
+ *    Direction-aware horizontal tie-break: when the dragged item originally sat
+ *    *after* the target in array order (leftward intent), reaching the target's
+ *    center is enough to displace it (`<=`). When dragging from before (rightward
+ *    intent), the dragged center must strictly pass it (`<`). Without this,
+ *    equal-width siblings can never swap leftward — the dragged center clamps at
+ *    half-width and exactly matches the target's center (e.g. x=0,w=4 → center=2).
  */
 export function computeInsertionIndex<T extends FluidFlowItem>(
   layout: T[],
   draggedItem: { i: string; x: number; y: number; w: number; h: number },
   _gridCols: number
 ): number {
+  const oldIdx = layout.findIndex((it) => it.i === draggedItem.i);
   const others = layout.filter((it) => it.i !== draggedItem.i);
   if (others.length === 0) return 0;
 
+  // Stage 1: containment-based displacement.
+  const dx0 = draggedItem.x;
+  const dx1 = draggedItem.x + draggedItem.w;
+  const dy0 = draggedItem.y;
+  const dy1 = draggedItem.y + draggedItem.h;
+  let firstContained = -1;
+  let lastContained = -1;
+  for (let idx = 0; idx < others.length; idx++) {
+    const o = others[idx];
+    if (dx0 <= o.x && dx1 >= o.x + o.w && dy0 <= o.y && dy1 >= o.y + o.h) {
+      if (firstContained === -1) firstContained = idx;
+      lastContained = idx;
+    }
+  }
+  if (firstContained !== -1) {
+    // Direction by comparing the first-contained item's original layout index against oldIdx.
+    const firstOrigIdx = firstContained < oldIdx ? firstContained : firstContained + 1;
+    const draggedFromBefore = oldIdx >= 0 && oldIdx < firstOrigIdx;
+    return draggedFromBefore ? lastContained + 1 : firstContained;
+  }
+
+  // Stage 2: center-based insertion.
   const dCenterX = draggedItem.x + draggedItem.w / 2;
   const dCenterY = draggedItem.y + draggedItem.h / 2;
 
@@ -306,7 +341,10 @@ export function computeInsertionIndex<T extends FluidFlowItem>(
 
     // Cursor is in this item's row band (vertically overlaps) → compare horizontally
     if (dCenterY < oRowBottom) {
-      if (dCenterX < oCenterX) return idx;
+      const oOrigIdx = idx < oldIdx ? idx : idx + 1;
+      const draggedFromBefore = oldIdx >= 0 && oldIdx < oOrigIdx;
+      const passed = draggedFromBefore ? dCenterX < oCenterX : dCenterX <= oCenterX;
+      if (passed) return idx;
     }
     // Otherwise the cursor is below this item's row → keep walking
   }

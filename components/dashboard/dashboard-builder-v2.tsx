@@ -968,6 +968,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       pixelHeight: number;
     } | null>(null);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
+    // Transient overlay for live in-row swap during drag. Owns the rendered layout while
+    // the user reorders charts within a single row, so neighbors slide out of the way
+    // instead of being hidden behind the dragged chart. Cleared on drag stop; the
+    // committed `state.layout` is the source of truth for history.
+    const [liveDragLayout, setLiveDragLayout] = useState<DashboardLayout[] | null>(null);
+    // Dedup key so we only call setLiveDragLayout when the swap target actually changes.
+    const lastLiveSwapKeyRef = useRef<string | null>(null);
 
     // IMPORTANT: Use refs for synchronous access in callbacks
     // React state updates are async, but react-grid-layout calls handlers synchronously
@@ -1012,9 +1019,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Flowed render layout: apply flowLayout so RGL always renders canonical row-flow coordinates.
     // This ensures initial load with legacy/stale coords matches what our reflow produces, and
     // provides the stable flowed coords used by drag handlers below.
+    // While a drag is in progress, `liveDragLayout` overlays `state.layout` so in-row swaps
+    // appear immediately. The overlay is cleared on drag stop and never written to history.
     const flowedRenderLayout = useMemo(
-      () => flowLayout(getAdjustedLayout(state.layout, currentScreenConfig.cols), FLUID_GRID_COLS),
-      [state.layout, currentScreenConfig.cols]
+      () =>
+        flowLayout(
+          getAdjustedLayout(liveDragLayout ?? state.layout, currentScreenConfig.cols),
+          FLUID_GRID_COLS
+        ),
+      [liveDragLayout, state.layout, currentScreenConfig.cols]
     );
 
     // Ref mirror so rAF callback always reads the latest flowed layout without dep churn
@@ -1041,6 +1054,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       // No position snapshotting needed; reflow on stop is the source of truth.
       setIsDragging(true);
       setDraggedItem(_newItem);
+      // Reset transient swap state from any prior drag.
+      lastLiveSwapKeyRef.current = null;
+      setLiveDragLayout(null);
     }, []);
 
     // Handle drag (real-time updates during drag)
@@ -1055,14 +1071,51 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         if (!args) return;
         setDraggedItem(args.newItem);
         if (!isDraggingRef.current) return;
-        const idx = computeInsertionIndex(
-          flowedRenderLayoutRef.current,
-          args.newItem,
-          FLUID_GRID_COLS
-        );
+
+        // Live drag-time reorder: recompute against the *committed* layout so the overlay
+        // is a pure function of (committed state + current drag pos). We only apply a live
+        // swap when the dragged item visually overlaps another — pure drags into empty
+        // space leave the layout alone and resolve on drop, per the existing model.
+        // Containment in computeInsertionIndex handles the cross-row cases where a tall
+        // dragged item covers a row of shorter targets (its center sits below them).
+        const original = stateRef.current.layout;
+        const oldIdx = original.findIndex((it) => it.i === args.newItem.i);
+        const flowedOriginal = oldIdx >= 0 ? flowLayout(original, FLUID_GRID_COLS) : null;
+
+        let displayLayout: DashboardLayout[] = original;
+        let displayFlowed = flowedOriginal ?? flowedRenderLayoutRef.current;
+        let swapKey: string | null = null;
+
+        if (oldIdx >= 0 && flowedOriginal) {
+          const dx1 = args.newItem.x + args.newItem.w;
+          const dy1 = args.newItem.y + args.newItem.h;
+          const overlapsAny = flowedOriginal.some(
+            (o) =>
+              o.i !== args.newItem.i &&
+              !(args.newItem.x >= o.x + o.w) &&
+              !(dx1 <= o.x) &&
+              !(args.newItem.y >= o.y + o.h) &&
+              !(dy1 <= o.y)
+          );
+          if (overlapsAny) {
+            const newIdx = computeInsertionIndex(flowedOriginal, args.newItem, FLUID_GRID_COLS);
+            if (newIdx !== oldIdx) {
+              displayLayout = moveItemToIndex(original, args.newItem.i, newIdx);
+              displayFlowed = flowLayout(displayLayout, FLUID_GRID_COLS);
+              swapKey = `${args.newItem.i}:${newIdx}`;
+            }
+          }
+        }
+
+        if (lastLiveSwapKeyRef.current !== swapKey) {
+          lastLiveSwapKeyRef.current = swapKey;
+          setLiveDragLayout(swapKey === null ? null : displayLayout);
+        }
+
+        const idx = computeInsertionIndex(displayFlowed, args.newItem, FLUID_GRID_COLS);
         setInsertionPos(
           gridIndexToPixel(
-            flowedRenderLayoutRef.current,
+            displayFlowed,
             idx,
             actualContainerWidthRef.current,
             FLUID_GRID_COLS,
@@ -1090,6 +1143,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         setIsDragging(false);
         setDraggedItem(null);
         setInsertionPos(null);
+        // Discard the transient overlay; the setState below commits the final layout to history,
+        // and this update is batched with it so the render swaps from overlay→committed atomically.
+        lastLiveSwapKeyRef.current = null;
+        setLiveDragLayout(null);
 
         // Only save to history if we're not in an undo/redo operation
         if (!isUndoRedoOperationRef.current) {

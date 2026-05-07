@@ -179,11 +179,55 @@ describe('computeInsertionIndex', () => {
     expect(computeInsertionIndex(flowed, drag('a', 0, 99), GRID_COLS)).toBe(4);
   });
 
-  it('inserts at index 0 when dragged to far left of row 0', () => {
-    // Drag 'e' from row 1 up to far left of row 0 — center at (1.5, 0.5).
-    // After filtering 'e', others = [a,b,c,d]. a's center is (1.5, 0.5) — equal to dragged.
-    // Expected: insert before b (the first item to the right of dragged center).
-    expect(computeInsertionIndex(flowed, drag('e', 0, 0), GRID_COLS)).toBe(1);
+  it('displaces leftmost item when dragged onto its slot from a later index', () => {
+    // Drag 'e' (oldIdx=4, originally row 1) up to (0,0) — center (1.5, 0.5).
+    // a's center is also 1.5; since 'e' came from after 'a' in array order, a leftward
+    // drag onto a's exact slot displaces a (insert e at idx 0). Without this, equal-width
+    // siblings can never swap leftward.
+    expect(computeInsertionIndex(flowed, drag('e', 0, 0), GRID_COLS)).toBe(0);
+  });
+
+  it('swaps with previous sibling in the same row (leftward drag, equal widths)', () => {
+    // Two-chart row scenario the user reported: drag 'b' onto 'a' should produce [b, a].
+    // RGL clamps x to 0, so the dragged center exactly matches a's center (2 = 2);
+    // direction-aware tie-break makes equal-center leftward drag count as a hit.
+    const tworow = flowLayout([item('a', 4, 1), item('b', 4, 1)], GRID_COLS);
+    expect(computeInsertionIndex(tworow, drag('b', 0, 0, 4, 1), GRID_COLS)).toBe(0);
+  });
+
+  it('partial leftward drag below the target center does not displace it', () => {
+    // Mirror of the swap test: drag 'b' partway toward 'a' (x=2 → center 4 > a.center 2).
+    // Lenient compare requires reaching/crossing the center; until then, no displace.
+    const tworow = flowLayout([item('a', 4, 1), item('b', 4, 1)], GRID_COLS);
+    expect(computeInsertionIndex(tworow, drag('b', 2, 0, 4, 1), GRID_COLS)).toBe(1);
+  });
+
+  it('tall chart dragged over a row of short cards displaces them (containment)', () => {
+    // Reproduces the user-reported overlap: a tall chart in row 1 dragged up over
+    // two short number cards in row 0. The dragged item's center sits far below the
+    // cards' row band, so center-based logic alone would miss them — containment
+    // catches this and inserts the tall chart before the first contained card.
+    const lay = flowLayout(
+      [item('num1', 6, 3), item('num2', 6, 3), item('stacked', 12, 15)],
+      GRID_COLS
+    );
+    // Drag 'stacked' to (0, 0): bounds (0..12, 0..15) fully contain num1 (0..6, 0..3)
+    // and num2 (6..12, 0..3). Dragged was originally at the end → leftward intent →
+    // insert before the first contained item.
+    expect(computeInsertionIndex(lay, drag('stacked', 0, 0, 12, 15), GRID_COLS)).toBe(0);
+  });
+
+  it('rightward containment lands after the last contained item', () => {
+    // Tall chart originally at the top dragged down past two short cards. With
+    // rightward intent, insertion should land after the last contained item so
+    // the row collapses cleanly.
+    const lay = flowLayout(
+      [item('stacked', 12, 15), item('num1', 6, 3), item('num2', 6, 3)],
+      GRID_COLS
+    );
+    // Drag 'stacked' down to (0, 15): bounds (0..12, 15..30) fully contain both
+    // num1 (0..6, 15..18) and num2 (6..12, 15..18). Insert after last → idx 2.
+    expect(computeInsertionIndex(lay, drag('stacked', 0, 15, 12, 15), GRID_COLS)).toBe(2);
   });
 
   it('inserts mid-row when dragged between two items in the same row', () => {
