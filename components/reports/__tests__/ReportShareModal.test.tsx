@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ShareModal } from '@/components/ui/share-modal';
 import { createMockShareStatus } from './report-mock-data';
@@ -14,7 +14,7 @@ import * as clipboardModule from '@/lib/clipboard';
 
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { generic: jest.fn() },
-  toastError: { share: jest.fn(), load: jest.fn() },
+  toastError: { share: jest.fn(), load: jest.fn(), api: jest.fn() },
 }));
 
 jest.mock('@/lib/clipboard', () => ({
@@ -54,10 +54,12 @@ describe('ShareModal', () => {
   });
 
   describe('Modal Rendering', () => {
-    it('renders modal when isOpen is true', () => {
+    it('renders modal when isOpen is true', async () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       expect(screen.getByTestId('share-modal')).toBeInTheDocument();
       expect(screen.getByText('Share Report')).toBeInTheDocument();
@@ -71,10 +73,12 @@ describe('ShareModal', () => {
       expect(screen.queryByTestId('share-modal')).not.toBeInTheDocument();
     });
 
-    it('displays organization access section', () => {
+    it('displays organization access section', async () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       expect(screen.getByText('Organization Access')).toBeInTheDocument();
       expect(
@@ -82,10 +86,12 @@ describe('ShareModal', () => {
       ).toBeInTheDocument();
     });
 
-    it('displays public access section', () => {
+    it('displays public access section', async () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       expect(screen.getByText('Public Access')).toBeInTheDocument();
       expect(screen.getByText(/Anyone with the link can view/)).toBeInTheDocument();
@@ -97,7 +103,9 @@ describe('ShareModal', () => {
       const mockStatus = createMockShareStatus({ is_public: false });
       mockGetShareStatus.mockResolvedValue(mockStatus);
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(mockGetShareStatus).toHaveBeenCalledWith(snapshotId);
@@ -107,7 +115,9 @@ describe('ShareModal', () => {
     it('handles error when fetching share status', async () => {
       mockGetShareStatus.mockRejectedValue(new Error('Failed to load'));
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(toastModule.toastError.load).toHaveBeenCalled();
@@ -119,7 +129,9 @@ describe('ShareModal', () => {
     it('shows toggle switch in unchecked state when not public', async () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus({ is_public: false }));
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         const toggle = screen.getByTestId('share-toggle');
@@ -132,7 +144,9 @@ describe('ShareModal', () => {
         createMockShareStatus({ is_public: true, public_url: 'http://test.com/report/123' })
       );
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         const toggle = screen.getByTestId('share-toggle');
@@ -150,14 +164,18 @@ describe('ShareModal', () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus({ is_public: false }));
       mockUpdateSharing.mockResolvedValue(mockResponse);
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('share-toggle')).toBeInTheDocument();
       });
 
       const toggle = screen.getByTestId('share-toggle');
-      await user.click(toggle);
+      await act(async () => {
+        await user.click(toggle);
+      });
 
       await waitFor(() => {
         expect(mockUpdateSharing).toHaveBeenCalledWith(snapshotId, {
@@ -176,14 +194,18 @@ describe('ShareModal', () => {
       );
       mockUpdateSharing.mockResolvedValue(mockResponse);
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('share-toggle')).toBeInTheDocument();
       });
 
       const toggle = screen.getByTestId('share-toggle');
-      await user.click(toggle);
+      await act(async () => {
+        await user.click(toggle);
+      });
 
       await waitFor(() => {
         expect(mockUpdateSharing).toHaveBeenCalledWith(snapshotId, {
@@ -198,14 +220,18 @@ describe('ShareModal', () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus({ is_public: false }));
       mockUpdateSharing.mockRejectedValue(new Error('Failed to update'));
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('share-toggle')).toBeInTheDocument();
       });
 
       const toggle = screen.getByTestId('share-toggle');
-      await user.click(toggle);
+      await act(async () => {
+        await user.click(toggle);
+      });
 
       await waitFor(() => {
         expect(toastModule.toastError.share).toHaveBeenCalled();
@@ -219,7 +245,9 @@ describe('ShareModal', () => {
         createMockShareStatus({ is_public: true, public_url: 'http://test.com/report/123' })
       );
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('copy-link-btn')).toBeInTheDocument();
@@ -229,7 +257,9 @@ describe('ShareModal', () => {
     it('hides copy link button when report is private', async () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus({ is_public: false }));
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.queryByTestId('copy-link-btn')).not.toBeInTheDocument();
@@ -245,7 +275,9 @@ describe('ShareModal', () => {
         createMockShareStatus({ is_public: true, public_url: publicUrl })
       );
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('copy-link-btn')).toBeInTheDocument();
@@ -266,7 +298,9 @@ describe('ShareModal', () => {
         createMockShareStatus({ is_public: true, public_url: 'http://test.com/report/123' })
       );
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByText(/Security Notice/)).toBeInTheDocument();
@@ -277,7 +311,9 @@ describe('ShareModal', () => {
     it('hides security warning when report is private', async () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus({ is_public: false }));
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.queryByText(/Security Notice/)).not.toBeInTheDocument();
@@ -296,7 +332,9 @@ describe('ShareModal', () => {
         })
       );
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByText(/Public access count: 42/)).toBeInTheDocument();
@@ -313,7 +351,9 @@ describe('ShareModal', () => {
         })
       );
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.queryByText(/Public access count:/)).not.toBeInTheDocument();
@@ -326,7 +366,9 @@ describe('ShareModal', () => {
       const user = userEvent.setup();
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
-      renderShareModal();
+      await act(async () => {
+        renderShareModal();
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('share-close-btn')).toBeInTheDocument();

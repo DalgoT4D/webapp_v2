@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import { Share2, Copy, Shield, AlertTriangle, Mail, X, Loader2, Send } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -174,6 +174,9 @@ export function ShareModal({
             <Share2 className="h-5 w-5" />
             Share {entityLabel}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Manage sharing settings and public access for this {entityLabelLower}.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
