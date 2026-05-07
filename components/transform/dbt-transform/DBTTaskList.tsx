@@ -100,7 +100,10 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
       if (currCount >= maxLimit) return;
 
       try {
-        const response = await fetchFlowRunLogs(runId, undefined, currCount, maxLimit - currCount);
+        const response = await fetchFlowRunLogs(runId, {
+          offset: currCount,
+          limit: maxLimit - currCount,
+        });
 
         if (response?.logs?.logs?.length > 0) {
           const newLogStrings = response.logs.logs.map((logObj) => logObj.message);

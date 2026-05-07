@@ -182,21 +182,34 @@ export async function setScheduleStatus(deploymentId: string, active: boolean): 
   );
 }
 
+export interface FetchFlowRunLogsOptions {
+  /** Filter to logs for a single task run within the flow run */
+  taskRunId?: string;
+  /** Starting offset into the log stream. Defaults to 0. */
+  offset?: number;
+  /**
+   * Page size. Defaults to {@link FLOW_RUN_LOGS_OFFSET_LIMIT}.
+   * Pass `0` to fetch the full log set in one response (backend recurses
+   * through Prefect pages).
+   */
+  limit?: number;
+}
+
+export interface FetchFlowRunLogsResponse {
+  logs: { logs: PrefectFlowRunLog[] };
+}
+
 /**
  * Canonical client for `GET /api/prefect/flow_runs/{id}/logs`.
  * Used by Pipeline Overview, Orchestrate run history, DBT TaskList, and
  * Connection sync history. Do not duplicate this wrapper in other hook files.
- *
- * Pass `limit=0` to get the full log set in one response (backend recurses
- * through Prefect pages); pass a positive `limit` for paginated/"Fetch more"
- * usage.
  */
 export async function fetchFlowRunLogs(
   flowRunId: string,
-  taskRunId?: string,
-  offset: number = 0,
-  limit: number = FLOW_RUN_LOGS_OFFSET_LIMIT
-): Promise<{ logs: { logs: PrefectFlowRunLog[] } }> {
+  options: FetchFlowRunLogsOptions = {}
+): Promise<FetchFlowRunLogsResponse> {
+  const { taskRunId, offset = 0, limit = FLOW_RUN_LOGS_OFFSET_LIMIT } = options;
+
   const params = new URLSearchParams({
     offset: Math.max(offset, 0).toString(),
     limit: limit.toString(),

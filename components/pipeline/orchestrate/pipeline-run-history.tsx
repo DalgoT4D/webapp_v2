@@ -101,12 +101,11 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
         const pathParam = taskKind === 'task-run' ? flowRunId : taskId;
         const taskRunId = taskKind === 'task-run' ? taskId : undefined;
 
-        const data = await fetchFlowRunLogs(
-          pathParam,
+        const data = await fetchFlowRunLogs(pathParam, {
           taskRunId,
           offset,
-          FLOW_RUN_LOGS_OFFSET_LIMIT
-        );
+          limit: FLOW_RUN_LOGS_OFFSET_LIMIT,
+        });
 
         if (data?.logs?.logs) {
           return data.logs.logs.map((log: any) => log?.message || log);

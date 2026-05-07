@@ -30,12 +30,10 @@ export function PipelineSection({ pipeline, scaleToRuntime, onScaleChange }: Pip
     async (offset: number): Promise<string[]> => {
       if (!selectedRun) return [];
       try {
-        const data = await fetchFlowRunLogs(
-          selectedRun.id,
-          undefined,
+        const data = await fetchFlowRunLogs(selectedRun.id, {
           offset,
-          FLOW_RUN_LOGS_OFFSET_LIMIT
-        );
+          limit: FLOW_RUN_LOGS_OFFSET_LIMIT,
+        });
         if (!data?.logs?.logs) return [];
         return data.logs.logs.map((log: { message?: string } | string) =>
           typeof log === 'object' ? log?.message || '' : log

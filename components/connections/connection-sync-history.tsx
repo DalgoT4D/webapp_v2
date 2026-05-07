@@ -548,7 +548,7 @@ function RunningJobRow({ lock }: { lock: TaskLock }) {
     // limit=0 → backend returns all logs in one response (live-tail polling)
     const pollLogs = async () => {
       try {
-        const result = await fetchFlowRunLogs(lock.flowRunId!, undefined, 0, 0);
+        const result = await fetchFlowRunLogs(lock.flowRunId!, { limit: 0 });
         setLogs(extractFlowRunLogMessages(result));
         pollRef.current = setTimeout(pollLogs, LOG_SUMMARY_POLL_INTERVAL_MS);
       } catch {
@@ -558,7 +558,7 @@ function RunningJobRow({ lock }: { lock: TaskLock }) {
 
     // Fetch immediately, then poll
     setLoadingLogs(true);
-    fetchFlowRunLogs(lock.flowRunId, undefined, 0, 0)
+    fetchFlowRunLogs(lock.flowRunId, { limit: 0 })
       .then((result) => {
         setLogs(extractFlowRunLogMessages(result));
         pollRef.current = setTimeout(pollLogs, LOG_SUMMARY_POLL_INTERVAL_MS);
