@@ -2265,16 +2265,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             </div>
           </div>
         </div>
-        {/* Tab Bar */}
-        <TabBar
-          tabs={tabsData.tabs}
-          activeTabId={tabsData.activeTabId}
-          isEditMode={true}
-          onTabChange={handleTabChange}
-          onTabAdd={handleTabAdd}
-          onTabRemove={handleTabRemove}
-          onTabRename={handleTabRename}
-        />
         {/* Horizontal Filters Bar */}
         {filterLayout === 'horizontal' && !isFiltersCollapsed && (
           <UnifiedFiltersPanel
@@ -2327,170 +2317,185 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           )}
 
-          {/* Dashboard Canvas - Responsive Container */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
-            {/* Canvas container with full width */}
-            <div
-              ref={dashboardContainerRef}
-              className="bg-white dashboard-canvas-responsive"
-              style={{
-                width: '100%',
-                // Calculate minimum height based on actual content:
-                // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
-                minHeight: Math.max(
-                  currentScreenConfig.height,
-                  400,
-                  // Calculate content height from layout items
-                  Array.isArray(state.layout) && state.layout.length > 0
-                    ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) + 100
-                    : 0
-                ),
-                position: 'relative',
-              }}
-            >
-              {/* Visual grid guides - disabled, using SnapIndicators with neon effect instead */}
-              <GridGuides
-                containerWidth={actualContainerWidth}
-                containerHeight={dashboardActualHeight}
-                cols={12}
-                visible={false}
-              />
+          {/* Right side: Tab Bar + Canvas stacked vertically */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Tab Bar */}
+            <TabBar
+              tabs={tabsData.tabs}
+              activeTabId={tabsData.activeTabId}
+              isEditMode={true}
+              onTabChange={handleTabChange}
+              onTabAdd={handleTabAdd}
+              onTabRemove={handleTabRemove}
+              onTabRename={handleTabRename}
+            />
 
-              <GridLayout
-                className="layout relative z-10"
-                layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
-                cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
-                rowHeight={ROW_HEIGHT}
-                width={actualContainerWidth} // Use available container width - columns adjust to fit
-                onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
-                onDragStart={handleDragStart}
-                onDrag={handleDrag}
-                onDragStop={handleDragStop}
-                onResizeStart={handleResizeStart}
-                onResize={handleResize}
-                onResizeStop={handleResizeStop}
-                draggableCancel=".drag-cancel"
-                compactType={null}
-                preventCollision={true}
-                allowOverlap={false}
-                margin={[8, 8]} // Match preview mode spacing
-                containerPadding={[8, 8]} // Match preview mode padding
-                autoSize={true}
-                verticalCompact={false}
-                useCSSTransforms={true}
-                transformScale={1}
-                isDraggable={true}
-                isResizable={true}
-                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
+            {/* Dashboard Canvas - Responsive Container */}
+            <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
+              {/* Canvas container with full width */}
+              <div
+                ref={dashboardContainerRef}
+                className="bg-white dashboard-canvas-responsive"
+                style={{
+                  width: '100%',
+                  // Calculate minimum height based on actual content:
+                  // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
+                  minHeight: Math.max(
+                    currentScreenConfig.height,
+                    400,
+                    // Calculate content height from layout items
+                    Array.isArray(state.layout) && state.layout.length > 0
+                      ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) +
+                          100
+                      : 0
+                  ),
+                  position: 'relative',
+                }}
               >
-                {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
-                  const component = state.components[item.i];
-                  const isTextComponent = component?.type === DashboardComponentType.TEXT;
-                  const isAnimating = dashboardAnimation.animatingComponents.has(item.i);
-                  const isBeingPushed = dashboardAnimation.affectedComponents.some(
-                    (affected) => affected.componentId === `${item.x}-${item.y}`
-                  );
-                  const isDraggedComponent = draggedItem?.i === item.i;
+                {/* Visual grid guides - disabled, using SnapIndicators with neon effect instead */}
+                <GridGuides
+                  containerWidth={actualContainerWidth}
+                  containerHeight={dashboardActualHeight}
+                  cols={12}
+                  visible={false}
+                />
 
-                  return (
-                    <div
-                      key={item.i}
-                      data-component-id={item.i}
-                      className={`dashboard-item bg-transparent relative group transition-all duration-200 ${
-                        isAnimating ? 'animating' : ''
-                      } ${isBeingPushed ? 'being-pushed' : ''} ${
-                        isDraggedComponent && dashboardAnimation.spaceMakingActive
-                          ? 'space-making-active'
-                          : ''
-                      } ${component.type === DashboardComponentType.TEXT ? 'text-component' : ''}`}
-                      style={dashboardAnimation.getAnimationStyles(item.i)}
-                    >
-                      {/* Chart Action Buttons - Single clean row */}
-                      {component?.type === DashboardComponentType.CHART && (
-                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/charts/${component.config.chartId}?from=dashboard`);
-                            }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
-                            title="View Chart"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(
-                                `/charts/${component.config.chartId}/edit?from=dashboard`
-                              );
-                            }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
-                            title="Edit Chart"
-                          >
-                            <Edit className="w-3.5 h-3.5 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeComponent(item.i);
-                            }}
-                            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
-                            title="Remove Chart From Dashboard"
-                          >
-                            <X className="w-3.5 h-3.5 text-gray-600" />
-                          </button>
+                <GridLayout
+                  className="layout relative z-10"
+                  layout={getAdjustedLayout(state.layout, currentScreenConfig.cols)}
+                  cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
+                  rowHeight={ROW_HEIGHT}
+                  width={actualContainerWidth} // Use available container width - columns adjust to fit
+                  onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+                  onDragStart={handleDragStart}
+                  onDrag={handleDrag}
+                  onDragStop={handleDragStop}
+                  onResizeStart={handleResizeStart}
+                  onResize={handleResize}
+                  onResizeStop={handleResizeStop}
+                  draggableCancel=".drag-cancel"
+                  compactType={null}
+                  preventCollision={true}
+                  allowOverlap={false}
+                  margin={[8, 8]} // Match preview mode spacing
+                  containerPadding={[8, 8]} // Match preview mode padding
+                  autoSize={true}
+                  verticalCompact={false}
+                  useCSSTransforms={true}
+                  transformScale={1}
+                  isDraggable={true}
+                  isResizable={true}
+                  resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
+                >
+                  {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
+                    const component = state.components[item.i];
+                    const isTextComponent = component?.type === DashboardComponentType.TEXT;
+                    const isAnimating = dashboardAnimation.animatingComponents.has(item.i);
+                    const isBeingPushed = dashboardAnimation.affectedComponents.some(
+                      (affected) => affected.componentId === `${item.x}-${item.y}`
+                    );
+                    const isDraggedComponent = draggedItem?.i === item.i;
+
+                    return (
+                      <div
+                        key={item.i}
+                        data-component-id={item.i}
+                        className={`dashboard-item bg-transparent relative group transition-all duration-200 ${
+                          isAnimating ? 'animating' : ''
+                        } ${isBeingPushed ? 'being-pushed' : ''} ${
+                          isDraggedComponent && dashboardAnimation.spaceMakingActive
+                            ? 'space-making-active'
+                            : ''
+                        } ${component.type === DashboardComponentType.TEXT ? 'text-component' : ''}`}
+                        style={dashboardAnimation.getAnimationStyles(item.i)}
+                      >
+                        {/* Chart Action Buttons - Single clean row */}
+                        {component?.type === DashboardComponentType.CHART && (
+                          <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/charts/${component.config.chartId}?from=dashboard`);
+                              }}
+                              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
+                              title="View Chart"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(
+                                  `/charts/${component.config.chartId}/edit?from=dashboard`
+                                );
+                              }}
+                              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
+                              title="Edit Chart"
+                            >
+                              <Edit className="w-3.5 h-3.5 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeComponent(item.i);
+                              }}
+                              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
+                              title="Remove Chart From Dashboard"
+                            >
+                              <X className="w-3.5 h-3.5 text-gray-600" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Action Buttons for Text Elements */}
+                        {component?.type === DashboardComponentType.TEXT && (
+                          <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeComponent(item.i);
+                              }}
+                              className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
+                              title="Remove text"
+                            >
+                              <X className="w-3 h-3 text-gray-500" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Drag Handle Area - Top section for dragging */}
+                        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
+                          <div className="text-xs text-gray-400 font-medium">Drag to move</div>
                         </div>
-                      )}
 
-                      {/* Action Buttons for Text Elements */}
-                      {component?.type === DashboardComponentType.TEXT && (
-                        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeComponent(item.i);
-                            }}
-                            className="p-1 bg-white/80 hover:bg-white rounded transition-all drag-cancel hover:text-red-600"
-                            title="Remove text"
-                          >
-                            <X className="w-3 h-3 text-gray-500" />
-                          </button>
+                        {/* Content Area - Charts fully visible and interactive */}
+                        <div className="flex-1 flex flex-col min-h-0 drag-cancel">
+                          {renderComponent(item.i)}
                         </div>
-                      )}
-
-                      {/* Drag Handle Area - Top section for dragging */}
-                      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
-                        <div className="text-xs text-gray-400 font-medium">Drag to move</div>
                       </div>
+                    );
+                  })}
+                </GridLayout>
 
-                      {/* Content Area - Charts fully visible and interactive */}
-                      <div className="flex-1 flex flex-col min-h-0 drag-cancel">
-                        {renderComponent(item.i)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </GridLayout>
+                {/* Snap Indicators */}
+                <SnapIndicators
+                  snapZones={dashboardAnimation.snapZones}
+                  containerWidth={actualContainerWidth}
+                  containerHeight={dashboardActualHeight}
+                  rowHeight={ROW_HEIGHT}
+                  visible={isDragging || isResizing}
+                />
 
-              {/* Snap Indicators */}
-              <SnapIndicators
-                snapZones={dashboardAnimation.snapZones}
-                containerWidth={actualContainerWidth}
-                containerHeight={dashboardActualHeight}
-                rowHeight={ROW_HEIGHT}
-                visible={isDragging || isResizing}
-              />
-
-              {/* Space Making Indicators */}
-              <SpaceMakingIndicators
-                affectedComponents={dashboardAnimation.affectedComponents}
-                containerWidth={actualContainerWidth}
-                containerHeight={dashboardActualHeight}
-                rowHeight={ROW_HEIGHT}
-                colWidth={actualContainerWidth / currentScreenConfig.cols}
-                visible={dashboardAnimation.spaceMakingActive}
-              />
+                {/* Space Making Indicators */}
+                <SpaceMakingIndicators
+                  affectedComponents={dashboardAnimation.affectedComponents}
+                  containerWidth={actualContainerWidth}
+                  containerHeight={dashboardActualHeight}
+                  rowHeight={ROW_HEIGHT}
+                  colWidth={actualContainerWidth / currentScreenConfig.cols}
+                  visible={dashboardAnimation.spaceMakingActive}
+                />
+              </div>
             </div>
           </div>
         </div>{' '}

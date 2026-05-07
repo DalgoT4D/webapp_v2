@@ -184,19 +184,7 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
         </div>
       </header>
 
-      {/* Executive Summary — above tabs (read-only) */}
-      {report_metadata.summary && (
-        <div className="px-4 sm:px-6 pt-4 pb-2">
-          <div className="border rounded-lg p-5 bg-background overflow-hidden">
-            <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-              {report_metadata.summary}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Dashboard canvas — tabs + charts */}
+      {/* Dashboard canvas — filter sidebar spans full height alongside summary + tabs + charts */}
       <DashboardNativeView
         dashboardId={0}
         dashboardData={dashboard_data}
@@ -205,6 +193,18 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
         publicToken={token}
         frozenChartConfigs={frozen_chart_configs}
         hideHeader={true}
+        topRightContent={
+          report_metadata.summary ? (
+            <div className="flex-shrink-0 px-4 sm:px-6 pt-4 pb-2">
+              <div className="border rounded-lg p-5 bg-background overflow-hidden">
+                <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                  {report_metadata.summary}
+                </p>
+              </div>
+            </div>
+          ) : undefined
+        }
       />
 
       {/* Footer */}
