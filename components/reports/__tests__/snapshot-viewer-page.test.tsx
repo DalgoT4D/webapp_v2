@@ -354,6 +354,9 @@ describe('SnapshotViewerPage', () => {
       renderPage();
 
       await user.click(screen.getByTestId('summary-edit-btn'));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await user.clear(textarea);
+      await user.type(textarea, 'Updated summary');
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -369,6 +372,9 @@ describe('SnapshotViewerPage', () => {
       renderPage();
 
       await user.click(screen.getByTestId('summary-edit-btn'));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await user.clear(textarea);
+      await user.type(textarea, 'Updated summary');
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
