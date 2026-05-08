@@ -1145,11 +1145,8 @@ export function DashboardNativeView({
         <div
           className={cn('flex-1 flex flex-col overflow-hidden', isPrintMode && 'overflow-visible')}
         >
-          {/* Content above tabs (e.g. report executive summary) */}
-          {topRightContent}
-
-          {/* Tab Bar - Only show when 2 or more tabs exist */}
-          {shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
+          {/* Tab Bar sticky at top — only in non-report dashboard mode */}
+          {!isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
             <TabBar
               tabs={tabsData.tabs}
               activeTabId={effectiveActiveTabId}
@@ -1161,118 +1158,140 @@ export function DashboardNativeView({
             />
           )}
 
-          {/* Dashboard Content - Scrollable Canvas Area */}
-          <div
-            className={cn(
-              'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
-              isPublicMode && 'pb-24 sm:pb-16',
-              isPrintMode && 'overflow-visible pb-4'
+          {/* Scrollable area:
+              - Report mode: summary + tabs + canvas all scroll together
+              - Dashboard mode: only canvas scrolls (tabs stay sticky above) */}
+          <div className={cn('flex-1 overflow-auto min-h-0', isPrintMode && 'overflow-visible')}>
+            {/* Summary scrolls with content (only set in report mode) */}
+            {topRightContent}
+
+            {/* Tab Bar inside scroll area — report mode only */}
+            {isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
+              <TabBar
+                tabs={tabsData.tabs}
+                activeTabId={effectiveActiveTabId}
+                isEditMode={false}
+                onTabChange={handleTabChange}
+                onTabAdd={() => {}} // No-op in view mode
+                onTabRemove={() => {}} // No-op in view mode
+                onTabRename={() => {}} // No-op in view mode
+              />
             )}
-          >
+
+            {/* Dashboard Content - Canvas Area */}
             <div
-              ref={(el) => {
-                dashboardContainerRef.current = el;
-                onContainerRef?.(el);
-              }}
-              className={`dashboard-canvas relative z-10 ${
-                isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
-              }`}
-              style={{
-                width: '100%',
-                minHeight: '100%',
-              }}
+              className={cn(
+                'min-w-0 bg-gray-50 p-4 pb-[150px]',
+                isPublicMode && 'pb-24 sm:pb-16',
+                isPrintMode && 'overflow-visible pb-4'
+              )}
             >
-              {/* Optional content above the chart grid (e.g. Executive Summary) */}
-              {beforeContent}
+              <div
+                ref={(el) => {
+                  dashboardContainerRef.current = el;
+                  onContainerRef?.(el);
+                }}
+                className={`dashboard-canvas relative z-10 ${
+                  isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
+                }`}
+                style={{
+                  width: '100%',
+                  minHeight: '100%',
+                }}
+              >
+                {/* Optional content above the chart grid (e.g. Executive Summary) */}
+                {beforeContent}
 
-              {/* Show empty state if no layout config */}
-              {(() => {
-                const activeLayout = currentTab?.layout_config || dashboard?.layout_config || [];
-                return activeLayout.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    <p className="text-lg mb-2">No Dashboard Components</p>
-                    <p className="text-sm">
-                      This dashboard doesn't have any components configured yet.
-                    </p>
-                  </div>
-                ) : null;
-              })()}
+                {/* Show empty state if no layout config */}
+                {(() => {
+                  const activeLayout = currentTab?.layout_config || dashboard?.layout_config || [];
+                  return activeLayout.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <p className="text-lg mb-2">No Dashboard Components</p>
+                      <p className="text-sm">
+                        This dashboard doesn't have any components configured yet.
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
 
-              {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
-              {(() => {
-                // Use active tab's layout, falling back to top-level dashboard layout
-                const modifiedLayout = currentTab?.layout_config || dashboard?.layout_config || [];
+                {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
+                {(() => {
+                  // Use active tab's layout, falling back to top-level dashboard layout
+                  const modifiedLayout =
+                    currentTab?.layout_config || dashboard?.layout_config || [];
 
-                return effectiveScreenSize !== targetScreenSize ? (
-                  // Preview mode with different screen size - use responsive layout
-                  <ResponsiveGrid
-                    className="dashboard-grid"
-                    layouts={
-                      dashboard.responsive_layouts ||
-                      generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
-                    }
-                    breakpoints={BREAKPOINTS}
-                    cols={COLS}
-                    rowHeight={20}
-                    width={actualContainerWidth}
-                    style={{
-                      width: '100% !important',
-                    }}
-                    isDraggable={false}
-                    isResizable={false}
-                    compactType={null}
-                    preventCollision={false}
-                    margin={[8, 8]}
-                    containerPadding={[8, 8]}
-                    autoSize={true}
-                    verticalCompact={false}
-                    onBreakpointChange={(newBreakpoint: string) => {
-                      setCurrentBreakpoint(newBreakpoint);
-                    }}
-                  >
-                    {modifiedLayout.map((layoutItem: any) => (
-                      <div key={layoutItem.i} className="dashboard-item">
-                        <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                          <CardContent className="p-2 h-full">
-                            {renderComponent(layoutItem.i)}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    ))}
-                  </ResponsiveGrid>
-                ) : (
-                  // Target screen size or no preview override - use exact layout
-                  <GridLayout
-                    className="dashboard-grid"
-                    layout={modifiedLayout}
-                    cols={effectiveScreenConfig.cols}
-                    rowHeight={20}
-                    width={actualContainerWidth}
-                    style={{
-                      width: '100% !important',
-                    }}
-                    isDraggable={false}
-                    isResizable={false}
-                    compactType={null}
-                    preventCollision={true}
-                    allowOverlap={false}
-                    margin={[8, 8]}
-                    containerPadding={[8, 8]}
-                    autoSize={true}
-                    verticalCompact={false}
-                  >
-                    {modifiedLayout.map((layoutItem: any) => (
-                      <div key={layoutItem.i} className="dashboard-item">
-                        <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                          <CardContent className="p-2 h-full">
-                            {renderComponent(layoutItem.i)}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    ))}
-                  </GridLayout>
-                );
-              })()}
+                  return effectiveScreenSize !== targetScreenSize ? (
+                    // Preview mode with different screen size - use responsive layout
+                    <ResponsiveGrid
+                      className="dashboard-grid"
+                      layouts={
+                        dashboard.responsive_layouts ||
+                        generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
+                      }
+                      breakpoints={BREAKPOINTS}
+                      cols={COLS}
+                      rowHeight={20}
+                      width={actualContainerWidth}
+                      style={{
+                        width: '100% !important',
+                      }}
+                      isDraggable={false}
+                      isResizable={false}
+                      compactType={null}
+                      preventCollision={false}
+                      margin={[8, 8]}
+                      containerPadding={[8, 8]}
+                      autoSize={true}
+                      verticalCompact={false}
+                      onBreakpointChange={(newBreakpoint: string) => {
+                        setCurrentBreakpoint(newBreakpoint);
+                      }}
+                    >
+                      {modifiedLayout.map((layoutItem: any) => (
+                        <div key={layoutItem.i} className="dashboard-item">
+                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
+                            <CardContent className="p-2 h-full">
+                              {renderComponent(layoutItem.i)}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </ResponsiveGrid>
+                  ) : (
+                    // Target screen size or no preview override - use exact layout
+                    <GridLayout
+                      className="dashboard-grid"
+                      layout={modifiedLayout}
+                      cols={effectiveScreenConfig.cols}
+                      rowHeight={20}
+                      width={actualContainerWidth}
+                      style={{
+                        width: '100% !important',
+                      }}
+                      isDraggable={false}
+                      isResizable={false}
+                      compactType={null}
+                      preventCollision={true}
+                      allowOverlap={false}
+                      margin={[8, 8]}
+                      containerPadding={[8, 8]}
+                      autoSize={true}
+                      verticalCompact={false}
+                    >
+                      {modifiedLayout.map((layoutItem: any) => (
+                        <div key={layoutItem.i} className="dashboard-item">
+                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
+                            <CardContent className="p-2 h-full">
+                              {renderComponent(layoutItem.i)}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </GridLayout>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>

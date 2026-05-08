@@ -45,6 +45,7 @@ jest.mock('@/hooks/usePdfDownload', () => ({
 jest.mock('@/components/dashboard/dashboard-native-view', () => ({
   DashboardNativeView: ({
     beforeContent,
+    topRightContent,
   }: {
     dashboardId: number;
     dashboardData: unknown;
@@ -52,8 +53,10 @@ jest.mock('@/components/dashboard/dashboard-native-view', () => ({
     frozenChartConfigs: unknown;
     hideHeader: boolean;
     beforeContent?: React.ReactNode;
+    topRightContent?: React.ReactNode;
   }) => (
     <div data-testid="dashboard-native-view">
+      {topRightContent}
       {beforeContent}
       <div>Mock Dashboard View</div>
     </div>
