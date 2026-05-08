@@ -420,7 +420,8 @@ const CommentItem = memo(function CommentItem({
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-primary text-white hover:opacity-90 uppercase text-xs font-semibold"
+                  variant="primary"
+                  className="uppercase text-xs font-semibold"
                   data-testid={`save-edit-btn-${comment.id}`}
                   onClick={handleSave}
                   disabled={!editText.trim() || isSaving}

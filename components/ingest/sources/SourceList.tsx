@@ -136,9 +136,8 @@ export function SourceList() {
           )}
           {canCreate && (
             <Button
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs uppercase"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="uppercase"
               onClick={handleAddSource}
               data-testid="add-source-btn"
             >
@@ -159,12 +158,7 @@ export function SourceList() {
           >
             <p className="text-muted-foreground mb-4">No sources configured yet.</p>
             {canCreate && (
-              <Button
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs uppercase"
-                style={{ backgroundColor: 'var(--primary)' }}
-                onClick={handleAddSource}
-              >
+              <Button variant="primary" className="uppercase" onClick={handleAddSource}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Source
               </Button>

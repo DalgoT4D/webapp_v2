@@ -1614,12 +1614,7 @@ export function DashboardListV2() {
 
           {hasPermission('can_create_dashboards') && (
             <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button
-                id="dashboard-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-              >
+              <Button id="dashboard-create-button" variant="primary">
                 <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
                 CREATE DASHBOARD
               </Button>
@@ -1917,12 +1912,7 @@ export function DashboardListV2() {
               </p>
               {hasPermission('can_create_dashboards') && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
-                  <Button
-                    id="dashboard-empty-create-button"
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                  >
+                  <Button id="dashboard-empty-create-button" variant="primary">
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST DASHBOARD
                   </Button>

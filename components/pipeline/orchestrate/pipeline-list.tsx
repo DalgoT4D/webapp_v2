@@ -168,13 +168,7 @@ export function PipelineList() {
             </div>
           </div>
           {canCreatePipeline && (
-            <Button
-              variant="ghost"
-              onClick={handleCreate}
-              className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
-              data-testid="create-pipeline-btn"
-            >
+            <Button variant="primary" onClick={handleCreate} data-testid="create-pipeline-btn">
               <Plus className="h-4 w-4 mr-2" />
               Create Pipeline
             </Button>
@@ -535,13 +529,7 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         started.
       </p>
       {canCreate && (
-        <Button
-          variant="ghost"
-          onClick={onCreate}
-          className="text-white hover:opacity-90 shadow-xs"
-          style={{ backgroundColor: 'var(--primary)' }}
-          data-testid="create-pipeline-empty-btn"
-        >
+        <Button variant="primary" onClick={onCreate} data-testid="create-pipeline-empty-btn">
           <Plus className="h-4 w-4 mr-2" />
           Create Pipeline
         </Button>

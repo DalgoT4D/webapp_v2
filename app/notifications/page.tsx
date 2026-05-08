@@ -130,22 +130,15 @@ export default function NotificationsPage() {
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                onClick={handleMarkAllAsRead}
-                disabled={isLoading}
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: '#06887b' }}
-              >
+              <Button variant="primary" onClick={handleMarkAllAsRead} disabled={isLoading}>
                 MARK ALL AS READ
               </Button>
             )}
             <Button
-              variant="ghost"
+              variant="primary"
               onClick={handleMarkAsRead}
               disabled={!hasSelection || isLoading || activeTab === 'read'}
-              className="text-white hover:opacity-90 shadow-xs disabled:opacity-50"
-              style={{ backgroundColor: '#06887b' }}
+              className="disabled:opacity-50"
             >
               MARK AS READ
             </Button>
