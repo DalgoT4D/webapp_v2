@@ -341,7 +341,7 @@ export function InvitationsTable() {
 
   return (
     <>
-      <div className="h-full flex flex-col justify-center border rounded-lg bg-white overflow-hidden">
+      <div className="h-full flex flex-col  border rounded-lg bg-white overflow-hidden">
         {!invitations || invitations.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No pending invitations</div>
         ) : (
