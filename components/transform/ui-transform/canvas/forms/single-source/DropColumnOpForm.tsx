@@ -170,10 +170,9 @@ export function DropColumnOpForm({
         <div className="sticky bottom-0 bg-white pt-2 pb-2">
           <Button
             type="submit"
-            variant="ghost"
+            variant="primary"
             disabled={isSubmitting}
-            className="w-full text-white hover:opacity-90"
-            style={{ backgroundColor: 'var(--primary)' }}
+            className="w-full"
             data-testid="savebutton"
           >
             Save

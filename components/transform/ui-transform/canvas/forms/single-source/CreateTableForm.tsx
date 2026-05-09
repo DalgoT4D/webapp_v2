@@ -309,9 +309,8 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
         </Button>
         <Button
           type="submit"
-          variant="ghost"
-          className="flex-1 text-white hover:opacity-90"
-          style={{ backgroundColor: 'var(--primary)' }}
+          variant="primary"
+          className="flex-1"
           disabled={isSubmitting}
           data-testid="save-table-btn"
         >

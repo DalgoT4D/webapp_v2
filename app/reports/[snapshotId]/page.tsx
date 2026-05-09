@@ -258,10 +258,8 @@ export default function SnapshotViewerPage() {
                 <div className="flex justify-end gap-2 mt-2">
                   <Button
                     data-testid="report-cancel-edit-btn"
-                    variant="ghost"
+                    variant="destructive"
                     size="sm"
-                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--destructive)' }}
                     onClick={() => {
                       setSummaryDraft(viewData?.report_metadata.summary || '');
                       setSummaryTouched(false);
@@ -273,10 +271,8 @@ export default function SnapshotViewerPage() {
                   </Button>
                   <Button
                     data-testid="report-save-btn"
-                    variant="ghost"
+                    variant="primary"
                     size="sm"
-                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
                     onClick={handleSave}
                     disabled={isSaving}
                   >
