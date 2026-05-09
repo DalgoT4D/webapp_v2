@@ -69,6 +69,7 @@ import { ShareModal } from '@/components/ui/share-modal';
 import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
+import { DashboardChatTrigger } from './dashboard-chat-trigger';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
@@ -1314,6 +1315,9 @@ export function DashboardNativeView({
           updateSharing={updateDashboardSharing}
         />
       )}
+      {dashboard && !isPublicMode ? (
+        <DashboardChatTrigger dashboardId={dashboardId} dashboardTitle={dashboard.title} />
+      ) : null}
     </div>
   );
 }
