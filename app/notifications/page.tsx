@@ -130,7 +130,12 @@ export default function NotificationsPage() {
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
-              <Button variant="primary" onClick={handleMarkAllAsRead} disabled={isLoading}>
+              <Button
+                variant="primary"
+                onClick={handleMarkAllAsRead}
+                disabled={isLoading}
+                data-testid="mark-all-as-read-btn"
+              >
                 MARK ALL AS READ
               </Button>
             )}
@@ -139,6 +144,7 @@ export default function NotificationsPage() {
               onClick={handleMarkAsRead}
               disabled={!hasSelection || isLoading || activeTab === 'read'}
               className="disabled:opacity-50"
+              data-testid="mark-as-read-btn"
             >
               MARK AS READ
             </Button>

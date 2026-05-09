@@ -393,7 +393,7 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 - **Font**: Anek Latin (`var(--font-anek-latin)`) — set globally, no need to specify per-component
 - **Page heading**: `text-3xl font-bold` (~30px, bold) — e.g., "Charts", "Pipelines"
 - **Page subheading**: `text-muted-foreground mt-1` (gray, 1 unit below heading) — e.g., "Create And Manage Your Visualizations"
-- **Primary action button**: `variant="ghost"` with `backgroundColor: 'var(--primary)'` (Dalgo teal), white text, shadow-xs
+- **Primary action button**: `variant="primary"` (Dalgo teal background, white text, `shadow-xs`, `hover:opacity-90` baked into the variant)
 
 **Template:**
 ```tsx
@@ -409,11 +409,7 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
       </div>
 
       {/* Optional action button (top-right) */}
-      <Button
-        variant="ghost"
-        className="text-white hover:opacity-90 shadow-xs"
-        style={{ backgroundColor: 'var(--primary)' }}
-      >
+      <Button variant="primary" data-testid="action-btn">
         <Plus className="h-4 w-4 mr-2" />
         ACTION LABEL
       </Button>
@@ -437,7 +433,7 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 
 **Brand colors**:
 - CSS variable `--primary: #00897B` — use via Tailwind classes `text-primary`, `bg-primary`
-- For inline styles, reference the CSS variable: `style={{ backgroundColor: 'var(--primary)' }}`
+- For inline styles, reference the CSS variable: `style={{ backgroundColor: 'var(--primary)' }}` (rare — prefer the `Button` `variant="primary"` for CTAs)
 - Never hardcode hex values like `#06887b` or `#00897B` in components — always use the CSS variable
 
 **Tailwind theme classes used in the codebase:**
@@ -450,13 +446,12 @@ All list/index pages (Charts, Pipelines, Orchestrate, etc.) follow a consistent 
 
 **CTA button pattern** (used on all primary action buttons like "Create Chart", "Create Pipeline"):
 ```tsx
-<Button
-  variant="ghost"
-  className="text-white hover:opacity-90 shadow-xs"
-  style={{ backgroundColor: 'var(--primary)' }}
->
+<Button variant="primary" data-testid="create-chart-btn">
+  <Plus className="h-4 w-4 mr-2" />
+  Create Chart
+</Button>
 ```
-Uses `variant="ghost"` with an inline style referencing the CSS variable. The inline style ensures the background color wins over Tailwind's hover classes, and `hover:opacity-90` provides a subtle fade on hover.
+The `primary` variant in [components/ui/button.tsx](components/ui/button.tsx) bakes in the CTA recipe (`bg-primary text-white shadow-xs hover:opacity-90`). Don't reach for `variant="ghost"` + `className="text-white hover:opacity-90 shadow-xs"` + `style={{ backgroundColor: 'var(--primary)' }}` — that older inline-recipe pattern is deprecated; `variant="primary"` is the canonical replacement. Always include a `data-testid`.
 
 **Typography used across pages:**
 
@@ -510,7 +505,7 @@ constants/
 - Proper TypeScript types in `types/pipeline.ts`
 - Uses `toastSuccess`/`toastError` from `lib/toast.ts` — never raw `toast()`
 - Follows the page layout pattern (fixed header + scrollable content)
-- Uses the CTA button pattern (`variant="ghost"` + `style={{ backgroundColor: 'var(--primary)' }}`)
+- Uses the CTA button pattern (`<Button variant="primary">`)
 - `data-testid` on key elements, `key` using stable IDs, `useCallback`/`useMemo` where appropriate
 - Co-located `__tests__/` directory with unit tests and mock data
 

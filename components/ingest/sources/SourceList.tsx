@@ -158,7 +158,12 @@ export function SourceList() {
           >
             <p className="text-muted-foreground mb-4">No sources configured yet.</p>
             {canCreate && (
-              <Button variant="primary" className="uppercase" onClick={handleAddSource}>
+              <Button
+                variant="primary"
+                className="uppercase"
+                onClick={handleAddSource}
+                data-testid="add-first-source-btn"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Source
               </Button>
