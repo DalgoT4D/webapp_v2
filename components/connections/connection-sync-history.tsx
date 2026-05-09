@@ -5,13 +5,8 @@ import { Clock, Loader2, ChevronDown, FileText, Sparkles } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { FullScreenModal } from '@/components/ui/full-screen-modal';
 import { Button } from '@/components/ui/button';
-import {
-  useSyncHistory,
-  fetchSyncLogs,
-  fetchFlowRunLogs,
-  extractFlowRunLogMessages,
-  triggerLogSummary,
-} from '@/hooks/api/useConnections';
+import { useSyncHistory, fetchSyncLogs, triggerLogSummary } from '@/hooks/api/useConnections';
+import { fetchFlowRunLogs, extractFlowRunLogMessages } from '@/hooks/api/usePipelines';
 import { apiGet } from '@/lib/api';
 import { toastError } from '@/lib/toast';
 import {
@@ -550,9 +545,10 @@ function RunningJobRow({ lock }: { lock: TaskLock }) {
 
     if (!expanded || !lock.flowRunId) return undefined;
 
+    // limit=0 → backend returns all logs in one response (live-tail polling)
     const pollLogs = async () => {
       try {
-        const result = await fetchFlowRunLogs(lock.flowRunId!);
+        const result = await fetchFlowRunLogs(lock.flowRunId!, { limit: 0 });
         setLogs(extractFlowRunLogMessages(result));
         pollRef.current = setTimeout(pollLogs, LOG_SUMMARY_POLL_INTERVAL_MS);
       } catch {
@@ -562,7 +558,7 @@ function RunningJobRow({ lock }: { lock: TaskLock }) {
 
     // Fetch immediately, then poll
     setLoadingLogs(true);
-    fetchFlowRunLogs(lock.flowRunId)
+    fetchFlowRunLogs(lock.flowRunId, { limit: 0 })
       .then((result) => {
         setLogs(extractFlowRunLogMessages(result));
         pollRef.current = setTimeout(pollLogs, LOG_SUMMARY_POLL_INTERVAL_MS);
