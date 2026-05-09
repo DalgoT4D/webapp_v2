@@ -261,12 +261,7 @@ export default function ReportsPage() {
             <CreateSnapshotDialog
               onCreated={() => mutate()}
               trigger={
-                <Button
-                  data-testid="create-report-btn"
-                  variant="ghost"
-                  className="text-white hover:opacity-90 shadow-xs"
-                  style={{ backgroundColor: 'var(--primary)' }}
-                >
+                <Button data-testid="create-report-btn" variant="primary">
                   <Plus className="h-4 w-4 mr-2" /> CREATE REPORT
                 </Button>
               }
@@ -366,12 +361,7 @@ export default function ReportsPage() {
                 <CreateSnapshotDialog
                   onCreated={() => mutate()}
                   trigger={
-                    <Button
-                      data-testid="create-first-report-btn"
-                      variant="ghost"
-                      className="text-white hover:opacity-90 shadow-xs"
-                      style={{ backgroundColor: 'var(--primary)' }}
-                    >
+                    <Button data-testid="create-first-report-btn" variant="primary">
                       <Plus className="h-4 w-4 mr-2" /> CREATE YOUR FIRST REPORT
                     </Button>
                   }

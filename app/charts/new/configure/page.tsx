@@ -989,10 +989,9 @@ function ConfigureChartPageContent() {
           <div className="flex items-center gap-4">
             <Button
               onClick={handleSave}
-              variant="ghost"
+              variant="primary"
               disabled={!isFormValid() || isMutating}
-              className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="px-8 h-11"
             >
               {isMutating ? 'Saving...' : 'Save Chart'}
             </Button>
