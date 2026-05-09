@@ -301,7 +301,7 @@ export function UsersTable() {
 
   return (
     <>
-      <div className="h-full flex flex-col border rounded-lg bg-white overflow-hidden">
+      <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-white">
             <TableRow className="bg-gray-50">
@@ -465,7 +465,7 @@ export function UsersTable() {
           </TableBody>
         </Table>
         {filteredAndSortedUsers.length === 0 && users && users.length > 0 && (
-          <div className="text-center flex items-center justify-center flex-1 py-8 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground">
             No users match the current filters.{' '}
             <Button variant="link" onClick={clearAllFilters} className="p-0 h-auto">
               Clear all filters

@@ -339,190 +339,191 @@ export function InvitationsTable() {
     );
   }
 
+  if (!invitations || invitations.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center py-12 text-center"
+        data-testid="invitations-empty-state"
+      >
+        <p className="text-muted-foreground">No pending invitations.</p>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="h-full flex flex-col  border rounded-lg bg-white overflow-hidden">
-        {!invitations || invitations.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No pending invitations</div>
-        ) : (
-          <>
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-white">
-                <TableRow className="bg-gray-50">
-                  <TableHead className="w-[35%] px-4 py-3">
+      <div className="border rounded-lg bg-white">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-white">
+            <TableRow className="bg-gray-50">
+              <TableHead className="w-[35%] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                    onClick={() => handleSort('email')}
+                    data-testid="sort-email-button"
+                  >
                     <div className="flex items-center gap-2">
+                      Email
+                      {renderSortIcon('email')}
+                    </div>
+                  </Button>
+                  <Popover
+                    open={openFilters.email}
+                    onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, email: open }))}
+                  >
+                    <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                        onClick={() => handleSort('email')}
-                        data-testid="sort-email-button"
+                        size="icon"
+                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                        aria-label="Filter by email"
+                        data-testid="filter-email-button"
                       >
-                        <div className="flex items-center gap-2">
-                          Email
-                          {renderSortIcon('email')}
-                        </div>
+                        {renderFilterIcon('email')}
                       </Button>
-                      <Popover
-                        open={openFilters.email}
-                        onOpenChange={(open) =>
-                          setOpenFilters((prev) => ({ ...prev, email: open }))
-                        }
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-gray-100"
-                            aria-label="Filter by email"
-                            data-testid="filter-email-button"
-                          >
-                            {renderFilterIcon('email')}
-                          </Button>
-                        </PopoverTrigger>
-                        {renderEmailFilter()}
-                      </Popover>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[20%] px-4 py-3">
+                    </PopoverTrigger>
+                    {renderEmailFilter()}
+                  </Popover>
+                </div>
+              </TableHead>
+              <TableHead className="w-[20%] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
+                    onClick={() => handleSort('role')}
+                    data-testid="sort-role-button"
+                  >
                     <div className="flex items-center gap-2">
+                      Role
+                      {renderSortIcon('role')}
+                    </div>
+                  </Button>
+                  <Popover
+                    open={openFilters.role}
+                    onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, role: open }))}
+                  >
+                    <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
-                        onClick={() => handleSort('role')}
-                        data-testid="sort-role-button"
+                        size="icon"
+                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                        aria-label="Filter by role"
+                        data-testid="filter-role-button"
                       >
-                        <div className="flex items-center gap-2">
-                          Role
-                          {renderSortIcon('role')}
-                        </div>
+                        {renderFilterIcon('role')}
                       </Button>
-                      <Popover
-                        open={openFilters.role}
-                        onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, role: open }))}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-gray-100"
-                            aria-label="Filter by role"
-                            data-testid="filter-role-button"
-                          >
-                            {renderFilterIcon('role')}
-                          </Button>
-                        </PopoverTrigger>
-                        {renderRoleFilter()}
-                      </Popover>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[25%] px-4 py-3">
+                    </PopoverTrigger>
+                    {renderRoleFilter()}
+                  </Popover>
+                </div>
+              </TableHead>
+              <TableHead className="w-[25%] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
+                    onClick={() => handleSort('sent_on')}
+                    data-testid="sort-sent_on-button"
+                  >
                     <div className="flex items-center gap-2">
+                      Sent On
+                      {renderSortIcon('sent_on')}
+                    </div>
+                  </Button>
+                  <Popover
+                    open={openFilters.date}
+                    onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, date: open }))}
+                  >
+                    <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
-                        onClick={() => handleSort('sent_on')}
-                        data-testid="sort-sent_on-button"
+                        size="icon"
+                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                        aria-label="Filter by date"
+                        data-testid="filter-date-button"
                       >
-                        <div className="flex items-center gap-2">
-                          Sent On
-                          {renderSortIcon('sent_on')}
-                        </div>
+                        {renderFilterIcon('date')}
                       </Button>
-                      <Popover
-                        open={openFilters.date}
-                        onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, date: open }))}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-gray-100"
-                            aria-label="Filter by date"
-                            data-testid="filter-date-button"
+                    </PopoverTrigger>
+                    {renderDateFilter()}
+                  </Popover>
+                </div>
+              </TableHead>
+              <TableHead className="w-[10%] text-right font-medium text-base px-4 py-3">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAndSortedInvitations.map((invitation) => (
+              <TableRow key={invitation.id}>
+                <TableCell className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-gray-900">{invitation.invited_email}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  <div className="text-gray-700">{invitation.invited_role.name}</div>
+                </TableCell>
+                <TableCell className="px-4 py-3 text-gray-600">
+                  {invitation.invited_on &&
+                  Number.isFinite(new Date(invitation.invited_on).getTime())
+                    ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
+                    : '—'}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-right">
+                  {(canResendInvitation || canDeleteInvitation) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          data-testid={`invitation-actions-${invitation.id}`}
+                        >
+                          <MoreVertical className="h-4 w-4 text-gray-600" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canResendInvitation && (
+                          <DropdownMenuItem
+                            onClick={() => handleResendInvitation(invitation.id)}
+                            disabled={resendingId === invitation.id}
+                            data-testid={`resend-invitation-${invitation.id}`}
                           >
-                            {renderFilterIcon('date')}
-                          </Button>
-                        </PopoverTrigger>
-                        {renderDateFilter()}
-                      </Popover>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[10%] text-right font-medium text-base px-4 py-3">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedInvitations.map((invitation) => (
-                  <TableRow key={invitation.id}>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-gray-900">
-                          {invitation.invited_email}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="text-gray-700">{invitation.invited_role.name}</div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-600">
-                      {invitation.invited_on &&
-                      Number.isFinite(new Date(invitation.invited_on).getTime())
-                        ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-right">
-                      {(canResendInvitation || canDeleteInvitation) && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 p-0 hover:bg-gray-100"
-                              data-testid={`invitation-actions-${invitation.id}`}
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {canResendInvitation && (
-                              <DropdownMenuItem
-                                onClick={() => handleResendInvitation(invitation.id)}
-                                disabled={resendingId === invitation.id}
-                                data-testid={`resend-invitation-${invitation.id}`}
-                              >
-                                <Send className="h-4 w-4 mr-2" />
-                                {resendingId === invitation.id ? 'Resending...' : 'Resend'}
-                              </DropdownMenuItem>
-                            )}
-                            {canDeleteInvitation && (
-                              <DropdownMenuItem
-                                onClick={() => setDeleteInvitation(invitation.id)}
-                                className="text-destructive"
-                                data-testid={`delete-invitation-${invitation.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {filteredAndSortedInvitations.length === 0 && invitations && invitations.length > 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No invitations match the current filters.{' '}
-                <Button variant="link" onClick={clearAllFilters} className="p-0 h-auto">
-                  Clear all filters
-                </Button>
-              </div>
-            )}
-          </>
+                            <Send className="h-4 w-4 mr-2" />
+                            {resendingId === invitation.id ? 'Resending...' : 'Resend'}
+                          </DropdownMenuItem>
+                        )}
+                        {canDeleteInvitation && (
+                          <DropdownMenuItem
+                            onClick={() => setDeleteInvitation(invitation.id)}
+                            className="text-destructive"
+                            data-testid={`delete-invitation-${invitation.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {filteredAndSortedInvitations.length === 0 && invitations && invitations.length > 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            No invitations match the current filters.{' '}
+            <Button variant="link" onClick={clearAllFilters} className="p-0 h-auto">
+              Clear all filters
+            </Button>
+          </div>
         )}
       </div>
 

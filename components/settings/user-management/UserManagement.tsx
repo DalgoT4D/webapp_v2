@@ -90,13 +90,13 @@ export default function UserManagement() {
           </div>
         </div>
 
-        <div className="flex-1 w-full px-6 overflow-hidden min-h-0">
-          <TabsContent value="users" className="mt-0 h-full">
+        <div className="flex-1 w-full px-6 pb-6 overflow-y-auto min-h-0">
+          <TabsContent value="users" className="mt-0">
             <UsersTable />
           </TabsContent>
 
           {canViewInvitations && (
-            <TabsContent value="invitations" className="mt-0 h-full">
+            <TabsContent value="invitations" className="mt-0">
               <InvitationsTable />
             </TabsContent>
           )}
