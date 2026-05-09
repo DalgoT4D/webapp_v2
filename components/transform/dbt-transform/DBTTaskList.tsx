@@ -263,11 +263,9 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
           <Button
             onClick={onNewTask}
             size="sm"
-            variant="ghost"
+            variant="primary"
             disabled={!canCreateTask}
             data-testid="new-task-btn"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
           >
             <Plus className="h-4 w-4 mr-2" />
             NEW TASK
@@ -329,10 +327,9 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                               onClick={() => handleRunTask(task)}
                               disabled={!!runningTask || isAnyTaskLocked || !canRunTask}
                               size="sm"
-                              variant="ghost"
+                              variant="primary"
                               data-testid={`run-task-${task.uuid}`}
-                              className="text-white hover:opacity-90 shadow-xs min-w-[110px]"
-                              style={{ backgroundColor: 'var(--primary)' }}
+                              className="min-w-[110px]"
                             >
                               {isTaskRunning(task) ? (
                                 <>

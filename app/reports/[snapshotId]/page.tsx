@@ -16,7 +16,6 @@ import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { useAuthStore } from '@/stores/authStore';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -38,7 +37,6 @@ export default function SnapshotViewerPage() {
   const { hasPermission } = useUserPermissions();
   const canEdit = hasPermission('can_edit_dashboards');
   const canShare = hasPermission('can_share_dashboards');
-  const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser())?.email;
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
     isValidId ? parsedId : null
@@ -52,18 +50,24 @@ export default function SnapshotViewerPage() {
     title: viewData?.report_metadata.title || 'report',
   });
 
-  // Initialize summary draft when viewData loads (replaces state-during-render pattern)
+  // Sync summary draft when viewData loads or revalidates (only if user isn't editing)
   useEffect(() => {
-    if (!summaryTouched && viewData?.report_metadata.summary) {
-      setSummaryDraft(viewData.report_metadata.summary);
+    if (!summaryTouched) {
+      setSummaryDraft(viewData?.report_metadata.summary ?? '');
     }
   }, [viewData?.report_metadata.summary, summaryTouched]);
 
   const handleSave = useCallback(async () => {
+    const currentSummary = (viewData?.report_metadata.summary ?? '').trim();
+    if (summaryDraft.trim() === currentSummary) {
+      setSummaryTouched(false);
+      setIsEditingSummary(false);
+      return;
+    }
     setIsSaving(true);
     try {
       await updateSnapshot(parsedId, { summary: summaryDraft });
-      mutate();
+      await mutate();
       setSummaryTouched(false);
       setIsEditingSummary(false);
       toastSuccess.saved('Report');
@@ -72,7 +76,7 @@ export default function SnapshotViewerPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [parsedId, summaryDraft, mutate]);
+  }, [parsedId, summaryDraft, mutate, viewData?.report_metadata.summary]);
 
   if (!isValidId) {
     return (
@@ -174,7 +178,7 @@ export default function SnapshotViewerPage() {
                 <Download className="w-4 h-4" />
               )}
             </Button>
-            {canShare && currentUserEmail === report_metadata.created_by && (
+            {canShare && (
               <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
           </div>
@@ -229,7 +233,15 @@ export default function SnapshotViewerPage() {
                 </div>
               )}
 
-              <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
+              <div className="flex items-baseline gap-2 mb-2">
+                <h2 className="text-lg font-semibold">Executive Summary</h2>
+                {report_metadata.last_modified_by && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    Last updated by: {report_metadata.last_modified_by}
+                  </span>
+                )}
+              </div>
               <Textarea
                 data-testid="report-summary-textarea"
                 value={summaryDraft}
@@ -246,10 +258,8 @@ export default function SnapshotViewerPage() {
                 <div className="flex justify-end gap-2 mt-2">
                   <Button
                     data-testid="report-cancel-edit-btn"
-                    variant="ghost"
+                    variant="destructive"
                     size="sm"
-                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--destructive)' }}
                     onClick={() => {
                       setSummaryDraft(viewData?.report_metadata.summary || '');
                       setSummaryTouched(false);
@@ -261,10 +271,8 @@ export default function SnapshotViewerPage() {
                   </Button>
                   <Button
                     data-testid="report-save-btn"
-                    variant="ghost"
+                    variant="primary"
                     size="sm"
-                    className="text-white hover:text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
                     onClick={handleSave}
                     disabled={isSaving}
                   >

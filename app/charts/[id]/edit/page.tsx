@@ -1521,10 +1521,9 @@ function EditChartPageContent() {
             <Button
               data-testid="chart-edit-save-button"
               onClick={handleSave}
-              variant="ghost"
+              variant="primary"
               disabled={!isFormValid() || isMutating || isCreating}
-              className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="px-8 h-11"
             >
               {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
             </Button>
