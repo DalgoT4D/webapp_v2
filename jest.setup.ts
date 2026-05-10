@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
+// Polyfill structuredClone (jsdom does not provide it)
+if (typeof global.structuredClone === 'undefined') {
+  global.structuredClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+}
+
 // Polyfill TextEncoder/TextDecoder (required by jspdf/iobuffer)
 global.TextEncoder = TextEncoder;
 // @ts-expect-error - polyfilling globals
