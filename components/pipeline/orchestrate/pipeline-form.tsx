@@ -520,10 +520,10 @@ function OptionalSettings({ control }: { control: any }) {
         type="button"
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setOpen(!open)}
-        data-testid="optional-settings-toggle"
+        data-testid="advanced-settings-toggle"
       >
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`} />
-        Optional
+        Advanced
       </button>
       {open && (
         <div className="mt-2">

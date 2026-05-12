@@ -822,7 +822,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     // Checkbox is hidden behind Optional toggle
     expect(screen.queryByTestId('continue-on-sync-failure-checkbox')).not.toBeInTheDocument();
 
-    await user.click(screen.getByTestId('optional-settings-toggle'));
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
 
     const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
     expect(checkbox).toBeInTheDocument();
@@ -861,7 +861,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
 
     render(<PipelineForm deploymentId="test-dep" />);
 
-    await user.click(screen.getByTestId('optional-settings-toggle'));
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
 
     await waitFor(() => {
       const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
@@ -901,7 +901,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
 
     render(<PipelineForm deploymentId="old-dep" />);
 
-    await user.click(screen.getByTestId('optional-settings-toggle'));
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
 
     await waitFor(() => {
       const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
