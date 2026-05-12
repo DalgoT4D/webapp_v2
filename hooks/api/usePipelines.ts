@@ -138,6 +138,7 @@ export async function createPipeline(data: {
   connections: { id: string; seq: number }[];
   cron: string;
   transformTasks: { uuid: string; seq: number }[];
+  continueOnSyncFailure: boolean;
 }): Promise<{ name: string }> {
   return apiPost('/api/prefect/v1/flows/', data);
 }
@@ -152,6 +153,7 @@ export async function updatePipeline(
     connections: { id: string; seq: number }[];
     cron: string;
     transformTasks: { uuid: string; seq: number }[];
+    continueOnSyncFailure: boolean;
   }
 ): Promise<void> {
   return apiPut(`/api/prefect/v1/flows/${deploymentId}`, data);

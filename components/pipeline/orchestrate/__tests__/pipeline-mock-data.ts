@@ -89,6 +89,7 @@ export const mockPipelineDetail: PipelineDetailResponse = {
   name: 'Pipeline Detail',
   cron: '0 9 * * *',
   isScheduleActive: true,
+  continueOnSyncFailure: false,
   connections: [{ id: 'conn-1', name: 'Postgres Source', seq: 1 }],
   transformTasks: [
     { uuid: 'task-2', seq: 1 },
