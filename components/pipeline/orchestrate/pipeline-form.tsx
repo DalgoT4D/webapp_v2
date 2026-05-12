@@ -352,6 +352,9 @@ function PipelineFormContent({
             {/* Connections */}
             <div className="space-y-2">
               <Label className="text-[15px] font-medium">Connections</Label>
+              <p className="text-sm text-muted-foreground">
+                Connections are run in the sequence you select them.
+              </p>
               <Controller
                 name="connections"
                 control={control}
@@ -523,7 +526,7 @@ function OptionalSettings({ control }: { control: any }) {
         data-testid="advanced-settings-toggle"
       >
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`} />
-        Advanced
+        Advanced (optional)
       </button>
       {open && (
         <div className="mt-2">
@@ -544,8 +547,8 @@ function OptionalSettings({ control }: { control: any }) {
                     Continue syncing remaining connections if one fails
                   </Label>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    All syncs will be attempted even if some fail. In case of any errors, transform
-                    tasks will not run and the errors will be raised at the end.
+                    All connections will be attempted even if some fail. In case of any errors,
+                    transform tasks will not run and the errors will be raised at the end.
                   </p>
                 </div>
               </div>
