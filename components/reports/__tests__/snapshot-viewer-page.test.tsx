@@ -352,11 +352,16 @@ describe('SnapshotViewerPage', () => {
 
     it('shows success toast after successful save', async () => {
       const user = userEvent.setup();
-      (useReportsHook.updateSnapshot as jest.Mock).mockResolvedValue({ summary: 'test' });
+      (useReportsHook.updateSnapshot as jest.Mock).mockResolvedValue({
+        summary: 'Updated summary',
+      });
 
       renderPage();
 
       await user.click(screen.getByTestId('summary-edit-btn'));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await user.clear(textarea);
+      await user.type(textarea, 'Updated summary');
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -372,6 +377,9 @@ describe('SnapshotViewerPage', () => {
       renderPage();
 
       await user.click(screen.getByTestId('summary-edit-btn'));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await user.clear(textarea);
+      await user.type(textarea, 'Updated summary');
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
