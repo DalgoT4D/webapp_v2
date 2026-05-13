@@ -187,6 +187,7 @@ describe('Pipeline Mutation Functions', () => {
       connections: [{ id: 'conn-1', seq: 1 }],
       cron: '0 9 * * *',
       transformTasks: [{ uuid: 'task-1', seq: 1 }],
+      continueOnSyncFailure: false,
     });
     expect(apiPost).toHaveBeenCalledWith('/api/prefect/v1/flows/', expect.any(Object));
     expect(createResult.name).toBe('New Pipeline');
@@ -198,6 +199,7 @@ describe('Pipeline Mutation Functions', () => {
       connections: [],
       cron: '',
       transformTasks: [],
+      continueOnSyncFailure: true,
     });
     expect(apiPut).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id', expect.any(Object));
 
