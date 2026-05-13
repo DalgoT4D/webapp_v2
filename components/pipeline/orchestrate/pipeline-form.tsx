@@ -27,8 +27,8 @@ import type {
   ConnectionOption,
   WeekdayOption,
   PipelineDetailResponse,
-  Connection,
 } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { TaskSequence } from './task-sequence';
 import {
   convertToCronExpression,

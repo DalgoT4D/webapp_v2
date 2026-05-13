@@ -12,7 +12,8 @@ import { PipelineForm } from '../pipeline-form';
 import { TaskSequence } from '../task-sequence';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
-import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
@@ -112,13 +113,13 @@ const createConnection = (overrides: Partial<Connection> = {}): Connection => ({
   connectionId: 'conn-1',
   deploymentId: 'dep-1',
   catalogId: 'cat-1',
-  destination: { destinationId: 'dest-1', destinationName: 'Dest 1' },
-  source: { sourceId: 'src-1', sourceName: 'Source 1' },
+  destination: { destinationId: 'dest-1', name: 'Dest 1', destinationName: 'Dest 1' },
+  source: { sourceId: 'src-1', name: 'Source 1', sourceName: 'Source 1' },
   lock: null,
   lastRun: null,
   normalize: false,
   status: 'active',
-  syncCatalog: {},
+  syncCatalog: { streams: [] },
   resetConnDeploymentId: null,
   clearConnDeploymentId: null,
   queuedFlowRunWaitTime: null,

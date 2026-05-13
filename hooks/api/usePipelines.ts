@@ -3,12 +3,12 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
   Pipeline,
   TransformTask,
-  Connection,
   DeploymentRun,
   PipelineDetailResponse,
   TaskProgressResponse,
   DashboardPipeline,
 } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
   POLLING_INTERVAL_IDLE,
