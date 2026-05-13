@@ -254,12 +254,10 @@ export function StatisticsPane({ schema, table }: StatisticsPaneProps) {
 
         <div className="flex items-center" style={{ marginLeft: 'auto', marginRight: '16px' }}>
           <Button
-            variant="ghost"
+            variant="primary"
             size="sm"
             onClick={handleRefresh}
             disabled={isLoading}
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
             data-testid="refresh-stats-btn"
           >
             <RefreshCw className="h-4 w-4 mr-2" />

@@ -312,9 +312,8 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                     type="submit"
                     disabled={loading}
                     data-testid="save-git-btn"
-                    variant="ghost"
-                    className="w-full h-12 text-base font-semibold text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
+                    variant="primary"
+                    className="w-full h-12 text-base font-semibold"
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isConnected ? 'SAVE & UPDATE' : 'SAVE & CONNECT'}

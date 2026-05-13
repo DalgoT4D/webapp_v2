@@ -3,8 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useTransformStore } from '@/stores/transformStore';
@@ -138,18 +137,25 @@ export default function Transform() {
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full space-y-4 text-center">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Setup Failed</AlertTitle>
-              <AlertDescription>{setupError}</AlertDescription>
+          <div className="max-w-xl w-full space-y-6 text-center">
+            <Alert variant="warning" className="p-8 border-amber-200 bg-amber-50/50 shadow-sm">
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <TriangleAlert className="h-6 w-6 text-amber-600" />
+                  <AlertTitle className="text-xl font-bold text-amber-900 leading-none">
+                    Setup Failed
+                  </AlertTitle>
+                </div>
+                <AlertDescription className="text-sm text-amber-800 leading-relaxed">
+                  {setupError}
+                </AlertDescription>
+              </div>
             </Alert>
             <Button
               onClick={setupUnifiedWorkspace}
               disabled={setupLoading}
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="shadow-sm px-10 py-6 text-base font-semibold"
               data-testid="transform-setup-retry-btn"
             >
               {setupLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

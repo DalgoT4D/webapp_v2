@@ -308,9 +308,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
                 type="submit"
                 disabled={loading}
                 data-testid="save-task-btn"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
+                variant="primary"
               >
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {loading ? 'Saving...' : 'Save'}
