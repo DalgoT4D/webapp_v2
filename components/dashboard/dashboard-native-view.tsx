@@ -566,7 +566,7 @@ export function DashboardNativeView({
 
   // Render dashboard components (from active tab)
   const renderComponent = (componentId: string) => {
-    const components = currentTab?.components || dashboard?.components;
+    const components = currentTab?.components;
     if (!components) return null;
 
     const component = components[componentId];
@@ -1204,7 +1204,7 @@ export function DashboardNativeView({
 
                 {/* Show empty state if no layout config */}
                 {(() => {
-                  const activeLayout = currentTab?.layout_config || dashboard?.layout_config || [];
+                  const activeLayout = currentTab?.layout_config || [];
                   return activeLayout.length === 0 ? (
                     <div className="p-8 text-center text-gray-500">
                       <p className="text-lg mb-2">No Dashboard Components</p>
@@ -1217,9 +1217,7 @@ export function DashboardNativeView({
 
                 {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
                 {(() => {
-                  // Use active tab's layout, falling back to top-level dashboard layout
-                  const modifiedLayout =
-                    currentTab?.layout_config || dashboard?.layout_config || [];
+                  const modifiedLayout = currentTab?.layout_config || [];
 
                   return effectiveScreenSize !== targetScreenSize ? (
                     // Preview mode with different screen size - use responsive layout

@@ -15,7 +15,7 @@ export interface Dashboard {
   layout_config: any;
   responsive_layouts?: any; // Optional responsive layouts for different breakpoints
   components: any;
-  tabs?: DashboardTabData[];
+  tabs: DashboardTabData[];
   is_published: boolean;
   published_at?: string;
   is_locked: boolean;

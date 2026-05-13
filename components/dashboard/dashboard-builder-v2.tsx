@@ -871,8 +871,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           grid_columns: SCREEN_SIZES[targetScreenSize].cols,
           target_screen_size: targetScreenSize,
           filter_layout: filterLayout,
-          layout_config: JSON.parse(JSON.stringify(state.layout)), // Safe deep clone
-          components: JSON.parse(JSON.stringify(state.components)), // Safe deep clone
           tabs: JSON.parse(JSON.stringify(tabsWithLatestCanvas)), // Persist all tabs
           // filters removed - managed via separate API endpoints
           ...overrides, // Apply any overrides passed to the function
