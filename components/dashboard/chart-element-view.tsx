@@ -21,6 +21,7 @@ import {
   useChartDataPreview,
   useChartDataPreviewTotalRows,
   useMapDataOverlay,
+  transformMapDataOverlayPayload,
   useGeoJSONData,
   useRegions,
   useRegionGeoJSONs,
@@ -47,13 +48,17 @@ import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyPieDateFormatting,
   applyLineBarChartFormatting,
+  applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -877,8 +882,14 @@ export function ChartElementView({
   const geojsonLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
 
   // Fetch map data overlay - public vs private mode
+  // Apply same payload transformation as useMapDataOverlay (handles count, builds metrics)
+  const transformedPublicMapPayload = useMemo(
+    () => (isPublicMode ? transformMapDataOverlayPayload(mapDataOverlayPayload) : null),
+    [isPublicMode, mapDataOverlayPayload]
+  );
+
   const publicMapDataUrl =
-    isPublicMode && publicToken && mapDataOverlayPayload && isMapChart
+    isPublicMode && publicToken && transformedPublicMapPayload && isMapChart
       ? isPublicReport
         ? `/api/v1/public/reports/${publicToken}/map-data/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
@@ -890,11 +901,11 @@ export function ChartElementView({
     isLoading: publicMapLoading,
     mutate: mutatePublicMapData,
   } = useSWR(
-    publicMapDataUrl ? [publicMapDataUrl, JSON.stringify(mapDataOverlayPayload)] : null,
+    publicMapDataUrl ? [publicMapDataUrl, JSON.stringify(transformedPublicMapPayload)] : null,
     isPublicMode && isMapChart
       ? async (key: string | [string, string]) => {
           const url = Array.isArray(key) ? key[0] : key;
-          return apiPublicPost(url, mapDataOverlayPayload);
+          return apiPublicPost(url, transformedPublicMapPayload);
         }
       : null,
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
@@ -1402,11 +1413,19 @@ export function ChartElementView({
     // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
     if (isPieChart) {
       applyPieChartFormatting(styledConfig, customizations);
+      applyPieDateFormatting(styledConfig, customizations);
     }
 
-    // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
+    // Apply number/date formatting for line/bar charts (separate X-axis and Y-axis formatting)
     if (isLineChart || isBarChart) {
       applyLineBarChartFormatting(styledConfig, customizations);
+      applyLineBarDateFormatting(styledConfig, customizations);
+    }
+
+    // Apply stacked bar data labels (shows total at top of each stacked bar)
+    if (isBarChart) {
+      const stackedConfig = applyStackedBarLabels(styledConfig, customizations);
+      Object.assign(styledConfig, stackedConfig);
     }
 
     // Check DOM element dimensions before setting options
@@ -1723,76 +1742,69 @@ export function ChartElementView({
         }),
       }}
     >
-      {/* Chart toolbar - only visible on hover in view mode */}
-      {viewMode && (
-        <div
-          className={`absolute top-2 right-2 z-10 ${frozenChartConfig ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200`}
-        >
-          <div
-            className={`flex gap-1 ${frozenChartConfig ? '' : 'bg-white/90 backdrop-blur rounded-md shadow-sm p-1'}`}
-          >
-            {/* Download and fullscreen — hidden in report mode */}
-            {!frozenChartConfig && (
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
-                      <FileImage className="w-4 h-4 mr-2" />
-                      <span>Download as PNG</span>
-                    </DropdownMenuItem>
-                    {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
-                      <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
-                        <FileText className="w-4 h-4 mr-2" />
-                        <span>Export Data as CSV</span>
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleToggleFullscreen}
-                  className="h-7 w-7 p-0"
-                  title="Fullscreen"
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
+      {/* Chart toolbar - only visible on hover in view mode (non-report) */}
+      {viewMode && !frozenChartConfig && (
+        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                  <Download className="h-3.5 w-3.5" />
                 </Button>
-              </>
-            )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
+                  <FileImage className="w-4 h-4 mr-2" />
+                  <span>Download as PNG</span>
+                </DropdownMenuItem>
+                {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
+                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                    <FileText className="w-4 h-4 mr-2" />
+                    <span>Export Data as CSV</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            {/* Comment button — only in report mode */}
-            {frozenChartConfig && snapshotId && (
-              <CommentPopover
-                snapshotId={snapshotId}
-                targetType="chart"
-                chartId={chartId}
-                state={
-                  (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
-                  'none'
-                }
-                triggerClassName="h-7 w-7 p-0"
-                onStateChange={onCommentStateChange}
-                autoOpen={autoOpenCommentChartId === String(chartId)}
-              />
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleFullscreen}
+              className="h-7 w-7 p-0"
+              title="Fullscreen"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Chart Title - HTML title for better styling and interaction */}
-      <div className="px-2 pt-2 flex-shrink-0">
-        <ChartTitleEditor
-          chartData={frozenChartConfig || (isPublicMode ? effectiveChart : chartMetadata)}
-          config={config}
-          onTitleChange={() => {}} // Read-only in view mode
-          isEditMode={false}
-        />
+      {/* Chart title row — comment icon sits inline to prevent overlap in report mode */}
+      <div className="flex items-start gap-2 px-2 pt-2 flex-shrink-0">
+        <div className="flex-1 min-w-0">
+          <ChartTitleEditor
+            chartData={frozenChartConfig || (isPublicMode ? effectiveChart : chartMetadata)}
+            config={config}
+            onTitleChange={() => {}} // Read-only in view mode
+            isEditMode={false}
+          />
+        </div>
+        {frozenChartConfig && snapshotId && (
+          <div className="flex-shrink-0 mt-0.5">
+            <CommentPopover
+              snapshotId={snapshotId}
+              targetType="chart"
+              chartId={chartId}
+              state={
+                (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
+                'none'
+              }
+              triggerClassName="h-7 w-7 p-0"
+              onStateChange={onCommentStateChange}
+              autoOpen={autoOpenCommentChartId === String(chartId)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Drill-down navigation for maps */}
@@ -1859,8 +1871,9 @@ export function ChartElementView({
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
                 table_columns: tableData?.columns || [],
-                column_formatting:
-                  effectiveChart?.extra_config?.customizations?.columnFormatting || {},
+                column_formatting: mergeTableColumnFormatting(
+                  effectiveChart?.extra_config?.customizations
+                ),
                 sort: effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,

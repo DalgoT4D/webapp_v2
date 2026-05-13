@@ -38,7 +38,7 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -848,11 +848,14 @@ function ConfigureChartPageContent() {
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
         layers: formData.layers,
-        // For table charts: only send columnFormatting to API
+        // For table charts: send columnFormatting and dateColumnFormatting to API
         // For all other charts (including number): send all customizations
         customizations:
           formData.chart_type === 'table'
-            ? { columnFormatting: formData.customizations?.columnFormatting }
+            ? {
+                columnFormatting: formData.customizations?.columnFormatting,
+                dateColumnFormatting: formData.customizations?.dateColumnFormatting,
+              }
             : formData.customizations,
         filters: formData.filters,
         pagination: formData.pagination,
@@ -986,10 +989,9 @@ function ConfigureChartPageContent() {
           <div className="flex items-center gap-4">
             <Button
               onClick={handleSave}
-              variant="ghost"
+              variant="primary"
               disabled={!isFormValid() || isMutating}
-              className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="px-8 h-11"
             >
               {isMutating ? 'Saving...' : 'Save Chart'}
             </Button>
@@ -1127,7 +1129,7 @@ function ConfigureChartPageContent() {
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
                             table_columns: tableChartData?.columns || formData.table_columns || [],
-                            column_formatting: formData.customizations?.columnFormatting || {},
+                            column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                           }}

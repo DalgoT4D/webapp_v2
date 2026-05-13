@@ -136,12 +136,10 @@ export function PreviewPane({
         {schema}.{table}
       </h2>
       <Button
-        variant="ghost"
+        variant="primary"
         size="sm"
         onClick={handleDownload}
         disabled={downloading || isLoading}
-        className="text-white hover:opacity-90 shadow-xs"
-        style={{ backgroundColor: 'var(--primary)' }}
         data-testid="download-csv-btn"
       >
         {downloading ? (
@@ -180,16 +178,23 @@ export function PreviewPane({
                   onClick={() => handleSort(col.name)}
                   data-testid={`sort-header-${col.name}`}
                 >
-                  <div className="flex items-center gap-2 py-1">
-                    {col.name}
-                    {sortConfig.column === col.name ? (
-                      sortConfig.order === -1 ? (
-                        <ArrowDown className="h-4 w-4 text-gray-600" />
+                  <div className="flex flex-col py-1">
+                    <div className="flex items-center gap-2">
+                      {col.name}
+                      {sortConfig.column === col.name ? (
+                        sortConfig.order === -1 ? (
+                          <ArrowDown className="h-4 w-4 text-gray-600" />
+                        ) : (
+                          <ArrowUp className="h-4 w-4 text-gray-600" />
+                        )
                       ) : (
-                        <ArrowUp className="h-4 w-4 text-gray-600" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-4 w-4 text-gray-400" />
+                        <ArrowUpDown className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
+                    {col.data_type && (
+                      <span className="text-xs font-normal text-gray-500 lowercase">
+                        {col.data_type}
+                      </span>
                     )}
                   </div>
                 </TableHead>

@@ -25,7 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,15 +33,16 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUsers, useRoles, useUserActions } from '@/hooks/api/useUserManagement';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  MoreHorizontal,
+  MoreVertical,
   User,
-  Info,
   Save,
   X,
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
   Filter,
+  Edit,
+  Trash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DeleteUserDialog } from './DeleteUserDialog';
@@ -291,199 +291,188 @@ export function UsersTable() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="border rounded-lg bg-white overflow-hidden p-6">
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Users
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
-                      management
-                    </div>
-                    <div>
-                      <strong>Pipeline Manager:</strong> Org team member responsible for creating
-                      pipelines & DBT models
-                    </div>
-                    <div>
-                      <strong>Analyst:</strong> M&E team member working on transformation models
-                    </div>
-                    <div>
-                      <strong>Guest:</strong> Able to view the platform and usage dashboard
-                    </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead className="w-[50%]">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
-                      onClick={() => handleSort('email')}
-                    >
-                      <div className="flex items-center gap-2">
-                        Email
-                        {renderSortIcon('email')}
-                      </div>
-                    </Button>
-                    <Popover
-                      open={openFilters.email}
-                      onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, email: open }))}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 hover:bg-gray-100"
-                        >
-                          {renderFilterIcon('email')}
-                        </Button>
-                      </PopoverTrigger>
-                      {renderEmailFilter()}
-                    </Popover>
-                  </div>
-                </TableHead>
-                <TableHead className="w-[30%]">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
-                      onClick={() => handleSort('role')}
-                    >
-                      <div className="flex items-center gap-2">
-                        Role
-                        {renderSortIcon('role')}
-                      </div>
-                    </Button>
-                    <Popover
-                      open={openFilters.role}
-                      onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, role: open }))}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 hover:bg-gray-100"
-                        >
-                          {renderFilterIcon('role')}
-                        </Button>
-                      </PopoverTrigger>
-                      {renderRoleFilter()}
-                    </Popover>
-                  </div>
-                </TableHead>
-                <TableHead className="w-[20%] text-right font-medium text-base">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAndSortedUsers.map((user) => (
-                <TableRow key={user.email}>
-                  <TableCell>
+      <div className="border rounded-lg bg-white">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-white">
+            <TableRow className="bg-gray-50">
+              <TableHead className="w-[45%] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                    onClick={() => handleSort('email')}
+                    data-testid="sort-email-button"
+                  >
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{user.email}</span>
+                      Email
+                      {renderSortIcon('email')}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {editingUser === user.email ? (
-                      <div className="flex items-center gap-2">
-                        <Select value={selectedRole} onValueChange={setSelectedRole}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roles?.map((role) => (
-                              <SelectItem key={role.uuid} value={role.uuid}>
-                                {role.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button size="sm" onClick={handleSaveRole} disabled={isUpdating}>
-                          <Save className="h-4 w-4" />
-                        </Button>
+                  </Button>
+                  <Popover
+                    open={openFilters.email}
+                    onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, email: open }))}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                        aria-label="Filter by email"
+                        data-testid="filter-email-button"
+                      >
+                        {renderFilterIcon('email')}
+                      </Button>
+                    </PopoverTrigger>
+                    {renderEmailFilter()}
+                  </Popover>
+                </div>
+              </TableHead>
+              <TableHead className="w-[45%] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-auto p-0 font-medium text-base hover:bg-transparent  justify-start"
+                    onClick={() => handleSort('role')}
+                    data-testid="sort-role-button"
+                  >
+                    <div className="flex items-center gap-2">
+                      Role
+                      {renderSortIcon('role')}
+                    </div>
+                  </Button>
+                  <Popover
+                    open={openFilters.role}
+                    onOpenChange={(open) => setOpenFilters((prev) => ({ ...prev, role: open }))}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                        aria-label="Filter by role"
+                        data-testid="filter-role-button"
+                      >
+                        {renderFilterIcon('role')}
+                      </Button>
+                    </PopoverTrigger>
+                    {renderRoleFilter()}
+                  </Popover>
+                </div>
+              </TableHead>
+              <TableHead className="w-[10%] font-medium text-base px-4 py-3">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAndSortedUsers.map((user) => (
+              <TableRow key={user.email}>
+                <TableCell className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-gray-900">{user.email}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  {editingUser === user.email ? (
+                    <div className="flex items-center gap-2">
+                      <Select value={selectedRole} onValueChange={setSelectedRole}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles?.map((role) => (
+                            <SelectItem key={role.uuid} value={role.uuid}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" onClick={handleSaveRole} disabled={isUpdating}>
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                        disabled={isUpdating}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-gray-700">{formatRoleName(user.new_role_slug)}</div>
+                  )}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-start">
+                  {user.email !== currentUser?.email && (canEditUser || canDeleteUser) ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleCancelEdit}
-                          disabled={isUpdating}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          data-testid={`user-actions-${user.email}`}
                         >
-                          <X className="h-4 w-4" />
+                          <MoreVertical className="h-4 w-4 text-gray-600" />
                         </Button>
-                      </div>
-                    ) : (
-                      <Badge variant="secondary">{formatRoleName(user.new_role_slug)}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {user.email !== currentUser?.email && (canEditUser || canDeleteUser) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {canEditUser && (
-                            <DropdownMenuItem
-                              onClick={() => handleEditRole(user.email, user.new_role_slug)}
-                            >
-                              Edit Role
-                            </DropdownMenuItem>
-                          )}
-                          {canDeleteUser && (
-                            <DropdownMenuItem
-                              onClick={() => setDeleteUser(user.email)}
-                              className="text-destructive"
-                            >
-                              Delete User
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredAndSortedUsers.length === 0 && users && users.length > 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No users match the current filters.{' '}
-              <Button variant="link" onClick={clearAllFilters} className="p-0 h-auto">
-                Clear all filters
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEditUser && (
+                          <DropdownMenuItem
+                            onClick={() => handleEditRole(user.email, user.new_role_slug)}
+                            className="cursor-pointer"
+                            data-testid={`edit-role-menu-item-${user.email}`}
+                          >
+                            <Edit className="w-4 h-4 text-gray-600" /> Edit Role
+                          </DropdownMenuItem>
+                        )}
+                        {canDeleteUser && (
+                          <DropdownMenuItem
+                            onClick={() => setDeleteUser(user.email)}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                            data-testid={`delete-user-menu-item-${user.email}`}
+                          >
+                            <Trash className="w-4 h-4" />
+                            Delete User
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <span className="inline-block cursor-not-allowed">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled
+                        className="h-8 w-8 p-0 opacity-40 pointer-events-none"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {filteredAndSortedUsers.length === 0 && users && users.length > 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            No users match the current filters.{' '}
+            <Button variant="link" onClick={clearAllFilters} className="p-0 h-auto">
+              Clear all filters
+            </Button>
+          </div>
+        )}
+      </div>
 
       <DeleteUserDialog
         open={!!deleteUser}

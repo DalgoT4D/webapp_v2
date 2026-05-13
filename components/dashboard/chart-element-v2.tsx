@@ -24,6 +24,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -46,8 +47,11 @@ import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
+  applyPieDateFormatting,
   applyLineBarChartFormatting,
+  applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1010,11 +1014,19 @@ export function ChartElementV2({
       // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
       if (isPieChart) {
         applyPieChartFormatting(modifiedConfig, customizations);
+        applyPieDateFormatting(modifiedConfig, customizations);
       }
 
       // Apply number formatting for line/bar charts (separate X-axis and Y-axis formatting)
       if (isLineChart || isBarChart) {
         applyLineBarChartFormatting(modifiedConfig, customizations);
+        applyLineBarDateFormatting(modifiedConfig, customizations);
+      }
+
+      // Apply stacked bar data labels (shows total at top of each stacked bar)
+      if (isBarChart) {
+        const stackedConfig = applyStackedBarLabels(modifiedConfig, customizations);
+        Object.assign(modifiedConfig, stackedConfig);
       }
 
       // Set chart option with animation disabled for better performance
@@ -1279,8 +1291,9 @@ export function ChartElementV2({
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
                       table_columns: tableData?.columns || [],
-                      column_formatting:
-                        chart?.extra_config?.customizations?.columnFormatting || {},
+                      column_formatting: mergeTableColumnFormatting(
+                        chart?.extra_config?.customizations
+                      ),
                       sort: chart?.extra_config?.sort || [],
                       pagination: chart?.extra_config?.pagination || {
                         enabled: true,

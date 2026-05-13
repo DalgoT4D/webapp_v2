@@ -41,6 +41,7 @@ export interface ReportMetadata {
   created_at: string;
   updated_at: string;
   created_by?: string;
+  last_modified_by?: string;
   dashboard_title: string;
   dashboard_id?: number;
 }
@@ -62,9 +63,9 @@ export interface DiscoveredDatetimeColumn {
 export interface CreateSnapshotPayload {
   title: string;
   dashboard_id: number;
-  date_column: DateColumn;
+  date_column?: DateColumn;
   period_start?: string;
-  period_end: string;
+  period_end?: string;
   description?: string;
 }
 

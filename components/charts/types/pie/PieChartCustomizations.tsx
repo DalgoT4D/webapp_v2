@@ -10,19 +10,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { NumberFormat } from '@/lib/formatters';
+import type { NumberFormat, DateFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
+import { DateFormatSection } from '../shared/DateFormatSection';
 
 interface PieChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
+  hasDimensionDate?: boolean;
+  dimensionColumn?: string;
 }
 
 export function PieChartCustomizations({
   customizations,
   updateCustomization,
   disabled,
+  hasDimensionDate = false,
+  dimensionColumn,
 }: PieChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -206,7 +211,7 @@ export function PieChartCustomizations({
       </div>
 
       {/* Number Formatting */}
-      <div className="space-y-4">
+      <div className={`space-y-4 ${hasDimensionDate ? 'pb-4 border-b' : ''}`}>
         <h4 className="text-sm font-medium">Number Formatting</h4>
 
         <NumberFormatSection
@@ -218,6 +223,25 @@ export function PieChartCustomizations({
           disabled={disabled}
         />
       </div>
+
+      {/* Date Formatting - only shown when dimension column is a date type */}
+      {hasDimensionDate && (
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium">Date Formatting</h4>
+          {dimensionColumn && (
+            <p className="text-xs text-muted-foreground">
+              Format dates in slice labels ({dimensionColumn})
+            </p>
+          )}
+
+          <DateFormatSection
+            idPrefix="pie"
+            dateFormat={customizations.dateFormat as DateFormat}
+            onDateFormatChange={(value) => updateCustomization('dateFormat', value)}
+            disabled={disabled}
+          />
+        </div>
+      )}
     </div>
   );
 }

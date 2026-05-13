@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -28,8 +27,8 @@ import type {
   ConnectionOption,
   WeekdayOption,
   PipelineDetailResponse,
-  Connection,
 } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { TaskSequence } from './task-sequence';
 import {
   convertToCronExpression,
@@ -48,7 +47,7 @@ interface PipelineFormProps {
 // Wrapper component that handles data fetching
 export function PipelineForm({ deploymentId }: PipelineFormProps) {
   const { pipeline, isLoading: pipelineLoading } = usePipeline(deploymentId || null);
-  const { tasks, isLoading: tasksLoading } = useTransformTasks();
+  const { tasks, isLoading: tasksLoading } = useTransformTasks(true);
   const { connections, isLoading: connectionsLoading } = useConnections();
 
   const isLoading = pipelineLoading || tasksLoading || connectionsLoading;
@@ -82,7 +81,7 @@ interface PipelineFormContentProps {
 function computeInitialValues(
   pipeline: PipelineDetailResponse | undefined,
   tasks: TransformTask[]
-): { formValues: PipelineFormData; initialAlignment: 'simple' | 'advanced' } {
+): { formValues: PipelineFormData; runTransformTasks: boolean } {
   if (!pipeline) {
     // Create mode - use defaults
     return {
@@ -94,41 +93,24 @@ function computeInitialValues(
         tasks: [],
         cronDaysOfWeek: [],
         cronTimeOfDay: '',
+        continueOnSyncFailure: false,
       },
-      initialAlignment: 'simple',
+      runTransformTasks: false,
     };
   }
 
   // Edit mode - compute values from pipeline
   let tasksToApply: TransformTask[] = [];
-  let alignment: 'simple' | 'advanced' = 'simple';
 
-  if (tasks.length > 0) {
-    if (pipeline.transformTasks.length === 0) {
-      tasksToApply = [];
-    } else {
-      tasksToApply = tasks.filter(validateDefaultTasksToApplyInPipeline);
+  if (tasks.length > 0 && pipeline.transformTasks.length > 0) {
+    const uuidOrder = pipeline.transformTasks.reduce((acc: Record<string, number>, obj) => {
+      acc[obj.uuid] = obj.seq;
+      return acc;
+    }, {});
 
-      const ifTasksAligned =
-        tasksToApply.length > 0 &&
-        tasksToApply.length === pipeline.transformTasks.length &&
-        pipeline.transformTasks.every(
-          (task, index) => tasksToApply[index] && task.uuid === tasksToApply[index].uuid
-        );
-
-      if (!ifTasksAligned) {
-        const uuidOrder = pipeline.transformTasks.reduce((acc: Record<string, number>, obj) => {
-          acc[obj.uuid] = obj.seq;
-          return acc;
-        }, {});
-
-        tasksToApply = tasks
-          .filter((t) => uuidOrder.hasOwnProperty(t.uuid))
-          .sort((a, b) => uuidOrder[a.uuid] - uuidOrder[b.uuid]);
-
-        alignment = 'advanced';
-      }
-    }
+    tasksToApply = tasks
+      .filter((t) => uuidOrder.hasOwnProperty(t.uuid))
+      .sort((a, b) => uuidOrder[a.uuid] - uuidOrder[b.uuid]);
   }
 
   const cronObject = convertCronToSchedule(pipeline.cron);
@@ -153,8 +135,9 @@ function computeInitialValues(
         label: WEEKDAYS[day],
       })),
       cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
+      continueOnSyncFailure: pipeline.continueOnSyncFailure ?? false,
     },
-    initialAlignment: alignment,
+    runTransformTasks: tasksToApply.length > 0,
   };
 }
 
@@ -169,14 +152,14 @@ function PipelineFormContent({
   const isEditMode = !!deploymentId;
 
   // Compute initial values once when component mounts
-  const { formValues: initialValues, initialAlignment } = useMemo(
+  const { formValues: initialValues, runTransformTasks: initialRunTransformTasks } = useMemo(
     () => computeInitialValues(pipeline, tasks),
     // Only compute once on mount - pipeline and tasks won't change
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
-  const [alignment, setAlignment] = useState<'simple' | 'advanced'>(initialAlignment);
+  const [runTransformTasks, setRunTransformTasks] = useState(initialRunTransformTasks);
   const [submitting, setSubmitting] = useState(false);
 
   // Store the original active value to compare against for dirty checking
@@ -219,13 +202,18 @@ function PipelineFormContent({
     }));
   }, []);
 
-  const handleAlignmentChange = (newAlignment: string) => {
-    if (!newAlignment) return;
-    if (newAlignment === 'simple') {
-      setValue('tasks', []);
-    }
-    setAlignment(newAlignment as 'simple' | 'advanced');
-  };
+  const handleRunTransformTasksChange = useCallback(
+    (checked: boolean) => {
+      setRunTransformTasks(checked);
+      if (checked) {
+        // Pre-populate with default system tasks
+        setValue('tasks', tasks.filter(validateDefaultTasksToApplyInPipeline));
+      } else {
+        setValue('tasks', []);
+      }
+    },
+    [setValue, tasks]
+  );
 
   const handleCancel = () => {
     router.push('/orchestrate');
@@ -257,6 +245,7 @@ function PipelineFormContent({
           connections: selectedConns,
           cron: cronExpression,
           transformTasks,
+          continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
         // Update schedule status if changed - compare against original value
@@ -288,6 +277,7 @@ function PipelineFormContent({
           connections: selectedConns,
           cron: cronExpression,
           transformTasks,
+          continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
         toastSuccess.created('Pipeline');
@@ -312,14 +302,7 @@ function PipelineFormContent({
           <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button
-            type="submit"
-            variant="ghost"
-            disabled={submitting}
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            data-testid="submit-btn"
-          >
+          <Button type="submit" variant="primary" disabled={submitting} data-testid="submit-btn">
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
@@ -369,6 +352,9 @@ function PipelineFormContent({
             {/* Connections */}
             <div className="space-y-2">
               <Label className="text-[15px] font-medium">Connections</Label>
+              <p className="text-sm text-muted-foreground">
+                Connections are run in the sequence you select them.
+              </p>
               <Controller
                 name="connections"
                 control={control}
@@ -392,65 +378,40 @@ function PipelineFormContent({
                   />
                 )}
               />
+              <OptionalSettings control={control} />
             </div>
 
             {/* Transform tasks */}
             <div className="space-y-3">
-              <Label className="text-[15px] font-medium">Transform Tasks</Label>
-              <div className="flex items-center gap-3">
-                <ToggleGroup
-                  type="single"
-                  value={alignment}
-                  onValueChange={handleAlignmentChange}
-                  data-testid="task-mode-toggle"
-                >
-                  <ToggleGroupItem
-                    value="simple"
-                    className="text-[14px]"
-                    data-testid="simple-mode-btn"
-                  >
-                    Simple
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="advanced"
-                    className="text-[14px]"
-                    data-testid="advanced-mode-btn"
-                  >
-                    Advanced
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <span className="text-sm text-gray-500">
-                  You can create custom tasks from the transformation page
-                </span>
+              <div>
+                <Label className="text-[15px] font-medium">Transform Tasks</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Git pull/clone, dbt clean, and dbt deps will run automatically (in that order)
+                  before your transformation tasks.
+                </p>
               </div>
 
-              <Controller
-                name="tasks"
-                control={control}
-                render={({ field }) =>
-                  alignment === 'simple' ? (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="run-all-tasks"
-                        data-testid="run-all-tasks-checkbox"
-                        checked={field.value.length > 0}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            field.onChange(tasks.filter(validateDefaultTasksToApplyInPipeline));
-                          } else {
-                            field.onChange([]);
-                          }
-                        }}
-                      />
-                      <Label htmlFor="run-all-tasks" className="text-[15px]">
-                        Run all tasks
-                      </Label>
-                    </div>
-                  ) : (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="run-transform-tasks"
+                  data-testid="run-transform-tasks-checkbox"
+                  checked={runTransformTasks}
+                  onCheckedChange={(checked) => handleRunTransformTasksChange(checked as boolean)}
+                />
+                <Label htmlFor="run-transform-tasks" className="text-[15px]">
+                  Run transform tasks
+                </Label>
+              </div>
+
+              {runTransformTasks && (
+                <Controller
+                  name="tasks"
+                  control={control}
+                  render={({ field }) => (
                     <TaskSequence value={field.value} onChange={field.onChange} options={tasks} />
-                  )
-                }
-              />
+                  )}
+                />
+              )}
             </div>
           </div>
 
@@ -550,6 +511,52 @@ function PipelineFormContent({
         </div>
       </div>
     </form>
+  );
+}
+
+function OptionalSettings({ control }: { control: any }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setOpen(!open)}
+        data-testid="advanced-settings-toggle"
+      >
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`} />
+        Advanced (optional)
+      </button>
+      {open && (
+        <div className="mt-2">
+          <Controller
+            name="continueOnSyncFailure"
+            control={control}
+            render={({ field }) => (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="continue-on-sync-failure"
+                  data-testid="continue-on-sync-failure-checkbox"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="mt-0.5"
+                />
+                <div>
+                  <Label htmlFor="continue-on-sync-failure" className="text-sm">
+                    Continue syncing remaining connections if one fails
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    All connections will be attempted even if some fail. In case of any errors,
+                    transform tasks will not run and the errors will be raised at the end.
+                  </p>
+                </div>
+              </div>
+            )}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

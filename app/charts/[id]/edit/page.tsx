@@ -35,7 +35,7 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -1521,10 +1521,9 @@ function EditChartPageContent() {
             <Button
               data-testid="chart-edit-save-button"
               onClick={handleSave}
-              variant="ghost"
+              variant="primary"
               disabled={!isFormValid() || isMutating || isCreating}
-              className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="px-8 h-11"
             >
               {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
             </Button>
@@ -1682,7 +1681,7 @@ function EditChartPageContent() {
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
                             table_columns: tableChartData?.columns || formData.table_columns,
-                            column_formatting: formData.customizations?.columnFormatting || {},
+                            column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                           }}

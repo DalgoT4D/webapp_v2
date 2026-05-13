@@ -11,11 +11,11 @@ import { makeReadable, getFlowRunStartedBy, calculateDuration } from '../utils';
 import {
   DEFAULT_LOAD_MORE_LIMIT,
   FLOW_RUN_LOGS_OFFSET_LIMIT,
-  ENABLE_LOG_SUMMARIES,
   FlowRunStatus,
   FlowRunStateName,
   PipelineRunDisplayStatus,
 } from '@/constants/pipeline';
+import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { apiGet } from '@/lib/api';
 
 interface PipelineRunHistoryProps {
@@ -38,6 +38,8 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
   const [allRuns, setAllRuns] = useState<DeploymentRun[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const { isFeatureFlagEnabled } = useFeatureFlags();
+  const enableAISummary = isFeatureFlagEnabled(FeatureFlagKeys.LOG_SUMMARIZATION);
 
   const { runs, isLoading } = usePipelineHistory(
     open ? pipeline.deploymentId : null,
@@ -199,7 +201,7 @@ export function PipelineRunHistory({ pipeline, open, onOpenChange }: PipelineRun
           onLoadMore={loadMore}
           onFetchLogs={handleFetchLogs}
           onStartSummary={handleStartSummary}
-          enableAISummary={ENABLE_LOG_SUMMARIES}
+          enableAISummary={enableAISummary}
         />
       )}
     </FullScreenModal>
