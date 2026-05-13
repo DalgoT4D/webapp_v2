@@ -71,6 +71,7 @@ export default function CreateDashboardPage() {
           grid_columns: dashboard.grid_columns || 12,
           layout_config: dashboard.layout_config || [],
           components: dashboard.components || {},
+          tabs: dashboard.tabs || [],
         });
 
         toastSuccess.created('Dashboard');
