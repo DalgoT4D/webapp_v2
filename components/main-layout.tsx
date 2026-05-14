@@ -97,16 +97,6 @@ const getNavItems = (
   // Build dashboard children based on feature flags AND Superset setup
   const dashboardChildren: NavItemType[] = [];
 
-  // Add Usage Dashboard if BOTH feature flag is enabled AND org has Superset setup
-  if (isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup) {
-    dashboardChildren.push({
-      title: 'Superset Usage',
-      href: '/dashboards/usage',
-      icon: BarChart3,
-      isActive: currentPath === '/dashboards/usage',
-    });
-  }
-
   const allNavItems: NavItemType[] = [
     {
       title: 'Impact',
@@ -130,10 +120,7 @@ const getNavItems = (
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
-      isActive:
-        currentPath === '/dashboards' ||
-        (currentPath.startsWith('/dashboards/') && !currentPath.startsWith('/dashboards/usage')),
-      children: dashboardChildren.length > 0 ? dashboardChildren : undefined,
+      isActive: currentPath === '/dashboards' || currentPath.startsWith('/dashboards/'),
     },
     {
       title: 'Reports',
@@ -219,6 +206,16 @@ const getNavItems = (
           icon: Info,
           isActive: currentPath.startsWith('/settings/about'),
         },
+        ...(isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup
+          ? [
+              {
+                title: 'Superset Usage',
+                href: '/dashboards/usage',
+                icon: BarChart3,
+                isActive: currentPath === '/dashboards/usage',
+              },
+            ]
+          : []),
       ],
     },
   ];
@@ -263,9 +260,6 @@ function CollapsedNavItem({
             }}
             className={cn(
               'flex items-center justify-center w-full p-3 rounded-lg hover:bg-[#0066FF]/3 hover:text-[#002B5C] transition-colors group',
-              // Border hints a parent has a submenu. Drop it once its submenu is open (children
-              // render below) — otherwise parent + highlighted child look like two selected items.
-              hasChildren && !isSubmenuExpanded && 'border border-border',
               active && 'bg-[#0066FF]/10 text-[#002B5C] font-bold'
             )}
           >
@@ -348,6 +342,7 @@ function ExpandedNavItem({
                     'flex-shrink-0',
                     child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
                   )}
+                  style={{ strokeWidth: 1.5 }}
                 />
                 <span>{child.title}</span>
               </Link>
@@ -442,6 +437,7 @@ function MobileNavItem({
                     'flex-shrink-0',
                     child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
                   )}
+                  style={{ strokeWidth: 1.5 }}
                 />
                 <span className="text-sm">{child.title}</span>
               </Link>
@@ -593,29 +589,23 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   // manually toggled), render its children as icons directly beneath it.
                   navItems
                     .filter((item) => !item.hide)
-                    .map((item, index) => {
+                    .flatMap((item, index) => {
                       const visibleChildren = item.children?.filter((c) => !c.hide) || [];
-                      const expanded = getMenuExpanded(item);
-                      const showChildren = expanded && visibleChildren.length > 0;
-                      return (
-                        <div key={`${item.href}-${index}`} className="space-y-1">
-                          <CollapsedNavItem
-                            item={item}
-                            isSubmenuExpanded={expanded}
-                            onExpandSidebar={() => {
-                              setIsSidebarCollapsed(false);
-                              setHasUserToggledSidebar(true);
-                            }}
-                          />
-                          {showChildren && (
-                            <div className="space-y-1">
-                              {visibleChildren.map((child, cIdx) => (
-                                <CollapsedNavItem key={`${child.href}-${cIdx}`} item={child} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
+                      if (visibleChildren.length > 0) {
+                        return visibleChildren.map((child, cIdx) => (
+                          <CollapsedNavItem key={`${child.href}-${cIdx}`} item={child} />
+                        ));
+                      }
+                      return [
+                        <CollapsedNavItem
+                          key={`${item.href}-${index}`}
+                          item={item}
+                          onExpandSidebar={() => {
+                            setIsSidebarCollapsed(false);
+                            setHasUserToggledSidebar(true);
+                          }}
+                        />,
+                      ];
                     })
                 : // Expanded: hierarchical; submenu auto-opens on subtree entry, stays until the
                   // user closes it via the chevron.
