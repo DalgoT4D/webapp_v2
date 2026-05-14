@@ -1,6 +1,7 @@
 'use client';
 
 import Script from 'next/script';
+import * as Sentry from '@sentry/nextjs';
 import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -16,6 +17,9 @@ export function PendoScript() {
       if (pendoInitialized) {
         setPendoInitialized(false);
         previousOrgSlugRef.current = null;
+
+        // Clear Sentry user context on logout
+        Sentry.setUser(null);
 
         // Call Pendo's reset method if available to clear session data
         if (
@@ -52,6 +56,9 @@ export function PendoScript() {
       id: currentOrg.slug, // Organization slug as account ID
       name: currentOrg.name,
     };
+
+    // Set Sentry user context for error tracking
+    Sentry.setUser({ email: currentOrgUser.email });
 
     // First time: Initialize Pendo
     if (!pendoInitialized) {
