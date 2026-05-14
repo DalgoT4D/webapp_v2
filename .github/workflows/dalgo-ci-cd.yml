@@ -113,8 +113,8 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN }}" ] && MISSING="$MISSING NEXT_PUBLIC_USAGE_DASHBOARD_DOMAIN"
           [ -z "${{ secrets.NEXT_PUBLIC_PENDO_API_KEY }}" ] && MISSING="$MISSING NEXT_PUBLIC_PENDO_API_KEY"
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
-          [ -z "${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}" ] && MISSING="$MISSING NEXT_PUBLIC_SENTRY_DSN"
-          [ -z "${{ secrets.SENTRY_AUTH_TOKEN }}" ] && MISSING="$MISSING SENTRY_AUTH_TOKEN"
+          # Sentry vars intentionally not validated on staging — missing values cause Sentry to no-op
+          # rather than failing the deploy. They're only enforced on production.
           if [ -n "$MISSING" ]; then
             echo "Error: Missing GitHub secrets:$MISSING"
             exit 1
