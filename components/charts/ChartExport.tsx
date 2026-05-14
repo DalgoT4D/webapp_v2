@@ -18,6 +18,7 @@ import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { toastSuccess, toastError } from '@/lib/toast';
 import * as echarts from 'echarts';
+import posthog from 'posthog-js';
 
 interface ChartExportProps {
   chartId: number;
@@ -66,6 +67,11 @@ export default function ChartExport({
           backgroundColor: '#ffffff',
         });
 
+        posthog.capture('chart_exported', {
+          chart_id: chartId,
+          chart_title: chartTitle,
+          format: selectedFormat,
+        });
         toastSuccess.exported(chartTitle, selectedFormat);
         setIsOpen(false);
         return;
@@ -102,6 +108,11 @@ export default function ChartExport({
 
           chart.dispose();
 
+          posthog.capture('chart_exported', {
+            chart_id: chartId,
+            chart_title: chartTitle,
+            format: selectedFormat,
+          });
           toastSuccess.exported(chartTitle, selectedFormat);
         } finally {
           if (tempDiv.parentNode) {
@@ -115,6 +126,7 @@ export default function ChartExport({
       setIsOpen(false);
     } catch (error: any) {
       console.error('Export failed:', error);
+      posthog.captureException(error);
       toastError.export(error, selectedFormat);
     }
   };

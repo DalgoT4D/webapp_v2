@@ -51,6 +51,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.522.0",
     "next": "15.2.8",
+    "posthog-js": "^1.373.4",
     "react": "^19.0.0",
     "react-arborist": "^3.4.3",
     "react-day-picker": "^9.6.7",

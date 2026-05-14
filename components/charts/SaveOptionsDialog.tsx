@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Save, Copy, ArrowLeft } from 'lucide-react';
+import posthog from 'posthog-js';
 
 interface SaveOptionsDialogProps {
   open: boolean;
@@ -47,6 +48,7 @@ export function SaveOptionsDialog({
   }, [open]);
 
   const handleSaveExisting = () => {
+    posthog.capture('chart_saved', { save_type: 'update_existing', chart_title: originalTitle });
     onSaveExisting();
     onOpenChange(false);
   };
@@ -57,6 +59,7 @@ export function SaveOptionsDialog({
 
   const handleConfirmSaveAsNew = () => {
     if (newTitle.trim()) {
+      posthog.capture('chart_saved', { save_type: 'save_as_new', chart_title: newTitle.trim() });
       onSaveAsNew(newTitle.trim());
       onOpenChange(false);
     }
