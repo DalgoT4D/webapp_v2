@@ -11,6 +11,7 @@ import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import posthog from 'posthog-js';
 
 // Chart type definitions with descriptions
 const chartTypes = [
@@ -97,6 +98,13 @@ function NewChartPageContent() {
 
   const handleContinue = () => {
     if (!canProceed) return;
+
+    posthog.capture('chart_creation_started', {
+      chart_type: selectedChartType,
+      schema: selectedSchema,
+      table: selectedTable,
+      from_dashboard: isFromDashboard,
+    });
 
     // Navigate to configure with selected parameters
     const params = new URLSearchParams({
@@ -208,11 +216,15 @@ function NewChartPageContent() {
                         role="radio"
                         aria-checked={isSelected}
                         tabIndex={0}
-                        onClick={() => setSelectedChartType(chart.id)}
+                        onClick={() => {
+                          setSelectedChartType(chart.id);
+                          posthog.capture('chart_type_selected', { chart_type: chart.id });
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             setSelectedChartType(chart.id);
+                            posthog.capture('chart_type_selected', { chart_type: chart.id });
                           }
                         }}
                       >

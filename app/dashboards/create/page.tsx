@@ -10,6 +10,7 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { apiDelete } from '@/lib/api';
+import posthog from 'posthog-js';
 
 export default function CreateDashboardPage() {
   const router = useRouter();
@@ -74,9 +75,14 @@ export default function CreateDashboardPage() {
           tabs: dashboard.tabs || [],
         });
 
+        posthog.capture('dashboard_created', {
+          dashboard_id: dashboard.id,
+          dashboard_title: dashboard.title,
+        });
         toastSuccess.created('Dashboard');
       } catch (error: any) {
         console.error('Failed to create dashboard:', error);
+        posthog.captureException(error);
         toastError.create(error, 'dashboard');
         // Redirect back to dashboard list on error
         router.push('/dashboards');

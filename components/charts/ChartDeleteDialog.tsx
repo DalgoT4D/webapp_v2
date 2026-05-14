@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import posthog from 'posthog-js';
 
 interface ChartDeleteDialogProps {
   chartId: number;
@@ -99,7 +100,14 @@ export function ChartDeleteDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>CANCEL</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={() => {
+              posthog.capture('chart_deleted', {
+                chart_id: chartId,
+                chart_title: chartTitle,
+                dashboard_count: dashboards?.length ?? 0,
+              });
+              onConfirm();
+            }}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium uppercase"
           >
             {isDeleting ? 'DELETING...' : 'DELETE CHART'}

@@ -39,6 +39,7 @@ import {
   utcTimeToLocal,
 } from '../utils';
 import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
+import posthog from 'posthog-js';
 
 interface PipelineFormProps {
   deploymentId?: string;
@@ -269,6 +270,13 @@ function PipelineFormContent({
         mutate('/api/prefect/v1/flows/', undefined, { revalidate: false });
 
         if (!scheduleStatusFailed) {
+          posthog.capture('pipeline_updated', {
+            pipeline_id: deploymentId,
+            pipeline_name: data.name,
+            schedule: data.cron?.id ?? 'manual',
+            connection_count: selectedConns.length,
+            has_transform_tasks: transformTasks.length > 0,
+          });
           toastSuccess.updated('Pipeline');
         }
       } else {
@@ -280,11 +288,18 @@ function PipelineFormContent({
           continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
+        posthog.capture('pipeline_created', {
+          pipeline_name: data.name,
+          schedule: data.cron?.id ?? 'manual',
+          connection_count: selectedConns.length,
+          has_transform_tasks: transformTasks.length > 0,
+        });
         toastSuccess.created('Pipeline');
       }
 
       router.push('/orchestrate');
     } catch (error: any) {
+      posthog.captureException(error);
       toastError.save(error, 'pipeline');
     } finally {
       setSubmitting(false);

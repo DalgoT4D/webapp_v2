@@ -11,6 +11,7 @@ import { apiPost } from '@/lib/api';
 import { useAuthStore, type OrgUser } from '@/stores/authStore';
 import { Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
+import posthog from 'posthog-js';
 
 interface LoginForm {
   username: string;
@@ -48,11 +49,20 @@ function LoginForm() {
         password: data.password,
       });
 
+      // Identify user and capture login event
+      posthog.identify(data.username, { email: data.username });
+      posthog.capture('user_logged_in', { email: data.username });
+
       // Cookies are set automatically by the server
       setAuthenticated(true);
 
       // Redirect to impact page - AuthGuard will handle authentication
     } catch (error: any) {
+      posthog.capture('user_login_failed', {
+        email: data.username,
+        error: error.message || 'Login failed',
+      });
+      posthog.captureException(error);
       setError('root', { message: error.message || 'Login failed' });
     }
   };
