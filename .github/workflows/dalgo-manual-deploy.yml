@@ -73,7 +73,6 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
           [ -z "${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_AIRBYTE_URL"
           [ -z "${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}" ] && MISSING="$MISSING NEXT_PUBLIC_SENTRY_DSN"
-          [ -z "${{ secrets.NEXT_PUBLIC_SENTRY_RELEASE }}" ] && MISSING="$MISSING NEXT_PUBLIC_SENTRY_RELEASE"
           [ -z "${{ secrets.SENTRY_AUTH_TOKEN }}" ] && MISSING="$MISSING SENTRY_AUTH_TOKEN"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
@@ -112,7 +111,6 @@ jobs:
             NEXT_PUBLIC_TRANSFORM_DOCS_URL=${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}
             NEXT_PUBLIC_AIRBYTE_URL=${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-            NEXT_PUBLIC_SENTRY_RELEASE=${{ secrets.NEXT_PUBLIC_SENTRY_RELEASE }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to staging
@@ -189,7 +187,6 @@ jobs:
           [ -z "${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_TRANSFORM_DOCS_URL"
           [ -z "${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}" ] && MISSING="$MISSING NEXT_PUBLIC_AIRBYTE_URL"
           [ -z "${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}" ] && MISSING="$MISSING NEXT_PUBLIC_SENTRY_DSN"
-          [ -z "${{ secrets.NEXT_PUBLIC_SENTRY_RELEASE }}" ] && MISSING="$MISSING NEXT_PUBLIC_SENTRY_RELEASE"
           [ -z "${{ secrets.SENTRY_AUTH_TOKEN }}" ] && MISSING="$MISSING SENTRY_AUTH_TOKEN"
           if [ -n "$MISSING" ]; then
             echo "::error::Missing GitHub secrets:$MISSING"
@@ -227,7 +224,6 @@ jobs:
             NEXT_PUBLIC_TRANSFORM_DOCS_URL=${{ secrets.NEXT_PUBLIC_TRANSFORM_DOCS_URL }}
             NEXT_PUBLIC_AIRBYTE_URL=${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-            NEXT_PUBLIC_SENTRY_RELEASE=${{ secrets.NEXT_PUBLIC_SENTRY_RELEASE }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to production
