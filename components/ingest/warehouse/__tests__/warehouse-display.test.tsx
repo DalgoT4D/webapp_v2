@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { WarehouseDisplay } from '../warehouse-display';
 import * as useWarehouseHook from '@/hooks/api/useWarehouse';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
-import type { Warehouse } from '@/types/warehouse';
+import { createMockWarehouse } from './warehouse-mock-data';
 
 // ============ Mocks ============
 
@@ -34,25 +34,6 @@ jest.mock('@/lib/toast', () => ({
     api: jest.fn(),
   },
 }));
-
-// ============ Test Data ============
-
-const createMockWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse => ({
-  wtype: 'postgres',
-  name: 'My Warehouse',
-  destinationId: 'dest-1',
-  destinationDefinitionId: 'destdef-1',
-  icon: '',
-  airbyteDockerRepository: 'airbyte/destination-postgres',
-  tag: '0.5.0',
-  connectionConfiguration: {
-    host: 'db.example.com',
-    port: 5432,
-    database: 'mydb',
-    username: 'admin',
-  },
-  ...overrides,
-});
 
 // ============ WarehouseDisplay Tests ============
 

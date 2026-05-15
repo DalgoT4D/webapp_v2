@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { Table, TableBody } from '@/components/ui/table';
 import { ConnectionRow } from '../connection-row';
 import { LockStatus } from '@/constants/pipeline';
-import type { Connection } from '@/types/connections';
+import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
 
@@ -30,27 +30,6 @@ jest.mock('@/components/pipeline/utils', () => ({
   lastRunTime: () => '2 hours ago',
   trimEmail: (e: string) => e,
 }));
-
-// ============ Test Data ============
-
-const createMockConnection = (overrides: Partial<Connection> = {}): Connection => ({
-  connectionId: 'conn-1',
-  name: 'My Connection',
-  deploymentId: 'deploy-1',
-  catalogId: 'catalog-1',
-  source: { sourceId: 'src-1', name: 'Prod DB', sourceName: 'Postgres' },
-  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'BigQuery' },
-  lock: null,
-  lastRun: null,
-  normalize: false,
-  status: 'active',
-  syncCatalog: { streams: [] },
-  resetConnDeploymentId: null,
-  clearConnDeploymentId: null,
-  queuedFlowRunWaitTime: null,
-  blockId: 'block-1',
-  ...overrides,
-});
 
 const defaultProps = {
   syncingIds: [],

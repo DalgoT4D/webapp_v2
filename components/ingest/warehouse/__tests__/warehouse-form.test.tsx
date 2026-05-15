@@ -9,7 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { WarehouseForm } from '../warehouse-form';
 import * as useWarehouseHook from '@/hooks/api/useWarehouse';
-import type { Warehouse } from '@/types/warehouse';
+import { createMockWarehouse, mockDefinition } from './warehouse-mock-data';
 
 // ============ Mocks ============
 
@@ -70,28 +70,6 @@ jest.mock('@/lib/toast', () => ({
   toastSuccess: { deleted: jest.fn(), created: jest.fn(), updated: jest.fn(), generic: jest.fn() },
   toastError: { delete: jest.fn(), save: jest.fn(), api: jest.fn() },
 }));
-
-// ============ Test Data ============
-
-const mockDefinition = {
-  destinationDefinitionId: 'destdef-1',
-  name: 'Postgres',
-  icon: '',
-  dockerRepository: 'airbyte/destination-postgres',
-  dockerImageTag: '0.5.0',
-};
-
-const createMockWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse => ({
-  wtype: 'postgres',
-  name: 'My Warehouse',
-  destinationId: 'dest-1',
-  destinationDefinitionId: 'destdef-1',
-  icon: '',
-  airbyteDockerRepository: 'airbyte/destination-postgres',
-  tag: '0.5.0',
-  connectionConfiguration: { host: 'db.example.com' },
-  ...overrides,
-});
 
 // ============ WarehouseForm Tests ============
 

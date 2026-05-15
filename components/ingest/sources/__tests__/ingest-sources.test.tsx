@@ -11,6 +11,7 @@ import { SourceList } from '../SourceList';
 import * as useSourcesHook from '@/hooks/api/useSources';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
 import type { Source, SourceDefinition } from '@/types/source';
+import { createMockSource, createMockDefinition } from './sources-mock-data';
 
 // ============ Mocks ============
 
@@ -49,25 +50,6 @@ jest.mock('@/components/ui/confirmation-dialog', () => ({
     DialogComponent: (): null => null,
   }),
 }));
-
-// ============ Test Data Factories ============
-
-const createMockSource = (overrides: Partial<Source> = {}): Source => ({
-  sourceId: 'src-1',
-  name: 'My Postgres Source',
-  sourceDefinitionId: 'def-1',
-  sourceName: 'Postgres',
-  connectionConfiguration: {},
-  ...overrides,
-});
-
-const createMockDefinition = (overrides: Partial<SourceDefinition> = {}): SourceDefinition => ({
-  sourceDefinitionId: 'def-1',
-  name: 'Postgres',
-  dockerRepository: 'airbyte/source-postgres',
-  dockerImageTag: '0.4.28',
-  ...overrides,
-});
 
 // ============ SourceList Tests ============
 

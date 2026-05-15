@@ -11,7 +11,7 @@ import { ConnectionsList } from '../connections-list';
 import * as useConnectionsHook from '@/hooks/api/useConnections';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
 import { LockStatus } from '@/constants/pipeline';
-import type { Connection } from '@/types/connections';
+import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
 
@@ -89,27 +89,6 @@ jest.mock('@/assets/icons/connection', () => ({
   __esModule: true,
   default: () => <svg data-testid="connection-icon" />,
 }));
-
-// ============ Test Data Factory ============
-
-const createMockConnection = (overrides: Partial<Connection> = {}): Connection => ({
-  connectionId: 'conn-1',
-  name: 'My Connection',
-  deploymentId: 'deploy-1',
-  catalogId: 'catalog-1',
-  source: { sourceId: 'src-1', name: 'Prod DB', sourceName: 'Postgres' },
-  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'BigQuery' },
-  lock: null,
-  lastRun: null,
-  normalize: false,
-  status: 'active',
-  syncCatalog: { streams: [] },
-  resetConnDeploymentId: null,
-  clearConnDeploymentId: null,
-  queuedFlowRunWaitTime: null,
-  blockId: 'block-1',
-  ...overrides,
-});
 
 // ============ ConnectionsList Tests ============
 

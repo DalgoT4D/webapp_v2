@@ -9,7 +9,7 @@ import { DBTTaskList } from '../DBTTaskList';
 import * as usePrefectTasksHook from '@/hooks/api/usePrefectTasks';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
 import { LockStatus } from '@/constants/pipeline';
-import type { TransformTask } from '@/types/transform';
+import { createMockTask } from './transform-mock-data';
 
 // ============ Mocks ============
 
@@ -24,21 +24,6 @@ jest.mock('@/lib/toast', () => ({
   toastSuccess: { deleted: jest.fn(), generic: jest.fn() },
   toastError: { api: jest.fn(), delete: jest.fn() },
 }));
-
-// ============ Test Data ============
-
-const createMockTask = (overrides: Partial<TransformTask> = {}): TransformTask => ({
-  uuid: 'task-1',
-  label: 'DBT Run',
-  command: 'dbt run',
-  slug: 'dbt-run',
-  type: 'dbt',
-  deploymentId: 'deploy-1',
-  deploymentName: 'dbt-run-deployment',
-  generated_by: 'client',
-  lock: null,
-  ...overrides,
-});
 
 const defaultProps = {
   isAnyTaskLocked: false,
@@ -94,6 +79,7 @@ describe('DBTTaskList', () => {
             lockedAt: '',
             lockedBy: 'user@test.com',
             flowRunId: 'flow-1',
+            celeryTaskId: '',
           },
         }),
       ],

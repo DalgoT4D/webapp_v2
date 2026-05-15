@@ -11,7 +11,7 @@ import { ConnectionForm } from '../connection-form';
 import * as useConnectionsHook from '@/hooks/api/useConnections';
 import * as useSourcesHook from '@/hooks/api/useSources';
 import { FormMode } from '@/constants/connections';
-import type { Connection } from '@/types/connections';
+import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
 
@@ -61,28 +61,6 @@ jest.mock('@/lib/toast', () => ({
   toastSuccess: { created: jest.fn(), updated: jest.fn(), deleted: jest.fn(), generic: jest.fn() },
   toastError: { save: jest.fn(), api: jest.fn(), delete: jest.fn() },
 }));
-
-// ============ Test Data ============
-
-const createMockConnection = (overrides: Partial<Connection> = {}): Connection => ({
-  connectionId: 'conn-1',
-  name: 'My Connection',
-  deploymentId: 'deploy-1',
-  catalogId: 'catalog-1',
-  source: { sourceId: 'src-1', name: 'Prod DB', sourceName: 'Postgres' },
-  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'BigQuery' },
-  lock: null,
-  lastRun: null,
-  normalize: false,
-  status: 'active',
-  syncCatalog: { streams: [] },
-  destinationSchema: 'staging',
-  resetConnDeploymentId: null,
-  clearConnDeploymentId: null,
-  queuedFlowRunWaitTime: null,
-  blockId: 'block-1',
-  ...overrides,
-});
 
 // ============ ConnectionForm Tests ============
 

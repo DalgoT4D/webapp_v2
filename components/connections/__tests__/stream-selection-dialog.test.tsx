@@ -9,7 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StreamSelectionDialog } from '../stream-selection-dialog';
 import * as useConnectionsHook from '@/hooks/api/useConnections';
-import type { Connection } from '@/types/connections';
+import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
 
@@ -17,44 +17,33 @@ jest.mock('@/hooks/api/useConnections');
 
 // ============ Test Data ============
 
-const createMockConnection = (streams: { name: string; namespace?: string }[]): Connection => ({
-  connectionId: 'conn-1',
-  name: 'My Connection',
-  deploymentId: 'deploy-1',
-  catalogId: 'catalog-1',
-  source: { sourceId: 'src-1', name: 'Prod DB', sourceName: 'Postgres' },
-  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'BigQuery' },
-  lock: null,
-  lastRun: null,
-  normalize: false,
-  status: 'active',
-  syncCatalog: {
-    streams: streams.map((s) => ({
-      stream: {
-        name: s.name,
-        namespace: s.namespace,
-        jsonSchema: {},
-        supportedSyncModes: ['full_refresh'],
-        sourceDefinedCursor: false,
-        defaultCursorField: [],
-        sourceDefinedPrimaryKey: [],
-      },
-      config: {
-        syncMode: 'full_refresh',
-        destinationSyncMode: 'overwrite',
-        cursorField: [],
-        primaryKey: [],
-        selected: true,
-        fieldSelectionEnabled: false,
-        selectedFields: [],
-      },
-    })),
-  },
-  resetConnDeploymentId: null,
-  clearConnDeploymentId: 'clear-deploy-1',
-  queuedFlowRunWaitTime: null,
-  blockId: 'block-1',
-});
+// Adapter: builds a connection with a populated syncCatalog from a streams list
+const createConnectionWithStreams = (streams: { name: string; namespace?: string }[]) =>
+  createMockConnection({
+    clearConnDeploymentId: 'clear-deploy-1',
+    syncCatalog: {
+      streams: streams.map((s) => ({
+        stream: {
+          name: s.name,
+          namespace: s.namespace,
+          jsonSchema: {},
+          supportedSyncModes: ['full_refresh'] as string[],
+          sourceDefinedCursor: false,
+          defaultCursorField: [] as string[],
+          sourceDefinedPrimaryKey: [] as string[][],
+        },
+        config: {
+          syncMode: 'full_refresh',
+          destinationSyncMode: 'overwrite',
+          cursorField: [] as string[],
+          primaryKey: [] as string[][],
+          selected: true,
+          fieldSelectionEnabled: false,
+          selectedFields: [] as string[],
+        },
+      })),
+    },
+  });
 
 // ============ StreamSelectionDialog Tests ============
 
@@ -84,7 +73,7 @@ describe('StreamSelectionDialog', () => {
 
   it('renders stream list from connection sync catalog', async () => {
     (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection([{ name: 'orders' }, { name: 'customers' }]),
+      data: createConnectionWithStreams([{ name: 'orders' }, { name: 'customers' }]),
       isLoading: false,
       isError: null,
     });
@@ -99,7 +88,7 @@ describe('StreamSelectionDialog', () => {
 
   it('confirm button is disabled until at least one stream is selected', async () => {
     (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection([{ name: 'orders' }, { name: 'customers' }]),
+      data: createConnectionWithStreams([{ name: 'orders' }, { name: 'customers' }]),
       isLoading: false,
       isError: null,
     });
@@ -113,7 +102,7 @@ describe('StreamSelectionDialog', () => {
   it('enables confirm button after toggling a stream on', async () => {
     const user = userEvent.setup();
     (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection([{ name: 'orders' }]),
+      data: createConnectionWithStreams([{ name: 'orders' }]),
       isLoading: false,
       isError: null,
     });
@@ -129,7 +118,7 @@ describe('StreamSelectionDialog', () => {
   it('select all toggle enables all streams and confirm button', async () => {
     const user = userEvent.setup();
     (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection([{ name: 'orders' }, { name: 'customers' }]),
+      data: createConnectionWithStreams([{ name: 'orders' }, { name: 'customers' }]),
       isLoading: false,
       isError: null,
     });
@@ -145,7 +134,7 @@ describe('StreamSelectionDialog', () => {
   it('calls onConfirm with selected streams when confirm is clicked', async () => {
     const user = userEvent.setup();
     (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection([{ name: 'orders' }]),
+      data: createConnectionWithStreams([{ name: 'orders' }]),
       isLoading: false,
       isError: null,
     });
@@ -164,7 +153,7 @@ describe('StreamSelectionDialog', () => {
   it('calls onClose when cancel is clicked', async () => {
     const user = userEvent.setup();
     (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection([{ name: 'orders' }]),
+      data: createConnectionWithStreams([{ name: 'orders' }]),
       isLoading: false,
       isError: null,
     });

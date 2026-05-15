@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { PendingActions } from '../pending-actions';
 import * as useConnectionsHook from '@/hooks/api/useConnections';
 import { LockStatus } from '@/constants/pipeline';
-import type { Connection, SchemaChange } from '@/types/connections';
+import { createMockConnection, createMockSchemaChange } from './connections-mock-data';
 
 // ============ Mocks ============
 
@@ -19,33 +19,6 @@ jest.mock('@/hooks/api/useConnections');
 jest.mock('../schema-change-form', () => ({
   SchemaChangeForm: () => <div data-testid="schema-change-form" />,
 }));
-
-// ============ Test Data ============
-
-const createMockConnection = (overrides: Partial<Connection> = {}): Connection => ({
-  connectionId: 'conn-1',
-  name: 'My Connection',
-  deploymentId: 'deploy-1',
-  catalogId: 'catalog-1',
-  source: { sourceId: 'src-1', name: 'Prod DB', sourceName: 'Postgres' },
-  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'BigQuery' },
-  lock: null,
-  lastRun: null,
-  normalize: false,
-  status: 'active',
-  syncCatalog: { streams: [] },
-  resetConnDeploymentId: null,
-  clearConnDeploymentId: null,
-  queuedFlowRunWaitTime: null,
-  blockId: 'block-1',
-  ...overrides,
-});
-
-const createMockSchemaChange = (overrides: Partial<SchemaChange> = {}): SchemaChange => ({
-  connection_id: 'conn-1',
-  change_type: 'non_breaking',
-  ...overrides,
-});
 
 // ============ PendingActions Tests ============
 

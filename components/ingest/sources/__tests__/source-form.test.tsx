@@ -9,7 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SourceForm } from '../SourceForm';
 import * as useSourcesHook from '@/hooks/api/useSources';
-import type { Source, SourceDefinition } from '@/types/source';
+import { createMockSource, createMockDefinition } from './sources-mock-data';
 
 // ============ Mocks ============
 
@@ -70,25 +70,6 @@ jest.mock('@/lib/toast', () => ({
   toastSuccess: { deleted: jest.fn(), created: jest.fn(), updated: jest.fn(), generic: jest.fn() },
   toastError: { delete: jest.fn(), save: jest.fn(), api: jest.fn() },
 }));
-
-// ============ Test Data ============
-
-const createMockSource = (overrides: Partial<Source> = {}): Source => ({
-  sourceId: 'src-1',
-  name: 'My Postgres Source',
-  sourceDefinitionId: 'def-1',
-  sourceName: 'Postgres',
-  connectionConfiguration: {},
-  ...overrides,
-});
-
-const createMockDefinition = (overrides: Partial<SourceDefinition> = {}): SourceDefinition => ({
-  sourceDefinitionId: 'def-1',
-  name: 'Postgres',
-  dockerRepository: 'airbyte/source-postgres',
-  dockerImageTag: '0.4.28',
-  ...overrides,
-});
 
 // ============ SourceForm Tests ============
 
