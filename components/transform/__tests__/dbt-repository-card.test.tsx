@@ -116,11 +116,11 @@ describe('DBTRepositoryCard', () => {
 
     await user.click(screen.getByTestId('connect-git-btn'));
     await user.type(screen.getByTestId('git-url-input'), 'https://github.com/org/my-repo');
-    await user.type(screen.getByTestId('git-token-input'), 'ghp_mytoken123');
+    await user.type(screen.getByTestId('git-token-input'), 'TEST_TOKEN');
     await user.click(screen.getByTestId('save-git-btn'));
 
     await waitFor(() => {
-      expect(mockSwitch).toHaveBeenCalledWith('https://github.com/org/my-repo', 'ghp_mytoken123');
+      expect(mockSwitch).toHaveBeenCalledWith('https://github.com/org/my-repo', 'TEST_TOKEN');
       expect(mockOnConnectGit).toHaveBeenCalledTimes(1);
     });
   });

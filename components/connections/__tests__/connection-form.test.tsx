@@ -8,15 +8,12 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionForm } from '../connection-form';
-import * as useConnectionsHook from '@/hooks/api/useConnections';
-import * as useSourcesHook from '@/hooks/api/useSources';
 import { FormMode } from '@/constants/connections';
 import { createMockConnection } from './connections-mock-data';
+import { TestWrapper } from '@/test-utils/render';
+import { mockApiGet } from '@/test-utils/api';
 
 // ============ Mocks ============
-
-jest.mock('@/hooks/api/useConnections');
-jest.mock('@/hooks/api/useSources');
 
 const mockUseBackendWebSocket = jest.fn(
   (_path: unknown, _options?: { onLoadingChange?: (v: boolean) => void }) => ({
@@ -70,43 +67,51 @@ describe('ConnectionForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useSourcesHook.useSources as jest.Mock).mockReturnValue({
-      data: [
-        { sourceId: 'src-1', name: 'Prod DB', sourceName: 'Postgres', connectionConfiguration: {} },
-      ],
-      isLoading: false,
-      isError: null,
-    });
-    (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/sources') {
+        return Promise.resolve([
+          {
+            sourceId: 'src-1',
+            name: 'Prod DB',
+            sourceName: 'Postgres',
+            connectionConfiguration: {},
+          },
+        ]);
+      }
+      return Promise.resolve(undefined);
     });
   });
 
-  it('renders create mode with correct title and disabled save button', () => {
+  it('renders create mode with correct title and disabled save button', async () => {
     render(
-      <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
+      <TestWrapper>
+        <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
+      </TestWrapper>
     );
 
-    expect(screen.getByText('New Connection')).toBeInTheDocument();
-    expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByText('New Connection')).toBeInTheDocument();
+      expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+    });
   });
 
   it('renders edit mode with correct title and pre-filled name', async () => {
-    (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection(),
-      isLoading: false,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url.includes('/api/airbyte/v1/connections/'))
+        return Promise.resolve(createMockConnection());
+      if (url === '/api/airbyte/sources') return Promise.resolve([]);
+      return Promise.resolve(undefined);
     });
 
     render(
-      <ConnectionForm
-        mode={FormMode.EDIT}
-        connectionId="conn-1"
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
+      <TestWrapper>
+        <ConnectionForm
+          mode={FormMode.EDIT}
+          connectionId="conn-1"
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+        />
+      </TestWrapper>
     );
 
     await waitFor(() => {
@@ -115,30 +120,35 @@ describe('ConnectionForm', () => {
     });
   });
 
-  it('renders view mode with correct title and no save/cancel footer', () => {
-    (useConnectionsHook.useConnection as jest.Mock).mockReturnValue({
-      data: createMockConnection(),
-      isLoading: false,
-      isError: null,
+  it('renders view mode with correct title and no save/cancel footer', async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url.includes('/api/airbyte/v1/connections/'))
+        return Promise.resolve(createMockConnection());
+      if (url === '/api/airbyte/sources') return Promise.resolve([]);
+      return Promise.resolve(undefined);
     });
 
     render(
-      <ConnectionForm
-        mode={FormMode.VIEW}
-        connectionId="conn-1"
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />
+      <TestWrapper>
+        <ConnectionForm
+          mode={FormMode.VIEW}
+          connectionId="conn-1"
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+        />
+      </TestWrapper>
     );
 
-    expect(screen.getByText('View Connection')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('View Connection')).toBeInTheDocument());
     expect(screen.queryByTestId('save-connection-btn')).not.toBeInTheDocument();
   });
 
   it('calls onClose when cancel button is clicked', async () => {
     const user = userEvent.setup();
     render(
-      <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
+      <TestWrapper>
+        <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
+      </TestWrapper>
     );
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));

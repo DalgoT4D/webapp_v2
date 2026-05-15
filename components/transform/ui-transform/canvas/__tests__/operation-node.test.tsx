@@ -130,5 +130,6 @@ describe('OperationNode', () => {
     await user.click(screen.getByTestId('operation-node-op-1'));
 
     expect(mockOpenOperationPanel).not.toHaveBeenCalled();
+    expect(mockDispatchCanvasAction).not.toHaveBeenCalled();
   });
 });
