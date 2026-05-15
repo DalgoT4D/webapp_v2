@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { TestWrapper } from '@/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import { CreateTableOrAddFunction } from '../panels/CreateTableOrAddFunction';
 
@@ -19,7 +20,8 @@ describe('CreateTableOrAddFunction', () => {
         onCreateTable={mockOnCreateTable}
         onAddFunction={mockOnAddFunction}
         showAddFunction={false}
-      />
+      />,
+      { wrapper: TestWrapper }
     );
 
     expect(screen.getByTestId('create-table-btn')).toBeInTheDocument();
@@ -32,7 +34,8 @@ describe('CreateTableOrAddFunction', () => {
       <CreateTableOrAddFunction
         onCreateTable={mockOnCreateTable}
         onAddFunction={mockOnAddFunction}
-      />
+      />,
+      { wrapper: TestWrapper }
     );
 
     await user.click(screen.getByTestId('create-table-btn'));

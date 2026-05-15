@@ -8,6 +8,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Transform from '../Transform';
+import { TestWrapper } from '@/test-utils/render';
 import * as useTransformHook from '@/hooks/api/useTransform';
 import * as useNotificationsHook from '@/hooks/api/useNotifications';
 import { TransformTab } from '@/constants/transform';
@@ -62,7 +63,7 @@ describe('Transform', () => {
       isLoading: true,
     });
 
-    render(<Transform />);
+    render(<Transform />, { wrapper: TestWrapper });
     expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     expect(screen.getByText('Loading...')).toBeInTheDocument();
   });
@@ -73,7 +74,7 @@ describe('Transform', () => {
       isLoading: false,
     });
 
-    render(<Transform />);
+    render(<Transform />, { wrapper: TestWrapper });
 
     await waitFor(() => {
       expect(screen.getByTestId('transform-page')).toBeInTheDocument();
@@ -90,7 +91,7 @@ describe('Transform', () => {
       isLoading: false,
     });
 
-    render(<Transform />);
+    render(<Transform />, { wrapper: TestWrapper });
 
     await waitFor(() => {
       expect(screen.getByTestId('transform-page')).toBeInTheDocument();
@@ -107,7 +108,7 @@ describe('Transform', () => {
       .mockRejectedValue(new Error('Network error'));
     jest.spyOn(useTransformHook, 'deleteDbtRepo').mockResolvedValue(undefined);
 
-    render(<Transform />);
+    render(<Transform />, { wrapper: TestWrapper });
 
     await waitFor(() => {
       expect(screen.getByTestId('transform-setup-retry-btn')).toBeInTheDocument();
@@ -128,7 +129,7 @@ describe('Transform', () => {
       isLoading: false,
     });
 
-    render(<Transform />);
+    render(<Transform />, { wrapper: TestWrapper });
 
     await waitFor(() => expect(screen.getByTestId('transform-page')).toBeInTheDocument());
 
@@ -152,7 +153,7 @@ describe('Transform', () => {
       mutate: jest.fn(),
     });
 
-    render(<Transform />);
+    render(<Transform />, { wrapper: TestWrapper });
 
     await waitFor(() => expect(screen.getByTestId('transform-page')).toBeInTheDocument());
 

@@ -8,12 +8,11 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SourceForm } from '../SourceForm';
-import * as useSourcesHook from '@/hooks/api/useSources';
+import { TestWrapper } from '@/test-utils/render';
+import { mockApiGet } from '@/test-utils/api';
 import { createMockSource, createMockDefinition } from './sources-mock-data';
 
 // ============ Mocks ============
-
-jest.mock('@/hooks/api/useSources');
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
   useBackendWebSocket: () => ({
@@ -85,43 +84,36 @@ describe('SourceForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useSourcesHook.useSourceDefinitions as jest.Mock).mockReturnValue({
-      data: [createMockDefinition()],
-      isLoading: false,
-      isError: null,
-    });
-    (useSourcesHook.useSource as jest.Mock).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: null,
-    });
-    (useSourcesHook.useSourceSpec as jest.Mock).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([createMockDefinition()]);
+      return Promise.resolve(undefined);
     });
   });
 
   it('does not render form when open is false', () => {
-    render(<SourceForm {...defaultProps} open={false} />);
+    render(<SourceForm {...defaultProps} open={false} />, { wrapper: TestWrapper });
     expect(screen.queryByTestId('source-form')).not.toBeInTheDocument();
   });
 
-  it('renders create mode with correct title and disabled save button', () => {
-    render(<SourceForm {...defaultProps} />);
+  it('renders create mode with correct title and disabled save button', async () => {
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
 
-    expect(screen.getByText('Add Source')).toBeInTheDocument();
-    expect(screen.getByTestId('source-save-btn')).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByText('Add Source')).toBeInTheDocument();
+      expect(screen.getByTestId('source-save-btn')).toBeDisabled();
+    });
   });
 
   it('renders edit mode with correct title, pre-filled name, and disabled source type selector', async () => {
-    (useSourcesHook.useSource as jest.Mock).mockReturnValue({
-      data: createMockSource(),
-      isLoading: false,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([createMockDefinition()]);
+      if (url === '/api/airbyte/sources/src-1') return Promise.resolve(createMockSource());
+      return Promise.resolve(undefined);
     });
 
-    render(<SourceForm {...defaultProps} sourceId="src-1" />);
+    render(<SourceForm {...defaultProps} sourceId="src-1" />, { wrapper: TestWrapper });
 
     await waitFor(() => {
       expect(screen.getByText('Edit Source')).toBeInTheDocument();
@@ -134,7 +126,7 @@ describe('SourceForm', () => {
 
   it('calls onClose when cancel button is clicked', async () => {
     const user = userEvent.setup();
-    render(<SourceForm {...defaultProps} />);
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
 
     await user.click(screen.getByTestId('source-cancel-btn'));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
@@ -142,27 +134,34 @@ describe('SourceForm', () => {
 
   it('shows spec loading indicator after selecting a source type', async () => {
     const user = userEvent.setup();
-    (useSourcesHook.useSourceSpec as jest.Mock).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([createMockDefinition()]);
+      if (url.includes('/specifications')) return new Promise(() => {}); // never resolves → isLoading: true
+      return Promise.resolve(undefined);
     });
 
-    render(<SourceForm {...defaultProps} />);
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+    await waitFor(() => expect(screen.getByTestId('combobox-option-def-1')).toBeInTheDocument());
     await user.click(screen.getByTestId('combobox-option-def-1'));
 
-    expect(screen.getByText('Loading configuration...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Loading configuration...')).toBeInTheDocument();
+    });
   });
 
   it('shows ConnectorConfigForm once spec has loaded', async () => {
     const user = userEvent.setup();
-    (useSourcesHook.useSourceSpec as jest.Mock).mockReturnValue({
-      data: { type: 'object', properties: {} },
-      isLoading: false,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([createMockDefinition()]);
+      if (url.includes('/specifications'))
+        return Promise.resolve({ connectionSpecification: { type: 'object', properties: {} } });
+      return Promise.resolve(undefined);
     });
 
-    render(<SourceForm {...defaultProps} />);
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+    await waitFor(() => expect(screen.getByTestId('combobox-option-def-1')).toBeInTheDocument());
     await user.click(screen.getByTestId('combobox-option-def-1'));
 
     await waitFor(() => {
@@ -172,13 +171,16 @@ describe('SourceForm', () => {
 
   it('enables save button when name, source type, and spec are all present', async () => {
     const user = userEvent.setup();
-    (useSourcesHook.useSourceSpec as jest.Mock).mockReturnValue({
-      data: { type: 'object', properties: {} },
-      isLoading: false,
-      isError: null,
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([createMockDefinition()]);
+      if (url.includes('/specifications'))
+        return Promise.resolve({ connectionSpecification: { type: 'object', properties: {} } });
+      return Promise.resolve(undefined);
     });
 
-    render(<SourceForm {...defaultProps} />);
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+    await waitFor(() => expect(screen.getByTestId('combobox-option-def-1')).toBeInTheDocument());
 
     await user.type(screen.getByTestId('source-name-input'), 'My New Source');
     await user.click(screen.getByTestId('combobox-option-def-1'));
