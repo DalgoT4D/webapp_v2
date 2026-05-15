@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { TestWrapper } from '@/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import OperationNode from '../nodes/OperationNode';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
@@ -71,25 +72,25 @@ describe('OperationNode', () => {
   });
 
   it('renders node with operation label', () => {
-    render(<OperationNode {...defaultProps} />);
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
     expect(screen.getByTestId('operation-node-op-1')).toBeInTheDocument();
     expect(screen.getByText('Aggregate')).toBeInTheDocument();
   });
 
   it('shows delete button for leaf nodes with delete permission', () => {
-    render(<OperationNode {...defaultProps} />);
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
     expect(screen.getByTestId('delete-operation-op-1')).toBeInTheDocument();
   });
 
   it('hides delete button when node has outgoing edges (non-leaf)', () => {
     mockEdges = [{ source: 'op-1' }];
-    render(<OperationNode {...defaultProps} />);
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
     expect(screen.queryByTestId('delete-operation-op-1')).not.toBeInTheDocument();
   });
 
   it('opens panel in EDIT mode when user has can_edit_dbt_operation', async () => {
     const user = userEvent.setup();
-    render(<OperationNode {...defaultProps} />);
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
 
     await user.click(screen.getByTestId('operation-node-op-1'));
 
@@ -108,7 +109,7 @@ describe('OperationNode', () => {
       hasPermission: (perm: string) => perm === 'can_view_dbt_operation',
     });
 
-    render(<OperationNode {...defaultProps} />);
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
     await user.click(screen.getByTestId('operation-node-op-1'));
 
     expect(mockOpenOperationPanel).toHaveBeenCalled();
@@ -126,7 +127,7 @@ describe('OperationNode', () => {
       hasPermission: () => false,
     });
 
-    render(<OperationNode {...defaultProps} />);
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
     await user.click(screen.getByTestId('operation-node-op-1'));
 
     expect(mockOpenOperationPanel).not.toHaveBeenCalled();
