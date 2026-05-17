@@ -12,7 +12,8 @@ import { PipelineForm } from '../pipeline-form';
 import { TaskSequence } from '../task-sequence';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
-import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
@@ -112,13 +113,13 @@ const createConnection = (overrides: Partial<Connection> = {}): Connection => ({
   connectionId: 'conn-1',
   deploymentId: 'dep-1',
   catalogId: 'cat-1',
-  destination: { destinationId: 'dest-1', destinationName: 'Dest 1' },
-  source: { sourceId: 'src-1', sourceName: 'Source 1' },
+  destination: { destinationId: 'dest-1', name: 'Dest 1', destinationName: 'Dest 1' },
+  source: { sourceId: 'src-1', name: 'Source 1', sourceName: 'Source 1' },
   lock: null,
   lastRun: null,
   normalize: false,
   status: 'active',
-  syncCatalog: {},
+  syncCatalog: { streams: [] },
   resetConnDeploymentId: null,
   clearConnDeploymentId: null,
   queuedFlowRunWaitTime: null,
@@ -418,6 +419,7 @@ describe('PipelineForm', () => {
       name: 'Existing Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
         { uuid: 'task-1', seq: 1 },
@@ -498,6 +500,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Pipeline With Tasks',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
         { uuid: 'task-1', seq: 1 },
@@ -533,6 +536,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Custom Order Pipeline',
       cron: '0 14 * * *',
       isScheduleActive: false,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-2', name: 'Connection 2', seq: 1 }],
       transformTasks: [
         { uuid: 'task-3', seq: 1 },
@@ -562,6 +566,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'DBT Cloud Pipeline',
       cron: '30 10 * * 1,3,5',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [
         { id: 'conn-1', name: 'Connection 1', seq: 1 },
         { id: 'conn-2', name: 'Connection 2', seq: 2 },
@@ -596,6 +601,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'DBT Cloud No Tasks',
       cron: null,
       isScheduleActive: false,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [],
     };
@@ -626,6 +632,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Pipeline With Missing Tasks',
       cron: '0 8 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
         { uuid: 'deleted-task-1', seq: 1 },
@@ -685,6 +692,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Mixed Tasks Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [],
       transformTasks: [{ uuid: 'system-default', seq: 1 }],
     };
@@ -715,6 +723,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Status Fail Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [],
       transformTasks: [],
     };
@@ -761,6 +770,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Manual Pipeline',
       cron: null,
       isScheduleActive: false,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [{ uuid: 'task-1', seq: 1 }],
     };
@@ -785,6 +795,119 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     });
 
     expect(screen.queryByTestId('cronTimeOfDay')).not.toBeInTheDocument();
+  });
+
+  it('renders continueOnSyncFailure checkbox unchecked by default in create mode', async () => {
+    const user = userEvent.setup();
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: null,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm />);
+
+    // Checkbox is hidden behind Optional toggle
+    expect(screen.queryByTestId('continue-on-sync-failure-checkbox')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
+
+    const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('renders continueOnSyncFailure checkbox checked when pipeline has flag set', async () => {
+    const user = userEvent.setup();
+    const pipelineWithFlag: PipelineDetailResponse = {
+      name: 'Pipeline With Flag',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      continueOnSyncFailure: true,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: pipelineWithFlag,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="test-dep" />);
+
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
+
+    await waitFor(() => {
+      const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
+      expect(checkbox).toBeChecked();
+    });
+  });
+
+  it('defaults continueOnSyncFailure to false for existing pipelines without the flag', async () => {
+    const user = userEvent.setup();
+    const oldPipeline: PipelineDetailResponse = {
+      name: 'Old Pipeline',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      continueOnSyncFailure: false,
+      connections: [],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: oldPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="old-dep" />);
+
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
+
+    await waitFor(() => {
+      const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
+      expect(checkbox).not.toBeChecked();
+    });
   });
 });
 

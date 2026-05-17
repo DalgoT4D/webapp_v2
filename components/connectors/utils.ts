@@ -49,10 +49,17 @@ export function cleanFormValues(
         (field.fieldType === JsonSchemaType.INTEGER || field.fieldType === JsonSchemaType.NUMBER) &&
         typeof resolved.parent[resolved.key] === 'string'
       ) {
-        const num = Number(resolved.parent[resolved.key]);
-        if (!isNaN(num)) {
-          resolved.parent[resolved.key] =
-            field.fieldType === JsonSchemaType.INTEGER ? Math.round(num) : num;
+        const raw = (resolved.parent[resolved.key] as string).trim();
+        if (raw === '') {
+          // Empty string on a number field means "not provided" — remove it
+          // so Airbyte doesn't see 0 for optional fields with minimum constraints
+          delete resolved.parent[resolved.key];
+        } else {
+          const num = Number(raw);
+          if (!isNaN(num)) {
+            resolved.parent[resolved.key] =
+              field.fieldType === JsonSchemaType.INTEGER ? Math.round(num) : num;
+          }
         }
       }
 
@@ -77,10 +84,15 @@ export function cleanFormValues(
                       subField.fieldType === JsonSchemaType.NUMBER) &&
                     typeof itemObj[relativeKey] === 'string'
                   ) {
-                    const num = Number(itemObj[relativeKey]);
-                    if (!isNaN(num)) {
-                      itemObj[relativeKey] =
-                        subField.fieldType === JsonSchemaType.INTEGER ? Math.round(num) : num;
+                    const raw = (itemObj[relativeKey] as string).trim();
+                    if (raw === '') {
+                      delete itemObj[relativeKey];
+                    } else {
+                      const num = Number(raw);
+                      if (!isNaN(num)) {
+                        itemObj[relativeKey] =
+                          subField.fieldType === JsonSchemaType.INTEGER ? Math.round(num) : num;
+                      }
                     }
                   }
                 }
@@ -112,7 +124,35 @@ export function cleanFormValues(
     delete cleaned.start_date;
   }
 
+  // Remove flat dot-notation keys that RHF may leave alongside nested values.
+  // e.g. "credentials.auth_type" should not coexist with credentials: { auth_type: ... }
+  for (const key of Object.keys(cleaned)) {
+    if (key.includes('.')) {
+      delete cleaned[key];
+    }
+  }
+
   return cleaned;
+}
+
+/**
+ * Set a value at a nested path inside an object, creating intermediate
+ * objects as needed.  e.g. setNested(obj, ['a','b','c'], 1) → obj.a.b.c = 1
+ */
+function setNested(root: Record<string, unknown>, path: string[], value: unknown): void {
+  let current = root;
+  for (let i = 0; i < path.length - 1; i++) {
+    const segment = path[i];
+    if (
+      !current[segment] ||
+      typeof current[segment] !== 'object' ||
+      Array.isArray(current[segment])
+    ) {
+      current[segment] = {};
+    }
+    current = current[segment] as Record<string, unknown>;
+  }
+  current[path[path.length - 1]] = value;
 }
 
 /**
@@ -122,20 +162,21 @@ export function cleanFormValues(
  *
  * Handles basic fields, boolean fields, enum fields, and oneOf
  * discriminator values (e.g. tunnel_method.tunnel_method = "NO_TUNNEL").
+ *
+ * Returns a properly nested object (not flat dot-notation keys) so that
+ * RHF's reset() populates the correct paths for Controller fields.
  */
 export function extractSpecDefaults(parsedSpec: ParsedSpec): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
 
   function walk(fields: FieldNode[]) {
     for (const field of fields) {
-      const key = field.path.join('.');
-
       if (field.type === 'oneOf' && field.constKey && field.constOptions?.length) {
         // Set the discriminator to the first option (or field.default if present)
-        const discriminatorPath = [...field.path, field.constKey].join('.');
+        const discriminatorPath = [...field.path, field.constKey];
         const defaultOption =
           typeof field.default === 'string' ? field.default : field.constOptions[0].value;
-        defaults[discriminatorPath] = defaultOption;
+        setNested(defaults, discriminatorPath, defaultOption);
 
         // Also walk sub-fields for the default option to pick up their defaults
         if (field.oneOfSubFields) {
@@ -145,16 +186,17 @@ export function extractSpecDefaults(parsedSpec: ParsedSpec): Record<string, unkn
           walk(defaultSubFields);
         }
       } else if (field.default !== undefined) {
-        defaults[key] = field.default;
+        setNested(defaults, field.path, field.default);
       }
 
       // Recurse into non-oneOf sub-fields
       if (field.type !== 'oneOf' && field.oneOfSubFields) {
         walk(field.oneOfSubFields);
       }
-      if (field.arraySubFields) {
-        walk(field.arraySubFields);
-      }
+      // Do NOT recurse into arraySubFields — their defaults are per-item
+      // templates handled by each Controller's defaultValue when items are
+      // added. Setting them here would turn the array field (e.g. streams)
+      // into an object with keys like globs, format, etc.
     }
   }
 

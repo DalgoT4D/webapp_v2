@@ -154,9 +154,8 @@ export default function Transform() {
             <Button
               onClick={setupUnifiedWorkspace}
               disabled={setupLoading}
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-sm px-10 py-6 text-base font-semibold"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="shadow-sm px-10 py-6 text-base font-semibold"
               data-testid="transform-setup-retry-btn"
             >
               {setupLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

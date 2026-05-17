@@ -3,12 +3,12 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
   Pipeline,
   TransformTask,
-  Connection,
   DeploymentRun,
   PipelineDetailResponse,
   TaskProgressResponse,
   DashboardPipeline,
 } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
   POLLING_INTERVAL_IDLE,
@@ -138,6 +138,7 @@ export async function createPipeline(data: {
   connections: { id: string; seq: number }[];
   cron: string;
   transformTasks: { uuid: string; seq: number }[];
+  continueOnSyncFailure: boolean;
 }): Promise<{ name: string }> {
   return apiPost('/api/prefect/v1/flows/', data);
 }
@@ -152,6 +153,7 @@ export async function updatePipeline(
     connections: { id: string; seq: number }[];
     cron: string;
     transformTasks: { uuid: string; seq: number }[];
+    continueOnSyncFailure: boolean;
   }
 ): Promise<void> {
   return apiPut(`/api/prefect/v1/flows/${deploymentId}`, data);

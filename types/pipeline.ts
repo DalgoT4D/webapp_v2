@@ -98,6 +98,7 @@ export interface PipelineFormData {
   cron: ScheduleOption | null;
   cronDaysOfWeek: WeekdayOption[];
   cronTimeOfDay: string;
+  continueOnSyncFailure: boolean;
 }
 
 // API response types
@@ -105,6 +106,7 @@ export interface PipelineDetailResponse {
   name: string;
   cron: string | null;
   isScheduleActive: boolean;
+  continueOnSyncFailure: boolean;
   connections: Array<{
     id: string;
     name: string;
