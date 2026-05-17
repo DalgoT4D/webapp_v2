@@ -129,9 +129,8 @@ export function WarehouseDisplay() {
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <p className="text-muted-foreground">No warehouse configured yet.</p>
           <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs uppercase"
-            style={{ backgroundColor: 'var(--primary)' }}
+            variant="primary"
+            className="uppercase"
             onClick={handleCreate}
             disabled={!canCreate}
             data-testid="create-warehouse-btn"

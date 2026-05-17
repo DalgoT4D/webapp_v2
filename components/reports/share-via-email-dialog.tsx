@@ -147,11 +147,9 @@ export function ShareViaEmailDialog({
             </Button>
             <Button
               data-testid="share-email-send-btn"
-              variant="ghost"
+              variant="primary"
               onClick={handleSend}
               disabled={isSending || !emailInput.trim()}
-              className="text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
             >
               {isSending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

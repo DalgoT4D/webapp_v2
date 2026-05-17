@@ -57,6 +57,7 @@ export function DeleteInvitationDialog({
             onClick={handleDelete}
             disabled={isDeleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            data-testid="delete-invitation-confirm"
           >
             {isDeleting ? 'Deleting...' : 'Delete Invitation'}
           </AlertDialogAction>

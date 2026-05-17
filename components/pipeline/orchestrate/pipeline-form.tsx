@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +27,8 @@ import type {
   ConnectionOption,
   WeekdayOption,
   PipelineDetailResponse,
-  Connection,
 } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { TaskSequence } from './task-sequence';
 import {
   convertToCronExpression,
@@ -93,6 +93,7 @@ function computeInitialValues(
         tasks: [],
         cronDaysOfWeek: [],
         cronTimeOfDay: '',
+        continueOnSyncFailure: false,
       },
       runTransformTasks: false,
     };
@@ -134,6 +135,7 @@ function computeInitialValues(
         label: WEEKDAYS[day],
       })),
       cronTimeOfDay: utcTimeToLocal(cronObject.timeOfDay),
+      continueOnSyncFailure: pipeline.continueOnSyncFailure ?? false,
     },
     runTransformTasks: tasksToApply.length > 0,
   };
@@ -243,6 +245,7 @@ function PipelineFormContent({
           connections: selectedConns,
           cron: cronExpression,
           transformTasks,
+          continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
         // Update schedule status if changed - compare against original value
@@ -274,6 +277,7 @@ function PipelineFormContent({
           connections: selectedConns,
           cron: cronExpression,
           transformTasks,
+          continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
         toastSuccess.created('Pipeline');
@@ -298,14 +302,7 @@ function PipelineFormContent({
           <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button
-            type="submit"
-            variant="ghost"
-            disabled={submitting}
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            data-testid="submit-btn"
-          >
+          <Button type="submit" variant="primary" disabled={submitting} data-testid="submit-btn">
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
@@ -355,6 +352,9 @@ function PipelineFormContent({
             {/* Connections */}
             <div className="space-y-2">
               <Label className="text-[15px] font-medium">Connections</Label>
+              <p className="text-sm text-muted-foreground">
+                Connections are run in the sequence you select them.
+              </p>
               <Controller
                 name="connections"
                 control={control}
@@ -378,6 +378,7 @@ function PipelineFormContent({
                   />
                 )}
               />
+              <OptionalSettings control={control} />
             </div>
 
             {/* Transform tasks */}
@@ -510,6 +511,52 @@ function PipelineFormContent({
         </div>
       </div>
     </form>
+  );
+}
+
+function OptionalSettings({ control }: { control: any }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setOpen(!open)}
+        data-testid="advanced-settings-toggle"
+      >
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`} />
+        Advanced (optional)
+      </button>
+      {open && (
+        <div className="mt-2">
+          <Controller
+            name="continueOnSyncFailure"
+            control={control}
+            render={({ field }) => (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="continue-on-sync-failure"
+                  data-testid="continue-on-sync-failure-checkbox"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="mt-0.5"
+                />
+                <div>
+                  <Label htmlFor="continue-on-sync-failure" className="text-sm">
+                    Continue syncing remaining connections if one fails
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    All connections will be attempted even if some fail. In case of any errors,
+                    transform tasks will not run and the errors will be raised at the end.
+                  </p>
+                </div>
+              </div>
+            )}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

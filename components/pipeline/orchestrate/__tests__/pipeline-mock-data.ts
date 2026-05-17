@@ -4,7 +4,8 @@
  * Extracted from MSW handlers for use with Jest mocks.
  */
 
-import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mock Data Factories ============
@@ -40,13 +41,13 @@ export const createMockConnection = (overrides: Partial<Connection> = {}): Conne
   connectionId: 'conn-123',
   deploymentId: 'dep-123',
   catalogId: 'cat-123',
-  destination: { destinationId: 'dest-1', destinationName: 'Warehouse' },
-  source: { sourceId: 'src-1', sourceName: 'Database' },
+  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'Warehouse' },
+  source: { sourceId: 'src-1', name: 'Database', sourceName: 'Database' },
   lock: null,
   lastRun: null,
   normalize: false,
   status: 'active',
-  syncCatalog: {},
+  syncCatalog: { streams: [] },
   resetConnDeploymentId: null,
   clearConnDeploymentId: null,
   queuedFlowRunWaitTime: null,
@@ -89,6 +90,7 @@ export const mockPipelineDetail: PipelineDetailResponse = {
   name: 'Pipeline Detail',
   cron: '0 9 * * *',
   isScheduleActive: true,
+  continueOnSyncFailure: false,
   connections: [{ id: 'conn-1', name: 'Postgres Source', seq: 1 }],
   transformTasks: [
     { uuid: 'task-2', seq: 1 },
