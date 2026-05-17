@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatDuration } from '@/components/pipeline/utils';
 import { useLogSummaryPoll } from '@/hooks/api/usePipelines';
+import { useFlowRunLogs } from '@/hooks/api/useFlowRunLogs';
 import { PipelineRunDisplayStatus } from '@/constants/pipeline';
 import { LogCard } from '@/components/pipeline/log-card';
 
@@ -50,7 +51,12 @@ export interface LogsTableProps {
   /** Callback to load more runs */
   onLoadMore?: () => void;
   /** Callback to fetch logs for a task */
-  onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
+  onFetchLogs?: (
+    flowRunId: string,
+    taskId: string,
+    taskKind?: string,
+    offset?: number
+  ) => Promise<string[]>;
   /** Callback to start AI summary - returns the poll task_id */
   onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   /** Whether AI summaries are enabled */
@@ -153,7 +159,12 @@ export function LogsTable({
  */
 interface FlowRunRowProps {
   run: FlowRun;
-  onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
+  onFetchLogs?: (
+    flowRunId: string,
+    taskId: string,
+    taskKind?: string,
+    offset?: number
+  ) => Promise<string[]>;
   onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   enableAISummary?: boolean;
 }
@@ -225,7 +236,12 @@ interface TaskRunRowProps {
   isLast: boolean;
   isFailed: boolean;
   runStatus: PipelineRunDisplayStatus;
-  onFetchLogs?: (flowRunId: string, taskId: string, taskKind?: string) => Promise<string[]>;
+  onFetchLogs?: (
+    flowRunId: string,
+    taskId: string,
+    taskKind?: string,
+    offset?: number
+  ) => Promise<string[]>;
   onStartSummary?: (flowRunId: string, taskId: string) => Promise<string>;
   enableAISummary?: boolean;
 }
@@ -241,13 +257,24 @@ function TaskRunRow({
   enableAISummary,
 }: TaskRunRowProps) {
   const [showLogs, setShowLogs] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
 
   // SWR-based polling for AI summary (similar to usePipelines refreshInterval pattern)
   const [pollTaskId, setPollTaskId] = useState<string | null>(null);
   const { summary: pollSummary, isPolling, error: pollError } = useLogSummaryPoll(pollTaskId);
+
+  const fetcher = useCallback(
+    (offset: number) =>
+      onFetchLogs ? onFetchLogs(flowRunId, task.id, task.kind, offset) : Promise.resolve([]),
+    [onFetchLogs, flowRunId, task.id, task.kind]
+  );
+  const {
+    logs,
+    isLoading: logsLoading,
+    hasMore: hasMoreLogs,
+    load: loadLogs,
+    fetchMore: handleFetchMoreLogs,
+  } = useFlowRunLogs({ fetcher });
 
   const taskName = task.connectionName ? `${task.connectionName} - ${task.label}` : task.label;
 
@@ -255,19 +282,11 @@ function TaskRunRow({
 
   const handleToggleLogs = useCallback(async () => {
     if (!showLogs && logs.length === 0 && onFetchLogs) {
-      setLogsLoading(true);
-      try {
-        const fetchedLogs = await onFetchLogs(flowRunId, task.id, task.kind);
-        setLogs(fetchedLogs);
-      } catch (error) {
-        console.error('Failed to fetch logs:', error);
-      } finally {
-        setLogsLoading(false);
-      }
+      await loadLogs();
     }
-    setShowLogs(!showLogs);
+    setShowLogs((prev) => !prev);
     setShowSummary(false);
-  }, [showLogs, logs.length, onFetchLogs, flowRunId, task.id, task.kind]);
+  }, [showLogs, logs.length, onFetchLogs, loadLogs]);
 
   const handleTriggerSummary = useCallback(async () => {
     if (!onStartSummary) return;
@@ -346,6 +365,8 @@ function TaskRunRow({
         <LogCard
           logs={logs}
           isLoading={logsLoading}
+          hasMore={hasMoreLogs}
+          onFetchMore={handleFetchMoreLogs}
           status={task.isFailed ? runStatus : PipelineRunDisplayStatus.SUCCESS}
           showHeader={false}
           className="rounded-none border-x-0 border-b-0 shadow-none"
