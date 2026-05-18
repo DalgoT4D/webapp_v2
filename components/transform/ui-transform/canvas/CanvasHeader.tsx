@@ -121,14 +121,7 @@ export default function CanvasHeader({
         {/* Run Button with Dropdown */}
         <DropdownMenu open={runMenuOpen} onOpenChange={setRunMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={runDisabled}
-              className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
-              data-testid="run-button"
-            >
+            <Button variant="primary" size="sm" disabled={runDisabled} data-testid="run-button">
               <Play className="w-4 h-4 mr-1" />
               RUN
               <ChevronDown className="w-4 h-4 ml-1" />
@@ -157,12 +150,10 @@ export default function CanvasHeader({
 
         {/* Publish Button */}
         <Button
-          variant="ghost"
+          variant="primary"
           size="sm"
           disabled={publishDisabled}
           onClick={handlePublish}
-          className="text-white hover:opacity-90 shadow-xs"
-          style={{ backgroundColor: 'var(--primary)' }}
           data-testid="publish-button"
         >
           <Upload className="w-4 h-4 mr-1" />

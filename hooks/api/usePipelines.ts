@@ -3,12 +3,13 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
   Pipeline,
   TransformTask,
-  Connection,
   DeploymentRun,
   PipelineDetailResponse,
   TaskProgressResponse,
   DashboardPipeline,
 } from '@/types/pipeline';
+import type { PrefectFlowRunLog } from '@/types/transform';
+import type { Connection } from '@/types/connections';
 import {
   POLLING_INTERVAL_WHEN_LOCKED,
   POLLING_INTERVAL_IDLE,
@@ -138,6 +139,7 @@ export async function createPipeline(data: {
   connections: { id: string; seq: number }[];
   cron: string;
   transformTasks: { uuid: string; seq: number }[];
+  continueOnSyncFailure: boolean;
 }): Promise<{ name: string }> {
   return apiPost('/api/prefect/v1/flows/', data);
 }
@@ -152,6 +154,7 @@ export async function updatePipeline(
     connections: { id: string; seq: number }[];
     cron: string;
     transformTasks: { uuid: string; seq: number }[];
+    continueOnSyncFailure: boolean;
   }
 ): Promise<void> {
   return apiPut(`/api/prefect/v1/flows/${deploymentId}`, data);
@@ -181,17 +184,34 @@ export async function setScheduleStatus(deploymentId: string, active: boolean): 
   );
 }
 
+export interface FetchFlowRunLogsOptions {
+  /** Filter to logs for a single task run within the flow run */
+  taskRunId?: string;
+  /** Starting offset into the log stream. Defaults to 0. */
+  offset?: number;
+  /**
+   * Page size. Defaults to {@link FLOW_RUN_LOGS_OFFSET_LIMIT}.
+   * Pass `0` to fetch the full log set in one response (backend recurses
+   * through Prefect pages).
+   */
+  limit?: number;
+}
+
+export interface FetchFlowRunLogsResponse {
+  logs: { logs: PrefectFlowRunLog[] };
+}
+
 /**
- * Fetch flow run logs with pagination
+ * Canonical client for `GET /api/prefect/flow_runs/{id}/logs`.
+ * Used by Pipeline Overview, Orchestrate run history, DBT TaskList, and
+ * Connection sync history. Do not duplicate this wrapper in other hook files.
  */
 export async function fetchFlowRunLogs(
   flowRunId: string,
-  taskRunId?: string,
-  offset: number = 0,
-  limit: number = FLOW_RUN_LOGS_OFFSET_LIMIT
-): Promise<{
-  logs: { logs: { message: string }[] };
-}> {
+  options: FetchFlowRunLogsOptions = {}
+): Promise<FetchFlowRunLogsResponse> {
+  const { taskRunId, offset = 0, limit = FLOW_RUN_LOGS_OFFSET_LIMIT } = options;
+
   const params = new URLSearchParams({
     offset: Math.max(offset, 0).toString(),
     limit: limit.toString(),
@@ -202,6 +222,13 @@ export async function fetchFlowRunLogs(
   }
 
   return apiGet(`/api/prefect/flow_runs/${flowRunId}/logs?${params.toString()}`);
+}
+
+/** Extract log message strings from the nested Prefect flow run logs response */
+export function extractFlowRunLogMessages(response: {
+  logs: { logs: PrefectFlowRunLog[] };
+}): string[] {
+  return response?.logs?.logs?.map((log) => log.message) ?? [];
 }
 
 /**

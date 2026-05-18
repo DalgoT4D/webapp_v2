@@ -2,6 +2,8 @@
  * Utility for handling stacked bar chart data labels
  */
 
+import { formatNumber, NumberFormats, type NumberFormat } from './formatters';
+
 /**
  * Extract numeric value from various ECharts data formats
  */
@@ -13,9 +15,18 @@ function extractValue(value: any): number {
 }
 
 /**
- * Create a formatter that shows total of all series at the given data index
+ * Create a formatter that shows total of all series at the given data index,
+ * applying the chart's number formatting customizations.
  */
-export function createStackedTotalFormatter(seriesArray: any[]) {
+export function createStackedTotalFormatter(
+  seriesArray: any[],
+  customizations: Record<string, any> = {}
+) {
+  const numFormat = (customizations.yAxisNumberFormat ||
+    customizations.numberFormat ||
+    NumberFormats.DEFAULT) as NumberFormat;
+  const decimalPlaces = customizations.yAxisDecimalPlaces ?? customizations.decimalPlaces;
+
   return function (params: any): string {
     const dataIndex = params.dataIndex;
 
@@ -27,7 +38,11 @@ export function createStackedTotalFormatter(seriesArray: any[]) {
     }
 
     if (total === 0) return '';
-    return total.toLocaleString();
+
+    if (numFormat === NumberFormats.DEFAULT && decimalPlaces === undefined) {
+      return total.toLocaleString();
+    }
+    return formatNumber(total, { format: numFormat, decimalPlaces });
   };
 }
 
@@ -66,7 +81,7 @@ export function applyStackedBarLabels(
             ...series.label,
             show: true,
             position: 'top',
-            formatter: createStackedTotalFormatter(seriesArray),
+            formatter: createStackedTotalFormatter(seriesArray, customizations),
           },
         };
       } else {

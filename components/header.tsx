@@ -89,25 +89,8 @@ export function Header({
     // Update the selected org in store and localStorage
     setSelectedOrg(orgSlug);
 
-    try {
-      // Show loader for minimum 2 seconds to give substantial feel
-      const minDelay = new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Wait for minimum delay then refresh
-      await minDelay;
-
-      // Refresh the page to trigger data refetch with new org context
-      // This is essential for all API calls to use the new org header
-      router.refresh();
-
-      // Clear switching state after a slight delay to allow refresh to complete
-      setTimeout(() => {
-        setOrgSwitching(false);
-      }, 500);
-    } catch (error) {
-      // If anything goes wrong, clear the switching state
-      setOrgSwitching(false);
-    }
+    // Full reload ensures all API calls use the new org header cleanly
+    window.location.reload();
   };
 
   const handleLogout = async () => {

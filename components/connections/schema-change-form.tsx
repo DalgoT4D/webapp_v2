@@ -272,9 +272,8 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
             Cancel
           </Button>
           <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs uppercase"
-            style={{ backgroundColor: 'var(--primary)' }}
+            variant="primary"
+            className="uppercase"
             onClick={handleAccept}
             disabled={isLoading || isSubmitting || transforms.length === 0 || hasBreakingChanges}
             data-testid="accept-schema-changes-btn"

@@ -136,12 +136,10 @@ export function PreviewPane({
         {schema}.{table}
       </h2>
       <Button
-        variant="ghost"
+        variant="primary"
         size="sm"
         onClick={handleDownload}
         disabled={downloading || isLoading}
-        className="text-white hover:opacity-90 shadow-xs"
-        style={{ backgroundColor: 'var(--primary)' }}
         data-testid="download-csv-btn"
       >
         {downloading ? (

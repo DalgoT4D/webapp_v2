@@ -257,9 +257,8 @@ export function ConnectionsList() {
           )}
           {canCreate && (
             <Button
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs uppercase"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="uppercase"
               onClick={handleCreate}
               data-testid="create-connection-btn"
             >
@@ -287,12 +286,7 @@ export function ConnectionsList() {
               Create your first connection to start syncing data from a source to your warehouse.
             </p>
             {canCreate && (
-              <Button
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs uppercase"
-                style={{ backgroundColor: 'var(--primary)' }}
-                onClick={handleCreate}
-              >
+              <Button variant="primary" className="uppercase" onClick={handleCreate}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Connection
               </Button>
